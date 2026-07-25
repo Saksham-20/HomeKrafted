@@ -1,0 +1,55 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  text-align: center;
+  border-radius: var(--hk-r-md);
+  cursor: pointer;
+  border: 1.5px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  font-family: inherit;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease);
+}
+
+.tile:hover:not(:disabled) {
+  border-color: var(--hk-pine);
+}
+
+.tile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tile.selected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.tile.day {
+  padding: 12px 4px;
+  font-size: 12px;
+}
+
+.dayLabel {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  display: block;
+}
+
+.tile.slot {
+  padding: 12px 4px;
+  font-size: 13.5px;
+  font-weight: 400;
+}
+
+.tile.slot.selected {
+  font-weight: 600;
+}

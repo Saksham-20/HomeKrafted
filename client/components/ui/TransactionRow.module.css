@@ -1,0 +1,63 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--hk-divider);
+}
+
+.iconTile {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--hk-r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.iconTile.credit {
+  background: var(--hk-pine-tint);
+  color: var(--hk-success);
+}
+
+/* Terracotta-tint has no matching token (prototype's #F6E7E0) — hardcoded
+   + documented, same convention as the other flagged one-off gaps. */
+.iconTile.debit {
+  background: #f6e7e0;
+  color: var(--hk-terracotta);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 14.5px;
+  color: var(--hk-ink);
+  font-weight: 500;
+}
+
+.date {
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  color: var(--hk-muted);
+  margin-top: 2px;
+}
+
+.amount {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.amount.credit {
+  color: var(--hk-success);
+}
+
+.amount.debit {
+  color: var(--hk-terracotta);
+}

@@ -1,0 +1,279 @@
+.page {
+  padding-block: var(--hk-s6) var(--hk-s8);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 3.6vw, 34px);
+  color: var(--hk-pine);
+  margin-bottom: var(--hk-s5);
+}
+
+.loading {
+  color: var(--hk-muted);
+  padding: var(--hk-s8) 0;
+  text-align: center;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s4);
+  padding: var(--hk-s8) 0;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+  min-width: 0;
+}
+
+.section {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5);
+}
+
+.sectionTitle {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  display: block;
+}
+
+.sectionHint {
+  display: block;
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin-top: 4px;
+  font-family: var(--hk-font-body);
+  font-weight: 400;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hk-pine);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.giftToggleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  cursor: pointer;
+}
+
+.giftBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  margin-top: var(--hk-s5);
+  padding-top: var(--hk-s5);
+  border-top: 1px solid var(--hk-border);
+}
+
+.hideToggleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.fieldLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  margin-bottom: var(--hk-s2);
+}
+
+.dateBlock {
+  margin-top: var(--hk-s2);
+}
+
+.addressGroups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  margin-top: var(--hk-s4);
+}
+
+.addressCard {
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s4);
+}
+
+.addressHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--hk-s3);
+}
+
+.addressLabel {
+  font-family: var(--hk-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.addressLine {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  margin-bottom: var(--hk-s4);
+  list-style: none;
+}
+
+.groupItemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.reassignSelect {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 6px 8px;
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+  min-height: 44px;
+}
+
+.addAddressForm {
+  margin-top: var(--hk-s4);
+  padding-top: var(--hk-s4);
+  border-top: 1px dashed var(--hk-border-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.addAddressActions {
+  display: flex;
+  gap: var(--hk-s2);
+}
+
+.addAddressBtn {
+  margin-top: var(--hk-s4);
+}
+
+.paymentOptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s4);
+}
+
+.paymentTile {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  border: 1.5px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s4);
+  text-align: left;
+  color: var(--hk-ink-2);
+  min-height: 44px;
+  transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+.paymentTile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paymentTileSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.paymentTileBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.paymentTileTitle {
+  font-family: var(--hk-font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.paymentTileHint {
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.formError {
+  color: var(--hk-terracotta);
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* Below 900px the summary sits inline after the address/payment
+     sections — its CTA becomes a fixed bottom bar via `stickyOnMobile`
+     (see StickySummary.module.css) once narrow enough (~640px). */
+  .aside {
+    position: static;
+    padding-top: var(--hk-s3);
+  }
+}
+
+@media (max-width: 640px) {
+  /* Clears the fixed "Place order" bar `stickyOnMobile` pins to the
+     viewport bottom. */
+  .page {
+    padding-bottom: 84px;
+  }
+}

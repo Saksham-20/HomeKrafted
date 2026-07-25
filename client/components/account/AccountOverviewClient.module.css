@@ -1,0 +1,120 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+}
+
+.subtitle {
+  color: var(--hk-muted);
+  font-size: 14px;
+}
+
+.walletCard {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+}
+
+.walletIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-gold-text-sm);
+  flex-shrink: 0;
+}
+
+.walletBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.walletLabel {
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+}
+
+.walletAmount {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+}
+
+.walletCta {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  white-space: nowrap;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.walletCta:hover {
+  color: var(--hk-gold);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--hk-s3);
+}
+
+.tile {
+  display: block;
+}
+
+.tileCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+}
+
+.tileIcon {
+  display: flex;
+  color: var(--hk-pine);
+}
+
+.tileLabel {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--hk-ink);
+}
+
+.tileMeta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

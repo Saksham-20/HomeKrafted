@@ -1,0 +1,144 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5) 0;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hk-pine);
+  align-self: flex-start;
+  min-height: 32px;
+}
+
+.backLink:hover {
+  color: var(--hk-gold);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+}
+
+.subtitle {
+  color: var(--hk-muted);
+  font-size: 13.5px;
+}
+
+.statusCard {
+  overflow-x: auto;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.cardTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.itemRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itemRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  font-size: 14px;
+  color: var(--hk-ink-2);
+}
+
+.addressRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+
+.addressLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.addressLine {
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: var(--hk-s2);
+  border-top: 1px solid var(--hk-divider);
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--hk-ink);
+  padding-top: 6px;
+  border-top: 1px solid var(--hk-divider);
+}
+
+.cashback {
+  font-size: 13px;
+  color: var(--hk-gold-text-sm);
+}
+
+.refundNote {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.notFound {
+  text-align: center;
+  padding: var(--hk-s6);
+}
+
+.emptyTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: 4px;
+}
+
+.emptyCopy {
+  color: var(--hk-muted);
+  font-size: 13.5px;
+}

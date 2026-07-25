@@ -1,0 +1,43 @@
+.tile {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: 14px;
+  padding: 20px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  font-family: inherit;
+  width: 100%;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease);
+}
+
+.tile:hover {
+  /* Prototype uses #C9A24a here — normalized to the nearest gold-border token. */
+  border-color: var(--hk-gold-border);
+  background: var(--hk-gold-tint);
+}
+
+.ring {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--hk-r-pill);
+  border: 1.4px solid var(--hk-gold-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  color: var(--hk-pine);
+  flex-shrink: 0;
+}
+
+.label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  text-align: center;
+}

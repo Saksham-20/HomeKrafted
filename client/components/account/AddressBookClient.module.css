@@ -1,0 +1,201 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+}
+
+.subtitle {
+  color: var(--hk-muted);
+  font-size: 14px;
+}
+
+.addButton {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.formCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.formTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s3);
+}
+
+.field,
+.fieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.fieldLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.input {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.formActions {
+  display: flex;
+  gap: var(--hk-s3);
+}
+
+.empty {
+  text-align: center;
+  padding: var(--hk-s6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.emptyIcon {
+  color: var(--hk-muted);
+  margin-bottom: 4px;
+}
+
+.emptyTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.emptyCopy {
+  color: var(--hk-muted);
+  font-size: 13.5px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.addressCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.addressTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+}
+
+.addressLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--hk-ink);
+}
+
+.defaultTag {
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  border-radius: var(--hk-r-pill);
+  padding: 3px 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-md);
+  color: var(--hk-ink-2);
+}
+
+.iconButton:hover {
+  border-color: var(--hk-gold-border);
+  color: var(--hk-gold-text-sm);
+}
+
+.deleteButton:hover {
+  border-color: var(--hk-terracotta);
+  color: var(--hk-terracotta);
+}
+
+.addressBody {
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  line-height: 1.5;
+}
+
+.instructions {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+@media (max-width: 560px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,71 @@
+.wrap {
+  padding-block: 0 var(--hk-s5);
+}
+
+.tabRow {
+  display: flex;
+  gap: var(--hk-s6);
+  border-bottom: 1px solid var(--hk-border);
+  margin-bottom: var(--hk-s5);
+}
+
+.tab {
+  border: none;
+  background: none;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--hk-muted);
+  padding: 0 0 var(--hk-s3);
+  border-bottom: 2px solid transparent;
+  min-height: 44px;
+}
+
+.tabActive {
+  color: var(--hk-pine);
+  border-bottom-color: var(--hk-pine);
+  font-weight: 600;
+}
+
+.descGrid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--hk-s7);
+}
+
+.desc {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--hk-ink-3);
+}
+
+.specs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.specRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+  border-bottom: 1px dashed var(--hk-border-2);
+  padding-bottom: 10px;
+}
+
+.specKey {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.specValue {
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  font-weight: 500;
+  text-align: right;
+}
+
+@media (max-width: 780px) {
+  .descGrid {
+    grid-template-columns: 1fr;
+  }
+}

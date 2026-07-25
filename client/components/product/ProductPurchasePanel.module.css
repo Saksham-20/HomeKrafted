@@ -1,0 +1,151 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.price {
+  font-family: var(--hk-font-display);
+  font-size: 34px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.mrp {
+  font-size: 16px;
+  color: var(--hk-muted);
+  text-decoration: line-through;
+}
+
+.discount {
+  background: var(--hk-pine-tint);
+  color: var(--hk-success);
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--hk-r-sm);
+  padding: 4px 9px;
+}
+
+.weightLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  margin-top: var(--hk-s4);
+  margin-bottom: var(--hk-s3);
+}
+
+.weightRow {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s5);
+}
+
+.cashback {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--hk-gold-text-sm);
+  margin-bottom: var(--hk-s5);
+}
+
+.buyRow {
+  display: flex;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.addToCart {
+  flex: 1;
+  min-width: 160px;
+}
+
+.wishlist {
+  width: 52px;
+  height: 52px;
+  border: 1.5px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-pill);
+  color: var(--hk-ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
+}
+
+.wishlisted {
+  color: var(--hk-terracotta);
+  border-color: var(--hk-terracotta);
+}
+
+.toast {
+  font-size: 12.5px;
+  color: var(--hk-success);
+  margin-bottom: var(--hk-s3);
+}
+
+.toastLink {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--hk-pine);
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hamperCta {
+  width: 100%;
+  margin-bottom: var(--hk-s6);
+}
+
+.giftBlock {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s5);
+}
+
+.giftLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+  margin-bottom: var(--hk-s3);
+}
+
+.giftCopy {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-3);
+  margin-bottom: var(--hk-s3);
+}
+
+.giftChips {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.giftChip {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+}

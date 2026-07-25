@@ -1,0 +1,30 @@
+.card {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  overflow: hidden;
+}
+
+.hoverable {
+  cursor: pointer;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.hoverable:hover {
+  border-color: var(--hk-gold-border);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.paddingSm {
+  padding: var(--hk-s3);
+}
+
+.paddingMd {
+  padding: var(--hk-s4);
+}
+
+.paddingLg {
+  padding: var(--hk-s5);
+}

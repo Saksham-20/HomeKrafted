@@ -1,0 +1,23 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 22px;
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s3);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--hk-muted);
+  padding: var(--hk-s4) 0;
+}

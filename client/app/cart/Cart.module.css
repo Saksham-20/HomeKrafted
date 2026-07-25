@@ -1,0 +1,115 @@
+.page {
+  padding-block: var(--hk-s6) var(--hk-s8);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s5);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 3.6vw, 34px);
+  color: var(--hk-pine);
+}
+
+.count {
+  font-family: var(--hk-font-mono);
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.loading {
+  color: var(--hk-muted);
+  padding: var(--hk-s8) 0;
+  text-align: center;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s8) var(--hk-s4);
+  color: var(--hk-muted);
+  border: 1px dashed var(--hk-border-2);
+  border-radius: var(--hk-r-lg);
+}
+
+.emptyTitle {
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.emptyCopy {
+  font-size: 14px;
+  max-width: 360px;
+}
+
+.emptyActions {
+  display: flex;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.lines {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: 0 var(--hk-s5);
+}
+
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.continueLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--hk-ink-3);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* Below 900px the summary sits inline after the line items — its CTA
+     becomes a fixed bottom bar via `stickyOnMobile` (see
+     StickySummary.module.css) once narrow enough (~640px) to need it. */
+  .aside {
+    position: static;
+    padding-top: var(--hk-s3);
+  }
+}
+
+@media (max-width: 640px) {
+  /* Clears the fixed "Proceed to checkout" bar `stickyOnMobile` pins to
+     the viewport bottom. */
+  .page {
+    padding-bottom: 84px;
+  }
+}

@@ -1,0 +1,104 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: var(--hk-r-pill);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    transform var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    opacity var(--hk-dur) var(--hk-ease);
+}
+
+/* Hover: slight lift + card shadow, per components.md — applied to every
+   variant for a consistent feel, not just primary. */
+.button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ---- Sizes (non-icon) ---- */
+.md {
+  font-size: 15px;
+  padding: 15px 28px;
+}
+
+.sm {
+  font-size: 14px;
+  padding: 12px 22px;
+}
+
+/* ---- Variants ---- */
+.primary {
+  background: var(--hk-pine);
+  /* No dedicated "on-pine solid" text token exists for plain white —
+     established M0 precedent (Header .cartBadge, Footer .wordmark). */
+  color: #fff;
+  border: none;
+}
+
+.secondary {
+  background: none;
+  color: var(--hk-pine);
+  border: 1.5px solid var(--hk-pine);
+}
+
+.ghostGold {
+  background: none;
+  color: var(--hk-gold-text-sm);
+  border: 1.5px solid var(--hk-gold-border);
+}
+
+.whatsapp {
+  background: var(--hk-whatsapp);
+  color: #fff;
+  border: none;
+}
+
+.glyph {
+  flex-shrink: 0;
+}
+
+/* ---- Icon variant ---- */
+.icon {
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  border: 1px solid var(--hk-border-2);
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--hk-r-pill);
+}
+
+.icon:hover:not(:disabled) {
+  color: var(--hk-gold);
+}
+
+.iconSquare {
+  border-radius: var(--hk-r-md);
+}
+
+.iconSm {
+  width: 36px;
+  height: 36px;
+}
+
+.iconMd {
+  width: 44px;
+  height: 44px;
+}

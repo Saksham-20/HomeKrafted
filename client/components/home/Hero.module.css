@@ -1,0 +1,131 @@
+.hero {
+  background: linear-gradient(180deg, var(--hk-surface), var(--hk-surface-2));
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: var(--hk-s7);
+  align-items: center;
+  padding-block: var(--hk-s8) var(--hk-s7);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+}
+
+.heading {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(32px, 5vw, 58px);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  color: var(--hk-pine);
+  margin-top: var(--hk-s4);
+}
+
+.emphasis {
+  font-style: italic;
+  color: var(--hk-terracotta);
+}
+
+.lede {
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  max-width: 440px;
+  margin: var(--hk-s5) 0 var(--hk-s6);
+}
+
+.ctaRow {
+  display: flex;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.ctaPrimary,
+.ctaOutline {
+  border-radius: var(--hk-r-pill);
+  padding: 15px 28px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.ctaPrimary {
+  background: var(--hk-pine);
+  color: #ffffff;
+}
+
+.ctaPrimary:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.ctaOutline {
+  background: none;
+  color: var(--hk-pine);
+  border: 1.5px solid var(--hk-pine);
+  padding: 13.5px 26px;
+}
+
+.trustRow {
+  display: flex;
+  gap: var(--hk-s6);
+  margin-top: var(--hk-s7);
+  flex-wrap: wrap;
+}
+
+.trustStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trustValue {
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.trustLabel {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.imageWrap {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .imageWrap {
+    max-width: 480px;
+    margin-inline: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ctaRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ctaPrimary,
+  .ctaOutline {
+    text-align: center;
+  }
+}

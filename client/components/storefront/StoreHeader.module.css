@@ -1,0 +1,80 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.banner {
+  border-radius: var(--hk-r-xl);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s5);
+  margin-top: var(--hk-s4);
+  padding-inline: var(--hk-s5);
+  flex-wrap: wrap;
+}
+
+/* Only the avatar pokes up over the banner (standard profile-header look) —
+   margin-top on this flex item alone, so the name/bio/follow button next to
+   it stay in normal flow below the banner instead of overlapping it. */
+.avatar {
+  width: 88px;
+  flex-shrink: 0;
+  margin-top: -40px;
+  border-radius: var(--hk-r-pill);
+  box-shadow: 0 0 0 4px var(--hk-surface);
+  overflow: hidden;
+}
+
+.details {
+  flex: 1;
+  min-width: 220px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 26px;
+  color: var(--hk-pine);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: var(--hk-ink-3);
+  margin: 6px 0 var(--hk-s3);
+}
+
+.rating {
+  color: var(--hk-gold-text-sm);
+  font-weight: 500;
+}
+
+.dot {
+  opacity: 0.6;
+}
+
+.bio {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+  max-width: 560px;
+}
+
+.followBtn {
+  margin-top: var(--hk-s4);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .avatar {
+    width: 68px;
+    margin-top: -32px;
+  }
+}

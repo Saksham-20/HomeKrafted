@@ -1,0 +1,64 @@
+.timeline {
+  display: flex;
+}
+
+.vertical {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--hk-r-pill);
+  flex-shrink: 0;
+  background: var(--hk-border-2);
+  box-shadow: 0 0 0 3px transparent;
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.pine .dot.done {
+  background: var(--hk-pine);
+  box-shadow: 0 0 0 3px rgba(35, 66, 51, 0.15);
+}
+
+.pine .dot.current:not(.done) {
+  box-shadow: 0 0 0 3px var(--hk-pine-tint);
+}
+
+/* WhatsApp tone — ported verbatim from the Snacks status panel. */
+.whatsapp .dot {
+  background: var(--hk-whatsapp-border);
+}
+
+.whatsapp .dot.done {
+  background: var(--hk-whatsapp);
+  box-shadow: 0 0 0 3px rgba(31, 168, 85, 0.15);
+}
+
+.whatsapp .dot.current:not(.done) {
+  box-shadow: 0 0 0 3px var(--hk-whatsapp-tint);
+}
+
+.label {
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.labelActive {
+  color: var(--hk-ink-2);
+}

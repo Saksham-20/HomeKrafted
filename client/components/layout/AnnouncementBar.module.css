@@ -1,0 +1,38 @@
+.bar {
+  background: var(--hk-pine);
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--hk-s6);
+  flex-wrap: wrap;
+  padding: var(--hk-s2) var(--hk-s4);
+}
+
+.item {
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--hk-on-pine);
+}
+
+.item.emphasis {
+  font-family: var(--hk-font-mono);
+  color: var(--hk-gold-bright);
+}
+
+.dot {
+  color: var(--hk-on-pine);
+  opacity: 0.5;
+}
+
+@media (max-width: 640px) {
+  .row {
+    gap: var(--hk-s3);
+  }
+
+  .item {
+    font-size: 12px;
+  }
+}

@@ -1,0 +1,129 @@
+import type { Vendor } from "@/lib/types";
+
+/**
+ * The makers behind the 8 seed products. One vendor per product for now
+ * (including "Homekrafted" itself for the platform-curated hamper) —
+ * multi-product storefronts arrive with the full catalog in M2.
+ */
+export const vendors: Vendor[] = [
+  {
+    id: "vd1",
+    slug: "anjalis-kitchen",
+    name: "Anjali's Kitchen",
+    type: "maker",
+    bio: "Small-batch Andhra pickles made the way Anjali's grandmother taught her — slow-cooked, hand-tempered, no shortcuts.",
+    avatarPlaceholder: "ANJALI'S KITCHEN — AVATAR",
+    bannerPlaceholder: "ANJALI'S KITCHEN — BANNER",
+    location: "Guntur, Andhra Pradesh",
+    rating: 4.8,
+    reviewCount: 128,
+    followerCount: 612,
+    joinedAt: "2023-11-02",
+  },
+  {
+    id: "vd2",
+    slug: "meeras-homefoods",
+    name: "Meera's Homefoods",
+    type: "maker",
+    bio: "Home-style chutneys and pickles from a Nagpur kitchen, ground fresh in small weekly batches.",
+    avatarPlaceholder: "MEERA'S HOMEFOODS — AVATAR",
+    bannerPlaceholder: "MEERA'S HOMEFOODS — BANNER",
+    location: "Nagpur, Maharashtra",
+    rating: 4.7,
+    reviewCount: 86,
+    followerCount: 234,
+    joinedAt: "2024-02-14",
+  },
+  {
+    id: "vd3",
+    slug: "home-batch",
+    name: "Home Batch",
+    type: "baker",
+    bio: "A Bengaluru home-bakery specialising in better-for-you cookies made with millets and nuts.",
+    avatarPlaceholder: "HOME BATCH — AVATAR",
+    bannerPlaceholder: "HOME BATCH — BANNER",
+    location: "Bengaluru, Karnataka",
+    rating: 4.9,
+    reviewCount: 204,
+    followerCount: 540,
+    joinedAt: "2023-06-20",
+  },
+  {
+    id: "vd4",
+    slug: "crunch-corner",
+    name: "Crunch Corner",
+    type: "maker",
+    bio: "Ahmedabad-based snack makers turning roasted nuts and seeds into everyday munching.",
+    avatarPlaceholder: "CRUNCH CORNER — AVATAR",
+    bannerPlaceholder: "CRUNCH CORNER — BANNER",
+    location: "Ahmedabad, Gujarat",
+    rating: 4.6,
+    reviewCount: 92,
+    followerCount: 178,
+    joinedAt: "2024-05-09",
+  },
+  {
+    id: "vd5",
+    slug: "cocoa-homemade",
+    name: "Cocoa Homemade",
+    type: "baker",
+    bio: "Small-batch bean-to-bar chocolate crafted in a home kitchen in Kochi.",
+    avatarPlaceholder: "COCOA HOMEMADE — AVATAR",
+    bannerPlaceholder: "COCOA HOMEMADE — BANNER",
+    location: "Kochi, Kerala",
+    rating: 4.8,
+    reviewCount: 73,
+    followerCount: 265,
+    joinedAt: "2024-01-11",
+  },
+  {
+    id: "vd6",
+    slug: "dadis-recipe",
+    name: "Dadi's Recipe",
+    type: "maker",
+    bio: "Traditional Rajasthani sweets and dry-fruit preparations made from a family recipe book passed down three generations.",
+    avatarPlaceholder: "DADI'S RECIPE — AVATAR",
+    bannerPlaceholder: "DADI'S RECIPE — BANNER",
+    location: "Jaipur, Rajasthan",
+    rating: 4.9,
+    reviewCount: 140,
+    followerCount: 601,
+    joinedAt: "2022-12-03",
+  },
+  {
+    id: "vd7",
+    slug: "hills-leaves",
+    name: "Hills & Leaves",
+    type: "maker",
+    bio: "Hand-blended teas sourced from small Darjeeling estates.",
+    avatarPlaceholder: "HILLS & LEAVES — AVATAR",
+    bannerPlaceholder: "HILLS & LEAVES — BANNER",
+    location: "Darjeeling, West Bengal",
+    rating: 4.7,
+    reviewCount: 61,
+    followerCount: 145,
+    joinedAt: "2024-03-27",
+  },
+  {
+    id: "vd8",
+    slug: "homekrafted",
+    name: "Homekrafted",
+    type: "homekrafted",
+    bio: "Our in-house curation team, building gift-ready hampers from the best of the maker community.",
+    avatarPlaceholder: "HOMEKRAFTED — AVATAR",
+    bannerPlaceholder: "HOMEKRAFTED — BANNER",
+    location: "Bengaluru, Karnataka",
+    rating: 4.9,
+    reviewCount: 57,
+    followerCount: 890,
+    joinedAt: "2022-08-15",
+  },
+];
+
+export function getVendorBySlug(slug: string): Vendor | undefined {
+  return vendors.find((v) => v.slug === slug);
+}
+
+export function getVendorById(id: string): Vendor | undefined {
+  return vendors.find((v) => v.id === id);
+}

@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#F4F3F0}
+::selection{background:#234233;color:#FFFFFF}
+a{color:#234233;text-decoration:none}
+a:hover{color:#B98724}
+.hk-scroll::-webkit-scrollbar{height:8px;width:8px}
+.hk-scroll::-webkit-scrollbar-thumb{background:#D9CDB4;border-radius:8px}
+@keyframes hkfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:#F4F3F0;font-family:'IBM Plex Sans',sans-serif;color:#2B241C">
+
+  <!-- REVIEWER CHROME -->
+  <div style="position:sticky;top:0;z-index:80;background:#1B3327;border-bottom:1px solid #0f1f16;padding:9px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;color:#8FB79C;text-transform:uppercase">Homekrafted · Store</div>
+    <div style="display:flex;gap:4px;background:#12271c;border-radius:999px;padding:4px">
+      <sc-for list="{{ screens }}" as="s" hint-placeholder-count="5">
+        <button onClick="{{ s.go }}" style="{{ s.tabStyle }}">{{ s.label }}</button>
+      </sc-for>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:4px;background:#12271c;border-radius:999px;padding:4px">
+      <button onClick="{{ setDesktop }}" style="{{ deskStyle }}">Desktop</button>
+      <button onClick="{{ setMobile }}" style="{{ mobStyle }}">Mobile</button>
+    </div>
+  </div>
+
+  <!-- STAGE -->
+  <div style="display:flex;justify-content:center;padding:26px 16px 60px">
+  <div class="hk-scroll" style="width:100%;max-width:{{ stageWidth }};background:#FFFFFF;border-radius:20px;overflow:hidden;box-shadow:0 30px 70px -30px rgba(27,51,39,.5),0 0 0 1px #ECEAE4;animation:hkfade .4s ease">
+
+    <!-- announcement -->
+    <div style="background:#234233;color:#EAdfc9;font-size:12.5px;letter-spacing:.02em;display:flex;justify-content:center;gap:26px;padding:9px 16px;flex-wrap:wrap">
+      <span style="font-family:'IBM Plex Mono',monospace;color:#E4C874">✦ Made with love in real homes</span>
+      <span style="opacity:.5">·</span>
+      <span>Free shipping over ₹999</span>
+      <span style="opacity:.5">·</span>
+      <span>Freshly prepared · No preservatives</span>
+    </div>
+
+    <!-- HEADER -->
+    <header style="background:#FFFFFF;border-bottom:1px solid #ECEAE4;padding:16px 30px;display:flex;align-items:center;gap:26px;position:relative;flex-wrap:wrap">
+      <button onClick="{{ goHome }}" style="border:none;background:none;cursor:pointer;text-align:left;display:flex;flex-direction:column;line-height:.92">
+        <span style="font-family:'Fraunces',serif;font-weight:600;font-size:25px;color:#234233;letter-spacing:-.01em">Home<span style="color:#B98724">krafted</span></span>
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.34em;color:#9a8f78;margin-top:2px;text-transform:uppercase">Homemade · Handpicked</span>
+      </button>
+      <button onClick="{{ goShop }}" style="display:{{ burgerDisplay }};border:1px solid #E5E2DA;background:#FFFFFF;cursor:pointer;color:#234233;width:38px;height:38px;border-radius:10px;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>
+      <nav style="display:{{ navDisplay }};gap:22px;font-size:14.5px;font-weight:500;flex-wrap:wrap">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+          <button onClick="{{ n.go }}" style="{{ n.style }}">{{ n.label }}</button>
+        </sc-for>
+      </nav>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
+        <div style="display:{{ searchDisplay }};align-items:center;gap:8px;border:1px solid #E5E2DA;background:#FFFFFF;border-radius:999px;padding:7px 12px;color:#857A6A">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          <span style="font-size:13px;color:#9a8f78">Search homemade…</span>
+        </div>
+        <button onClick="{{ goWallet }}" style="display:flex;align-items:center;gap:7px;border:1px solid #E4Cf8f;background:#FBF1D6;border-radius:999px;padding:7px 12px 7px 11px;cursor:pointer;color:#8a6a16">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h3.5" stroke-linecap="round"/></svg>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#7a5c12">₹1,250</span>
+        </button>
+        <button style="border:none;background:none;cursor:pointer;color:#4a4335;display:{{ utilDisplay }}" title="Wishlist"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.4-7-9.6A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></svg></button>
+        <button style="border:none;background:none;cursor:pointer;color:#4a4335;display:{{ utilDisplay }}" title="Account"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0" stroke-linecap="round"/></svg></button>
+        <button style="border:none;background:none;cursor:pointer;color:#4a4335;display:flex;position:relative" title="Cart">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8h12l-1.1 11.2a1 1 0 0 1-1 .8H8.1a1 1 0 0 1-1-.8L6 8z"/><path d="M9 8a3 3 0 0 1 6 0" stroke-linecap="round"/></svg>
+          <span style="position:absolute;top:-6px;right:-7px;background:#B65D3C;color:#fff;font-size:10px;font-weight:600;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 3px">2</span>
+        </button>
+      </div>
+    </header>
+
+    <main>
+    <!-- ============ HOME ============ -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <section style="display:grid;grid-template-columns:{{ colHero }};gap:0;background:linear-gradient(180deg,#FFFFFF,#FBFBFA)">
+        <div style="padding:64px 56px;display:flex;flex-direction:column;justify-content:center">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:#B98724">Handmade gifts · Homemade goodness</span>
+          <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:58px;line-height:1.02;letter-spacing:-.02em;color:#234233;margin:18px 0 0">Made with love,<br><span style="font-style:italic;color:#B65D3C">gifted</span> from the heart.</h1>
+          <p style="font-size:16.5px;line-height:1.6;color:#6b6152;max-width:440px;margin:20px 0 30px">Small-batch pickles, bakes and curated hampers from real home kitchens — thoughtfully packed for every occasion.</p>
+          <div style="display:flex;gap:14px;flex-wrap:wrap">
+            <button onClick="{{ goShop }}" style="background:#234233;color:#FFFFFF;border:none;border-radius:999px;padding:15px 28px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Shop homemade foods</button>
+            <button onClick="{{ goHamper }}" style="background:none;color:#234233;border:1.5px solid #234233;border-radius:999px;padding:15px 26px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Build a hamper →</button>
+          </div>
+          <div style="display:flex;gap:26px;margin-top:38px;flex-wrap:wrap">
+            <sc-for list="{{ trust }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:2px"><span style="font-family:'Fraunces',serif;font-size:20px;color:#234233;font-weight:600">{{ t.h }}</span><span style="font-size:12.5px;color:#8a8070">{{ t.s }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="position:relative;padding:34px 34px 34px 0;display:flex;align-items:center">
+          <div style="aspect-ratio:1/1;width:100%;border-radius:20px;background:repeating-linear-gradient(135deg,#EEEDE9 0 14px,#EFEDE7 14px 28px);position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px #E5E2DA">
+            <span style="position:absolute;left:20px;bottom:18px;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.06em;color:#8a7c5f;background:#FFFFFF;border:1px solid #E5E2DA;border-radius:6px;padding:5px 9px">hero_hamper.jpg — festive gift box</span>
+            <span style="position:absolute;top:16px;right:16px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#a99a78;letter-spacing:.1em">1200×1200</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- occasions -->
+      <section style="padding:44px 40px 10px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px">
+          <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:27px;color:#2B241C">Shop by occasion</h2>
+          <button onClick="{{ goShop }}" style="border:none;background:none;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;color:#B98724;cursor:pointer;text-transform:uppercase">View all →</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px">
+          <sc-for list="{{ occasions }}" as="o" hint-placeholder-count="8">
+            <button onClick="{{ goShop }}" style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:14px;padding:20px 12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:12px;font-family:inherit" style-hover="border-color:#B98724;background:#FBF3DE">
+              <span style="width:40px;height:40px;border-radius:999px;border:1.4px solid #C9A24a;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:19px;color:#234233">{{ o.i }}</span>
+              <span style="font-size:13.5px;font-weight:500;color:#4a4335">{{ o.name }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- categories -->
+      <section style="padding:34px 40px 8px">
+        <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:27px;color:#2B241C;margin-bottom:22px">Shop by category</h2>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:16px">
+          <sc-for list="{{ categories }}" as="c" hint-placeholder-count="8">
+            <button onClick="{{ goShop }}" style="border:none;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:11px;font-family:inherit">
+              <span style="aspect-ratio:1/1;width:100%;border-radius:999px;background:repeating-linear-gradient(135deg,#EEEDE9 0 9px,#EFEDE7 9px 18px);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px #E5E2DA"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8a7c5f;text-align:center;letter-spacing:.04em">{{ c.ph }}</span></span>
+              <span style="font-size:14px;font-weight:500;color:#4a4335">{{ c.name }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- featured -->
+      <section style="padding:38px 40px 8px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px">
+          <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:27px;color:#2B241C">This week's small batches</h2>
+          <button onClick="{{ goShop }}" style="border:none;background:none;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;color:#B98724;cursor:pointer;text-transform:uppercase">All products →</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px">
+          <sc-for list="{{ featured }}" as="p" hint-placeholder-count="4">
+            <div onClick="{{ p.go }}" style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:16px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column" style-hover="border-color:#C9A24a;box-shadow:0 14px 30px -18px rgba(35,66,51,.4)">
+              <div style="aspect-ratio:1/1;position:relative;background:repeating-linear-gradient(135deg,#EEEDE9 0 10px,#EFEDE7 10px 20px)">
+                <sc-if value="{{ p.tag }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;top:11px;left:11px;background:#234233;color:#EAdfc9;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;padding:4px 8px;border-radius:6px;text-transform:uppercase">{{ p.tag }}</span></sc-if>
+                <span style="position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:999px;background:#FFFFFF;border:1px solid #E5E2DA;display:flex;align-items:center;justify-content:center;color:#857A6A"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20s-7-4.4-7-9.6A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></svg></span>
+                <span style="position:absolute;left:10px;bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8a7c5f">{{ p.ph }}</span>
+              </div>
+              <div style="padding:14px 15px 16px;display:flex;flex-direction:column;gap:5px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;color:#B98724;text-transform:uppercase">{{ p.maker }}</span>
+                <span style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:#2B241C;line-height:1.15">{{ p.name }}</span>
+                <span style="font-size:12.5px;color:#8a8070">★ {{ p.rating }} · {{ p.weight }}</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                  <span style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:#234233">{{ p.price }}</span><span style="font-size:12px;color:#a99a86;text-decoration:line-through">{{ p.mrp }}</span></span>
+                  <button style="background:#234233;color:#FFFFFF;border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:19px;line-height:1;font-family:inherit">+</button>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <!-- hamper + wallet bands -->
+      <section style="padding:44px 40px 12px;display:grid;grid-template-columns:{{ colBands }};gap:20px">
+        <div style="background:linear-gradient(120deg,#234233,#2f5540);border-radius:20px;padding:38px 40px;color:#EAdfc9;position:relative;overflow:hidden">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#E4C874">Customisable</span>
+          <h3 style="font-family:'Fraunces',serif;font-size:32px;font-weight:600;margin:12px 0 10px;color:#FFFFFF;line-height:1.05">Build your own<br>gift hamper</h3>
+          <p style="font-size:15px;line-height:1.55;color:#c7d3c5;max-width:360px;margin-bottom:24px">Pick a box, fill it with favourites, add a handwritten message card and gift wrap. We pack it beautifully.</p>
+          <button onClick="{{ goHamper }}" style="background:#E4C874;color:#233d2c;border:none;border-radius:999px;padding:14px 26px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Start building →</button>
+        </div>
+        <div style="background:#FBF1D6;border:1px solid #E4Cf8f;border-radius:20px;padding:34px 32px;display:flex;flex-direction:column;justify-content:center">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#B98724">Homekrafted Wallet</span>
+          <h3 style="font-family:'Fraunces',serif;font-size:26px;font-weight:600;margin:10px 0 8px;color:#234233;line-height:1.1">Earn 5% cashback<br>on every order</h3>
+          <p style="font-size:14px;line-height:1.5;color:#7a6c50;margin-bottom:20px">Top up once, pay in a tap, and watch rewards add up across the store and laundry.</p>
+          <button onClick="{{ goWallet }}" style="background:#234233;color:#FFFFFF;border:none;border-radius:999px;padding:12px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;align-self:flex-start">Open wallet →</button>
+        </div>
+      </section>
+
+      <!-- MORE FROM HOMEKRAFTED: services -->
+      <section style="padding:48px 40px 12px">
+        <div style="text-align:center;margin-bottom:26px">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:#B98724">More from Homekrafted</span>
+          <h2 style="font-family:'Fraunces',serif;font-weight:600;font-size:29px;color:#2B241C;margin-top:8px">One home, three crafts</h2>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ colServices }};gap:20px">
+          <!-- Laundry: web-enabled -->
+          <div style="background:#F0F4EE;border:1px solid #D3E0D2;border-radius:20px;padding:32px 32px;position:relative;overflow:hidden">
+            <span style="display:inline-flex;align-items:center;gap:7px;background:#234233;color:#EAdfc9;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:5px 11px;border-radius:999px">Book online now</span>
+            <div style="display:flex;align-items:center;gap:14px;margin:18px 0 8px">
+              <span style="width:50px;height:50px;border-radius:14px;background:#234233;color:#E4C874;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="13" r="6"/><circle cx="12" cy="13" r="2.4"/><path d="M5 4h14v3H5z" stroke-linecap="round"/></svg></span>
+              <h3 style="font-family:'Fraunces',serif;font-size:25px;font-weight:600;color:#234233;line-height:1.05">Laundry &amp;<br>Cleaning</h3>
+            </div>
+            <p style="font-size:14.5px;line-height:1.55;color:#5f6b5c;margin-bottom:20px;max-width:340px">Wash, dry-clean, ironing and home deep-cleaning with free doorstep pickup &amp; delivery. Schedule a slot and pay online — wallet accepted.</p>
+            <button onClick="{{ goLaundry }}" style="background:#234233;color:#FFFFFF;border:none;border-radius:999px;padding:13px 24px;font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit">Schedule a pickup →</button>
+          </div>
+          <!-- Food delivery: app-only, coming soon -->
+          <div style="background:linear-gradient(120deg,#2B241C,#3a3025);border-radius:20px;padding:32px 32px;color:#EAdfc9;position:relative;overflow:hidden">
+            <span style="display:inline-flex;align-items:center;gap:7px;background:rgba(228,200,116,.16);color:#E4C874;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:5px 11px;border-radius:999px">On the app · Coming soon</span>
+            <div style="display:flex;align-items:center;gap:14px;margin:18px 0 8px">
+              <span style="width:50px;height:50px;border-radius:14px;background:#E4C874;color:#2B241C;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 11h16l-1.2 8.2a1 1 0 0 1-1 .8H6.2a1 1 0 0 1-1-.8L4 11z"/><path d="M8 11a4 4 0 0 1 8 0" stroke-linecap="round"/><path d="M12 3v3" stroke-linecap="round"/></svg></span>
+              <h3 style="font-family:'Fraunces',serif;font-size:25px;font-weight:600;color:#FFFFFF;line-height:1.05">Food<br>Delivery</h3>
+            </div>
+            <p style="font-size:14.5px;line-height:1.55;color:#c8bfae;margin-bottom:20px;max-width:340px">Hot home-cooked meals from local kitchens with real-time order &amp; rider tracking — available only on the Homekrafted app.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <span style="display:flex;align-items:center;gap:8px;border:1px solid #56493a;border-radius:11px;padding:9px 14px;font-size:12.5px;color:#EAdfc9"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 12.5c0-1.7.9-3 2.3-3.8-.8-1.1-2-1.8-3.5-1.9-1.5-.1-3 .9-3.8.9-.8 0-2-.9-3.3-.8-1.7 0-3.2 1-4 2.5-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.7 2.5 3 2.5 1.2-.1 1.7-.8 3.1-.8 1.5 0 1.8.8 3.1.8 1.3 0 2.1-1.2 2.9-2.4.5-.8.9-1.6 1.2-2.5-3.2-1.2-3.5-4.7-2.5-6.6z"/></svg>App Store</span>
+              <span style="display:flex;align-items:center;gap:8px;border:1px solid #56493a;border-radius:11px;padding:9px 14px;font-size:12.5px;color:#EAdfc9"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M4 3l13 9L4 21z" opacity=".9"/></svg>Google Play</span>
+            </div>
+            <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#a99a78;margin-top:14px">Notify me when it launches →</p>
+          </div>
+        </div>
+        <!-- snacks + food-delivery split band -->
+        <div style="display:grid;grid-template-columns:{{ colServices }};gap:20px;margin-top:20px">
+          <div style="background:#F1F7F2;border:1px solid #D3E6D9;border-radius:20px;padding:30px 32px">
+            <span style="display:inline-flex;align-items:center;gap:7px;background:#1FA855;color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:5px 11px;border-radius:999px">Snacks · Order on WhatsApp</span>
+            <h3 style="font-family:'Fraunces',serif;font-size:24px;font-weight:600;color:#234233;margin:16px 0 8px">Browse snacks, order on chat</h3>
+            <p style="font-size:14px;line-height:1.55;color:#5f6b5c;margin-bottom:18px;max-width:340px">Pick from today's home-snack menu and send your list on WhatsApp — no checkout needed.</p>
+            <button onClick="{{ goSnacks }}" style="background:#1FA855;color:#fff;border:none;border-radius:999px;padding:12px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Browse snacks →</button>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:20px;padding:26px 30px;display:flex;align-items:center;gap:22px;flex-wrap:wrap">
+            <div style="width:104px;height:104px;border-radius:14px;background:#fff;border:1px solid #E5E2DA;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:2px;padding:9px;flex-shrink:0">
+              <sc-for list="{{ qr }}" as="q" hint-placeholder-count="25"><span style="background:{{ q }};border-radius:1px"></span></sc-for>
+            </div>
+            <div style="flex:1;min-width:180px"><div style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:#234233">Get the app</div><div style="font-size:13px;color:#7a7568;margin:4px 0 12px">Scan to install · full meals &amp; live tracking</div><div style="display:flex;gap:8px;flex-wrap:wrap"><span style="background:#2B241C;color:#fff;font-size:11px;border-radius:8px;padding:7px 11px">App Store</span><span style="background:#2B241C;color:#fff;font-size:11px;border-radius:8px;padding:7px 11px">Google Play</span></div></div>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ LAUNDRY ============ -->
+    <sc-if value="{{ isLaundry }}" hint-placeholder-val="{{ true }}">
+      <section style="background:linear-gradient(180deg,#F0F4EE,#e6eee4);padding:44px 40px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:#3c6b47">Laundry &amp; Cleaning · Book online</span>
+        <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:44px;color:#234233;line-height:1.04;margin:14px 0 10px">Fresh laundry,<br>picked up from your door.</h1>
+        <p style="font-size:16px;line-height:1.55;color:#5f6b5c;max-width:520px">Wash &amp; fold, dry-clean, steam-ironing and home deep-cleaning. Free pickup &amp; delivery, transparent per-kg pricing, and wallet-accepted checkout.</p>
+      </section>
+      <section style="padding:34px 40px 10px">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:14px">Choose a service</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px">
+          <sc-for list="{{ laundryServices }}" as="s" hint-placeholder-count="4">
+            <div style="{{ s.style }}">
+              <span style="width:46px;height:46px;border-radius:12px;background:#EFF3EA;color:#234233;display:flex;align-items:center;justify-content:center;margin-bottom:14px">{{ s.emoji }}</span>
+              <span style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:#234233;display:block">{{ s.name }}</span>
+              <span style="font-size:13px;color:#8a8070;display:block;margin:4px 0 12px">{{ s.desc }}</span>
+              <span style="font-family:'Fraunces',serif;font-size:17px;color:#B65D3C;font-weight:600">{{ s.price }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+      <section style="padding:26px 40px 44px;display:grid;grid-template-columns:{{ colLaundry }};gap:26px;align-items:start">
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:14px">Pickup slot</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+            <sc-for list="{{ laundryDays }}" as="d" hint-placeholder-count="4"><span style="{{ d.style }}"><b style="font-family:'Fraunces',serif;font-size:16px;display:block">{{ d.day }}</b>{{ d.date }}</span></sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+            <sc-for list="{{ laundrySlots }}" as="t" hint-placeholder-count="3"><span style="{{ t.style }}">{{ t.t }}</span></sc-for>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin:28px 0 14px">How it works</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+            <sc-for list="{{ laundrySteps }}" as="s" hint-placeholder-count="4">
+              <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:14px;padding:16px 14px"><span style="font-family:'Fraunces',serif;font-size:22px;color:#C9A24a;font-weight:600">{{ s.n }}</span><div style="font-size:13px;color:#4a4335;margin-top:6px;line-height:1.35">{{ s.label }}</div></div>
+            </sc-for>
+          </div>
+        </div>
+        <aside style="position:sticky;top:74px;background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:24px 22px">
+          <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:#234233;display:block;margin-bottom:14px">Booking summary</span>
+          <sc-for list="{{ laundrySummary }}" as="r" hint-placeholder-count="4">
+            <div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed #E5E2DA;font-size:{{ r.size }};color:{{ r.color }}"><span style="{{ r.lstyle }}">{{ r.k }}</span><span style="{{ r.vstyle }}">{{ r.v }}</span></div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#8a6a16;margin:14px 0 4px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="13" rx="3"/></svg>Pay with wallet · earn ₹18 cashback</div>
+          <button style="width:100%;background:#234233;color:#FFFFFF;border:none;border-radius:999px;padding:15px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:14px">Confirm pickup →</button>
+          <p style="text-align:center;font-size:12px;color:#8a8070;margin-top:10px">Final price weighed at pickup</p>
+        </aside>
+      </section>
+      <section style="padding:0 40px 40px">
+        <div style="background:linear-gradient(120deg,#2B241C,#3a3025);border-radius:20px;padding:26px 30px;color:#EAdfc9;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+          <span style="width:46px;height:46px;border-radius:12px;background:#E4C874;color:#2B241C;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px">📍</span>
+          <div style="flex:1;min-width:220px"><div style="font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:#FFFFFF">Live rider tracking is on the app</div><div style="font-size:13.5px;color:#c8bfae">Track your pickup &amp; delivery in real time — download the Homekrafted app. <span style="color:#E4C874">Coming soon.</span></div></div>
+          <span style="border:1px solid #56493a;border-radius:11px;padding:9px 14px;font-size:12.5px;color:#EAdfc9;font-family:'IBM Plex Mono',monospace">Notify me →</span>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ SNACKS (browsable + WhatsApp order) ============ -->
+    <sc-if value="{{ isSnacks }}" hint-placeholder-val="{{ true }}">
+      <section style="padding:34px 40px 6px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#1FA855">Snacks · Order on WhatsApp</span>
+          <span style="background:#E7F6EC;color:#128C3E;font-size:11.5px;font-weight:600;border-radius:999px;padding:4px 11px">No checkout — we reply on chat</span>
+        </div>
+        <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:40px;color:#234233;line-height:1.05;margin:12px 0 8px">Fresh home snacks, daily</h1>
+        <p style="font-size:15px;color:#7a7568;max-width:520px">Browse today's menu, build your list, and send it to us on WhatsApp — you'll get order updates right in the chat. Full meals &amp; live tracking are on the app.</p>
+      </section>
+      <section style="padding:16px 40px 44px;display:grid;grid-template-columns:{{ colSnacks }};gap:26px;align-items:start">
+        <div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px">
+            <sc-for list="{{ snackCats }}" as="c" hint-placeholder-count="4"><span style="{{ c.style }}">{{ c.label }}</span></sc-for>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px">
+            <sc-for list="{{ snacks }}" as="s" hint-placeholder-count="6">
+              <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+                <div style="aspect-ratio:1.5/1;background:repeating-linear-gradient(135deg,#EEEDE9 0 10px,#F6F5F2 10px 20px);position:relative"><span style="position:absolute;left:10px;bottom:9px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8a7c5f">{{ s.ph }}</span><span style="{{ s.dotStyle }}">{{ s.diet }}</span></div>
+                <div style="padding:14px 15px 15px;display:flex;flex-direction:column;flex:1">
+                  <span style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:#2B241C;line-height:1.15">{{ s.name }}</span>
+                  <span style="font-size:12.5px;color:#8a8070;margin:4px 0 10px">{{ s.desc }}</span>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto">
+                    <span style="font-family:'Fraunces',serif;font-size:18px;color:#234233;font-weight:600">{{ s.price }}</span>
+                    <button style="{{ s.addBtn }}">{{ s.addLabel }}</button>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <aside style="position:sticky;top:74px;display:flex;flex-direction:column;gap:16px">
+          <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:22px 22px">
+            <span style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:#234233;display:block;margin-bottom:12px">Your snack list</span>
+            <sc-for list="{{ snackList }}" as="i" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed #E5E2DA"><span style="flex:1;font-size:13.5px;color:#4a4335">{{ i.name }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#8a8070">×{{ i.qty }}</span><span style="font-family:'Fraunces',serif;font-size:14px;color:#234233;font-weight:600">{{ i.price }}</span></div>
+            </sc-for>
+            <div style="display:flex;justify-content:space-between;padding-top:14px"><span style="font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:#234233">Estimate</span><span style="font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:#234233">₹340</span></div>
+            <button style="width:100%;background:#1FA855;color:#fff;border:none;border-radius:999px;padding:14px;font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:9px"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-4.1 14.9l-.3-.2-2.6.7.7-2.5-.2-.3A8 8 0 0 1 12 4z"/></svg>Send list on WhatsApp</button>
+            <p style="text-align:center;font-size:11.5px;color:#8a8070;margin-top:9px">Final price &amp; slot confirmed in chat</p>
+          </div>
+          <div style="background:#F1F7F2;border:1px solid #D3E6D9;border-radius:18px;padding:20px 22px">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#128C3E">Order updates on WhatsApp</span>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-top:14px">
+              <sc-for list="{{ waSteps }}" as="w" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:11px"><span style="{{ w.dot }}"></span><span style="font-size:13.5px;color:#4a4335">{{ w.label }}</span></div>
+              </sc-for>
+            </div>
+            <p style="font-size:12px;color:#7a8a7d;margin-top:14px;line-height:1.5">Full meals &amp; live rider tracking are on the Homekrafted app.</p>
+          </div>
+        </aside>
+      </section>
+    </sc-if>
+
+    <!-- ============ SHOP LISTING ============ -->
+    <sc-if value="{{ isShop }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:22px 40px 8px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#a99a86">Home / Shop / <span style="color:#4a4335">Homemade Foods</span></span>
+        <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:38px;color:#234233;margin:10px 0 4px">Homemade Foods</h1>
+        <p style="font-size:14.5px;color:#8a8070">64 small-batch products from home kitchens across India</p>
+      </div>
+      <section style="padding:14px 40px 44px;display:grid;grid-template-columns:{{ colShop }};gap:28px;align-items:start">
+        <!-- filters -->
+        <aside style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:16px;padding:22px 20px;position:sticky;top:74px">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="3">
+            <div style="margin-bottom:22px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:12px">{{ f.title }}</div>
+              <sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4">
+                <label style="display:flex;align-items:center;gap:9px;font-size:14px;color:#4a4335;padding:5px 0;cursor:pointer">
+                  <span style="{{ o.box }}"></span>{{ o.label }}<span style="margin-left:auto;font-size:12px;color:#a99a86">{{ o.n }}</span>
+                </label>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="border-top:1px solid #ECEAE4;padding-top:18px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:14px">Price</div>
+            <div style="height:3px;background:#E5E2DA;border-radius:3px;position:relative;margin:0 4px 10px"><span style="position:absolute;left:12%;right:34%;height:3px;background:#234233;border-radius:3px"></span><span style="position:absolute;left:12%;top:-4px;width:12px;height:12px;border-radius:999px;background:#234233;transform:translateX(-50%)"></span><span style="position:absolute;right:34%;top:-4px;width:12px;height:12px;border-radius:999px;background:#234233;transform:translateX(50%)"></span></div>
+            <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#8a8070"><span>₹120</span><span>₹1,500</span></div>
+          </div>
+        </aside>
+        <!-- grid -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <span style="background:#234233;color:#EAdfc9;font-size:12.5px;border-radius:999px;padding:6px 13px">Vegetarian ✕</span>
+              <span style="background:#FFFFFF;border:1px solid #ECEAE4;color:#6b6152;font-size:12.5px;border-radius:999px;padding:6px 13px">No preservatives ✕</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:#6b6152">Sort<span style="border:1px solid #E5E2DA;background:#FFFFFF;border-radius:8px;padding:8px 12px;color:#4a4335;font-weight:500">Most loved ▾</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:18px">
+            <sc-for list="{{ products }}" as="p" hint-placeholder-count="8">
+              <div onClick="{{ p.go }}" style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:16px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column" style-hover="border-color:#C9A24a;box-shadow:0 14px 30px -18px rgba(35,66,51,.4)">
+                <div style="aspect-ratio:1/1;position:relative;background:repeating-linear-gradient(135deg,#EEEDE9 0 10px,#EFEDE7 10px 20px)">
+                  <sc-if value="{{ p.tag }}" hint-placeholder-val="{{ true }}"><span style="position:absolute;top:11px;left:11px;background:#234233;color:#EAdfc9;font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.1em;padding:4px 8px;border-radius:6px;text-transform:uppercase">{{ p.tag }}</span></sc-if>
+                  <span style="position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:999px;background:#FFFFFF;border:1px solid #E5E2DA;display:flex;align-items:center;justify-content:center;color:#857A6A"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20s-7-4.4-7-9.6A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></svg></span>
+                  <span style="position:absolute;left:10px;bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#8a7c5f">{{ p.ph }}</span>
+                </div>
+                <div style="padding:14px 15px 16px;display:flex;flex-direction:column;gap:5px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;color:#B98724;text-transform:uppercase">{{ p.maker }}</span>
+                  <span style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:#2B241C;line-height:1.15">{{ p.name }}</span>
+                  <span style="font-size:12.5px;color:#8a8070">★ {{ p.rating }} ({{ p.reviews }}) · {{ p.weight }}</span>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                    <span style="display:flex;align-items:baseline;gap:6px"><span style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:#234233">{{ p.price }}</span><span style="font-size:12px;color:#a99a86;text-decoration:line-through">{{ p.mrp }}</span></span>
+                    <button style="background:#234233;color:#FFFFFF;border:none;border-radius:999px;width:34px;height:34px;cursor:pointer;font-size:19px;line-height:1;font-family:inherit">+</button>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;justify-content:center;gap:8px;margin-top:34px">
+            <sc-for list="{{ pages }}" as="pg" hint-placeholder-count="4">
+              <span style="{{ pg.style }}">{{ pg.n }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ PRODUCT DETAIL ============ -->
+    <sc-if value="{{ isProduct }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:22px 40px 6px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#a99a86">Home / Shop / Pickles / <span style="color:#4a4335">{{ pd.name }}</span></span>
+      </div>
+      <section style="padding:12px 40px 34px;display:grid;grid-template-columns:{{ colProduct }};gap:44px;align-items:start">
+        <div style="position:sticky;top:74px">
+          <div style="aspect-ratio:1/1;border-radius:18px;background:repeating-linear-gradient(135deg,#EEEDE9 0 12px,#EFEDE7 12px 24px);position:relative;box-shadow:inset 0 0 0 1px #E5E2DA">
+            <span style="position:absolute;left:16px;bottom:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8a7c5f;background:#FFFFFF;border:1px solid #E5E2DA;border-radius:6px;padding:5px 9px">{{ pd.ph }}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px">
+            <sc-for list="{{ pd.thumbs }}" as="t" hint-placeholder-count="4">
+              <div style="aspect-ratio:1/1;border-radius:11px;background:repeating-linear-gradient(135deg,#EEEDE9 0 8px,#EFEDE7 8px 16px);border:1px solid #E5E2DA;display:flex;align-items:flex-end;padding:6px"><span style="font-family:'IBM Plex Mono',monospace;font-size:7.5px;color:#8a7c5f">{{ t.ph }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#B98724">{{ pd.maker }}</span>
+          <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:36px;color:#234233;line-height:1.08;margin:10px 0 12px">{{ pd.name }}</h1>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <span style="color:#B98724;font-size:15px">★★★★★</span>
+            <span style="font-size:13.5px;color:#6b6152">{{ pd.rating }} · {{ pd.reviews }} reviews</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:6px">
+            <span style="font-family:'Fraunces',serif;font-size:34px;font-weight:600;color:#2B241C">{{ pd.price }}</span>
+            <span style="font-size:16px;color:#a99a86;text-decoration:line-through">{{ pd.mrp }}</span>
+            <span style="background:#EFF3EA;color:#3c6b47;font-size:12.5px;font-weight:600;border-radius:6px;padding:4px 9px">{{ pd.off }}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:7px;font-size:13px;color:#8a6a16;margin-bottom:24px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="6" width="18" height="13" rx="3"/></svg>Earn {{ pd.cashback }} wallet cashback on this order</div>
+
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#857A6A;margin-bottom:10px">Weight</div>
+          <div style="display:flex;gap:10px;margin-bottom:24px">
+            <sc-for list="{{ pd.weights }}" as="w" hint-placeholder-count="3">
+              <span style="{{ w.style }}">{{ w.w }}</span>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;gap:12px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;border:1.5px solid #234233;border-radius:999px;overflow:hidden">
+              <button style="border:none;background:none;padding:0 16px;height:52px;font-size:20px;color:#234233;cursor:pointer">−</button>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:15px;width:26px;text-align:center">1</span>
+              <button style="border:none;background:none;padding:0 16px;height:52px;font-size:20px;color:#234233;cursor:pointer">+</button>
+            </div>
+            <button style="flex:1;background:#234233;color:#FFFFFF;border:none;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Add to cart</button>
+            <button style="width:52px;border:1.5px solid #E5E2DA;background:#FFFFFF;border-radius:999px;color:#4a4335;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.4-7-9.6A3.6 3.6 0 0 1 12 8a3.6 3.6 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></svg></button>
+          </div>
+          <button onClick="{{ goHamper }}" style="width:100%;background:none;border:1.5px solid #C9A24a;color:#8a6a16;border-radius:999px;padding:13px;font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:26px">+ Add to a gift hamper</button>
+
+          <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:14px;padding:20px 22px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:12px">Make it a gift</div>
+            <p style="font-size:13.5px;color:#6b6152;line-height:1.5;margin-bottom:12px">Add a handwritten message card and gift wrap at checkout, or send it straight to a recipient's address.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;color:#4a4335">
+              <span style="background:#FFFFFF;border:1px solid #E5E2DA;border-radius:999px;padding:6px 12px">✎ Message card</span>
+              <span style="background:#FFFFFF;border:1px solid #E5E2DA;border-radius:999px;padding:6px 12px">🎀 Gift wrap</span>
+              <span style="background:#FFFFFF;border:1px solid #E5E2DA;border-radius:999px;padding:6px 12px">📮 Ship to recipient</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section style="padding:0 40px 20px">
+        <div style="display:flex;gap:26px;border-bottom:1px solid #ECEAE4;margin-bottom:22px">
+          <sc-for list="{{ pd.tabs }}" as="t" hint-placeholder-count="4"><span style="{{ t.style }}">{{ t.label }}</span></sc-for>
+        </div>
+        <div style="display:grid;grid-template-columns:{{ colTabs }};gap:40px">
+          <p style="font-size:15px;line-height:1.7;color:#5b5344">{{ pd.desc }}</p>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ pd.specs }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;justify-content:space-between;gap:16px;border-bottom:1px dashed #E5E2DA;padding-bottom:10px"><span style="font-size:13px;color:#8a8070">{{ s.k }}</span><span style="font-size:13.5px;color:#4a4335;font-weight:500;text-align:right">{{ s.v }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+      </section>
+    </sc-if>
+
+    <!-- ============ HAMPER BUILDER ============ -->
+    <sc-if value="{{ isHamper }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:26px 40px 4px;text-align:center">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#B98724">Customisable · Step 2 of 4</span>
+        <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:38px;color:#234233;margin:8px 0 6px">Build your hamper</h1>
+        <p style="font-size:14.5px;color:#8a8070">Choose a box, fill it with favourites, then add a message card.</p>
+      </div>
+      <div style="display:flex;justify-content:center;gap:8px;padding:14px 40px 4px;flex-wrap:wrap">
+        <sc-for list="{{ hamperSteps }}" as="s" hint-placeholder-count="4"><span style="{{ s.style }}">{{ s.n }} {{ s.label }}</span></sc-for>
+      </div>
+      <section style="padding:20px 40px 44px;display:grid;grid-template-columns:{{ colHamper }};gap:26px;align-items:start">
+        <div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:12px">1 · Choose your box</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px">
+            <sc-for list="{{ hamperBoxes }}" as="b" hint-placeholder-count="3">
+              <div style="{{ b.style }}">
+                <span style="font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:#234233">{{ b.name }}</span>
+                <span style="font-size:12.5px;color:#8a8070;margin:4px 0 12px">{{ b.items }}</span>
+                <span style="font-family:'Fraunces',serif;font-size:20px;color:#B65D3C;font-weight:600">{{ b.price }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:12px">2 · Fill it up</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">
+            <sc-for list="{{ products }}" as="p" hint-placeholder-count="6">
+              <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:14px;overflow:hidden;display:flex;flex-direction:column">
+                <div style="aspect-ratio:1.4/1;background:repeating-linear-gradient(135deg,#EEEDE9 0 9px,#EFEDE7 9px 18px);position:relative"><span style="position:absolute;left:9px;bottom:8px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;color:#8a7c5f">{{ p.ph }}</span></div>
+                <div style="padding:12px 13px 13px">
+                  <span style="font-family:'Fraunces',serif;font-size:15px;font-weight:600;color:#2B241C;line-height:1.15;display:block">{{ p.name }}</span>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                    <span style="font-family:'Fraunces',serif;font-size:16px;color:#234233;font-weight:600">{{ p.price }}</span>
+                    <button style="{{ p.addBtn }}">{{ p.addLabel }}</button>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <!-- basket -->
+        <aside style="position:sticky;top:74px;background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:24px 22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:#234233">Signature Box</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B98724">3 / 5</span>
+          </div>
+          <div style="height:7px;background:#EEEDE9;border-radius:7px;overflow:hidden;margin-bottom:20px"><span style="display:block;height:100%;width:60%;background:linear-gradient(90deg,#B98724,#E4C874);border-radius:7px"></span></div>
+          <sc-for list="{{ hamperSelected }}" as="i" hint-placeholder-count="3">
+            <div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px dashed #E5E2DA">
+              <span style="width:38px;height:38px;border-radius:8px;background:repeating-linear-gradient(135deg,#EEEDE9 0 6px,#EFEDE7 6px 12px);flex-shrink:0"></span>
+              <span style="flex:1;font-size:13.5px;color:#4a4335;line-height:1.2">{{ i.name }}</span>
+              <span style="font-family:'Fraunces',serif;font-size:14px;color:#234233;font-weight:600">{{ i.price }}</span>
+              <button style="border:none;background:none;color:#B65D3C;cursor:pointer;font-size:15px">✕</button>
+            </div>
+          </sc-for>
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 0 4px;color:#8a8070;font-size:13px">
+            <span style="width:38px;height:38px;border-radius:8px;border:1.5px dashed #CFC9BC;display:flex;align-items:center;justify-content:center;color:#B98724;font-size:20px">+</span>
+            <span style="font-style:italic">Add 2 more to fill your box</span>
+          </div>
+          <div style="border-top:1px solid #ECEAE4;margin-top:14px;padding-top:16px;display:flex;flex-direction:column;gap:9px">
+            <sc-for list="{{ hamperTotals }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex;justify-content:space-between;font-size:{{ t.size }};color:{{ t.color }}"><span style="{{ t.lstyle }}">{{ t.k }}</span><span style="{{ t.vstyle }}">{{ t.v }}</span></div>
+            </sc-for>
+          </div>
+          <button style="width:100%;background:#234233;color:#FFFFFF;border:none;border-radius:999px;padding:15px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:18px">Add message card →</button>
+          <p style="text-align:center;font-size:12px;color:#8a6a16;margin-top:10px">Earn ₹42 wallet cashback</p>
+        </aside>
+      </section>
+    </sc-if>
+
+    <!-- ============ WALLET ============ -->
+    <sc-if value="{{ isWallet }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:26px 40px 6px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#a99a86">Account / <span style="color:#4a4335">Wallet</span></span>
+        <h1 style="font-family:'Fraunces',serif;font-weight:600;font-size:36px;color:#234233;margin:10px 0 2px">Homekrafted Wallet</h1>
+        <p style="font-size:14.5px;color:#8a8070">One balance across the store & laundry. Pay in a tap, earn cashback on every order.</p>
+      </div>
+      <section style="padding:16px 40px 44px;display:grid;grid-template-columns:{{ colWallet }};gap:26px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="background:linear-gradient(135deg,#234233,#325a44);border-radius:20px;padding:30px 32px;color:#EAdfc9;position:relative;overflow:hidden">
+            <div style="position:absolute;right:-30px;top:-30px;width:150px;height:150px;border-radius:999px;background:rgba(228,200,116,.14)"></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#E4C874">Available balance</span>
+            <div style="font-family:'Fraunces',serif;font-size:52px;font-weight:600;color:#FFFFFF;margin:6px 0 4px;line-height:1">₹1,250</div>
+            <div style="display:flex;gap:20px;font-size:13px;color:#c7d3c5"><span>Pending cashback <b style="color:#E4C874">₹85</b></span><span>Lifetime saved <b style="color:#E4C874">₹1,940</b></span></div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:24px 24px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#B98724;margin-bottom:14px">Add money</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+              <sc-for list="{{ topups }}" as="t" hint-placeholder-count="4"><span style="{{ t.style }}">{{ t.v }}</span></sc-for>
+            </div>
+            <button style="width:100%;background:#234233;color:#FFFFFF;border:none;border-radius:999px;padding:14px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Top up wallet →</button>
+            <p style="text-align:center;font-size:12px;color:#8a6a16;margin-top:10px">Get 3% extra on top-ups above ₹2,000</p>
+          </div>
+          <div style="background:#FBF1D6;border:1px solid #E4Cf8f;border-radius:18px;padding:22px 24px;display:flex;align-items:center;gap:16px">
+            <span style="width:46px;height:46px;border-radius:12px;background:#234233;color:#E4C874;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M16 12.5h3.5" stroke-linecap="round"/></svg></span>
+            <div><div style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:#234233">Pay with wallet at checkout</div><div style="font-size:13px;color:#7a6c50">On by default · earns 5% back on every store order</div></div>
+          </div>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #ECEAE4;border-radius:18px;padding:24px 26px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:600;color:#234233">Transactions</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B98724">Last 30 days</span>
+          </div>
+          <sc-for list="{{ transactions }}" as="tx" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid #EFEDE7">
+              <span style="{{ tx.iconStyle }}">{{ tx.icon }}</span>
+              <div style="flex:1"><div style="font-size:14.5px;color:#2B241C;font-weight:500">{{ tx.title }}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#a99a86;margin-top:2px">{{ tx.date }}</div></div>
+              <span style="font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:{{ tx.color }}">{{ tx.amount }}</span>
+            </div>
+          </sc-for>
+          <button style="width:100%;background:none;border:1.5px solid #E5E2DA;color:#4a4335;border-radius:999px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:18px">View full history</button>
+        </div>
+      </section>
+    </sc-if>
+    </main>
+
+    <!-- FOOTER -->
+    <footer style="background:#1B3327;color:#c7d3c5;padding:44px 40px 30px;margin-top:20px">
+      <div style="display:grid;grid-template-columns:{{ colFooter }};gap:30px;padding-bottom:30px;border-bottom:1px solid #2c473a">
+        <div>
+          <span style="font-family:'Fraunces',serif;font-weight:600;font-size:23px;color:#FFFFFF">Home<span style="color:#E4C874">krafted</span></span>
+          <p style="font-size:13.5px;line-height:1.6;color:#9fb3a5;margin-top:12px;max-width:270px">Handmade gifts and homemade goodness from real home kitchens, thoughtfully packed for every occasion.</p>
+        </div>
+        <sc-for list="{{ footerCols }}" as="col" hint-placeholder-count="3">
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#E4C874;margin-bottom:14px">{{ col.title }}</div>
+            <sc-for list="{{ col.links }}" as="l" hint-placeholder-count="4"><div style="font-size:13.5px;color:#a9bcae;padding:5px 0">{{ l }}</div></sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding-top:20px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7e9488;flex-wrap:wrap;gap:10px">
+        <span>© 2026 Homekrafted · Made with love in real homes</span>
+        <span>Login · Address book · Wallet · Support</span>
+      </div>
+    </footer>
+
+  </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;1180px&quot;,&quot;height&quot;:&quot;820px&quot;}}">
+class Component extends DCLogic {
+  state = { screen: 'home', device: 'desktop' };
+
+  go(id){ this.setState({ screen: id }); if(typeof window!=='undefined') window.scrollTo(0,0); }
+
+  renderVals(){
+    const screen = this.state.screen;
+    const device = this.state.device;
+    const mobile = device==='mobile';
+    const tab = (id,label)=>({ id, label, go:()=>this.go(id),
+      tabStyle:`border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;padding:7px 13px;border-radius:999px;background:${screen===id?'#E4C874':'transparent'};color:${screen===id?'#233d2c':'#8FB79C'};font-weight:500` });
+    const screens = [tab('home','Home'),tab('shop','Shop'),tab('product','Product'),tab('hamper','Hamper Builder'),tab('laundry','Laundry'),tab('snacks','Snacks'),tab('wallet','Wallet')];
+
+    const toggle = (val,label,active)=>({ label, active,
+      style:`border:none;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 13px;border-radius:999px;background:${active?'#E4C874':'transparent'};color:${active?'#233d2c':'#8FB79C'};font-weight:500` });
+
+    const navItem = (label,id)=>({ label, go:()=>this.go(id),
+      style:`border:none;background:none;cursor:pointer;font-family:inherit;font-size:14.5px;font-weight:500;color:#3c3629;padding:0` });
+    const nav = [navItem('Shop','shop'),navItem('Build a Hamper','hamper'),navItem('Laundry','laundry'),navItem('Snacks','snacks'),navItem('About','home')];
+
+    const P = (name,maker,price,mrp,weight,rating,reviews,tag,ph)=>({ name,maker,price,mrp,weight,rating,reviews,tag,ph, go:()=>this.go('product') });
+    const products = [
+      P('Mango Thokku Pickle',"Anjali's Kitchen",'₹249','₹299','250 g','4.8','128','Bestseller','MANGO PICKLE'),
+      P('Green Chilli Chutney',"Meera's Homefoods",'₹189','₹219','200 g','4.7','86','New','CHUTNEY JAR'),
+      P('Ragi Almond Cookies','Home Batch','₹220','₹260','200 g','4.9','204','','COOKIES'),
+      P('Roasted Makhana',"Crunch Corner",'₹160','₹190','100 g','4.6','92','','MAKHANA'),
+      P('Dark Chocolate Bark','Cocoa Homemade','₹340','₹399','150 g','4.8','73','','CHOCOLATE'),
+      P('Dry Fruit Laddoo Box',"Dadi's Recipe",'₹560','₹640','400 g','4.9','140','Festive','LADDOO BOX'),
+      P('Masala Chai Blend','Hills & Leaves','₹275','₹310','150 g','4.7','61','','TEA BLEND'),
+      P('Festive Assorted Hamper','Homekrafted','₹1,499','₹1,750','curated','4.9','57','Curated','GIFT HAMPER'),
+    ];
+    const featured = [products[0],products[2],products[5],products[7]];
+
+    const trust = [ {h:'200+',s:'home chefs'}, {h:'0',s:'preservatives'}, {h:'48 hr',s:'freshly made'} ];
+    const occ = ['Birthday','Anniversary','Diwali','Housewarming','Corporate','Baby Shower','Wedding','Thank You'];
+    const occasions = occ.map(name=>({ name, i:name[0] }));
+    const categories = [['Pickles','PICKLES'],['Chutneys','CHUTNEYS'],['Cookies','COOKIES'],['Bakery','BAKERY'],['Dry Fruits','DRY FRUITS'],['Chocolates','CHOCOLATES'],['Snacks','SNACKS'],['Hampers','HAMPERS']].map(c=>({name:c[0],ph:c[1]}));
+
+    // listing filters
+    const cb = (on)=>`width:16px;height:16px;border-radius:5px;border:1.5px solid ${on?'#234233':'#CFC9BC'};background:${on?'#234233':'transparent'};flex-shrink:0;box-shadow:${on?'inset 0 0 0 2px #FFFFFF':'none'}`;
+    const opt=(label,n,on)=>({label,n,box:cb(on)});
+    const filters = [
+      {title:'Category', opts:[opt('Pickles & Preserves','24',true),opt('Cookies & Bakery','18',false),opt('Chocolates','12',false),opt('Dry Fruits & Snacks','10',false)]},
+      {title:'Dietary', opts:[opt('Vegetarian','58',true),opt('Vegan','16',false),opt('Gluten-free','9',false),opt('Sugar-free','7',false)]},
+      {title:'Occasion', opts:[opt('Festive','20',false),opt('Corporate','14',false),opt('Everyday','30',false)]},
+    ];
+    const pg=(n,on)=>({n,style:`font-family:'IBM Plex Mono',monospace;font-size:13px;min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;cursor:pointer;background:${on?'#234233':'#FFFFFF'};color:${on?'#FFFFFF':'#6b6152'};border:1px solid ${on?'#234233':'#ECEAE4'}`});
+    const pages=[pg('1',true),pg('2',false),pg('3',false),pg('→',false)];
+
+    // product detail
+    const wsel=(w,on)=>({w,style:`font-family:'IBM Plex Sans';font-size:14px;padding:11px 18px;border-radius:11px;cursor:pointer;border:1.5px solid ${on?'#234233':'#E5E2DA'};background:${on?'#EFF3EA':'#FFFFFF'};color:${on?'#234233':'#6b6152'};font-weight:${on?'600':'400'}`});
+    const tab2=(label,on)=>({label,style:`font-size:14.5px;font-weight:${on?'600':'500'};color:${on?'#234233':'#a99a86'};padding-bottom:12px;border-bottom:2px solid ${on?'#234233':'transparent'};cursor:pointer`});
+    const pd = {
+      name:'Mango Thokku Pickle', maker:"Anjali's Kitchen", rating:'4.8', reviews:'128',
+      price:'₹249', mrp:'₹299', off:'17% off', cashback:'₹12', ph:'mango_pickle_hero.jpg',
+      weights:[wsel('250 g',true),wsel('500 g',false),wsel('1 kg',false)],
+      thumbs:[{ph:'FRONT'},{ph:'OPEN'},{ph:'SPREAD'},{ph:'LABEL'}],
+      tabs:[tab2('Description',true),tab2('Ingredients',false),tab2('Shelf life',false),tab2('Reviews',false)],
+      desc:'Slow-cooked strips of raw mango in cold-pressed sesame oil, tempered with mustard, fenugreek and hand-pounded red chilli. Made in small batches in a home kitchen in Andhra — tangy, fiery and deeply aromatic. No added colour, no preservatives; the oil layer on top keeps it fresh naturally.',
+      specs:[{k:'Ingredients',v:'Raw mango, sesame oil, chilli, mustard, salt'},{k:'Net weight',v:'250 g'},{k:'Shelf life',v:'6 months'},{k:'Storage',v:'Refrigerate after opening'},{k:'Made in',v:'Guntur, Andhra Pradesh'}],
+    };
+
+    // hamper
+    const hstep=(n,label,on)=>({n,label,style:`font-family:'IBM Plex Mono',monospace;font-size:12px;padding:8px 14px;border-radius:999px;background:${on?'#234233':'#FFFFFF'};color:${on?'#FFFFFF':'#8a8070'};border:1px solid ${on?'#234233':'#ECEAE4'}`});
+    const hamperSteps=[hstep('1','Box',false),hstep('2','Fill',true),hstep('3','Message',false),hstep('4','Checkout',false)];
+    const hbox=(name,items,price,on)=>({name,items,price,style:`display:flex;flex-direction:column;padding:20px 18px;border-radius:14px;cursor:pointer;text-align:left;border:1.5px solid ${on?'#234233':'#ECEAE4'};background:${on?'#EFF3EA':'#FFFFFF'};box-shadow:${on?'0 10px 24px -16px rgba(35,66,51,.5)':'none'}`});
+    const hamperBoxes=[hbox('Petite','Up to 3 items','₹399',false),hbox('Signature','Up to 5 items','₹699',true),hbox('Grand','Up to 8 items','₹1,199',false)];
+    const added = {0:true,2:true,5:true};
+    products.forEach((p,idx)=>{ const on=added[idx];
+      p.addBtn=`border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:7px 14px;background:${on?'#EFF3EA':'#234233'};color:${on?'#3c6b47':'#FFFFFF'};border:1px solid ${on?'#B7d0bd':'#234233'}`;
+      p.addLabel=on?'✓ Added':'+ Add';
+    });
+    const hamperSelected=[{name:'Mango Thokku Pickle',price:'₹249'},{name:'Ragi Almond Cookies',price:'₹220'},{name:'Dry Fruit Laddoo Box',price:'₹560'}];
+    const htot=(k,v,strong)=>({k,v,size:strong?'17px':'13.5px',color:strong?'#234233':'#6b6152',
+      lstyle:strong?"font-family:'Fraunces',serif;font-weight:600":'',vstyle:strong?"font-family:'Fraunces',serif;font-weight:600":'font-weight:500;color:#4a4335'});
+    const hamperTotals=[htot('Items (3)','₹1,029'),htot('Signature Box','₹699'),htot('Total','₹1,728',true)];
+
+    // wallet
+    const tu=(v,on)=>({v,style:`font-family:'IBM Plex Mono',monospace;font-size:14px;text-align:center;padding:13px 4px;border-radius:11px;cursor:pointer;border:1.5px solid ${on?'#234233':'#E5E2DA'};background:${on?'#EFF3EA':'#FFFFFF'};color:${on?'#234233':'#6b6152'};font-weight:${on?'600':'400'}`});
+    const topups=[tu('₹500',false),tu('₹1,000',true),tu('₹2,000',false),tu('₹5,000',false)];
+    const tx=(title,date,amount,credit)=>({title,date,amount,color:credit?'#3c6b47':'#B65D3C',icon:credit?'↓':'↑',
+      iconStyle:`width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;background:${credit?'#EFF3EA':'#F6E7E0'};color:${credit?'#3c6b47':'#B65D3C'}`});
+    const transactions=[
+      tx('Cashback — Order #HK2043','18 Jul 2026','+ ₹42',true),
+      tx('Wallet top-up','15 Jul 2026','+ ₹1,000',true),
+      tx('Paid — Dry Fruit Laddoo Box','15 Jul 2026','− ₹560',false),
+      tx('Referral credit — Priya','10 Jul 2026','+ ₹100',true),
+      tx('Paid — Festive Hamper','02 Jul 2026','− ₹1,499',false),
+      tx('Cashback — Order #HK1987','02 Jul 2026','+ ₹75',true),
+    ];
+
+    // laundry
+    const lserv=(emoji,name,desc,price,on)=>({emoji,name,desc,price,style:`background:#FFFFFF;border:1.5px solid ${on?'#234233':'#ECEAE4'};border-radius:16px;padding:22px 20px;cursor:pointer;${on?'box-shadow:0 12px 26px -18px rgba(35,66,51,.5)':''}`});
+    const laundryServices=[lserv('🧺','Wash & Fold','Everyday laundry, per kg','₹79 / kg',true),lserv('👔','Dry Clean','Delicates & formals','from ₹99',false),lserv('♨️','Steam Ironing','Crisp & crease-free','₹15 / pc',false),lserv('🧹','Home Cleaning','Deep clean, per room','from ₹499',false)];
+    const lday=(day,date,on)=>({day,date,style:`text-align:center;padding:12px 4px;border-radius:12px;cursor:pointer;border:1.5px solid ${on?'#234233':'#E5E2DA'};background:${on?'#EFF3EA':'#FFFFFF'};color:${on?'#234233':'#6b6152'};font-size:12px`});
+    const laundryDays=[lday('Sat','19 Jul',true),lday('Sun','20 Jul',false),lday('Mon','21 Jul',false),lday('Tue','22 Jul',false)];
+    const lslot=(t,on)=>({t,style:`text-align:center;padding:12px 4px;border-radius:11px;cursor:pointer;font-size:13.5px;border:1.5px solid ${on?'#234233':'#E5E2DA'};background:${on?'#EFF3EA':'#FFFFFF'};color:${on?'#234233':'#6b6152'};font-weight:${on?'600':'400'}`});
+    const laundrySlots=[lslot('9 – 11 AM',true),lslot('1 – 3 PM',false),lslot('5 – 7 PM',false)];
+    const laundrySteps=[{n:'1',label:'We pick up at your door'},{n:'2',label:'Weigh, clean & finish'},{n:'3',label:'Track on the app'},{n:'4',label:'Delivered fresh in 48 hr'}];
+    const lrow=(k,v,strong)=>({k,v,size:strong?'17px':'13.5px',color:strong?'#234233':'#6b6152',lstyle:strong?"font-family:'Fraunces',serif;font-weight:600":'',vstyle:strong?"font-family:'Fraunces',serif;font-weight:600":'font-weight:500;color:#4a4335'});
+    const laundrySummary=[lrow('Wash & Fold (est. 4 kg)','₹316'),lrow('Pickup slot','Sat, 9–11 AM'),lrow('Delivery','Free'),lrow('Estimated total','₹316',true)];
+
+    // snacks
+    const scat=(label,on)=>({label,style:`font-size:13px;font-weight:500;padding:8px 15px;border-radius:999px;cursor:pointer;border:1px solid ${on?'#234233':'#ECEAE4'};background:${on?'#234233':'#FFFFFF'};color:${on?'#fff':'#6b6152'}`});
+    const snackCats=[scat('All',true),scat('Savoury',false),scat('Sweet',false),scat('Baked',false),scat('Namkeen',false)];
+    const diet=(v)=>`position:absolute;top:9px;left:9px;width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;background:#fff;border:1.5px solid ${v==='veg'?'#3c8c47':'#B65D3C'};color:${v==='veg'?'#3c8c47':'#B65D3C'}`;
+    const snk=(name,desc,price,ph,dv,added)=>({name,desc,price,ph,diet:'●',dotStyle:diet(dv),
+      addBtn:`border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:7px 14px;background:${added?'#E7F6EC':'#234233'};color:${added?'#128C3E':'#fff'};border:1px solid ${added?'#B7E0C4':'#234233'}`,
+      addLabel:added?'✓ Added':'+ Add'});
+    const snacks=[
+      snk('Masala Mathri',"Crispy, flaky, ghee-fried",'₹120','MATHRI','veg',true),
+      snk('Roasted Chivda',"Light poha namkeen mix",'₹90','CHIVDA','veg',false),
+      snk('Besan Ladoo',"Slow-roasted, 6 pcs",'₹160','LADOO','veg',true),
+      snk('Chakli Spirals',"Rice & lentil, hand-rolled",'₹110','CHAKLI','veg',false),
+      snk('Nankhatai Cookies',"Cardamom shortbread, 8 pcs",'₹140','NANKHATAI','veg',false),
+      snk('Spicy Peanut Masala',"Roasted, tangy coating",'₹80','PEANUTS','veg',false),
+    ];
+    const snackList=[{name:'Masala Mathri',qty:'1',price:'₹120'},{name:'Besan Ladoo',qty:'1',price:'₹160'},{name:'Spicy Peanut Masala',qty:'1',price:'₹80'}];
+    const wdot=(done)=>`width:10px;height:10px;border-radius:999px;flex-shrink:0;background:${done?'#1FA855':'#D3E0D2'};box-shadow:0 0 0 3px ${done?'rgba(31,168,85,.15)':'transparent'}`;
+    const waSteps=[{label:'Order received',dot:wdot(true)},{label:'Order accepted',dot:wdot(false)},{label:'Out for delivery',dot:wdot(false)}];
+    // decorative QR
+    const qrp=[1,0,1,1,0,0,1,0,0,1,1,0,1,0,1,0,1,1,1,0,1,0,0,1,1];
+    const qr=qrp.map(v=>v?'#2B241C':'transparent');
+
+    const footerCols=[
+      {title:'Services', links:['Homemade Foods','Gift Hampers','Laundry & Cleaning','Food Delivery (app)']},
+      {title:'Help', links:['Track order','Shipping & returns','FAQ','Support']},
+      {title:'Account', links:['Login','Address book','Wallet','Order history']},
+    ];
+
+    return {
+      screen, screens,
+      isHome:screen==='home', isShop:screen==='shop', isProduct:screen==='product', isHamper:screen==='hamper', isLaundry:screen==='laundry', isSnacks:screen==='snacks', isWallet:screen==='wallet',
+      goHome:()=>this.go('home'), goShop:()=>this.go('shop'), goHamper:()=>this.go('hamper'), goLaundry:()=>this.go('laundry'), goSnacks:()=>this.go('snacks'), goWallet:()=>this.go('wallet'),
+      colServices: mobile?'1fr':'1fr 1fr', colLaundry: mobile?'1fr':'1fr 320px', colSnacks: mobile?'1fr':'1fr 320px', laundryServices, laundryDays, laundrySlots, laundrySteps, laundrySummary,
+      snackCats, snacks, snackList, waSteps, qr,
+      setDesktop:()=>this.setState({device:'desktop'}), setMobile:()=>this.setState({device:'mobile'}),
+      deskStyle:toggle('desktop','Desktop',device==='desktop').style, mobStyle:toggle('mobile','Mobile',device==='mobile').style,
+      stageWidth: device==='mobile' ? '430px' : '1180px',
+      navDisplay: mobile?'none':'flex', searchDisplay: mobile?'none':'flex', utilDisplay: mobile?'none':'flex', burgerDisplay: mobile?'flex':'none',
+      colHero: mobile?'1fr':'1.05fr 1fr', colProduct: mobile?'1fr':'1fr 1fr', colShop: mobile?'1fr':'240px 1fr', colHamper: mobile?'1fr':'1fr 340px',
+      colWallet: mobile?'1fr':'1fr 1.15fr', colBands: mobile?'1fr':'1.4fr 1fr', colTabs: mobile?'1fr':'1.3fr 1fr', colFooter: mobile?'1fr 1fr':'1.4fr 1fr 1fr 1fr',
+      nav, trust, occasions, categories, products, featured,
+      filters, pages, pd, hamperSteps, hamperBoxes, hamperSelected, hamperTotals, topups, transactions, footerCols,
+    };
+  }
+}
+</script>
+</body>
+</html>

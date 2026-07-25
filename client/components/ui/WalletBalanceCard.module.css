@@ -1,0 +1,54 @@
+.card {
+  background: linear-gradient(135deg, var(--hk-pine), var(--hk-pine-grad-b));
+  border-radius: var(--hk-r-xl);
+  padding: 30px 32px;
+  color: var(--hk-on-pine);
+  position: relative;
+  overflow: hidden;
+}
+
+.decoCircle {
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 150px;
+  height: 150px;
+  border-radius: var(--hk-r-pill);
+  /* --hk-gold-bright at 14% opacity — decorative, no token for a
+     translucent tint of a token color. */
+  background: rgba(228, 200, 116, 0.14);
+}
+
+.eyebrow {
+  position: relative;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-bright);
+  display: block;
+}
+
+.balance {
+  position: relative;
+  font-family: var(--hk-font-display);
+  font-size: 52px;
+  font-weight: 600;
+  color: #fff;
+  margin: 6px 0 4px;
+  line-height: 1;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  gap: 20px;
+  font-size: 13px;
+  color: var(--hk-footer-ink);
+  flex-wrap: wrap;
+}
+
+.figure {
+  color: var(--hk-gold-bright);
+  font-weight: 600;
+}

@@ -1,0 +1,55 @@
+.slot {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--hk-border) 0 10px,
+    var(--hk-divider) 10px 20px
+  );
+  box-shadow: inset 0 0 0 1px var(--hk-border-2);
+  border-radius: var(--hk-r-lg);
+}
+
+.slot.circle {
+  border-radius: var(--hk-r-pill);
+}
+
+.slot.square {
+  border-radius: var(--hk-r-sm);
+}
+
+.label {
+  position: absolute;
+  left: var(--hk-s3);
+  bottom: var(--hk-s3);
+  max-width: calc(100% - (var(--hk-s3) * 2));
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--hk-ink-3);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  padding: 5px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size {
+  position: absolute;
+  top: var(--hk-s3);
+  right: var(--hk-s3);
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--hk-muted);
+}
+
+.slot.compact .label {
+  font-size: 9.5px;
+  padding: 4px 7px;
+  background: transparent;
+  border: none;
+}

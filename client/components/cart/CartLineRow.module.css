@@ -1,0 +1,98 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  padding: var(--hk-s4) 0;
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.image {
+  width: 76px;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.unitPrice {
+  font-size: 12.5px;
+  color: var(--hk-ink-3);
+}
+
+.qtyCol {
+  flex-shrink: 0;
+}
+
+.hamperQty {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.totalCol {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 96px;
+}
+
+.lineTotal {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-terracotta);
+}
+
+.remove {
+  border: none;
+  background: none;
+  color: var(--hk-muted);
+  font-size: 12px;
+  /* Visual text stays small, but the hit area meets the 44px tap-target rule. */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.remove:hover {
+  color: var(--hk-terracotta);
+}
+
+@media (max-width: 640px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .image {
+    width: 64px;
+  }
+
+  .totalCol {
+    margin-left: auto;
+  }
+}

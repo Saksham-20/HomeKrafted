@@ -1,0 +1,150 @@
+/* Homekrafted — base stylesheet.
+   Imported once, after tokens.css, in the root layout.
+   Ports the reset + base rules from the prototype's <style> block
+   (handoff/prototype/Homekrafted.dc.html) and bridges next/font
+   CSS variables into the token font-family vars. */
+
+/* ---- next/font bridge ----
+   next/font/google exposes each family as a CSS var (set as a class on
+   <html> in app/layout.tsx). tokens.css ships literal font-family stacks
+   ('Fraunces', Georgia, serif, etc.) so it can stay a verbatim copy of the
+   design system; here we re-point the --hk-font-* vars at the loaded
+   font vars, with the same fallback stacks as tokens.css. Because this
+   file is imported after tokens.css, this :root block wins the cascade. */
+:root {
+  --hk-font-display: var(--font-fraunces), Georgia, serif;
+  --hk-font-body: var(--font-plex-sans), system-ui, sans-serif;
+  --hk-font-mono: var(--font-plex-mono), ui-monospace, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  background: var(--hk-bg);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  flex-direction: column;
+}
+
+::selection {
+  background: var(--hk-pine);
+  color: #ffffff;
+}
+
+a {
+  color: var(--hk-pine);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--hk-gold);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  text-wrap: pretty;
+}
+
+:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+/* Thin warm scrollbar for horizontally-scrolling rails (chip rows, tabs).
+   Thumb colour is var(--hk-scrollbar) (styles/tokens.extend.css),
+   centralized in M1 from the prototype's .hk-scroll rule — it is a
+   decorative scrollbar tint, not a tokens.css design token. */
+.hk-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hk-scrollbar) transparent;
+}
+
+.hk-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.hk-scroll::-webkit-scrollbar-thumb {
+  background: var(--hk-scrollbar);
+  border-radius: 8px;
+}
+
+@keyframes hkfade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- Shared layout utility ----
+   Full-bleed sections (announcement bar, header, footer, page sections)
+   fill the viewport width for their background colour, then use this
+   class on an inner wrapper to contain + center content. Fluid,
+   mobile-first: no fixed 430/1180 "stage" — content simply narrows its
+   side padding down to 360px. */
+.container {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: var(--hk-s8);
+}
+
+@media (max-width: 780px) {
+  .container {
+    padding-inline: var(--hk-s5);
+  }
+}
+
+@media (max-width: 420px) {
+  .container {
+    padding-inline: var(--hk-s4);
+  }
+}

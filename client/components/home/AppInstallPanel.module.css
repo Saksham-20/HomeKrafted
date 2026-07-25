@@ -1,0 +1,31 @@
+.panel {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s5) var(--hk-s6);
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s5);
+  flex-wrap: wrap;
+}
+
+.copy {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--hk-muted-2);
+  margin-bottom: var(--hk-s2);
+}

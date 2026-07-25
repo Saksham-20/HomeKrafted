@@ -1,0 +1,283 @@
+/* ---- Hero ---- */
+.hero {
+  /* Prototype: linear-gradient(180deg,#F0F4EE,#e6eee4) — the first stop is
+     close enough to --hk-pine-tint (#EFF3EA) to reuse; the second stop
+     has no matching token (a one-off gap, not worth centralizing for a
+     single hero background), kept as a local hardcoded value per the
+     CLAUDE.md "Known token gaps" convention. */
+  background: linear-gradient(180deg, var(--hk-pine-tint), #e6eee4);
+}
+
+.heroInner {
+  padding-block: var(--hk-s7) var(--hk-s7);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hk-success);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(30px, 4.6vw, 44px);
+  color: var(--hk-pine);
+  line-height: 1.04;
+  margin: var(--hk-s3) 0 var(--hk-s2);
+}
+
+.subtitle {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+  max-width: 520px;
+}
+
+/* ---- Choose a service ---- */
+.servicesSection {
+  padding-block: var(--hk-s6) var(--hk-s2);
+}
+
+.eyebrowLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+  margin-bottom: var(--hk-s4);
+}
+
+.serviceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--hk-s4);
+}
+
+/* ---- Main layout ---- */
+.layout {
+  padding-block: var(--hk-s6) var(--hk-s8);
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s6);
+  min-width: 0;
+}
+
+.block {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5);
+}
+
+.spacer {
+  margin-bottom: var(--hk-s3);
+}
+
+/* ---- Estimate ---- */
+.qtyRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.qtyUnit {
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.photoUpload {
+  margin-top: var(--hk-s4);
+}
+
+/* ---- Subscription toggle ---- */
+.blockTitle {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  display: block;
+}
+
+.blockHint {
+  display: block;
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin-top: 4px;
+  font-family: var(--hk-font-body);
+  font-weight: 400;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hk-pine);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.chipRow {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  margin-top: var(--hk-s4);
+  padding-top: var(--hk-s4);
+  border-top: 1px solid var(--hk-border);
+}
+
+/* ---- Payment ---- */
+.paymentOptions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s4);
+}
+
+.paymentTile {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  border: 1.5px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s4);
+  text-align: left;
+  color: var(--hk-ink-2);
+  min-height: 44px;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease);
+}
+
+.paymentTile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.paymentTileSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.paymentTileBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.paymentTileTitle {
+  font-family: var(--hk-font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.paymentTileHint {
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+/* ---- How it works ---- */
+.stepsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--hk-s3);
+}
+
+.stepTile {
+  background: var(--hk-surface-2);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s4) var(--hk-s3);
+}
+
+.stepN {
+  font-family: var(--hk-font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--hk-gold-border);
+}
+
+.stepLabel {
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  margin-top: 6px;
+  line-height: 1.35;
+}
+
+/* ---- Aside ---- */
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.formError {
+  color: var(--hk-terracotta);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---- App tracking band + confirmation ---- */
+.bandSection {
+  padding-bottom: var(--hk-s8);
+}
+
+.confirmSection {
+  padding-block: var(--hk-s2) var(--hk-s2);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .aside {
+    position: static;
+    padding-top: var(--hk-s3);
+  }
+}
+
+@media (max-width: 640px) {
+  /* Clears the fixed "Confirm pickup" bar `stickyOnMobile` pins to the
+     viewport bottom, so it never overlaps the aside's own last content. */
+  .layout {
+    padding-bottom: 84px;
+  }
+}
+
+@media (max-width: 700px) {
+  .stepsGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .serviceGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .serviceGrid {
+    grid-template-columns: 1fr;
+  }
+}

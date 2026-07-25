@@ -1,0 +1,11 @@
+.tag {
+  display: inline-block;
+  background: var(--hk-pine);
+  color: var(--hk-on-pine);
+  font-family: var(--hk-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+}

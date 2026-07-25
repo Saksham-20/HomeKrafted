@@ -1,0 +1,310 @@
+.page {
+  padding-block: var(--hk-s5) var(--hk-s8);
+}
+
+.header {
+  max-width: 640px;
+  margin-bottom: var(--hk-s6);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--hk-muted);
+}
+
+.eyebrowStrong {
+  color: var(--hk-ink-2);
+  font-weight: 600;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(28px, 3.8vw, 36px);
+  color: var(--hk-pine);
+  margin: 10px 0 2px;
+}
+
+.subtitle {
+  font-size: 14.5px;
+  color: var(--hk-muted);
+}
+
+.loading {
+  color: var(--hk-muted);
+  padding: var(--hk-s8) 0;
+  text-align: center;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+  min-width: 0;
+}
+
+.sectionLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+}
+
+/* ---- Add money ---- */
+
+.addMoneyCard {
+  padding: var(--hk-s5);
+}
+
+.amountGrid {
+  margin: var(--hk-s4) 0 var(--hk-s4);
+}
+
+.customAmountLabel {
+  display: block;
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin-bottom: var(--hk-s4);
+}
+
+.customAmountRow {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  margin-top: var(--hk-s2);
+  overflow: hidden;
+}
+
+.customAmountPrefix {
+  padding: 0 var(--hk-s3);
+  color: var(--hk-muted);
+  font-family: var(--hk-font-mono);
+  font-size: 14px;
+}
+
+.customAmountInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 12px var(--hk-s3) 12px 0;
+  font-family: var(--hk-font-body);
+  font-size: 14.5px;
+  color: var(--hk-ink);
+  background: transparent;
+  min-height: 44px;
+}
+
+.topupButton {
+  width: 100%;
+}
+
+.bonusNote {
+  text-align: center;
+  font-size: 12px;
+  color: var(--hk-gold-text-sm);
+  margin-top: var(--hk-s3);
+}
+
+.toast {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--hk-success);
+  background: var(--hk-success-tint);
+  border-radius: var(--hk-r-sm);
+  padding: var(--hk-s2) var(--hk-s3);
+  margin-top: var(--hk-s3);
+}
+
+/* ---- Auto top-up ---- */
+
+.autoTopupCard {
+  padding: var(--hk-s5);
+}
+
+.autoTopupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--hk-s2);
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+  /* Padded hit area so the tappable label clears the 44px guideline —
+     the 18px checkbox + text line alone measures well under that, same
+     fix approach M3's CHANGELOG used for Cart's under-44px text links. */
+  padding: 12px 4px;
+  margin: -12px -4px;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hk-pine);
+  flex-shrink: 0;
+}
+
+.autoTopupHint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin-bottom: var(--hk-s4);
+}
+
+.autoTopupFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s3);
+}
+
+.fieldLabel {
+  font-size: 12px;
+  color: var(--hk-muted-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.fieldInputRow {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  overflow: hidden;
+}
+
+.fieldInputRow:has(.fieldInput:disabled) {
+  opacity: 0.55;
+}
+
+.fieldPrefix {
+  padding: 0 0 0 var(--hk-s3);
+  color: var(--hk-muted);
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+}
+
+.fieldInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  padding: 10px var(--hk-s3) 10px var(--hk-s2);
+  font-family: var(--hk-font-body);
+  font-size: 14px;
+  color: var(--hk-ink);
+  background: transparent;
+  min-height: 44px;
+}
+
+/* ---- Pay-with-wallet info card ---- */
+
+.payInfoCard {
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+  padding: var(--hk-s4) var(--hk-s5);
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+}
+
+.payInfoIcon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-pine);
+  color: var(--hk-gold-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.payInfoTitle {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.payInfoHint {
+  font-size: 12.5px;
+  color: var(--hk-ink-3);
+  margin-top: 2px;
+}
+
+/* ---- Transaction history ---- */
+
+.historyCard {
+  padding: var(--hk-s5);
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--hk-s2);
+}
+
+.historyTitle {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.historyMeta {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-gold);
+}
+
+.emptyHistory {
+  color: var(--hk-muted);
+  font-size: 13.5px;
+  text-align: center;
+  padding: var(--hk-s6) 0;
+}
+
+.historyGroupLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  padding: var(--hk-s3) 0 var(--hk-s2);
+}
+
+.historyToggle {
+  width: 100%;
+  margin-top: var(--hk-s4);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  .autoTopupFields {
+    grid-template-columns: 1fr;
+  }
+}

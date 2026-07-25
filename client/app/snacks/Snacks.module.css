@@ -1,0 +1,38 @@
+.heroInner {
+  padding-block: var(--hk-s6) var(--hk-s3);
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s3);
+}
+
+/* Prototype's "No checkout — we reply on chat" pill — same colors as
+   `--hk-success-tint`/`--hk-whatsapp-deep`, reused directly rather than
+   introducing a new one-off pair. */
+.noCheckout {
+  background: var(--hk-success-tint);
+  color: var(--hk-whatsapp-deep);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: var(--hk-r-pill);
+  padding: 4px 11px;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(30px, 4.6vw, 40px);
+  color: var(--hk-pine);
+  line-height: 1.05;
+  margin: 0 0 var(--hk-s2);
+}
+
+.subtitle {
+  font-size: 15px;
+  color: var(--hk-ink-3);
+  max-width: 520px;
+}

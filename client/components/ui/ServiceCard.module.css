@@ -1,0 +1,60 @@
+.card {
+  background: var(--hk-surface);
+  border: 1.5px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: 22px 20px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.card:hover {
+  border-color: var(--hk-pine);
+}
+
+.selected {
+  border-color: var(--hk-pine);
+  /* design-system.md: "Two shadows only" — reuse --hk-shadow-card here
+     rather than the prototype's own slightly-different bespoke rgba. */
+  box-shadow: var(--hk-shadow-card);
+}
+
+.iconTile {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  display: block;
+}
+
+.desc {
+  font-size: 13px;
+  color: var(--hk-muted);
+  display: block;
+  margin: 4px 0 12px;
+}
+
+.price {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  color: var(--hk-terracotta);
+  font-weight: 600;
+}

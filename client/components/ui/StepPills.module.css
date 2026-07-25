@@ -1,0 +1,26 @@
+.row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-muted);
+  border: 1px solid var(--hk-border);
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease);
+}
+
+.pill.active {
+  background: var(--hk-pine);
+  color: #fff;
+  border-color: var(--hk-pine);
+}

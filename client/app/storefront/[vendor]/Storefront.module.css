@@ -1,0 +1,26 @@
+.headerWrap {
+  padding-block: var(--hk-s5) var(--hk-s2);
+}
+
+.section {
+  padding-block: var(--hk-s6) var(--hk-s2);
+}
+
+.sectionTitle {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 24px;
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s5);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.empty {
+  font-size: 14.5px;
+  color: var(--hk-muted);
+}

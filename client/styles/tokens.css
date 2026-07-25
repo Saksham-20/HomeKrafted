@@ -1,0 +1,79 @@
+/* Homekrafted Design Tokens
+   White-first palette with pine / gold / terracotta accents.
+   Import once at the root. */
+
+:root {
+  /* ---- Brand ---- */
+  --hk-pine:            #234233; /* primary — buttons, headings, nav */
+  --hk-pine-deep:       #1B3327; /* header bars, footer */
+  --hk-pine-grad-a:     #2f5540; /* gradient stop */
+  --hk-pine-grad-b:     #325a44;
+  --hk-pine-tint:       #EFF3EA; /* selected fills, success surface */
+
+  --hk-gold:            #B98724; /* accent text, eyebrows */
+  --hk-gold-bright:     #E4C874; /* on-dark accent, highlights */
+  --hk-gold-tint:       #FBF1D6; /* wallet surfaces */
+  --hk-gold-border:     #E4CF8F;
+
+  --hk-terracotta:      #B65D3C; /* prices in gifting, italic accents, remove */
+
+  /* ---- Channel ---- */
+  --hk-whatsapp:        #1FA855; /* snacks / WhatsApp actions */
+  --hk-whatsapp-deep:   #128C3E;
+  --hk-whatsapp-tint:   #F1F7F2;
+  --hk-whatsapp-border: #D3E6D9;
+
+  /* ---- Ink ---- */
+  --hk-ink:             #2B241C; /* primary text */
+  --hk-ink-2:           #4A4335; /* secondary */
+  --hk-ink-3:           #5B5344; /* body long-form */
+  --hk-muted:           #8A8070; /* meta, captions */
+  --hk-muted-2:         #7A7568;
+
+  /* ---- Surfaces ---- */
+  --hk-bg:              #F4F3F0; /* app canvas behind cards */
+  --hk-surface:         #FFFFFF; /* cards, header, stage */
+  --hk-surface-2:       #FBFBFA; /* subtle raised */
+  --hk-surface-3:       #F7F7F5;
+
+  /* ---- Lines ---- */
+  --hk-border:          #ECEAE4; /* default card border */
+  --hk-border-2:        #E5E2DA; /* inputs, strong divider */
+  --hk-divider:         #EFEDE7; /* list rows */
+
+  /* ---- Feedback ---- */
+  --hk-success:         #3C6B47;
+  --hk-success-tint:    #E7F6EC;
+
+  /* ---- Type ---- */
+  --hk-font-display: 'Fraunces', Georgia, serif;      /* headings, prices */
+  --hk-font-body:    'IBM Plex Sans', system-ui, sans-serif;
+  --hk-font-mono:    'IBM Plex Mono', ui-monospace, monospace; /* eyebrows, meta, QR-ish labels */
+
+  --hk-h1: 700 clamp(34px, 4.4vw, 58px)/1.04 var(--hk-font-display);
+  --hk-h2: 600 28px/1.1 var(--hk-font-display);
+  --hk-h3: 600 24px/1.08 var(--hk-font-display);
+  --hk-card-title: 600 17px/1.15 var(--hk-font-display);
+  --hk-body: 400 15px/1.6 var(--hk-font-body);
+  --hk-small: 400 13px/1.5 var(--hk-font-body);
+  --hk-eyebrow-spacing: 0.16em; /* mono uppercase labels: .12–.22em */
+
+  /* ---- Radius ---- */
+  --hk-r-sm:  8px;
+  --hk-r-md:  11px;
+  --hk-r-lg:  16px;  /* product cards */
+  --hk-r-xl:  20px;  /* promo bands, panels */
+  --hk-r-pill: 999px;
+
+  /* ---- Space (4px base) ---- */
+  --hk-s1: 4px;  --hk-s2: 8px;  --hk-s3: 12px; --hk-s4: 16px;
+  --hk-s5: 20px; --hk-s6: 26px; --hk-s7: 34px; --hk-s8: 44px;
+
+  /* ---- Elevation ---- */
+  --hk-shadow-card:  0 14px 30px -18px rgba(35,66,51,.40);
+  --hk-shadow-stage: 0 30px 70px -30px rgba(27,51,39,.50);
+
+  /* ---- Motion ---- */
+  --hk-ease: cubic-bezier(.2,.7,.2,1);
+  --hk-dur: .28s;
+}

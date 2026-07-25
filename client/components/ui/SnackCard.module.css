@@ -1,0 +1,82 @@
+.card {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.imageWrap {
+  position: relative;
+}
+
+.dietDot {
+  position: absolute;
+  top: 9px;
+  left: 9px;
+}
+
+.content {
+  padding: 14px 15px 15px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  line-height: 1.15;
+}
+
+.desc {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin: 4px 0 10px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.price {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.add {
+  border: 1px solid var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--hk-r-pill);
+  padding: 7px 14px;
+  cursor: pointer;
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease);
+}
+
+.add:hover {
+  transform: translateY(-1px);
+}
+
+/* Added-state border has no matching token (prototype's #B7E0C4) —
+   hardcoded + documented, same convention as ProductCard's added state. */
+.added {
+  background: var(--hk-success-tint);
+  color: var(--hk-whatsapp-deep);
+  border-color: #b7e0c4;
+}

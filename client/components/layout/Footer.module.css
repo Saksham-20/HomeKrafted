@@ -1,0 +1,91 @@
+/* Footer sits on --hk-pine-deep and needs its own light-on-dark text ramp
+ * (body copy, links, dividers, legal row) — see the --hk-footer-* vars in
+ * styles/tokens.extend.css (centralized in M1; M0 hardcoded these locally
+ * as a "known token gap"). */
+
+.footer {
+  background: var(--hk-pine-deep);
+  color: var(--hk-footer-ink);
+  margin-top: var(--hk-s5);
+}
+
+.top {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: var(--hk-s6);
+  padding-block: var(--hk-s7) var(--hk-s6);
+  border-bottom: 1px solid var(--hk-footer-border);
+}
+
+.brandCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.wordmark {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 23px;
+  color: #ffffff;
+}
+
+.krafted {
+  color: var(--hk-gold-bright);
+}
+
+.blurb {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-footer-muted);
+  margin-top: var(--hk-s3);
+  max-width: 270px;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.colTitle {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hk-gold-bright);
+  margin-bottom: var(--hk-s4);
+}
+
+.link {
+  font-size: 13.5px;
+  color: var(--hk-footer-ink-2);
+  padding-block: 5px;
+}
+
+.link:hover {
+  color: var(--hk-gold-bright);
+}
+
+.legal {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  padding-block: var(--hk-s5);
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  color: var(--hk-footer-mono);
+}
+
+@media (max-width: 780px) {
+  .top {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .top {
+    grid-template-columns: 1fr;
+    gap: var(--hk-s5);
+  }
+}

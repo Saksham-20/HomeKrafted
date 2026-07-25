@@ -1,0 +1,386 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+}
+
+.subtitle {
+  color: var(--hk-muted);
+  font-size: 14px;
+}
+
+.sectionLabel {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+  margin-bottom: var(--hk-s3);
+}
+
+/* ---- Referral code ---- */
+
+.codeCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.codeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  background: var(--hk-gold-tint);
+  border: 1px dashed var(--hk-gold-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s4);
+}
+
+.code {
+  font-family: var(--hk-font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--hk-pine);
+}
+
+.codeActions {
+  display: flex;
+  gap: var(--hk-s2);
+}
+
+.codeHint {
+  font-size: 13.5px;
+  color: var(--hk-ink-3);
+  line-height: 1.5;
+}
+
+/* ---- Demo apply-credit ---- */
+
+.demoCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.demoHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+}
+
+.demoIcon {
+  color: var(--hk-pine);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.demoTitle {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--hk-ink);
+}
+
+.demoHint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin-top: 2px;
+}
+
+.demoButton {
+  width: 100%;
+}
+
+.toast {
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--hk-success);
+  background: var(--hk-success-tint);
+  border-radius: var(--hk-r-sm);
+  padding: var(--hk-s2) var(--hk-s3);
+}
+
+/* ---- Invite list ---- */
+
+.listCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) 0;
+  border-bottom: 1px solid var(--hk-divider);
+}
+
+.row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.rowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.rowDate {
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+.rowMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-shrink: 0;
+}
+
+.rowReward {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--hk-success);
+}
+
+.statusChip {
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--hk-r-pill);
+  padding: 4px 10px;
+}
+
+.status_pending {
+  color: var(--hk-muted);
+  background: var(--hk-surface-3);
+}
+
+.status_joined {
+  color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+}
+
+.status_rewarded {
+  color: var(--hk-success);
+  background: var(--hk-success-tint);
+}
+
+/* ---- Loyalty ---- */
+
+.loyaltyCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.tierHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s4);
+}
+
+.tierBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: var(--hk-r-pill);
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+/* Tier colors: bronze/platinum have no dedicated tokens — one-off hardcoded
+   tints per CLAUDE.md's "known token gap" convention (silver/gold reuse
+   existing muted/gold tokens, so only these two are new hex). */
+.tier_bronze {
+  color: #8a5a34;
+  background: #f5e9de;
+}
+
+.tier_silver {
+  color: var(--hk-muted-2);
+  background: var(--hk-surface-3);
+}
+
+.tier_gold {
+  color: var(--hk-gold-text-sm);
+  background: var(--hk-gold-tint);
+}
+
+.tier_platinum {
+  color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+}
+
+.pointsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pointsAvailable {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--hk-ink);
+}
+
+.pointsLifetime {
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+.tierMeter {
+  margin-bottom: var(--hk-s4);
+}
+
+.topTierNote {
+  font-size: 13px;
+  color: var(--hk-gold-text-sm);
+  margin-bottom: var(--hk-s4);
+}
+
+.tierLadder {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--hk-s2);
+}
+
+.tierStep {
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tierStepCurrent {
+  border-color: var(--hk-gold-border);
+  background: var(--hk-gold-tint);
+}
+
+.tierStepLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-ink-2);
+}
+
+.tierStepPerk {
+  font-size: 11.5px;
+  color: var(--hk-muted);
+  line-height: 1.4;
+}
+
+/* ---- How it works ---- */
+
+.howCard {
+  display: flex;
+  flex-direction: column;
+}
+
+.howList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  list-style: none;
+}
+
+.howStep {
+  display: flex;
+  gap: var(--hk-s3);
+}
+
+.howIndex {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--hk-pine);
+  color: #fff;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.howTitle {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+}
+
+.howDescription {
+  font-size: 13px;
+  color: var(--hk-muted);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .tierLadder {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .codeRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .codeActions {
+    width: 100%;
+  }
+
+  .codeActions > * {
+    flex: 1;
+  }
+}

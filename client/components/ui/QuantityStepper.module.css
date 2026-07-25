@@ -1,0 +1,42 @@
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--hk-pine);
+  border-radius: var(--hk-r-pill);
+  overflow: hidden;
+  width: fit-content;
+}
+
+.stepper.disabled {
+  border-color: var(--hk-border-2);
+}
+
+.btn {
+  border: none;
+  background: none;
+  padding: 0 16px;
+  height: 52px;
+  font-size: 20px;
+  color: var(--hk-pine);
+  cursor: pointer;
+  line-height: 1;
+  font-family: inherit;
+  transition: background var(--hk-dur) var(--hk-ease);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--hk-pine-tint);
+}
+
+.btn:disabled {
+  color: var(--hk-muted);
+  cursor: not-allowed;
+}
+
+.value {
+  font-family: var(--hk-font-mono);
+  font-size: 15px;
+  min-width: 26px;
+  text-align: center;
+  user-select: none;
+}

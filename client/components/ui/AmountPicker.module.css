@@ -1,0 +1,43 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 420px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.tile {
+  font-family: var(--hk-font-mono);
+  font-size: 14px;
+  text-align: center;
+  padding: 13px 4px;
+  border-radius: var(--hk-r-md);
+  cursor: pointer;
+  border: 1.5px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease);
+}
+
+.tile:hover:not(:disabled) {
+  border-color: var(--hk-pine);
+}
+
+.tile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tile.selected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  font-weight: 600;
+}

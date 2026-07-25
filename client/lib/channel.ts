@@ -1,0 +1,106 @@
+/**
+ * Channel rules — the enforceable form of the plan's channel matrix:
+ *
+ *   Module        Browse web   Checkout web        Live tracking
+ *   Marketplace   yes          web                  status only
+ *   Laundry       yes          web or COD            app only
+ *   Snacks        yes          WhatsApp (no cart)     WhatsApp text
+ *   Full meals    promo only   app only               app only
+ *
+ * Screens should read these flags rather than re-encoding the rules:
+ * e.g. the Snacks screen (M5) must check `hasCheckoutOnWeb === false` and
+ * never render a checkout button; the full-meals promo page must check
+ * `hasMenuOnWeb === false` and never render a menu/cart.
+ */
+
+export type ChannelKey = "marketplace" | "laundry" | "snacks" | "full-meals";
+
+export type OrderVia =
+  | "web-checkout"
+  | "web-checkout-or-cod"
+  | "whatsapp"
+  | "app-only";
+
+export type LiveTracking = "status-only" | "whatsapp-status" | "app-only";
+
+/** Visual variant a <ChannelBadge> (built in M1) maps to a pill style. */
+export type ChannelBadgeVariant = "pine" | "gold-dark" | "whatsapp";
+
+export interface ChannelBadgeConfig {
+  label: string;
+  variant: ChannelBadgeVariant;
+}
+
+export interface ChannelRule {
+  key: ChannelKey;
+  label: string;
+  /** Can the customer browse a catalog/menu on the website at all? */
+  hasMenuOnWeb: boolean;
+  /** Does the website carry a cart for this module? */
+  hasCartOnWeb: boolean;
+  /** Does the website carry its own checkout/payment step? */
+  hasCheckoutOnWeb: boolean;
+  orderVia: OrderVia;
+  liveTracking: LiveTracking;
+  badge: ChannelBadgeConfig;
+  /** Human-readable rationale, surfaced in dev tooling / docs. */
+  notes: string;
+}
+
+export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
+  marketplace: {
+    key: "marketplace",
+    label: "Gifting Marketplace",
+    hasMenuOnWeb: true,
+    hasCartOnWeb: true,
+    hasCheckoutOnWeb: true,
+    orderVia: "web-checkout",
+    liveTracking: "status-only",
+    badge: { label: "Book online now", variant: "pine" },
+    notes: "Full e-commerce on web. No live rider tracking — status stepper only.",
+  },
+  laundry: {
+    key: "laundry",
+    label: "Laundry, Cleaning & Ironing",
+    hasMenuOnWeb: true,
+    hasCartOnWeb: true,
+    hasCheckoutOnWeb: true,
+    orderVia: "web-checkout-or-cod",
+    liveTracking: "app-only",
+    badge: { label: "Book online now", variant: "pine" },
+    notes:
+      "Bookable end-to-end on web, wallet/online or COD. Real-time pickup/delivery tracking is app-only — web shows a status line + \"track on the app\" band.",
+  },
+  snacks: {
+    key: "snacks",
+    label: "Snacks",
+    hasMenuOnWeb: true,
+    hasCartOnWeb: false,
+    hasCheckoutOnWeb: false,
+    orderVia: "whatsapp",
+    liveTracking: "whatsapp-status",
+    badge: { label: "Order on WhatsApp", variant: "whatsapp" },
+    notes:
+      "Browsable menu on web, but NO on-site cart or checkout. The selection is sent as a WhatsApp message (wa.me); status (received → accepted → out for delivery) is communicated back over WhatsApp text.",
+  },
+  "full-meals": {
+    key: "full-meals",
+    label: "Food Delivery — Full Meals",
+    hasMenuOnWeb: false,
+    hasCartOnWeb: false,
+    hasCheckoutOnWeb: false,
+    orderVia: "app-only",
+    liveTracking: "app-only",
+    badge: { label: "On the app · Coming soon", variant: "gold-dark" },
+    notes:
+      "Web is promotional only — no menu, no cart, no checkout. Ordering and live tracking are entirely in the Homekrafted app.",
+  },
+};
+
+export function getChannelRule(key: ChannelKey): ChannelRule {
+  return CHANNEL_RULES[key];
+}
+
+export function getChannelBadge(key: ChannelKey): ChannelBadgeConfig {
+  return CHANNEL_RULES[key].badge;
+}

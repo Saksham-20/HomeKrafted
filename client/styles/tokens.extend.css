@@ -1,0 +1,50 @@
+/* Homekrafted — token-gap extensions.
+   Centralizes recurring prototype colors that recur across components but
+   aren't in the verbatim `styles/tokens.css` copy (flagged as "Known token
+   gaps" in the root CLAUDE.md during M0, where they were hardcoded locally
+   with comments as an interim measure). `tokens.css` stays untouched and
+   remains law — this file is purely additive, imported once immediately
+   AFTER `globals.css` in `app/layout.tsx` so these vars are available
+   everywhere `--hk-*` tokens are. Do not add values here that already have
+   a home in tokens.css — this is only for the recurring gaps below. */
+
+:root {
+  /* ---- On-solid-pine text ----
+     Copy sitting directly on solid --hk-pine (not --hk-pine-deep): the
+     announcement bar, product tag chips, the "Book online now" channel
+     badge, and promo-band body copy on the pine gradient. Ported verbatim
+     from the prototype's #EADFC9 — too warm/cream to approximate with
+     --hk-gold-bright (#E4C874, too golden) or plain white. */
+  --hk-on-pine: #eadfc9;
+
+  /* ---- Small gold-family text ----
+     Gold-family text/icons at small sizes on white or gold-tint surfaces
+     (wallet chip amount, cashback lines, ghost-gold button label). Base
+     --hk-gold (#B98724) is only ~3.6:1 on white — fine for >=16px bold or
+     pure decoration (eyebrows) per design-system.md, but not AA-safe for
+     13px chip/label text. This darkened shade restores contrast at those
+     sizes. Ported verbatim from the prototype's #8a6a16. */
+  --hk-gold-text-sm: #8a6a16;
+
+  /* ---- Footer / on-pine-deep text ramp ----
+     Light-on-dark ramp for copy sitting on solid --hk-pine-deep (footer)
+     or the --hk-pine -> --hk-pine-grad-a gradient (PromoBand's dark
+     variant, WalletBalanceCard's secondary row) — ported verbatim from
+     the prototype rather than approximated, since none of the light-
+     surface ink ramp in tokens.css applies on a dark background. Named
+     --hk-footer-* per the M1 brief (supersedes the --hk-pine-deep-*
+     candidate names M0 suggested upstream). --hk-footer-ink/-ink-2 are
+     reused outside the literal footer wherever this exact ramp recurs on
+     a dark pine surface, rather than hardcoding the same hex again. */
+  --hk-footer-ink: #c7d3c5; /* body copy */
+  --hk-footer-ink-2: #a9bcae; /* link list */
+  --hk-footer-muted: #9fb3a5; /* brand blurb */
+  --hk-footer-mono: #7e9488; /* mono legal row */
+  --hk-footer-border: #2c473a; /* divider above the legal row */
+
+  /* ---- Decorative scrollbar ----
+     `.hk-scroll` thumb tint for horizontally-scrolling rails (chip rows,
+     tabs). Decorative only, low stakes. Ported verbatim from the
+     prototype's #D9CDB4. */
+  --hk-scrollbar: #d9cdb4;
+}

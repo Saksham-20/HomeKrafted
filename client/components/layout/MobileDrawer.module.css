@@ -1,0 +1,127 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 51, 39, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--hk-dur) var(--hk-ease);
+  z-index: 90;
+}
+
+.scrim.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(86vw, 340px);
+  background: var(--hk-surface);
+  box-shadow: var(--hk-shadow-stage);
+  transform: translateX(100%);
+  transition: transform var(--hk-dur) var(--hk-ease);
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panel.open {
+  transform: translateX(0);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--hk-s4);
+  border-bottom: 1px solid var(--hk-border);
+  flex-shrink: 0;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-md);
+  color: var(--hk-ink-2);
+}
+
+.navList {
+  display: flex;
+  flex-direction: column;
+  padding: var(--hk-s2) 0;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  padding: var(--hk-s4);
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--hk-ink);
+  border-bottom: 1px solid var(--hk-divider);
+  min-height: 44px;
+}
+
+.navItem:hover {
+  color: var(--hk-gold);
+  background: var(--hk-surface-3);
+}
+
+.divider {
+  border-top: 1px solid var(--hk-border);
+  margin: var(--hk-s2) 0;
+}
+
+.utilList {
+  display: flex;
+  flex-direction: column;
+  padding: var(--hk-s2) 0 var(--hk-s5);
+}
+
+.utilItem {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s4);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.utilItem:hover {
+  color: var(--hk-pine);
+  background: var(--hk-surface-3);
+}
+
+.utilIcon {
+  display: flex;
+  color: var(--hk-pine);
+}
+
+.utilLabel {
+  flex: 1;
+}
+
+.utilMeta {
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  color: var(--hk-gold-text-sm);
+}

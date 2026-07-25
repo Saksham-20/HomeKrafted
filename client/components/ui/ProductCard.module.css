@@ -1,0 +1,152 @@
+.card {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover,
+.clickable:focus-visible {
+  /* Prototype uses #C9A24a here — normalized to the nearest gold-border
+     token (tokens.css has no separate value for it). */
+  border-color: var(--hk-gold-border);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.imageWrap {
+  position: relative;
+}
+
+.tag {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+}
+
+.wishlist {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hk-muted);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease);
+}
+
+.wishlist:hover {
+  color: var(--hk-terracotta);
+}
+
+/* Wishlisted (filled-heart) state isn't shown in the prototype (every
+   card instance renders the idle outline heart) — terracotta fill is a
+   deliberate, minor extension so the "selected" state has a real look,
+   reusing the existing marketplace emphasis token rather than a new hex. */
+.wishlisted {
+  color: var(--hk-terracotta);
+  border-color: var(--hk-terracotta);
+}
+
+.content {
+  padding: 14px 15px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.maker {
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  line-height: 1.15;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.priceRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.priceGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.price {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.mrp {
+  font-size: 12px;
+  color: var(--hk-muted);
+  text-decoration: line-through;
+}
+
+.add {
+  background: var(--hk-pine);
+  color: #fff;
+  border: none;
+  border-radius: var(--hk-r-pill);
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease);
+}
+
+.add:hover {
+  transform: none;
+  box-shadow: var(--hk-shadow-card);
+}
+
+/* Added state — light green border has no matching token (prototype's
+   #B7d0bd); hardcoded + documented per the same convention as the other
+   flagged one-off gaps. */
+.added {
+  background: var(--hk-pine-tint);
+  color: var(--hk-success);
+  border: 1px solid #b7d0bd;
+}

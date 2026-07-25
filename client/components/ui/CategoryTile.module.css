@@ -1,0 +1,23 @@
+.tile {
+  border: none;
+  background: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  font-family: inherit;
+  width: 100%;
+  padding: 0;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  text-align: center;
+}
+
+.tile:hover .label {
+  color: var(--hk-gold);
+}

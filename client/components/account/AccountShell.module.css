@@ -1,0 +1,106 @@
+.page {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s6);
+  padding-block: var(--hk-s6) var(--hk-s8);
+}
+
+.sidebar {
+  flex-shrink: 0;
+  width: 220px;
+  position: sticky;
+  top: var(--hk-s5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s3);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--hk-r-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  min-height: 44px;
+}
+
+.navItem:hover {
+  background: var(--hk-surface-3);
+  color: var(--hk-ink);
+}
+
+.navItemActive {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 780px) {
+  .page {
+    flex-direction: column;
+    gap: var(--hk-s4);
+  }
+
+  .sidebar {
+    position: static;
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: var(--hk-s2);
+  }
+
+  .navItem {
+    flex-shrink: 0;
+  }
+}
+
+/* ---- Signed-out state ---- */
+
+.signedOutPage {
+  padding-block: var(--hk-s8);
+  display: flex;
+  justify-content: center;
+}
+
+.signedOutCard {
+  max-width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s2);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s6);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.signedOutTitle {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+}
+
+.signedOutCopy {
+  color: var(--hk-muted);
+  font-size: 14px;
+  margin-bottom: var(--hk-s2);
+}

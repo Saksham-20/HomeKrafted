@@ -1,0 +1,55 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 12px;
+}
+
+.thumb {
+  position: relative;
+}
+
+.remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border-2);
+  color: var(--hk-terracotta);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dropTile {
+  aspect-ratio: 1/1;
+  border-radius: var(--hk-r-sm);
+  border: 1.5px dashed var(--hk-border-2);
+  background: none;
+  color: var(--hk-gold);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease);
+}
+
+.dropTile:hover {
+  border-color: var(--hk-gold);
+  background: var(--hk-gold-tint);
+}
+
+.label {
+  font-size: 11.5px;
+  color: var(--hk-ink-3);
+  font-weight: 500;
+}

@@ -1,0 +1,138 @@
+.card {
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s6) var(--hk-s6);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.badge {
+  align-self: flex-start;
+}
+
+.laundry {
+  background: var(--hk-pine-tint);
+  border: 1px solid #d3e0d2; /* prototype's laundry-card border — no matching token, one-off gap */
+}
+
+.snacks {
+  background: var(--hk-whatsapp-tint);
+  border: 1px solid var(--hk-whatsapp-border);
+}
+
+.food {
+  background: linear-gradient(120deg, var(--hk-ink), #3a3025);
+  color: var(--hk-on-pine);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  margin: var(--hk-s4) 0 var(--hk-s2);
+}
+
+.iconWrap {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--hk-r-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.laundry .iconWrap {
+  background: var(--hk-pine);
+  color: var(--hk-gold-bright);
+}
+
+.snacks .iconWrap {
+  background: var(--hk-whatsapp);
+  color: #fff;
+}
+
+.food .iconWrap {
+  background: var(--hk-gold-bright);
+  color: var(--hk-ink);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.laundry .title,
+.snacks .title {
+  color: var(--hk-pine);
+}
+
+.food .title {
+  color: #ffffff;
+}
+
+.description {
+  font-size: 14.5px;
+  line-height: 1.55;
+  max-width: 380px;
+  margin-bottom: var(--hk-s2);
+}
+
+.laundry .description,
+.snacks .description {
+  color: var(--hk-ink-3);
+}
+
+.food .description {
+  color: #c8bfae;
+}
+
+.cta {
+  align-self: flex-start;
+  border: none;
+  border-radius: var(--hk-r-pill);
+  padding: 13px 24px;
+  font-size: 14.5px;
+  font-weight: 600;
+  font-family: inherit;
+  margin-top: var(--hk-s2);
+  transition: opacity var(--hk-dur) var(--hk-ease);
+}
+
+.laundry .cta {
+  background: var(--hk-pine);
+  color: #ffffff;
+}
+
+.laundry .cta:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.snacks .cta {
+  background: var(--hk-whatsapp);
+  color: #ffffff;
+}
+
+.snacks .cta:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.storeBadges {
+  margin-top: var(--hk-s2);
+}
+
+.notify {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  /* Prototype's #a99a78 on the dark food-delivery card — a one-off gap,
+     doesn't match any tokens.css or tokens.extend.css value closely enough
+     to reuse (per the ProductCard/SnackCard "documented one-off" convention). */
+  color: #a99a78;
+  margin-top: var(--hk-s3);
+}

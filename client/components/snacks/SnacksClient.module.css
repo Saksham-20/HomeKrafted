@@ -1,0 +1,135 @@
+.layout {
+  padding-block: var(--hk-s4) var(--hk-s8);
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.main {
+  min-width: 0;
+}
+
+.chipRow {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s5);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+/* ---- Snack-list line rows ---- */
+.itemRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex: 1;
+  min-width: 0;
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stepper {
+  flex-shrink: 0;
+}
+
+.itemValue {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.remove {
+  border: none;
+  background: none;
+  color: var(--hk-muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px;
+  min-width: 24px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--hk-r-pill);
+  transition:
+    color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease);
+}
+
+.remove:hover {
+  color: var(--hk-terracotta);
+  background: var(--hk-pine-tint);
+}
+
+/* ---- WhatsApp order-updates card ---- */
+.waCard {
+  background: var(--hk-whatsapp-tint);
+  border: 1px solid var(--hk-whatsapp-border);
+  border-radius: 18px;
+  padding: 20px 22px;
+}
+
+.waEyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-whatsapp-deep);
+}
+
+.timeline {
+  margin-top: var(--hk-s4);
+}
+
+.waNote {
+  font-size: 12px;
+  line-height: 1.5;
+  /* Prototype's #7a8a7d on the WhatsApp-tint card — no matching token
+     close enough to reuse; one-off gap, documented per the ProductCard/
+     SnackCard convention rather than joining tokens.extend.css. */
+  color: #7a8a7d;
+  margin-top: var(--hk-s4);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .aside {
+    position: static;
+    padding-top: var(--hk-s2);
+  }
+}
+
+@media (max-width: 640px) {
+  /* Clears the fixed "Send list on WhatsApp" bar `stickyOnMobile` pins
+     to the viewport bottom (see StickySummary.module.css). */
+  .layout {
+    padding-bottom: 84px;
+  }
+}

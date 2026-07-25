@@ -1,0 +1,39 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+}
+
+.textarea {
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  padding: 12px 14px;
+  font-family: var(--hk-font-body);
+  font-size: 14.5px;
+  color: var(--hk-ink);
+  background: var(--hk-surface);
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.6;
+  transition: border-color var(--hk-dur) var(--hk-ease);
+}
+
+.textarea:focus {
+  border-color: var(--hk-pine);
+  outline: none;
+}
+
+.textarea::placeholder {
+  color: var(--hk-muted);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--hk-muted);
+}

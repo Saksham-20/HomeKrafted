@@ -1,0 +1,27 @@
+.breadcrumbWrap {
+  padding-block: var(--hk-s5) var(--hk-s2);
+}
+
+.breadcrumb {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--hk-muted);
+}
+
+.breadcrumbCurrent {
+  color: var(--hk-ink-2);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(28px, 4vw, 38px);
+  color: var(--hk-pine);
+  margin: var(--hk-s3) 0 4px;
+}
+
+.subtitle {
+  font-size: 14.5px;
+  color: var(--hk-muted);
+}

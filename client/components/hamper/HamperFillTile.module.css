@@ -1,0 +1,59 @@
+.tile {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  padding: var(--hk-s3) 13px 13px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  line-height: 1.15;
+  display: block;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--hk-s3);
+}
+
+.price {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.addBtn {
+  border: 1px solid var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--hk-r-pill);
+  padding: 7px 14px;
+  min-height: 32px;
+  transition: opacity var(--hk-dur) var(--hk-ease);
+}
+
+.addBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.addBtn.added {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  border-color: var(--hk-border-2);
+}

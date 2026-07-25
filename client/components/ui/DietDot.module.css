@@ -1,0 +1,33 @@
+.dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--hk-surface);
+  border: 1.5px solid transparent;
+  flex-shrink: 0;
+}
+
+.veg {
+  border-color: var(--hk-success);
+}
+
+.nonVeg {
+  border-color: var(--hk-terracotta);
+}
+
+.glyph {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.veg .glyph {
+  background: var(--hk-success);
+}
+
+.nonVeg .glyph {
+  background: var(--hk-terracotta);
+}

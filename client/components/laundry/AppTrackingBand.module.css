@@ -1,0 +1,54 @@
+.band {
+  background: linear-gradient(120deg, var(--hk-ink), #3a3025);
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s5) var(--hk-s6);
+  color: var(--hk-on-pine);
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s5);
+  flex-wrap: wrap;
+}
+
+.iconTile {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-gold-bright);
+  color: var(--hk-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  min-width: 220px;
+}
+
+.badge {
+  margin-bottom: var(--hk-s2);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.copy {
+  font-size: 13.5px;
+  color: #c8bfae;
+  margin-top: 2px;
+}
+
+.storeBadges {
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .band {
+    padding: var(--hk-s4);
+  }
+}
