@@ -1,40 +1,744 @@
 # API contract
 
-Today (M0–M7) "the API" is `lib/api/` — typed, `async` functions that
-resolve mock data from `lib/data/`. Every function already returns a
-`Promise`, so **M8 (secure backend) only changes function bodies** to real
-`fetch()` calls against Next.js route handlers under `app/api/` — no
-calling component should need to change.
+Through M0–M7 "the API" was `lib/api/` — typed, `async` functions that
+resolve mock data from `lib/data/`. **M8.0 stands up the real backend**
+(`server/`, NestJS + Prisma + Postgres) that this contract describes —
+auth + users/addresses are real endpoints today. **M8.1 adds commerce**:
+catalog browse (products/vendors/categories/occasions/collections),
+reviews, wishlist, cart and orders are real endpoints as of this
+milestone too — see "Commerce (M8.1)" below for the full contract. Wallet/
+Razorpay payment capture (M8.2) is real — see "Wallet & Payments (M8.2)".
+**M8.3a adds services**: laundry (services/availability + owner-scoped
+bookings/subscriptions), snacks (public menu read), referrals/loyalty,
+notifications, support tickets and corporate inquiries are real endpoints
+as of this milestone — see "Services (M8.3a)" below. **M8.3b adds the
+seller portal**: owner-scoped endpoints for all 3 seller types (maker
+listings/orders/storefront/reviews, laundry-partner bookings, snack-seller
+menu/orders) plus payouts, gated by `@Roles('seller')` and per-request
+ownership re-derived from the JWT — see "Seller portal (M8.3b)" below.
+**M8.3c adds the admin panel**: unscoped dashboard/analytics, user +
+seller directory (suspend, onboarding approval queue), catalog/review
+moderation, unified orders oversight + refunds, wallet oversight,
+collections CMS, and an audit log every admin mutation writes to — gated
+`@Roles('admin')` — see "Admin panel (M8.3c)" below. This completes the
+full consumer/seller/admin backend API surface. WhatsApp/notification
+delivery (M9) is still to come. The `client/lib/api` mock→real swap
+itself (pointing `fetch()` calls at `server/`) is **M8.4** — no calling
+component in `client/` changes shape, only what the function body does.
 
-This doc is the current contract (what exists, what it returns) plus the
-intended real-endpoint shape for M8, so the swap is mechanical.
+## Conventions
 
-## Conventions (to carry into M8)
-
-- Base path: `/api/v1`.
-- Auth: session cookie (Auth.js), phone OTP / email / social login.
-  Unauthenticated requests to user-scoped endpoints (`wallet`, `orders`,
-  `wishlist`, etc.) return `401`.
+- Base path: **`/api/v1`** (set via `app.setGlobalPrefix('api/v1', ...)`
+  in `server/src/main.ts`). `/health` and `/health/db` are the only
+  unprefixed routes (liveness/readiness checks).
+- Auth: **JWT** — a short-lived access token (`Authorization: Bearer
+  <token>`) plus a longer-lived, rotating refresh token. See "Auth model"
+  below. Unauthenticated requests to any non-`@Public()` endpoint return
+  `401`; wrong-role requests to a `@Roles(...)`-guarded endpoint return
+  `403`.
 - Errors: `{ error: { code: string, message: string } }` with a matching
   HTTP status (`400` validation, `401` auth, `403` forbidden, `404` not
-  found, `409` conflict, `500` server).
+  found, `409` conflict, `429` rate-limited, `500` server) — implemented
+  by `server/src/common/filters/all-exceptions.filter.ts`, applied
+  globally. `code` is a stable machine-readable string (e.g.
+  `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`).
 - Mutations (top-up, place order, create booking, send snack list) are
   `POST`; the wallet ledger is server-authoritative — the client never
   computes or sends `balanceAfter`.
 - Pagination (products, orders): `?page=&pageSize=` query params, response
   shape `{ items: T[], page, pageSize, total }` once real data volume
   needs it — M0's mock lists are small enough to return whole.
+- Rate limiting: a global default limit (`THROTTLE_LIMIT`/
+  `THROTTLE_TTL_SECONDS`, `.env.example`) via `@nestjs/throttler`, with a
+  tighter override on every `/auth/*` route (`@Throttle`) — verified in
+  M8.0 to actually return `429` after repeated `/auth/login` attempts.
+
+## Auth model (M8.0 — real, implemented in `server/src/auth/`)
+
+Three sign-in flows, all converging on the same JWT session shape:
+
+- **Email + password** — `POST /auth/register`, `POST /auth/login`.
+  Passwords hashed with **argon2**.
+- **Phone OTP** — `POST /auth/otp/request` (issues a 6-digit code, stub
+  "sender" logs it to the server console — a real SMS/WhatsApp provider
+  swaps in behind the same interface at M9), `POST /auth/otp/verify`
+  (creates the account on first verify if none exists for that phone).
+  Codes are argon2-hashed at rest, short-TTL (`OTP_TTL_SECONDS`), with a
+  per-attempt counter.
+- **Social (stub)** — `POST /auth/social/:provider` (`provider` =
+  `google`\|`apple`). **Stub**: trusts a client-submitted
+  `{providerAccountId, email?, name?}` payload instead of verifying a
+  real OAuth token — flagged in `SocialLoginDto`'s doc comment; a real
+  provider SDK verification is a service-body-only change (same DTO
+  shape, since a verified profile has the same fields).
+
+All three return the same shape:
+
+```jsonc
+// 200/201
+{
+  "accessToken": "<JWT, short TTL — JWT_ACCESS_TTL, default 15m>",
+  "refreshToken": "<JWT, longer TTL — JWT_REFRESH_TTL, default 7d>",
+  "user": { "id", "name", "email", "phone", "role", "referralCode", "createdAt", "suspended" }
+}
+```
+
+- `POST /auth/refresh` — `{ refreshToken }` → new `{ accessToken,
+  refreshToken }`. **Rotating**: the presented refresh token is revoked
+  and replaced in the same operation; presenting an already-used
+  (revoked) refresh token is rejected with `401` — the reuse-detection
+  signal a stolen/replayed token trips. Refresh tokens are stored
+  server-side only as a SHA-256 hash (`RefreshToken.tokenHash`), never
+  the raw token.
+- `POST /auth/logout` — `{ refreshToken }` → `204`, revokes that refresh
+  token.
+- JWT payload: `{ sub: userId, role, sellerId? }` — `sellerId` only
+  present for `role: "seller"` accounts (resolved server-side from the
+  `Seller` table at token-issue time, never trusted from the client).
+
+### RBAC
+
+- `@Public()` — opts a route out of the global `JwtAuthGuard` (register,
+  login, OTP request/verify, social login, refresh, logout, `/health*`).
+  Every other route requires a valid, unexpired access token.
+- `@Roles('admin')` / `@Roles('seller', 'admin')` — layered on top via
+  `RolesGuard`; a route with no `@Roles(...)` allows any authenticated
+  role through. Wrong role → `403 FORBIDDEN`.
+- Ownership scoping (M8.1–M8.3 seam): `server/src/common/scoping/ownership.util.ts`
+  exports `assertOwnUserScope`/`assertOwnSellerScope`/`assertAdmin` — every
+  seller/consumer-scoped query in later milestones re-derives its scoping
+  id from the verified `@CurrentUser()`, never from a client-submitted
+  `vendorId`/`sellerId`/`userId`.
+
+## Users & addresses (M8.0 — real, `server/src/users/`)
+
+| Endpoint | Auth | Returns |
+|---|---|---|
+| `GET /users/me` | any authed role | `PublicUser` |
+| `PATCH /users/me` | any authed role | updated `PublicUser` |
+| `GET /users/me/addresses` | any authed role | `Address[]`, own addresses only |
+| `POST /users/me/addresses` | any authed role | created `Address` |
+| `PATCH /users/me/addresses/:id` | any authed role, own address only (404 otherwise) | updated `Address` |
+| `DELETE /users/me/addresses/:id` | any authed role, own address only | `204` |
+| `POST /users/me/addresses/:id/default` | any authed role, own address only | `Address` with `isDefault: true` |
+| `GET /users/:id` | **`admin` only** | any user's `PublicUser` — exists specifically to prove `RolesGuard` end to end against a real resource (see `UsersController`'s doc comment); a fuller admin user-management surface is M8.3/M11 scope |
+
+## Commerce (M8.1 — real, `server/src/{catalog,reviews,wishlist,cart,orders}/`)
+
+Catalog browse is public (`@Public()`, per `lib/channel.ts`'s Marketplace
+row — "Browse web: yes"); reviews/wishlist/cart/orders are owner-scoped
+(`@CurrentUser()` resolves `userId` from the verified JWT, never a route/
+body param — same rule as "Ownership scoping" above). Every price is
+computed server-side from `WeightOption.price`/`HamperBox.price` — no
+endpoint here ever trusts a client-submitted amount; `ValidationPipe`'s
+`forbidNonWhitelisted: true` rejects a request body carrying an extra
+`price` field outright (`400 VALIDATION_ERROR`) rather than silently
+dropping it.
+
+### Products & catalog
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /products` | public | Query params: `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
+| `GET /products/:slug` | public | No `hidden` filter — a direct-link/cart/order/wishlist resolve must still work, matching `lib/api/products.ts#getProduct`'s doc comment. `404` if no product has that slug. |
+| `GET /vendors` | public | `Vendor[]` |
+| `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` — `VendorFollow` exists in the schema but M8.1 doesn't add follow endpoints. |
+| `GET /vendors/:slug/products` | public | `Product[]`, excludes `hidden` — same rule `lib/api/products.ts#getProductsByVendor` applies |
+| `GET /categories`, `GET /categories/:slug` | public | `Category[]` / `Category` |
+| `GET /occasions`, `GET /occasions/:slug` | public | `Occasion[]` / `Occasion` |
+| `GET /collections`, `GET /collections/:slug` | public | `Collection[]` / `Collection` — `productIds` ordered by `CollectionProduct.sortOrder` |
+
+### Reviews
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /reviews?targetType=&targetId=` | public | `targetType`: `product`\|`vendor`\|`service`. Excludes `hidden: true` — same rule `lib/api/reviews.ts` applies. |
+| `POST /reviews` | any authed role | Body: `{ targetType, targetId, rating (1–5), title?, body }`. Server sets `userId`/`userName` from the session; computes `verifiedPurchase` = the reviewer has a non-cancelled `Order` containing the product (or, for a vendor review, any product from that vendor) — always `false` for `targetType: "service"` today (an M8.3 seam: `LaundryBooking`-based verification needs the laundry endpoints that land then; `targetId` for `"service"` currently validates against `LaundryService`, the only service-shaped entity that exists pre-M8.3). `404` if `targetId` doesn't resolve to a real `Product`/`Vendor`/`LaundryService`. |
+
+### Wishlist (owner-scoped)
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /wishlist` | any authed role | Lazily creates an empty `Wishlist` row on first read (mirrors the mock `WishlistContext` starting empty). Returns `{ id, userId, items: [{productId, addedAt}] }`. |
+| `POST /wishlist/items` | any authed role | Body `{ productId }`. Idempotent (upsert on the `wishlistId`+`productId` unique constraint) — adding twice is a no-op, not a duplicate row. `404` if the product doesn't exist. |
+| `DELETE /wishlist/items/:productId` | any authed role | `204`, idempotent (removing an absent item is not an error). |
+
+### Cart (owner-scoped)
+
+`Cart` is 1:1 per user (`userId @unique`) — there's no cart id to guess,
+`GET /cart` always resolves the caller's own. Every item-level mutation
+additionally re-checks the parent cart's `userId` before touching a row
+(`CartService.assertOwnedItem`) — operating on another account's
+`CartItem` id `404`s rather than `403`ing (never confirms the id exists).
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /cart` | any authed role | Lazily creates an empty cart. Returns `{ id, userId, updatedAt, items: CartLineDto[], count, subtotal, shippingFee, total, cashbackEstimate }` — richer than the frontend `Cart` type, see "Response-shape notes for M8.4" below. Every `items[]` entry is resolved fresh via `resolveCartLine` (name/unitPrice/lineTotal/weightLabel/maxQuantity/isHamper) — `CartItem` itself only stores `productId`+`sku`/`hamperId`+`quantity`, no price. |
+| `POST /cart/items` | any authed role | Body `{ productId, sku, quantity? }` (default 1). Adds, or increments an existing `productId`+`sku` line — mirrors `CartContext.addItem`. `400` if the resulting quantity would exceed `WeightOption.stock`. |
+| `POST /cart/hamper-items` | any authed role | Body `{ boxId, items: [{productId, quantity}], giftNote?, wrap?, ribbon?, nameCard?, recipientAddressId?, hidePrice? }`. Creates a real `Hamper` row + one `CartItem{hamperId}` line — mirrors `CartContext.addHamperItem`. `400` if the summed item quantity exceeds the box's `maxItems`; `404` if `recipientAddressId` is set but isn't one of the caller's own addresses. |
+| `PATCH /cart/items/:id` | any authed role, own item only (`404` otherwise) | Body `{ quantity }` (≥ 1). `400` if it would exceed stock (product lines only). |
+| `DELETE /cart/items/:id` | any authed role, own item only | Removes the line. The linked `Hamper` row (if a hamper line) is left in place — a `Hamper` can still be referenced by a later `OrderItem` even after its `CartItem` is gone (see `schema.prisma`'s `Hamper` model comment). |
+| `POST /cart/items/:id/address` | any authed role, own item only | Body `{ addressId? }` — assigns (or clears, if omitted) which saved address the line ships to. `addressId` must be one of the caller's own addresses (`404` otherwise). |
+| `DELETE /cart` | any authed role | `204`, empties the cart. |
+
+### Orders (owner-scoped)
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /orders` | any authed role | Creates an order from the caller's **current `Cart`** — see "Server-authoritative pricing" below. Body: `{ defaultAddressId?, shipments?: [{addressId, deliveryDate?}], gift?: {recipientName, recipientAddressId, hidePrice?, message?}, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `gift.recipientAddressId` must be one of the caller's own saved addresses — "ship to someone else" means the recipient's address is in your address book, the same FK shape `Order.giftRecipientAddressId` requires; the mock checkout's synthetic `"gift-recipient"` id doesn't carry over (flagged for M8.4 below). `400` on an empty cart or a missing shipping address for some line; `404` if any resolved address isn't owned by the caller; `409` on a stock race lost inside the transaction. Clears the cart on success. |
+| `GET /orders` | any authed role | Own orders only, newest first. `?page=&pageSize=` (default 20, max 100). Returns `{ items, page, pageSize, total }`. |
+| `GET /orders/history` | any authed role | `client/lib/api/history.ts#getOrderHistory`'s unified shape, **marketplace orders only** — laundry/snack bookings join this in M8.3 (see below). |
+| `GET /orders/:id` | any authed role, own order only (`404` otherwise) | Full order incl. items/shipments/gift. |
+| `POST /orders/:id/pay` | any authed role, own order only | **M8.2.** Completes the `pending-payment -> placed` seam for a `paymentMethod: "wallet"` order: debits the wallet for `order.total` (read fresh from the DB), credits `order.cashbackEarned`, transitions the order to `placed` — one atomic transaction. `402` (`INSUFFICIENT_BALANCE`) if the wallet can't cover it, order left untouched. `409` if the order isn't `pending-payment` (already paid/cancelled) or `400` if its `paymentMethod` isn't `"wallet"`. Accepts an `Idempotency-Key` header (see "Idempotency" below) — safe to retry. |
+| `POST /orders/:id/refund` | `@Roles('admin')` | **M8.2.** Credits the order owner's wallet for `order.total` (`category: "refund"`) and sets `refundStatus: "refunded"`. `404` unknown order, `409` if the order was never paid (`pending-payment`). Idempotent: a second call (same `Idempotency-Key`, or none at all — the "already refunded" check alone catches it) returns the same result without a second credit. |
+
+#### Server-authoritative pricing + price-snapshotting
+
+`OrdersService.create` never reads a price from the request body — the
+DTO has no price field, and an extra one is rejected outright by
+`forbidNonWhitelisted`. Every line's price is recomputed fresh via the
+same `resolveCartLine` helper `GET /cart` uses (product line: the current
+`WeightOption.price` for the requested `sku`; hamper line:
+`HamperBox.price` + the sum of each hamper item's product's
+default-weight price × quantity), then **snapshotted onto
+`OrderItem.price`** at creation time — an order's total never drifts if
+the catalog price changes afterward. Stock is checked once up front
+(fast-fail before opening a transaction) and then re-checked +
+decremented atomically inside the same `$transaction` that creates the
+order: `WeightOption.updateMany({ where: { sku, stock: { gte: qty } },
+data: { stock: { decrement: qty } } })` — an affected-row count of `0`
+means a concurrent request won the race, and the whole order creation
+throws `409 CONFLICT` and rolls back (no partial order, no double-sold
+stock). `subtotal`/`shippingFee`/`cashbackEarned`/`total` use the exact
+same `computeShipping`/`computeCashback` rules as
+`client/lib/cart/pricing.ts` (flat ₹49 shipping under ₹999 subtotal, free
+at/above it; flat 5% cashback, rounded) — ported verbatim to
+`server/src/common/pricing/pricing.util.ts`.
+
+#### Seam for M8.2 (wallet/Razorpay) — closed
+
+Every order created by `POST /orders` starts at `status:
+"pending-payment"` — the `OrderStatus` enum value M8.1 added specifically
+for this seam (Prisma member `pending_payment`, `@map`ped to the DB value
+`"pending-payment"`, same reasoning as `DietaryTag`'s
+underscored-identifier/hyphenated-DB-value split — see
+`server/prisma/schema.prisma`'s doc comment on the enum). `walletApplied`
+still records the shopper's chosen payment method's *intent* at order-
+creation time (`total` if `paymentMethod: "wallet"`, else `0`); M8.2 adds
+the two endpoints that actually move money and close out the status:
+- **`paymentMethod: "wallet"`** → `POST /orders/:id/pay` (above): debits
+  the wallet, credits cashback, transitions to `placed`, atomically.
+  Rejects (`402`, order untouched) if the balance can't cover it —
+  M8.1's "accepted unconditionally" gap is now closed.
+- **`paymentMethod: "razorpay"`** → `POST /payments/razorpay/order` (see
+  "Payments — Razorpay (M8.2)" below) to open a Razorpay order for
+  `order.total`, then the shopper completes checkout client-side and
+  Razorpay's `payment.captured` webhook (verified server-side) transitions
+  `pending_payment -> placed` + credits cashback.
+- **`paymentMethod: "cod"`** has no M8.2 endpoint — it's placed already
+  at `POST /orders` time in the sense that no online payment capture is
+  needed; a real COD confirmation/failure flow (driver-side "collected"
+  event) is a later milestone's concern, not modeled here.
+- A failure/cancellation path that restocks the `WeightOption.stock`
+  `POST /orders` already decremented is **not** built in M8.2 — an
+  abandoned `pending-payment` order today just sits there forever with
+  its stock held. Flagged as an M8.3+ follow-up (a TTL sweep or an
+  explicit "cancel unpaid order" endpoint).
+
+Not yet in the frontend mock's `OrderStatus` union
+(`client/lib/types/marketplace.ts`) — M8.4 must add `"pending-payment"`
+there before rendering a real order (see "Response-shape notes" below).
+
+#### Seam for M8.3 (laundry/snacks in unified history)
+
+`GET /orders/history` returns marketplace orders only, each shaped like
+`client/lib/api/history.ts#OrderHistoryEntry` (`kind: "order"`). M8.3's
+laundry/snack booking endpoints should produce `kind: "laundry"` (etc.)
+entries in the same shape and merge + re-sort by `date` — the same way
+the mock `getOrderHistory` already merges `Order`s and `LaundryBooking`s
+today.
+
+### Response-shape notes for M8.4 (client swap)
+
+- `GET /cart`'s response is richer than the frontend `Cart` type
+  (`{id, userId, items, updatedAt}`): each `items[]` entry already
+  carries the resolved display/pricing fields `CartContext.lineInfo()`
+  currently computes client-side (`name`, `unitPrice`, `lineTotal`,
+  `imageSrc`, `weightLabel`, `maxQuantity`, `isHamper`), plus cart-level
+  `count`/`subtotal`/`shippingFee`/`total`/`cashbackEstimate`. M8.4 can
+  keep computing `lineInfo()` from a separately-fetched catalog (as
+  today, ignoring the extra fields) or — recommended — drop `lineInfo()`
+  entirely and read the server's numbers directly, removing the one
+  place a client-computed and server-computed price could disagree.
+- `Order.status` can now be `"pending-payment"` — add it to
+  `client/lib/types/marketplace.ts`'s `OrderStatus` union before M8.4
+  renders a real order; an unmapped status falls through any
+  `Record<OrderStatus, ...>` lookup (e.g. `ORDER_STATUS_LABEL`) with
+  `undefined`.
+- Gift orders now require a real `recipientAddressId` from the caller's
+  own address book, not the mock checkout's synthetic `"gift-recipient"`
+  string — M8.4's checkout flow needs a way to get the recipient's
+  address into the account's address book first (either "Save this as a
+  new address" inline in the gift form, or reusing the existing
+  add-address flow before checkout).
+- Enum values that contain a hyphen in the frontend contract
+  (`DietaryTag`'s `"gluten-free"` etc., `OrderStatus`'s new
+  `"pending-payment"`) are stored as underscored Prisma enum identifiers
+  at the DB layer (`gluten_free`, `pending_payment`) — every JSON
+  response already converts back to the hyphenated frontend form, so
+  nothing changes in M8.4 beyond the `OrderStatus` union update above;
+  documenting it here so the DB migration and the wire format not
+  matching visually isn't a surprise.
+
+## Wallet & Payments (M8.2 — real, `server/src/{wallet,payments}/`)
+
+The wallet ledger is **server-authoritative from day one** — the client
+never computes or sends `balanceAfter`, and there is no endpoint that
+credits/debits a wallet from a bare client-supplied amount+reason except
+the admin-gated `adjust` op. Every real money movement instead derives its
+amount from a DB row (`Order.total`, a `RazorpayOrder.amount` recorded at
+order-creation time) or from a signature-verified Razorpay webhook — see
+`docs/ARCHITECTURE.md`'s "Payment & ledger flow" section for the full
+design rationale.
+
+### Idempotency
+
+Every money-mutating endpoint below (`POST /wallet/adjust`,
+`POST /orders/:id/pay`, `POST /orders/:id/refund`) accepts an optional
+**`Idempotency-Key`** request header (falls back to an `idempotencyKey`
+body field if the header is absent). A repeat call with the same key
+(scoped per-caller, per-endpoint) returns the exact first response without
+re-running the mutation — safe for a client to retry on a timeout/network
+error, or for a double-submitted click, without double-charging.
+Implementation: `server/src/common/idempotency/idempotency.service.ts`,
+backed by a DB-unique `IdempotencyKey` row inserted inside the same
+transaction as the mutation itself (see `ARCHITECTURE.md` for the exact
+mechanics — no polling, no separate lock). Omitting the header still runs
+the op (no replay protection); every wallet-balance mutation is still
+individually race-safe via the wallet row lock either way (see below).
+
+### Wallet (owner-scoped)
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /wallet` | any authed role | `{ id, userId, balance, pendingCashback, lifetimeSaved, payWithWalletDefault, updatedAt }` — lazily creates a zero-balance wallet if none exists yet (shouldn't happen for a real account; `auth.service.ts` creates one at registration). |
+| `GET /wallet/transactions` | any authed role | Full ledger, newest first — `WalletTransaction[]` matching `client/lib/types/wallet.ts` exactly. |
+| `GET /wallet/auto-topup` | any authed role | Current `AutoTopupRule`, or an off/`below-threshold` default shape if never configured. |
+| `PUT /wallet/auto-topup` | any authed role | Partial patch: `{ enabled?, trigger?, thresholdAmount?, topupAmount?, paymentMethodRef? }`. Upserts. |
+| `POST /wallet/adjust` | `@Roles('admin')` | Manual credit/debit: `{ userId, direction: "credit"\|"debit", amount, reason }`. The one endpoint where a caller-supplied `amount` is intentional — gated to admins, `reason` required (becomes the ledger row's `title` for audit), `category: "adjustment"`. |
+
+There is deliberately **no** `POST /wallet/topup`, `/wallet/pay`,
+`/wallet/earn-cashback`, or generic `/wallet/refund` endpoint — each would
+mean trusting a client-submitted amount for a real credit/debit with no
+independent verification. A wallet top-up only ever completes through the
+Razorpay order + webhook flow below; a wallet *payment* only ever happens
+via `POST /orders/:id/pay` (amount = the DB order's total); a refund only
+ever happens via `POST /orders/:id/refund` (same). This is a deliberate
+narrowing from the `docs/API.md`-M6-era placeholder note that once named
+`POST /wallet/topup` as the eventual endpoint — superseded by this design.
+
+### Payments — Razorpay (M8.2, `server/src/payments/`)
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /payments/razorpay/order` | any authed role | Opens a Razorpay order. Body: `{ purpose: "order"\|"topup", orderId?, amount? }` — `orderId` required (and its `Order.total` is what's actually charged, never `amount` even if sent) when `purpose: "order"`; `amount` required when `purpose: "topup"`. Returns `{ razorpayOrderId, amount, amountPaise, currency: "INR", keyId, mock }`. `mock: true` when `RAZORPAY_KEY_ID`/`_SECRET` are still the `.env.example` placeholders — a locally-minted `order_mock_<uuid>` id is returned instead of calling Razorpay's API, so the whole flow (including the webhook below) stays exercisable without a real Razorpay account. `404`/`409`/`400` if the referenced order doesn't exist, isn't owned by the caller, isn't `pending-payment`, or isn't `paymentMethod: "razorpay"`. |
+| `POST /payments/razorpay/webhook` | **public** (`@Public()`) | Razorpay's server calls this, not a signed-in shopper. Verifies `X-Razorpay-Signature` (HMAC-SHA256 over the **raw** request body, keyed with `RAZORPAY_WEBHOOK_SECRET`) before touching any state — an invalid/missing signature is `400`, nothing evaluated further. Only acts on a `payment.captured` event; every other event type is acknowledged `200` as a no-op. On a valid `payment.captured`: looks up the `RazorpayOrder` row by `payload.payment.entity.order_id` (never trusts the payload's amount) and either credits the wallet top-up (+3% bonus above ₹2,000, mirroring `client/lib/wallet/WalletContext.tsx`'s `TOPUP_BONUS_THRESHOLD`/`RATE`) or transitions the linked `Order` `pending-payment -> placed` + credits cashback — depending on that row's `purpose`. Deduplicated by `(event, paymentId)` via a `WebhookEvent` unique-insert — a redelivered event is acknowledged `200` as a duplicate, never reapplied. |
+
+Signature verification requires the **raw**, pre-JSON-parse request bytes
+— wired via `NestFactory.create(AppModule, { rawBody: true })` in
+`main.ts` (Nest/Express still parses `req.body` normally for every route;
+this additionally stashes the raw `Buffer` on `req.rawBody`). Re-signing a
+re-serialized `JSON.stringify(req.body)` would not reliably byte-match
+what Razorpay actually signed.
+
+### Seam for M8.3 (seller payouts)
+
+`Seller`/`Payout` tables already exist in the schema (M8.0) but have no
+service/endpoint yet — a seller's share of a captured payment crediting
+their own payout ledger (as opposed to the consumer wallet flows above) is
+explicitly **out of scope** for M8.2 and left for M8.3.
+
+## Services (M8.3a — real, `server/src/{laundry,snacks,referrals,notifications,support,corporate}/`)
+
+### Laundry (`server/src/laundry/`)
+
+Services/availability are `@Public()` reads; bookings + subscriptions are
+owner-scoped (auth). Every booking's price is **server-authoritative**:
+`LaundryService.price` (read fresh from the DB inside the request's own
+transaction) × whichever quantity field matches the service's
+`pricingModel` (`estimatedWeightKg` for `per-kg`, `itemCount` for
+`per-item`, `estimatedHours` for `per-hour`), `Math.round`ed — the create
+DTO has no `price`/`unitPrice`/`estimatedTotal` field, so
+`ValidationPipe`'s `forbidNonWhitelisted` rejects any client-submitted
+amount outright.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /laundry/services` | `@Public()` | `LaundryService[]`. |
+| `GET /laundry/services/:slug` | `@Public()` | Single service. |
+| `GET /laundry/availability/days` | `@Public()` | `LaundryDay[]` — display-only availability, not booking state. |
+| `GET /laundry/availability/slots` | `@Public()` | `LaundrySlot[]`. |
+| `GET /laundry/bookings` | any authed role | Mine, newest first. |
+| `GET /laundry/bookings/:id` | any authed role | Owner-scoped — `404` (not `403`) if it exists but isn't mine. |
+| `POST /laundry/bookings` | any authed role | Body: `{ serviceId, estimatedWeightKg?/itemCount?/estimatedHours? (whichever matches the service), pickupSlot: {date, slotId}, deliverySlot: {date, slotId}, addressId, photos?, specialInstructions?, subscriptionId?, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `paymentMethod: "wallet"` debits the computed total + credits cashback **atomically with the booking insert** via `WalletService.postLedgerEntryTx` (the same M8.2 ledger primitive `OrdersService` uses) — insufficient balance → `402`, whole transaction (including the booking) rolls back. Unlike marketplace orders there's no `pending-payment` staging status for laundry (see `schema.prisma`'s `LaundryBookingStatus`), so the debit happens inline rather than via a separate `/pay` step. `razorpay`/`cod` create the booking with no wallet movement (settled at pickup / a future online-payment integration — out of scope here). Auto-assigns `partnerId` to the one seeded demo laundry partner (real pickup-address routing is M9/M10b). Supports `Idempotency-Key`. |
+| `GET /laundry/subscriptions` | any authed role | Mine. |
+| `GET /laundry/subscriptions/:id` | any authed role | Owner-scoped. |
+| `POST /laundry/subscriptions` | any authed role | Body: `{ serviceId, plan, slotDay, slotId, nextPickup }`. |
+| `PATCH /laundry/subscriptions/:id` | any authed role | Partial patch (`active`, `plan`, `slotDay`, `slotId`, `nextPickup`). |
+| `DELETE /laundry/subscriptions/:id` | any authed role | Soft-cancel (`active: false`, not a hard delete — bookings still reference it via `subscriptionId`). `204`. |
+
+### Snacks (`server/src/snacks/`)
+
+`@Public()` menu reads only — Snacks ordering is **WhatsApp-only**
+(`lib/channel.ts`: "Cart web: no"), so there is deliberately no consumer
+`POST /snacks/order` here; a `SnackList` never becomes a server-side
+entity, it just formats a `wa.me` message client-side. `SnackOrder` (the
+seller-side record of an inbound WhatsApp order) has seller-scoped read +
+status-advance endpoints as of **M8.3b** — see "Seller portal (M8.3b)"
+below (`GET/POST /seller/snack-orders/*`); **M9** (WhatsApp Cloud API)
+still owns the actual write of those rows from real inbound messages —
+nothing creates a `SnackOrder` yet, only the seeded demo rows exist.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /snacks` | `@Public()` | Available snacks, optional `?category=savoury\|sweet\|baked\|namkeen`. |
+| `GET /snacks/:slug` | `@Public()` | Single snack. |
+
+### Referrals & loyalty (`server/src/referrals/`)
+
+Owner-scoped. Unlike the client mock's argument-less
+`applyReferralCredit()` (auto-picks "the next eligible referral in this
+browser session"), the real endpoint targets one `Referral` id
+explicitly — a cleaner, individually-idempotent unit for "this referral
+pays out at most once" over a real, persistent table. **Flagged for
+Opus/M8.4**: the `/account/referrals` demo-button call site will need to
+pass a specific referral id once this swaps in.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /referrals/code` | any authed role | `{ code }` — the caller's own `User.referralCode`. |
+| `GET /referrals` | any authed role | Mine (as referrer), newest first. |
+| `POST /referrals/:id/apply-credit` | any authed role | Owner-scoped (`referral.referrerUserId` must be the caller). Credits `REFERRAL_REWARD_AMOUNT` (₹250, `client/lib/data/referrals.ts`) to the caller's wallet via `WalletService.postLedgerEntryTx` (`category: "referral"`) and marks the referral `rewarded`. **Once-only**: a referral already `status: "rewarded"` → `409`, re-read inside the same transaction as the ledger write (same read-then-mutate-atomically shape as `OrdersService.refundOrder`). Both `pending` and `joined` referrals are eligible (real "referee completed their first order" gating is a future M9 trigger, not modeled yet). Supports `Idempotency-Key`. |
+| `GET /loyalty` | any authed role | `LoyaltyAccount` — lazily creates a zero-point account if none exists yet. |
+
+### Notifications (`server/src/notifications/`)
+
+Owner-scoped. Actual SMS/WhatsApp/email delivery is **M9** — this module
+only persists + reads.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /notifications/preferences` | any authed role | `NotificationPreference[]`, one per `NotificationCategory` (6) — lazily backfills any missing category row with the schema's column defaults. |
+| `PATCH /notifications/preferences/:category` | any authed role | Partial patch: `{ sms?, whatsapp?, email?, inapp? }`. Upserts. |
+| `GET /notifications` | any authed role | Inbox, newest first. |
+| `PATCH /notifications/:id/read` | any authed role | Body: `{ read?: boolean }` (defaults `true`). Owner-scoped — `404` if it exists but isn't mine. |
+
+### Support (`server/src/support/`)
+
+Owner-scoped.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /support/tickets` | any authed role | Body: `{ subject, channel: "chat"\|"call"\|"email", message, orderRef? }` — creates the ticket with one opening `sender: "user"` message. |
+| `GET /support/tickets` | any authed role | Mine, newest first. |
+| `GET /support/tickets/:id` | any authed role | Owner-scoped — `404` if it exists but isn't mine. |
+| `POST /support/tickets/:id/messages` | any authed role | Body: `{ body }`. `sender` is derived from the caller's own role (`"agent"` for an admin, `"user"` otherwise), never client-supplied. Bumps the ticket's `updatedAt`. |
+
+### Corporate inquiry (`server/src/corporate/`)
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `POST /corporate-inquiries` | `@Public()` | Body: `{ companyName, contactName, email, phone, occasion?, estimatedQuantity, budgetRange?, message }`. `CorporateInquiry` has no `userId` FK (an inquiry may predate an account, same as `SellerApplication`) — no list/review endpoint yet, seamed for **M11** (admin panel). |
+
+### Unified order history — laundry joins the merge
+
+`GET /orders/history` (M8.1) now merges marketplace `Order`s **and**
+`LaundryBooking`s into the one normalized list, sorted newest-first —
+`kind: "order"` or `"laundry"`, same shape
+`client/lib/api/history.ts#getOrderHistory` already produces client-side.
+`SnackOrder` is **not** merged in: it has no `userId` FK
+(`schema.prisma`) — a WhatsApp-origin order is identified by
+`customerName`/`customerPhone`, not a Homekrafted account, and is
+seller-scoped only (see `client/lib/types/food.ts#SnackOrder`'s own doc
+comment). There is no "my snack orders" to merge into a consumer's
+history; exposing snack orders is a seller-side surface (M8.3b).
+
+### Seam for M9 (delivery)
+
+Seller-scoped reads/writes (a laundry partner's pickup queue, a snack
+seller's `SnackOrder` inbox, a maker's own `Payout`s) are **real as of
+M8.3b** — see "Seller portal (M8.3b)" below. Admin-unscoped views (every
+seller's data unscoped, orders oversight, wallet oversight, catalog/review
+moderation) are **real as of M8.3c** — see "Admin panel (M8.3c)" below.
+Support-ticket/corporate-inquiry *admin* review queues are not yet
+surfaced under `/admin/*` (only the owner/public endpoints in this
+section) — a small remaining seam, not blocking M8.4. Actually sending
+anything over SMS/WhatsApp/email, and WhatsApp Cloud API ingestion of
+inbound snack orders, is **M9** — nothing through M8.3c sends a real
+message; it only persists state a future integration will read/write.
+
+## Seller portal (M8.3b — real, `server/src/seller/`)
+
+Every route under `/seller/*` is `@Roles('seller')` — a `consumer` or
+`admin` token gets `403` (never even reaches a service method), and every
+route requires an access token (`401` with none). Every method resolves
+the acting seller from `req.user.sellerId` — a claim `AuthService`
+mints into the JWT server-side at login/refresh from `Seller.userId ===
+user.id` (see `docs/DATA-MODEL.md`), **never** a client-supplied
+`sellerId`/`vendorId` in a route, query, or body param.
+`SellerService.resolveSeller` re-reads the `Seller` row fresh from the DB
+on every call (not just trusting the token's claim) and
+`resolveMaker`/`resolveLaundryPartner`/`resolveSnackSeller` additionally
+require `seller.type` to match the surface — a laundry-partner token on a
+maker-only route (or vice versa) gets `403`, distinct from the
+cross-seller-ownership case below.
+
+**Ownership on every read + write**: a resource that exists but belongs to
+a *different* seller **404s** — never `403`, never a partial/redacted
+response — so a seller can't distinguish "not mine" from "doesn't exist."
+This was verified live (see `README.md`'s walkthrough) for every
+mutating + single-resource route: a second maker account (own `vendorId`)
+reading/editing/deleting seller A's product, reading/advancing seller A's
+order, replying to a review on seller A's vendor/product; a second laundry
+partner reading/advancing seller A's booking; a second snack seller
+reading/editing/deleting seller A's menu item and reading/advancing seller
+A's snack order — all `404`, and the underlying row was confirmed
+unchanged afterward. List endpoints scope by a `WHERE` clause tied to the
+resolved seller (never return another seller's rows at all, not even
+filtered client-side).
+
+### Dashboard + storefront (`server/src/seller/seller.controller.ts`)
+
+| Endpoint | Seller type | Notes |
+|---|---|---|
+| `GET /seller/dashboard` | any | Shape branches on `seller.type` — maker: `{ todayOrdersCount, todayRevenue, pendingPayoutAmount, lowStockCount, rating, reviewCount }` (mirrors `SellerDashboardSnapshot`); laundry: `{ todayPickupsCount, todayDeliveriesCount, weekEarnings, pendingPayoutAmount, rating, reviewCount }` (`PartnerDashboardSnapshot`); snack: `{ incomingOrdersCount, menuSize, earnings, pendingPayoutAmount }` (`SnackDashboardSnapshot`). `pendingPayoutAmount` is computed live (see Payouts below), not read off a stale field. |
+| `GET /seller/storefront` | `maker` only | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param) — `403` for laundry/snack. |
+| `PATCH /seller/storefront` | `maker` only | Body: `{ bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. |
+
+### Listings — maker only (`server/src/seller/listings.controller.ts`)
+
+CRUD over `Product` rows where `vendorId === seller.vendorId`. No
+`vendorId`/`id`/`slug`/`rating`/`reviewCount` field on the create/update
+DTO — server-generated/derived, never client-set. Every price/stock field
+(`WeightOption.price/mrp/stock`) is still caller-supplied here (unlike the
+consumer-facing catalog) because this *is* the seller setting their own
+prices — the money-safety rule elsewhere ("never trust a client price")
+is specifically about a *buyer's* request not being trusted to set what
+they pay, which doesn't apply to a seller pricing their own listing.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/listings` | Mine, newest first. |
+| `GET /seller/listings/:id` | Owner-scoped — `404` if it exists but isn't mine. |
+| `POST /seller/listings` | Body mirrors `client/lib/api/seller.ts`'s `SellerListingInput`: `{ name, categoryId, occasionIds?, dietary?, description, isPackaged, cashbackPct, tags?, imagePath?, weightOptions: [{sku,label,price,mrp,stock}], defaultWeightSku }`. Validates `categoryId`/`occasionIds` exist and every `weightOptions[].sku` is globally unique (`409` on clash — `WeightOption.sku` is a unique column) before inserting. `slug` is server-generated from `name` (+ a random suffix on collision). |
+| `PATCH /seller/listings/:id` | Partial patch of the same shape. Supplying `weightOptions` replaces the full set (delete+recreate, inside a transaction) rather than merging. |
+| `DELETE /seller/listings/:id` | `204`. `409` if the product is still referenced by an existing order/cart/wishlist/hamper line (FK-protected — mark unavailable instead of deleting a listing with order history). |
+
+### Orders — maker only (`server/src/seller/orders.controller.ts`)
+
+Orders containing at least one `OrderItem` whose `productId` belongs to
+`seller.vendorId`.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/orders` | Mine, newest first (any order with ≥1 of my items). |
+| `GET /seller/orders/:id` | Owner-scoped — `404` if the order exists but has none of my items. |
+| `POST /seller/orders/:id/advance` | Advances `placed → confirmed → packed → shipped → delivered` (one step per call — the fulfilment pipeline the brief calls out). `409` if already `delivered`/`cancelled`/`returned`, or still `pending-payment` (can't fulfil an unpaid order). |
+
+### Reviews — maker only (`server/src/seller/reviews.controller.ts`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/reviews` | Reviews targeting my vendor (`targetType: "vendor"`) or any of my products (`targetType: "product"`), newest first. |
+| `POST /seller/reviews/:id/reply` | Body: `{ body }`. Owner-scoped by the review's *target*, not a direct FK — `404` if the review targets a different vendor/product. Sets `sellerReplyBody`/`sellerReplyCreatedAt`. |
+
+### Bookings — laundry partner only (`server/src/seller/bookings.controller.ts`)
+
+`LaundryBooking` rows where `partnerId === seller.id`.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/bookings` | Mine, newest first. |
+| `GET /seller/bookings/:id` | Owner-scoped. |
+| `POST /seller/bookings/:id/advance` | Advances `scheduled → picked-up → in-progress → out-for-delivery → delivered`. `409` at a terminal status (`delivered`/`cancelled`). |
+
+### Menu — snack seller only (`server/src/seller/menu.controller.ts`)
+
+CRUD over `Snack` rows where `sellerId === seller.id`. Same "seller sets
+their own price" reasoning as Listings above.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/menu` | Mine. |
+| `GET /seller/menu/:id` | Owner-scoped. |
+| `POST /seller/menu` | Body mirrors `SellerMenuInput`: `{ name, description, price, category, diet, imagePath?, available }`. |
+| `PATCH /seller/menu/:id` | Partial patch. |
+| `DELETE /seller/menu/:id` | `204`. `409` if still referenced by an existing snack-list/order line. |
+
+### Snack orders — snack seller only (`server/src/seller/snack-orders.controller.ts`)
+
+`SnackOrder` rows where `sellerId === seller.id` — the WhatsApp-origin
+inbound orders the M8.3a doc noted were seamed here.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/snack-orders` | Mine, newest first. |
+| `GET /seller/snack-orders/:id` | Owner-scoped. |
+| `POST /seller/snack-orders/:id/advance` | Advances `received → accepted → out-for-delivery → delivered`. `409` once `delivered`. |
+
+### Payouts — all 3 types (`server/src/seller/payouts.controller.ts`)
+
+`Payout` is its own ledger row (not a `WalletTransaction`) per the
+milestone brief — no money actually moves anywhere yet in M8.3b, this
+only records the request; a real payout-provider integration (bank
+transfer/Razorpay Payouts, and an admin "mark paid" action) is a later
+seam (M8.3c/M9). Earnings are computed **server-side** from the seller's
+own *delivered* records — maker: `Σ OrderItem.price × quantity` for items
+on `vendorId === seller.vendorId` where `Order.status = "delivered"`;
+laundry: `Σ LaundryBooking.estimatedTotal` where `partnerId ===
+seller.id` and `status = "delivered"`; snack: `Σ SnackOrder.total` where
+`sellerId === seller.id` and `status = "delivered"` — never a
+client-submitted amount. "Pending balance" = that computed total minus
+the sum of every `Payout` (paid + pending) already recorded for this
+seller, floored at 0.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/payouts` | `{ items: Payout[], summary: {totalPaid, totalPending, lifetimeEarned}, pendingBalance }`. `items` = mine, newest `periodEnd` first. |
+| `POST /seller/payouts/request` | Computes the pending balance and inserts a new `status: "pending"` `Payout` (`periodStart` = the day after the latest existing payout's `periodEnd`, or the seller's `createdAt` if none; `periodEnd` = now). `400` if the pending balance is `≤ 0`. `409` if a `pending` payout already exists for this seller (one in flight at a time). Supports `Idempotency-Key`. No `sellerId`/amount field on the request at all — the strongest form of isolation here is that there's no id parameter through which to even attempt targeting another seller's payout. |
+
+## Admin panel (M8.3c — real, `server/src/admin/`)
+
+Every route under `/admin/*` is `@Roles('admin')` — a `consumer` or
+`seller` token gets `403` (never even reaches a service method), verified
+live for this milestone (see `README.md`'s walkthrough). Unlike
+`SellerModule`, this surface is **deliberately unscoped**: every read
+spans every user/seller/order/wallet, not filtered to the caller's own
+resource (`assertAdmin`'s framing in `ownership.util.ts`). Because of
+that, **every mutation writes an `AdminAuditLog` row** (actor, action,
+target type/id, JSON metadata) after it succeeds — see "Audit log" below.
+Money actions (order refund, wallet adjust/refund) funnel through
+`WalletService`'s row-locked ledger primitives — `AdminOrdersService.refund`
+calls `OrdersService.refundOrder` directly for marketplace orders (the
+same admin-gated method `POST /orders/:id/refund` already exposes) rather
+than re-implementing it; `AdminWalletService.adjust`/`issueRefund` call
+`WalletService.adjust`/`postLedgerEntryTx` — **never a raw
+`prisma.wallet.update({ data: { balance } })`**.
+
+### Dashboard + analytics (`server/src/admin/dashboard.controller.ts`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/dashboard` | `{ gmvTotal, ordersTodayCount, ordersTotalCount, ordersByType: {marketplace,laundry,snack}, activeSellersByType: {maker,laundry,snack}, usersCount, pendingApplicationsCount, pendingPayoutsAmount, walletLiability }` — real server-side aggregates (`Seller.groupBy`, `Payout`/`Wallet` `aggregate`), not client-computed sums. |
+| `GET /admin/analytics` | `{ gmvSeries: [{date,gmv,orderCount}] (last 14 days), ordersByType, topSellers: [{key,name,type,orderCount,revenue}] (top 6), topProducts: [{productId,name,unitsOrdered,revenue}] (top 6), newUsersByMonth: [{month,count}], walletFlow: {creditsTotal,debitsTotal,netFlow,byCategory} }`. |
+
+### Users (`server/src/admin/users.controller.ts`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/users` | Every user, newest first. |
+| `GET /admin/users/:id` | Single user detail. |
+| `PATCH /admin/users/:id` | Body: `{ suspended: boolean }`. Sets `User.suspended` — the same flag `AuthService` already gates login/OTP/social/refresh on, so a suspended user's next auth attempt is rejected `401` immediately (an already-issued access token still expires naturally on its own short TTL). Audited (`user.suspend`/`user.reactivate`). |
+
+### Sellers + the onboarding approval queue (`server/src/admin/sellers.controller.ts`)
+
+Closes the `/sell` → admin → seller-access loop: a pending
+`SellerApplication` becomes an active `Seller` (+ `Vendor` storefront)
+once approved. Static `applications*` routes are declared before the
+dynamic `:id` ones, same reasoning as `OrdersController`.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/sellers` | Every seller (any type/status), newest first. |
+| `GET /admin/sellers/:id` | Single seller detail. |
+| `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
+| `GET /admin/sellers/applications` | Every `SellerApplication`, any status (`?status=pending` narrows to the queue — every status short of the two terminal ones). |
+| `POST /admin/sellers/applications/:id/approve` | `409` if already `approved`/`rejected`. Otherwise, **one atomic transaction**: (1) finds-or-creates the applicant's `User` account (reuses an existing account by email if one exists, upgrading `consumer` → `seller`; otherwise mints a fresh `role: "seller"` account with `authProviders: ["phone"]` and no password — phone-OTP is its login path — plus a `Wallet` + `LoyaltyAccount`, same recipe `AuthService.verifyOtp`'s first-time-phone signup uses); (2) creates a `Vendor` storefront from the application's business details (`SellerApplicationCategory` → `VendorType`, `"other"` → `"maker"`); (3) creates the `Seller` row (`type: "maker"`, `status: "approved"`) pointing at it; (4) marks the application `approved`. Unlike the M11a frontend mock (which pointed `Seller.userId` at a synthetic placeholder id), this is a real FK — a live `User` row must exist, so one is provisioned right here. Returns `{ application, seller, vendor }`. Audited (`seller_application.approve`). |
+| `POST /admin/sellers/applications/:id/reject` | `409` if already `approved`/`rejected`. Audited (`seller_application.reject`). |
+
+### Catalog + review moderation (`server/src/admin/catalog.controller.ts`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/catalog/products` | Every product, any vendor, including hidden/flagged ones (unlike the public `GET /products`), each annotated with `vendorName`/`categoryName`. |
+| `GET /admin/catalog/products/:id` | Single product detail. |
+| `PATCH /admin/catalog/products/:id/moderate` | Body: `{ action: "hide"\|"unhide"\|"flag"\|"unflag"\|"takedown"\|"feature"\|"unfeature" }`. `hide`/`takedown`/`flag`/`unhide`/`unflag` write `Product.moderationStatus` (`takedown` is a stronger-intent alias for `hide` — same DB write, `ProductModerationStatus` has no separate "taken down" state — kept as its own audit action string). `feature`/`unfeature` toggle `Product.featured`. A `hidden` product disappears from `GET /products` on its very next read (verified live in this milestone's DoD) — `GET /products/:slug` still resolves it (direct link/cart/order/wishlist lookups must keep working). Audited (`product.<action>`). |
+| `GET /admin/catalog/reviews` | Every review, any target, each annotated with `targetName` (product/vendor/service name). |
+| `PATCH /admin/catalog/reviews/:id/moderate` | Body: `{ hidden: boolean }`. Same `Review.hidden` flag `ReviewsService.list` already filters on. Doesn't clear `flagged` on unhide (an audit trail of why it was hidden). Audited (`review.hide`/`review.unhide`). |
+
+### Orders oversight (`server/src/admin/orders.controller.ts`)
+
+Unifies marketplace `Order`s, `LaundryBooking`s and `SnackOrder`s into
+one list/detail surface, unscoped — `id` is `${type}:${the underlying
+record's id}`.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/orders` | `?type=marketplace\|laundry\|snack` optional filter. Every order/booking/snack-order, newest first. |
+| `GET /admin/orders/:type/:id` | Full record (line items included) — `400` for an invalid `:type`. |
+| `POST /admin/orders/:type/:id/refund` | `marketplace` delegates straight to `OrdersService.refundOrder` (idempotent via `refundStatus`). `laundry` credits the booking owner's wallet via `WalletService`'s ledger primitives directly (`category: "refund"`, `refType: "laundryBooking"`) — idempotent-by-content (a prior refund `WalletTransaction` for this exact booking short-circuits to a no-op), since `LaundryBooking` has no `refundStatus` field to flip. `snack` is `400` — a `SnackOrder` has no `userId`/wallet to credit (WhatsApp-origin, no registered account). Supports `Idempotency-Key`. Audited (`order.refund`). |
+| `PATCH /admin/orders/:type/:id/status` | Body: `{ status }` (frontend-hyphenated form, e.g. `"out-for-delivery"`). A manual override distinct from a seller's one-step-at-a-time `advance` — jumps straight to any valid status for the type. `400` for a status not valid for that type. Audited (`order.status_override`). |
+
+### Wallet oversight (`server/src/admin/wallet.controller.ts`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/wallet` | `{ totalLiability, walletCount, totalLifetimeSaved, balances: [{userId,userName,walletId,balance,pendingCashback,lifetimeSaved,transactionCount}] }` — every wallet, balance descending. |
+| `GET /admin/wallet/:userId` | `{ wallet, transactions }` for one user. |
+| `POST /admin/wallet/:userId/adjust` | Body: `{ direction: "credit"\|"debit", amount, reason }`. Forwards straight into `WalletService.adjust` (the same method `POST /wallet/adjust` already exposes) with `userId` from the route, not the body. Supports `Idempotency-Key`. Audited (`wallet.adjust`). |
+| `POST /admin/wallet/:userId/refund` | Body: `{ amount, title, refType?, refId? }`. A standalone refund credit not necessarily tied to an `Order` (for that, prefer `POST /admin/orders/marketplace/:id/refund`, which reads the amount off the order itself). Goes through `WalletService.postLedgerEntryTx` inside an idempotency-wrapped transaction — never a raw balance write. Supports `Idempotency-Key`. Audited (`wallet.refund`). |
+
+### Collections & CMS (`server/src/admin/collections.controller.ts`)
+
+`Collection` CRUD — title/description/occasion + ordered product
+membership (`CollectionProduct.sortOrder`, delete+recreate on every
+save — reordering is just re-submitting `productIds` in the new order).
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/collections` | Every collection. |
+| `GET /admin/collections/:id` | Single collection detail. |
+| `POST /admin/collections` | Body: `{ title, description?, occasionId?, productIds }`. `404` if any `productId`/`occasionId` doesn't exist. Server-generates `slug`. Audited (`collection.create`). |
+| `PATCH /admin/collections/:id` | Same body shape — full replace, not a partial patch (mirrors `client/lib/api/admin.ts#upsertCollection`). Audited (`collection.update`). |
+| `DELETE /admin/collections/:id` | `204`. Audited (`collection.delete`). |
+
+### Audit log (`server/src/admin/audit.controller.ts`)
+
+`AdminAuditLog` — one row per admin **mutation** across every controller
+above (never a read), written *after* the mutation succeeds so a
+rejected/rolled-back action never leaves a misleading row. Not FK-bound
+to its target (`targetType`/`targetId` is a loose pointer, since one log
+table spans many unrelated target tables) — a dangling reference should
+never block writing the log itself.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/audit` | `?targetType=&actorId=&page=&pageSize=` all optional. `{ items: [{id,actorId,actorName,actorEmail,action,targetType,targetId,metadata,createdAt}], page, pageSize, total }`, newest first. |
+
+## Health
+
+| Endpoint | Auth | Returns |
+|---|---|---|
+| `GET /health` | public, unprefixed | `{ status: "ok", timestamp }` — liveness only |
+| `GET /health/db` | public, unprefixed | `{ status: "ok", database: "connected" }` — pings Postgres via Prisma |
 
 ## Products & catalog — `lib/api/products.ts`, `lib/api/catalog.ts`
 
-| Function | Returns | Future endpoint |
+**Real as of M8.1** — see "Commerce (M8.1)" above for the actual request/
+response shape (filters, sort, pagination). This table is kept as the
+`lib/api` function → endpoint mapping for M8.4's swap; note `category`/
+`occasion` filter by **slug**, not id (`?category=pickles`, not
+`?category=ct1`) — the "Future endpoint" column below predates that
+decision and is superseded by the table above.
+
+| Function | Returns | Real endpoint |
 |---|---|---|
 | `getProducts()` | `Product[]` | `GET /api/v1/products` |
 | `getProduct(slug)` | `Product \| undefined` | `GET /api/v1/products/:slug` |
 | `getFeatured()` | `Product[]` | `GET /api/v1/products?featured=true` |
-| `getProductsByCategory(categoryId)` | `Product[]` | `GET /api/v1/products?category=:id` |
-| `getProductsByOccasion(occasionId)` | `Product[]` | `GET /api/v1/products?occasion=:id` |
-| `getProductsByVendor(vendorId)` | `Product[]` | `GET /api/v1/vendors/:id/products` |
+| `getProductsByCategory(categoryId)` | `Product[]` | `GET /api/v1/products?category=:slug` |
+| `getProductsByOccasion(occasionId)` | `Product[]` | `GET /api/v1/products?occasion=:slug` |
+| `getProductsByVendor(vendorId)` | `Product[]` | `GET /api/v1/vendors/:slug/products` |
 | `getCategories()` | `Category[]` | `GET /api/v1/categories` |
 | `getCategory(slug)` | `Category \| undefined` | `GET /api/v1/categories/:slug` |
 | `getOccasions()` | `Occasion[]` | `GET /api/v1/occasions` |
@@ -44,71 +748,159 @@ intended real-endpoint shape for M8, so the swap is mechanical.
 
 ## Vendors — `lib/api/vendors.ts`
 
-| Function | Returns | Future endpoint |
+**Real as of M8.1** — see "Commerce (M8.1)" above.
+
+| Function | Returns | Real endpoint |
 |---|---|---|
 | `getVendors()` | `Vendor[]` | `GET /api/v1/vendors` |
 | `getVendor(slug)` | `Vendor \| undefined` | `GET /api/v1/vendors/:slug` |
 
 ## Snacks — `lib/api/snacks.ts`
 
-| Function | Returns | Future endpoint |
+**Real as of M8.3a** (menu reads only) — see "Services (M8.3a)" above.
+
+| Function | Returns | Real endpoint |
 |---|---|---|
 | `getSnacks()` | `Snack[]` | `GET /api/v1/snacks` |
 | `getSnack(slug)` | `Snack \| undefined` | `GET /api/v1/snacks/:slug` |
-| `getSnackList()` | `SnackList` | `POST /api/v1/snack-lists` (creates + returns the list that becomes the WhatsApp payload — no checkout, see `lib/channel.ts`) |
+| `getSnackList()` | `SnackList` | Still mock/no-endpoint — a `SnackList` never becomes a server-side entity, it formats a `wa.me` message client-side (`lib/channel.ts`). |
 
 ## Laundry — `lib/api/laundry.ts`
 
-| Function | Returns | Future endpoint |
+**Real as of M8.3a** — see "Services (M8.3a)" above for the full contract
+(server-authoritative pricing, wallet-pay via the M8.2 ledger, subscription
+CRUD).
+
+| Function | Returns | Real endpoint |
 |---|---|---|
 | `getLaundryServices()` | `LaundryService[]` | `GET /api/v1/laundry/services` |
 | `getLaundryService(slug)` | `LaundryService \| undefined` | `GET /api/v1/laundry/services/:slug` |
 | `getLaundryDays()` | `LaundryDay[]` | `GET /api/v1/laundry/availability/days` |
 | `getLaundrySlots()` | `LaundrySlot[]` | `GET /api/v1/laundry/availability/slots` |
-| `getLaundryHowItWorks()` | `LaundryHowItWorksStep[]` | static copy — likely stays client-side content, not an endpoint |
-| `getLaundrySubscriptionPlanOptions()` | `LaundrySubscriptionPlanOption[]` | static copy (weekly/biweekly/monthly labels+hints) — likely stays client-side content, not an endpoint |
-| `createBooking(input)` (M4) | `LaundryBooking` (mock, in-memory) | `POST /api/v1/laundry/bookings` — computes the estimate from the service's quantity dimension (kg/item/hr), generates a `bookingNumber` ("LB..."), starts `status: "scheduled"` |
-| `createSubscription(input)` (M4) | `LaundrySubscription` (mock, in-memory) | `POST /api/v1/laundry/subscriptions` |
+| `getLaundryHowItWorks()` | `LaundryHowItWorksStep[]` | static copy — stays client-side content, not an endpoint |
+| `getLaundrySubscriptionPlanOptions()` | `LaundrySubscriptionPlanOption[]` | static copy (weekly/biweekly/monthly labels+hints) — stays client-side content, not an endpoint |
+| `createBooking(input)` | `LaundryBooking` | `POST /api/v1/laundry/bookings` — server-priced (see "Services (M8.3a)"), starts `status: "scheduled"` |
+| `createSubscription(input)` | `LaundrySubscription` | `POST /api/v1/laundry/subscriptions` |
 
-Both mutations run client-side (called from `LaundryBookingClient`), same
-in-memory/reset-on-reload caveat as `lib/api/orders.ts`'s `createOrder` —
-swap for real endpoints in M8 without touching the call site.
+`LaundryBookingClient`'s call sites swap at **M8.4** without changing
+shape — the DTO's field names were chosen to match the mock's
+`CreateBookingInput`/`CreateSubscriptionInput` as closely as an
+owner-scoped, server-priced endpoint allows (see "Services (M8.3a)" for
+the one flattening: `slot: {day, slotId}` → `slotDay`/`slotId` on the
+subscription DTOs).
+
+## Seller portal — `lib/api/seller.ts`
+
+**Real as of M8.3b** — see "Seller portal (M8.3b)" above for the full
+contract. The mock's every function signature took the caller's own
+`vendorId`/`sellerId` as an explicit argument (documented there as "M8
+must re-derive this from the verified server session instead of trusting
+a client-passed id" — now done: none of the real endpoints below accept
+one at all, it's always resolved from the JWT).
+
+| Function | Returns | Real endpoint |
+|---|---|---|
+| `getSeller(sellerId)` / `getSellerVendor(vendorId)` | `Seller \| undefined` / `Vendor \| undefined` | No longer separate lookups — `GET /seller/dashboard` resolves the caller's own seller+vendor server-side; `GET /seller/storefront` returns the vendor directly. |
+| `getSellerListings(vendorId)` / `getSellerListing(vendorId, id)` | `Product[]` / `Product \| undefined` | `GET /seller/listings` / `GET /seller/listings/:id` |
+| `createSellerListing(vendorId, input)` | `Product` | `POST /seller/listings` |
+| `updateSellerListing(vendorId, id, input)` | `Product \| undefined` | `PATCH /seller/listings/:id` |
+| `deleteSellerListing(vendorId, id)` | `void` | `DELETE /seller/listings/:id` |
+| `getSellerOrders(vendorId)` / `getSellerOrder(vendorId, id)` | `Order[]` / `Order \| undefined` | `GET /seller/orders` / `GET /seller/orders/:id` |
+| `advanceSellerOrderStatus(orderId)` | `Order \| undefined` | `POST /seller/orders/:id/advance` — **shape change**: the mock took a bare `orderId`; the real endpoint is owner-scoped by the caller's JWT, no vendor id needed on the call at all. |
+| `getSellerDashboard(seller)` | `SellerDashboardSnapshot` | `GET /seller/dashboard` |
+| `getSellerPayouts(sellerId)` / `getSellerEarningsSummary(sellerId)` | `Payout[]` / `SellerEarningsSummary` | Merged into one call: `GET /seller/payouts` → `{ items, summary, pendingBalance }`. |
+| `requestSellerPayout(sellerId, amount)` | `Payout` | `POST /seller/payouts/request` — **shape change**: no `amount` param anymore, the real endpoint computes it server-side (never trust a client-submitted payout amount). |
+| `getSellerReviews(vendorId)` | `Review[]` | `GET /seller/reviews` |
+| `replySellerReview(reviewId, body)` | `Review \| undefined` | `POST /seller/reviews/:id/reply` |
+| `updateSellerStorefront(vendorId, input)` | `Vendor \| undefined` | `PATCH /seller/storefront` — **fixes a flagged mock limitation**: the mock's doc comment noted a storefront edit never reached the server-rendered `/storefront/[vendor]` page because both sides mutated separate in-memory module instances; the real endpoint writes the DB row every render reads from, so this is now a real fix, not just documented as one. |
+| `getPartnerBookings(partnerId)` / `getPartnerBooking(partnerId, id)` | `LaundryBooking[]` / `LaundryBooking \| undefined` | `GET /seller/bookings` / `GET /seller/bookings/:id` |
+| `advancePartnerBookingStatus(bookingId)` | `LaundryBooking \| undefined` | `POST /seller/bookings/:id/advance` |
+| `updatePartnerBookingSlots(bookingId, input)` | `LaundryBooking \| undefined` | Not built in M8.3b (not in the brief's scope) — still mock-only. |
+| `getPartnerDashboard(seller)` | `PartnerDashboardSnapshot` | `GET /seller/dashboard` (laundry-type shape) |
+| `getSellerMenu(sellerId)` / `getSellerMenuItem(sellerId, id)` | `Snack[]` / `Snack \| undefined` | `GET /seller/menu` / `GET /seller/menu/:id` |
+| `createSellerMenuItem(sellerId, input)` | `Snack` | `POST /seller/menu` |
+| `updateSellerMenuItem(sellerId, id, input)` | `Snack \| undefined` | `PATCH /seller/menu/:id` |
+| `deleteSellerMenuItem(sellerId, id)` | `void` | `DELETE /seller/menu/:id` |
+| `getSnackOrders(sellerId)` / `getSnackOrder(sellerId, id)` | `SnackOrder[]` / `SnackOrder \| undefined` | `GET /seller/snack-orders` / `GET /seller/snack-orders/:id` |
+| `getAllSnackOrders()` | `SnackOrder[]` | Admin-only, unscoped — stays mock until **M8.3c**. |
+| `advanceSnackOrderStatus(orderId)` | `SnackOrder \| undefined` | `POST /seller/snack-orders/:id/advance` |
+| `getSnackDashboard(seller)` | `SnackDashboardSnapshot` | `GET /seller/dashboard` (snack-type shape) |
+
+Every `SellerShell`/seller-screen call site in `client/app/seller/**` and
+`client/components/seller/**` swaps its `lib/api/seller.ts` import target
+at **M8.4** — the function names above are kept 1:1 so call sites mostly
+just drop the now-unnecessary `vendorId`/`sellerId` first argument (it
+comes from the authenticated session instead).
 
 ## Wallet — `lib/api/wallet.ts`
 
-| Function | Returns | Future endpoint |
-|---|---|---|
-| `getWallet()` | `Wallet` | `GET /api/v1/wallet` (authed user's wallet) |
-| `getTransactions()` | `WalletTransaction[]` | `GET /api/v1/wallet/transactions` |
-| `getTopupOptions()` | `number[]` | `GET /api/v1/wallet/topup-options` (or static config) |
+**Real as of M8.2** — see "Wallet & Payments (M8.2)" above for the actual
+endpoint contract (auto-top-up, admin adjust, and — deliberately — no bare
+top-up/pay/refund endpoint; those route through the Razorpay order+webhook
+flow or `POST /orders/:id/pay`/`:id/refund` instead).
 
-Top-up (`POST /api/v1/wallet/topup`), auto-top-up rule
-(`PUT /api/v1/wallet/auto-topup`) and pay-with-wallet at checkout are M6 +
-M8 — the ledger write path is server-authoritative from day one; no client
-stub computes `balanceAfter` even as a mock.
+| Function | Returns | Real endpoint |
+|---|---|---|
+| `getWallet()` | `Wallet` | `GET /api/v1/wallet` |
+| `getTransactions()` | `WalletTransaction[]` | `GET /api/v1/wallet/transactions` |
+| `getTopupOptions()` | `number[]` | Still static client-side config (`client/lib/data/wallet.ts`'s `topupOptions`) — just amount-picker tiles for `POST /payments/razorpay/order`'s `amount` field, not itself a money-moving call, so it didn't need a real endpoint. |
+
+`WalletContext`'s `topUp`/`pay`/`earnCashback`/`refund` client methods swap
+at **M8.4** to: `topUp` → `POST /payments/razorpay/order` (`purpose:
+"topup"`) + the Razorpay Checkout SDK; `pay` (at marketplace checkout) →
+`POST /orders/:id/pay`; `earnCashback`/`refund` have no direct client
+call anymore — both only ever happen server-side (webhook capture, admin
+refund) and just show up in the next `GET /wallet/transactions` poll.
 
 ## Site chrome & misc — `lib/api/site.ts`
 
 | Function | Returns | Notes |
 |---|---|---|
-| `getHamperBoxes()` | `HamperBox[]` | `GET /api/v1/hamper/boxes` |
+| `getHamperBoxes()` | `HamperBox[]` | `GET /api/v1/hamper/boxes` — **real as of M8.1** (`server/src/catalog/hamper-boxes.controller.ts`) |
 | `getMealPromo()` | `MealPromo` | Static promo content; likely stays a config object, not an endpoint |
 | `getPrimaryNav()` | `NavLink[]` | Site chrome config, not domain data — may just stay client-side content |
 | `getAnnouncementItems()` | `AnnouncementItem[]` | Same as above |
 | `getFooterColumns()` | `FooterColumn[]` | Same as above |
 | `getBrandBlurb()` | `string` | Same as above |
 | `getTrustStats()` | `TrustStat[]` | Same as above |
-| `getCart()` | `Cart` | `GET /api/v1/cart` (authed) — full cart mutation endpoints land with the Cart page in M3 |
+| `getCart()` | `Cart` | `GET /api/v1/cart` — **real as of M8.1**, see "Commerce (M8.1)" above for the actual (richer) response shape |
 | `getCartCount()` | `number` | Derived client-side from `getCart()` once real; kept separate today only for the header badge |
-| `getCurrentUser()` | `User` | `GET /api/v1/me` (M8, Auth.js session) |
-| `getDefaultAddress()` | `Address` | `GET /api/v1/addresses?default=true` |
+| `getCurrentUser()` | `User` | `GET /api/v1/users/me` — **real as of M8.0**, see "Users & addresses" above; swaps at M8.4 |
+| `getDefaultAddress()` | `Address` | `GET /api/v1/users/me/addresses` (filter `isDefault`) — **real as of M8.0** |
+
+## Referrals, loyalty, notifications, support, corporate — `lib/api/{referrals,notifications,support,corporate}.ts`
+
+**Real as of M8.3a** — see "Services (M8.3a)" above for the full contract.
+
+| Function | Returns | Real endpoint |
+|---|---|---|
+| `getReferralCode()` | `string` | `GET /api/v1/referrals/code` |
+| `getReferrals()` | `Referral[]` | `GET /api/v1/referrals` |
+| `getLoyaltyAccount()` | `LoyaltyAccount` | `GET /api/v1/loyalty` |
+| `applyReferralCredit()` | `ApplyReferralCreditResult \| null` | `POST /api/v1/referrals/:id/apply-credit` — **shape change**: the real endpoint targets one referral id (owner-scoped, once-only) rather than auto-picking; the call site needs updating at M8.4 (flagged above). |
+| `getNotificationPreferences()` | `NotificationPreference[]` | `GET /api/v1/notifications/preferences` |
+| `updateNotificationPreference(category, patch)` | `NotificationPreference` | `PATCH /api/v1/notifications/preferences/:category` |
+| `getNotifications()` | `Notification[]` | `GET /api/v1/notifications` |
+| `setNotificationRead(id, read)` | `Notification \| undefined` | `PATCH /api/v1/notifications/:id/read` |
+| `createSupportTicket(input)` | `SupportTicket` | `POST /api/v1/support/tickets` |
+| `getSupportTickets()` | `SupportTicket[]` | `GET /api/v1/support/tickets` |
+| `createCorporateInquiry(input)` | `CorporateInquiry` | `POST /api/v1/corporate-inquiries` (`@Public()`) |
+| `getCorporateInquiries()` | `CorporateInquiry[]` | Still mock-only — no list endpoint yet (seamed for M11 admin panel). |
 
 ## Not yet stubbed (arrives with their milestone)
 
 Cart mutations, checkout/order placement, hamper creation, wishlist
-mutations, reviews, notifications, referrals, support tickets, corporate
-inquiry submission, laundry booking creation — these all involve a write
-path and/or don't have a UI consuming them yet in M0. Add the stub
-function in `lib/api/` in the same milestone that builds the screen using
-it, following the pattern above (typed params/return matching `lib/types`,
-`async`, thin wrapper over `lib/data` until M8).
+mutations and reviews are **real as of M8.1**. Wallet ledger writes,
+pay-with-wallet-at-checkout and Razorpay payment capture are **real as of
+M8.2**. Laundry (services/availability/bookings/subscriptions), snacks
+(menu read), referrals/loyalty, notifications, support tickets and
+corporate inquiry submission are **real as of M8.3a**. The seller portal
+— maker listings/orders/storefront/reviews, laundry-partner bookings,
+snack-seller menu/orders, and payouts for all 3 types — is **real as of
+M8.3b**; see "Seller portal (M8.3b)" above. Still mock-only / not yet
+built: **admin-unscoped views** (every seller/order/payout/support-ticket/
+corporate-inquiry across all sellers, seller-application approval,
+account suspend/reactivate) — **M8.3c**. Add the real endpoint in the
+matching milestone's `server/src/` module, following the pattern above
+(DTO-validated, owner-scoped where relevant, server-authoritative
+pricing/ledger math never trusted from the client).

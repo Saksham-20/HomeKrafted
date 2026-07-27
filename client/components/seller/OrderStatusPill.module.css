@@ -1,0 +1,46 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--hk-r-pill);
+  white-space: nowrap;
+}
+
+.placed {
+  background: var(--hk-surface-3);
+  color: var(--hk-ink-2);
+}
+
+.confirmed {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.packed {
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+}
+
+.shipped {
+  background: var(--hk-pine);
+  color: #ffffff;
+}
+
+.delivered {
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+}
+
+.cancelled,
+.returned {
+  /* #f6e7e0 — same one-off terracotta-tint hardcode as TransactionRow's
+     debit icon tile (see root CLAUDE.md's "Known token gaps"), reused
+     rather than inventing a second near-identical shade. */
+  background: #f6e7e0;
+  color: var(--hk-terracotta);
+}

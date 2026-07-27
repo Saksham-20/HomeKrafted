@@ -1,5 +1,12 @@
-import type { SellerApplication, SellerApplicationCategory } from "@/lib/types";
-import { sellerBenefits, sellerCategories, sellerSteps, type SellerBenefit, type SellerStep } from "@/lib/data";
+import type { SellerApplication, SellerApplicationCategory, SellerApplicationStatus } from "@/lib/types";
+import {
+  sellerBenefits,
+  sellerCategories,
+  seedSellerApplications,
+  sellerSteps,
+  type SellerBenefit,
+  type SellerStep,
+} from "@/lib/data";
 
 export async function getSellerBenefits(): Promise<SellerBenefit[]> {
   return sellerBenefits;
@@ -13,8 +20,16 @@ export async function getSellerCategories(): Promise<{ value: SellerApplicationC
   return sellerCategories;
 }
 
-/** In-memory mock application "table" — same session-scoped pattern as `lib/api/support.ts`'s `supportTickets`. */
-const sellerApplications: SellerApplication[] = [];
+/**
+ * In-memory mock application "table" — same session-scoped pattern as
+ * `lib/api/support.ts`'s `supportTickets`, seeded from
+ * `lib/data/sell.ts#seedSellerApplications` (M11a) so `/admin/sellers`'
+ * approval queue has real applications on first load, with every
+ * `/sell` form submission (`createSellerApplication` below) and every
+ * admin approve/reject decision (`setSellerApplicationStatus` below)
+ * pushed onto / mutated in place on this same array.
+ */
+const sellerApplications: SellerApplication[] = [...seedSellerApplications];
 
 export interface CreateSellerApplicationInput {
   businessName: string;
@@ -53,4 +68,25 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
 
 export async function getSellerApplications(): Promise<SellerApplication[]> {
   return sellerApplications;
+}
+
+export async function getSellerApplicationById(id: string): Promise<SellerApplication | undefined> {
+  return sellerApplications.find((application) => application.id === id);
+}
+
+/**
+ * M11a — the admin approval-queue mutation target
+ * (`lib/api/admin.ts#approveSellerApplication`/`rejectSellerApplication`
+ * call this rather than reaching into `sellerApplications` directly,
+ * same "each api module owns its own state" convention every other
+ * `lib/api/*` mutation in this codebase follows).
+ */
+export async function setSellerApplicationStatus(
+  id: string,
+  status: SellerApplicationStatus,
+): Promise<SellerApplication | undefined> {
+  const application = sellerApplications.find((a) => a.id === id);
+  if (!application) return undefined;
+  application.status = status;
+  return application;
 }

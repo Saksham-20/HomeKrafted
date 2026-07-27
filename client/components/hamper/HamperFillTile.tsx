@@ -27,7 +27,12 @@ export function HamperFillTile({ product, added, disabled, onAdd, onRemove }: Ha
 
   return (
     <div className={styles.tile}>
-      <ImageSlot ratio={image?.ratio ?? "1/1"} label={image?.placeholder ?? product.name} compact />
+      <ImageSlot
+        ratio={image?.ratio ?? "1/1"}
+        label={image?.placeholder ?? product.name}
+        src={image?.src}
+        compact
+      />
       <div className={styles.body}>
         <span className={styles.name}>{product.name}</span>
         <div className={styles.row}>

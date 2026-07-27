@@ -1,0 +1,36 @@
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s5);
+}
+
+.search {
+  max-width: 360px;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.empty {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5);
+  text-align: center;
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}

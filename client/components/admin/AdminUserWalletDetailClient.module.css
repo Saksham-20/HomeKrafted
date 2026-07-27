@@ -1,0 +1,140 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--hk-muted);
+  margin-bottom: var(--hk-s4);
+  min-height: 32px;
+}
+
+.back:hover {
+  color: var(--hk-pine);
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s6);
+}
+
+.formsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s4);
+}
+
+.formCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.cardTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.input {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.directionRow {
+  display: flex;
+  gap: var(--hk-s4);
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  min-height: 32px;
+}
+
+.radioLabel input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--hk-pine);
+}
+
+.error {
+  color: var(--hk-terracotta);
+  font-size: 13px;
+  margin-bottom: var(--hk-s4);
+}
+
+.success {
+  color: var(--hk-success);
+  font-size: 13px;
+  margin-bottom: var(--hk-s4);
+}
+
+.sectionTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s3);
+}
+
+.ledgerCard {
+  margin-bottom: var(--hk-s4);
+}
+
+.footnote {
+  font-size: 12.5px;
+  color: var(--hk-muted-2);
+}
+
+.notFound {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .formsGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,90 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { ListProductsQueryDto } from './dto/list-products.query.dto';
+import { PRODUCT_INCLUDE, defaultPriceOf, mapProduct } from './mappers/product.mapper';
+import { dietaryTagsFromFrontend } from './dietary-tag.util';
+import { splitCsv } from './split-csv.util';
+
+export interface PaginatedResult<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+const DEFAULT_PAGE_SIZE = 20;
+
+@Injectable()
+export class ProductsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * List + filter + sort + paginate — mirrors `ShopClient.tsx`'s client-side
+   * filter/sort exactly (see that component's doc comment: this is the
+   * seam it says moves server-side once a real paginated API lands).
+   * Category/occasion/dietary/vendor are resolved at the DB layer;
+   * price-range + sort + pagination run in application code against the
+   * (small) already-filtered result set, same basis `ShopClient`'s local
+   * `priceOf()` uses (the `defaultWeightSku` price, not min/any option).
+   */
+  async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
+    const where: Prisma.ProductWhereInput = { moderationStatus: { not: 'hidden' } };
+
+    if (query.category) {
+      where.category = { slug: { in: splitCsv(query.category) } };
+    }
+    if (query.occasion) {
+      where.occasions = { some: { occasion: { slug: { in: splitCsv(query.occasion) } } } };
+    }
+    if (query.vendor) {
+      where.vendor = { slug: { in: splitCsv(query.vendor) } };
+    }
+    if (query.dietary) {
+      where.dietary = { hasSome: dietaryTagsFromFrontend(splitCsv(query.dietary)) };
+    }
+    if (query.featured !== undefined) {
+      where.featured = query.featured;
+    }
+
+    const products = await this.prisma.product.findMany({ where, include: PRODUCT_INCLUDE });
+
+    let withPrice = products.map((p) => ({ product: p, price: defaultPriceOf(p) }));
+
+    if (query.minPrice !== undefined) {
+      withPrice = withPrice.filter((x) => x.price >= query.minPrice!);
+    }
+    if (query.maxPrice !== undefined) {
+      withPrice = withPrice.filter((x) => x.price <= query.maxPrice!);
+    }
+
+    const sort = query.sort ?? 'most-loved';
+    withPrice.sort((a, b) => {
+      if (sort === 'price-asc') return a.price - b.price;
+      if (sort === 'price-desc') return b.price - a.price;
+      const ratingDelta = Number(b.product.rating) - Number(a.product.rating);
+      if (ratingDelta !== 0) return ratingDelta;
+      return b.product.reviewCount - a.product.reviewCount;
+    });
+
+    const total = withPrice.length;
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+    const start = (page - 1) * pageSize;
+    const items = withPrice.slice(start, start + pageSize).map((x) => mapProduct(x.product));
+
+    return { items, page, pageSize, total };
+  }
+
+  /**
+   * No `moderationStatus` filter here on purpose — matches
+   * `lib/api/products.ts#getProduct`'s doc comment: a direct-link/cart/
+   * order/wishlist lookup must still resolve even for a taken-down
+   * product; only browse/listing surfaces hide it.
+   */
+  async getBySlug(slug: string): Promise<ReturnType<typeof mapProduct>> {
+    const product = await this.prisma.product.findUnique({ where: { slug }, include: PRODUCT_INCLUDE });
+    if (!product) throw new NotFoundException('Product not found');
+    return mapProduct(product);
+  }
+}

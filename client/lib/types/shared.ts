@@ -17,6 +17,18 @@ export type ISODateString = string;
 
 export type AuthProvider = "phone" | "email" | "google" | "apple";
 
+/**
+ * Role surface (M10a) — which route group + login a user belongs to.
+ * `consumer` is the default for every shopper-facing account created via
+ * `/login`; `seller` gates `/seller/*` (see `lib/auth/AuthContext.tsx` +
+ * `middleware.ts`); `admin` is reserved for M11 (`/admin/*`) and has no
+ * seed data yet. A given `User` row is one role today — the plan's
+ * "seller = homemaker with their own account" model, not a permission
+ * a consumer account can toggle on itself (that's what `/sell` →
+ * `SellerApplication` → admin approval is for).
+ */
+export type UserRole = "consumer" | "seller" | "admin";
+
 export interface User {
   id: ID;
   name: string;
@@ -29,6 +41,17 @@ export interface User {
   loyaltyAccountId: ID;
   referralCode: string;
   referredByCode?: string;
+  /** Defaults to "consumer" for every M0–M7 seed user; see `UserRole`. */
+  role: UserRole;
+  /**
+   * M11a — set by `/admin/users`' suspend/reactivate action
+   * (`lib/api/admin.ts#setUserSuspended`). Undefined/false for every
+   * pre-M11a seed user (active by default); a suspended user isn't
+   * actually blocked from signing in yet (no real session/auth to gate
+   * — M8 wires that up), this only drives the admin-facing badge + list
+   * filter today.
+   */
+  suspended?: boolean;
 }
 
 export interface Address {
@@ -65,6 +88,19 @@ export interface Review {
   createdAt: ISODateString;
   helpfulCount: number;
   verifiedPurchase: boolean;
+  /**
+   * Seller/maker reply (M10a `/seller/reviews`) — at most one reply per
+   * review, authored by the vendor's seller account. Optional so every
+   * pre-M10a review (none replied to yet) needs no data migration.
+   */
+  sellerReply?: {
+    body: string;
+    createdAt: ISODateString;
+  };
+  /** User-reported flag (M11b) — surfaces the review in `/admin/catalog/reviews`'s moderation queue. Independent of `hidden`: a flagged review stays publicly visible until a moderator actually acts on it. */
+  flagged?: boolean;
+  /** Moderator action (M11b, `/admin/catalog/reviews`) — hidden reviews are excluded from `getProductReviews`/`getVendorReviews` (`lib/api/reviews.ts`), same client/server module-graph caveat as `Product.moderationStatus` (see `lib/api/admin.ts`'s "Catalog & review moderation" section header). */
+  hidden?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,7 +226,22 @@ export interface CorporateInquiry {
 // ---------------------------------------------------------------------------
 
 export type SellerApplicationCategory = "maker" | "baker" | "artist" | "other";
-export type SellerApplicationStatus = "new" | "reviewing" | "waitlisted";
+/**
+ * `new`/`reviewing`/`waitlisted` are `/sell`'s own pre-decision framing
+ * (a submitted application defaults to `waitlisted` today, see
+ * `lib/api/sell.ts#createSellerApplication`'s comment — onboarding
+ * itself is future-flagged, so nothing actually reviews these yet).
+ * `approved`/`rejected` are M11a's admin-decision terminal states —
+ * `/admin/sellers`' approval queue treats every non-terminal status
+ * (`new`/`reviewing`/`waitlisted`) as "pending", see
+ * `lib/api/admin.ts#getPendingSellerApplications`.
+ */
+export type SellerApplicationStatus =
+  | "new"
+  | "reviewing"
+  | "waitlisted"
+  | "approved"
+  | "rejected";
 
 export interface SellerApplication {
   id: ID;

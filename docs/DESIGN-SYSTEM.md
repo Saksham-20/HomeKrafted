@@ -517,6 +517,308 @@ Notes on M7a's design decisions:
   its entire sidebar+content tree for a "you're signed out" prompt rather
   than rendering a broken account tree.
 
+## M7b feature components (Shared screens)
+
+M7b (Referrals+loyalty, Notifications, Support, Corporate, Sell) has no
+reference prototype screen either — same as M7a, built entirely inside
+the established system (`Card`, `Button`, `Chip`, `Textarea`,
+`CapacityMeter`).
+
+| Component | Directory | Composes | Used by |
+|---|---|---|---|
+| `ReferralsClient` | `components/account/` | `Card`, `Button`, `CapacityMeter` | `/account/referrals` |
+| `NotificationsClient` | `components/account/` | `Card`, `Chip` | `/account/notifications` |
+| `SupportClient` | `components/support/` | `Card`, `Button`, `Chip`, `Textarea` | `/support` |
+| `CorporateInquiryClient` | `components/corporate/` | `Card`, `Button`, `Chip`, `Textarea` | `/corporate` |
+| `SellerApplicationClient` | `components/sell/` | `Card`, `Button`, `Chip`, `Textarea` | `/sell` |
+
+Notes on how these compose the M1 primitives, and where M7b deviates:
+
+- **`WalletContext` gained `earnReferralCredit`** (`lib/wallet/WalletContext.tsx`)
+  — same shape as `earnCashback` but appends `category: "referral"`
+  (matching `WalletTransactionCategory`) instead of `"cashback"`, and
+  does not add to `lifetimeSaved` (a referral bonus isn't a shopping
+  saving). `ReferralsClient`'s demo "Apply referral credit" button calls
+  `applyReferralCredit()` (`lib/api/referrals.ts` — advances the oldest
+  non-`rewarded` `Referral` to `rewarded`, session-scoped mock mutation)
+  then `earnReferralCredit()` — the same two-step "mock mutation records
+  the domain event, `WalletContext` owns the ledger write" split M6
+  established between `createOrder`/`createBooking` and `pay`/`earnCashback`.
+- **Loyalty tier ladder is `lifetimePoints`-threshold-driven**, not a
+  hardcoded per-tier flag — `LOYALTY_TIERS` (`lib/data/referrals.ts`)
+  holds one `{ tier, label, threshold, perk }` row per `LoyaltyTier`;
+  `ReferralsClient` finds the current/next tier by comparing
+  `loyaltyAccount.lifetimePoints` against each threshold and drives a
+  `CapacityMeter` off the gap to the next one. Tier accent colors
+  (bronze/platinum) have no dedicated tokens — one-off hardcoded hex with
+  an inline comment in `ReferralsClient.module.css`, per the established
+  "known token gap" convention; silver/gold reuse existing
+  `--hk-muted-2`/`--hk-gold-text-sm`.
+- **Notification preferences use the same "styled `<input
+  type=checkbox>`" convention** `WalletClient`'s auto-top-up editor and
+  `CheckoutClient`'s gift toggle already established, laid out as a
+  category × channel grid (`NotificationsClient.module.css`'s
+  `.prefsTable`) rather than inventing a dedicated `ui/` switch
+  primitive for a single consumer. The grid is wider than 360px
+  (`min-width: 400px` on `.prefsRow`) so it scrolls *inside* its own
+  card (`overflow-x: auto`) at the narrowest supported width rather than
+  ever widening the page itself — verified via live QA that
+  `document.documentElement.scrollWidth` never exceeds `clientWidth` at
+  360/768/1180.
+- **Support's chat widget is entirely local, ephemeral React state** —
+  no `lib/data`/`lib/api` persistence, since it's explicitly a mock
+  ("no backend" per the brief) rather than a real ticketing/chat system.
+  Canned replies come from a small keyword-matcher,
+  `lib/support/autoReply.ts#getAutoReply` — the same "logic helper
+  colocated under `lib/<domain>/`" pattern as `lib/cart/pricing.ts` and
+  `lib/snacks/message.ts`, not a `ui/` primitive or mock-data file. The
+  ticket form (a separate, real `SupportTicket`) is the one part of
+  `/support` that does persist, via `createSupportTicket`
+  (`lib/api/support.ts`), session-scoped like every other mock mutation
+  in this codebase.
+- **`/sell`'s form is real and submittable, not disabled markup** — the
+  plan's "future-flagged, wired but disabled" line item is expressed as
+  a prominent "Coming soon" banner plus copy framing the submit as
+  joining a waitlist, and `createSellerApplication` seeds every
+  `SellerApplication` with `status: "waitlisted"` rather than `"new"` —
+  not as an actually-disabled `<button disabled>`. A real, disabled
+  control would block exercising the mock submit → confirmation flow the
+  M7b brief calls for; the "coming soon" framing carries the future-flag
+  instead.
+- **`SellerApplication` (`lib/types/shared.ts`) is the one new type M7b
+  added** — modeled identically to the existing standalone
+  `CorporateInquiry` (no user FK; an application may predate an account).
+  Every other M7b entity (`Referral`, `LoyaltyAccount`, `Notification`,
+  `NotificationPreference`, `SupportTicket`) was already fully modeled
+  at M0.
+- **Footer + account nav wiring:** `lib/data/site.ts#footerColumns`
+  gained "Corporate gifting" / "Sell on Homekrafted" (Services column)
+  and "Referrals & loyalty" (Account column) links; `ACCOUNT_NAV_ITEMS`
+  (`components/account/AccountShell.tsx`) gained Referrals (`Gift` icon)
+  and Notifications (`Bell` icon) between Wishlist and Profile — same
+  array, no shell restructuring, exactly as M7a's brief left room for.
+
+## M10 Seller portal components (M10a maker; M10b laundry partner + snack seller)
+
+The seller portal (`/seller/*`) is its own chrome, not a reskin of the
+consumer `Header`/`Footer` — `ConsumerChrome` hides those entirely on
+`/seller/*` routes. No reference prototype screen exists for it either
+(same situation as M7a/M7b) — built entirely on the established system
+(`Card`, `Button`, `Chip`, `Textarea`, tokens). M10a shipped the shell +
+maker dashboard but this doc section was never added at the time; it's
+added now, covering the full current state (M10a + M10b) rather than
+just this milestone's diff.
+
+| Component | Directory | Composes | Used by |
+|---|---|---|---|
+| `SellerShell` | `components/seller/` | `Button` | every `/seller/*` route except `/seller/login` |
+| `SellerPageHeader`, `StatCard`, `PayoutRow`, `OrderStatusPill` | `components/seller/` | `Card` | shared across all 3 seller types |
+| `SellerDashboardClient` / `SellerOrdersClient` / `SellerOrderDetailClient` | `components/seller/` | type router only (see below) | `/seller`, `/seller/orders`, `/seller/orders/[id]` |
+| `MakerDashboardClient`, `ListingsClient`/`SellerListingEditorClient`/`ListingForm`/`ListingRow`, `MakerOrdersClient`/`MakerOrderDetailClient`/`OrderRow`, `SellerStorefrontClient`, `SellerPayoutsClient`, `SellerReviewsClient`/`SellerReviewCard` | `components/seller/` | `Card`, `Button`, `Chip`, `Textarea`, `ImageSlot` | maker (`type: "maker"`) modules |
+| `PartnerDashboardClient`, `PartnerPickupsClient`/`PartnerPickupDetailClient`/`PickupRow`/`PickupStatusPill` | `components/seller/` | `Card`, `Button`, `StatusTimeline` | laundry partner (`type: "laundry"`) — `/seller`, `/seller/pickups`, `/seller/pickups/[id]` |
+| `SnackDashboardClient`, `SellerMenuClient`/`SellerMenuEditorClient`/`SnackMenuForm`/`SnackMenuRow`, `SnackOrdersClient`/`SnackOrderDetailClient`/`SnackOrderRow`/`SnackOrderStatusPill` | `components/seller/` | `Card`, `Button`, `Chip`, `Textarea`, `ImageSlot`, `StatusTimeline` | snack seller (`type: "snack"`) — `/seller`, `/seller/menu(/…)`, `/seller/orders(/…)` |
+
+Notes on how M10b composes the M10a shell, and where it deviates:
+
+- **`SellerShell`'s nav is a pure data switch, not per-route logic** —
+  `navForType(seller.type)` (`SellerShell.tsx`) picks `MAKER_NAV`/
+  `LAUNDRY_NAV`/`SNACK_NAV`, three flat arrays of `{label, href, icon}`.
+  Laundry drops Listings/Storefront/Reviews (maker-only concepts) for a
+  single "Pickups" entry; snack drops them for "Menu" + "Orders" (which
+  means something different from the maker's "Orders" — see below).
+- **`SellerDashboardClient`/`SellerOrdersClient`/`SellerOrderDetailClient`
+  are thin `seller.type` routers, not branching components** — each
+  calls `useAuth()` once and renders one of 2–3 sibling components
+  (`MakerDashboardClient`/`PartnerDashboardClient`/`SnackDashboardClient`,
+  etc.). This is a hooks-correctness constraint, not a style preference:
+  a single component returning early based on `seller.type` before
+  calling its own `useState`/`useEffect` would call a different number
+  of hooks depending on which type is signed in, which
+  `react-hooks/rules-of-hooks` forbids. The M10a maker components were
+  renamed into the sibling shape (`SellerDashboardClient`→
+  `MakerDashboardClient`, `SellerOrdersClient`→`MakerOrdersClient`,
+  `SellerOrderDetailClient`→`MakerOrderDetailClient`) with no behavior
+  change — verified live, maker flows are pixel-identical to M10a.
+- **"Orders" means two unrelated entities depending on type** — for a
+  maker it's the marketplace `Order`/`OrderStatus` pipeline (placed→
+  confirmed→packed→shipped→delivered, `OrderStatusPill`); for a snack
+  seller it's `SnackOrder`/`SnackOrderStatus`, a seller-portal-only mock
+  entity for WhatsApp-origin orders (received→accepted→
+  out-for-delivery→delivered, `SnackOrderStatusPill` — reuses
+  `StatusTimeline`'s `tone="whatsapp"` green-dot styling, since that's
+  the exact sequence the consumer `/snacks` page already shows under
+  that tone). Laundry has no `/seller/orders` nav entry at all — its
+  equivalent is "Pickups" (`LaundryBooking`/`LaundryBookingStatus`,
+  `PickupStatusPill`). Same route path (`/seller/orders(/[id])`) resolves
+  to different components purely via the type router above; laundry
+  sellers who navigate there directly fall back to the maker view
+  (harmless — `getSellerOrders` returns an empty list for a seller with
+  no `vendorId`).
+- **`PartnerPickupDetailClient`'s slot editor** (`/seller/pickups/[id]`)
+  is the one genuinely new interaction pattern — two day `<select>` +
+  two time-slot `<select>` pairs (pickup/delivery) sourced from the same
+  `getLaundryDays`/`getLaundrySlots` the consumer booking flow uses,
+  "Save slots" calling `updatePartnerBookingSlots`. Known cosmetic gap:
+  since `laundryDays` is still M4's fixed 4-day window (19–22 Jul 2026)
+  and this environment's "today" is 25–26 Jul, a booking dated outside
+  that window shows a blank "Select day" until one is explicitly picked
+  — the underlying state and the read-only summary panel are correct
+  regardless; see `CHANGELOG.md`'s M10b entry for why `laundryDays`
+  itself was left untouched.
+- **`SnackMenuForm` is deliberately smaller than `ListingForm`** — a
+  `Snack` has no weight tiers, occasions, or packaged/tags fields the
+  way a maker `Product` does; it's flat name/description/price/category/
+  diet/image/available. Category and diet are both `Chip`-toggle groups
+  (single-select, styled identically to `ListingForm`'s multi-select
+  chip groups) rather than `<select>` dropdowns, matching the visual
+  weight of a 4-option and 2-option choice respectively.
+- **Fixed a pre-existing `SellerShell` mobile clipping bug** — found via
+  M10b's own 360px QA, not something M10b's components caused directly.
+  `.body`'s base `align-items: flex-start` (correct for the desktop
+  row layout) silently became a cross-axis *width* rule once `.body`
+  switches to `flex-direction: column` below 780px, so `.content`
+  shrink-to-fit its own children instead of filling the row — invisible
+  under M10a's maker dashboard (its content never happened to exceed the
+  available width) but real under M10b's wider stat-grid labels and
+  longer pickup-row text, silently clipped by `body{overflow-x:hidden}`
+  rather than showing a scrollbar. Fixed with `align-items: stretch`
+  scoped to the existing `@media (max-width: 780px)` block only — see
+  `CHANGELOG.md`'s M10b entry for the full diagnosis.
+
+## M11a Admin panel components
+
+The admin panel (`/admin/*`) is its own chrome too — `ConsumerChrome`'s
+`/seller`-or-`/admin` pathname check already covered this path since M10
+(scaffolded ahead of need), so no change there. No reference prototype
+screen exists (same situation as M10/M7b) — built on the established
+system (`Card`, `Button`, `Chip`, `SearchField`, tokens). `AdminShell`
+deliberately mirrors `SellerShell`'s structure (pine-deep topbar, sticky
+sidebar → sub-780px horizontal-scroll-strip collapse) rather than
+reusing it as a shared component — see `CLAUDE.md`'s "Three role
+surfaces" section and `docs/ARCHITECTURE.md`'s "Role surfaces" for why
+the two shells stay independent.
+
+| Component | Directory | Composes | Used by |
+|---|---|---|---|
+| `AdminShell` | `components/admin/` | `Button` | every `/admin/*` route except `/admin/login` |
+| `AdminPageHeader`, `StatCard` | `components/admin/` | `Card` | every admin screen (mirrors `SellerPageHeader`/`StatCard` 1:1, not imported from `components/seller/` — see below) |
+| `StatusPill` | `components/admin/` | — | one generic status pill for every admin list/detail screen — see below |
+| `AdminDashboardClient` | `components/admin/` | `Card`, `StatCard`, CSS-only bar chart | `/admin` |
+| `UsersClient`/`UserRow`/`UserDetailClient` | `components/admin/` | `Card`, `Chip`, `SearchField`, `StatusPill` | `/admin/users`, `/admin/users/[id]` |
+| `SellersClient`/`SellerRow`/`ApplicationRow` | `components/admin/` | `Card`, `Chip`, `StatusPill` | `/admin/sellers` (both tabs) |
+| `OrdersClient`/`UnifiedOrderRow`/`OrderDetailClient` | `components/admin/` | `Card`, `Chip`, `SearchField`, `StatusPill` | `/admin/orders`, `/admin/orders/[type]/[id]` |
+
+Notes:
+
+- **`AdminShell`/`StatCard`/`AdminPageHeader` are deliberate near-
+  duplicates of `SellerShell`/`StatCard`/`SellerPageHeader`**, not
+  imports from `components/seller/`. Same reasoning as the shell split
+  above: a shared `RoleShell`/`StatCard` would couple the two role
+  surfaces' independent evolution (M11b's admin-only nav additions,
+  future seller-portal changes) for a small amount of duplication in
+  two ~20-line files. Every seller-portal status pill
+  (`OrderStatusPill`/`PickupStatusPill`/`SnackOrderStatusPill`) is
+  per-domain by contrast — left as-is, not folded into `StatusPill`,
+  since refactoring working M10 code wasn't in scope.
+- **`StatusPill` is one generic component, not five** — it takes a raw
+  status string (`OrderStatus`\|`LaundryBookingStatus`\|
+  `SnackOrderStatus`\|`SellerApplicationStatus`\|`SellerStatus`, or the
+  ad hoc `"active"`/`"suspended"` user-suspension label) and looks its
+  tone up from one shared map, auto-title-casing the label unless one is
+  passed explicitly. This is the one place M11a intentionally diverges
+  from M10's "one pill component per domain" pattern: the admin surface
+  renders many different small status unions read-only across several
+  screens, so one map pays for itself where a maker/laundry/snack
+  seller's 2–3 domain-specific pills didn't need to. Same 6-tone visual
+  language as every other pill in the app (`neutral`/`pine`/`gold`/
+  `success`/`danger`/`solid`), same token vars, same `#f6e7e0` one-off
+  terracotta-tint hardcode `OrderStatusPill`/`TransactionRow` already
+  established (see root `CLAUDE.md`'s "Known token gaps").
+- **Nav "Soon" slots** — `AdminShell`'s nav array renders M11b's
+  Catalog/Wallet/Collections/Analytics entries now (per the M11a brief),
+  styled `aria-disabled`, muted, with a small mono "Soon" tag, rather
+  than waiting for M11b to add them. Communicates the panel's eventual
+  shape without a dead link — clicking does nothing, no `href`.
+- **Dashboard bar chart is plain CSS, no chart library** — `Orders by
+  module` (`AdminDashboardClient`) is a `<span>` track + a width-
+  percented fill `<span>` per module, matching `CapacityMeter`'s existing
+  "meter via CSS, not SVG/canvas" approach elsewhere in the design
+  system. The fill's `width` is the one inline `style` in the admin
+  surface — a genuinely dynamic computed percentage, the same allowance
+  `CLAUDE.md` carves out for `<ImageSlot>`'s `aspect-ratio`, not a static
+  styling shortcut.
+- **Orders oversight reuses the marketplace/laundry/snack status-pill
+  color language** but doesn't reuse the components — `StatusPill`'s
+  shared tone map (above) was tuned so `delivered`/`out-for-delivery`/
+  `packed`/etc. land on the same tone a seller-portal pill would give
+  them, so the two surfaces read as one system despite not sharing code.
+
+## M11b Admin panel components (moderation, wallet/refunds, CMS, analytics)
+
+Completes the admin surface — the 4 M11a "Soon" nav slots
+(Catalog/Wallet/Collections/Analytics) are now live routes.  Built
+entirely on M11a's foundation (`AdminShell`, `AdminPageHeader`,
+`StatCard`, `StatusPill`) plus the established `components/ui/`
+primitives — no new design-system primitives were needed.
+
+| Component | Directory | Composes | Used by |
+|---|---|---|---|
+| `CatalogTabs`, `CollectionsTabs` | `components/admin/` | plain `Link` styled with `Chip`'s exact CSS recipe | `/admin/catalog(/reviews)`, `/admin/collections(/promo)` — 2-tab sub-nav for a real route pair, not client-state tabs like `SellersClient`'s |
+| `CatalogClient`/`ProductModerationRow` | `components/admin/` | `Card`, `Chip`, `SearchField`, `StatusPill`, `ImageSlot` | `/admin/catalog` |
+| `CatalogReviewsClient`/`AdminReviewRow` | `components/admin/` | `Card`, `Chip`, `StatusPill` | `/admin/catalog/reviews` |
+| `AdminListingEditorClient` | `components/admin/` | **`components/seller/ListingForm.tsx`, reused verbatim** | `/admin/catalog/[id]` |
+| `WalletOverviewClient` | `components/admin/` | `Card`, `StatCard` | `/admin/wallet` |
+| `AdminUserWalletDetailClient` | `components/admin/` | `Card`, `StatCard`, **`components/ui/TransactionRow.tsx`, reused verbatim** | `/admin/wallet/[userId]` |
+| `CollectionsClient` | `components/admin/` | `Card`, `Button` | `/admin/collections` |
+| `CollectionEditorClient` | `components/admin/` | `Card`, `Button`, `Textarea` | `/admin/collections/[id]`, `/admin/collections/new` |
+| `HomePromoEditorClient` | `components/admin/` | `Card`, `Button`, `Textarea` | `/admin/collections/promo` |
+| `AnalyticsClient` | `components/admin/` | `Card`, `StatCard`, CSS bars + one inline SVG polyline | `/admin/analytics` |
+
+Notes:
+
+- **`ListingForm` and `TransactionRow` cross the role-surface boundary
+  on purpose** — both are pure, props-driven presentational components
+  with no seller-shell or consumer-chrome coupling (`ListingForm` takes
+  `values`/`onChange`/`categories`/`occasions`; `TransactionRow` takes
+  one `WalletTransaction`), so `AdminListingEditorClient` and
+  `AdminUserWalletDetailClient` import them directly rather than forking
+  near-identical copies. This is different from `AdminShell`/`SellerShell`
+  staying independent (those are stateful shells whose *evolution* needs
+  to diverge, not stateless forms/rows) — see `CLAUDE.md`'s "Three role
+  surfaces" for that distinction.
+- **`StatusPill`'s shared tone map gained 3 entries** for this milestone:
+  `hidden`→danger, `flagged`→gold, `visible`→success (product moderation
+  status and review visibility). Same one-map-not-five-pills approach
+  M11a established.
+- **No chart library, anywhere in `/admin/analytics`** — the GMV-over-
+  time chart is one inline `<svg>` with a single `<polyline>` (points
+  computed from the 14-day series, no library), and every other chart
+  (orders by module, top sellers/products, new users by month, wallet
+  flow by category) is the exact `<span class="track"><span class="fill"
+  style="width:N%"></span></span>` recipe `AdminDashboardClient`'s M11a
+  bar chart established.
+- **Found and fixed a real rendering bug in that exact bar-chart
+  recipe** while reusing it: `.barFill`/`.barFillGold` are nested
+  `<span>`s inside a `.barTrack` `<span>` that is itself a flex item
+  (auto-blockified by the flex spec, so its own `width`/`height` "just
+  work" even as a `<span>`) — but the *inner* fill span was never itself
+  a flex/grid item, so per the CSS spec its `width: N%` / `height: 100%`
+  were silently ignored (percentages don't apply to non-replaced inline
+  boxes), rendering at 0×0 — invisible. Fixed by adding `display: block`
+  to `.barFill`/`.barFillGold` in **both** `AnalyticsClient.module.css`
+  (new) and `AdminDashboardClient.module.css` (M11a, retroactively fixed
+  here too since it's the exact same latent bug) — the Dashboard's
+  "Orders by module" chart now actually renders visible bars for the
+  first time.
+- **Tap targets bumped to 44px** where M11b introduced new icon-only
+  buttons below that: `ProductModerationRow`'s edit-icon link (ported
+  from `ListingRow.module.css`'s 36px precedent, sized up here to meet
+  this milestone's 44px minimum) and `CollectionEditorClient`'s
+  move-up/move-down/remove buttons (30px originally, same fix).
+- **Nav "Soon" slots are gone** — `AdminShell`'s `NAV` array no longer
+  sets `disabled` on Catalog/Wallet/Collections/Analytics; all 8 items
+  are live `Link`s now.
+
 ## Channel badges
 
 `design-system.md` §6 defines three badge styles (pine "Book online now",

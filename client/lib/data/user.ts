@@ -17,6 +17,7 @@ export const currentUser: User = {
   walletId: "wallet-demo",
   loyaltyAccountId: "loyalty-demo",
   referralCode: "ANANYA250",
+  role: "consumer",
 };
 
 export const demoAddress: Address = {

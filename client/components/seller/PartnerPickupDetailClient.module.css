@@ -1,0 +1,149 @@
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: var(--hk-s5);
+  align-items: start;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.cardSpaced {
+  margin-top: var(--hk-s4);
+}
+
+.backLink {
+  margin-top: var(--hk-s5);
+}
+
+.cardTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  padding-block: var(--hk-s2);
+  border-bottom: 1px solid var(--hk-divider);
+  font-size: 14px;
+}
+
+.itemRow:last-child {
+  border-bottom: none;
+}
+
+.itemName {
+  color: var(--hk-ink);
+}
+
+.itemMeta {
+  color: var(--hk-muted);
+  font-size: 12.5px;
+}
+
+.itemPrice {
+  font-family: var(--hk-font-mono);
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  flex-shrink: 0;
+}
+
+.instructions {
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  font-style: italic;
+}
+
+.addressBlock {
+  font-size: 14px;
+  color: var(--hk-ink-2);
+  line-height: 1.6;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.metaLabel {
+  color: var(--hk-muted);
+}
+
+.terminalNote {
+  font-size: 13.5px;
+  color: var(--hk-terracotta);
+}
+
+.slotGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s3);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.select {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.slotActions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.savedNote {
+  font-size: 13px;
+  color: var(--hk-success);
+}
+
+@media (max-width: 780px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .slotGrid {
+    grid-template-columns: 1fr;
+  }
+}

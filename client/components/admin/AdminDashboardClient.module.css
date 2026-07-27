@@ -1,0 +1,90 @@
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s6);
+}
+
+.callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+  margin-bottom: var(--hk-s6);
+}
+
+.calloutText {
+  font-size: 14px;
+  color: var(--hk-ink);
+}
+
+.calloutText strong {
+  font-family: var(--hk-font-display);
+}
+
+.sectionTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s3);
+}
+
+.barChart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s6);
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.barLabel {
+  width: 110px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--hk-ink-2);
+}
+
+.barTrack {
+  flex: 1;
+  height: 10px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface-3);
+  overflow: hidden;
+}
+
+.barFill {
+  /* `.barTrack` is a flex item (auto-blockified by the flex spec even
+     as a <span>), but this nested <span> isn't itself a flex/grid item,
+     so without an explicit block-level `display` its `width`/`height`
+     percentages are ignored (the CSS spec doesn't apply sizing
+     properties to non-replaced inline boxes) — the bar rendered at 0×0,
+     invisible, until this was set. Found and fixed in M11b while
+     reusing this exact recipe for `/admin/analytics`. */
+  display: block;
+  height: 100%;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+}
+
+.barCount {
+  width: 36px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--hk-font-mono);
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}

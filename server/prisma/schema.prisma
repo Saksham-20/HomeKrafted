@@ -1,0 +1,1319 @@
+// Homekrafted — Prisma schema (M8.0)
+//
+// Mirrors `client/lib/types/*.ts` field-for-field — that TypeScript module
+// is the schema contract (see root CLAUDE.md + docs/DATA-MODEL.md). Modeling
+// notes/deviations from the literal TS shape are called out inline; the
+// full rationale lives in docs/DATA-MODEL.md's "M8 Prisma mapping" section.
+//
+// Scope: M8.0 authors every domain model so later milestones (M8.1
+// commerce, M8.2 wallet/Razorpay, M8.3 services/roles) only need to add
+// endpoints, not tables. Only Auth + Users (+ Address) get real service
+// logic in this milestone.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums — one per TS union in lib/types. `@map(...)` is used wherever the
+// TS literal isn't a valid Prisma enum identifier (hyphens), so the DB value
+// still round-trips to the exact string the frontend contract expects.
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  consumer
+  seller
+  admin
+}
+
+enum AuthProvider {
+  phone
+  email
+  google
+  apple
+}
+
+/// Real auth providers we can actually issue a session for today (M8.0).
+/// `AuthProvider` (above) stays the full lib/types union (incl. "apple",
+/// not yet wired) — this is the narrower stub-provider set the social
+/// login endpoint accepts.
+enum SocialProvider {
+  google
+  apple
+}
+
+enum ReviewTargetType {
+  product
+  vendor
+  service
+}
+
+enum NotificationChannel {
+  sms
+  whatsapp
+  email
+  inapp
+}
+
+enum NotificationCategory {
+  order
+  laundry
+  snacks
+  wallet
+  promo
+  account
+}
+
+enum ReferralStatus {
+  pending
+  joined
+  rewarded
+}
+
+enum LoyaltyTier {
+  bronze
+  silver
+  gold
+  platinum
+}
+
+enum SupportChannel {
+  chat
+  call
+  email
+}
+
+enum SupportTicketStatus {
+  open
+  in_progress @map("in-progress")
+  resolved
+  closed
+}
+
+enum SupportSender {
+  user
+  agent
+}
+
+enum CorporateInquiryStatus {
+  new
+  contacted
+  quoted
+  closed
+}
+
+enum SellerApplicationCategory {
+  maker
+  baker
+  artist
+  other
+}
+
+enum SellerApplicationStatus {
+  new
+  reviewing
+  waitlisted
+  approved
+  rejected
+}
+
+enum VendorType {
+  maker
+  baker
+  artist
+  homekrafted
+}
+
+enum DietaryTag {
+  vegetarian
+  vegan
+  gluten_free   @map("gluten-free")
+  sugar_free    @map("sugar-free")
+  contains_nuts @map("contains-nuts")
+}
+
+enum ProductTag {
+  Bestseller
+  New
+  Festive
+  Curated
+}
+
+enum ProductModerationStatus {
+  active
+  hidden
+  flagged
+}
+
+enum GiftWrapStyle {
+  kraft
+  floral
+  festive
+  minimal
+}
+
+enum RibbonColor {
+  gold
+  terracotta
+  pine
+  ivory
+}
+
+enum OrderStatus {
+  /// M8.1 seam for M8.2 (wallet debit / Razorpay capture): every order
+  /// created by `POST /orders` starts here instead of `placed` — an order
+  /// now exists in the DB (with stock already decremented + prices
+  /// snapshotted) before payment is actually captured. M8.2's payment flow
+  /// owns the `pending_payment` -> `placed` transition (or a failure/
+  /// cancellation path that restocks) once the wallet debit / Razorpay
+  /// charge succeeds — this milestone does not implement that transition.
+  /// Not yet in the frontend mock's `OrderStatus` union
+  /// (`client/lib/types/marketplace.ts`) — M8.4 must add
+  /// `"pending-payment"` there when it swaps `POST /orders` in.
+  pending_payment @map("pending-payment")
+  placed
+  confirmed
+  packed
+  shipped
+  delivered
+  cancelled
+  returned
+}
+
+enum PaymentMethod {
+  wallet
+  razorpay
+  cod
+}
+
+enum RefundStatus {
+  none
+  requested
+  processing
+  refunded
+}
+
+enum WalletTransactionDirection {
+  credit
+  debit
+}
+
+enum WalletTransactionCategory {
+  topup
+  cashback
+  refund
+  payment
+  referral
+  loyalty
+  adjustment
+}
+
+enum WalletTransactionRefType {
+  order
+  laundryBooking
+  topup
+  referral
+  loyalty
+  support
+}
+
+enum AutoTopupTrigger {
+  below_threshold @map("below-threshold")
+  scheduled
+}
+
+/// M8.2 — what a `RazorpayOrder` row was opened to pay for: an existing
+/// Homekrafted `Order` (amount = `Order.total`, re-read server-side) or a
+/// wallet top-up (amount = the shopper's declared top-up amount — safe to
+/// accept from the client here because Razorpay itself enforces that only
+/// a payment of exactly this order's amount can ever capture against it;
+/// the wallet is only ever credited once our own webhook handler verifies
+/// the HMAC and reads *this* row's stored `amount`, never anything in the
+/// webhook payload).
+enum RazorpayOrderPurpose {
+  order
+  topup
+}
+
+enum RazorpayOrderStatus {
+  created
+  captured
+  failed
+}
+
+enum LaundryPricingModel {
+  per_kg   @map("per-kg")
+  per_item @map("per-item")
+  per_hour @map("per-hour")
+}
+
+enum LaundryBookingStatus {
+  scheduled
+  picked_up        @map("picked-up")
+  in_progress      @map("in-progress")
+  out_for_delivery @map("out-for-delivery")
+  delivered
+  cancelled
+}
+
+enum LaundrySubscriptionPlan {
+  weekly
+  biweekly
+  monthly
+}
+
+enum SnackCategory {
+  savoury
+  sweet
+  baked
+  namkeen
+}
+
+enum DietType {
+  veg
+  non_veg @map("non-veg")
+}
+
+enum SnackListStatus {
+  draft
+  sent
+  received
+  accepted
+  out_for_delivery @map("out-for-delivery")
+  delivered
+}
+
+enum SnackOrderStatus {
+  received
+  accepted
+  out_for_delivery @map("out-for-delivery")
+  delivered
+}
+
+/// `SnackOrder.channel` is a one-value union in lib/types ("whatsapp") —
+/// kept as its own enum (not a boolean) so a future channel is a value
+/// addition, not a shape change, per that type's own doc comment.
+enum SnackOrderChannel {
+  whatsapp
+}
+
+enum SellerType {
+  maker
+  laundry
+  snack
+}
+
+enum SellerStatus {
+  pending
+  approved
+  suspended
+}
+
+enum PayoutStatus {
+  pending
+  paid
+}
+
+// ---------------------------------------------------------------------------
+// Shared / account layer
+// ---------------------------------------------------------------------------
+
+/// Modeling note: lib/types' `User.walletId`/`User.loyaltyAccountId` (FKs
+/// pointing "down" to Wallet/LoyaltyAccount, which themselves also carry
+/// `userId`) collapse into a single Prisma-idiomatic 1:1 relation each,
+/// declared from the Wallet/LoyaltyAccount side — no redundant bidirectional
+/// FK. `authProviders`/`role`/etc. map straight across.
+model User {
+  id                String         @id @default(cuid())
+  name              String
+  email             String?        @unique
+  phone             String?        @unique
+  /// Only set for the email+password auth flow; null for phone-OTP-only or
+  /// social-only accounts.
+  passwordHash      String?
+  avatarPlaceholder String?
+  authProviders     AuthProvider[]
+  createdAt         DateTime       @default(now())
+  role              UserRole       @default(consumer)
+  /// M11a admin suspend/reactivate flag — see lib/types/shared.ts's doc
+  /// comment. Unlike the M0–M11a mock, this DOES gate sign-in for real
+  /// once wired (auth.service checks it) — that's the real-backend upgrade
+  /// the frontend note calls out as still owed.
+  suspended         Boolean        @default(false)
+  referralCode      String         @unique
+  referredByCode    String?
+
+  wallet                  Wallet?
+  loyaltyAccount          LoyaltyAccount?
+  addresses               Address[]
+  reviews                 Review[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  referralsSent           Referral[]               @relation("ReferralsSent")
+  referralsReceived       Referral[]               @relation("ReferralsReceived")
+  supportTickets          SupportTicket[]
+  cart                    Cart?
+  wishlist                Wishlist?
+  hampers                 Hamper[]
+  orders                  Order[]
+  laundryBookings         LaundryBooking[]
+  laundrySubscriptions    LaundrySubscription[]
+  snackLists              SnackList[]
+  seller                  Seller?
+  refreshTokens           RefreshToken[]
+  socialAccounts          SocialAccount[]
+  vendorFollows           VendorFollow[]
+  razorpayOrders          RazorpayOrder[]
+  adminAuditLogs          AdminAuditLog[]
+
+  @@index([role])
+}
+
+model Address {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label         String
+  recipientName String
+  phone         String
+  line1         String
+  line2         String?
+  city          String
+  state         String
+  pincode       String
+  country       String   @default("India")
+  isDefault     Boolean  @default(false)
+  instructions  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  cartItems             CartItem[]
+  orderItemsShippedTo   OrderItem[]
+  shipments             OrderShipment[]  @relation("ShipmentAddress")
+  hampersAsRecipient    Hamper[]         @relation("HamperRecipientAddress")
+  ordersAsGiftRecipient Order[]          @relation("OrderGiftRecipientAddress")
+  laundryBookings       LaundryBooking[]
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Auth infrastructure (not a lib/types entity — server-only, backs the
+// JWT access+refresh / phone-OTP / social flows described in the milestone
+// brief).
+// ---------------------------------------------------------------------------
+
+/// One row per issued refresh token (rotating). A login/refresh mints a new
+/// row; refreshing revokes the old one and stores `replacedByTokenId`, so a
+/// reused/stolen refresh token is detectable (already-revoked lookup).
+/// Only a hash is stored — never the raw token.
+model RefreshToken {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  createdByIp       String?
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Phone-OTP login/verify. `codeHash` (never the raw code) + short TTL +
+/// `attempts` counter for basic brute-force resistance on top of the global
+/// throttler. The OTP "sender" is a stub in M8.0 (logs to console) — see
+/// `src/auth/otp.service.ts`.
+model PhoneOtp {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  purpose    String    @default("login")
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+}
+
+/// Stub social-login linkage — one row per (provider, providerAccountId) a
+/// user has connected. M8.0's `/auth/social/:provider` endpoint is a stub
+/// (trusts a client-submitted profile payload instead of verifying a real
+/// OAuth token) — flagged in `auth.service.ts`; a real provider SDK
+/// (Google/Apple) verification swaps in without a schema change.
+model SocialAccount {
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          SocialProvider
+  providerAccountId String
+  createdAt         DateTime       @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+
+/// `targetType`/`targetId` stay a loosely-typed polymorphic pair (not
+/// FK-enforced) per docs/DATA-MODEL.md's explicit note — `targetId` can
+/// point at a Product, Vendor, or a (not-yet-modeled) service id.
+/// `sellerReply` (an embedded object in lib/types) flattens to two nullable
+/// columns, present together or not at all (app-level invariant).
+model Review {
+  id                   String           @id @default(cuid())
+  targetType           ReviewTargetType
+  targetId             String
+  userId               String
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName             String
+  rating               Int
+  title                String?
+  body                 String
+  createdAt            DateTime         @default(now())
+  helpfulCount         Int              @default(0)
+  verifiedPurchase     Boolean          @default(false)
+  sellerReplyBody      String?
+  sellerReplyCreatedAt DateTime?
+  flagged              Boolean          @default(false)
+  hidden               Boolean          @default(false)
+
+  @@index([targetType, targetId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   NotificationChannel
+  category  NotificationCategory
+  title     String
+  body      String
+  read      Boolean              @default(false)
+  createdAt DateTime             @default(now())
+  /// Polymorphic ref, not FK-enforced (order id / laundry booking id /
+  /// wallet transaction id / support ticket id) — see docs/DATA-MODEL.md.
+  refType   String?
+  refId     String?
+
+  @@index([userId, read])
+}
+
+model NotificationPreference {
+  id       String               @id @default(cuid())
+  userId   String
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category NotificationCategory
+  sms      Boolean              @default(false)
+  whatsapp Boolean              @default(false)
+  email    Boolean              @default(false)
+  inapp    Boolean              @default(true)
+
+  @@unique([userId, category])
+}
+
+// ---------------------------------------------------------------------------
+// Referral & loyalty
+// ---------------------------------------------------------------------------
+
+model Referral {
+  id             String         @id @default(cuid())
+  referrerUserId String
+  referrer       User           @relation("ReferralsSent", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  code           String
+  refereeName    String?
+  refereeUserId  String?
+  referee        User?          @relation("ReferralsReceived", fields: [refereeUserId], references: [id])
+  status         ReferralStatus @default(pending)
+  rewardAmount   Decimal?       @db.Decimal(10, 2)
+  createdAt      DateTime       @default(now())
+
+  @@index([referrerUserId])
+}
+
+model LoyaltyAccount {
+  id               String      @id @default(cuid())
+  userId           String      @unique
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tier             LoyaltyTier @default(bronze)
+  points           Int         @default(0)
+  lifetimePoints   Int         @default(0)
+  pointsToNextTier Int?
+}
+
+// ---------------------------------------------------------------------------
+// Support
+// ---------------------------------------------------------------------------
+
+model SupportTicket {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  channel   SupportChannel
+  status    SupportTicketStatus @default(open)
+  orderRef  String?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  messages  SupportMessage[]
+
+  @@index([userId])
+}
+
+model SupportMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender    SupportSender
+  body      String
+  createdAt DateTime      @default(now())
+
+  @@index([ticketId])
+}
+
+// ---------------------------------------------------------------------------
+// Corporate inquiry & seller applications (both standalone — may predate an
+// account, per lib/types' own doc comments).
+// ---------------------------------------------------------------------------
+
+model CorporateInquiry {
+  id                String                 @id @default(cuid())
+  companyName       String
+  contactName       String
+  email             String
+  phone             String
+  occasion          String?
+  estimatedQuantity Int
+  budgetRange       String?
+  message           String
+  status            CorporateInquiryStatus @default(new)
+  createdAt         DateTime               @default(now())
+}
+
+model SellerApplication {
+  id           String                    @id @default(cuid())
+  businessName String
+  contactName  String
+  email        String
+  phone        String
+  category     SellerApplicationCategory
+  city         String
+  description  String
+  status       SellerApplicationStatus   @default(new)
+  createdAt    DateTime                  @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Wallet
+// ---------------------------------------------------------------------------
+
+model Wallet {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance              Decimal  @default(0) @db.Decimal(12, 2)
+  pendingCashback      Decimal  @default(0) @db.Decimal(12, 2)
+  lifetimeSaved        Decimal  @default(0) @db.Decimal(12, 2)
+  payWithWalletDefault Boolean  @default(true)
+  updatedAt            DateTime @updatedAt
+
+  transactions   WalletTransaction[]
+  autoTopupRule  AutoTopupRule?
+  razorpayOrders RazorpayOrder[]
+}
+
+/// `balanceAfter` is the server-authoritative running total — per
+/// docs/DATA-MODEL.md, only ever written inside the same DB transaction
+/// that mutates `Wallet.balance` (M8.2 wallet-service concern; this
+/// milestone only lays the table down).
+model WalletTransaction {
+  id           String                     @id @default(cuid())
+  walletId     String
+  wallet       Wallet                     @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  direction    WalletTransactionDirection
+  category     WalletTransactionCategory
+  amount       Decimal                    @db.Decimal(12, 2)
+  balanceAfter Decimal                    @db.Decimal(12, 2)
+  title        String
+  refType      WalletTransactionRefType?
+  refId        String?
+  createdAt    DateTime                   @default(now())
+
+  @@index([walletId, createdAt])
+}
+
+model AutoTopupRule {
+  id               String           @id @default(cuid())
+  walletId         String           @unique
+  wallet           Wallet           @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  enabled          Boolean          @default(false)
+  trigger          AutoTopupTrigger
+  thresholdAmount  Decimal?         @db.Decimal(12, 2)
+  topupAmount      Decimal          @db.Decimal(12, 2)
+  paymentMethodRef String?
+}
+
+/// M8.2 — a client-supplied key (`Idempotency-Key` header, typically) that
+/// scopes a money-mutating op to "run at most once". The op runs inside a
+/// transaction that inserts its claim row here *before* doing the real
+/// work and stamps the same row with the JSON result once done, all
+/// atomically — see `src/common/idempotency/idempotency.service.ts` for
+/// the full mechanics (relies on Postgres' own unique-index conflict
+/// handling to serialize concurrent duplicate attempts, no polling).
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  userId       String
+  scope        String
+  key          String
+  responseBody Json
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, scope, key])
+}
+
+/// M8.2 — dedup ledger for inbound Razorpay webhook deliveries. Razorpay
+/// (like most webhook senders) may redeliver the same event on a timeout
+/// or non-2xx response; a unique violation on insert here is exactly the
+/// signal "already processed this one" — see `PaymentsService.handleWebhook`.
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String   @default("razorpay")
+  eventId     String
+  paymentId   String?
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+/// M8.2 — one row per Razorpay order we've opened (`POST
+/// /payments/razorpay/order`), tracking what it's *for* so the webhook
+/// handler knows what to credit/transition on `payment.captured` without
+/// trusting anything in the webhook payload beyond the payment id itself.
+/// `orderId` is set when `purpose: "order"`, `walletId` when `purpose:
+/// "topup"` — same app-level XOR convention as `CartItem`'s
+/// product-or-hamper polymorphic line.
+model RazorpayOrder {
+  id              String               @id @default(cuid())
+  razorpayOrderId String               @unique
+  purpose         RazorpayOrderPurpose
+  amount          Decimal              @db.Decimal(12, 2)
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId         String?
+  order           Order?               @relation(fields: [orderId], references: [id])
+  walletId        String?
+  wallet          Wallet?              @relation(fields: [walletId], references: [id])
+  status          RazorpayOrderStatus  @default(created)
+  createdAt       DateTime             @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Marketplace: vendors, catalog, cart/wishlist, hampers, orders
+// ---------------------------------------------------------------------------
+
+model Vendor {
+  id                String     @id @default(cuid())
+  slug              String     @unique
+  name              String
+  type              VendorType
+  bio               String
+  avatarPlaceholder String
+  bannerPlaceholder String
+  avatarSrc         String?
+  bannerSrc         String?
+  location          String
+  rating            Decimal    @default(0) @db.Decimal(2, 1)
+  reviewCount       Int        @default(0)
+  followerCount     Int        @default(0)
+  joinedAt          DateTime   @default(now())
+
+  products Product[]
+  seller   Seller?
+  follows  VendorFollow[]
+}
+
+/// Not a lib/types entity yet — `Vendor.isFollowing` is a per-viewer
+/// derived flag in the mock layer with nothing backing it; a real "follow"
+/// feature needs a join table, so this is added now rather than bolted on
+/// later. `isFollowing` for a given viewer = `exists(VendorFollow{userId,
+/// vendorId})`.
+model VendorFollow {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, vendorId])
+}
+
+model Category {
+  id               String  @id @default(cuid())
+  slug             String  @unique
+  name             String
+  imagePlaceholder String
+  imageSrc         String?
+  productCount     Int     @default(0)
+
+  products Product[]
+}
+
+model Occasion {
+  id      String @id @default(cuid())
+  slug    String @unique
+  name    String
+  initial String
+
+  products    ProductOccasion[]
+  collections Collection[]
+}
+
+model Collection {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  description String?
+  occasionId  String?
+  occasion    Occasion? @relation(fields: [occasionId], references: [id])
+
+  products CollectionProduct[]
+}
+
+/// `Collection.productIds` (an ordered id array in the mock) becomes a real
+/// join table; `sortOrder` preserves the array's display order per
+/// docs/DATA-MODEL.md's note ("array order is the collection's real display
+/// order").
+model CollectionProduct {
+  id           String     @id @default(cuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sortOrder    Int        @default(0)
+
+  @@unique([collectionId, productId])
+}
+
+/// `dietary`/`tags` stay native Postgres enum arrays (small, fixed tag
+/// sets — not full entities, so a join table doesn't pay for itself).
+/// `occasionIds` (many-to-many with real query patterns — "products for
+/// this occasion") gets a proper join table (`ProductOccasion`) instead.
+model Product {
+  id                  String                  @id @default(cuid())
+  slug                String                  @unique
+  vendorId            String
+  vendor              Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name                String
+  categoryId          String
+  category            Category                @relation(fields: [categoryId], references: [id])
+  dietary             DietaryTag[]
+  defaultWeightSku    String
+  rating              Decimal                 @default(0) @db.Decimal(2, 1)
+  reviewCount         Int                     @default(0)
+  tags                ProductTag[]
+  isPackaged          Boolean                 @default(true)
+  cashbackPct         Decimal                 @default(0) @db.Decimal(4, 2)
+  description         String
+  ingredients         String?
+  shelfLife           String?
+  storageInstructions String?
+  madeIn              String?
+  moderationStatus    ProductModerationStatus @default(active)
+  featured            Boolean                 @default(false)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  images        ProductImage[]
+  weightOptions WeightOption[]
+  occasions     ProductOccasion[]
+  collections   CollectionProduct[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  wishlistItems WishlistItem[]
+  hamperItems   HamperItem[]
+
+  @@index([vendorId])
+  @@index([categoryId])
+}
+
+model ProductOccasion {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  occasionId String
+  occasion   Occasion @relation(fields: [occasionId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, occasionId])
+}
+
+model ProductImage {
+  id          String  @id @default(cuid())
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  placeholder String
+  src         String?
+  ratio       String
+  sortOrder   Int     @default(0)
+
+  @@index([productId])
+}
+
+model WeightOption {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku       String  @unique
+  label     String
+  price     Decimal @db.Decimal(10, 2)
+  mrp       Decimal @db.Decimal(10, 2)
+  stock     Int     @default(0)
+
+  @@index([productId])
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  updatedAt DateTime @updatedAt
+
+  items CartItem[]
+}
+
+/// Polymorphic line per docs/DATA-MODEL.md: either a catalog product
+/// (`productId`+`sku`) or an assembled hamper (`hamperId`) — never both.
+/// Modeled as two nullable FKs + an app-level XOR (enforced in the M8.1
+/// cart service; a DB CHECK constraint is a reasonable follow-up once
+/// there's real write traffic to protect).
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  sku       String?
+  hamperId  String?
+  hamper    Hamper?  @relation(fields: [hamperId], references: [id])
+  quantity  Int      @default(1)
+  giftWrap  Boolean  @default(false)
+  addressId String?
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  @@index([cartId])
+}
+
+model Wishlist {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items WishlistItem[]
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  addedAt    DateTime @default(now())
+
+  @@unique([wishlistId, productId])
+}
+
+model HamperBox {
+  id         String  @id @default(cuid())
+  name       String
+  maxItems   Int
+  price      Decimal @db.Decimal(10, 2)
+  itemsLabel String
+
+  hampers Hamper[]
+}
+
+model Hamper {
+  id                 String         @id @default(cuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boxId              String
+  box                HamperBox      @relation(fields: [boxId], references: [id])
+  giftNote           String?
+  wrap               GiftWrapStyle?
+  ribbon             RibbonColor?
+  nameCard           String?
+  recipientAddressId String?
+  recipientAddress   Address?       @relation("HamperRecipientAddress", fields: [recipientAddressId], references: [id])
+  hidePrice          Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+
+  items      HamperItem[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([userId])
+}
+
+model HamperItem {
+  id        String  @id @default(cuid())
+  hamperId  String
+  hamper    Hamper  @relation(fields: [hamperId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+}
+
+/// `OrderGift` (an embedded object in lib/types) flattens onto Order with a
+/// `gift`-prefixed column set — present together or not at all
+/// (`giftIsGift: false` is the "no gift" state, matching the mock's
+/// `gift?: OrderGift` optionality). `shippingAddressIds` stays a
+/// denormalized `String[]` convenience list per docs/DATA-MODEL.md;
+/// `OrderShipment` (below) is the real source of truth for per-address
+/// delivery dates.
+model Order {
+  id                     String        @id @default(cuid())
+  orderNumber            String        @unique
+  userId                 String
+  user                   User          @relation(fields: [userId], references: [id])
+  status                 OrderStatus   @default(placed)
+  shippingAddressIds     String[]
+  giftIsGift             Boolean       @default(false)
+  giftRecipientName      String?
+  giftRecipientAddressId String?
+  giftRecipientAddress   Address?      @relation("OrderGiftRecipientAddress", fields: [giftRecipientAddressId], references: [id])
+  giftHidePrice          Boolean       @default(false)
+  giftMessage            String?
+  placedAt               DateTime      @default(now())
+  subtotal               Decimal       @db.Decimal(12, 2)
+  shippingFee            Decimal       @default(0) @db.Decimal(12, 2)
+  total                  Decimal       @db.Decimal(12, 2)
+  walletApplied          Decimal       @default(0) @db.Decimal(12, 2)
+  cashbackEarned         Decimal       @default(0) @db.Decimal(12, 2)
+  refundStatus           RefundStatus  @default(none)
+  paymentMethod          PaymentMethod
+
+  items          OrderItem[]
+  shipments      OrderShipment[]
+  razorpayOrders RazorpayOrder[]
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  sku       String?
+  hamperId  String?
+  hamper    Hamper?  @relation(fields: [hamperId], references: [id])
+  name      String
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2)
+  addressId String
+  address   Address  @relation(fields: [addressId], references: [id])
+  giftWrap  Boolean  @default(false)
+
+  @@index([orderId])
+}
+
+model OrderShipment {
+  id           String    @id @default(cuid())
+  orderId      String
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  addressId    String
+  address      Address   @relation("ShipmentAddress", fields: [addressId], references: [id])
+  deliveryDate DateTime?
+
+  @@unique([orderId, addressId])
+}
+
+// ---------------------------------------------------------------------------
+// Laundry, Cleaning & Ironing
+// ---------------------------------------------------------------------------
+
+/// Availability lookup tables — not booking state, just what the picker UI
+/// offers (see lib/types/laundry.ts's own "availability data, not booking
+/// state" framing).
+model LaundryDay {
+  id      String   @id @default(cuid())
+  day     String
+  date    String
+  isoDate DateTime
+}
+
+model LaundrySlot {
+  id    String @id @default(cuid())
+  label String
+
+  pickupBookings   LaundryBooking[]      @relation("PickupSlot")
+  deliveryBookings LaundryBooking[]      @relation("DeliverySlot")
+  subscriptions    LaundrySubscription[]
+}
+
+model LaundryService {
+  id              String              @id @default(cuid())
+  slug            String              @unique
+  name            String
+  description     String
+  pricingModel    LaundryPricingModel
+  price           Decimal             @db.Decimal(10, 2)
+  unitLabel       String
+  priceIsFrom     Boolean             @default(false)
+  priceLabel      String
+  iconPlaceholder String?
+
+  lines         LaundryBookingLine[]
+  subscriptions LaundrySubscription[]
+}
+
+/// `pickupSlot`/`deliverySlot` (embedded `{date, slotId}` objects in
+/// lib/types) flatten to a date column + a `LaundrySlot` FK each, named by
+/// relation (`PickupSlot`/`DeliverySlot`) since both point at the same
+/// model. `partnerId` (M10b) scopes a booking to a laundry-type `Seller`.
+model LaundryBooking {
+  id                  String               @id @default(cuid())
+  bookingNumber       String               @unique
+  userId              String
+  user                User                 @relation(fields: [userId], references: [id])
+  pickupDate          DateTime
+  pickupSlotId        String
+  pickupSlot          LaundrySlot          @relation("PickupSlot", fields: [pickupSlotId], references: [id])
+  deliveryDate        DateTime
+  deliverySlotId      String
+  deliverySlot        LaundrySlot          @relation("DeliverySlot", fields: [deliverySlotId], references: [id])
+  addressId           String
+  address             Address              @relation(fields: [addressId], references: [id])
+  photos              String[]
+  specialInstructions String?
+  subscriptionId      String?
+  subscription        LaundrySubscription? @relation(fields: [subscriptionId], references: [id])
+  paymentMethod       PaymentMethod
+  status              LaundryBookingStatus @default(scheduled)
+  estimatedTotal      Decimal              @db.Decimal(12, 2)
+  walletCashback      Decimal?             @db.Decimal(12, 2)
+  createdAt           DateTime             @default(now())
+  partnerId           String?
+  partner             Seller?              @relation(fields: [partnerId], references: [id])
+
+  lines LaundryBookingLine[]
+
+  @@index([userId])
+  @@index([partnerId])
+}
+
+model LaundryBookingLine {
+  id                String         @id @default(cuid())
+  bookingId         String
+  booking           LaundryBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  serviceId         String
+  service           LaundryService @relation(fields: [serviceId], references: [id])
+  estimatedWeightKg Decimal?       @db.Decimal(6, 2)
+  itemCount         Int?
+  estimatedHours    Decimal?       @db.Decimal(6, 2)
+  estimatedPrice    Decimal        @db.Decimal(10, 2)
+}
+
+model LaundrySubscription {
+  id         String                  @id @default(cuid())
+  userId     String
+  user       User                    @relation(fields: [userId], references: [id])
+  serviceId  String
+  service    LaundryService          @relation(fields: [serviceId], references: [id])
+  plan       LaundrySubscriptionPlan
+  slotDay    String
+  slotId     String
+  slot       LaundrySlot             @relation(fields: [slotId], references: [id])
+  active     Boolean                 @default(true)
+  nextPickup DateTime
+
+  bookings LaundryBooking[]
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Snacks & food (full meals are promo-only — MealPromo is static content,
+// no menu/order entities per lib/channel.ts)
+// ---------------------------------------------------------------------------
+
+model Snack {
+  id               String        @id @default(cuid())
+  slug             String        @unique
+  name             String
+  description      String
+  price            Decimal       @db.Decimal(10, 2)
+  category         SnackCategory
+  diet             DietType
+  imagePlaceholder String
+  imageSrc         String?
+  available        Boolean       @default(true)
+  sellerId         String?
+  seller           Seller?       @relation(fields: [sellerId], references: [id])
+
+  snackListItems  SnackListItem[]
+  snackOrderItems SnackOrderItem[]
+
+  @@index([sellerId])
+}
+
+/// The customer's in-progress selection that becomes a WhatsApp payload —
+/// never becomes an `Order` (Snacks has no on-site checkout, see
+/// lib/channel.ts).
+model SnackList {
+  id              String          @id @default(cuid())
+  userId          String?
+  user            User?           @relation(fields: [userId], references: [id])
+  estimateTotal   Decimal         @db.Decimal(10, 2)
+  whatsappPayload String
+  status          SnackListStatus @default(draft)
+  createdAt       DateTime        @default(now())
+
+  items SnackListItem[]
+
+  @@index([userId])
+}
+
+model SnackListItem {
+  id          String    @id @default(cuid())
+  snackListId String
+  snackList   SnackList @relation(fields: [snackListId], references: [id], onDelete: Cascade)
+  snackId     String
+  snack       Snack     @relation(fields: [snackId], references: [id])
+  name        String
+  quantity    Int
+  price       Decimal   @db.Decimal(10, 2)
+}
+
+/// M10b seller-side stand-in for a real inbound WhatsApp order — see
+/// lib/types/food.ts's doc comment. M9's WhatsApp Cloud API ingestion is
+/// expected to create these rows from real inbound messages without a
+/// shape change.
+model SnackOrder {
+  id            String            @id @default(cuid())
+  sellerId      String
+  seller        Seller            @relation(fields: [sellerId], references: [id])
+  customerName  String
+  customerPhone String
+  total         Decimal           @db.Decimal(10, 2)
+  channel       SnackOrderChannel @default(whatsapp)
+  status        SnackOrderStatus  @default(received)
+  createdAt     DateTime          @default(now())
+
+  items SnackOrderItem[]
+
+  @@index([sellerId])
+}
+
+model SnackOrderItem {
+  id           String     @id @default(cuid())
+  snackOrderId String
+  snackOrder   SnackOrder @relation(fields: [snackOrderId], references: [id], onDelete: Cascade)
+  snackId      String
+  snack        Snack      @relation(fields: [snackId], references: [id])
+  name         String
+  quantity     Int
+  price        Decimal    @db.Decimal(10, 2)
+}
+
+model MealPromo {
+  id                String  @id @default(cuid())
+  title             String
+  description       String
+  imagePlaceholder  String
+  imageSrc          String?
+  appStoreUrl       String
+  playStoreUrl      String
+  qrCodePlaceholder String
+}
+
+// ---------------------------------------------------------------------------
+// Seller portal (M10) — Seller/Payout live here now (schema only); real
+// seller-scoped endpoints are M8.3.
+// ---------------------------------------------------------------------------
+
+model Seller {
+  id          String       @id @default(cuid())
+  userId      String       @unique
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        SellerType
+  /// Maker-only — the Vendor this seller manages. Null for laundry/snack
+  /// sellers, which have no storefront concept (see lib/types/seller.ts).
+  vendorId    String?      @unique
+  vendor      Vendor?      @relation(fields: [vendorId], references: [id])
+  displayName String
+  status      SellerStatus @default(pending)
+  createdAt   DateTime     @default(now())
+  /// Laundry/snack only — a maker's rating comes from its Vendor instead.
+  rating      Decimal?     @db.Decimal(2, 1)
+  reviewCount Int?
+
+  payouts         Payout[]
+  laundryBookings LaundryBooking[]
+  snacks          Snack[]
+  snackOrders     SnackOrder[]
+
+  @@index([type])
+}
+
+model Payout {
+  id          String       @id @default(cuid())
+  sellerId    String
+  seller      Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  amount      Decimal      @db.Decimal(12, 2)
+  periodStart DateTime
+  periodEnd   DateTime
+  status      PayoutStatus @default(pending)
+  paidAt      DateTime?
+
+  @@index([sellerId])
+}
+
+// ---------------------------------------------------------------------------
+// Admin (M8.3c) — not a `lib/types` entity (no frontend mock equivalent);
+// added fresh for the real backend per the M8.3c brief's "every admin
+// mutation writes an audit row" requirement. `actorId` is always the
+// acting admin's own `User.id` (never client-supplied — resolved from
+// `@CurrentUser()` the same way every other actor id in this schema is).
+// `targetType`/`targetId` are a loose (not FK-enforced) pointer at
+// whatever row the action touched (`User`, `Seller`, `SellerApplication`,
+// `Product`, `Review`, `Order`, `LaundryBooking`, `Wallet`, `Collection`,
+// ...) — deliberately not a real relation, since one log table spans many
+// unrelated target tables and a dangling reference (e.g. after a rare
+// hard-delete) should never block writing the log itself. `metadata` is
+// a free-form JSON blob for action-specific detail (e.g. `{ amount,
+// reason }` for a wallet adjustment) kept out of `action`/`targetId` so
+// `GET /admin/audit` can render a readable one-line summary per row.
+// ---------------------------------------------------------------------------
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  targetType String
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}

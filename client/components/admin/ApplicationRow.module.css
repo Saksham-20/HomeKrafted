@@ -1,0 +1,62 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  flex-wrap: wrap;
+}
+
+.body {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.description {
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  margin-top: 2px;
+  max-width: 480px;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.actions {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+}

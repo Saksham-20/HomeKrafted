@@ -20,14 +20,35 @@ export const products: Product[] = [
     vendorId: "vd1",
     name: "Mango Thokku Pickle",
     categoryId: "ct1",
+    featured: true,
     occasionIds: ["oc4", "oc8"],
     dietary: ["vegetarian"],
     images: [
-      { placeholder: "mango_pickle_hero.jpg", ratio: "1/1" },
-      { placeholder: "FRONT", ratio: "1/1" },
-      { placeholder: "OPEN", ratio: "1/1" },
-      { placeholder: "SPREAD", ratio: "1/1" },
-      { placeholder: "LABEL", ratio: "1/1" },
+      {
+        placeholder: "Mango Thokku Pickle product photo",
+        src: "/images/products/mango-thokku-pickle.jpg",
+        ratio: "1/1",
+      },
+      {
+        placeholder: "Mango Thokku Pickle front view",
+        src: "/images/products/mango-thokku-pickle.jpg",
+        ratio: "1/1",
+      },
+      {
+        placeholder: "Mango Thokku Pickle open jar",
+        src: "/images/products/mango-thokku-pickle.jpg",
+        ratio: "1/1",
+      },
+      {
+        placeholder: "Mango Thokku Pickle serving spread",
+        src: "/images/products/mango-thokku-pickle.jpg",
+        ratio: "1/1",
+      },
+      {
+        placeholder: "Mango Thokku Pickle label view",
+        src: "/images/products/mango-thokku-pickle.jpg",
+        ratio: "1/1",
+      },
     ],
     weightOptions: [
       { sku: "mango-thokku-pickle-250g", label: "250 g", price: 249, mrp: 299, stock: 40 },
@@ -55,7 +76,13 @@ export const products: Product[] = [
     categoryId: "ct2",
     occasionIds: ["oc4"],
     dietary: ["vegetarian"],
-    images: [{ placeholder: "CHUTNEY JAR", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Green Chilli Chutney product photo",
+        src: "/images/products/green-chilli-chutney.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "green-chilli-chutney-200g", label: "200 g", price: 189, mrp: 219, stock: 35 },
     ],
@@ -74,9 +101,16 @@ export const products: Product[] = [
     vendorId: "vd3",
     name: "Ragi Almond Cookies",
     categoryId: "ct3",
+    featured: true,
     occasionIds: ["oc1", "oc6"],
     dietary: ["vegetarian", "gluten-free"],
-    images: [{ placeholder: "COOKIES", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Ragi Almond Cookies product photo",
+        src: "/images/products/ragi-almond-cookies.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "ragi-almond-cookies-200g", label: "200 g", price: 220, mrp: 260, stock: 50 },
     ],
@@ -97,7 +131,13 @@ export const products: Product[] = [
     categoryId: "ct7",
     occasionIds: ["oc5", "oc8"],
     dietary: ["vegetarian", "vegan", "gluten-free"],
-    images: [{ placeholder: "MAKHANA", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Roasted Makhana product photo",
+        src: "/images/products/roasted-makhana.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "roasted-makhana-100g", label: "100 g", price: 160, mrp: 190, stock: 60 },
     ],
@@ -118,7 +158,13 @@ export const products: Product[] = [
     categoryId: "ct6",
     occasionIds: ["oc2", "oc1"],
     dietary: ["vegetarian", "vegan"],
-    images: [{ placeholder: "CHOCOLATE", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Dark Chocolate Bark product photo",
+        src: "/images/products/dark-chocolate-bark.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "dark-chocolate-bark-150g", label: "150 g", price: 340, mrp: 399, stock: 30 },
     ],
@@ -137,9 +183,16 @@ export const products: Product[] = [
     vendorId: "vd6",
     name: "Dry Fruit Laddoo Box",
     categoryId: "ct5",
+    featured: true,
     occasionIds: ["oc3", "oc7"],
     dietary: ["vegetarian"],
-    images: [{ placeholder: "LADDOO BOX", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Dry Fruit Laddoo Box product photo",
+        src: "/images/products/dry-fruit-laddoo-box.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "dry-fruit-laddoo-box-400g", label: "400 g", price: 560, mrp: 640, stock: 20 },
     ],
@@ -160,7 +213,13 @@ export const products: Product[] = [
     categoryId: "ct7",
     occasionIds: ["oc4", "oc8"],
     dietary: ["vegetarian", "vegan"],
-    images: [{ placeholder: "TEA BLEND", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Masala Chai Blend product photo",
+        src: "/images/products/masala-chai-blend.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "masala-chai-blend-150g", label: "150 g", price: 275, mrp: 310, stock: 45 },
     ],
@@ -179,9 +238,16 @@ export const products: Product[] = [
     vendorId: "vd8",
     name: "Festive Assorted Hamper",
     categoryId: "ct8",
+    featured: true,
     occasionIds: ["oc3", "oc5", "oc7"],
     dietary: ["vegetarian"],
-    images: [{ placeholder: "GIFT HAMPER", ratio: "1/1" }],
+    images: [
+      {
+        placeholder: "Festive Assorted Hamper product photo",
+        src: "/images/products/festive-assorted-hamper.jpg",
+        ratio: "1/1",
+      },
+    ],
     weightOptions: [
       { sku: "festive-assorted-hamper-curated", label: "Curated", price: 1499, mrp: 1750, stock: 15 },
     ],
@@ -194,14 +260,6 @@ export const products: Product[] = [
     description:
       "Our own curated edit of best-selling pickles, bakes and sweets from across the maker community, packed into one gift-ready box.",
   },
-];
-
-/** "This week's small batches" home rail — products[0, 2, 5, 7]. */
-export const featuredProducts: Product[] = [
-  products[0],
-  products[2],
-  products[5],
-  products[7],
 ];
 
 export function getProductBySlug(slug: string): Product | undefined {

@@ -17,7 +17,7 @@ export function SnackCard({ snack, added = false, onAdd, className }: SnackCardP
   return (
     <div className={clsx(styles.card, className)}>
       <div className={styles.imageWrap}>
-        <ImageSlot ratio="1.5/1" label={snack.imagePlaceholder} compact />
+        <ImageSlot ratio="1.5/1" label={snack.imagePlaceholder} src={snack.imageSrc} compact />
         <DietDot diet={snack.diet} className={styles.dietDot} />
       </div>
       <div className={styles.content}>

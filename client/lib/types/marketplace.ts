@@ -20,6 +20,8 @@ export interface Vendor {
   bio: string;
   avatarPlaceholder: string;
   bannerPlaceholder: string;
+  avatarSrc?: string;
+  bannerSrc?: string;
   location: string;
   rating: number;
   reviewCount: number;
@@ -37,6 +39,7 @@ export interface Category {
   slug: string;
   name: string;
   imagePlaceholder: string;
+  imageSrc?: string;
   productCount: number;
 }
 
@@ -70,8 +73,9 @@ export interface WeightOption {
 }
 
 export interface ProductImage {
-  /** Label rendered by <ImageSlot> until real photography lands. */
+  /** Fallback label rendered by <ImageSlot> when no source image exists. */
   placeholder: string;
+  src?: string;
   ratio: string; // '1/1' | '4/5' | ...
 }
 
@@ -83,6 +87,17 @@ export type DietaryTag =
   | "contains-nuts";
 
 export type ProductTag = "Bestseller" | "New" | "Festive" | "Curated";
+
+/**
+ * Admin moderation state (M11b, `/admin/catalog`) — a real lifecycle
+ * column the M8 schema needs, not a UI convenience field: `"active"`
+ * (default — browsable), `"hidden"` (taken down, excluded from every
+ * consumer-facing browse/listing query in `lib/api/products.ts`, same as
+ * a real soft-delete), `"flagged"` (still browsable, but surfaced in the
+ * admin queue for review). Optional so every pre-M11b seed product reads
+ * as `"active"` via `?? "active"` without a data migration.
+ */
+export type ProductModerationStatus = "active" | "hidden" | "flagged";
 
 export interface Product {
   id: ID;
@@ -107,6 +122,10 @@ export interface Product {
   shelfLife?: string;
   storageInstructions?: string;
   madeIn?: string;
+  /** See `ProductModerationStatus`'s doc comment. Absent reads as `"active"`. */
+  moderationStatus?: ProductModerationStatus;
+  /** Admin-curated home "This week's small batches" flag (M11b) — `getFeatured()` (`lib/api/products.ts`) filters on this directly instead of a hardcoded id list. `/admin/catalog`'s feature toggle mutates it client-side; since Home is a Server Component, the effect lands on that page's next server-side fetch (a real backend request in M8), not this same browser tab — see `lib/api/admin.ts`'s "Catalog & review moderation" section header. */
+  featured?: boolean;
 }
 
 // ---------------------------------------------------------------------------

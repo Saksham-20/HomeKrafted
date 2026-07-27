@@ -15,7 +15,9 @@ export type WalletTransactionCategory =
   | "refund"
   | "payment"
   | "referral"
-  | "loyalty";
+  | "loyalty"
+  /** Admin manual credit/debit with a reason (M11b, `/admin/wallet`) — distinct from `"refund"` (order-tied, consumer-initiated in spirit) since a real ledger needs to tell "we made this right after a support case" apart from "the system refunded an order" for audit purposes. */
+  | "adjustment";
 
 export type WalletTransactionRefType =
   | "order"

@@ -6,6 +6,7 @@ import "@/styles/tokens.extend.css";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { ConsumerChrome } from "@/components/layout/ConsumerChrome";
 import { CartProvider } from "@/lib/cart/CartContext";
 import { WalletProvider } from "@/lib/wallet/WalletContext";
 import { WishlistProvider } from "@/lib/wishlist/WishlistContext";
@@ -57,10 +58,13 @@ export default function RootLayout({
           <WalletProvider>
             <CartProvider>
               <WishlistProvider>
-                <AnnouncementBar />
-                <Header />
-                <main>{children}</main>
-                <Footer />
+                <ConsumerChrome
+                  announcementBar={<AnnouncementBar />}
+                  header={<Header />}
+                  footer={<Footer />}
+                >
+                  <main>{children}</main>
+                </ConsumerChrome>
               </WishlistProvider>
             </CartProvider>
           </WalletProvider>

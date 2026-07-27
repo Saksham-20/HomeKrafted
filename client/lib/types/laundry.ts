@@ -80,6 +80,15 @@ export interface LaundryBooking {
   estimatedTotal: number;
   walletCashback?: number;
   createdAt: ISODateString;
+  /**
+   * M10b: the laundry-partner `Seller.id` this booking is assigned to —
+   * what `/seller/pickups` scopes its query by. Optional because M0–M7's
+   * consumer booking flow predates partner assignment; every booking
+   * `lib/api/laundry.ts#createBooking` places today auto-assigns to the
+   * one seeded demo partner (see that file) since there's no real
+   * dispatch/assignment logic yet — M8/M9 build real partner routing.
+   */
+  partnerId?: ID;
 }
 
 export type LaundrySubscriptionPlan = "weekly" | "biweekly" | "monthly";

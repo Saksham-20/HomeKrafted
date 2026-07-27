@@ -1,0 +1,257 @@
+.shell {
+  min-height: 100vh;
+  background: var(--hk-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Topbar ---- */
+
+.topbar {
+  background: var(--hk-pine-deep);
+  border-bottom: 1px solid var(--hk-footer-border);
+}
+
+.topbarRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  padding-block: var(--hk-s3);
+}
+
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 20px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.logo:hover {
+  color: #ffffff;
+}
+
+.krafted {
+  color: var(--hk-gold-bright);
+}
+
+.portalTag {
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-footer-ink-2);
+  border: 1px solid var(--hk-footer-border);
+  border-radius: var(--hk-r-pill);
+  padding: 2px 8px;
+  margin-left: 4px;
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  min-height: 44px;
+}
+
+.adminName {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hk-footer-ink);
+}
+
+.viewSiteLink {
+  font-size: 13px;
+  color: var(--hk-footer-ink-2);
+}
+
+.viewSiteLink:hover {
+  color: var(--hk-gold-bright);
+}
+
+/* Button's `secondary` variant (pine text/border) is unreadable on this
+   dark pine-deep topbar — force a light-on-dark treatment for this one
+   instance, same override `SellerShell.module.css` uses for its own
+   sign-out button. */
+.signOutButton {
+  background: transparent !important;
+  color: var(--hk-footer-ink) !important;
+  border-color: var(--hk-footer-border) !important;
+}
+
+.signOutButton:hover:not(:disabled) {
+  color: #ffffff !important;
+  border-color: var(--hk-gold-bright) !important;
+}
+
+/* ---- Body: sidebar + content ---- */
+
+.body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s6);
+  padding-block: var(--hk-s6) var(--hk-s8);
+  flex: 1;
+}
+
+.sidebar {
+  flex-shrink: 0;
+  width: 220px;
+  position: sticky;
+  top: var(--hk-s5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s3);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--hk-r-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  min-height: 44px;
+}
+
+.navItem:hover {
+  background: var(--hk-surface-3);
+  color: var(--hk-ink);
+}
+
+.navItemActive {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+/* M11b nav slots (Catalog/Wallet/Collections/Analytics) — visible so the
+   admin knows they're coming, not clickable yet. */
+.navItemDisabled {
+  color: var(--hk-muted-2);
+  cursor: default;
+}
+
+.navItemDisabled:hover {
+  background: none;
+  color: var(--hk-muted-2);
+}
+
+.soonTag {
+  margin-left: auto;
+  font-family: var(--hk-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.navDivider {
+  height: 1px;
+  background: var(--hk-border);
+  margin: 6px 4px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 780px) {
+  .body {
+    flex-direction: column;
+    gap: var(--hk-s4);
+    /* See `SellerShell.module.css`'s identical override for the full
+       reasoning — mobile stacked layout needs `.content` to fill the
+       row width, not shrink-to-fit, or wider content (stat grids, table
+       rows) silently overflows past the viewport. */
+    align-items: stretch;
+  }
+
+  .sidebar {
+    position: static;
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: var(--hk-s2);
+  }
+
+  .navItem {
+    flex-shrink: 0;
+  }
+
+  .navDivider {
+    width: 1px;
+    height: auto;
+    align-self: stretch;
+    margin: 4px 2px;
+  }
+}
+
+@media (max-width: 560px) {
+  .viewSiteLink {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .adminName {
+    display: none;
+  }
+}
+
+/* ---- Signed-out / wrong-role gate ---- */
+
+.gatePage {
+  min-height: 60vh;
+  padding-block: var(--hk-s8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gateCard {
+  max-width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s2);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s6);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.gateTitle {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+}
+
+.gateCopy {
+  color: var(--hk-muted);
+  font-size: 14px;
+  margin-bottom: var(--hk-s2);
+}

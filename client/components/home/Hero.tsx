@@ -44,7 +44,8 @@ export function Hero({ trustStats }: HeroProps) {
           <div className={styles.imageWrap}>
             <ImageSlot
               ratio="1/1"
-              label="hero_hamper.jpg — festive gift box"
+              label="Festive homemade gift hamper"
+              src="/images/site/hero-hamper.jpg"
               size="1200×1200"
             />
           </div>

@@ -10,26 +10,40 @@ import { ProductGridCard } from "@/components/product/ProductGridCard";
 import {
   getCategories,
   getFeatured,
+  getHomePromoBands,
   getOccasions,
   getTrustStats,
   getVendors,
 } from "@/lib/api";
 import styles from "./page.module.css";
 
+/** Splits a `HomePromoBandContent.title` on its literal `"\n"` line break into React fragments joined by `<br />` — see that type's doc comment (`lib/data/site.ts`). */
+function renderPromoTitle(title: string) {
+  const lines = title.split("\n");
+  return lines.map((line, index) => (
+    <span key={index}>
+      {line}
+      {index < lines.length - 1 && <br />}
+    </span>
+  ));
+}
+
 /**
  * Home — full port of the prototype's store-first Home (M2). Hero, shop by
  * occasion, shop by category, "this week's small batches" featured rail,
  * hamper + wallet promo bands, "One home, three crafts" services band
  * (Laundry/Food Delivery/Snacks) and the app-install panel. Replaces the
- * M0 placeholder.
+ * M0 placeholder. Promo band copy is admin-editable (M11b `/admin/collections`)
+ * — see `getHomePromoBands`.
  */
 export default async function Home() {
-  const [trustStats, occasions, categories, featured, vendors] = await Promise.all([
+  const [trustStats, occasions, categories, featured, vendors, promoBands] = await Promise.all([
     getTrustStats(),
     getOccasions(),
     getCategories(),
     getFeatured(),
     getVendors(),
+    getHomePromoBands(),
   ]);
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
@@ -84,34 +98,17 @@ export default async function Home() {
 
       <section className={clsx("container", styles.section)}>
         <div className={styles.bandsGrid}>
-          <PromoBand
-            variant="dark"
-            eyebrow="Customisable"
-            title={
-              <>
-                Build your own
-                <br />
-                gift hamper
-              </>
-            }
-            description="Pick a box, fill it with favourites, add a handwritten message card and gift wrap. We pack it beautifully."
-            ctaLabel="Start building →"
-            ctaHref="/hamper"
-          />
-          <PromoBand
-            variant="tint"
-            eyebrow="Homekrafted Wallet"
-            title={
-              <>
-                Earn 5% cashback
-                <br />
-                on every order
-              </>
-            }
-            description="Top up once, pay in a tap, and watch rewards add up across the store and laundry."
-            ctaLabel="Open wallet →"
-            ctaHref="/wallet"
-          />
+          {promoBands.map((band) => (
+            <PromoBand
+              key={band.id}
+              variant={band.variant}
+              eyebrow={band.eyebrow}
+              title={renderPromoTitle(band.title)}
+              description={band.description}
+              ctaLabel={band.ctaLabel}
+              ctaHref={band.ctaHref}
+            />
+          ))}
         </div>
       </section>
 

@@ -21,6 +21,7 @@ export function CategoryTile({ category, onClick, className }: CategoryTileProps
         ratio="1/1"
         shape="circle"
         label={category.imagePlaceholder}
+        src={category.imageSrc}
         compact
       />
       <span className={styles.label}>{category.name}</span>

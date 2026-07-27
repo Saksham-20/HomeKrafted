@@ -120,6 +120,12 @@ export async function createBooking(input: CreateBookingInput): Promise<LaundryB
     estimatedTotal,
     walletCashback,
     createdAt: new Date().toISOString(),
+    // M10b: real partner-assignment/dispatch (routing a new booking to
+    // whichever partner covers the pickup address) is M8/M9 scope — every
+    // booking placed today, live or seeded, auto-assigns to the one
+    // seeded demo laundry partner (`sl2`, `lib/data/sellers.ts`) so
+    // `/seller/pickups` has something real to show.
+    partnerId: "sl2",
   };
 
   bookings.push(booking);

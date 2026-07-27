@@ -216,6 +216,114 @@ export const seedOrders: Order[] = [
     paymentMethod: "wallet",
   },
   {
+    // --- M10a seller-demo orders (HK2039–HK2041) ---------------------
+    // The maker seed seller (`sl1`, Anjali's Kitchen / `vd1`) needs real
+    // orders to fulfil on `/seller/orders`, but none of the M7a seed
+    // orders above reference `pr1` (Mango Thokku Pickle, the one product
+    // `vd1` sells) — every one of them buys from a *different* vendor.
+    // These three are additive only (order numbers below the 2044
+    // `orderSequence` start, so a freshly-placed live order can never
+    // collide) and spread across the fulfilment pipeline
+    // (placed → packed → shipped) so the seller Orders screen has
+    // something at every "advance status" stage on first load. Still
+    // `userId: currentUser.id` — in the real world many different
+    // shoppers buy from Anjali, but the mock catalog only has the one
+    // seeded consumer, and seller-side scoping filters by the *product's*
+    // `vendorId`, not the buyer.
+    id: "ord-seed-2039",
+    orderNumber: "HK2039",
+    userId: currentUser.id,
+    status: "placed",
+    items: [
+      {
+        id: "oi-seed-2039-1",
+        productId: "pr1",
+        sku: "mango-thokku-pickle-500g",
+        name: "Mango Thokku Pickle",
+        quantity: 2,
+        price: 469,
+        addressId: "addr-demo-1",
+        giftWrap: false,
+      },
+    ],
+    shippingAddressIds: ["addr-demo-1"],
+    shipments: [{ addressId: "addr-demo-1", deliveryDate: "2026-07-29" }],
+    placedAt: "2026-07-25T11:20:00+05:30",
+    subtotal: 938,
+    shippingFee: 49,
+    total: 987,
+    walletApplied: 0,
+    cashbackEarned: 47,
+    refundStatus: "none",
+    paymentMethod: "razorpay",
+  },
+  {
+    id: "ord-seed-2040",
+    orderNumber: "HK2040",
+    userId: currentUser.id,
+    status: "packed",
+    items: [
+      {
+        id: "oi-seed-2040-1",
+        productId: "pr1",
+        sku: "mango-thokku-pickle-250g",
+        name: "Mango Thokku Pickle",
+        quantity: 1,
+        price: 249,
+        addressId: "addr-demo-2",
+        giftWrap: true,
+      },
+      {
+        id: "oi-seed-2040-2",
+        productId: "pr3",
+        sku: "ragi-almond-cookies-200g",
+        name: "Ragi Almond Cookies",
+        quantity: 1,
+        price: 220,
+        addressId: "addr-demo-2",
+        giftWrap: true,
+      },
+    ],
+    shippingAddressIds: ["addr-demo-2"],
+    shipments: [{ addressId: "addr-demo-2", deliveryDate: "2026-07-27" }],
+    placedAt: "2026-07-22T09:05:00+05:30",
+    subtotal: 469,
+    shippingFee: 49,
+    total: 518,
+    walletApplied: 0,
+    cashbackEarned: 23,
+    refundStatus: "none",
+    paymentMethod: "razorpay",
+  },
+  {
+    id: "ord-seed-2041",
+    orderNumber: "HK2041",
+    userId: currentUser.id,
+    status: "shipped",
+    items: [
+      {
+        id: "oi-seed-2041-1",
+        productId: "pr1",
+        sku: "mango-thokku-pickle-1kg",
+        name: "Mango Thokku Pickle",
+        quantity: 1,
+        price: 899,
+        addressId: "addr-demo-1",
+        giftWrap: false,
+      },
+    ],
+    shippingAddressIds: ["addr-demo-1"],
+    shipments: [{ addressId: "addr-demo-1", deliveryDate: "2026-07-26" }],
+    placedAt: "2026-07-20T15:40:00+05:30",
+    subtotal: 899,
+    shippingFee: 0,
+    total: 899,
+    walletApplied: 899,
+    cashbackEarned: 45,
+    refundStatus: "none",
+    paymentMethod: "wallet",
+  },
+  {
     id: "ord-seed-2043",
     orderNumber: "HK2043",
     userId: currentUser.id,

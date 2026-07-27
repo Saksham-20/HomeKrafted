@@ -1,0 +1,27 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.value {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+}
+
+.value.warn {
+  color: var(--hk-terracotta);
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}

@@ -32,11 +32,20 @@ session picking up a milestone: read the brief, read this file, read the
 design system, build exactly to spec, self-check the Definition-of-Done,
 then report back — don't expand scope into later milestones.
 
-Milestones (see the plan for full detail): **M0 Foundation** (this
-milestone) → M1 UI primitives → M2 Marketplace browse → M3 Buy flow → M4
-Laundry → M5 Snacks + Food promo → M6 Wallet → M7 Account & shared → M8
-Secure backend (Postgres+Prisma, Auth.js, Razorpay) → M9 Integrations
-(WhatsApp Cloud API, notifications).
+Milestones (see the plan for full detail): **M0 Foundation** → M1 UI
+primitives → M2 Marketplace browse → M3 Buy flow → M4 Laundry → M5 Snacks
++ Food promo → M6 Wallet → M7 Account & shared (done) → **M10 Seller
+portal** (`/seller/*`) → **M11 Admin panel** (`/admin/*`) → M8 Secure
+backend (role-based auth/RBAC, Postgres+Prisma, wallet ledger + payouts,
+Razorpay) → M9 Integrations (WhatsApp Cloud API, notifications).
+
+**Three role surfaces, one app, route groups in `client/`:** consumer `/`
+(built), seller `/seller/*` (M10), admin `/admin/*` (M11) — each its own
+login + shell, gated by `client/middleware.ts` on `User.role`
+(`consumer|seller|admin`), all sharing `components/ui` + tokens + `lib`.
+Seller scope = **all supply roles**: makers, laundry partners, snack/food
+sellers (dashboard renders only the modules for their `Seller.type`).
+Seller dashboards scoped to own `vendorId`/partner id; admin unscoped.
 
 ## Stack
 
@@ -123,11 +132,14 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   decoration (eyebrows, "view all").** Never body text or small UI copy at
   regular weight — its contrast on white is only 3.6:1. Terracotta
   (`--hk-terracotta`) is for prices/remove in the marketplace.
-- **Placeholders, not fake art.** Every image/photo slot renders through
-  `<ImageSlot>` (labelled diagonal-hatch placeholder). Never generate or
-  embed real/fake product photography — that's Firefly/Canva/Higgsfield
-  image-gen tools staying explicitly unused per the plan, until real
-  photography is supplied.
+- **Real photos where supplied, placeholder otherwise — always via
+  `<ImageSlot>`.** Real brand photography now lives under
+  `client/public/images/{products,categories,snacks,vendors,site}` and is
+  wired through `<ImageSlot src="/images/...">` (falls back to the labelled
+  diagonal-hatch placeholder when `src` is absent). Use the supplied photos
+  where they exist; use the placeholder for slots that have none. **Never
+  generate or AI-fabricate product/food imagery** (Firefly/Canva/Higgsfield
+  image-gen stay unused) — only real supplied assets or the placeholder.
 - **CSS Modules only**, consuming token vars (`var(--hk-...)`), not
   scattered hex. No inline `style={{...}}` styling (that was the
   prototype's technique, not ours) except for genuinely dynamic values

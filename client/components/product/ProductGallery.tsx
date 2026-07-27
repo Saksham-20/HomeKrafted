@@ -13,11 +13,18 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
 
   return (
     <div className={styles.gallery}>
-      <ImageSlot ratio={main.ratio} label={main.placeholder} />
+      <ImageSlot ratio={main.ratio} label={main.placeholder} src={main.src} />
       {thumbs.length > 0 && (
         <div className={styles.thumbRow}>
           {thumbs.slice(0, 4).map((thumb, index) => (
-            <ImageSlot key={index} ratio="1/1" label={thumb.placeholder} shape="square" compact />
+            <ImageSlot
+              key={index}
+              ratio="1/1"
+              label={thumb.placeholder}
+              src={thumb.src}
+              shape="square"
+              compact
+            />
           ))}
         </div>
       )}

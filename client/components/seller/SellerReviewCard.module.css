@@ -1,0 +1,91 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.stars {
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.starFull {
+  color: var(--hk-gold);
+}
+
+.starEmpty {
+  color: var(--hk-border-2);
+}
+
+.targetTag {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  background: var(--hk-surface-3);
+  border-radius: var(--hk-r-pill);
+  padding: 3px 9px;
+}
+
+.title {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.body {
+  font-size: 14px;
+  color: var(--hk-ink-3);
+  line-height: 1.6;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  color: var(--hk-border-2);
+}
+
+.reply {
+  border-left: 2px solid var(--hk-pine-tint);
+  padding-left: var(--hk-s3);
+  margin-left: var(--hk-s2);
+}
+
+.replyLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-pine);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.replyBody {
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.replyForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.replyActions {
+  display: flex;
+  gap: var(--hk-s2);
+}

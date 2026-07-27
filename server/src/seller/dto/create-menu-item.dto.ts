@@ -1,0 +1,30 @@
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+
+/** Snack seller menu create/update — mirrors `client/lib/api/seller.ts`'s `SellerMenuInput`. No `sellerId`: always the resolved seller's own id. */
+export class CreateMenuItemDto {
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @IsString()
+  @MinLength(1)
+  description!: string;
+
+  @IsNumber()
+  @Min(0)
+  price!: number;
+
+  @IsIn(['savoury', 'sweet', 'baked', 'namkeen'])
+  category!: 'savoury' | 'sweet' | 'baked' | 'namkeen';
+
+  @IsIn(['veg', 'non-veg'])
+  diet!: 'veg' | 'non-veg';
+
+  /** Real project asset path — no upload backend yet; blank/absent keeps the `<ImageSlot>` placeholder. */
+  @IsOptional()
+  @IsString()
+  imagePath?: string;
+
+  @IsBoolean()
+  available!: boolean;
+}

@@ -3,6 +3,1343 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M8.3c] — Admin API (server/) — 2026-07-27
+
+The unscoped admin-panel endpoints — `server/src/admin/`, gated
+`@Roles('admin')` on every route — completing the backend's 3-role API
+surface (consumer + seller + admin). Unlike `SellerModule` (M8.3b), this
+module is deliberately **unscoped**: every read spans every user/seller/
+order/wallet rather than the caller's own resource, so the milestone's
+critical requirement is that **every mutation writes an
+`AdminAuditLog` row** (new model — actor, action, target type/id, JSON
+metadata) and that the RBAC gate is airtight (verified live below).
+Money actions never write a balance directly: order refunds and wallet
+adjust/refund all funnel through `WalletService`'s existing row-locked
+ledger primitives (`OrdersService.refundOrder` reused as-is for
+marketplace orders). `client/`, `handoff/`, root `app/`, root `CLAUDE.md`
+untouched; no commits made by this milestone.
+
+### Added
+
+- **`AdminAuditLog`** (`prisma/schema.prisma`, new model) +
+  **`AdminAuditLogService`** (`server/src/admin/audit-log.service.ts`) —
+  every admin mutation across this module calls `log()` *after* the
+  mutation succeeds (never before, so a rolled-back action leaves no
+  misleading row). `GET /admin/audit` (`?targetType=&actorId=&page=&pageSize=`)
+  surfaces it, newest first, actor name/email joined in.
+- **Dashboard + analytics** (`server/src/admin/dashboard.{controller,service}.ts`)
+  — `GET /admin/dashboard` (GMV, orders today/total, orders/active-sellers
+  by type, users, pending applications, pending payouts, wallet
+  liability — all real server-side aggregates: `Seller.groupBy`,
+  `Payout`/`Wallet` `.aggregate()`) and `GET /admin/analytics` (14-day GMV
+  series, top-6 seller/product leaderboards, new users by month, wallet
+  flow by category).
+- **Users** (`server/src/admin/users.{controller,service}.ts`) —
+  `GET /admin/users[/:id]`, `PATCH /admin/users/:id` (`{ suspended }`) —
+  the same `User.suspended` flag `AuthService` already gates login/OTP/
+  social/refresh on, so a suspended user's very next sign-in attempt is
+  rejected `401` (verified live: registered a fresh account, suspended
+  it, confirmed login now `401`s, reactivated, confirmed login works
+  again).
+- **Sellers + the onboarding approval queue**
+  (`server/src/admin/sellers.{controller,service}.ts`) — `GET
+  /admin/sellers[/:id]`, `PATCH /admin/sellers/:id/status` (suspend/
+  reactivate), `GET /admin/sellers/applications` (`?status=pending` for
+  the queue), `POST /admin/sellers/applications/:id/{approve,reject}`.
+  **Approve is one atomic transaction**: finds-or-creates the
+  applicant's `User` (reuses an existing account by email, upgrading
+  `consumer`→`seller`; otherwise mints a fresh `role: "seller"` account
+  with `authProviders: ["phone"]` + a `Wallet` + `LoyaltyAccount`, same
+  recipe `AuthService.verifyOtp`'s first-time-phone signup uses) →
+  creates a `Vendor` storefront from the application's business details
+  → creates the `approved`-status `Seller` pointing at it → marks the
+  application `approved`. Unlike the M11a frontend mock (which pointed
+  `Seller.userId` at a synthetic placeholder id), this schema has a real
+  FK there, so a live account is provisioned rather than faked.
+- **Catalog + review moderation**
+  (`server/src/admin/catalog.{controller,service}.ts`) — `GET
+  /admin/catalog/products[/:id]` (every product, any vendor, including
+  hidden/flagged), `PATCH .../moderate` (`hide`/`unhide`/`flag`/`unflag`/
+  `takedown`/`feature`/`unfeature`); `GET /admin/catalog/reviews`, `PATCH
+  .../moderate` (`{ hidden }`). Verified live: hid a real seeded product
+  and confirmed it immediately disappeared from the public `GET
+  /products` listing, then confirmed it reappeared after unhiding.
+- **Orders oversight** (`server/src/admin/orders.{controller,service}.ts`)
+  — `GET /admin/orders` (`?type=`, unified marketplace `Order` +
+  `LaundryBooking` + `SnackOrder` list) and `.../:type/:id` detail;
+  `POST .../:type/:id/refund` (marketplace delegates to the existing
+  admin-gated `OrdersService.refundOrder`; laundry credits the wallet
+  directly via `WalletService`'s ledger primitives, idempotent-by-content
+  since `LaundryBooking` has no `refundStatus` field to flip; snack is
+  `400` — no linked wallet); `PATCH .../:type/:id/status` (manual
+  override, any valid status for the type, distinct from a seller's
+  one-step `advance`).
+- **Wallet oversight** (`server/src/admin/wallet.{controller,service}.ts`)
+  — `GET /admin/wallet` (every wallet, balance descending) and
+  `.../:userId`; `POST .../:userId/adjust` (forwards into the existing
+  `WalletService.adjust`) and `.../:userId/refund` (a standalone credit
+  via `postLedgerEntryTx`, not necessarily order-tied) — both support
+  `Idempotency-Key`, neither ever writes `Wallet.balance` directly.
+- **Collections & CMS** (`server/src/admin/collections.{controller,service}.ts`)
+  — full `Collection` CRUD (title/description/occasion + ordered
+  `productIds`, written as `CollectionProduct.sortOrder` — delete +
+  recreate on every save, so "reorder" is just resubmitting the array in
+  the new order).
+
+### Verification
+
+Verified live via curl against the seeded local Postgres, as the seeded
+admin (`admin@homekrafted.example` / `Passw0rd!123`): dashboard/analytics
+returned real aggregates matching the seed data; suspended a freshly
+registered test user and confirmed their next login attempt `401`s, then
+reactivated and confirmed login works again; listed the 3 pending seed
+`SellerApplication`s, approved one (`sa-seed-1` → a real new `Seller`
+row, `Vendor` "Kaveri's Kitchen", and a real `User` account, all in one
+transaction) and rejected another (`sa-seed-2`); hid a real product
+(`pr3`, Ragi Almond Cookies) and confirmed it vanished from the public
+`GET /products` response, then unhid it and confirmed it came back;
+hid and unhid a flagged review; listed unified orders (19 total across
+marketplace/laundry/snack, filterable by `?type=`); refunded a
+marketplace order (`ord-seed-2039`, ₹987 wallet-credited via the ledger,
+`refundStatus` → `refunded`) and a laundry booking (`lb-seed-1044`, ₹474
+credited), confirmed the consumer wallet balance rose by exactly both
+amounts, then retried the marketplace refund with the same
+`Idempotency-Key` and got back the identical cached result (no double
+credit); confirmed a snack-order refund attempt `400`s (no linked
+wallet); overrode a laundry booking's status directly to `delivered`;
+adjusted the same wallet (+₹50 credit) and issued a standalone refund
+(+₹25) — both landed via `WalletService`'s ledger, balance correct after
+each; created, reordered, and deleted a test `Collection`. **`GET
+/admin/audit`** showed every one of the above mutations, newest first,
+with the correct actor/action/target/metadata. **RBAC** — every
+`/admin/*` route tested (`dashboard`, `users`, `sellers`, `orders`,
+`wallet`, `collections`, `audit`, `catalog/products`) returned `403` for
+both a `consumer` token and a `seller` token, and `401` for no token at
+all; the same routes returned `200`/expected data for the admin token.
+`npm run build` and `npm run lint` both clean; app boots. Database
+reseeded to the canonical demo state afterward (`npm run prisma:seed`,
+after adding `AdminAuditLog` to the seed script's `clearTables()` —
+needed once `User` had a new FK-referencing child table) — none of the
+test mutations (the approved/rejected applications, refunds, wallet
+adjustments, suspended test user, test collection) persist.
+
+### Completes the M8 backend API surface
+
+With M8.3c landed, all three role surfaces (`consumer`, `seller`,
+`admin`) now have a real, RBAC-gated, audit-where-it-matters backend API.
+**M8.4** (swap `client/lib/api/*` mock function bodies to real `fetch()`
+calls against `server/`) and **M9** (WhatsApp Cloud API, real SMS/email/
+push notification delivery) remain.
+
+## [M8.3b] — Seller API (server/) — 2026-07-27
+
+The owner-scoped seller-portal endpoints for all 3 seller types (maker,
+laundry partner, snack seller) + payouts — `server/src/seller/`, gated
+`@Roles('seller')` and scoped entirely off `req.user.sellerId` (minted
+into the JWT server-side at login, never a client-supplied id). This is
+the isolation boundary the milestone brief called out as critical:
+**every** read and write re-derives ownership from a live `Seller` row
+and 404s (never 403, never a partial response) on a resource that exists
+but belongs to a different seller — verified live with a second seeded
+account per seller type (see "Verification" below). `client/`, `handoff/`,
+root `app/`, root `CLAUDE.md` untouched; no commits made by this
+milestone.
+
+### Added
+
+- **`SellerService`** (`server/src/seller/seller.service.ts`) — the
+  ownership seam every controller in this module goes through.
+  `resolveSeller` re-reads the `Seller` row fresh from the DB on every
+  call (not just trusting the JWT's claim, so a seller suspended after
+  their token was issued can't ride on a stale token);
+  `resolveMaker`/`resolveLaundryPartner`/`resolveSnackSeller` additionally
+  gate on `seller.type` (`403` for a wrong-type token, distinct from the
+  404-for-another-seller's-resource case). Also owns `GET`/`PATCH
+  /seller/storefront` (maker-only — edits the caller's own `Vendor` row,
+  no `vendorId` field on the DTO) and `GET /seller/dashboard`, which
+  branches its response shape by `seller.type` (mirrors the 3 mock
+  snapshot shapes in `client/lib/api/seller.ts` 1:1).
+- **Listings** (`server/src/seller/listings.{controller,service}.ts`,
+  maker-only) — full CRUD over `Product` rows scoped to
+  `vendorId === seller.vendorId`. Validates `categoryId`/`occasionIds`
+  exist and every `weightOptions[].sku` is globally unique (`409` on
+  clash) before writing; `slug` server-generated. Unlike the
+  consumer-facing catalog, price/stock fields *are* caller-supplied here
+  deliberately — it's the seller pricing their own listing, not a buyer's
+  request being trusted. `DELETE` → `409` if the product still has
+  order/cart/wishlist/hamper references (FK-protected).
+- **Orders** (`server/src/seller/orders.{controller,service}.ts`,
+  maker-only) — `GET /seller/orders[/:id]` (any order with ≥1 item from
+  my vendor), `POST /seller/orders/:id/advance` advancing `placed →
+  confirmed → packed → shipped → delivered` one step per call, `409` at a
+  terminal or still-unpaid (`pending-payment`) status.
+- **Reviews** (`server/src/seller/reviews.{controller,service}.ts`,
+  maker-only) — `GET /seller/reviews` (reviews targeting my vendor or any
+  of my products), `POST /seller/reviews/:id/reply` — ownership resolved
+  by the review's *target* (vendor id or the target product's vendor),
+  not a direct FK.
+- **Bookings** (`server/src/seller/bookings.{controller,service}.ts`,
+  laundry-partner-only) — `GET /seller/bookings[/:id]` scoped to
+  `partnerId === seller.id`, `POST /seller/bookings/:id/advance`
+  advancing `scheduled → picked-up → in-progress → out-for-delivery →
+  delivered`.
+- **Menu** (`server/src/seller/menu.{controller,service}.ts`,
+  snack-seller-only) — full CRUD over `Snack` rows scoped to
+  `sellerId === seller.id`, same unique-slug/price-is-caller-supplied
+  reasoning as Listings. `DELETE` → `409` if still referenced by a
+  snack-list/order line.
+- **Snack orders** (`server/src/seller/snack-orders.{controller,service}.ts`,
+  snack-seller-only) — `GET /seller/snack-orders[/:id]`, `POST
+  /seller/snack-orders/:id/advance` advancing `received → accepted →
+  out-for-delivery → delivered`. Completes the M8.3a-flagged seam
+  (`SnackOrder` reads were noted as pending this milestone).
+- **Payouts** (`server/src/seller/payouts.{controller,service}.ts`, all 3
+  types) — `GET /seller/payouts` → `{ items, summary, pendingBalance }`;
+  `POST /seller/payouts/request` computes the pending balance
+  **server-side** from the seller's own *delivered* records (maker: Σ
+  `OrderItem.price×quantity` for my vendor's items on delivered orders;
+  laundry: Σ `LaundryBooking.estimatedTotal` for my delivered bookings;
+  snack: Σ `SnackOrder.total` for my delivered orders) minus everything
+  already recorded in `Payout`, and inserts a new `pending` row — `400`
+  if there's nothing to pay out, `409` if one's already pending. `Payout`
+  is its own ledger row here, not a `WalletTransaction` — no money
+  actually moves in this milestone, per the brief (a real payout-provider
+  integration + admin "mark paid" is a later seam). Supports
+  `Idempotency-Key`.
+- **`server/src/seller/mappers/`** — `mapPayout`, `mapSnackOrder` (+
+  `snackOrderStatusToFrontend`, same declared-identifier-vs-`@map`'d-DB-value
+  reasoning as `laundry.mapper.ts#bookingStatusToFrontend`). Listings/
+  orders/reviews/bookings/menu reuse the existing catalog/orders/reviews/
+  laundry/snacks mappers rather than duplicating them.
+- **Docs** — `docs/API.md` gained the full "Seller portal (M8.3b)"
+  contract and a `lib/api/seller.ts` mock→real mapping table; updated the
+  Snacks section's `SnackOrder` note and the top-of-file/"Not yet
+  stubbed" milestone summary.
+
+### Verification
+
+Verified live via curl against the seeded local Postgres, one demo
+account per seller type (`Passw0rd!123`): **maker** (`anjali@
+anjaliskitchen.example`) — dashboard; created/read/patched/deleted a real
+listing (confirmed gone via a follow-up `404`); advanced a real order
+`placed → confirmed → packed` then a second order `shipped → delivered`;
+patched the storefront bio/location; replied to a product review and a
+vendor review. **Laundry partner** (`ravi@freshfoldlaundry.example`) —
+dashboard; advanced a booking `scheduled → picked-up`. **Snack seller**
+(`meera@meerassnackbox.example`) — dashboard; created/patched/deleted a
+menu item; advanced a snack order `received → accepted`. **Payouts** —
+listed existing seed payouts + computed `pendingBalance`; a request
+against an already-`pending` seeded payout → `409`; cleared payout
+history for the maker via direct DB manipulation (test-only) and
+confirmed a fresh request computes the real delivered-order total (₹899,
+matching the order just advanced to `delivered`) and inserts it, then a
+second immediate request → `409` (one in flight at a time).
+
+**Cross-seller isolation** (the critical part) — registered 3 fresh
+accounts, flipped each to `role: "seller"` with a `Seller` row of a
+different owner (maker → a second vendor; laundry/snack → no vendor) via
+direct DB insert (no self-serve seller signup exists yet), logged in for
+fresh JWTs, then confirmed every one of these returned `404` and left the
+target row unchanged: seller B reading/patching/deleting seller A's
+listing; seller B reading/advancing seller A's order; seller B replying
+to a review on seller A's product and on seller A's vendor; a second
+laundry partner reading/advancing seller A's booking (and their own
+`GET /seller/bookings` correctly listed empty, not seller A's rows);
+a second snack seller reading/patching/deleting seller A's menu item and
+reading/advancing seller A's snack order (own menu list correctly empty).
+Also confirmed: a laundry-partner token on `/seller/listings` (maker-only)
+→ `403`; a snack-seller token on `/seller/bookings` (laundry-only) → `403`;
+a maker token on `/seller/menu` (snack-only) → `403`; a `consumer` token
+and an `admin` token on `/seller/dashboard` → `403` for both; no token →
+`401`. `npm run build` and `npm run lint` both clean; app boots and
+serves all new routes. Database reseeded to the canonical demo state
+afterward (`npm run prisma:seed`) — none of the isolation-test fixtures
+persist.
+
+### Seam left for M8.3c + M8.4
+
+**M8.3c** (admin): every seller/order/booking/payout/menu view above,
+unscoped — an admin needs to see *all* sellers' data, not just their own,
+plus approve `SellerApplication`s and mark a `Payout` `paid`. None of
+that is built here; `SellerService.resolveSeller`'s pattern (re-derive
+from a verified session, never a client-supplied id) is the seam an admin
+module reuses with `assertAdmin` instead of `assertOwnSellerScope`.
+**M8.4**: `client/lib/api/seller.ts`'s function bodies swap to real
+`fetch()` calls — every function's `vendorId`/`sellerId` first argument
+becomes unnecessary (the real endpoints resolve it from the session) and
+should be dropped at the call sites in `client/app/seller/**`/
+`client/components/seller/**`; `advanceSellerOrderStatus`'s bare
+`orderId` argument stays as-is (already matches the real endpoint 1:1).
+
+## [M8.3a] — Services API (server/) — 2026-07-27
+
+Laundry, snacks, referrals/loyalty, notifications, support and corporate —
+six new modules on top of M8.0–M8.2's foundation/commerce/wallet, plus the
+`GET /orders/history` merge extended to include laundry bookings. Every
+money movement (wallet-pay a laundry booking, apply a referral credit)
+routes through `WalletService.postLedgerEntryTx`, the same M8.2 ledger
+primitive `OrdersService` uses — nothing here writes `Wallet.balance`
+directly. Verified live against the seeded local Postgres — see
+"Verification" below. `client/`, `handoff/`, root `app/`, root
+`CLAUDE.md` untouched; no commits made by this milestone.
+
+### Added
+
+- **Laundry module** (`server/src/laundry/`) — `GET /laundry/services[/:slug]`,
+  `GET /laundry/availability/{days,slots}` (`@Public()`); `GET`/`POST
+  /laundry/bookings`, `GET /laundry/bookings/:id`, `GET`/`POST
+  /laundry/subscriptions`, `GET`/`PATCH`/`DELETE /laundry/subscriptions/:id`
+  (owner-scoped). Booking price is **server-authoritative**:
+  `LaundryService.price` × the quantity field matching the service's
+  `pricingModel` (`per-kg`/`per-item`/`per-hour`), computed inside the
+  request's own transaction — the create DTO has no `price`/`estimatedTotal`
+  field, so `ValidationPipe`'s `forbidNonWhitelisted` rejects any
+  client-submitted amount. `paymentMethod: "wallet"` debits the computed
+  total and credits cashback atomically with the booking insert (no
+  `pending-payment` staging status for laundry, unlike marketplace orders
+  — the debit happens inline, not via a separate `/pay` call);
+  insufficient balance → `402`, whole transaction rolls back (booking
+  never created). Supports `Idempotency-Key`. Auto-assigns bookings to the
+  one seeded demo laundry partner (real pickup-based dispatch is M9/M10b).
+- **Snacks module** (`server/src/snacks/`) — `GET /snacks[?category=]`,
+  `GET /snacks/:slug` (`@Public()`). Menu reads only — consumer ordering
+  stays WhatsApp-only per `lib/channel.ts`; deliberately no order-creation
+  endpoint. `SnackOrder` (seller-side WhatsApp-order record) is seamed for
+  M8.3b (read) / M9 (real WhatsApp Cloud API ingestion writes the rows).
+- **Referrals + loyalty module** (`server/src/referrals/`) — `GET
+  /referrals/code`, `GET /referrals`, `POST /referrals/:id/apply-credit`,
+  `GET /loyalty` (owner-scoped). `apply-credit` targets one referral id
+  (a deliberate shape change from the client mock's argument-less
+  auto-pick — flagged in `docs/API.md` for the M8.4 call-site update),
+  credits `REFERRAL_REWARD_AMOUNT` (₹250) via the wallet ledger
+  (`category: "referral"`), and is **once-only per referral**: an
+  already-`rewarded` referral → `409`, checked by re-reading the row
+  inside the same transaction as the ledger write.
+- **Notifications module** (`server/src/notifications/`) — `GET`/`PATCH
+  /notifications/preferences[/:category]`, `GET /notifications`, `PATCH
+  /notifications/:id/read` (owner-scoped). Lazily backfills any of the 6
+  `NotificationCategory` preference rows a user doesn't have yet. Actual
+  delivery (SMS/WhatsApp/email) stays M9 — persist + read only.
+- **Support module** (`server/src/support/`) — `POST`/`GET
+  /support/tickets`, `GET /support/tickets/:id`, `POST
+  /support/tickets/:id/messages` (owner-scoped). `sender` on a new message
+  is derived from the caller's own role (`agent` for admin, `user`
+  otherwise), never client-supplied.
+- **Corporate module** (`server/src/corporate/`) — `POST
+  /corporate-inquiries` (`@Public()` — `CorporateInquiry` has no `userId`
+  FK, an inquiry may predate an account). No list/review endpoint yet
+  (seamed for M11 admin panel).
+- **Unified order history extended** (`server/src/orders/order-history.util.ts`,
+  `orders.service.ts`) — `GET /orders/history` now merges marketplace
+  `Order`s and `LaundryBooking`s into one newest-first list (`kind:
+  "order"` \| `"laundry"`), matching `client/lib/api/history.ts`'s mock
+  merge exactly. `SnackOrder` is **not** merged — it has no `userId` FK
+  (WhatsApp-origin, seller-scoped only per `client/lib/types/food.ts`'s
+  own doc comment), so there's no "my snack orders" to fold in; flagged
+  as an intentional deviation from the brief's literal wording for
+  Opus/Opus-review to confirm.
+- **Docs** — `docs/API.md` gained the full "Services (M8.3a)" contract
+  (laundry, snacks, referrals/loyalty, notifications, support, corporate,
+  the history merge) and updated the Snacks/Laundry/"Not yet stubbed"
+  placeholder tables from M0-era to real-endpoint status.
+
+### Verification
+
+Verified live via curl against the seeded local Postgres (`user-demo`,
+`Passw0rd!123`): `GET /laundry/services|availability/*` (public);
+`POST /laundry/bookings` COD (per-kg, 3kg × ₹79 = ₹237, server-computed)
+and wallet (per-item, 4 × ₹99 = ₹396 debited + ₹20 cashback credited,
+wallet balance 1522 → 1146 exactly); retried the wallet booking with the
+same `Idempotency-Key` — identical booking returned, balance unchanged;
+an oversized wallet booking (₹49,900) → `402`, confirmed **not** created
+via a follow-up list call; subscription create/list/update (pause);
+owner-isolation on a booking (a second account → `404`, not `403` or
+`200`); `GET /snacks` (6 items) and `?category=sweet` filter; referral
+`apply-credit` on a `"joined"` referral → wallet `+250` exactly (1146 →
+1396), second apply on the same id → `409`, apply on an
+already-`"rewarded"` seed referral → `409`, cross-account apply on
+someone else's referral → `404`; notification preferences (6-category
+lazy backfill for a user with none), preference patch, inbox list,
+mark-read, cross-account mark-read → `404`; support ticket create +
+list + add-message (`updatedAt` bump confirmed), cross-account ticket
+read → `404`; public `POST /corporate-inquiries` with no auth header;
+`GET /orders/history` returning 24 merged entries (16 `order` + 8
+`laundry`, correctly interleaved by date); every owner-scoped route
+rejected an unauthenticated request `401`. `npm run build` and `npm run
+lint` both clean; app boots and serves all new routes.
+
+### Seam left for M8.3b + M9
+
+**M8.3b** (seller/admin views over this same data): a laundry partner's
+pickup queue, a snack seller's `SnackOrder` inbox, admin-unscoped support
+queue / corporate inquiry review / referral moderation — none of that is
+built here, only the consumer-facing side. **M9** (WhatsApp Cloud API +
+notification delivery): nothing in this milestone sends a real
+SMS/WhatsApp/email; notifications/preferences are persist-and-read only,
+and `SnackOrder` rows are still seeded, not written from real inbound
+WhatsApp messages.
+
+## [M8.2] — Wallet + Payments (server/) — 2026-07-27
+
+Server-authoritative wallet ledger and Razorpay integration — the
+money-critical milestone. Closes the M8.1 `pending-payment` seam: a
+`paymentMethod: "wallet"` order is now actually paid (`POST
+/orders/:id/pay`) and a `paymentMethod: "razorpay"` order actually
+captures (`POST /payments/razorpay/order` + a verified webhook). Every
+balance mutation is row-locked and computes `balanceAfter` server-side;
+every money-mutating endpoint supports an `Idempotency-Key` for
+retry/double-submit safety. Verified live against the seeded local
+Postgres — see "Verification" below. `client/`, `handoff/`, root `app/`,
+root `CLAUDE.md` untouched; no commits made by this milestone. Seller
+payouts (M8.3) stay explicitly out of scope.
+
+### Added
+
+- **Wallet module** (`server/src/wallet/`, owner-scoped) — `GET /wallet`,
+  `GET /wallet/transactions`, `GET`/`PUT /wallet/auto-topup`, `POST
+  /wallet/adjust` (`@Roles('admin')`, caller-supplied amount+reason —
+  the one intentional exception to "never trust a client amount", since
+  it's role-gated and exists for support cases). Deliberately **no**
+  `POST /wallet/topup`/`/pay`/`/earn-cashback`/generic `/refund` endpoint
+  — every real credit/debit instead derives its amount from a DB row or a
+  verified Razorpay webhook (see `docs/API.md`'s "Wallet & Payments
+  (M8.2)" for the full reasoning).
+- **`WalletService.postLedgerEntryTx`** (`server/src/wallet/wallet.service.ts`)
+  — the single write primitive for every ledger mutation in the app.
+  Locks the wallet row (`SELECT ... FOR UPDATE` via raw SQL inside the
+  open `Prisma.TransactionClient`), reads the current balance, computes
+  `balanceAfter` server-side, appends the `WalletTransaction`, updates
+  `Wallet.balance` — atomically. Rejects a debit that would go negative
+  with `402`. Fires the wallet's `below-threshold` auto-top-up rule (if
+  enabled) immediately after a qualifying debit, mirroring
+  `client/lib/wallet/WalletContext.tsx#pay`'s reactive-only firing.
+- **Idempotency** (`server/src/common/idempotency/`) — `IdempotencyService.run`
+  wraps a money-mutating op in a transaction that claims a unique
+  `(userId, scope, key)` row before running the op and stamps it with the
+  result before committing; a concurrent/retried duplicate call loses the
+  DB-level unique-insert race and returns the first call's cached result
+  instead of re-running — no polling, no separate lock. Read via the
+  `Idempotency-Key` header (`@IdempotencyKey()` param decorator, header
+  or `idempotencyKey` body-field fallback) on `POST /wallet/adjust`,
+  `POST /orders/:id/pay`, `POST /orders/:id/refund`.
+- **Payments module** (`server/src/payments/`) — `POST
+  /payments/razorpay/order` (opens a Razorpay order for an existing
+  `Order`'s DB-read total or a declared top-up amount; mints a local
+  `order_mock_<uuid>` when `RAZORPAY_KEY_ID`/`_SECRET` are still the
+  `.env.example` placeholders, so the flow is fully exercisable without a
+  live Razorpay account — the real `fetch`-based API call path
+  (`razorpay.client.ts`, no SDK dependency) still exists and takes over
+  once real keys are set) and `POST /payments/razorpay/webhook`
+  (`@Public()` — verifies `X-Razorpay-Signature` as HMAC-SHA256 over the
+  **raw** request body, keyed with `RAZORPAY_WEBHOOK_SECRET`,
+  `crypto.timingSafeEqual` comparison, **before** touching any state; an
+  invalid/missing signature is `400` with nothing evaluated further; only
+  acts on `payment.captured`, deduped by `(event, paymentId)` via a
+  `WebhookEvent` unique-insert, then credits a wallet top-up (+3% bonus
+  above ₹2,000) or transitions the linked `Order`
+  `pending-payment -> placed` + credits cashback, depending on the
+  `RazorpayOrder` row's `purpose`).
+- **`server/src/main.ts`** — `NestFactory.create(AppModule, { rawBody:
+  true })` so `req.rawBody` (the pre-JSON-parse byte buffer) is available
+  to the webhook handler for signature verification, while every other
+  route keeps parsing `req.body` normally.
+- **Orders module extended** (`server/src/orders/`) — `POST
+  /orders/:id/pay` (wallet-pay: debits the wallet for `order.total`,
+  credits `order.cashbackEarned`, transitions `pending_payment -> placed`,
+  atomically; `402` + order untouched on insufficient balance) and `POST
+  /orders/:id/refund` (`@Roles('admin')`; credits the order owner's
+  wallet for `order.total`, sets `refundStatus: "refunded"`; idempotent
+  both via the optional key and via an "already refunded" short-circuit).
+  `OrdersService.markPaidByRazorpayTx` is the tx-scoped primitive the
+  webhook handler calls for the Razorpay path.
+- **Schema additions** (`server/prisma/migrations/20260727033808_m8_2_wallet_payments/`)
+  — three new tables with no `lib/types` counterpart (server-only, same
+  pattern as `RefreshToken`/`PhoneOtp`): `IdempotencyKey`, `WebhookEvent`,
+  `RazorpayOrder` (+ `RazorpayOrderPurpose`/`RazorpayOrderStatus` enums).
+  Applied against the real local Postgres.
+- **Docs** — `docs/API.md` gained the full "Wallet & Payments (M8.2)"
+  contract (idempotency, wallet endpoints, Razorpay order+webhook) and
+  updated the M8.1-era "Seam for M8.2" note to reflect it's now closed;
+  `docs/ARCHITECTURE.md` gained a "Payment & ledger flow (M8.2)" section
+  (the row-lock/idempotency/webhook-verification design in full) and
+  updated its security-model bullets from "planned" to "real as of M8.2";
+  `docs/DATA-MODEL.md`'s M8.1–M8.3 notes section updated to record the
+  wallet-write path landing + the three new tables.
+
+### Verification
+
+Verified live via curl against the seeded local Postgres (see the
+milestone's report for full transcripts): top-up via a signed
+`payment.captured` webhook (3% bonus above ₹2,000 applied correctly,
+`balanceAfter` correct at every step); wallet-pay of an M8.1
+`pending-payment` order (debit + cashback + `placed` transition, all in
+one call); insufficient-balance pay rejected `402`, order and balance
+both unchanged; idempotency replay (`POST /orders/:id/pay` and `POST
+/wallet/adjust` called twice with the same key — second call returns the
+identical cached result, balance unchanged, exactly one ledger row per
+op); invalid webhook signature rejected `400` with no state change;
+webhook redelivery (same event replayed) acknowledged as a duplicate, not
+reapplied; **two concurrent `POST /orders/:id/pay` calls** whose combined
+total exceeded the wallet balance — exactly one succeeded, the other got
+a clean `402`, final balance reflected exactly one debit (no negative
+balance, no double-spend); admin-only `/wallet/adjust`/`/orders/:id/refund`
+correctly `403` for a non-admin caller; Razorpay order-purpose payment
+(mock order + signed webhook) transitioned the order to `placed` and
+credited only cashback, no wallet debit. `npm run build` and `npm run
+lint` both clean.
+
+### Seam left for M8.3
+
+Seller payouts: `Seller`/`Payout` tables exist (M8.0) but nothing credits
+a seller's payout ledger from a captured payment — a distinct flow
+(platform share vs. a specific seller's share of a line item) not
+implemented or stubbed here. Also left open (flagged in `docs/API.md`):
+no failure/cancellation path yet that restocks an abandoned
+`pending-payment` order's held `WeightOption.stock`.
+
+## [M8.1] — Commerce API (server/) — 2026-07-27
+
+Builds the Gifting Marketplace's real endpoints on top of M8.0's
+foundation: catalog browse, reviews, wishlist, cart, and orders —
+DTO-validated, owner-scoped, with server-authoritative pricing
+everywhere. Verified end to end against the seeded local Postgres,
+including cross-user isolation. `client/`, `handoff/`, root `app/`, root
+`CLAUDE.md` untouched; no commits made by this milestone. Wallet/Razorpay
+payment capture (M8.2) and laundry/snacks/seller/admin (M8.3) stay
+explicitly out of scope — this milestone exposes the seam for both
+instead of implementing either.
+
+### Added
+
+- **Catalog module** (`server/src/catalog/`, all `@Public()` — Marketplace
+  browse is anonymous per `lib/channel.ts`) — `GET /products` (filters:
+  `category`/`occasion`/`vendor` by comma-separated slug,
+  OR-within/AND-across; `dietary` by comma-separated frontend tag;
+  `featured`; `minPrice`/`maxPrice` against the `defaultWeightSku` price;
+  `sort` = `most-loved`\|`price-asc`\|`price-desc`; `page`/`pageSize` —
+  mirrors `ShopClient.tsx`'s filter/sort semantics exactly), `GET
+  /products/:slug` (no `hidden` filter — direct-link/cart/order/wishlist
+  resolves must still work), `GET /vendors`, `GET /vendors/:slug`, `GET
+  /vendors/:slug/products`, `GET /categories(/:slug)`, `GET
+  /occasions(/:slug)`, `GET /collections(/:slug)` (`productIds` ordered by
+  `CollectionProduct.sortOrder`), `GET /hamper/boxes`.
+- **`DietaryTag`/`OrderStatus` wire-format conversion**
+  (`src/catalog/dietary-tag.util.ts`, `src/orders/order.mapper.ts`) —
+  Prisma enum members with a `@map`'d hyphenated DB value (e.g.
+  `gluten_free` → `"gluten-free"`) still come back from Prisma Client as
+  the underscored identifier at runtime; every JSON response converts to
+  the frontend's hyphenated form so the wire format matches
+  `client/lib/types/*.ts` exactly.
+- **Reviews module** (`server/src/reviews/`) — `GET /reviews?targetType=&
+  targetId=` (public, excludes moderator-hidden), `POST /reviews` (authed
+  — `targetType` `product`\|`vendor`\|`service`, rating 1–5; server sets
+  `userId`/`userName` from the session and computes `verifiedPurchase`
+  from the caller's own non-cancelled orders; `service` targets validate
+  against `LaundryService` today and always read `verifiedPurchase:
+  false`, an explicit M8.3 seam).
+- **Wishlist module** (`server/src/wishlist/`, owner-scoped) — `GET
+  /wishlist` (lazily creates an empty row), `POST /wishlist/items`
+  (idempotent upsert), `DELETE /wishlist/items/:productId`.
+- **Cart module** (`server/src/cart/`, owner-scoped) — `GET /cart` (richer
+  than the frontend `Cart` type: every line resolved server-side to
+  name/unitPrice/lineTotal/weightLabel/maxQuantity via the shared
+  `resolveCartLine` helper, plus cart-level subtotal/shipping/total/
+  cashback estimate), `POST /cart/items` (add-or-increment, stock-capped),
+  `POST /cart/hamper-items` (creates a real `Hamper` row + one
+  `CartItem{hamperId}` line — the product-or-hamper polymorphic line,
+  mirroring `CartContext`), `PATCH /cart/items/:id`, `DELETE
+  /cart/items/:id`, `POST /cart/items/:id/address` (must be one of the
+  caller's own addresses), `DELETE /cart`. Every mutation re-derives
+  ownership from the parent cart's `userId`, never a client-submitted id.
+- **Orders module** (`server/src/orders/`, owner-scoped) — `POST /orders`
+  creates an order from the caller's **current `Cart`**: every line's
+  price is recomputed fresh from `WeightOption.price`/`HamperBox.price`
+  (never read from the request body — the DTO has no price field, and an
+  extra one is rejected by `forbidNonWhitelisted`), **snapshotted onto
+  `OrderItem.price`** so the order can't drift from a later catalog price
+  change, stock is checked then re-checked+decremented atomically inside
+  the creation `$transaction` (closes the two-concurrent-requests race),
+  `OrderShipment`s are built per distinct address with per-address
+  delivery dates, gift-to-recipient ships the whole order to one of the
+  caller's own saved addresses (`giftRecipientAddressId`). New orders
+  start at **`status: "pending-payment"`** (a new `OrderStatus` enum
+  value/migration this milestone adds) — no money moves here, that's the
+  M8.2 seam (see below). Also: `GET /orders` (own orders, paginated), `GET
+  /orders/:id` (owner-scoped, 404 not 403 for someone else's order), `GET
+  /orders/history` (`client/lib/api/history.ts#getOrderHistory`'s unified
+  shape, marketplace orders only — the M8.3 seam for merging in laundry/
+  snack bookings).
+- **`server/prisma/migrations/20260727031017_add_order_pending_payment_status/`**
+  — additive: adds `OrderStatus.pending_payment` (`@map("pending-payment")`)
+  for the M8.2 payment-capture seam. Applied against the real local
+  Postgres.
+- **Shared pricing utilities** (`server/src/common/pricing/`) —
+  `pricing.util.ts` ports `client/lib/cart/pricing.ts`'s
+  `computeShipping`/`computeCashback` verbatim (flat ₹49 shipping under
+  ₹999, free at/above; flat 5% cashback, rounded); `resolve-cart-line.ts`
+  is the one place a `CartItem` (product-or-hamper) is resolved to
+  display+pricing data — both `CartService.getCart` and
+  `OrdersService.create` call it, so a cart preview and what's actually
+  charged can never disagree.
+- **Docs** — `docs/API.md` gained the full "Commerce (M8.1)" contract
+  (every new endpoint, request/response shapes, the pricing/snapshotting
+  writeup, the M8.2 and M8.3 seam callouts, and a "Response-shape notes
+  for M8.4" section flagging what the client swap needs to know); the
+  pre-M8.1 mock-layer tables updated to point at the real endpoints;
+  `server/README.md` gained an M8.1 commerce curl walkthrough and updated
+  security-measures/seams sections.
+
+### Verified (see `server/README.md`'s curl walkthrough for the commands)
+
+- `npm run build` + `npm run lint` clean; app boots.
+- Browse: `GET /products?category=pickles&sort=price-asc` returns
+  correctly filtered+sorted results with `price`/`rating`/etc. as real
+  numbers (not Prisma `Decimal` strings); `dietary`/`featured`/pagination
+  filters all confirmed; `GET /products/:slug` and `404` on an unknown
+  slug both confirmed.
+- Cart: adding/updating/removing lines recomputes `subtotal`/
+  `shippingFee`/`total`/`cashbackEstimate` correctly every time; adding
+  past `WeightOption.stock` → `400`; a hamper line (`POST
+  /cart/hamper-items`) prices correctly as `HamperBox.price` + sum of its
+  items' default-weight prices.
+- Orders: a multi-address order recomputed `subtotal`/`shippingFee`/
+  `cashbackEarned`/`total` correctly from fresh DB prices (verified by
+  hand against the cart contents at order time, independent of what the
+  cart previously showed), `OrderItem.price` confirmed snapshotted,
+  `OrderShipment` rows built per distinct address with the right
+  `deliveryDate`, `WeightOption.stock` confirmed decremented by exactly
+  the ordered quantity, the cart confirmed emptied after order creation,
+  status confirmed `"pending-payment"`. An extra `price` field on the
+  request body confirmed rejected (`400 VALIDATION_ERROR`, "property
+  price should not exist") — proves the server never trusts a
+  client-submitted amount. A gift order to an address not owned by the
+  caller, and an order attempted with an empty cart, both confirmed
+  `404`/`400` respectively.
+- **Cross-user isolation**: a second registered account confirmed to get
+  its own empty `Cart` (never user-demo's) from `GET /cart`; confirmed
+  `404` (not the order) on `GET /orders/:id` for user-demo's order id;
+  confirmed `404` (not the item) attempting `PATCH`/`DELETE` on
+  user-demo's `CartItem` ids; confirmed `404` attempting to place an
+  order using user-demo's address id as `defaultAddressId`; confirmed its
+  own `GET /orders`/`GET /wishlist` both come back empty rather than
+  showing user-demo's data.
+- Wishlist add/remove confirmed idempotent and owner-scoped. Review
+  creation confirmed `verifiedPurchase: true` immediately after ordering
+  the reviewed product, and correctly rejects (`404`) a review for a
+  nonexistent product/vendor/service id.
+
+### Notes / follow-ups
+
+- **M8.2 seam**: `Order.status` starts at `"pending-payment"`;
+  `walletApplied` records payment-method intent only (no debit, no
+  balance check) — M8.2 owns the actual wallet debit / Razorpay capture,
+  the `pending_payment` → `placed` transition (or a restocking failure
+  path), and wallet-balance-sufficiency validation.
+- **M8.3 seam**: `GET /orders/history` returns marketplace orders only;
+  laundry/snack bookings should merge into the same
+  `OrderHistoryEntry`-shaped list. `targetType: "service"` reviews always
+  read `verifiedPurchase: false` pending `LaundryBooking`-based
+  verification.
+- **M8.4 (client swap) heads-up**: `GET /cart`'s response is richer than
+  the frontend `Cart` type (server-resolved line display/pricing fields +
+  cart-level totals) — recommended the client drop `CartContext.lineInfo()`
+  entirely and read the server's numbers directly. `OrderStatus` needs a
+  `"pending-payment"` member added to `client/lib/types/marketplace.ts`
+  before rendering a real order. Gift orders now need a real
+  `recipientAddressId` from the caller's address book, not the mock
+  checkout's synthetic `"gift-recipient"` string — full detail in
+  `docs/API.md`'s "Response-shape notes for M8.4" section.
+
+## [M8.0] — Backend foundation (server/) — 2026-07-27
+
+Scaffolds the standalone backend API (`server/`, NestJS + Prisma +
+Postgres), authors the full domain schema (every entity in
+`client/lib/types/*.ts` becomes a real Prisma model), and lands one real
+vertical slice — JWT auth (email+password, phone OTP, stub social) + RBAC
++ a Users/Addresses resource — proven end to end against a real local
+Postgres. Domain endpoints for every other module (catalog, cart, orders,
+wallet, laundry, snacks, seller, admin) are explicitly **out of scope**
+for this milestone: their Prisma models exist so M8.1–M8.3 only need to
+add controllers/services, never new tables. `client/`, `handoff/`, and
+root `app/` are untouched.
+
+### Added
+
+- **NestJS scaffold** (`server/package.json`, `tsconfig*.json`,
+  `nest-cli.json`) — own build (`nest build`), dev server (`nest start
+  --watch`), no shared tooling with `client/`.
+- **`server/docker-compose.yml`** — `postgres:16` for local dev. Also
+  verified against a plain (non-Docker) local Postgres 15 install, since
+  Docker wasn't available in the environment this milestone was built in
+  — see `server/README.md`'s setup section for both paths.
+- **`server/.env.example`** — every env var annotated (`DATABASE_URL`,
+  `JWT_ACCESS_SECRET`/`_TTL`, `JWT_REFRESH_SECRET`/`_TTL`, OTP config,
+  `RAZORPAY_KEY_ID`/`_SECRET`/`_WEBHOOK_SECRET` placeholders reserved for
+  M8.2, throttle config, `CLIENT_ORIGIN`). No real secrets committed —
+  covered by the repo root `.gitignore`'s unanchored `.env*` rule.
+- **`server/prisma/schema.prisma`** — 43 models translating every entity
+  in `client/lib/types/*.ts` (`shared`/`wallet`/`marketplace`/`laundry`/
+  `food`/`seller`) into Postgres tables, plus 3 auth-infrastructure models
+  with no frontend counterpart (`RefreshToken`, `PhoneOtp`,
+  `SocialAccount`) and one new model the mock never backed
+  (`VendorFollow`, for `Vendor.isFollowing`). 34 enums mirror every TS
+  union 1:1, `@map`-ing hyphenated literals (`"per-kg"`, `"in-progress"`,
+  etc.) so the DB round-trips the exact string the frontend contract
+  expects. See `docs/DATA-MODEL.md`'s new "M8.0 Prisma mapping" section
+  for the full model list and every TS→Prisma modeling decision
+  (id-array many-to-manys → real join tables, `CartItem`/`OrderItem`
+  polymorphism, `OrderGift`/`pickupSlot`/`deliverySlot` embedded-object
+  flattening, `Decimal` money columns, etc.).
+- **`server/prisma/migrations/20260727024657_init/`** — generated and
+  **applied against a real local Postgres** (`prisma migrate dev`).
+- **`server/prisma/seed.ts`** — ports `client/lib/data/*.ts` into
+  Postgres: all 5 demo accounts (consumer + 3 seller types + a new admin
+  account, since the frontend mock has none seeded yet — see that file's
+  doc comment), addresses, wallet + full ledger, 8 vendors, 8 products
+  (images/weight options/occasion joins), 30 reviews (with lightweight
+  reviewer-only `User` rows), cart/wishlist/hamper boxes, 3 sellers + 9
+  payouts, 9 orders with items + shipments, 4 laundry services + 6
+  bookings, 6 snacks + a snack list + 4 snack orders, notifications +
+  preferences, referrals + loyalty, a support ticket, a corporate
+  inquiry, and 4 seller applications. Idempotent — clears every table it
+  owns before re-inserting. Verified against real Postgres: seeded row
+  counts confirmed via `psql`.
+- **Auth module** (`server/src/auth/`) — `POST /auth/register` (email+
+  password, **argon2**-hashed), `POST /auth/login`, `POST
+  /auth/otp/request`/`/verify` (phone OTP, argon2-hashed codes, stub
+  sender that logs to the server console pending a real SMS/WhatsApp
+  provider at M9), `POST /auth/social/:provider` (stub — trusts a
+  client-submitted profile payload instead of verifying a real OAuth
+  token, flagged inline), `POST /auth/refresh` (**rotating** — the
+  presented refresh token is revoked and replaced atomically; reusing an
+  already-rotated token is rejected, the standard reuse-detection
+  signal), `POST /auth/logout`. JWT payload carries `{ sub: userId, role,
+  sellerId? }`.
+- **RBAC** (`server/src/common/`) — global `JwtAuthGuard` +
+  `@Public()` opt-out; `RolesGuard` + `@Roles(...)` decorator; ownership-
+  scoping helpers (`assertOwnUserScope`/`assertOwnSellerScope`/
+  `assertAdmin`, `common/scoping/ownership.util.ts`) ready as the seam
+  every M8.1–M8.3 seller/admin query must route through.
+- **Users module** (`server/src/users/`) — `GET`/`PATCH /users/me`,
+  full address CRUD (`GET`/`POST /users/me/addresses`, `PATCH`/`DELETE
+  /users/me/addresses/:id`, `POST /users/me/addresses/:id/default`) —
+  every address mutation resolves ownership from the verified JWT, 404s
+  on someone else's address rather than leaking existence. A minimal
+  `@Roles('admin') GET /users/:id` proves `RolesGuard` end to end against
+  a real resource (not a throwaway diagnostic route).
+- **Platform hardening** — global `ValidationPipe` (whitelist +
+  reject-unknown-fields + transform), `helmet()`, CORS allow-list
+  (`CLIENT_ORIGIN`), `@nestjs/throttler` (global default + a tighter
+  `@Throttle` override on every `/auth/*` route — verified to actually
+  return `429` after repeated login attempts), a global exception filter
+  normalizing every error to `{ error: { code, message } }`, `/health` +
+  `/health/db` (liveness/readiness, unauthenticated), fail-fast env
+  validation (`src/config/env.validation.ts` — refuses to boot with
+  placeholder secrets once `NODE_ENV=production`).
+- **Docs** — `server/README.md` rewritten (setup, curl walkthrough,
+  security measures, seams for M8.1–M8.3, credentials the user still
+  needs to supply); `docs/API.md` gained the real auth+users endpoint
+  contract, error envelope, and auth model; `docs/DATA-MODEL.md` gained
+  the "M8.0 Prisma mapping" section; `docs/ARCHITECTURE.md` gained a
+  "Backend (M8.0)" section (why JWT not Auth.js, request/auth flow) and
+  an updated security model section; `docs/adr/0002-backend-stack.md`
+  (NestJS + Prisma + Postgres + JWT decision record).
+
+### Verified (see `server/README.md`'s curl walkthrough for the commands)
+
+- `npm install` + `npm run build` clean; app boots (`start:prod`) with
+  `/health` and `/health/db` both `200`.
+- Local Postgres **was** reachable (Homebrew Postgres 15, no Docker in
+  this environment) — `prisma migrate dev` applied a real migration,
+  `prisma:seed` populated it, and `GET/PATCH /users/me` +
+  full address CRUD were exercised against those real rows.
+- Login → access+refresh; `/users/me` with no token → `401`; with a
+  garbage token → `401`; consumer hitting the admin-only route → `403`;
+  admin hitting it → `200`. Refresh rotation confirmed (old token
+  rejected after rotating); logout confirmed (refresh revoked,
+  previously-issued access token still valid until natural expiry, by
+  design). Repeated `/auth/login` attempts confirmed to `429` under the
+  throttler.
+
+### Notes / follow-ups
+
+- Seams for M8.1 (commerce), M8.2 (wallet/Razorpay), M8.3 (services/
+  roles), and M8.4 (the `client/lib/api` mock→real swap) are documented
+  in `server/README.md`.
+- Needs real credentials before going further than local dev: a managed
+  `DATABASE_URL`, real `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET`, a real
+  SMS/WhatsApp OTP provider, real Google/Apple OAuth app credentials, and
+  real Razorpay test-mode keys — all flagged in `server/README.md`'s
+  final section.
+
+## [M11b] — Admin panel: moderation, wallet/refunds, CMS, analytics — 2026-07-26
+
+Completes the admin surface M11a scaffolded: enables the 4 "Soon" nav
+slots (Catalog, Wallet, Collections, Analytics) as real, functional
+modules, closes the M11a orders-oversight refund stub, and wires the
+home page's promo bands into a real admin-editable config. M8 (real
+backend/RBAC, server-authoritative wallet ledger, audit log) is still
+explicitly out of scope — every write below is a session-scoped mock
+mutation, same convention as every other pre-M8 data layer.
+
+### Added
+
+- **`/admin/catalog` + `/admin/catalog/[id]`** (`CatalogClient`/
+  `ProductModerationRow`/`AdminListingEditorClient`) — every `Product`
+  across every vendor, unscoped, search + vendor/status filters.
+  Approve/hide/flag/feature actions (`lib/api/admin.ts#moderateProduct`)
+  mutate a new `Product.moderationStatus?` field (`active`\|`hidden`\|
+  `flagged`, absent reads as `active`) and `Product.featured?`
+  (`lib/types/marketplace.ts`). `lib/api/products.ts`'s browse/listing
+  getters now filter out `"hidden"` products, and `getFeatured()` derives
+  from `.featured` (seeded on the same 4 products the old hardcoded
+  `featuredProducts` list picked) instead of a hardcoded id array. Full
+  edit reuses `components/seller/ListingForm.tsx` verbatim (a pure
+  props-driven form, no seller-shell coupling) via a new
+  `updateProductAdmin` — the unscoped sibling of `updateSellerListing`.
+- **`/admin/catalog/reviews`** (`CatalogReviewsClient`/`AdminReviewRow`)
+  — every `Review` (product + vendor), a flagged queue, hide/unhide.
+  `Review` gained `flagged?`/`hidden?` (`lib/types/shared.ts`);
+  `lib/api/reviews.ts#getProductReviews`/`getVendorReviews` now filter
+  out hidden reviews. Seeded 3 flagged reviews
+  (`lib/data/reviews.ts`, rv28–rv30) so the flagged queue isn't empty on
+  first load.
+- **`/admin/wallet` + `/admin/wallet/[userId]`** (`WalletOverviewClient`/
+  `AdminUserWalletDetailClient`) — platform-wide wallet liability +
+  every seeded account's balance, plus **issue a refund** (appends a
+  `category: "refund"` `WalletTransaction`, same shape
+  `WalletContext.refund` writes client-side for the consumer wallet) and
+  **manual adjustment** (credit/debit with a reason, new
+  `WalletTransactionCategory` value `"adjustment"`, distinct from
+  `"refund"` for audit clarity). `lib/data/admin.ts` gained
+  `adminWalletsByUser`/`adminWalletTransactionsByUser` — M0–M11a only
+  ever modeled one `Wallet` (`user-demo`'s); this seeds one per account
+  in `users[]` (8 total) so `/admin/wallet` has real per-user balances to
+  show. Deliberately a separate ledger from the consumer's own
+  `WalletContext` (`localStorage`) — the two can drift within one mock
+  session, closed for good once M8's server-authoritative ledger is the
+  one thing both surfaces read/write through. The ledger UI reuses
+  `components/ui/TransactionRow.tsx` verbatim.
+- **Orders → wallet refund tie-in** — `OrderDetailClient`'s M11a-stubbed
+  "Issue refund" button is now wired for marketplace and laundry orders:
+  `AdminOrderSummary` gained `customerUserId?` (set from `Order.userId`/
+  `LaundryBooking.userId`, left `undefined` for `SnackOrder`s — WhatsApp-
+  only orders have no registered account/wallet to refund into, so that
+  branch shows an explanatory note instead of a form). Refund amount
+  pre-fills from the order total; a success message links straight to
+  `/admin/wallet/[userId]`'s ledger. Status-override actions remain M8
+  scope (need a real, audited fulfillment write).
+- **`/admin/collections` + `/admin/collections/[id]`/`new`**
+  (`CollectionsClient`/`CollectionEditorClient`) — every occasion
+  `Collection` (what `/collections/[occasion]` renders), create/edit
+  title/description/occasion, and product membership with move-up/
+  move-down reordering (array order is the collection's real display
+  order) + add/remove. New `upsertCollection` in `lib/api/admin.ts`; no
+  `lib/types` change (`Collection` was already fully modeled in M0).
+- **`/admin/collections/promo`** (`HomePromoEditorClient`) — edits the
+  home page's two promo bands. `app/page.tsx` previously hardcoded these
+  as JSX; they're now a real config record, `HomePromoBandContent[]`
+  (`lib/data/site.ts#homePromoBands`, site-chrome copy tier — not a
+  `lib/types` domain entity), read by a new `getHomePromoBands()`
+  (`lib/api/site.ts`) and written by a new `updateHomePromoBand()`
+  (`lib/api/admin.ts`).
+- **`/admin/analytics`** (`AnalyticsClient`) — GMV over the last 14 days
+  (one inline `<svg><polyline>` sparkline, no chart library), orders by
+  module, top sellers (by `Vendor` revenue for makers, by `Seller`
+  revenue for laundry/snack partners), top marketplace products, new
+  users by month, and wallet flow by category — all derived from
+  existing mock arrays via a new `getAnalytics()` (`lib/api/admin.ts`),
+  no new data model. Every bar chart reuses `AdminDashboardClient`'s
+  M11a `<span>`-track-plus-fill recipe.
+- **Bug fix, found while reusing the M11a bar-chart recipe:**
+  `.barFill`/`.barFillGold` (nested `<span>`s, not themselves flex/grid
+  items) were rendering at 0×0 — CSS ignores `width`/`height`
+  percentages on non-replaced inline boxes, and neither span had an
+  explicit block-level `display`. Every bar in `AdminDashboardClient`'s
+  "Orders by module" chart has been invisible since M11a. Fixed by
+  adding `display: block` to both files' `.barFill`(`Gold`) classes —
+  bars now render visibly in both places.
+
+### Changed
+
+- `components/admin/AdminShell.tsx` — the 4 "Soon" nav slots
+  (Catalog/Wallet/Collections/Analytics) are live `Link`s now, no
+  `disabled`/`aria-disabled` styling left.
+- `components/admin/StatusPill.tsx` — tone map gained `hidden`→danger,
+  `flagged`→gold, `visible`→success for product-moderation and
+  review-visibility statuses.
+- `components/admin/AdminDashboardClient.tsx` — "Wallet liability" hint
+  updated ("Single seeded wallet" → "See /admin/wallet for per-user
+  balances") now that the figure sums every seeded wallet, not one.
+- `lib/api/admin.ts#getAdminDashboard`'s `walletLiability` now sums
+  `adminWalletsByUser` instead of reading the single demo `Wallet`.
+- Tap targets bumped to 44px on two new icon-only controls that started
+  under that minimum: `ProductModerationRow`'s edit link (ported from
+  `ListingRow.module.css`'s 36px) and `CollectionEditorClient`'s
+  move/remove buttons (originally 30px).
+
+### Verification
+
+`npx tsc --noEmit`, `npm run lint`, `npm run build` all clean. Live QA
+at 360/768/1180: moderated a product (hide → confirmed
+`moderationStatus` flips and the row updates; feature/unfeature
+toggles), hid a flagged review, issued a refund from both
+`/admin/wallet/[userId]` and an order detail page (confirmed the
+ledger entry and balance update via same-tab client-side navigation —
+a `browse` hard-navigation `goto` resets the mock module state, a
+pre-existing, documented limitation of every mutation in this codebase,
+not a bug), applied a manual debit adjustment, edited a collection
+(added/reordered/removed a product, saved, confirmed the title change
+persisted), edited home promo copy, viewed analytics (all 5 chart
+sections render with real numbers, no library). Caught and fixed one
+real bug along the way: `issueRefund`/`adjustWallet` were mutating the
+same transactions array a caller had already read into React state via
+`list.unshift`, then the caller prepended the new transaction again —
+a duplicate-React-key console error on every refund/adjustment. Fixed
+by having both functions build a new array instead of mutating in
+place. Regression-checked the consumer app (home — including the new
+data-driven promo bands and the `.featured`-derived rail, shop, product
+detail — flagged-but-not-hidden reviews still show, snacks, laundry,
+cart, wallet), all 3 seller-portal types (maker, laundry partner, snack
+seller — listings/menu/pickups/orders/payouts/reviews/storefront), and
+M11a's own screens (dashboard, users, sellers, orders) — no console
+errors, no horizontal scroll, real photos via `<ImageSlot src=...>`
+still load throughout.
+
+**Known mock-architecture limit (pre-existing, newly visible in this
+milestone):** `/admin/catalog`, `/admin/catalog/reviews`, and
+`/admin/collections/promo` are `"use client"` screens mutating
+`lib/data` arrays in the browser's own module graph. The consumer pages
+that read those same arrays (`/shop`, `/`, `/product/[slug]`,
+`/storefront/[vendor]`, `/collections/[occasion]`) are Server
+Components, fetching in the Next.js server's separate module graph — a
+moderation/feature/CMS edit here is instantly visible to every other
+admin client component in the same tab, but never reaches a
+server-rendered consumer page without a real backend round-trip. Same
+boundary `lib/api/seller.ts#updateSellerStorefront`'s doc comment
+already flags for `/storefront/[vendor]`. M8's real API is what removes
+this gap.
+
+## [M11a] — Admin panel: foundation + core oversight — 2026-07-26
+
+Opens the third and last role surface (`/admin/*`, internal staff,
+unscoped access) alongside the consumer app and the M10 seller portal —
+`middleware.ts` already reserved the gate since M10, so this milestone
+only needed the routes, `/admin/login`, `signInAsAdmin()`, `AdminShell`,
+and an unscoped `lib/api/admin.ts` data layer. Closes the M7b `/sell` →
+M11a loop: a pending `SellerApplication` can now actually become an
+active `Seller`. M11b (moderation, wallet/refund control, CMS,
+analytics) and M8 (real backend/RBAC) are explicitly out of scope —
+every M11b nav slot is visible-but-disabled, every refund/status-
+override action is a labelled stub, not silently missing.
+
+### Added
+
+- **`signInAsAdmin()`** (`lib/auth/AuthContext.tsx`) — a third sign-in
+  path alongside `signIn()`/`signInAsSeller()`, mutually exclusive with
+  both, resolving to a new demo `User` (`adminUser`, role `"admin"`,
+  `lib/data/admin.ts`). Mirrors `role` into the same `hk_role` cookie
+  `middleware.ts` already checked for `/admin/*` since M10's scaffolding
+  — no `middleware.ts` change needed, only a doc-comment update
+  reflecting that the routes now exist.
+- **`/admin/login`** (`AdminLoginClient`) — staff-only sign-in: a mock
+  email/password form (no real credential check, same convention as
+  every other pre-M8 login) plus "continue as demo admin". Deliberately
+  **no public sign-up affordance anywhere on the screen** (unlike
+  `/seller/login`'s "Apply to sell" link) — the copy states this
+  explicitly.
+- **`AdminShell`** (`components/admin/`) — its own pine-deep topbar +
+  sticky-sidebar-collapsing-to-horizontal-scroll-strip shell, mirroring
+  `SellerShell`'s structure without importing it (see
+  `docs/DESIGN-SYSTEM.md`'s M11a section for why the two stay
+  independent components). Nav: Dashboard, Users, Sellers, Orders (live)
+  plus Catalog/Wallet/Collections/Analytics rendered as visible,
+  `aria-disabled`, "Soon"-tagged slots for M11b. Client-side role gate
+  (`role !== "admin"` → sign-in prompt) as a defensive fallback behind
+  `middleware.ts`'s server-side redirect, same pattern as `SellerShell`.
+- **`/admin` Dashboard** (`AdminDashboardClient` +
+  `lib/api/admin.ts#getAdminDashboard`) — platform-wide KPI tiles (GMV
+  across all 3 order-shaped tables, orders today/total, active sellers
+  by type, users, pending applications, pending payouts, single-seeded-
+  wallet liability) and a CSS-only orders-by-module bar chart (no chart
+  library — a width-percented `<span>` fill, the same technique
+  `CapacityMeter` already uses). A pending-applications callout links
+  straight to the approval queue when the count is nonzero.
+- **`/admin/users` + `/admin/users/[id]`** (`UsersClient`/`UserRow`/
+  `UserDetailClient`) — the full unscoped `User` directory
+  (`lib/api/admin.ts#getAllUsers`), search by name/email/phone, filter
+  by role and active/suspended status, inline suspend/reactivate from
+  either the list row or the detail page. `User` gained an optional
+  `suspended?: boolean` field (`lib/types/shared.ts`) — a mock flag only,
+  doesn't yet block sign-in (no real session to gate against until M8).
+  `lib/data/admin.ts` seeds 3 extra consumer accounts (one pre-suspended)
+  alongside the existing consumer + 3 seller demo users so the list
+  isn't trivial (8 accounts total).
+- **`/admin/sellers`** (`SellersClient`/`SellerRow`/`ApplicationRow`) —
+  two tabs on one screen: "All sellers" (every `Seller` unscoped, type-
+  filterable, suspend/reactivate) and "Approval queue" (pending
+  `SellerApplication`s → approve/reject). **Approving mints a `Vendor` +
+  an `approved` `Seller` in one action**
+  (`lib/api/admin.ts#approveSellerApplication`) — `SellerApplicationCategory`
+  maps 1:1 onto `VendorType` except `"other"`, which becomes a plain
+  `"maker"` storefront — immediately visible in the "All sellers" tab.
+  `SellerApplicationStatus` gained two terminal values, `approved`/
+  `rejected` (`lib/types/shared.ts`), alongside `/sell`'s pre-existing
+  `new`/`reviewing`/`waitlisted`, which the queue treats as one "pending"
+  bucket. `lib/data/sell.ts#seedSellerApplications` seeds 3 pending
+  applications (one per pre-existing status) + 1 pre-decided `rejected`
+  one, spliced into `lib/api/sell.ts`'s live `sellerApplications` array
+  at module init, so the queue isn't empty on first load and every
+  status the pill can show has a real row.
+- **`/admin/orders` + `/admin/orders/[type]/[id]`** (`OrdersClient`/
+  `UnifiedOrderRow`/`OrderDetailClient`) — unifies marketplace `Order` +
+  `LaundryBooking` + `SnackOrder` into one list/detail shape
+  (`lib/api/admin.ts#AdminOrderSummary`, keyed `${type}:${id}`), type-
+  filterable + searchable by reference/customer/seller, unscoped across
+  every vendor/partner/seller. Full read visibility only — refund
+  (marketplace) / status-override (laundry, snack) actions render as a
+  labelled, disabled stub ("lands in M11b") rather than being silently
+  absent, per the brief's "at minimum full visibility" requirement.
+- **`StatusPill`** (`components/admin/`) — one generic status pill for
+  the whole admin surface (raw status string → tone + auto-title-cased
+  label from a shared map), a deliberate departure from the seller
+  portal's one-pill-per-domain pattern (`OrderStatusPill`/
+  `PickupStatusPill`/`SnackOrderStatusPill`, left untouched) — see
+  `docs/DESIGN-SYSTEM.md`'s M11a section for the reasoning.
+- **`lib/api/admin.ts`** — the unscoped admin data layer: `getAllUsers`/
+  `getUserById`/`setUserSuspended`, `getAllSellers`/`getSellerById`,
+  `getPendingSellerApplications`/`approveSellerApplication`/
+  `rejectSellerApplication`/`setSellerStatus`, `getAllOrdersUnified`/
+  `getAdminOrderById` + 3 full-record getters, `getAdminDashboard`. Every
+  function reads/writes across every seller/user/order with no
+  `vendorId`/`sellerId` filter — trusted purely because only
+  `AdminShell`'s gated screens call it, exactly like every other mock
+  data layer in this codebase; flagged throughout for M8's real
+  server-side RBAC + audit logging.
+- **`lib/api/seller.ts#getAllSnackOrders`** — an unscoped companion to
+  the existing seller-scoped `getSnackOrders`, added here (not in
+  `lib/api/admin.ts`) because `liveSnackOrders` is this module's private
+  state; `getAllOrdersUnified` reads it the same way it reads
+  `seedOrders`/`getPlacedOrders` for the marketplace side.
+
+### Changed
+
+- `middleware.ts` — no logic change (the `/admin/*` gate branch already
+  matched the seller branch exactly since M10's scaffolding); updated
+  the stale "no pages yet" doc comment now that `app/admin/**` exists.
+- `lib/api/sell.ts` — `sellerApplications` now seeds from
+  `seedSellerApplications` instead of starting empty; gained
+  `getSellerApplicationById`/`setSellerApplicationStatus` for
+  `lib/api/admin.ts`'s approve/reject to call into (same "each api
+  module owns its own state" convention every other mutation in this
+  codebase follows).
+
+### Verification
+
+`npx tsc --noEmit`, `npm run lint`, `npm run build` all clean. Live QA
+at 360/768/1180: admin login → dashboard → users (suspend/reactivate,
+both from the list and the detail page) → sellers (approved a pending
+application live, confirmed it appeared in "All sellers" as `approved`)
+→ orders oversight (all 3 order-shaped detail types). Role redirect
+verified both directions: signed-out → `/admin` → `/admin/login`; signed
+in as a seller → `/admin` → `/admin/login` (cookie `hk_role=seller`
+rejected). Regression-checked the consumer app (home, shop, product
+detail, snacks, laundry, account — real photos via `<ImageSlot src=...>`
+still load) and all 3 seller-portal types (maker, laundry partner, snack
+seller dashboards) — no console errors, no behavior change.
+
+## [M10b] — Seller portal: laundry partner + snack seller — 2026-07-26
+
+Extends the M10a seller-portal shell (`/seller/*`, `SellerShell`, the mock
+`AuthContext` seller path) to the other two `SellerType`s — laundry
+partner and snack seller — reusing every M10a primitive (`StatCard`,
+`SellerPageHeader`, `PayoutRow`/`SellerPayoutsClient`, `OrderRow`/
+`OrderStatusPill`'s pattern, `StatusTimeline`, the listings-CRUD shape)
+rather than duplicating them. `docs/PRD.md`/`docs/DATA-MODEL.md`/
+`docs/DESIGN-SYSTEM.md` had no M10a section (an M10a doc-update gap);
+this entry's doc updates cover the seller portal's full current state
+(M10a + M10b), not just this milestone's diff.
+
+### Added
+
+- **`signInAsSeller(type)` now resolves per type** (`lib/auth/AuthContext.tsx`)
+  — a new `sellerType` field persists alongside `role` (`localStorage` +
+  the existing `hk_role` cookie story unchanged) so `signInAsSeller("laundry")`/
+  `("snack")` resolve to two new demo `User`+`Seller` records
+  (`laundryPartnerUser`/`sl2` "Fresh Fold Laundry Co.",
+  `snackSellerUser`/`sl3` "Meera's Snack Box", `lib/data/sellers.ts`)
+  instead of always falling back to the M10a maker demo account.
+  `/seller/login` (`SellerLoginClient`) gained two more "continue as
+  demo ___" buttons alongside the existing maker one.
+- **`SellerShell` nav now branches 3 ways** (`navForType`,
+  `components/seller/SellerShell.tsx`) — `LAUNDRY_NAV` (Dashboard,
+  Pickups, Payouts) and `SNACK_NAV` (Dashboard, Menu, Orders, Payouts)
+  alongside the existing `MAKER_NAV`; laundry/snack sellers don't get
+  Listings/Storefront/Reviews (maker-only concepts).
+- **Dashboard, Orders — type routers, not branching components.**
+  `SellerDashboardClient`/`SellerOrdersClient`/`SellerOrderDetailClient`
+  are now thin `seller.type` switches over sibling components
+  (`MakerDashboardClient`/`PartnerDashboardClient`/`SnackDashboardClient`;
+  `MakerOrdersClient`/`SnackOrdersClient`; `MakerOrderDetailClient`/
+  `SnackOrderDetailClient`) rather than one component with a conditional
+  return before its hooks — the M10a maker components were renamed
+  (`SellerDashboardClient`→`MakerDashboardClient`, etc.) and moved
+  unmodified into the new sibling files; behavior for `type: "maker"` is
+  byte-identical to M10a.
+- **Laundry partner — Pickups** (`/seller/pickups`, `/seller/pickups/[id]`):
+  `PartnerPickupsClient` (status-filterable list of `LaundryBooking`s
+  assigned via the new `partnerId` field) and `PartnerPickupDetailClient`
+  (a `StatusTimeline` over `scheduled→picked-up→in-progress→
+  out-for-delivery→delivered`, an advance-status action, and editable
+  pickup/delivery day+slot selects — the brief's "set/confirm the two
+  slots" — via `updatePartnerBookingSlots`). `PartnerDashboardClient`
+  shows today's pickups/deliveries count, this week's earnings, pending
+  payout, and rating/review count (new optional `Seller.rating`/
+  `reviewCount` fields, since laundry/snack sellers have no `Vendor` to
+  read a rating off of).
+- **Snack seller — Menu CRUD** (`/seller/menu`, `/seller/menu/new`,
+  `/seller/menu/[id]`): `SellerMenuClient`/`SellerMenuEditorClient`/
+  `SnackMenuForm` (name, category, diet, price, description, `available`
+  toggle, image path via `<ImageSlot src>`) over a lazily-seeded
+  per-seller copy of `Snack`s (same isolation pattern as the maker
+  Listings store) — mirrors `ListingsClient`/`SellerListingEditorClient`/
+  `ListingForm` one level down (no weight tiers/occasions; a `Snack` is
+  flat single-price).
+- **Snack seller — Orders** (`/seller/orders` when `seller.type ===
+  "snack"`): a new `SnackOrder` entity (`lib/types/food.ts`) — the
+  seller-portal's own mock stand-in for an incoming WhatsApp-origin
+  order, since consumer Snacks orders never become a server-side `Order`
+  (no on-site checkout, `lib/channel.ts`). `SnackOrdersClient`/
+  `SnackOrderDetailClient` advance status `received→accepted→
+  out-for-delivery→delivered` — the exact WA timeline sequence
+  `StatusTimeline tone="whatsapp"` already shows the consumer on
+  `/snacks`. 4 seed `SnackOrder`s (`lib/data/sellers.ts`) exercise all 4
+  statuses.
+- **`LaundryBooking.partnerId`** (`lib/types/laundry.ts`) — every seed
+  booking (`lib/data/laundry.ts`) and every live booking
+  (`lib/api/laundry.ts#createBooking`) now assigns to `"sl2"`, the one
+  seeded demo partner (no real assignment/dispatch logic yet — M8/M9
+  scope). 2 new seed bookings (`LB1044`/`LB1045`, dated "today") added so
+  the partner dashboard's today-pickups/deliveries stat has real data;
+  `bookingSequence`'s floor bumped 1042→1046 to stay clear of them.
+- **`Snack.sellerId`** (`lib/types/food.ts`) — all 6 seed snacks now
+  belong to `"sl3"`; the consumer `/snacks` grid is unaffected (it never
+  filtered by seller).
+- New `lib/api/seller.ts` exports: `getPartnerBookings`/`getPartnerBooking`/
+  `advancePartnerBookingStatus`/`updatePartnerBookingSlots`/
+  `BOOKING_SEQUENCE`/`nextBookingStatus`/`getPartnerDashboard`;
+  `getSellerMenu`/`getSellerMenuItem`/`createSellerMenuItem`/
+  `updateSellerMenuItem`/`deleteSellerMenuItem`; `getSnackOrders`/
+  `getSnackOrder`/`advanceSnackOrderStatus`/`SNACK_ORDER_SEQUENCE`/
+  `nextSnackOrderStatus`/`getSnackDashboard`. Same "trusts a
+  client-passed `sellerId`/`partnerId`, session-scoped in-memory
+  mutation" caveat as every M10a function in this file — M8 must
+  re-derive the id from a verified server session.
+
+### Fixed
+
+- **`SellerShell`'s mobile (≤780px) stacked layout could silently clip
+  `.content`** (`components/seller/SellerShell.module.css`) — the base
+  `.body { align-items: flex-start }` (correct for the desktop row
+  layout, where the sticky sidebar shouldn't stretch to content's
+  height) became a *cross-axis width* rule once `.body` switches to
+  `flex-direction: column` on mobile, so `.content` shrink-to-fit its
+  own children instead of filling the row. M10a's maker dashboard never
+  hit this (its content happened to always fit under ~328px at 360px
+  viewport); M10b's wider stat-grid labels ("This week's earnings") and
+  longer pickup-row text ("Steam Ironing · Pickup 26 Jul 2026 · Delivery
+  27 Jul 2026") pushed past it, and `body { overflow-x: hidden }`
+  (`globals.css`) silently clipped the overflow instead of showing a
+  scrollbar — found via live QA at 360px. Fixed with `align-items:
+  stretch` inside the existing `@media (max-width: 780px)` block only
+  (desktop unaffected). Re-verified clean (`document.body.scrollWidth`
+  matches `documentElement.clientWidth`) across all 3 seller types at
+  360/768/1180.
+
+### Notes / deviations
+
+- The mock laundry day-picker (`lib/data/laundry.ts#laundryDays`) is
+  still a fixed 4-day window (19–22 Jul 2026, unchanged from M4) while
+  "today" in this environment is 25–26 Jul — a pre-existing M4-era
+  mismatch, not introduced here. Its one visible effect on M10b: the
+  Pickups detail slot-editor's day `<select>` shows a blank "Select day"
+  for a booking dated outside that window (e.g. `LB1044`'s 25 Jul pickup)
+  even though the underlying state and the read-only "Booking summary"
+  panel show the correct date — cosmetic only, `updatePartnerBookingSlots`
+  still saves correctly once a day is explicitly picked. Left
+  `laundryDays` untouched rather than widening it, since that's a
+  shipped M4 consumer-facing screen (`/laundry`'s day-tile grid) outside
+  M10b's scope and carries its own regression risk.
+- **M8/M9 must make real:** partner-assignment/dispatch logic (every
+  booking auto-assigns to the one demo partner today);
+  WhatsApp Cloud API inbound-order ingestion (creating a real `SnackOrder`
+  per incoming WA message instead of seeding it) + outbound status-push
+  notifications when a seller advances a `SnackOrder`'s status; and, same
+  as every M10a function, re-deriving `sellerId`/`partnerId`/`vendorId`
+  from a verified server session instead of a client-passed argument.
+
+### Verified
+
+`npx tsc --noEmit`, `npm run lint`, `npm run build` all clean. Live QA
+(headless browser) at 360/768/1180: signed in as all 3 demo sellers,
+verified type-correct nav + dashboard stats for each; laundry pickup
+status advance (`scheduled→picked-up`) and slot save both confirmed
+against the live UI; snack menu create/edit/delete all confirmed
+(including a session-scoped-mutation check — reset on hard reload, as
+expected); snack order status advance (`received→accepted`) confirmed;
+maker dashboard/listings/orders/storefront/payouts/reviews and the
+consumer `/`, `/shop`, `/snacks`, `/laundry`, `/account/orders` all
+re-checked with zero console errors and no `scrollWidth` overflow at any
+width — no regressions from either the type-router refactor or the
+`SellerShell` CSS fix above.
+
+## [M7b] — Shared screens — 2026-07-25
+
+Referrals + loyalty, notifications, support, corporate/bulk-gifting
+inquiry, and seller onboarding — the five screens M7a's brief explicitly
+left for a later milestone.
+
+### Added
+
+- `lib/wallet/WalletContext.tsx#earnReferralCredit` — a new ledger op
+  alongside `topUp`/`pay`/`earnCashback`/`refund`: same shape as
+  `earnCashback` but appends `category: "referral"` (matching
+  `WalletTransactionCategory`) and doesn't add to `lifetimeSaved` (a
+  referral bonus isn't a shopping saving).
+- `lib/api/referrals.ts` + `lib/data/referrals.ts` — `getReferralCode`,
+  `getReferrals`, `getLoyaltyAccount`, `getLoyaltyTiers`,
+  `getReferralHowItWorks`, `getReferralRewardAmount`, and
+  `applyReferralCredit()` (advances the oldest non-`rewarded` `Referral`
+  to `rewarded`, session-scoped mock mutation — same pattern as
+  `lib/api/addresses.ts`'s CRUD). Seeds a `LoyaltyAccount` for the demo
+  user (`tier: "silver"`, `lifetimePoints: 1820`) and a `LOYALTY_TIERS`
+  ladder (`{ tier, label, threshold, perk }` × 4) driving tier/next-tier
+  math off `lifetimePoints` thresholds rather than a hardcoded flag.
+  Seeds 3 `Referral`s exercising all 3 `ReferralStatus` values — the
+  `rewarded` one's `rewardAmount: 100` deliberately matches the existing
+  "Referral credit — Priya" row already in `lib/data/wallet.ts`'s ledger;
+  the *current* invite rate is `REFERRAL_REWARD_AMOUNT = 250`.
+- `app/account/referrals/page.tsx` + `components/account/ReferralsClient.tsx`
+  — referral code with copy (`navigator.clipboard`) and share
+  (`navigator.share` with a clipboard fallback), an "Apply referral
+  credit (demo)" button that calls `applyReferralCredit()` then
+  `useWallet().earnReferralCredit()` (real wallet ledger write, verified
+  live), a loyalty tier badge + points + `<CapacityMeter>` progress to
+  the next tier + a 4-tier perk ladder, and a "how it works" list.
+- `lib/api/notifications.ts` + `lib/data/notifications.ts` —
+  `getNotifications`, `getNotificationPreferences`,
+  `updateNotificationPreference(category, patch)`,
+  `setNotificationRead(id, read)`. Seeds 6 `Notification`s (all 6
+  categories, all 4 channels, mixed read/unread) and one
+  `NotificationPreference` row per category with deliberately varied
+  channel defaults (transactional categories default to SMS+WhatsApp+
+  email+in-app; `promo` skips SMS/WhatsApp by default).
+- `app/account/notifications/page.tsx` +
+  `components/account/NotificationsClient.tsx` — a category × channel
+  toggle grid (styled checkboxes, same convention as `WalletClient`'s
+  auto-top-up editor; mock-persisted per toggle) and a read/unread inbox
+  with an All/Unread `<Chip>` filter — clicking a row toggles its read
+  state via `setNotificationRead`.
+- `lib/support/autoReply.ts#getAutoReply` — keyword-matched canned-reply
+  helper for the mock chat widget (order/laundry/refund/wallet/referral/
+  snacks keyword buckets + a generic fallback); a plain logic helper
+  colocated under `lib/support/`, not a `ui/` primitive or mock-data file
+  (same shape as `lib/cart/pricing.ts`/`lib/snacks/message.ts`).
+- `lib/api/support.ts` + `lib/data/support.ts` — `getSupportPhone`,
+  `getSupportChatGreeting`, `createSupportTicket` (session-scoped mock
+  `SupportTicket` "table", same pattern as `lib/api/orders.ts#orders`),
+  `getSupportTickets`.
+- `app/support/page.tsx` + `components/support/SupportClient.tsx` — a
+  standalone route (not wrapped in `AccountShell` — support is reachable
+  signed-out): a `tel:` call CTA, a local ephemeral chat widget (message
+  thread + input, canned auto-reply after a short delay, no persistence),
+  and a ticket form (subject, optional order/booking ref, preferred
+  follow-up channel via `<Chip>`, message) → `createSupportTicket` → a
+  confirmation card showing the ticket id/status.
+- `lib/api/corporate.ts` + `lib/data/corporate.ts` —
+  `getCorporateOccasions`, `getCorporateBudgetRanges`,
+  `createCorporateInquiry` (session-scoped mock `CorporateInquiry`
+  "table").
+- `app/corporate/page.tsx` + `components/corporate/CorporateInquiryClient.tsx`
+  — bulk-gifting inquiry form (company/contact/email/phone/estimated
+  quantity required; occasion + budget range as removable `<Chip>`
+  selects; message via `<Textarea>`) → `createCorporateInquiry` → a
+  thank-you state.
+- `lib/types/shared.ts#SellerApplication` (+`SellerApplicationCategory`/
+  `SellerApplicationStatus`) — the one new domain type M7b adds; modeled
+  identically to the existing standalone `CorporateInquiry` (no user FK).
+  Every other M7b entity (`Referral`, `LoyaltyAccount`, `Notification`,
+  `NotificationPreference`, `SupportTicket`) was already fully modeled at
+  M0.
+- `lib/api/sell.ts` + `lib/data/sell.ts` — `getSellerBenefits`,
+  `getSellerSteps`, `getSellerCategories`, `createSellerApplication`
+  (session-scoped mock `SellerApplication` "table"; every application
+  seeds with `status: "waitlisted"`, not `"new"` — matching the plan's
+  "future-flagged" framing rather than an active review queue).
+- `app/sell/page.tsx` + `components/sell/SellerApplicationClient.tsx` —
+  a prominent "Coming soon" banner, a benefits grid, a "how it works"
+  4-step ladder, and a real, submittable application form (business/
+  contact/email/phone/city/category/description) → `createSellerApplication`
+  → a "you're on the waitlist" confirmation. The future-flag is expressed
+  as banner copy + a `"waitlisted"` status, not a disabled control — a
+  literally-disabled submit would block exercising the mock submit →
+  confirmation flow the brief calls for.
+
+### Changed
+
+- `components/account/AccountShell.tsx` — `ACCOUNT_NAV_ITEMS` gained
+  Referrals (`Gift` icon) and Notifications (`Bell` icon) between
+  Wishlist and Profile — the exact extension point M7a's brief left for
+  it; no other shell logic touched.
+- `lib/data/site.ts#footerColumns` — Services column gained "Corporate
+  gifting" (`/corporate`) and "Sell on Homekrafted" (`/sell`); Account
+  column gained "Referrals & loyalty" (`/account/referrals`). "Support"
+  already linked `/support` since M0 (the route just didn't exist until
+  now).
+
+### Notes / decisions for Opus to confirm
+
+- **`applyReferralCredit()` picks the oldest `joined` referral before
+  falling back to the oldest `pending` one**, advancing it straight to
+  `rewarded` in one step rather than modeling the `pending`→`joined`
+  transition separately — the demo button represents "a friend accepted
+  your invite and completed their first order" as a single simulated
+  event, not two.
+- **The referral/notification/support/corporate/seller mock "tables" are
+  session/module-instance-scoped**, same caveat as every prior mock
+  mutation in this codebase (`createOrder`, address CRUD, etc.) — live
+  browser QA confirmed a hard reload / fresh tab always sees the pristine
+  server-seeded state, never a previous tab's mutations (verified via a
+  direct `curl` of the SSR'd `/account/referrals` HTML after mutating
+  client-side, and via a fresh `newtab` navigation).
+- **`NotificationsClient`'s preference grid scrolls inside its own card**
+  (`overflow-x: auto`, `min-width: 400px` on `.prefsRow`) at the
+  narrowest supported width (360px) rather than a redesigned stacked
+  layout — the page itself never gains horizontal scroll (verified via
+  `document.documentElement.scrollWidth` vs `clientWidth` at
+  360/768/1180), but the 5-column category×channel table is tight at
+  360px. Flagging as a candidate for a stacked-card redesign if a future
+  design pass wants to remove the internal scroll entirely.
+
+### Verified
+
+`npx tsc --noEmit`, `npm run lint`, and `npm run build` all clean from
+`client/`. Live browser QA (`browse` skill) at 360/768/1180px: referral
+copy/share, the demo "apply referral credit" flow end-to-end (wallet
+balance +₹250, a new `category: "referral"` ledger row titled "Referral
+credit — Karthik Rao", referral status flips to Rewarded), loyalty
+tier/points/progress-meter rendering, notification preference toggles
+persisting (mock) across a toggle + inbox mark-as-read + unread-filter
+round trip, the support chat widget (keyword-matched auto-reply verified
+for a laundry-themed message), the `tel:` call CTA, the support ticket
+form → confirmation, the corporate inquiry form → thank-you state, and
+the seller application form → waitlist confirmation. Re-verified the
+M7a account shell (`/account`, `/account/orders`, `/account/addresses`,
+`/account/wishlist`, `/account/profile`) still renders cleanly with the
+two added nav entries, no console errors on any route. No page-level
+horizontal scroll at any width; all interactive controls meet the 44px
+tap-target guideline.
+
 ## [M7a] — Account core — 2026-07-25
 
 Auth UI, the account shell, unified order history, address book,

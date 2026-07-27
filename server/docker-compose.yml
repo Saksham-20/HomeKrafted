@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: homekrafted-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: homekrafted
+      POSTGRES_PASSWORD: homekrafted
+      POSTGRES_DB: homekrafted
+    ports:
+      - "5432:5432"
+    volumes:
+      - homekrafted_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U homekrafted -d homekrafted"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  homekrafted_pgdata:

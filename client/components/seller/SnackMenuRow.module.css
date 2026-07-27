@@ -1,0 +1,105 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3);
+}
+
+.thumb {
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--hk-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.price {
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  flex-shrink: 0;
+}
+
+.availabilityPill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--hk-r-pill);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.available {
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+}
+
+.unavailable {
+  background: #f6e7e0;
+  color: var(--hk-terracotta);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-shrink: 0;
+}
+
+.iconLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  color: var(--hk-ink-2);
+}
+
+.iconLink:hover {
+  color: var(--hk-gold);
+  border-color: var(--hk-gold-border);
+}
+
+.deleteButton:hover {
+  color: var(--hk-terracotta);
+  border-color: var(--hk-terracotta);
+}
+
+@media (max-width: 560px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .price,
+  .availabilityPill,
+  .actions {
+    margin-left: 66px;
+  }
+}

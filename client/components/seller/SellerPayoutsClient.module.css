@@ -1,0 +1,67 @@
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s6);
+}
+
+.requestCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s6);
+}
+
+.requestRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.amountInput {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+  width: 160px;
+}
+
+.amountInput:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.requestedNote {
+  font-size: 13px;
+  color: var(--hk-success);
+}
+
+.sectionTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s3);
+}
+
+.history {
+  display: flex;
+  flex-direction: column;
+}
+
+.empty {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5);
+  text-align: center;
+}

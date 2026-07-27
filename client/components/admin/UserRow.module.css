@@ -1,0 +1,83 @@
+.linkWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  min-height: 44px;
+}
+
+.row:hover {
+  border-color: var(--hk-gold-border);
+}
+
+.avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--hk-ink);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.action {
+  flex-shrink: 0;
+}
+
+@media (max-width: 560px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .action {
+    width: 100%;
+  }
+
+  .action button {
+    width: 100%;
+  }
+}

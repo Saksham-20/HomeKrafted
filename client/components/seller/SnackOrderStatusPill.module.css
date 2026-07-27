@@ -1,0 +1,32 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--hk-r-pill);
+  white-space: nowrap;
+}
+
+.received {
+  background: var(--hk-surface-3);
+  color: var(--hk-ink-2);
+}
+
+.accepted {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.outForDelivery {
+  background: var(--hk-pine);
+  color: #ffffff;
+}
+
+.delivered {
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+}

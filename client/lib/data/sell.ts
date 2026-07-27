@@ -1,4 +1,4 @@
-import type { SellerApplicationCategory } from "@/lib/types";
+import type { SellerApplication, SellerApplicationCategory } from "@/lib/types";
 
 /**
  * `/sell` content — seller onboarding is explicitly future-flagged per
@@ -49,4 +49,68 @@ export const sellerCategories: { value: SellerApplicationCategory; label: string
   { value: "baker", label: "Baker (cakes, breads, bakes)" },
   { value: "artist", label: "Artist (art, decor, custom pieces)" },
   { value: "other", label: "Other" },
+];
+
+/**
+ * M11a — seeds `/admin/sellers`' onboarding approval queue with real
+ * applications on first load, rather than starting empty and only ever
+ * filling up from someone submitting `/sell`'s form this session. Three
+ * pending (spanning `new`/`reviewing`/`waitlisted` — the queue treats all
+ * three as "pending", see `SellerApplicationStatus`'s doc comment) plus
+ * one already `rejected`, so the admin screen has both an active queue
+ * and decided history to show without any live action first.
+ * `lib/api/sell.ts` splices these into its live `sellerApplications`
+ * array at module init — same seed-then-mutate-in-place pattern as
+ * `lib/data/orders.ts#seedOrders` vs. `lib/api/orders.ts`'s live list.
+ */
+export const seedSellerApplications: SellerApplication[] = [
+  {
+    id: "sa-seed-1",
+    businessName: "Kaveri's Kitchen",
+    contactName: "Kaveri Rao",
+    email: "kaveri@example.com",
+    phone: "+91 90001 11222",
+    category: "maker",
+    city: "Mysuru, Karnataka",
+    description:
+      "Traditional Karnataka pickles and podis, small-batch, home-kitchen made — my grandmother's recipes, no preservatives.",
+    status: "new",
+    createdAt: "2026-07-20T10:00:00+05:30",
+  },
+  {
+    id: "sa-seed-2",
+    businessName: "Sugar & Slate Bakes",
+    contactName: "Rohan Mehta",
+    email: "rohan@example.com",
+    phone: "+91 90002 22333",
+    category: "baker",
+    city: "Pune, Maharashtra",
+    description: "Eggless cakes and festive bakes for small home celebrations, made to order.",
+    status: "reviewing",
+    createdAt: "2026-07-21T14:30:00+05:30",
+  },
+  {
+    id: "sa-seed-3",
+    businessName: "Terracotta & Thread",
+    contactName: "Ila Bhatt",
+    email: "ila@example.com",
+    phone: "+91 90003 33444",
+    category: "artist",
+    city: "Jaipur, Rajasthan",
+    description: "Hand-painted terracotta décor and block-printed textile gifting pieces.",
+    status: "waitlisted",
+    createdAt: "2026-07-15T09:00:00+05:30",
+  },
+  {
+    id: "sa-seed-4",
+    businessName: "Coastal Crate Co.",
+    contactName: "Manoj Pillai",
+    email: "manoj@example.com",
+    phone: "+91 90004 44555",
+    category: "other",
+    city: "Kochi, Kerala",
+    description: "Curated coastal Kerala snack and spice hampers.",
+    status: "rejected",
+    createdAt: "2026-07-10T09:00:00+05:30",
+  },
 ];

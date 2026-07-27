@@ -31,7 +31,9 @@ export const snacks: Snack[] = [
     category: "savoury",
     diet: "veg",
     imagePlaceholder: "MATHRI",
+    imageSrc: "/images/snacks/masala-mathri.jpg",
     available: true,
+    sellerId: "sl3",
   },
   {
     id: "sk2",
@@ -42,7 +44,9 @@ export const snacks: Snack[] = [
     category: "namkeen",
     diet: "veg",
     imagePlaceholder: "CHIVDA",
+    imageSrc: "/images/snacks/roasted-chivda.jpg",
     available: true,
+    sellerId: "sl3",
   },
   {
     id: "sk3",
@@ -53,7 +57,9 @@ export const snacks: Snack[] = [
     category: "sweet",
     diet: "veg",
     imagePlaceholder: "LADOO",
+    imageSrc: "/images/snacks/besan-ladoo.jpg",
     available: true,
+    sellerId: "sl3",
   },
   {
     id: "sk4",
@@ -64,7 +70,9 @@ export const snacks: Snack[] = [
     category: "namkeen",
     diet: "veg",
     imagePlaceholder: "CHAKLI",
+    imageSrc: "/images/snacks/chakli-spirals.jpg",
     available: true,
+    sellerId: "sl3",
   },
   {
     id: "sk5",
@@ -75,7 +83,9 @@ export const snacks: Snack[] = [
     category: "baked",
     diet: "veg",
     imagePlaceholder: "NANKHATAI",
+    imageSrc: "/images/snacks/nankhatai-cookies.jpg",
     available: true,
+    sellerId: "sl3",
   },
   {
     id: "sk6",
@@ -86,7 +96,9 @@ export const snacks: Snack[] = [
     category: "savoury",
     diet: "veg",
     imagePlaceholder: "PEANUTS",
+    imageSrc: "/images/snacks/spicy-peanut-masala.jpg",
     available: true,
+    sellerId: "sl3",
   },
 ];
 

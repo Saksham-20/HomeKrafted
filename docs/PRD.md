@@ -51,6 +51,9 @@ Every bullet below is mandatory and in-scope; nothing is phased out.
 | Cart, multi-address checkout, delivery-date | `/cart`, `/checkout` — split by address, per-address date |
 | Basic order status (no live tracking) | Status stepper, no map/rider |
 | Seller onboarding *(future)* | `/sell` info + form (flagged) |
+| Seller portal — maker dashboard | `/seller/*` — listings, orders, storefront, payouts, reviews |
+| Seller portal — laundry partner | `/seller/*` — pickups (assigned bookings + status), payouts |
+| Seller portal — snack seller | `/seller/*` — menu CRUD, incoming WhatsApp orders, payouts |
 
 ### Laundry, Cleaning & Ironing
 
@@ -77,6 +80,22 @@ Every bullet below is mandatory and in-scope; nothing is phased out.
 | App Store / Play badges | Promo + footer |
 | QR for app install | QR tile |
 | Full meals ordering & tracking in-app | Promo + "get the app" CTA |
+
+### Admin panel (internal staff, M11a + M11b)
+
+| Feature | Web surface |
+|---|---|
+| Staff-only sign-in (no public sign-up) | `/admin/login` — email/password mock + "continue as demo admin" |
+| Platform KPI dashboard (unscoped) | `/admin` — GMV, orders today/total, active sellers by type, users, pending applications, pending payouts, wallet liability, orders-by-module bar chart |
+| User directory + suspend/reactivate | `/admin/users` + `/admin/users/[id]` — search/filter by role+status, mock suspend flag |
+| Seller directory + suspend/reactivate | `/admin/sellers` — all sellers (maker/laundry/snack), type filter |
+| Seller onboarding approval queue | `/admin/sellers` approval-queue tab — approve (`SellerApplication` → active `Seller` + `Vendor`) / reject |
+| Unified orders oversight + refunds | `/admin/orders` + `/admin/orders/[type]/[id]` — Marketplace `Order` + `LaundryBooking` + `SnackOrder`, unscoped, type-filterable; refund wired to the wallet ledger for marketplace/laundry (M11b); status overrides still M8 |
+| Catalog moderation + listing edit | `/admin/catalog` + `/admin/catalog/[id]` (M11b) — every `Product` across every vendor, search/filter by vendor/category/status; approve/hide/flag/feature actions; full edit via the shared `ListingForm` |
+| Review moderation | `/admin/catalog/reviews` (M11b) — every `Review` (product + vendor), flagged queue, hide/unhide |
+| Wallet oversight + refunds/adjustments | `/admin/wallet` + `/admin/wallet/[userId]` (M11b) — platform-wide liability, per-user balance + ledger, issue a refund or a manual credit/debit with a reason |
+| Collections & CMS | `/admin/collections` + `/admin/collections/[id]`/`new` (M11b) — occasion `Collection` create/edit (title, occasion, product membership + reorder); `/admin/collections/promo` edits the home page's two promo bands |
+| Analytics | `/admin/analytics` (M11b) — GMV over time, orders by module, top sellers/products, new users, wallet flow; no chart library, CSS/inline-SVG only |
 
 ## Channel matrix (single source of truth for what's buildable where)
 
@@ -205,10 +224,115 @@ up→In progress→Out for delivery→Delivered pipelines `OrderConfirmation`/
 `/account/addresses` (full CRUD + default-enforcement over the M3-seeded
 address book), `/account/profile` (edit name/email/phone, sign-out), and
 `/account/wishlist` (grid of wishlisted products, remove, "move to cart").
-`/account/referrals`, `/account/notifications`, `/support`, `/corporate`,
-`/sell` are **M7b**, not yet built — the account shell's nav array
-(`ACCOUNT_NAV_ITEMS`) is structured so M7b appends to it rather than
-restructuring the shell.
+
+*M7b status (shared screens, shipped):* `/account/referrals` (referral
+code with copy/share, an "apply referral credit (demo)" button that
+advances the oldest un-rewarded `Referral` and posts a real `category:
+"referral"` credit to the wallet ledger via `useWallet().earnReferralCredit()`,
+a loyalty tier/points ladder over `LoyaltyAccount`, "how it works"),
+`/account/notifications` (per-category SMS/WhatsApp/email/in-app
+preference grid, mock-persisted via `updateNotificationPreference`; a
+read/unread `Notification` inbox with an "All/Unread" filter, mock-marked
+via `setNotificationRead`), `/support` (a local mock chat widget with
+keyword-matched canned auto-replies, a `tel:` call CTA, and a
+`SupportTicket` form → mock `createSupportTicket` → confirmation),
+`/corporate` (`CorporateInquiry` form → mock `createCorporateInquiry` →
+thank-you state), `/sell` (seller-onboarding benefits + steps, clearly
+flagged "Coming soon", a `SellerApplication` form → mock
+`createSellerApplication` → waitlist confirmation — un-flagging this is
+explicit M8/M9 scope, see `CHANGELOG.md`'s M7b entry). `AccountShell`'s
+nav array (`ACCOUNT_NAV_ITEMS`) gained Referrals + Notifications entries,
+exactly the extension point M7a left for it — no restructuring.
+
+**Seller portal (M10a maker; M10b laundry partner + snack seller,
+shipped).** `/seller/login` → sign in as one of 3 demo sellers ("continue
+as demo maker/laundry partner/snack seller") → `SellerShell` (pine-deep
+topbar + a nav scoped to `seller.type`) → **maker:** Dashboard (today's
+orders/revenue, pending payout, low stock, rating) → Listings (CRUD over
+own `Product`s) / Orders (fulfilment status stepper: placed→confirmed→
+packed→shipped→delivered) / Storefront (bio/banner edit) / Payouts
+(earnings + request-payout) / Reviews (read + reply). **Laundry partner:**
+Dashboard (today's pickups/deliveries, this week's earnings, pending
+payout, rating) → Pickups (assigned `LaundryBooking`s; detail → status
+stepper scheduled→picked-up→in-progress→out-for-delivery→delivered +
+editable pickup/delivery day+slot) / Payouts. **Snack seller:** Dashboard
+(incoming orders, menu size, earnings, pending payout) → Menu (CRUD over
+own `Snack`s: name, category, diet, price, image, availability) / Orders
+(incoming WhatsApp-origin `SnackOrder`s; status stepper received→
+accepted→out-for-delivery→delivered — the same sequence the consumer
+`/snacks` WhatsApp timeline shows) / Payouts. All three types share
+`StatCard`/`SellerPageHeader`/`PayoutRow`/`StatusTimeline` and the
+owner-scoped, session-mock `lib/api/seller.ts` data layer — no
+cross-seller data leakage in the mock, but owner-scoping is
+client-trusted until M8's real sessions land.
+
+**Admin panel (M11a foundation, M11b moderation/wallet/CMS/analytics,
+both shipped).** `/admin/login` (staff-only — no public sign-up
+affordance anywhere on the screen, unlike `/seller/login`'s "apply to
+sell" link; a mock email/password form plus "continue as demo admin")
+→ `AdminShell` (its own pine-deep topbar + sidebar, same responsive
+collapse recipe as `SellerShell` but not a reskin of it — see
+`CLAUDE.md`'s "Three role surfaces" — all 8 nav items are live as of
+M11b, the 4 M11a "Soon" slots now real routes) →
+**Dashboard** (`lib/api/admin.ts#getAdminDashboard` — GMV, orders
+today/total, active sellers by type, users, pending applications,
+pending payouts, wallet liability summed across every seeded wallet
+(M11b), a CSS-only orders-by-module bar chart, a pending-applications
+callout linking to the queue). **Users** (`/admin/users` — the full
+unscoped `User` directory across every role surface, search +
+role/status filters, inline suspend/reactivate; `/admin/users/[id]`
+detail repeats the action) — `User` gained an optional `suspended` flag
+(M11a) for this, not yet a real sign-in block (no session to gate).
+**Sellers** (`/admin/sellers` — "All sellers" tab, type-filterable,
+suspend/reactivate; "Approval queue" tab closes the M7b `/sell` → M11a
+loop: approving a pending `SellerApplication` mints a `Vendor`
+storefront + an `approved` `Seller` in one action, immediately visible
+in the "All sellers" tab). `SellerApplicationStatus` gained
+`approved`/`rejected` terminal states (M11a) alongside `/sell`'s
+pre-existing `new`/`reviewing`/`waitlisted`, which the queue treats as
+one "pending" bucket. **Orders oversight + refunds** (`/admin/orders` +
+`/admin/orders/[type]/[id]` — Marketplace `Order` + `LaundryBooking` +
+`SnackOrder` unified into one list/detail shape, type-filterable +
+searchable, full read visibility; **M11b wires the refund action** for
+marketplace/laundry orders straight into the wallet ledger — snack
+orders keep the "no account to refund" note instead, since WhatsApp
+orders have no registered user; status overrides remain M8 scope).
+**Catalog** (`/admin/catalog` + `/admin/catalog/[id]`, M11b — every
+`Product` across every vendor, search/filter by vendor/category/
+moderation-status; approve/hide/flag/feature actions
+(`lib/api/admin.ts#moderateProduct`) plus a full edit screen reusing
+`components/seller/ListingForm.tsx` verbatim; a "hidden" product is
+filtered out of every consumer browse getter in `lib/api/products.ts`).
+**Reviews** (`/admin/catalog/reviews`, M11b — every `Review` across
+products + vendors, a flagged queue, hide/unhide — hiding filters it out
+of `getProductReviews`/`getVendorReviews`). **Wallet** (`/admin/wallet`
++ `/admin/wallet/[userId]`, M11b — platform-wide liability and every
+seeded account's balance + ledger; **issue a refund** appends a
+`category: "refund"` `WalletTransaction`, same shape
+`WalletContext.refund` writes client-side for the consumer; **manual
+adjustment** appends `category: "adjustment"`, a new category
+distinguishing an admin-initiated fix from an order-tied refund).
+**Collections & CMS** (`/admin/collections` + `/admin/collections/[id]`/
+`new`, M11b — occasion `Collection` create/edit: title, occasion,
+product membership with move-up/move-down reordering;
+`/admin/collections/promo` edits the home page's two promo bands, now a
+real config record (`lib/data/site.ts#homePromoBands`) instead of
+hardcoded JSX in `app/page.tsx`). **Analytics** (`/admin/analytics`,
+M11b — GMV over a 14-day inline-SVG sparkline, orders by module, top
+sellers/products, new users by month, wallet flow by category; every
+number derived from existing mock arrays, no chart library, no new data
+model). Every admin query/mutation across both milestones is unscoped
+by design (no `vendorId`/`sellerId` filter, unlike `lib/api/seller.ts`)
+and, like every other mock data layer in this codebase, trusts the
+client-side role gate; **M8 must enforce real admin-role RBAC
+server-side and audit-log every unscoped read/write** the mock
+`lib/api/admin.ts` makes today. **Known limit carried into M11b:** the
+moderation/CMS write paths are `"use client"` mutations in the browser's
+module graph, while the consumer pages that read the same data
+(`/shop`, `/`, `/product/[slug]`, etc.) are Server Components fetching
+in the Next.js server's — a hide/feature/CMS edit is instantly visible
+across every other admin screen in the same tab, but only reaches a
+consumer page through a real backend round-trip, which M8 provides.
 
 *M7a status (wishlist store, shipped):* `lib/wishlist/WishlistContext.tsx`
 — the third real cross-page client store after `CartContext`/

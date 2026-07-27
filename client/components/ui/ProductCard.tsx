@@ -57,6 +57,7 @@ export function ProductCard({
         <ImageSlot
           ratio={image?.ratio ?? "1/1"}
           label={image?.placeholder ?? product.name}
+          src={image?.src}
           compact
         />
         {tag && <Tag label={tag} className={styles.tag} />}

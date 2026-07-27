@@ -362,6 +362,51 @@ export const reviews: Review[] = [
     helpfulCount: 11,
     verifiedPurchase: true,
   },
+
+  // --- Flagged reviews (M11b seed) — for `/admin/catalog/reviews`'s
+  // moderation queue. Reported by other users (`flagged: true`), still
+  // publicly visible until a moderator hides them.
+  {
+    id: "rv28",
+    targetType: "product",
+    targetId: "pr1",
+    userId: "usr-201",
+    userName: "Amit Verma",
+    rating: 1,
+    title: "Never got my order!!",
+    body: "This has nothing to do with the pickle — delivery partner issue, please contact support directly instead of leaving it here. Removing/edit requested.",
+    createdAt: "2026-07-08",
+    helpfulCount: 0,
+    verifiedPurchase: false,
+    flagged: true,
+  },
+  {
+    id: "rv29",
+    targetType: "product",
+    targetId: "pr5",
+    userId: "usr-202",
+    userName: "spamuser99",
+    rating: 5,
+    title: "Check out my store instead!!",
+    body: "Great product but also — visit my-competing-shop dot example for better prices on similar items, link in bio.",
+    createdAt: "2026-07-14",
+    helpfulCount: 1,
+    verifiedPurchase: false,
+    flagged: true,
+  },
+  {
+    id: "rv30",
+    targetType: "vendor",
+    targetId: "vd6",
+    userId: "usr-203",
+    userName: "Rakesh T.",
+    rating: 2,
+    body: "Reported by the vendor as an apparent duplicate/competitor review — content doesn't reference an actual order.",
+    createdAt: "2026-07-19",
+    helpfulCount: 0,
+    verifiedPurchase: false,
+    flagged: true,
+  },
 ];
 
 export function getReviewsForProduct(productId: string): Review[] {

@@ -1,0 +1,68 @@
+.linkWrap {
+  display: block;
+  color: inherit;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  min-height: 44px;
+}
+
+.row:hover {
+  border-color: var(--hk-gold-border);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bookingNumber {
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.total {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+}
+
+@media (max-width: 480px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .right {
+    align-items: flex-start;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: var(--hk-s3);
+    width: 100%;
+  }
+}

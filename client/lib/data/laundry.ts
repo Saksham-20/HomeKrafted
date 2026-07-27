@@ -117,7 +117,11 @@ export const laundrySubscriptionPlanOptions: LaundrySubscriptionPlanOption[] = [
  * order sequence: runs in the browser tab, not a real server sequence,
  * until M8's backend takes over.
  */
-let bookingSequence = 1042;
+// M10b bumped this from 1042 to 1046 — two new seed bookings (LB1044,
+// LB1045, see `seedLaundryBookings` below) needed real numbers above the
+// old ceiling so the "all seed numbers stay below the sequence start"
+// invariant a few lines down still holds.
+let bookingSequence = 1046;
 
 export function nextBookingNumber(): string {
   const n = bookingSequence;
@@ -130,13 +134,18 @@ export function nextBookingNumber(): string {
 // `seedOrders`: `/account/orders`'s unified list needs real past bookings,
 // not just whatever gets placed live this session (`lib/api/laundry.ts`'s
 // in-memory `bookings` array starts empty every reload). All booking
-// numbers stay below 1042 (`bookingSequence`'s starting value) so a
+// numbers stay below 1046 (`bookingSequence`'s starting value) so a
 // freshly-placed live booking can never collide with a seeded one.
 // Statuses spread across the full `LaundryBookingStatus` range (delivered/
 // out-for-delivery/cancelled) so the unified history and its detail
 // `StatusTimeline` have something to show at every stage.
 // ---------------------------------------------------------------------------
 
+// `partnerId: "sl2"` (M10b) assigns every seed booking to the one seeded
+// demo laundry partner (`lib/data/sellers.ts`) — real partner-assignment
+// logic (routing by service area/availability) is M8/M9 scope, so today
+// every booking, seeded or live, resolves to that same partner. See
+// `lib/api/laundry.ts#createBooking` for the live-booking side of this.
 export const seedLaundryBookings: LaundryBooking[] = [
   {
     id: "lb-seed-1020",
@@ -152,6 +161,7 @@ export const seedLaundryBookings: LaundryBooking[] = [
     estimatedTotal: 395,
     walletCashback: 20,
     createdAt: "2026-07-05T08:00:00+05:30",
+    partnerId: "sl2",
   },
   {
     id: "lb-seed-1028",
@@ -166,6 +176,7 @@ export const seedLaundryBookings: LaundryBooking[] = [
     status: "delivered",
     estimatedTotal: 180,
     createdAt: "2026-07-12T09:30:00+05:30",
+    partnerId: "sl2",
   },
   {
     id: "lb-seed-1035",
@@ -181,6 +192,7 @@ export const seedLaundryBookings: LaundryBooking[] = [
     estimatedTotal: 1497,
     walletCashback: 75,
     createdAt: "2026-07-19T07:45:00+05:30",
+    partnerId: "sl2",
   },
   {
     id: "lb-seed-1041",
@@ -195,5 +207,37 @@ export const seedLaundryBookings: LaundryBooking[] = [
     status: "cancelled",
     estimatedTotal: 396,
     createdAt: "2026-07-21T12:00:00+05:30",
+    partnerId: "sl2",
+  },
+  {
+    id: "lb-seed-1044",
+    bookingNumber: "LB1044",
+    userId: currentUser.id,
+    lines: [{ serviceId: "ls1", estimatedWeightKg: 6, estimatedPrice: 474 }],
+    pickupSlot: { date: "2026-07-25", slotId: "lt1" },
+    deliverySlot: { date: "2026-07-26", slotId: "lt2" },
+    addressId: "addr-demo-1",
+    photos: [],
+    paymentMethod: "wallet",
+    status: "scheduled",
+    estimatedTotal: 474,
+    walletCashback: 24,
+    createdAt: "2026-07-24T10:15:00+05:30",
+    partnerId: "sl2",
+  },
+  {
+    id: "lb-seed-1045",
+    bookingNumber: "LB1045",
+    userId: currentUser.id,
+    lines: [{ serviceId: "ls3", itemCount: 8, estimatedPrice: 120 }],
+    pickupSlot: { date: "2026-07-26", slotId: "lt1" },
+    deliverySlot: { date: "2026-07-27", slotId: "lt2" },
+    addressId: "addr-demo-2",
+    photos: [],
+    paymentMethod: "cod",
+    status: "picked-up",
+    estimatedTotal: 120,
+    createdAt: "2026-07-25T09:00:00+05:30",
+    partnerId: "sl2",
   },
 ];

@@ -42,6 +42,7 @@ export interface CartLineInfo {
   name: string;
   imageLabel: string;
   imageRatio: string;
+  imageSrc?: string;
   weightLabel?: string;
   unitPrice: number;
   quantity: number;
@@ -199,8 +200,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const unitPrice = (box?.price ?? 0) + itemsTotal;
         return {
           name: box ? `${box.name} Gift Hamper` : "Gift Hamper",
-          imageLabel: "hamper_gift_box.jpg — assembled",
+          imageLabel: "Assembled gift hamper",
           imageRatio: "1/1",
+          imageSrc: "/images/site/hero-hamper.jpg",
           unitPrice,
           quantity: item.quantity,
           lineTotal: unitPrice * item.quantity,
@@ -215,6 +217,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         name: product?.name ?? "Product",
         imageLabel: product?.images[0]?.placeholder ?? product?.name ?? "product",
         imageRatio: product?.images[0]?.ratio ?? "1/1",
+        imageSrc: product?.images[0]?.src,
         weightLabel: weight?.label,
         unitPrice: weight?.price ?? 0,
         quantity: item.quantity,

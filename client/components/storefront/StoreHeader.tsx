@@ -12,11 +12,17 @@ export function StoreHeader({ vendor }: StoreHeaderProps) {
   return (
     <div className={styles.wrap}>
       <div className={styles.banner}>
-        <ImageSlot ratio="16/5" label={vendor.bannerPlaceholder} />
+        <ImageSlot ratio="16/5" label={vendor.bannerPlaceholder} src={vendor.bannerSrc} />
       </div>
       <div className={styles.row}>
         <div className={styles.avatar}>
-          <ImageSlot ratio="1/1" shape="circle" label={vendor.avatarPlaceholder} compact />
+          <ImageSlot
+            ratio="1/1"
+            shape="circle"
+            label={vendor.avatarPlaceholder}
+            src={vendor.avatarSrc}
+            compact
+          />
         </div>
         <div className={styles.details}>
           <h1 className={styles.name}>{vendor.name}</h1>

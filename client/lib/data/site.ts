@@ -83,3 +83,49 @@ export const trustStats: TrustStat[] = [
   { value: "0", label: "preservatives" },
   { value: "48 hr", label: "freshly made" },
 ];
+
+/**
+ * Home page's two promo bands (M11b CMS, `/admin/collections`'s "Home
+ * promo content" tab) — previously hardcoded JSX in `app/page.tsx`, now
+ * data-driven so an admin edit writes into the same source Home reads
+ * (real CMS wiring, not a form to nowhere) — see
+ * `components/admin/HomePromoEditorClient.tsx`'s doc comment for the
+ * client/server module-graph caveat on when that edit becomes visible.
+ * `title` may contain a literal `"\n"` to preserve the original two-line
+ * layout — `app/page.tsx` splits on it and interleaves `<br />`. `id` is
+ * a stable slot key (`"hamper"` | `"wallet"`), not a free-form entity id
+ * — the home page always renders exactly these two slots in this order,
+ * only their copy is editable.
+ */
+export interface HomePromoBandContent {
+  id: string;
+  variant: "dark" | "tint";
+  eyebrow: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  ctaHref: string;
+}
+
+export const homePromoBands: HomePromoBandContent[] = [
+  {
+    id: "hamper",
+    variant: "dark",
+    eyebrow: "Customisable",
+    title: "Build your own\ngift hamper",
+    description:
+      "Pick a box, fill it with favourites, add a handwritten message card and gift wrap. We pack it beautifully.",
+    ctaLabel: "Start building →",
+    ctaHref: "/hamper",
+  },
+  {
+    id: "wallet",
+    variant: "tint",
+    eyebrow: "Homekrafted Wallet",
+    title: "Earn 5% cashback\non every order",
+    description:
+      "Top up once, pay in a tap, and watch rewards add up across the store and laundry.",
+    ctaLabel: "Open wallet →",
+    ctaHref: "/wallet",
+  },
+];

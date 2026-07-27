@@ -73,7 +73,12 @@ export default async function AppPromoPage() {
             <p className={styles.notify}>Notify me when it launches →</p>
           </div>
           <div className={styles.imageWrap}>
-            <ImageSlot ratio="4/5" label={mealPromo.imagePlaceholder} size="1000×1250" />
+            <ImageSlot
+              ratio="4/5"
+              label={mealPromo.imagePlaceholder}
+              src={mealPromo.imageSrc}
+              size="1000×1250"
+            />
           </div>
         </div>
       </section>

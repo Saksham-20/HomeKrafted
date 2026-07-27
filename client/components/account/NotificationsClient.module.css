@@ -53,12 +53,12 @@
 
 .prefsRow {
   display: grid;
-  grid-template-columns: 1.3fr repeat(4, 72px);
+  grid-template-columns: 1.2fr repeat(4, 58px);
   align-items: center;
-  gap: var(--hk-s2);
+  gap: 6px;
   padding: var(--hk-s3) 0;
   border-bottom: 1px solid var(--hk-divider);
-  min-width: 480px;
+  min-width: 400px;
 }
 
 .prefsRow:last-child {

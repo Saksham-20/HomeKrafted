@@ -1,0 +1,146 @@
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s6);
+}
+
+.sectionTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s3);
+}
+
+.sparkCard {
+  margin-bottom: var(--hk-s6);
+}
+
+.sparkSvg {
+  width: 100%;
+  height: 64px;
+  display: block;
+}
+
+.sparkLine {
+  stroke: var(--hk-pine);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sparkAxis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--hk-s2);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s5);
+}
+
+.barChart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s6);
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.barLabel {
+  width: 110px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--hk-ink-2);
+}
+
+.barLabelWide {
+  width: 150px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barSubLabel {
+  font-size: 11px;
+  color: var(--hk-muted);
+}
+
+.barTrack {
+  flex: 1;
+  height: 10px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface-3);
+  overflow: hidden;
+}
+
+.barFill,
+.barFillGold {
+  /* Without an explicit block-level `display`, a nested (non-flex-item)
+     <span>'s width/height percentages are ignored per spec — see the
+     matching comment on `AdminDashboardClient.module.css`'s `.barFill`,
+     where this was first found. */
+  display: block;
+  height: 100%;
+  border-radius: var(--hk-r-pill);
+}
+
+.barFill {
+  background: var(--hk-pine);
+}
+
+.barFillGold {
+  background: var(--hk-gold);
+}
+
+.barCount {
+  width: 84px;
+  flex-shrink: 0;
+  text-align: right;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .barLabel,
+  .barLabelWide {
+    width: 84px;
+  }
+
+  .barCount {
+    width: 64px;
+  }
+}
