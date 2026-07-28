@@ -113,7 +113,7 @@ const STORAGE_KEY = "hk_auth_v1";
 const ROLE_COOKIE = "hk_role";
 const ROLE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
 
-/** Seeded demo consumer — `server/prisma/seed.ts`'s `DEMO_PASSWORD`, shared by every seeded account. Used for the "fresh browser" auto-sign-in + the explicit "Sign in as demo user" button. */
+/** Seeded demo consumer — `server/prisma/seed.ts`'s `DEMO_PASSWORD`, shared by every seeded account. Used by the explicit "Sign in as demo user" button only; a fresh browser stays signed out (see `hydrate()`). */
 const DEMO_EMAIL = "ananya.iyer@example.com";
 const DEMO_PASSWORD = "Passw0rd!123";
 
@@ -253,8 +253,11 @@ function getOrCreateSocialAccountId(provider: "google" | "apple"): string {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const mock = isMockMode();
-  const [signedIn, setSignedIn] = useState(true);
-  const [role, setRole] = useState<UserRole | undefined>("consumer");
+  // Signed out until hydration proves otherwise — a visitor with no stored
+  // session is a logged-out visitor. (Pre-launch this defaulted to a
+  // signed-in demo consumer; see the hydrate() tail below.)
+  const [signedIn, setSignedIn] = useState(false);
+  const [role, setRole] = useState<UserRole | undefined>(undefined);
   const [sellerType, setSellerType] = useState<SellerType | undefined>(undefined);
   const [sellerMode, setSellerModeState] = useState<SellerMode | undefined>(undefined);
   const [sessionUser, setSessionUserState] = useState<SessionUser | undefined>(undefined);
@@ -351,21 +354,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Fresh browser (or a lost/expired session that was never explicitly
-      // signed out of) — auto-sign-in as the seeded demo consumer, same
-      // default UX every pre-M8.4 screen assumed.
-      try {
-        const result = await loginWithEmail(DEMO_EMAIL, DEMO_PASSWORD);
-        applyAuthResult(result);
-        setSignedIn(true);
-        setRole("consumer");
-        setSessionUserState(result.user);
-      } catch {
-        setSignedIn(false);
-        setRole(undefined);
-      } finally {
-        setReady(true);
-        hydrated.current = true;
-      }
+      // signed out of) — stay signed out. This used to auto-sign-in as the
+      // seeded demo consumer, which every pre-M8.4 screen assumed; that
+      // made a first-time visitor land already logged in as someone else,
+      // so real signed-out state (and the whole sign-up/sign-in funnel)
+      // could never be seen or tested. The seeded demo consumer is still
+      // one tap away via the explicit "Sign in as demo user" button on
+      // `/login` (`signInAsDemoUser`), which uses these same credentials.
+      clearSession();
+      setSignedIn(false);
+      setRole(undefined);
+      setSessionUserState(undefined);
+      setReady(true);
+      hydrated.current = true;
     }
 
     void hydrate();
@@ -411,6 +412,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setSellerModeState(undefined);
     }
+    // Write the `hk_role` cookie *synchronously*, before returning to the
+    // caller (`LoginClient`'s `redirectForRole`, which immediately
+    // `router.push`es). The persist effect below writes the same cookie,
+    // but it only runs after this render commits — the push would already
+    // be in flight, so `middleware.ts` would read a stale/absent `hk_role`
+    // and bounce a freshly signed-in seller straight back to
+    // `/login?role=seller`. Setting it here closes that race; the effect
+    // then rewrites the identical value, which is a no-op.
+    writeRoleCookie(result.user.role);
     return result.user.role;
   }
 

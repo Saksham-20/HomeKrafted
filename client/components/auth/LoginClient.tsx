@@ -54,7 +54,7 @@ function AppleGlyph() {
 const DEMO_SELLER_OPTIONS: { type: SellerType; label: string }[] = [
   { type: "maker", label: "Continue as demo maker →" },
   { type: "laundry", label: "Continue as demo laundry partner →" },
-  { type: "snack", label: "Continue as demo snack seller →" },
+  { type: "snack", label: "Continue as demo snack HomeKrafter →" },
 ];
 
 /**
@@ -112,9 +112,20 @@ export function LoginClient() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  /** The signed-in account's own `role` decides where to land — not which tab was used to sign in (a seller email entered while the shopper tab happened to be open still lands on `/seller`, and vice versa). */
+  /**
+   * The signed-in account's own `role` decides where to land — not which
+   * tab was used to sign in (a seller email entered while the shopper tab
+   * happened to be open still lands on `/seller`, and vice versa).
+   *
+   * All three roles are handled explicitly. `admin` used to fall into the
+   * `/account` default alongside `consumer`, which dropped an admin
+   * signing in through this page onto the ordinary shopper account screen
+   * instead of the admin panel.
+   */
   function redirectForRole(resultRole: UserRole) {
-    router.push(resultRole === "seller" ? "/seller" : "/account");
+    if (resultRole === "seller") return router.push("/seller");
+    if (resultRole === "admin") return router.push("/admin");
+    return router.push("/account");
   }
 
   function friendlyError(err: unknown): string {
@@ -187,6 +198,13 @@ export function LoginClient() {
 
   if (ready && isSignedIn) {
     const signedInAsSeller = currentRole === "seller";
+    const signedInAsAdmin = currentRole === "admin";
+    const homeHref = signedInAsSeller ? "/seller" : signedInAsAdmin ? "/admin" : "/account";
+    const homeLabel = signedInAsSeller
+      ? "Go to my dashboard"
+      : signedInAsAdmin
+        ? "Go to the admin panel"
+        : "Go to my account";
     return (
       <section className={clsx("container", styles.page)}>
         <Card className={styles.signedInCard}>
@@ -194,15 +212,14 @@ export function LoginClient() {
           <h1 className={styles.title}>You&rsquo;re all set</h1>
           <p className={styles.subtitle}>
             {signedInAsSeller
-              ? "You're signed in to your Homekrafted seller account."
-              : "You're signed in as the Homekrafted demo account."}
+              ? "You're signed in to your Homekrafted HomeKrafter account."
+              : signedInAsAdmin
+                ? "You're signed in to your Homekrafted admin account."
+                : "You're signed in as the Homekrafted demo account."}
           </p>
           <div className={styles.signedInActions}>
-            <Button
-              variant="primary"
-              onClick={() => router.push(signedInAsSeller ? "/seller" : "/account")}
-            >
-              {signedInAsSeller ? "Go to my dashboard" : "Go to my account"}
+            <Button variant="primary" onClick={() => router.push(homeHref)}>
+              {homeLabel}
             </Button>
             <Button variant="secondary" onClick={signOut}>
               Sign out
@@ -412,7 +429,7 @@ export function LoginClient() {
         <>
           <Card className={styles.card}>
             <p className={styles.hint}>
-              Sign in with the email your seller account was approved with.
+              Sign in with the email your HomeKrafter account was approved with.
             </p>
             <div className={styles.form}>
               <label className={styles.field}>
@@ -469,8 +486,8 @@ export function LoginClient() {
             Not a seller yet? <Link href="/sell">Apply to sell on Homekrafted</Link>
           </p>
           <p className={styles.footnote}>
-            Seller sign-in goes through the same account system as
-            shoppers — there&rsquo;s no separate seller sign-up here.
+            HomeKrafter sign-in goes through the same account system as
+            shoppers — there&rsquo;s no separate HomeKrafter sign-up here.
             Apply above, and once approved you&rsquo;ll sign in right on
             this page.
           </p>

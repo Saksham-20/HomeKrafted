@@ -21,6 +21,7 @@ import {
   type LaundrySubscriptionPlanOption,
 } from "@/lib/api";
 import { isMockMode } from "@/lib/api/http";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { computeCashback } from "@/lib/cart/pricing";
 import { formatCurrency } from "@/lib/format";
@@ -68,6 +69,7 @@ export function LaundryBookingClient({
   // Live wallet balance (M6) — every balance-sufficiency check reads this,
   // same reasoning as `CheckoutClient`.
   const { balance: walletBalance, pay, earnCashback, refresh: refreshWallet } = useWallet();
+  const { ready: authReady, isSignedIn } = useAuth();
 
   // M8.4a: `wallet`/`addressId` used to be server-fetched props
   // (`app/laundry/page.tsx`) — both are owner-scoped real reads now, so
@@ -108,17 +110,28 @@ export function LaundryBookingClient({
   // the live balance on every render regardless.
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>("razorpay");
 
+  // Both of these are owner-scoped reads (`GET /wallet`,
+  // `GET /users/me/addresses`), so they only make sense for a signed-in
+  // consumer. Firing them unconditionally made a signed-out visitor's
+  // first paint of `/laundry` throw two unhandled `401`s into the console;
+  // the booking form itself renders fine either way, and a signed-out
+  // visitor picks their address at sign-in instead.
   useEffect(() => {
+    if (!authReady || !isSignedIn) return;
     let cancelled = false;
-    Promise.all([getWallet(), getDefaultAddress()]).then(([w, address]) => {
-      if (cancelled) return;
-      setAddressId(address.id);
-      if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
-    });
+    Promise.all([getWallet(), getDefaultAddress()])
+      .then(([w, address]) => {
+        if (cancelled) return;
+        setAddressId(address.id);
+        if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
+      })
+      .catch(() => {
+        // Non-fatal: keep the form's defaults rather than blocking booking.
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authReady, isSignedIn]);
 
   const [placing, setPlacing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
