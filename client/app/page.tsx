@@ -6,12 +6,14 @@ import { OccasionTileLink } from "@/components/home/OccasionTileLink";
 import { CategoryTileLink } from "@/components/home/CategoryTileLink";
 import { CraftCard } from "@/components/home/CraftCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
+import { ReelsRailClient } from "@/components/home/ReelsRailClient";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import {
   getCategories,
   getFeatured,
   getHomePromoBands,
   getOccasions,
+  getReels,
   getTrustStats,
   getVendors,
 } from "@/lib/api";
@@ -37,14 +39,16 @@ function renderPromoTitle(title: string) {
  * — see `getHomePromoBands`.
  */
 export default async function Home() {
-  const [trustStats, occasions, categories, featured, vendors, promoBands] = await Promise.all([
-    getTrustStats(),
-    getOccasions(),
-    getCategories(),
-    getFeatured(),
-    getVendors(),
-    getHomePromoBands(),
-  ]);
+  const [trustStats, occasions, categories, featured, vendors, promoBands, reels] =
+    await Promise.all([
+      getTrustStats(),
+      getOccasions(),
+      getCategories(),
+      getFeatured(),
+      getVendors(),
+      getHomePromoBands(),
+      getReels(),
+    ]);
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
 
@@ -94,6 +98,19 @@ export default async function Home() {
             />
           ))}
         </div>
+      </section>
+
+      <section className={clsx("container", styles.section)}>
+        <div className={styles.sectionHead}>
+          <div>
+            <span className={styles.reelsEyebrow}>Reels</span>
+            <h2 className={styles.sectionTitle}>Straight from the kitchen</h2>
+          </div>
+          <Link href="/shop" className={styles.viewAll}>
+            Shop what you see →
+          </Link>
+        </div>
+        <ReelsRailClient reels={reels} vendors={vendors} />
       </section>
 
       <section className={clsx("container", styles.section)}>

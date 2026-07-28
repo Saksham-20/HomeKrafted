@@ -1,0 +1,242 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hk-s4);
+  padding: var(--hk-s5);
+  /* Full-bleed dimming layer over arbitrary page content — an rgba wash,
+     not a surface colour, so it has no token (same as ReelCard's scrim). */
+  background: rgba(20, 30, 25, 0.82);
+  backdrop-filter: blur(6px);
+  animation: viewerIn var(--hk-dur) var(--hk-ease);
+}
+
+@keyframes viewerIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Click-anywhere-to-close target, sitting under the stage. */
+.scrimHit {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: none;
+  cursor: default;
+}
+
+.close {
+  position: absolute;
+  top: var(--hk-s5);
+  right: var(--hk-s5);
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.close:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.navPrev,
+.navNext {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.navPrev:hover:not(:disabled),
+.navNext:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.navPrev:disabled,
+.navNext:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 320px);
+  gap: var(--hk-s5);
+  align-items: center;
+  max-height: 100%;
+}
+
+.player {
+  position: relative;
+  aspect-ratio: 9 / 16;
+  max-height: min(78vh, 620px);
+  overflow: hidden;
+  border-radius: var(--hk-r-xl);
+  background: var(--hk-pine-deep);
+  box-shadow: var(--hk-shadow-stage);
+}
+
+.video,
+.poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border: none;
+  border-radius: 0;
+}
+
+.playerScrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(27, 51, 39, 0.5) 0%, rgba(27, 51, 39, 0) 40%);
+}
+
+.pending {
+  position: absolute;
+  inset-inline: var(--hk-s4);
+  bottom: var(--hk-s5);
+  text-align: center;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-on-pine);
+  background: rgba(27, 51, 39, 0.7);
+  border-radius: var(--hk-r-pill);
+  padding: 7px 10px;
+}
+
+.mute {
+  position: absolute;
+  top: var(--hk-s4);
+  right: var(--hk-s4);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--hk-r-pill);
+  border: none;
+  background: rgba(27, 51, 39, 0.62);
+  color: #fff;
+  cursor: pointer;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.author {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: var(--hk-eyebrow-spacing);
+  text-transform: uppercase;
+  color: var(--hk-gold-bright);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.caption {
+  font: var(--hk-body);
+  color: var(--hk-footer-ink);
+}
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-footer-mono);
+}
+
+.dot {
+  opacity: 0.7;
+}
+
+.cta {
+  align-self: flex-start;
+  margin-top: var(--hk-s2);
+  padding: 11px 18px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-gold-bright);
+  color: var(--hk-pine-deep);
+  font-family: var(--hk-font-body);
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.cta:hover {
+  /* One-off lighter step above --hk-gold-bright for a hover on dark; not
+     worth a shared token (single use, decorative). */
+  background: #f0dda2;
+}
+
+.counter {
+  margin-top: var(--hk-s3);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--hk-footer-mono);
+}
+
+@media (max-width: 900px) {
+  .scrim {
+    padding: var(--hk-s4);
+    gap: var(--hk-s2);
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 300px);
+    gap: var(--hk-s4);
+    align-content: center;
+    overflow-y: auto;
+  }
+
+  .player {
+    max-height: 52vh;
+    justify-self: center;
+    width: 100%;
+  }
+
+  .title {
+    font-size: 21px;
+  }
+
+  .navPrev,
+  .navNext {
+    width: 36px;
+    height: 36px;
+  }
+}

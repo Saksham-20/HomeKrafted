@@ -255,3 +255,49 @@ export interface SellerApplication {
   status: SellerApplicationStatus;
   createdAt: ISODateString;
 }
+
+// ---------------------------------------------------------------------------
+// Reels (short-form video)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which surface a reel belongs to — mirrors `ChannelKey` in `lib/channel.ts`
+ * minus `full-meals` (no web menu to link into, see the channel table in
+ * CLAUDE.md). Drives the card's chip colour and where its CTA points.
+ */
+export type ReelModule = "marketplace" | "snacks" | "laundry";
+
+/**
+ * A short vertical (9:16) video posted by a maker or by Homekrafted —
+ * "behind the batch" clips, packing shots, laundry before/afters. Modeled
+ * as a real row (it becomes a `Reel` table in M8, owned by a `Vendor` and
+ * optionally deep-linking to one `Product`), not a UI convenience blob.
+ *
+ * `videoSrc` is optional on purpose: until real footage is shot, a reel
+ * renders as its poster still with a play affordance, and the viewer shows
+ * a "clip coming soon" state rather than a broken <video>. Never fill this
+ * with generated footage — real supplied assets only (CLAUDE.md).
+ */
+export interface Reel {
+  id: ID;
+  slug: string;
+  module: ReelModule;
+  title: string;
+  caption: string;
+  /** Author line — a `Vendor.id` for maker-posted reels, absent for Homekrafted's own. */
+  vendorId?: ID;
+  /** Poster still label, used as the `ImageSlot` fallback + the video's a11y label. */
+  posterPlaceholder: string;
+  /** Real poster photo, e.g. "/images/products/besan-ladoo.jpg". */
+  posterSrc?: string;
+  /** Real footage, e.g. "/videos/reels/besan-ladoo.mp4". Absent until shot — see above. */
+  videoSrc?: string;
+  /** Runtime in seconds, shown as the card's `0:24` chip. */
+  durationSeconds: number;
+  likeCount: number;
+  viewCount: number;
+  /** Deep link out of the reel — a product, the snacks menu, the laundry booker. */
+  ctaLabel: string;
+  ctaHref: string;
+  publishedAt: ISODateString;
+}

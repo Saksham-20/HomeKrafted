@@ -111,11 +111,13 @@ export const homePromoBands: HomePromoBandContent[] = [
   {
     id: "hamper",
     variant: "dark",
-    eyebrow: "Customisable",
+    // Copy reflects the held builder (`FEATURES.hamperBuilder`, lib/features.ts).
+    // When it goes live, revert to "Customisable" / "Start building →".
+    eyebrow: "Customisable · coming soon",
     title: "Build your own\ngift hamper",
     description:
-      "Pick a box, fill it with favourites, add a handwritten message card and gift wrap. We pack it beautifully.",
-    ctaLabel: "Start building →",
+      "Pick a box, fill it with favourites, add a handwritten message card and gift wrap. We pack it beautifully — launching with the festive season.",
+    ctaLabel: "See what's coming →",
     ctaHref: "/hamper",
   },
   {

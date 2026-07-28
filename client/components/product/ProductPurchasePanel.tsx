@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
+import { isHamperBuilderLive } from "@/lib/features";
 import type { Product } from "@/lib/types";
 import styles from "./ProductPurchasePanel.module.css";
 
@@ -106,13 +107,18 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         </p>
       )}
 
-      <Button
-        variant="ghost-gold"
-        className={styles.hamperCta}
-        onClick={() => router.push("/hamper")}
-      >
-        + Add to a gift hamper
-      </Button>
+      {/* Hidden while the builder is held (`FEATURES.hamperBuilder`) — the
+          button promises an action that doesn't exist yet, and the coming-soon
+          page is already reachable from the nav and Home. */}
+      {isHamperBuilderLive() && (
+        <Button
+          variant="ghost-gold"
+          className={styles.hamperCta}
+          onClick={() => router.push("/hamper")}
+        >
+          + Add to a gift hamper
+        </Button>
+      )}
 
       <div className={styles.giftBlock}>
         <div className={styles.giftLabel}>Make it a gift</div>

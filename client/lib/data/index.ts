@@ -15,6 +15,7 @@ export * from "./snacks";
 export * from "./laundry";
 export * from "./wallet";
 export * from "./meals";
+export * from "./reels";
 export * from "./site";
 export * from "./cart";
 export * from "./user";

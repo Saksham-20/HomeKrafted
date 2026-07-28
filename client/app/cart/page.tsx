@@ -10,6 +10,7 @@ import { CartLineRow } from "@/components/cart/CartLineRow";
 import { useCart } from "@/lib/cart/CartContext";
 import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
 import { formatCurrency } from "@/lib/format";
+import { isHamperBuilderLive } from "@/lib/features";
 import styles from "./Cart.module.css";
 
 /**
@@ -42,15 +43,21 @@ export default function CartPage() {
           <ShoppingBag size={40} strokeWidth={1.4} />
           <p className={styles.emptyTitle}>Your cart is empty</p>
           <p className={styles.emptyCopy}>
-            Browse the shop or build a gift hamper to get started.
+            {isHamperBuilderLive()
+              ? "Browse the shop or build a gift hamper to get started."
+              : "Browse the shop to get started — small-batch pickles, bakes and ready-made hampers."}
           </p>
           <div className={styles.emptyActions}>
             <Button variant="primary" onClick={() => router.push("/shop")}>
               Continue shopping
             </Button>
-            <Button variant="secondary" onClick={() => router.push("/hamper")}>
-              Build a hamper
-            </Button>
+            {/* Held with the builder (`FEATURES.hamperBuilder`) — an empty cart is
+                the wrong place to send someone to a coming-soon page. */}
+            {isHamperBuilderLive() && (
+              <Button variant="secondary" onClick={() => router.push("/hamper")}>
+                Build a hamper
+              </Button>
+            )}
           </div>
         </div>
       ) : (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import type { TrustStat } from "@/lib/data";
+import { isHamperBuilderLive } from "@/lib/features";
 import styles from "./Hero.module.css";
 
 export interface HeroProps {
@@ -28,8 +29,10 @@ export function Hero({ trustStats }: HeroProps) {
               <Link href="/shop" className={styles.ctaPrimary}>
                 Shop homemade foods
               </Link>
+              {/* Still links to /hamper while the builder is held — that route
+                  serves <HamperComingSoon>, so the CTA lands somewhere real. */}
               <Link href="/hamper" className={styles.ctaOutline}>
-                Build a hamper →
+                {isHamperBuilderLive() ? "Build a hamper →" : "Build a hamper · coming soon →"}
               </Link>
             </div>
             <div className={styles.trustRow}>

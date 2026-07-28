@@ -28,6 +28,18 @@
   white-space: nowrap;
 }
 
+/* Reels section head — the only section with an eyebrow above its title,
+   so the label sits in the same mono/gold treatment as .servicesEyebrow. */
+.reelsEyebrow {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hk-gold);
+}
+
 .occasionGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
