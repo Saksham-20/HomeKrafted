@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { SellerPageHeader } from "./SellerPageHeader";
+import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerVendor, updateSellerStorefront } from "@/lib/api";
 import type { Vendor } from "@/lib/types";
@@ -39,21 +40,36 @@ export function SellerStorefrontClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
+    // No `vendorId` means no storefront to edit (laundry partners, snack
+    // sellers) — reachable now that the nav lists every module. Derived at
+    // render time (`noStorefront`), so this effect just skips.
     if (!ready || !seller?.vendorId) return;
     let cancelled = false;
     (async () => {
-      const v = await getSellerVendor(seller.vendorId!);
-      if (cancelled || !v) return;
-      setVendor(v);
-      setForm({
-        bio: v.bio,
-        location: v.location,
-        avatarSrc: v.avatarSrc ?? "",
-        bannerSrc: v.bannerSrc ?? "",
-      });
-      setLoading(false);
+      try {
+        const v = await getSellerVendor(seller.vendorId!);
+        if (cancelled) return;
+        if (!v) {
+          setUnavailable(true);
+          return;
+        }
+        setVendor(v);
+        setForm({
+          bio: v.bio,
+          location: v.location,
+          avatarSrc: v.avatarSrc ?? "",
+          bannerSrc: v.bannerSrc ?? "",
+        });
+      } catch (error) {
+        if (cancelled) return;
+        if (!isForbidden(error)) throw error;
+        setUnavailable(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -68,6 +84,11 @@ export function SellerStorefrontClient() {
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  }
+
+  const noStorefront = ready && !!seller && !seller.vendorId;
+  if (noStorefront || unavailable) {
+    return <ModuleUnavailable module="Storefront" />;
   }
 
   if (!ready || loading || !vendor) {

@@ -126,7 +126,7 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
                     <div className={styles.itemName}>{item.name}</div>
                     <div className={styles.itemMeta}>
                       Qty {item.quantity}
-                      {!isOwn ? " · another seller" : ""}
+                      {!isOwn ? " · another HomeKrafter" : ""}
                       {item.giftWrap ? " · gift wrapped" : ""}
                     </div>
                   </div>

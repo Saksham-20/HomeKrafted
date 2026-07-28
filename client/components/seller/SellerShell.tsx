@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
-import type { SellerType } from "@/lib/types";
 import styles from "./SellerShell.module.css";
 
 interface SellerNavItem {
@@ -26,42 +25,28 @@ interface SellerNavItem {
   icon: typeof LayoutGrid;
 }
 
-/** M10a's nav set — maker-only modules (Listings/Storefront/Reviews sit alongside the shared Orders/Payouts). */
-const MAKER_NAV: SellerNavItem[] = [
+/**
+ * The one HomeKrafter nav — every module, shown to every HomeKrafter
+ * regardless of their `Seller.type`.
+ *
+ * This replaced the three per-type nav sets M10a/M10b shipped
+ * (`MAKER_NAV`/`LAUNDRY_NAV`/`SNACK_NAV`, each hiding the other types'
+ * modules). A HomeKrafter is one account that can make, launder and cook,
+ * so the portal now presents one combined surface rather than three
+ * mutually exclusive ones. Each module screen still resolves its own data
+ * from the caller's JWT-scoped seller id, so a HomeKrafter with nothing in
+ * a given module simply sees that module's empty state.
+ */
+const HOMEKRAFTER_NAV: SellerNavItem[] = [
   { label: "Dashboard", href: "/seller", icon: LayoutGrid },
   { label: "Listings", href: "/seller/listings", icon: Package },
+  { label: "Menu", href: "/seller/menu", icon: UtensilsCrossed },
   { label: "Orders", href: "/seller/orders", icon: ShoppingBag },
+  { label: "Pickups", href: "/seller/pickups", icon: Truck },
   { label: "Storefront", href: "/seller/storefront", icon: Store },
   { label: "Payouts", href: "/seller/payouts", icon: Wallet },
   { label: "Reviews", href: "/seller/reviews", icon: Star },
 ];
-
-/** M10b — laundry partner: no listings/storefront/reviews (those are maker-only concepts), "Pickups" replaces "Orders". */
-const LAUNDRY_NAV: SellerNavItem[] = [
-  { label: "Dashboard", href: "/seller", icon: LayoutGrid },
-  { label: "Pickups", href: "/seller/pickups", icon: Truck },
-  { label: "Payouts", href: "/seller/payouts", icon: Wallet },
-];
-
-/** M10b — snack seller: "Menu" (CRUD over their `Snack`s) instead of maker Listings, "Orders" here means incoming WhatsApp-origin `SnackOrder`s (see `SnackOrdersClient`), not marketplace `Order`s. */
-const SNACK_NAV: SellerNavItem[] = [
-  { label: "Dashboard", href: "/seller", icon: LayoutGrid },
-  { label: "Menu", href: "/seller/menu", icon: UtensilsCrossed },
-  { label: "Orders", href: "/seller/orders", icon: ShoppingBag },
-  { label: "Payouts", href: "/seller/payouts", icon: Wallet },
-];
-
-function navForType(type: SellerType | undefined): SellerNavItem[] {
-  switch (type) {
-    case "laundry":
-      return LAUNDRY_NAV;
-    case "snack":
-      return SNACK_NAV;
-    case "maker":
-    default:
-      return MAKER_NAV;
-  }
-}
 
 /**
  * Seller portal shell (M10a) — `app/seller/(dashboard)/layout.tsx` wraps
@@ -108,20 +93,20 @@ export function SellerShell({ children }: { children: ReactNode }) {
     return (
       <section className={clsx("container", styles.gatePage)}>
         <div className={styles.gateCard}>
-          <span className={styles.eyebrow}>Seller portal</span>
-          <h1 className={styles.gateTitle}>Sign in as a seller</h1>
+          <span className={styles.eyebrow}>HomeKrafter portal</span>
+          <h1 className={styles.gateTitle}>Sign in as a HomeKrafter</h1>
           <p className={styles.gateCopy}>
-            You need a seller account to view this page.
+            You need a HomeKrafter account to view this page.
           </p>
           <Button variant="primary" onClick={() => router.push("/login?role=seller")}>
-            Go to seller sign-in
+            Go to HomeKrafter sign-in
           </Button>
         </div>
       </section>
     );
   }
 
-  const navItems = navForType(seller?.type);
+  const navItems = HOMEKRAFTER_NAV;
 
   function handleSignOut() {
     signOut();
@@ -139,11 +124,11 @@ export function SellerShell({ children }: { children: ReactNode }) {
         <div className={clsx("container", styles.topbarRow)}>
           <Link href="/seller" className={styles.logo}>
             Home<span className={styles.krafted}>krafted</span>
-            <span className={styles.portalTag}>Seller</span>
+            <span className={styles.portalTag}>HomeKrafter</span>
           </Link>
           <div className={styles.topbarActions}>
             <span className={styles.sellerName}>
-              {seller?.displayName ?? user?.name ?? "Seller"}
+              {seller?.displayName ?? user?.name ?? "HomeKrafter"}
             </span>
             <button type="button" onClick={handleSwitchToShopping} className={styles.viewSiteLink}>
               Switch to shopping
@@ -162,7 +147,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className={clsx("container", styles.body)}>
-        <nav className={clsx(styles.sidebar, "hk-scroll")} aria-label="Seller">
+        <nav className={clsx(styles.sidebar, "hk-scroll")} aria-label="HomeKrafter">
           {navItems.map((item) => {
             const active =
               item.href === "/seller" ? pathname === "/seller" : pathname.startsWith(item.href);

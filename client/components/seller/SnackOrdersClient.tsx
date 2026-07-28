@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SnackOrderRow } from "./SnackOrderRow";
+import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSnackOrders } from "@/lib/api";
 import type { SnackOrder, SnackOrderStatus } from "@/lib/types";
@@ -29,16 +30,24 @@ export function SnackOrdersClient() {
   const { ready, seller } = useAuth();
   const [orders, setOrders] = useState<SnackOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<SnackOrderStatus | "all">("all");
 
   useEffect(() => {
     if (!ready || !seller) return;
     let cancelled = false;
     (async () => {
-      const list = await getSnackOrders(seller.id);
-      if (cancelled) return;
-      setOrders(list);
-      setLoading(false);
+      try {
+        const list = await getSnackOrders(seller.id);
+        if (cancelled) return;
+        setOrders(list);
+      } catch (error) {
+        if (cancelled) return;
+        if (!isForbidden(error)) throw error;
+        setUnavailable(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -52,6 +61,10 @@ export function SnackOrdersClient() {
 
   if (!ready || loading) {
     return <div className={styles.loading}>Loading your orders…</div>;
+  }
+
+  if (unavailable) {
+    return <ModuleUnavailable module="Orders" />;
   }
 
   return (

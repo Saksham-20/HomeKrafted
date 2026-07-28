@@ -73,7 +73,7 @@ export function OrdersClient() {
       <div className={styles.filters}>
         <SearchField
           className={styles.search}
-          placeholder="Search by reference, customer or seller…"
+          placeholder="Search by reference, customer or HomeKrafter…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />

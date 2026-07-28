@@ -40,7 +40,7 @@ export function RoleChoice({ value, onChange, className }: RoleChoiceProps) {
         onClick={() => onChange("seller")}
       >
         <Store size={19} strokeWidth={1.7} />
-        <span>I&rsquo;m a seller</span>
+        <span>I&rsquo;m a HomeKrafter</span>
       </button>
     </div>
   );

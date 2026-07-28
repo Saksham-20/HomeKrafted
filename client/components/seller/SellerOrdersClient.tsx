@@ -10,10 +10,11 @@ import { SnackOrdersClient } from "./SnackOrdersClient";
  * `lib/types/food.ts`'s `SnackOrder` doc comment for why), so this stays
  * a thin switch over two sibling components rather than one component
  * branching mid-render — same "no conditional hooks" reasoning as
- * `SellerDashboardClient`. Laundry sellers have no `/seller/orders` nav
- * entry (`SellerShell`'s `LAUNDRY_NAV` uses `/seller/pickups` instead),
- * so `default` here just falls back to the maker view rather than adding
- * a third branch nothing links to.
+ * `SellerDashboardClient`. Every HomeKrafter now sees an Orders nav entry
+ * (`SellerShell`'s single `HOMEKRAFTER_NAV`), so a laundry partner does
+ * reach this: they fall through to the maker view, whose own fetch
+ * resolves to `ModuleUnavailable` when the API scopes them out. Their
+ * day-to-day work lives under Pickups.
  */
 export function SellerOrdersClient() {
   const { seller } = useAuth();

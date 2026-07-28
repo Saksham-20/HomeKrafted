@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { OrderRow } from "./OrderRow";
+import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { describeSellerOrderItems, getSellerOrders } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/types";
@@ -25,16 +26,28 @@ export function MakerOrdersClient() {
   const { ready, seller } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
 
   useEffect(() => {
+    // No vendor storefront means no marketplace orders to fulfil — a
+    // laundry partner reaches this screen now that Orders is in the one
+    // shared nav, and their work lives under Pickups instead. Derived at
+    // render time (`noStorefront`), so this effect just skips.
     if (!ready || !seller?.vendorId) return;
     let cancelled = false;
     (async () => {
-      const list = await getSellerOrders(seller.vendorId!);
-      if (cancelled) return;
-      setOrders(list);
-      setLoading(false);
+      try {
+        const list = await getSellerOrders(seller.vendorId!);
+        if (cancelled) return;
+        setOrders(list);
+      } catch (error) {
+        if (cancelled) return;
+        if (!isForbidden(error)) throw error;
+        setUnavailable(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -45,6 +58,11 @@ export function MakerOrdersClient() {
     () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
     [orders, filter],
   );
+
+  const noStorefront = ready && !!seller && !seller.vendorId;
+  if (noStorefront || unavailable) {
+    return <ModuleUnavailable module="Orders" />;
+  }
 
   if (!ready || loading) {
     return <div className={styles.loading}>Loading your orders…</div>;

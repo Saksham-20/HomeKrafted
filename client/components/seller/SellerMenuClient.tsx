@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SnackMenuRow } from "./SnackMenuRow";
+import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { deleteSellerMenuItem, getSellerMenu } from "@/lib/api";
 import type { Snack } from "@/lib/types";
@@ -18,15 +19,23 @@ export function SellerMenuClient() {
   const { ready, seller } = useAuth();
   const [snacks, setSnacks] = useState<Snack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     if (!ready || !seller) return;
     let cancelled = false;
     (async () => {
-      const menu = await getSellerMenu(seller.id);
-      if (cancelled) return;
-      setSnacks(menu);
-      setLoading(false);
+      try {
+        const menu = await getSellerMenu(seller.id);
+        if (cancelled) return;
+        setSnacks(menu);
+      } catch (error) {
+        if (cancelled) return;
+        if (!isForbidden(error)) throw error;
+        setUnavailable(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -44,6 +53,10 @@ export function SellerMenuClient() {
 
   if (!ready || loading) {
     return <div className={styles.loading}>Loading your menu…</div>;
+  }
+
+  if (unavailable) {
+    return <ModuleUnavailable module="Menu" />;
   }
 
   return (

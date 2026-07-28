@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SellerReviewCard } from "./SellerReviewCard";
+import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerReviews, replySellerReview } from "@/lib/api";
 import type { Review } from "@/lib/types";
@@ -14,15 +15,25 @@ export function SellerReviewsClient() {
   const { ready, seller } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
 
   const load = useCallback(async () => {
     if (!seller?.vendorId) return;
-    const list = await getSellerReviews(seller.vendorId);
-    setReviews(list);
-    setLoading(false);
+    try {
+      const list = await getSellerReviews(seller.vendorId);
+      setReviews(list);
+    } catch (error) {
+      if (!isForbidden(error)) throw error;
+      setUnavailable(true);
+    } finally {
+      setLoading(false);
+    }
   }, [seller]);
 
   useEffect(() => {
+    // Reviews hang off a vendor storefront — a HomeKrafter without one
+    // has no reviews module, and the nav now surfaces it to everyone.
+    // Derived at render time (`noStorefront`), so this effect just skips.
     if (!ready || !seller?.vendorId) return;
     (async () => {
       await load();
@@ -32,6 +43,11 @@ export function SellerReviewsClient() {
   async function handleReply(reviewId: string, body: string) {
     await replySellerReview(reviewId, body);
     await load();
+  }
+
+  const noStorefront = ready && !!seller && !seller.vendorId;
+  if (noStorefront || unavailable) {
+    return <ModuleUnavailable module="Reviews" />;
   }
 
   if (!ready || loading) {

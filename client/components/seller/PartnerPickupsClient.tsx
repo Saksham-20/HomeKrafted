@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { PickupRow } from "./PickupRow";
+import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getLaundryServices, getPartnerBookings } from "@/lib/api";
 import type { LaundryBooking, LaundryBookingStatus, LaundryService } from "@/lib/types";
@@ -26,20 +27,28 @@ export function PartnerPickupsClient() {
   const [bookings, setBookings] = useState<LaundryBooking[]>([]);
   const [services, setServices] = useState<LaundryService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<LaundryBookingStatus | "all">("all");
 
   useEffect(() => {
     if (!ready || !seller) return;
     let cancelled = false;
     (async () => {
-      const [list, serviceList] = await Promise.all([
-        getPartnerBookings(seller.id),
-        getLaundryServices(),
-      ]);
-      if (cancelled) return;
-      setBookings(list);
-      setServices(serviceList);
-      setLoading(false);
+      try {
+        const [list, serviceList] = await Promise.all([
+          getPartnerBookings(seller.id),
+          getLaundryServices(),
+        ]);
+        if (cancelled) return;
+        setBookings(list);
+        setServices(serviceList);
+      } catch (error) {
+        if (cancelled) return;
+        if (!isForbidden(error)) throw error;
+        setUnavailable(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -53,6 +62,10 @@ export function PartnerPickupsClient() {
 
   if (!ready || loading) {
     return <div className={styles.loading}>Loading your pickups…</div>;
+  }
+
+  if (unavailable) {
+    return <ModuleUnavailable module="Pickups" />;
   }
 
   function serviceLabel(booking: LaundryBooking): string {

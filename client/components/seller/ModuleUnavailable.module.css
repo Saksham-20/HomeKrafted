@@ -1,0 +1,36 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 28px;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-lg);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--hk-sand);
+  color: var(--hk-ink-muted);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--hk-font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.copy {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--hk-ink-muted);
+}

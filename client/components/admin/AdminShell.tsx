@@ -30,7 +30,7 @@ interface AdminNavItem {
 const NAV: AdminNavItem[] = [
   { label: "Dashboard", href: "/admin", icon: LayoutGrid },
   { label: "Users", href: "/admin/users", icon: Users },
-  { label: "Sellers", href: "/admin/sellers", icon: Store },
+  { label: "HomeKrafters", href: "/admin/sellers", icon: Store },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { label: "Catalog", href: "/admin/catalog", icon: Package },
   { label: "Wallet", href: "/admin/wallet", icon: Wallet },

@@ -14,7 +14,7 @@ import styles from "./UsersClient.module.css";
 const ROLE_FILTERS: { value: UserRole | "all"; label: string }[] = [
   { value: "all", label: "All roles" },
   { value: "consumer", label: "Consumer" },
-  { value: "seller", label: "Seller" },
+  { value: "seller", label: "HomeKrafter" },
   { value: "admin", label: "Admin" },
 ];
 

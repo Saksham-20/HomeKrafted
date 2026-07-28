@@ -28,7 +28,7 @@ export const sellerBenefits: SellerBenefit[] = [
   },
   {
     title: "Support that knows makers",
-    description: "A dedicated seller support line for packaging, listing photography and order questions.",
+    description: "A dedicated HomeKrafter support line for packaging, listing photography and order questions.",
   },
 ];
 
@@ -41,7 +41,7 @@ export const sellerSteps: SellerStep[] = [
   { title: "Apply", description: "Tell us about what you make and where you're based." },
   { title: "We review", description: "Our team checks fit and reaches out for a short call." },
   { title: "Onboard", description: "List your first products with our packaging + photography guide." },
-  { title: "Go live", description: "Your storefront opens once seller onboarding launches." },
+  { title: "Go live", description: "Your storefront opens once HomeKrafter onboarding launches." },
 ];
 
 export const sellerCategories: { value: SellerApplicationCategory; label: string }[] = [

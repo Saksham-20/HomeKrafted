@@ -23,7 +23,7 @@ const TYPE_FILTERS: { value: SellerType | "all"; label: string }[] = [
   { value: "all", label: "All types" },
   { value: "maker", label: "Makers" },
   { value: "laundry", label: "Laundry partners" },
-  { value: "snack", label: "Snack sellers" },
+  { value: "snack", label: "Snack HomeKrafters" },
 ];
 
 /**
@@ -88,18 +88,18 @@ export function SellersClient() {
   );
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading sellers…</div>;
+    return <div className={styles.loading}>Loading HomeKrafters…</div>;
   }
 
   return (
     <div>
       <AdminPageHeader
-        title="Sellers"
+        title="HomeKrafters"
         subtitle={`${sellers.length} seller${sellers.length === 1 ? "" : "s"} · ${applications.length} pending application${applications.length === 1 ? "" : "s"}`}
       />
 
       <div className={styles.tabRow} role="tablist" aria-label="Sellers view">
-        <Chip label="All sellers" selected={tab === "sellers"} onClick={() => setTab("sellers")} />
+        <Chip label="All HomeKrafters" selected={tab === "sellers"} onClick={() => setTab("sellers")} />
         <Chip label={`Approval queue (${applications.length})`} selected={tab === "queue"} onClick={() => setTab("queue")} />
       </div>
 
@@ -111,7 +111,7 @@ export function SellersClient() {
             ))}
           </div>
           {filteredSellers.length === 0 ? (
-            <Card className={styles.empty}>No sellers match this filter.</Card>
+            <Card className={styles.empty}>No HomeKrafters match this filter.</Card>
           ) : (
             <div className={styles.list}>
               {filteredSellers.map((seller) => (

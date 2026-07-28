@@ -13,7 +13,7 @@ export interface SellerRowProps {
 const TYPE_LABEL: Record<Seller["type"], string> = {
   maker: "Maker",
   laundry: "Laundry partner",
-  snack: "Snack seller",
+  snack: "Snack HomeKrafter",
 };
 
 /** `/admin/sellers`'s "All sellers" tab row — displayName, type, status, rating (if any), suspend/reactivate. */

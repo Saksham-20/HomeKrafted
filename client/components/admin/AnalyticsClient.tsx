@@ -18,7 +18,7 @@ const ORDER_TYPE_LABEL: Record<AdminOrderType, string> = {
 const SELLER_TYPE_LABEL: Record<string, string> = {
   maker: "Maker",
   laundry: "Laundry partner",
-  snack: "Snack seller",
+  snack: "Snack HomeKrafter",
 };
 
 /**
@@ -76,7 +76,7 @@ export function AnalyticsClient() {
 
   return (
     <div>
-      <AdminPageHeader title="Analytics" subtitle="Reports across GMV, orders, sellers, products, users and wallet flow." />
+      <AdminPageHeader title="Analytics" subtitle="Reports across GMV, orders, HomeKrafters, products, users and wallet flow." />
 
       <div className={styles.statGrid}>
         <StatCard label="GMV (last 14 days)" value={formatCurrency(gmvTotal)} />
@@ -150,7 +150,7 @@ export function AnalyticsClient() {
         </div>
 
         <div>
-          <h2 className={styles.sectionTitle}>Top sellers</h2>
+          <h2 className={styles.sectionTitle}>Top HomeKrafters</h2>
           <Card className={styles.barChart}>
             {snapshot.topSellers.length === 0 ? (
               <p className={styles.hint}>No revenue yet.</p>

@@ -53,12 +53,12 @@ export function AdminDashboardClient() {
 
   return (
     <div>
-      <AdminPageHeader title="Dashboard" subtitle="Platform-wide overview, unscoped across every seller." />
+      <AdminPageHeader title="Dashboard" subtitle="Platform-wide overview, unscoped across every HomeKrafter." />
 
       {snapshot.pendingApplicationsCount > 0 && (
         <Card className={styles.callout}>
           <span className={styles.calloutText}>
-            <strong>{snapshot.pendingApplicationsCount}</strong> seller application
+            <strong>{snapshot.pendingApplicationsCount}</strong> HomeKrafter application
             {snapshot.pendingApplicationsCount === 1 ? "" : "s"} awaiting review.
           </span>
           <Link href="/admin/sellers">
@@ -87,7 +87,7 @@ export function AdminDashboardClient() {
         />
         <StatCard label="Active makers" value={String(snapshot.activeSellersByType.maker)} />
         <StatCard label="Active laundry partners" value={String(snapshot.activeSellersByType.laundry)} />
-        <StatCard label="Active snack sellers" value={String(snapshot.activeSellersByType.snack)} />
+        <StatCard label="Active snack HomeKrafters" value={String(snapshot.activeSellersByType.snack)} />
       </div>
 
       <h2 className={styles.sectionTitle}>Orders by module</h2>

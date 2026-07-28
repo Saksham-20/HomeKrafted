@@ -52,7 +52,7 @@ function AppleGlyph() {
 const SELLER_SIGNUP_STEPS = [
   "Tell us about your business — 2 minutes, no documents needed yet.",
   "Our team reviews your application (`/account/…` style approval, typically a few days).",
-  "Once approved, come back here and sign in with the email you applied with — your seller account is ready.",
+  "Once approved, come back here and sign in with the email you applied with — your HomeKrafter account is ready.",
 ];
 
 /**
@@ -161,7 +161,7 @@ export function SignupClient() {
           <h1 className={styles.title}>You&rsquo;re all set</h1>
           <p className={styles.subtitle}>
             {signedInAsSeller
-              ? "You're signed in to your Homekrafted seller account."
+              ? "You're signed in to your Homekrafted HomeKrafter account."
               : "You're signed in as the Homekrafted demo account."}
           </p>
           <div className={styles.signedInActions}>
@@ -412,7 +412,7 @@ export function SignupClient() {
             Already approved? <Link href="/login?role=seller">Sign in to your seller account</Link>
           </p>
           <p className={styles.footnote}>
-            There&rsquo;s no self-serve seller sign-up — every seller
+            There&rsquo;s no self-serve HomeKrafter sign-up — every HomeKrafter
             account is set up after an application is reviewed and
             approved, so listings stay trustworthy for shoppers.
           </p>
