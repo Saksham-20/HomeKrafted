@@ -84,12 +84,21 @@ export class OrdersService {
 
     // Stock pre-check (fast-fail before opening a transaction) — the
     // transaction below re-checks + decrements atomically, which is the
-    // actual race-safe guard.
-    for (const item of rawItems) {
-      if (item.productId && item.sku) {
-        const weight = await this.prisma.weightOption.findUnique({ where: { sku: item.sku } });
-        if (!weight || weight.stock < item.quantity) {
-          throw new BadRequestException(`Insufficient stock for ${item.sku}`);
+    // actual race-safe guard. Batch-fetch every sku in one query (not one
+    // findUnique per line) so an N-item cart stays a single round-trip.
+    const stockSkus = rawItems.filter((i) => i.productId && i.sku).map((i) => i.sku!);
+    if (stockSkus.length > 0) {
+      const weights = await this.prisma.weightOption.findMany({
+        where: { sku: { in: stockSkus } },
+        select: { sku: true, stock: true },
+      });
+      const stockBySku = new Map(weights.map((w) => [w.sku, w.stock]));
+      for (const item of rawItems) {
+        if (item.productId && item.sku) {
+          const stock = stockBySku.get(item.sku);
+          if (stock === undefined || stock < item.quantity) {
+            throw new BadRequestException(`Insufficient stock for ${item.sku}`);
+          }
         }
       }
     }
