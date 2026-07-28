@@ -1,23 +1,15 @@
-import { getAddresses, getDeliveryDateOptions, getWallet } from "@/lib/api";
+import { getDeliveryDateOptions } from "@/lib/api";
 import { CheckoutClient } from "@/components/checkout/CheckoutClient";
 
 /**
- * Checkout (M3) — server wrapper: fetches the saved address book, wallet
- * balance (for the pay-with-wallet option), and delivery-date options,
- * then hands them to the interactive client checkout.
+ * Checkout (M3; M8.4a swap) — server wrapper: fetches the (still static,
+ * non-auth) delivery-date options. The address book + wallet balance used
+ * to be fetched here too — both are owner-scoped real reads now, so
+ * `CheckoutClient` fetches them itself on mount instead (same reasoning as
+ * `LaundryBookingClient`).
  */
 export default async function CheckoutPage() {
-  const [addresses, wallet, deliveryDateOptions] = await Promise.all([
-    getAddresses(),
-    getWallet(),
-    getDeliveryDateOptions(),
-  ]);
+  const deliveryDateOptions = await getDeliveryDateOptions();
 
-  return (
-    <CheckoutClient
-      initialAddresses={addresses}
-      wallet={wallet}
-      deliveryDateOptions={deliveryDateOptions}
-    />
-  );
+  return <CheckoutClient deliveryDateOptions={deliveryDateOptions} />;
 }

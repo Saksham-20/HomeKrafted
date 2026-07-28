@@ -42,7 +42,7 @@ export class AuthController {
   @Post('otp/request')
   async requestOtp(@Body() dto: RequestOtpDto): Promise<{ message: string }> {
     await this.authService.requestOtp(dto.phone);
-    return { message: 'OTP sent (check server logs in dev — SMS sender is stubbed until M9)' };
+    return { message: 'OTP sent (check server logs in dev — SMS provider is a stub until real Twilio creds are set)' };
   }
 
   @Public()

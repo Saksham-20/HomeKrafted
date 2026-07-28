@@ -3,6 +3,388 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M9] — Integrations: WhatsApp Cloud API, notification delivery, seller onboarding closed — 2026-07-28
+
+Final planned milestone (M0–M9 now complete). Real WhatsApp Cloud API
+integration, real per-preference notification delivery (SMS/WhatsApp/
+email), the OTP sender wired to a real SMS provider, and the public
+seller-application create endpoint that closes the `/sell` → admin-
+approve → seller-active loop end-to-end. Every new provider (WhatsApp,
+SMS, email) is env-gated: real credentials → real send, the
+`.env.example` placeholders → an obviously-labeled logged stub, same real
+code path either way — no separate mock/real branch to maintain, same
+convention M8.2 established for Razorpay. `handoff/`, root `app/`, root
+`CLAUDE.md` untouched; hamper stays on hold; no commits made by this
+milestone.
+
+### Added
+
+- **`server/src/whatsapp/`** — `WhatsAppService.sendStatus(recipient,
+  orderRef, state)`, the shared outbound seam: real Meta Graph API call
+  (`POST /{phoneNumberId}/messages`, template-based when
+  `WHATSAPP_STATUS_TEMPLATE` is set, else plain-text) or a logged
+  `[WHATSAPP STUB]` when `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` are
+  still placeholders. `SellerSnackOrdersService.advance` (M8.3b) now calls
+  it on every status transition — verified live: advancing a real order
+  logs the exact rendered message + recipient.
+- **WhatsApp webhook** (`GET`/`POST /whatsapp/webhook`) — `GET` handles
+  Meta's one-time subscription verification handshake
+  (`WHATSAPP_VERIFY_TOKEN`); `POST` verifies `X-Hub-Signature-256` (HMAC-
+  SHA256 over the **raw** body, keyed with `WHATSAPP_APP_SECRET`,
+  constant-time compared) before trusting anything, mirroring the
+  Razorpay webhook's verify-first pattern exactly — an invalid signature
+  is `400` with zero state change. A verified inbound message is parsed
+  by `WhatsAppInboundService` against the exact "NNx Snack Name" shape
+  `client/lib/snacks/message.ts#buildSnackListMessage` emits, matched
+  against real `Snack` rows, and turned into a real `SnackOrder` (+
+  items) per seller referenced — closing the gap where a snack seller's
+  order queue only ever held seeded demo rows. Sends the customer a
+  "received" confirmation via `WhatsAppService.sendStatus` right after.
+- **`server/src/notifications/notifications-delivery.service.ts`** —
+  `NotificationsDeliveryService.deliver(...)`: reads the target user's
+  `NotificationPreference` for the given category and, per enabled
+  channel, calls that channel's provider then persists one `Notification`
+  row per channel actually delivered (so the inbox reflects exactly what
+  went out). Wired into `AdminWalletService.adjust`/`issueRefund`
+  (category `"wallet"`) as the concrete, curl-provable example this
+  milestone shipped; exported from `NotificationsModule` for future call
+  sites (order/laundry/snack status changes) to use the same way.
+- **`server/src/notifications/providers/`** — `SmsProviderService`
+  (Twilio-shaped: Account SID + Auth Token Basic auth, form-encoded
+  `Messages.json`; MSG91 or any REST SMS provider is a drop-in swap) and
+  `EmailProviderService` (SendGrid-shaped: Bearer API key, `POST
+  /v3/mail/send`; an SMTP transport is a drop-in alternative). Both
+  degrade to an obviously-labeled logged stub (`[SMS STUB]`/`[EMAIL
+  STUB]`) on placeholder credentials.
+- **`OtpService` → real SMS delivery** — routes through
+  `SmsProviderService` instead of a console-only stub; still logs the raw
+  code at `[OTP STUB]` when the provider itself reports stub mode
+  (skipped once delivery is real, so a live verification code never hits
+  the server log).
+- **`POST /seller-applications`** (`server/src/seller-applications/`,
+  `@Public()`, throttled `{limit:5, ttl:60_000}`) — persists a real
+  `SellerApplication` (status `"new"`) into the existing admin approval
+  queue (`GET /admin/sellers/applications`, M8.3c). `lib/api/sell.ts#createSellerApplication`
+  swapped to call it for real; `/sell`'s copy updated to drop the old
+  "coming soon" / waitlist framing now that onboarding actually works —
+  verified end to end: submit → appears in `?status=pending` → approve →
+  new account logs in via phone-OTP with `role: "seller"`.
+- **Wallet mutation shape gap closed** — `POST /admin/wallet/:userId/adjust`
+  and `.../refund` now respond `{wallet, balanceAfter, transactionId}`
+  (previously discarded the created `WalletTransaction`'s own id, see
+  M8.4b's flagged gap below); `WalletService.adjust`/`postLedgerEntryTx`
+  updated to surface it, `lib/api/admin.ts`'s `adjustWallet`/`issueRefund`
+  use the real id instead of synthesizing one.
+- **`.env.example`** — `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID`/
+  `WHATSAPP_VERIFY_TOKEN`/`WHATSAPP_APP_SECRET`/`WHATSAPP_API_VERSION`/
+  `WHATSAPP_STATUS_TEMPLATE`, `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/
+  `TWILIO_FROM_NUMBER`, `SENDGRID_API_KEY`/`EMAIL_FROM` — each annotated
+  with where to get a real value. `server/README.md`'s "Needs real
+  credentials" section lists the exact go-live steps.
+
+### Verified (server up, seeded Postgres, curl)
+
+Webhook GET-verify (correct token echoes the challenge, wrong token
+`403`s); webhook POST (bad HMAC `400`s with no `SnackOrder` written, good
+HMAC `200`s and creates a real, seller-visible `SnackOrder` from a
+"2x Masala Mathri / 1x Besan Ladoo"-shaped message); the snack seller
+advancing that order logs a second, distinct `[WHATSAPP STUB]` line;
+setting a consumer's `wallet` notification preference to
+`{sms:true, whatsapp:false, email:true, inapp:true}` then triggering an
+admin wallet credit produces exactly 3 new inbox rows (`sms`/`email`/
+`inapp`, no `whatsapp`) plus matching `[SMS STUB]`/`[EMAIL STUB]` log
+lines with the exact rendered message; the full seller-onboarding loop
+(`POST /seller-applications` → appears in the pending queue → approve →
+phone-OTP login → JWT carries `role:"seller"` + a real `sellerId`).
+
+### Known gaps (flagged, not silently half-working)
+
+- `NotificationsDeliveryService.deliver` is only wired into the wallet
+  admin-adjustment flow — order/laundry/snack status-change call sites
+  are a future pass (the service is exported and ready; wiring every
+  producer wasn't worth the diff size for one milestone's proof).
+  Support-ticket/corporate-inquiry admin review queues remain unbuilt
+  (flagged since M8.3a/M9's API doc, not new here).
+- Real Google/Apple OAuth token verification (currently a trusted-payload
+  stub, `SocialLoginDto`) is unchanged — out of this milestone's scope.
+- The WhatsApp inbound parser is deliberately minimal free-text matching
+  against `buildSnackListMessage`'s exact line shape, not a production
+  WhatsApp Flow/interactive-list integration — documented as a seam in
+  `docs/API.md`, not a hidden limitation.
+
+## [M8.4b] — Client mock→real swap: seller + admin (client/) — 2026-07-27
+
+Completes the M8.4 client swap: `lib/api/seller.ts` (~35 fns) and
+`lib/api/admin.ts` (~30 fns) now call the real M8.3b/M8.3c `server/`
+endpoints instead of `lib/data` mock arrays, following M8.4a's exact
+`if (isMockMode()) {...} return http.<method>(...)` pattern. Admin sign-in
+(`AuthContext.tsx#signInAsAdmin`) also swapped to a real `POST /auth/login`.
+`handoff/`, root `app/`, root `CLAUDE.md` untouched; hamper stays on hold;
+no commits made by this milestone.
+
+### Added
+
+- **`lib/api/seller.ts` → real** — listings CRUD, orders + fulfilment
+  advance, storefront update, payouts + request, reviews + reply,
+  laundry-partner bookings + advance, snack menu CRUD, snack-order advance,
+  all 3 dashboard shapes. Every function kept its mock-era
+  `vendorId`/`sellerId` argument for call-site stability even though the
+  real endpoints resolve ownership from the JWT and ignore it.
+- **`lib/api/admin.ts` → real** — users list/detail/suspend, sellers +
+  approval queue (approve/reject/status), unified orders + per-type detail
+  + refund, catalog + review moderation, wallet overview/user-wallet/
+  refund/adjust, collections CRUD, categories/occasions (delegates to the
+  existing public `lib/api/catalog.ts` reads), dashboard, analytics.
+- **`signInAsAdmin` real** (`lib/auth/AuthContext.tsx`) — real
+  `POST /auth/login` against the seeded admin account
+  (`admin@homekrafted.example`), same `completeRealSignIn` tail every
+  other sign-in method uses. `hydrate()`'s mock-only bypass no longer
+  special-cases `role === "admin"` — a persisted admin session now
+  restores through the same `loadStoredSession`/`getMe()` path
+  consumer/seller sessions already use, with a defensive local-flags
+  fallback (mirroring the existing seller one) if no real session
+  survived. `AdminLoginClient.tsx` updated to await the now-async call.
+
+### Fixed
+
+- **`describeSellerOrderItems`** (`lib/api/seller.ts`) — this pure helper
+  resolved "which of a mixed-vendor order's lines are mine" via a mock
+  product lookup that could never match a real order's Postgres-generated
+  `productId`, so every real-mode seller order row would have silently
+  shown "—" instead of its items. Fixed with a small per-vendor product-id
+  cache warmed by `getSellerListings`/`getSellerOrders`.
+- **Storefront edit now actually reaches the public page** — `updateSellerStorefront`
+  (`PATCH /seller/storefront`) writes the real `Vendor` row the
+  server-rendered `/storefront/[vendor]` page reads on every request; the
+  mock-era "edit never reaches the consumer page" limitation (documented
+  since M10a) is a real fix now, verified live.
+
+### Known gaps (flagged, not silently half-working)
+
+- `updatePartnerBookingSlots`, `updateProductAdmin`, `updateHomePromoBand`/
+  `getHomePromoBands` stay mock-only — no real endpoint exists for any of
+  them (see doc comments at each definition + `docs/API.md`'s M8.4b
+  section for why). `lib/api/sell.ts#createSellerApplication` (the public
+  `/sell` form) also has no real endpoint yet, so a real-mode admin
+  approval queue only ever shows the seeded applications, not a live
+  submission.
+- `POST /admin/wallet/:userId/refund`/`adjust` respond `{wallet,
+  balanceAfter}`, discarding the created `WalletTransaction`'s own id —
+  `issueRefund`/`adjustWallet` synthesize a client-side transaction object
+  from the request + `balanceAfter` so the UI still gets a full row to
+  prepend; only `id`/`createdAt` are client-generated.
+- `GET /admin/audit` has no frontend screen in any prior milestone —
+  verified directly via `curl` with an admin token instead.
+
+### Verification
+
+- `client/` `npx tsc --noEmit` + `npm run build` + `npm run lint` clean
+  (2 pre-existing lint errors in `LoginClient.tsx`/`SignupClient.tsx`,
+  untouched by this milestone, unrelated to the seller/admin swap).
+- **Live e2e** (headless browser, seeded Postgres, one continuous session
+  across all 3 roles): seller sign-in as maker/laundry/snack (real
+  `POST /auth/login`, confirmed no network call in mock mode); maker
+  dashboard, listing create (verified live on the public storefront),
+  order-advance (placed→confirmed), storefront bio edit (verified live on
+  `/storefront/[vendor]`), payouts, review reply; laundry-partner
+  dashboard + pickup-advance (scheduled→picked-up); snack-seller dashboard
+  + menu + order-advance (received→accepted); the shop⇄sell dual-mode
+  switch (confirmed the M8.5 changelog's "still owed" e2e pass); admin
+  sign-in, **approve a seller application → seller immediately active**
+  in "All sellers" + dashboard's "Active makers" count incremented,
+  **take down a product → instantly gone from public `/shop`**, restored
+  on approve/unhide; wallet refund from both the wallet-detail and
+  order-detail screens (balance survives a hard reload); analytics;
+  audit log (via `curl`). Zero console errors throughout, at 360/768/1180.
+
+## [M8.5] — Auth UX: role-choice login/signup + seller dual-mode — 2026-07-27
+
+Reworks the auth entry so `/login` and `/signup` both **lead with a role
+choice** ("I'm a shopper / I'm a seller"; admin stays internal-only), and
+gives a **seller a single account that can also shop** via a "Switch to
+shopping / Switch to selling" toggle — no re-login, no second account.
+`handoff/`, root `app/`, root `CLAUDE.md` untouched; no commits.
+
+### Added
+
+- **Role-select login/signup** (`components/auth/LoginClient.tsx`, new
+  `app/signup/page.tsx`) — shared "shopper / seller" tabs on both screens
+  (`authRole` state, honours `?role=seller` from the folded-in old
+  `/seller/login` redirect). Shopper is self-serve; **seller signup routes
+  into the `/sell` application flow** (apply → admin-approve → sign in as
+  seller). The signed-in account's own `role` decides where it lands, not
+  which tab was used. "Continue as demo shopper / demo seller" retained.
+- **Seller dual-mode** (`lib/auth/AuthContext.tsx`) — `sellerMode`
+  (`"selling" | "shopping"`), persisted in `hk_session_v1`, defaults to
+  `selling`; a switch in `HeaderClient` / `MobileDrawer` / `SellerShell`
+  flips chrome + landing surface on the **same session/token** (no
+  re-login). A seller in shopping mode uses the exact consumer surfaces
+  (cart/wallet/checkout) as a normal buyer.
+- **Middleware** (`middleware.ts`) — `/seller/*` requires `role==="seller"`;
+  its `matcher` covers only `/seller/*`+`/admin/*`, so **consumer routes are
+  never gated** (a seller shops freely, same session). Consumer→`/seller`
+  redirects to `/sell` ("become a seller"); signed-out→`/login?role=seller`;
+  admin unchanged/internal-only.
+
+### Fixed
+
+- **`server/src/auth/auth.service.ts` — `/auth/refresh` 500** (found in
+  M8.4a): two refreshes within the same second signed byte-identical JWTs
+  → duplicate `RefreshToken.tokenHash` unique-constraint. Fixed by adding a
+  per-issuance `jti: crypto.randomUUID()` nonce to the token payload, so
+  every issued token (and its hash) is unique. Two rapid refreshes now both
+  succeed.
+
+### Verification
+
+- `client/` `npx tsc --noEmit` + `npm run build` clean; `server/`
+  `npm run build` clean. Feature + fix verified by code review + a clean
+  build. NOTE: a full headless-browser e2e pass (seller shop⇄sell
+  round-trip against a running server) is still owed — the building agent
+  was interrupted (session limit) before running it; flagged as a
+  follow-up to confirm at the next server-up pass.
+
+### For M8.4b
+
+- Seller/admin `lib/api` still mock — the dual-mode switch works over mock
+  seller data today; M8.4b swaps `lib/api/seller.ts`+`admin.ts` to the real
+  API. Hamper remains **on hold** (untouched).
+
+## [M8.4a] — Client mock→real swap: auth + consumer (client/) — 2026-07-27
+
+Points the **consumer** side of `client/` at the live `server/` API —
+zero visible behavior change, same screens, same call-site shapes almost
+everywhere. Seller/admin (`lib/api/seller.ts`, `lib/api/admin.ts`) stay
+mock, M8.4b scope. `server/`, `handoff/`, root `app/`, root `CLAUDE.md`
+untouched; no commits made by this milestone.
+
+### Added
+
+- **HTTP client** (`client/lib/api/http.ts`) — `fetch` wrapper over
+  `NEXT_PUBLIC_API_URL`; attaches the bearer access token; on `401`
+  attempts one de-duplicated `POST /auth/refresh` then retries, else
+  clears the session and redirects to `/login`; parses the server's
+  `{error:{code,message}}` envelope into `ApiError`. `isMockMode()`
+  (`NEXT_PUBLIC_USE_MOCK`) gates every domain module's real-vs-mock
+  branch — still `false`/unset by default now that a live `server/`
+  exists to point at.
+- **Session store** (`client/lib/auth/session.ts`) — access+refresh
+  tokens + the `PublicUser` snapshot: in-memory + `localStorage`
+  (`hk_session_v1`) for reload-survival (the server never sets a
+  cookie itself — confirmed reading `AuthController`), plus a
+  non-httpOnly `hk_access` cookie mirror (same documented
+  not-a-security-boundary caveat as `middleware.ts`'s pre-existing
+  `hk_role`) so a Server Component can attach a token during SSR.
+  `isAccessTokenStale()` decodes the JWT `exp` so refresh is only called
+  when actually needed — see "Fixed" below.
+- **Real auth** (`lib/api/auth.ts` + `AuthContext.tsx` rewrite) — phone
+  OTP (`/auth/otp/request`+`/verify`), email login-or-register fallback
+  (`/auth/login` → `/auth/register` if no account exists yet — the
+  pre-M8.4a UI only ever collected an email, so a password field was
+  added to `LoginClient`'s email tab), social stub
+  (`/auth/social/:provider`, a stable per-provider fake
+  `providerAccountId` persisted in `localStorage` so repeat clicks
+  resolve to the same demo account), "sign in as demo user"/auto-sign-in
+  both real-login the seeded `ananya.iyer@example.com` account
+  (preserves the pre-M8.4a "fresh browser = signed in" default —
+  explicitly signing out persists that choice, same shape as before).
+  Seller/admin sign-in (`signInAsSeller`/`signInAsAdmin`) is untouched
+  mock, mutually exclusive with the real consumer session as before.
+- **Domain swaps** — `products`, `vendors`, `catalog`, `reviews`,
+  `snacks` (menu reads), `laundry` (services/availability/bookings/
+  subscriptions), `orders` (+`payOrder`, +`getOrder`), `addresses`,
+  `history` (unified order/booking history), `referrals`/`loyalty`,
+  `notifications`, `support`, `corporate` (submit only — no list
+  endpoint yet), `site` (`getCurrentUser`/`updateUser`/`getDefaultAddress`/
+  `getAddresses`/`getHamperBoxes`), plus new `lib/api/cart.ts`/
+  `wishlist.ts`. Every file keeps its exact export surface and branches
+  on `isMockMode()` — `lib/data` is untouched and still the fallback
+  source.
+- **`Cart`/`Wallet`/`Wishlist` stores are server-backed** — every
+  `useCart()`/`useWallet()`/`useWishlist()` call site is unchanged.
+  `CartContext` reads the real `GET /cart`'s richer `ServerCartLine`
+  fields directly instead of computing `lineInfo()` from a separately-
+  fetched catalog; `addHamperItem`'s return type changes `ID` →
+  `Promise<ID>` (its one call site, `HamperBuilderClient`, now awaits it
+  before navigating). `WalletContext.pay` becomes `async` (`Promise<PayResult>`,
+  now with an optional `message`) and posts to `POST /orders/:id/pay`;
+  `topUp` opens Razorpay Checkout (`lib/payments/razorpay.ts`, new); `earnCashback`/
+  `refund`/`earnReferralCredit` no longer compute anything client-side —
+  the server is the only ledger writer now, so they just trigger a
+  refetch (a new `refresh()` method does the same for
+  `LaundryBookingClient`'s atomic wallet-paid booking debit, which no
+  longer calls `pay()`/`earnCashback()` at all). All three gate hydration
+  on `useAuth()`'s real consumer session.
+- **Checkout rework** (`CheckoutClient.tsx`) — `POST /orders` creates from
+  the caller's *server-side* cart (no client-submitted line items);
+  gift-to-recipient now saves the recipient as a real `Address` first
+  (`createAddress`) since `gift.recipientAddressId` must be one of the
+  caller's own saved addresses (the mock's synthetic `"gift-recipient"`
+  id doesn't carry over — flagged in `docs/API.md`); wallet-pay calls
+  `payOrder`, Razorpay-pay opens the real Checkout SDK
+  (`createRazorpayOrder` + `openRazorpayCheckout`), COD stays
+  `pending-payment` server-side (a real backend gap, see "Known gaps").
+- **Type seams applied** (`lib/types/marketplace.ts`) — `OrderStatus`
+  gained `"pending-payment"`; `OrderGift.recipientAddressId`'s doc
+  comment updated for the real-address requirement; new
+  `ServerCartLine`/`ServerCart` types mirror the real `GET /cart`
+  response shape.
+- **Owner-scoped Server Component pages converted to client-fetch** —
+  `app/checkout`, `app/laundry`, `app/account/{addresses,notifications,
+  referrals,page}` used to fetch owner-scoped data server-side; since a
+  Server Component render has no reliable live session token (see
+  `session.ts`'s file header), each now fetches its own data client-side
+  on mount instead (the same pattern `OrdersListClient` already
+  established pre-M8.4 for exactly this reason) — only the still-public/
+  static reads stay server-fetched props.
+
+### Fixed / flagged
+
+- **Server bug found live, not fixed (out of scope — `server/`
+  untouched)**: `POST /auth/refresh` (`auth.service.ts`) hashes the
+  *newly-signed* JWT as `RefreshToken.tokenHash`; two refresh calls for
+  the same user inside the same wall-clock second mint byte-identical
+  tokens, and the second insert `500`s on a unique-constraint violation
+  (reproduced live via back-to-back `curl`). Mitigated client-side:
+  `AuthContext`'s hydration only calls `/auth/refresh` when
+  `isAccessTokenStale()` says the stored access token is actually
+  expired/near-expiry, instead of unconditionally on every mount — cut
+  real-world refresh-call frequency from "every full navigation" to
+  "roughly once per 15-minute access-token TTL."
+- **COD orders have no forward transition** — every real order
+  (`OrdersService.create`) starts `"pending-payment"` regardless of
+  `paymentMethod`, including `"cod"`; there's no `M8.2` endpoint that
+  ever moves a COD order past that (only `"wallet"` has `POST
+  /orders/:id/pay`, `"razorpay"` has the webhook). `docs/API.md` already
+  flagged this as a real backend gap. `ORDER_STATUS_LABEL["pending-payment"]`
+  ("Payment pending") keeps the account/orders screens honest rather
+  than silently mislabeling it.
+
+### Still on mock (deliberately, M8.4b scope)
+
+- `lib/api/seller.ts`, `lib/api/admin.ts` and every `/seller/*`/`/admin/*`
+  screen — unchanged, still resolve `lib/data`.
+- `lib/api/sell.ts` (`/sell` seller-application submit) — no public
+  create-application endpoint exists yet server-side.
+- `lib/api/corporate.ts#getCorporateInquiries` — no list endpoint yet
+  (seamed for M11 admin panel per `docs/API.md`); `createCorporateInquiry`
+  is real.
+
+### Verified live
+
+- `npm run build` / `npx tsc --noEmit` / `npm run lint` clean.
+- Full consumer loop exercised against a live `server/` + seeded
+  Postgres via a headless browser: home → shop → product detail → add
+  to cart (`POST /cart/items`) → `/cart` (server-resolved line pricing)
+  → `/checkout` → **wallet-paid order placed** (`POST /orders` →
+  `POST /orders/:id/pay`, wallet debited + cashback credited, confirmed
+  in `/account/orders`) → `/laundry` booking placed (`POST
+  /laundry/bookings`, atomic wallet debit) → `/account/referrals`
+  "apply referral credit" (`POST /referrals/:id/apply-credit`, wallet
+  refreshed) — zero console errors across the whole loop, at 360/768/1180.
+  `NEXT_PUBLIC_USE_MOCK=true` re-verified to fall back to the pre-M8.4a
+  mock layer with zero network calls.
+
 ## [M8.3c] — Admin API (server/) — 2026-07-27
 
 The unscoped admin-panel endpoints — `server/src/admin/`, gated

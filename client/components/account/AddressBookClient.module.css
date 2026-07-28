@@ -23,6 +23,12 @@
   color: var(--hk-ink);
 }
 
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5) 0;
+}
+
 .subtitle {
   color: var(--hk-muted);
   font-size: 14px;

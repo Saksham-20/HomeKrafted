@@ -1,6 +1,7 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, SnackOrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { mapSnackOrder } from './mappers/snack-order.mapper';
 
 const SNACK_ORDER_INCLUDE = { items: true } satisfies Prisma.SnackOrderInclude;
@@ -14,10 +15,23 @@ export function nextSnackOrderStatus(status: SnackOrderStatus): SnackOrderStatus
   return SNACK_ORDER_SEQUENCE[index + 1];
 }
 
-/** Snack seller — inbound `SnackOrder`s scoped to `sellerId`; an order for a different seller 404s. */
+/**
+ * Snack seller — inbound `SnackOrder`s scoped to `sellerId`; an order for
+ * a different seller 404s. `advance` sends the customer a real (or
+ * env-gated stub) WhatsApp status message via `WhatsAppService.sendStatus`
+ * (M9) after the status transition commits — the message send is
+ * best-effort: a WhatsApp failure is logged but never rolls back or
+ * blocks the status advance itself (the seller's own record of the order
+ * is the source of truth, not the notification).
+ */
 @Injectable()
 export class SellerSnackOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(SellerSnackOrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly whatsapp: WhatsAppService,
+  ) {}
 
   async list(sellerId: string) {
     const rows = await this.prisma.snackOrder.findMany({
@@ -44,6 +58,13 @@ export class SellerSnackOrdersService {
       data: { status: next },
       include: SNACK_ORDER_INCLUDE,
     });
+
+    try {
+      await this.whatsapp.sendStatus({ phone: updated.customerPhone, name: updated.customerName }, updated.id, next);
+    } catch (err) {
+      this.logger.error(`WhatsApp status send failed for SnackOrder ${updated.id} -> "${next}": ${(err as Error).message}`);
+    }
+
     return mapSnackOrder(updated);
   }
 

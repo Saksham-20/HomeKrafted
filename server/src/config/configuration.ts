@@ -28,6 +28,26 @@ export interface AppConfig {
     keySecret: string;
     webhookSecret: string;
   };
+  whatsapp: {
+    token: string;
+    phoneNumberId: string;
+    verifyToken: string;
+    appSecret: string;
+    apiVersion: string;
+    /** Optional approved template name for status sends — falls back to a plain-text message when unset (see `WhatsAppService`). */
+    statusTemplate: string;
+  };
+  sms: {
+    /** Twilio-shaped (Account SID / Auth Token / from-number) — MSG91's REST shape is an equivalent swap behind the same `SmsProviderService.send`. */
+    accountSid: string;
+    authToken: string;
+    fromNumber: string;
+  };
+  email: {
+    /** SendGrid-shaped (Bearer API key) — an SMTP transport is a drop-in alternative behind the same `EmailProviderService.send`. */
+    apiKey: string;
+    fromAddress: string;
+  };
   throttle: {
     ttlSeconds: number;
     limit: number;
@@ -60,6 +80,23 @@ export default (): AppConfig => ({
     keyId: process.env.RAZORPAY_KEY_ID ?? '',
     keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
+  whatsapp: {
+    token: process.env.WHATSAPP_TOKEN ?? '',
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? '',
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN ?? '',
+    appSecret: process.env.WHATSAPP_APP_SECRET ?? '',
+    apiVersion: process.env.WHATSAPP_API_VERSION ?? 'v20.0',
+    statusTemplate: process.env.WHATSAPP_STATUS_TEMPLATE ?? '',
+  },
+  sms: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID ?? '',
+    authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
+    fromNumber: process.env.TWILIO_FROM_NUMBER ?? '',
+  },
+  email: {
+    apiKey: process.env.SENDGRID_API_KEY ?? '',
+    fromAddress: process.env.EMAIL_FROM ?? 'notifications@homekrafted.example',
   },
   throttle: {
     ttlSeconds: parseInt(process.env.THROTTLE_TTL_SECONDS ?? '60', 10),

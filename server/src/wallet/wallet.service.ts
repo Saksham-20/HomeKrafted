@@ -120,7 +120,7 @@ export class WalletService {
   async adjust(adminUserId: string, dto: AdjustWalletDto, idempotencyKey?: string) {
     return this.idempotency.run(adminUserId, 'wallet.adjust', idempotencyKey, async (tx) => {
       const wallet = await this.getOrCreateWalletTx(tx, dto.userId);
-      const { balanceAfter } = await this.postLedgerEntryTx(tx, {
+      const { balanceAfter, transactionId } = await this.postLedgerEntryTx(tx, {
         walletId: wallet.id,
         direction: dto.direction,
         category: 'adjustment',
@@ -128,7 +128,11 @@ export class WalletService {
         title: `Admin adjustment — ${dto.reason}`,
       });
       const updated = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
-      return { wallet: mapWallet(updated), balanceAfter };
+      // `transactionId` included (M9 — closes the M8.4b-flagged shape
+      // gap) so `client/lib/api/admin.ts#adjustWallet` no longer has to
+      // synthesize a fake id for the `WalletTransaction` it hands back
+      // to its caller.
+      return { wallet: mapWallet(updated), balanceAfter, transactionId };
     });
   }
 

@@ -268,10 +268,19 @@ export class AuthService {
   private async signTokenPair(user: User): Promise<TokenPair> {
     const seller = user.role === 'seller' ? await this.prisma.seller.findUnique({ where: { userId: user.id } }) : null;
 
+    // `jti` is a per-issuance random nonce, not a real "JWT ID" tied to a
+    // stored session — its only job is guaranteeing the signed token is
+    // unique even when `sub`/`role`/`sellerId`/`iat`/`exp` are otherwise
+    // byte-identical to a token minted for the same user in the same
+    // wall-clock second (e.g. two rapid `/auth/refresh` calls). Without it,
+    // `refresh()`'s `tokenHash` (a SHA-256 of the full JWT string) collides
+    // on the `RefreshToken.tokenHash` unique constraint and the second
+    // refresh 500s — this was reproduced live pre-fix.
     const payload: JwtPayload = {
       sub: user.id,
       role: user.role,
       sellerId: seller?.id,
+      jti: crypto.randomUUID(),
     };
 
     const [accessToken, refreshToken] = await Promise.all([

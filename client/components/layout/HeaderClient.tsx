@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Heart, Menu, Search, ShoppingCart, User, Wallet } from "lucide-react";
+import { Heart, Menu, Search, ShoppingCart, Store, User, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
@@ -27,12 +29,38 @@ export interface HeaderClientProps {
  * or after navigating. Until `useWallet()` finishes its post-mount
  * hydration, the chip shows "…" rather than a misleading ₹0 (see
  * `WalletContext`'s `ready` flag).
+ *
+ * **Seller dual-mode (M8.5)**: this header only ever renders on consumer
+ * routes (`ConsumerChrome` swaps to `SellerShell` on `/seller/*`), so any
+ * render of it with `role === "seller"` means that seller is currently in
+ * shopping mode. The `sellerModePill` keeps `sellerMode` in sync (in case
+ * they arrived via a direct link/back-forward rather than the toggle
+ * itself) and offers the reverse switch back to their dashboard — see
+ * `SellerShell`'s matching "Switch to shopping" for the other direction.
  */
 export function HeaderClient({ navItems }: HeaderClientProps) {
+  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { count: cartCount } = useCart();
   const { balance: walletBalance, ready: walletReady } = useWallet();
   const { count: wishlistCount } = useWishlist();
+  const { role, ready: authReady, switchToShopping, switchToSelling } = useAuth();
+  const isSeller = authReady && role === "seller";
+
+  // This header only renders on a non-`/seller` route (see the doc
+  // comment above) — a seller landing here (any way other than the
+  // toggle below) is, by definition, shopping. Keeps the persisted
+  // `sellerMode` honest for `SellerShell`'s toggle label after the user
+  // switches back.
+  useEffect(() => {
+    if (isSeller) switchToShopping();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSeller]);
+
+  function handleSwitchToSelling() {
+    switchToSelling();
+    router.push("/seller");
+  }
 
   return (
     <header className={styles.header}>
@@ -53,6 +81,17 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
         </nav>
 
         <div className={styles.actions}>
+          {isSeller && (
+            <button
+              type="button"
+              className={clsx(styles.sellerModePill, styles.hideOnMobile)}
+              onClick={handleSwitchToSelling}
+            >
+              <Store size={16} strokeWidth={1.7} />
+              <span>Switch to selling</span>
+            </button>
+          )}
+
           <Link href="/shop" className={styles.searchPill} aria-label="Search homemade products">
             <Search size={17} strokeWidth={1.7} />
             <span>Search homemade…</span>
@@ -108,6 +147,7 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
         onClose={() => setDrawerOpen(false)}
         navItems={navItems}
         walletBalance={walletReady ? walletBalance : undefined}
+        onSwitchToSelling={isSeller ? handleSwitchToSelling : undefined}
       />
     </header>
   );

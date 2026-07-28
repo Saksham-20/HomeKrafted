@@ -1,20 +1,21 @@
 /**
- * Seller-scoped mock API (M10a) — every function here takes the caller's
- * own `vendorId`/`sellerId` as an argument and only ever reads/writes
- * data under it. There is no server yet to enforce that scoping for
- * real: today it's just "the function only queries what you passed in,"
- * trusted because the caller is always `SellerShell`/its screens reading
- * `useAuth().seller` (the signed-in seller). **M8 must re-derive
- * `vendorId`/`sellerId` from the verified server session instead of
- * trusting a client-passed id** — that's the one thing every function
- * below leaves for the real backend to harden.
+ * Seller-scoped API — real as of M8.4b (`server/src/seller/*`, `docs/API.md`
+ * "Seller portal (M8.3b)"). Every real branch below hits an owner-scoped
+ * `/seller/*` endpoint that resolves the acting seller from the caller's own
+ * JWT (`req.user.sellerId`) server-side — **never** the `vendorId`/
+ * `sellerId` argument these functions still take. Those arguments are kept
+ * on every signature purely so call sites (`components/seller/**`) don't
+ * need to change: M8.4b is a body-only swap, exactly like `lib/api/orders.ts`/
+ * `laundry.ts` before it. `NEXT_PUBLIC_USE_MOCK=true` keeps the pre-M8.4b
+ * mock behavior byte-for-byte (module-level arrays, lost on reload) — see
+ * each function's `if (isMockMode())` branch.
  *
- * Listings/orders/payouts/reviews/storefront edits all mutate module-level
- * arrays in place (either a lazily-seeded copy here, or — for orders and
- * the vendor record — the shared `lib/data` objects directly, the same
- * "session-scoped mock write" pattern `lib/api/orders.ts#createOrder` and
- * `lib/api/sell.ts#createSellerApplication` already use). Everything
- * resets on a hard reload; that's expected until M8's Postgres tables land.
+ * One function (`updatePartnerBookingSlots`) has no real endpoint yet
+ * (`docs/API.md`: "Not built in M8.3b — not in the brief's scope") and
+ * stays mock-only unconditionally; `getAllSnackOrders` (M11a's admin-only
+ * unscoped snack-order read) is superseded by `lib/api/admin.ts`'s own real
+ * `getAllOrdersUnified` (`GET /admin/orders`), so it stays mock-only too —
+ * only `lib/api/admin.ts`'s *mock* branch still calls it.
  */
 
 import {
@@ -48,6 +49,7 @@ import type {
   Vendor,
   WeightOption,
 } from "@/lib/types";
+import { http, isMockMode } from "./http";
 import { getPlacedBookings } from "./laundry";
 import { getPlacedOrders } from "./orders";
 
@@ -55,19 +57,32 @@ import { getPlacedOrders } from "./orders";
 // Seller / vendor lookups
 // ---------------------------------------------------------------------------
 
+/**
+ * No real equivalent — `docs/API.md`: "No longer separate lookups; `GET
+ * /seller/dashboard` resolves the caller's own seller+vendor server-side."
+ * Unused at any real call site (every screen reads `useAuth().seller`
+ * instead); left as a plain mock lookup rather than deleted, since it's
+ * harmless (a real-mode caller would pass a real DB id that never matches a
+ * mock seed id, so this safely resolves `undefined`).
+ */
 export async function getSeller(sellerId: string): Promise<Seller | undefined> {
   return sellers.find((s) => s.id === sellerId);
 }
 
 export async function getSellerVendor(vendorId: string): Promise<Vendor | undefined> {
-  return getVendorByIdData(vendorId);
+  if (isMockMode()) return getVendorByIdData(vendorId);
+  try {
+    return await http.get<Vendor>("/seller/storefront");
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Listings (maker) — CRUD over a lazily-seeded per-vendor copy of
-// `lib/data/products`. Kept separate from the shared `products` array so a
-// seller deleting/editing a demo listing can never destabilise the
-// consumer catalog (Shop/Home/Storefront all read the untouched original).
+// `lib/data/products` (mock mode only). Real mode: `GET/POST/PATCH/DELETE
+// /seller/listings` (`SellerListingsService`, owner-scoped to the caller's
+// own `vendorId`).
 // ---------------------------------------------------------------------------
 
 const listingsStore = new Map<string, Product[]>();
@@ -102,14 +117,22 @@ function slugify(name: string): string {
 }
 
 export async function getSellerListings(vendorId: string): Promise<Product[]> {
-  return ensureListings(vendorId);
+  if (isMockMode()) return ensureListings(vendorId);
+  const listings = await http.get<Product[]>("/seller/listings");
+  await warmMyProductIds(vendorId, listings);
+  return listings;
 }
 
 export async function getSellerListing(
   vendorId: string,
   productId: string,
 ): Promise<Product | undefined> {
-  return ensureListings(vendorId).find((p) => p.id === productId);
+  if (isMockMode()) return ensureListings(vendorId).find((p) => p.id === productId);
+  try {
+    return await http.get<Product>(`/seller/listings/${encodeURIComponent(productId)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export interface SellerListingInput {
@@ -131,34 +154,38 @@ export async function createSellerListing(
   vendorId: string,
   input: SellerListingInput,
 ): Promise<Product> {
-  const listings = ensureListings(vendorId);
-  const id = `pr-seller-${Date.now()}`;
-  const product: Product = {
-    id,
-    slug: `${slugify(input.name)}-${id.slice(-5)}`,
-    vendorId,
-    name: input.name,
-    categoryId: input.categoryId,
-    occasionIds: input.occasionIds,
-    dietary: input.dietary,
-    images: [
-      {
-        placeholder: `${input.name} product photo`,
-        src: input.imagePath || undefined,
-        ratio: "1/1",
-      },
-    ],
-    weightOptions: input.weightOptions,
-    defaultWeightSku: input.defaultWeightSku || input.weightOptions[0]?.sku || "",
-    rating: 0,
-    reviewCount: 0,
-    tags: input.tags,
-    isPackaged: input.isPackaged,
-    cashbackPct: input.cashbackPct,
-    description: input.description,
-  };
-  listings.push(product);
-  return product;
+  if (isMockMode()) {
+    const listings = ensureListings(vendorId);
+    const id = `pr-seller-${Date.now()}`;
+    const product: Product = {
+      id,
+      slug: `${slugify(input.name)}-${id.slice(-5)}`,
+      vendorId,
+      name: input.name,
+      categoryId: input.categoryId,
+      occasionIds: input.occasionIds,
+      dietary: input.dietary,
+      images: [
+        {
+          placeholder: `${input.name} product photo`,
+          src: input.imagePath || undefined,
+          ratio: "1/1",
+        },
+      ],
+      weightOptions: input.weightOptions,
+      defaultWeightSku: input.defaultWeightSku || input.weightOptions[0]?.sku || "",
+      rating: 0,
+      reviewCount: 0,
+      tags: input.tags,
+      isPackaged: input.isPackaged,
+      cashbackPct: input.cashbackPct,
+      description: input.description,
+    };
+    listings.push(product);
+    return product;
+  }
+
+  return http.post<Product>("/seller/listings", input);
 }
 
 export async function updateSellerListing(
@@ -166,52 +193,53 @@ export async function updateSellerListing(
   productId: string,
   input: SellerListingInput,
 ): Promise<Product | undefined> {
-  const listings = ensureListings(vendorId);
-  const product = listings.find((p) => p.id === productId);
-  if (!product) return undefined;
+  if (isMockMode()) {
+    const listings = ensureListings(vendorId);
+    const product = listings.find((p) => p.id === productId);
+    if (!product) return undefined;
 
-  product.name = input.name;
-  product.categoryId = input.categoryId;
-  product.occasionIds = input.occasionIds;
-  product.dietary = input.dietary;
-  product.description = input.description;
-  product.isPackaged = input.isPackaged;
-  product.cashbackPct = input.cashbackPct;
-  product.tags = input.tags;
-  product.weightOptions = input.weightOptions;
-  product.defaultWeightSku = input.defaultWeightSku || input.weightOptions[0]?.sku || "";
-  const firstImage = product.images[0];
-  product.images[0] = {
-    placeholder: firstImage?.placeholder ?? `${input.name} product photo`,
-    src: input.imagePath || undefined,
-    ratio: firstImage?.ratio ?? "1/1",
-  };
+    product.name = input.name;
+    product.categoryId = input.categoryId;
+    product.occasionIds = input.occasionIds;
+    product.dietary = input.dietary;
+    product.description = input.description;
+    product.isPackaged = input.isPackaged;
+    product.cashbackPct = input.cashbackPct;
+    product.tags = input.tags;
+    product.weightOptions = input.weightOptions;
+    product.defaultWeightSku = input.defaultWeightSku || input.weightOptions[0]?.sku || "";
+    const firstImage = product.images[0];
+    product.images[0] = {
+      placeholder: firstImage?.placeholder ?? `${input.name} product photo`,
+      src: input.imagePath || undefined,
+      ratio: firstImage?.ratio ?? "1/1",
+    };
 
-  return product;
+    return product;
+  }
+
+  try {
+    return await http.patch<Product>(`/seller/listings/${encodeURIComponent(productId)}`, input);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function deleteSellerListing(vendorId: string, productId: string): Promise<void> {
-  const listings = ensureListings(vendorId);
-  const index = listings.findIndex((p) => p.id === productId);
-  if (index >= 0) listings.splice(index, 1);
+  if (isMockMode()) {
+    const listings = ensureListings(vendorId);
+    const index = listings.findIndex((p) => p.id === productId);
+    if (index >= 0) listings.splice(index, 1);
+    return;
+  }
+  await http.delete<void>(`/seller/listings/${encodeURIComponent(productId)}`);
 }
 
 // ---------------------------------------------------------------------------
-// Orders — filtered from the shared seed + live order lists by whether any
-// line item's product belongs to this vendor. Status advances mutate the
-// shared `Order` object in place — the exact object `/account/orders`'s
-// `OrderDetailClient` (also a client component) reads, so within the same
-// browser tab and without a hard reload, a status change made here is
-// visible there too on the next client-side navigation. That's a real
-// limit, not just phrasing: both sides are plain `"use client"` modules
-// mutating in-memory state, so this only holds within one tab's live JS —
-// a hard reload (or any fresh request to a *server*-rendered page, e.g.
-// `/storefront/[vendor]`, see `updateSellerStorefront` below) re-runs
-// module top-level code from scratch and loses it, same caveat every
-// other mock mutation in this codebase already carries
-// (`lib/api/orders.ts#createOrder`, `lib/api/sell.ts#createSellerApplication`).
-// Real cross-surface consistency is exactly what M8's shared Postgres
-// tables replace this with.
+// Orders — mock mode filters the shared seed + live order lists by whether
+// any line item's product belongs to this vendor (see `orderIncludesVendor`).
+// Real mode: `GET/POST /seller/orders*` (`SellerOrdersService`), already
+// scoped server-side to "orders containing >=1 of my items".
 // ---------------------------------------------------------------------------
 
 function orderIncludesVendor(order: Order, vendorId: string): boolean {
@@ -222,19 +250,57 @@ function orderIncludesVendor(order: Order, vendorId: string): boolean {
   });
 }
 
+/**
+ * `describeSellerOrderItems` (below) needs to know which of a mixed-vendor
+ * order's lines are *this* vendor's own — mock mode resolves that via
+ * `lib/data`'s product table (`orderIncludesVendor`/`getProductByIdData`),
+ * which only knows mock seed ids and can never match a real order's
+ * Postgres-generated `productId`s. Real mode instead warms this small
+ * per-vendor id cache every time `getSellerListings`/`getSellerOrders` runs
+ * (both already fetch "my products" or are called right after a listings
+ * fetch in every screen that also renders order descriptions) — best-effort:
+ * if the cache isn't warm yet the first time `describeSellerOrderItems` runs,
+ * it falls back to describing every line rather than a false "—".
+ */
+const myProductIdsCache = new Map<string, Set<string>>();
+
+async function warmMyProductIds(vendorId: string, listings?: Product[]): Promise<void> {
+  try {
+    const list = listings ?? (await http.get<Product[]>("/seller/listings"));
+    myProductIdsCache.set(vendorId, new Set(list.map((p) => p.id)));
+  } catch {
+    // best-effort only — see doc comment above
+  }
+}
+
 export async function getSellerOrders(vendorId: string): Promise<Order[]> {
-  const placed = await getPlacedOrders();
-  return [...seedOrders, ...placed]
-    .filter((order) => orderIncludesVendor(order, vendorId))
-    .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+  if (isMockMode()) {
+    const placed = await getPlacedOrders();
+    return [...seedOrders, ...placed]
+      .filter((order) => orderIncludesVendor(order, vendorId))
+      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+  }
+
+  const [orders] = await Promise.all([
+    http.get<Order[]>("/seller/orders"),
+    myProductIdsCache.has(vendorId) ? Promise.resolve() : warmMyProductIds(vendorId),
+  ]);
+  return orders;
 }
 
 export async function getSellerOrder(
   vendorId: string,
   orderId: string,
 ): Promise<Order | undefined> {
-  const orders = await getSellerOrders(vendorId);
-  return orders.find((o) => o.id === orderId);
+  if (isMockMode()) {
+    const orders = await getSellerOrders(vendorId);
+    return orders.find((o) => o.id === orderId);
+  }
+  try {
+    return await http.get<Order>(`/seller/orders/${encodeURIComponent(orderId)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -258,22 +324,41 @@ export function nextFulfillmentStatus(status: OrderStatus): OrderStatus | undefi
 }
 
 export async function advanceSellerOrderStatus(orderId: string): Promise<Order | undefined> {
-  const placed = await getPlacedOrders();
-  const order = [...seedOrders, ...placed].find((o) => o.id === orderId);
-  if (!order) return undefined;
-  const next = nextFulfillmentStatus(order.status);
-  if (next) order.status = next;
-  return order;
+  if (isMockMode()) {
+    const placed = await getPlacedOrders();
+    const order = [...seedOrders, ...placed].find((o) => o.id === orderId);
+    if (!order) return undefined;
+    const next = nextFulfillmentStatus(order.status);
+    if (next) order.status = next;
+    return order;
+  }
+
+  return http.post<Order>(`/seller/orders/${encodeURIComponent(orderId)}/advance`);
 }
 
-/** "Mango Thokku Pickle ×2, Ragi Almond Cookies ×1" — this seller's line items only, for the order-list rows. A mixed-vendor order can have items outside this seller's catalog; those are left out on purpose. */
+/**
+ * "Mango Thokku Pickle ×2, Ragi Almond Cookies ×1" — this seller's line
+ * items only, for the order-list rows. A mixed-vendor order can have items
+ * outside this seller's catalog; those are left out on purpose (mock mode)
+ * or best-effort filtered via `myProductIdsCache` (real mode — see that
+ * cache's doc comment).
+ */
 export function describeSellerOrderItems(order: Order, vendorId: string): string {
-  const own = order.items.filter((item) => {
-    if (!item.productId) return false;
-    return getProductByIdData(item.productId)?.vendorId === vendorId;
-  });
-  if (own.length === 0) return "—";
-  return own.map((item) => `${item.name} ×${item.quantity}`).join(", ");
+  if (isMockMode()) {
+    const own = order.items.filter((item) => {
+      if (!item.productId) return false;
+      return getProductByIdData(item.productId)?.vendorId === vendorId;
+    });
+    if (own.length === 0) return "—";
+    return own.map((item) => `${item.name} ×${item.quantity}`).join(", ");
+  }
+
+  const myIds = myProductIdsCache.get(vendorId);
+  const relevant = myIds
+    ? order.items.filter((item) => item.productId && myIds.has(item.productId))
+    : order.items;
+  if (relevant.length === 0) return "—";
+  return relevant.map((item) => `${item.name} ×${item.quantity}`).join(", ");
 }
 
 // ---------------------------------------------------------------------------
@@ -293,6 +378,8 @@ export interface SellerDashboardSnapshot {
 const LOW_STOCK_THRESHOLD = 15;
 
 export async function getSellerDashboard(seller: Seller): Promise<SellerDashboardSnapshot> {
+  if (!isMockMode()) return http.get<SellerDashboardSnapshot>("/seller/dashboard");
+
   const vendorId = seller.vendorId;
   const [orders, listings, payoutList, vendor] = await Promise.all([
     vendorId ? getSellerOrders(vendorId) : Promise.resolve<Order[]>([]),
@@ -322,16 +409,29 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
 }
 
 // ---------------------------------------------------------------------------
-// Payouts
+// Payouts — real mode: `GET /seller/payouts` returns `{items, summary,
+// pendingBalance}` in one call; `getSellerPayouts`/`getSellerEarningsSummary`
+// each hit it independently (accepted redundancy — same pattern as
+// `lib/api/products.ts#getProductById` re-fetching the full catalog).
 // ---------------------------------------------------------------------------
 
-/** Live "requested payout" table, separate from the seed history — same split as `lib/api/orders.ts`'s `orders` vs. `lib/data/orders.ts#seedOrders`. */
+/** Live "requested payout" table, separate from the seed history — same split as `lib/api/orders.ts`'s `orders` vs. `lib/data/orders.ts#seedOrders` (mock mode only). */
 const livePayouts: Payout[] = [];
 
+interface SellerPayoutsPage {
+  items: Payout[];
+  summary: SellerEarningsSummary;
+  pendingBalance: number;
+}
+
 export async function getSellerPayouts(sellerId: string): Promise<Payout[]> {
-  return [...seedPayouts, ...livePayouts]
-    .filter((p) => p.sellerId === sellerId)
-    .sort((a, b) => new Date(b.periodEnd).getTime() - new Date(a.periodEnd).getTime());
+  if (isMockMode()) {
+    return [...seedPayouts, ...livePayouts]
+      .filter((p) => p.sellerId === sellerId)
+      .sort((a, b) => new Date(b.periodEnd).getTime() - new Date(a.periodEnd).getTime());
+  }
+  const page = await http.get<SellerPayoutsPage>("/seller/payouts");
+  return page.items;
 }
 
 export interface SellerEarningsSummary {
@@ -341,26 +441,40 @@ export interface SellerEarningsSummary {
 }
 
 export async function getSellerEarningsSummary(sellerId: string): Promise<SellerEarningsSummary> {
-  const list = await getSellerPayouts(sellerId);
-  const totalPaid = list.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0);
-  const totalPending = list
-    .filter((p) => p.status === "pending")
-    .reduce((sum, p) => sum + p.amount, 0);
-  return { totalPaid, totalPending, lifetimeEarned: totalPaid + totalPending };
+  if (isMockMode()) {
+    const list = await getSellerPayouts(sellerId);
+    const totalPaid = list.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0);
+    const totalPending = list
+      .filter((p) => p.status === "pending")
+      .reduce((sum, p) => sum + p.amount, 0);
+    return { totalPaid, totalPending, lifetimeEarned: totalPaid + totalPending };
+  }
+  const page = await http.get<SellerPayoutsPage>("/seller/payouts");
+  return page.summary;
 }
 
+/**
+ * Real mode: **shape change** — no `amount` param anymore
+ * (`docs/API.md`: "the real endpoint computes it server-side, never trust
+ * a client-submitted payout amount"). Kept on the signature only so the
+ * call site (`SellerPayoutsClient`) doesn't need to change; ignored.
+ */
 export async function requestSellerPayout(sellerId: string, amount: number): Promise<Payout> {
-  const today = new Date().toISOString().slice(0, 10);
-  const payout: Payout = {
-    id: `po-${Date.now()}`,
-    sellerId,
-    amount,
-    periodStart: today,
-    periodEnd: today,
-    status: "pending",
-  };
-  livePayouts.push(payout);
-  return payout;
+  if (isMockMode()) {
+    const today = new Date().toISOString().slice(0, 10);
+    const payout: Payout = {
+      id: `po-${Date.now()}`,
+      sellerId,
+      amount,
+      periodStart: today,
+      periodEnd: today,
+      status: "pending",
+    };
+    livePayouts.push(payout);
+    return payout;
+  }
+
+  return http.post<Payout>("/seller/payouts/request");
 }
 
 // ---------------------------------------------------------------------------
@@ -368,38 +482,41 @@ export async function requestSellerPayout(sellerId: string, amount: number): Pro
 // ---------------------------------------------------------------------------
 
 export async function getSellerReviews(vendorId: string): Promise<Review[]> {
-  const listings = await getSellerListings(vendorId);
-  const productIds = new Set(listings.map((p) => p.id));
-  return allReviews
-    .filter(
-      (review) =>
-        (review.targetType === "vendor" && review.targetId === vendorId) ||
-        (review.targetType === "product" && productIds.has(review.targetId)),
-    )
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (isMockMode()) {
+    const listings = await getSellerListings(vendorId);
+    const productIds = new Set(listings.map((p) => p.id));
+    return allReviews
+      .filter(
+        (review) =>
+          (review.targetType === "vendor" && review.targetId === vendorId) ||
+          (review.targetType === "product" && productIds.has(review.targetId)),
+      )
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  return http.get<Review[]>("/seller/reviews");
 }
 
 export async function replySellerReview(reviewId: string, body: string): Promise<Review | undefined> {
-  const review = allReviews.find((r) => r.id === reviewId);
-  if (!review) return undefined;
-  review.sellerReply = { body, createdAt: new Date().toISOString() };
-  return review;
+  if (isMockMode()) {
+    const review = allReviews.find((r) => r.id === reviewId);
+    if (!review) return undefined;
+    review.sellerReply = { body, createdAt: new Date().toISOString() };
+    return review;
+  }
+  try {
+    return await http.post<Review>(`/seller/reviews/${encodeURIComponent(reviewId)}/reply`, { body });
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Storefront edit — mutates the shared `Vendor` record in place, the same
-// session-scoped-mutation pattern every other function in this file uses.
-// **This one does NOT reach the consumer `/storefront/[vendor]` page**,
-// unlike the order-status mutation above: that page is a `Vendor`-fetching
-// *Server Component* (`app/storefront/[vendor]/page.tsx`), so every visit
-// re-runs on the server against the server's own module instance of
-// `lib/data/vendors.ts` — a mutation made from this "use client" seller
-// screen lives only in the browser bundle's copy and can never reach it.
-// Verified live: editing bio here and then hard-navigating to
-// `/storefront/anjalis-kitchen` still shows the original seed bio. A real
-// fix needs either a Route Handler this mutation POSTs to (server-side
-// write) or the M8 database — flagging here rather than leaving the
-// stale claim a first version of this comment made.
+// Storefront edit — mock mode mutates the shared `Vendor` record in place
+// (see the long-standing doc comment on the client/server module-graph
+// caveat this never fixed until now). Real mode: `PATCH /seller/storefront`
+// writes the actual DB row every render (including the server-rendered
+// `/storefront/[vendor]` page) reads from — a real fix, not just documented
+// as one (`docs/API.md`'s `updateSellerStorefront` entry).
 // ---------------------------------------------------------------------------
 
 export interface SellerStorefrontInput {
@@ -413,13 +530,21 @@ export async function updateSellerStorefront(
   vendorId: string,
   input: SellerStorefrontInput,
 ): Promise<Vendor | undefined> {
-  const vendor = getVendorByIdData(vendorId);
-  if (!vendor) return undefined;
-  vendor.bio = input.bio;
-  vendor.location = input.location;
-  vendor.avatarSrc = input.avatarSrc || undefined;
-  vendor.bannerSrc = input.bannerSrc || undefined;
-  return vendor;
+  if (isMockMode()) {
+    const vendor = getVendorByIdData(vendorId);
+    if (!vendor) return undefined;
+    vendor.bio = input.bio;
+    vendor.location = input.location;
+    vendor.avatarSrc = input.avatarSrc || undefined;
+    vendor.bannerSrc = input.bannerSrc || undefined;
+    return vendor;
+  }
+
+  try {
+    return await http.patch<Vendor>("/seller/storefront", input);
+  } catch {
+    return undefined;
+  }
 }
 
 function todayISODate(): string {
@@ -428,29 +553,33 @@ function todayISODate(): string {
 
 // ---------------------------------------------------------------------------
 // M10b — Laundry partner: pickups (`LaundryBooking`s assigned via
-// `partnerId`), dashboard snapshot. Same session-scoped-mutation pattern
-// as the marketplace order section above: seed history +
-// `getPlacedBookings()` (live bookings placed this session, see
-// `lib/api/laundry.ts`) merged and filtered by `partnerId`, status
-// advanced by mutating the shared `LaundryBooking` object in place — a
-// change made here is visible to `/account/orders`'s booking detail
-// within the same tab, same caveat as the marketplace order mutation
-// above (lost on hard reload; real cross-surface consistency is M8).
+// `partnerId`), dashboard snapshot. Real mode: `GET/POST /seller/bookings*`
+// (`SellerBookingsService`).
 // ---------------------------------------------------------------------------
 
 export async function getPartnerBookings(partnerId: string): Promise<LaundryBooking[]> {
-  const placed = await getPlacedBookings();
-  return [...seedLaundryBookings, ...placed]
-    .filter((b) => b.partnerId === partnerId)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (isMockMode()) {
+    const placed = await getPlacedBookings();
+    return [...seedLaundryBookings, ...placed]
+      .filter((b) => b.partnerId === partnerId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  return http.get<LaundryBooking[]>("/seller/bookings");
 }
 
 export async function getPartnerBooking(
   partnerId: string,
   bookingId: string,
 ): Promise<LaundryBooking | undefined> {
-  const bookings = await getPartnerBookings(partnerId);
-  return bookings.find((b) => b.id === bookingId);
+  if (isMockMode()) {
+    const bookings = await getPartnerBookings(partnerId);
+    return bookings.find((b) => b.id === bookingId);
+  }
+  try {
+    return await http.get<LaundryBooking>(`/seller/bookings/${encodeURIComponent(bookingId)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 /** The pipeline a partner can advance a booking through — mirrors the brief's "booked→picked-up→processing→out-for-delivery→delivered" against the real `LaundryBookingStatus` union's naming (`scheduled`/`in-progress`). `cancelled` is terminal and never advances. */
@@ -471,12 +600,16 @@ export function nextBookingStatus(status: LaundryBookingStatus): LaundryBookingS
 export async function advancePartnerBookingStatus(
   bookingId: string,
 ): Promise<LaundryBooking | undefined> {
-  const placed = await getPlacedBookings();
-  const booking = [...seedLaundryBookings, ...placed].find((b) => b.id === bookingId);
-  if (!booking) return undefined;
-  const next = nextBookingStatus(booking.status);
-  if (next) booking.status = next;
-  return booking;
+  if (isMockMode()) {
+    const placed = await getPlacedBookings();
+    const booking = [...seedLaundryBookings, ...placed].find((b) => b.id === bookingId);
+    if (!booking) return undefined;
+    const next = nextBookingStatus(booking.status);
+    if (next) booking.status = next;
+    return booking;
+  }
+
+  return http.post<LaundryBooking>(`/seller/bookings/${encodeURIComponent(bookingId)}/advance`);
 }
 
 export interface PartnerSlotInput {
@@ -484,7 +617,15 @@ export interface PartnerSlotInput {
   deliverySlot: { date: string; slotId: string };
 }
 
-/** Lets a partner set/confirm the two scheduling slots from the pickup detail screen — mutates the same shared `LaundryBooking` object `advancePartnerBookingStatus` does. */
+/**
+ * **Stays mock-only in every mode** — `docs/API.md`: "Not built in
+ * M8.3b (not in the brief's scope) — still mock-only." In real mode this
+ * mutates a mock-only booking object that isn't the one `getPartnerBooking`
+ * just fetched from the server, so "Save slots" appears to succeed but the
+ * next reload shows the original server-side slots — flagged here rather
+ * than silently letting it look like a real write. A future milestone needs
+ * a real `PATCH /seller/bookings/:id/slots` endpoint.
+ */
 export async function updatePartnerBookingSlots(
   bookingId: string,
   input: PartnerSlotInput,
@@ -510,6 +651,8 @@ export interface PartnerDashboardSnapshot {
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function getPartnerDashboard(seller: Seller): Promise<PartnerDashboardSnapshot> {
+  if (!isMockMode()) return http.get<PartnerDashboardSnapshot>("/seller/dashboard");
+
   const [bookings, payoutList] = await Promise.all([
     getPartnerBookings(seller.id),
     getSellerPayouts(seller.id),
@@ -536,11 +679,8 @@ export async function getPartnerDashboard(seller: Seller): Promise<PartnerDashbo
 }
 
 // ---------------------------------------------------------------------------
-// M10b — Snack seller: menu CRUD (`Snack`s scoped by `sellerId`), same
-// lazily-seeded-per-owner-copy pattern as the maker Listings section
-// above — a seller editing/deleting a demo menu item can never affect
-// the shared `lib/data/snacks.ts` array the consumer `/snacks` grid
-// reads.
+// M10b — Snack seller: menu CRUD (`Snack`s scoped by `sellerId`). Real
+// mode: `GET/POST/PATCH/DELETE /seller/menu*` (`SellerMenuService`).
 // ---------------------------------------------------------------------------
 
 const menuStore = new Map<string, Snack[]>();
@@ -568,14 +708,20 @@ function slugifySnack(name: string): string {
 }
 
 export async function getSellerMenu(sellerId: string): Promise<Snack[]> {
-  return ensureMenu(sellerId);
+  if (isMockMode()) return ensureMenu(sellerId);
+  return http.get<Snack[]>("/seller/menu");
 }
 
 export async function getSellerMenuItem(
   sellerId: string,
   snackId: string,
 ): Promise<Snack | undefined> {
-  return ensureMenu(sellerId).find((s) => s.id === snackId);
+  if (isMockMode()) return ensureMenu(sellerId).find((s) => s.id === snackId);
+  try {
+    return await http.get<Snack>(`/seller/menu/${encodeURIComponent(snackId)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export interface SellerMenuInput {
@@ -593,23 +739,27 @@ export async function createSellerMenuItem(
   sellerId: string,
   input: SellerMenuInput,
 ): Promise<Snack> {
-  const menu = ensureMenu(sellerId);
-  const id = `sk-seller-${Date.now()}`;
-  const snack: Snack = {
-    id,
-    slug: `${slugifySnack(input.name)}-${id.slice(-5)}`,
-    name: input.name,
-    description: input.description,
-    price: input.price,
-    category: input.category,
-    diet: input.diet,
-    imagePlaceholder: `${input.name} photo`,
-    imageSrc: input.imagePath || undefined,
-    available: input.available,
-    sellerId,
-  };
-  menu.push(snack);
-  return snack;
+  if (isMockMode()) {
+    const menu = ensureMenu(sellerId);
+    const id = `sk-seller-${Date.now()}`;
+    const snack: Snack = {
+      id,
+      slug: `${slugifySnack(input.name)}-${id.slice(-5)}`,
+      name: input.name,
+      description: input.description,
+      price: input.price,
+      category: input.category,
+      diet: input.diet,
+      imagePlaceholder: `${input.name} photo`,
+      imageSrc: input.imagePath || undefined,
+      available: input.available,
+      sellerId,
+    };
+    menu.push(snack);
+    return snack;
+  }
+
+  return http.post<Snack>("/seller/menu", input);
 }
 
 export async function updateSellerMenuItem(
@@ -617,50 +767,65 @@ export async function updateSellerMenuItem(
   snackId: string,
   input: SellerMenuInput,
 ): Promise<Snack | undefined> {
-  const menu = ensureMenu(sellerId);
-  const snack = menu.find((s) => s.id === snackId);
-  if (!snack) return undefined;
+  if (isMockMode()) {
+    const menu = ensureMenu(sellerId);
+    const snack = menu.find((s) => s.id === snackId);
+    if (!snack) return undefined;
 
-  snack.name = input.name;
-  snack.description = input.description;
-  snack.price = input.price;
-  snack.category = input.category;
-  snack.diet = input.diet;
-  snack.imageSrc = input.imagePath || undefined;
-  snack.available = input.available;
+    snack.name = input.name;
+    snack.description = input.description;
+    snack.price = input.price;
+    snack.category = input.category;
+    snack.diet = input.diet;
+    snack.imageSrc = input.imagePath || undefined;
+    snack.available = input.available;
 
-  return snack;
+    return snack;
+  }
+
+  try {
+    return await http.patch<Snack>(`/seller/menu/${encodeURIComponent(snackId)}`, input);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function deleteSellerMenuItem(sellerId: string, snackId: string): Promise<void> {
-  const menu = ensureMenu(sellerId);
-  const index = menu.findIndex((s) => s.id === snackId);
-  if (index >= 0) menu.splice(index, 1);
+  if (isMockMode()) {
+    const menu = ensureMenu(sellerId);
+    const index = menu.findIndex((s) => s.id === snackId);
+    if (index >= 0) menu.splice(index, 1);
+    return;
+  }
+  await http.delete<void>(`/seller/menu/${encodeURIComponent(snackId)}`);
 }
 
 // ---------------------------------------------------------------------------
 // M10b — Snack seller: incoming WhatsApp-origin orders (`SnackOrder`, see
 // its doc comment in `lib/types/food.ts` for why this exists as a
-// seller-side mock entity rather than a real consumer-placed order).
-// Seed + a live in-memory list, same split as every other mock "table"
-// in this codebase.
+// seller-side mock entity rather than a real consumer-placed order). Real
+// mode: `GET/POST /seller/snack-orders*` (`SellerSnackOrdersService`).
 // ---------------------------------------------------------------------------
 
 const liveSnackOrders: SnackOrder[] = [];
 
 export async function getSnackOrders(sellerId: string): Promise<SnackOrder[]> {
-  return [...seedSnackOrders, ...liveSnackOrders]
-    .filter((o) => o.sellerId === sellerId)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (isMockMode()) {
+    return [...seedSnackOrders, ...liveSnackOrders]
+      .filter((o) => o.sellerId === sellerId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+  return http.get<SnackOrder[]>("/seller/snack-orders");
 }
 
 /**
  * M11a — unscoped, admin-only: every `SnackOrder` across every snack
- * seller, not just one caller's own (`getSnackOrders` above stays
- * scoped to the seller portal). Lives here rather than in
- * `lib/api/admin.ts` because `liveSnackOrders` is this module's private
- * state — `lib/api/admin.ts#getAllOrdersUnified` calls this the same
- * way it reads `seedOrders`/`getPlacedOrders` from the marketplace side.
+ * seller, not just one caller's own (`getSnackOrders` above stays scoped
+ * to the seller portal). **Mock-only** — the real unscoped read is
+ * `lib/api/admin.ts#getAllOrdersUnified`'s own real branch (`GET
+ * /admin/orders`), which no longer calls this function at all; only
+ * `admin.ts`'s *mock* branch still does, the same way it reads
+ * `seedOrders`/`getPlacedOrders` from the marketplace side.
  */
 export async function getAllSnackOrders(): Promise<SnackOrder[]> {
   return [...seedSnackOrders, ...liveSnackOrders];
@@ -670,8 +835,15 @@ export async function getSnackOrder(
   sellerId: string,
   orderId: string,
 ): Promise<SnackOrder | undefined> {
-  const orders = await getSnackOrders(sellerId);
-  return orders.find((o) => o.id === orderId);
+  if (isMockMode()) {
+    const orders = await getSnackOrders(sellerId);
+    return orders.find((o) => o.id === orderId);
+  }
+  try {
+    return await http.get<SnackOrder>(`/seller/snack-orders/${encodeURIComponent(orderId)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Mirrors the exact WhatsApp status timeline the consumer sees on `/snacks` (`SnackListStatus`'s WA states) — see `SnackOrder`'s doc comment. */
@@ -689,11 +861,15 @@ export function nextSnackOrderStatus(status: SnackOrderStatus): SnackOrderStatus
 }
 
 export async function advanceSnackOrderStatus(orderId: string): Promise<SnackOrder | undefined> {
-  const order = [...seedSnackOrders, ...liveSnackOrders].find((o) => o.id === orderId);
-  if (!order) return undefined;
-  const next = nextSnackOrderStatus(order.status);
-  if (next) order.status = next;
-  return order;
+  if (isMockMode()) {
+    const order = [...seedSnackOrders, ...liveSnackOrders].find((o) => o.id === orderId);
+    if (!order) return undefined;
+    const next = nextSnackOrderStatus(order.status);
+    if (next) order.status = next;
+    return order;
+  }
+
+  return http.post<SnackOrder>(`/seller/snack-orders/${encodeURIComponent(orderId)}/advance`);
 }
 
 export interface SnackDashboardSnapshot {
@@ -704,6 +880,8 @@ export interface SnackDashboardSnapshot {
 }
 
 export async function getSnackDashboard(seller: Seller): Promise<SnackDashboardSnapshot> {
+  if (!isMockMode()) return http.get<SnackDashboardSnapshot>("/seller/dashboard");
+
   const [orders, menu, payoutList] = await Promise.all([
     getSnackOrders(seller.id),
     getSellerMenu(seller.id),

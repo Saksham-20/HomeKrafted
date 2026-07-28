@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import clsx from "clsx";
-import { Sparkles, Store } from "lucide-react";
+import { Store } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -28,13 +28,13 @@ const EMPTY_FORM = {
 };
 
 /**
- * Sell on Homekrafted (M7b) — seller-onboarding info + a real,
- * submittable application form, clearly flagged "coming soon" per the
- * plan's "Seller onboarding *(future)* — `/sell` info + form (flagged)"
- * line item. `createSellerApplication` mock-submits to a `"waitlisted"`
- * `SellerApplication` (not a live vendor review queue) — the confirmation
- * copy frames it as joining a waitlist, not an active application under
- * review, matching that future-flag.
+ * Sell on Homekrafted — seller-onboarding info + a real, submittable
+ * application form. **Real as of M9**: `createSellerApplication` posts to
+ * `POST /seller-applications`, which lands in the actual admin approval
+ * queue (`/admin/sellers` → "Approval queue") — an approved application
+ * becomes a live `Seller` + storefront a real person can log into. No
+ * longer future-flagged (see `docs/PRD.md`'s M7b-era "future" note, now
+ * superseded).
  */
 export function SellerApplicationClient({ benefits, steps, categories }: SellerApplicationClientProps) {
   const [category, setCategory] = useState<SellerApplicationCategory>(categories[0]?.value ?? "maker");
@@ -77,13 +77,10 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
   return (
     <section className={clsx("container", styles.page)}>
       <div className={styles.header}>
-        <span className={styles.comingSoon}>
-          <Sparkles size={13} strokeWidth={1.8} /> Coming soon
-        </span>
         <h1 className={styles.title}>Sell on Homekrafted</h1>
         <p className={styles.subtitle}>
-          Seller onboarding isn&rsquo;t open yet — join the waitlist now and we&rsquo;ll reach out
-          the moment it launches.
+          Tell us about what you make — our team reviews every application and reaches out once
+          yours is approved.
         </p>
       </div>
 
@@ -113,11 +110,11 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
 
       {application ? (
         <Card className={styles.confirmationCard}>
-          <span className={styles.confirmationBadge}>You&rsquo;re on the waitlist</span>
+          <span className={styles.confirmationBadge}>Application submitted</span>
           <p className={styles.confirmationTitle}>Thanks, {application.contactName.split(" ")[0]}!</p>
           <p className={styles.confirmationCopy}>
-            We&rsquo;ve saved your application for <b>{application.businessName}</b>. We&rsquo;ll
-            email {application.email} the moment seller onboarding opens.
+            We&rsquo;ve received your application for <b>{application.businessName}</b> and it&rsquo;s
+            now under review. We&rsquo;ll email {application.email} once a decision is made.
           </p>
           <Button
             variant="secondary"
@@ -134,7 +131,7 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
         <Card className={styles.formCard}>
           <div className={styles.formHeader}>
             <Store size={20} strokeWidth={1.6} aria-hidden="true" />
-            <span>Join the waitlist</span>
+            <span>Apply to sell</span>
           </div>
 
           <div className={styles.formGrid}>
@@ -204,7 +201,7 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
           />
 
           <Button variant="primary" onClick={handleSubmit} disabled={!valid || busy} className={styles.submitButton}>
-            Join the waitlist
+            Submit application
           </Button>
         </Card>
       )}

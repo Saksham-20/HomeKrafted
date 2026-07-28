@@ -9,23 +9,35 @@ import {
   type HowItWorksStep,
   type LoyaltyTierInfo,
 } from "@/lib/data";
+import { getSessionUser } from "@/lib/auth/session";
+import { http, isMockMode } from "./http";
+
+/** Referrals & loyalty (M8.4a — real). Owner-scoped (`docs/API.md` "Referrals & loyalty (M8.3a)"). */
 
 export async function getReferralCode(): Promise<string> {
-  return currentUser.referralCode;
+  if (isMockMode()) return currentUser.referralCode;
+  const cached = getSessionUser()?.referralCode;
+  if (cached) return cached;
+  const { code } = await http.get<{ code: string }>("/referrals/code");
+  return code;
 }
 
 export async function getReferrals(): Promise<Referral[]> {
-  return referrals;
+  if (isMockMode()) return referrals;
+  return http.get<Referral[]>("/referrals");
 }
 
 export async function getLoyaltyAccount(): Promise<LoyaltyAccount> {
-  return loyaltyAccount;
+  if (isMockMode()) return loyaltyAccount;
+  return http.get<LoyaltyAccount>("/loyalty");
 }
 
+/** Static tier ladder copy — no endpoint (tier thresholds/perks are display content, not per-user data). */
 export async function getLoyaltyTiers(): Promise<LoyaltyTierInfo[]> {
   return LOYALTY_TIERS;
 }
 
+/** Static copy — not an endpoint. */
 export async function getReferralHowItWorks(): Promise<HowItWorksStep[]> {
   return referralHowItWorks;
 }
@@ -40,31 +52,35 @@ export interface ApplyReferralCreditResult {
 }
 
 /**
- * Mock "a friend just accepted your invite" mutation — the demo button on
- * `/account/referrals`. Advances the oldest non-`rewarded` referral
- * (preferring one already `joined` over a merely `pending` one, since
- * that's closer to the real trigger — a completed first order) to
- * `status: "rewarded"` with `rewardAmount: REFERRAL_REWARD_AMOUNT`,
- * mutating the shared `referrals` array in place (same session-scoped
- * mock-mutation pattern as `lib/api/addresses.ts`). Returns `null` when
- * every referral is already rewarded, so the caller can disable the
- * button / show an empty state instead of crediting an unbounded number
- * of times.
+ * Mock mode: "a friend just accepted your invite" demo button — advances
+ * the oldest non-`rewarded` referral in place, same as pre-M8.4a.
  *
- * This only updates the `Referral` row — the actual wallet credit is a
- * separate step the caller makes via `useWallet().earnReferralCredit()`,
- * keeping every ledger-mutating write going through `WalletContext` (the
- * one place `balanceAfter` gets computed), the same division of
- * responsibility `CheckoutClient`/`LaundryBookingClient` already use
- * between `createOrder`/`createBooking` and `pay`/`earnCashback`.
+ * Real mode: `POST /referrals/:id/apply-credit` — **shape change** flagged
+ * in `docs/API.md`: the real endpoint targets one `Referral` id explicitly
+ * (owner-scoped, once-only via a `409` on an already-`rewarded` referral)
+ * rather than auto-picking "the next eligible one." `ReferralsClient`
+ * picks the same "oldest `joined`, else oldest `pending`" referral
+ * client-side and passes its id here — same effective UX as before, real
+ * endpoint underneath. Credits the wallet **server-side** as part of the
+ * same call (`WalletService.postLedgerEntryTx`), so the caller no longer
+ * makes a separate `useWallet().earnReferralCredit()` write — it just
+ * refreshes the wallet balance afterward.
  */
-export async function applyReferralCredit(): Promise<ApplyReferralCreditResult | null> {
-  const target =
-    referrals.find((r) => r.status === "joined") ?? referrals.find((r) => r.status === "pending");
-  if (!target) return null;
+export async function applyReferralCredit(
+  referralId?: string,
+): Promise<ApplyReferralCreditResult | null> {
+  if (isMockMode()) {
+    const target =
+      referrals.find((r) => r.status === "joined") ?? referrals.find((r) => r.status === "pending");
+    if (!target) return null;
 
-  target.status = "rewarded";
-  target.rewardAmount = REFERRAL_REWARD_AMOUNT;
+    target.status = "rewarded";
+    target.rewardAmount = REFERRAL_REWARD_AMOUNT;
 
-  return { referral: target, rewardAmount: REFERRAL_REWARD_AMOUNT };
+    return { referral: target, rewardAmount: REFERRAL_REWARD_AMOUNT };
+  }
+
+  if (!referralId) return null;
+  const referral = await http.post<Referral>(`/referrals/${encodeURIComponent(referralId)}/apply-credit`);
+  return { referral, rewardAmount: referral.rewardAmount ?? REFERRAL_REWARD_AMOUNT };
 }

@@ -68,15 +68,19 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
     setCustomAmount("");
   }
 
-  function handleTopUp() {
+  async function handleTopUp() {
     if (!effectiveAmount || effectiveAmount <= 0) return;
-    topUp(effectiveAmount);
-    setToast(
-      bonus
-        ? `Added ${formatCurrency(effectiveAmount)} + ${formatCurrency(bonus)} bonus to your wallet`
-        : `Added ${formatCurrency(effectiveAmount)} to your wallet`,
-    );
-    setCustomAmount("");
+    try {
+      await topUp(effectiveAmount);
+      setToast(
+        bonus
+          ? `Added ${formatCurrency(effectiveAmount)} + ${formatCurrency(bonus)} bonus to your wallet`
+          : `Added ${formatCurrency(effectiveAmount)} to your wallet`,
+      );
+      setCustomAmount("");
+    } catch {
+      setToast("Top-up wasn't completed — no charge was made.");
+    }
     window.setTimeout(() => setToast(null), 3500);
   }
 

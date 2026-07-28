@@ -1,40 +1,51 @@
 import type { Notification, NotificationCategory, NotificationPreference } from "@/lib/types";
 import { notificationPreferences, notifications } from "@/lib/data";
+import { http, isMockMode } from "./http";
+
+/** Notifications (M8.4a — real). Owner-scoped; actual delivery is M9 — this only persists + reads (`docs/API.md` "Notifications"). */
 
 export async function getNotifications(): Promise<Notification[]> {
-  return notifications;
+  if (isMockMode()) return notifications;
+  return http.get<Notification[]>("/notifications");
 }
 
 export async function getNotificationPreferences(): Promise<NotificationPreference[]> {
-  return notificationPreferences;
+  if (isMockMode()) return notificationPreferences;
+  return http.get<NotificationPreference[]>("/notifications/preferences");
 }
 
 export type NotificationChannelPatch = Partial<
   Pick<NotificationPreference, "sms" | "whatsapp" | "email" | "inapp">
 >;
 
-/**
- * Mock preference mutation — mutates the shared `notificationPreferences`
- * row for `category` in place (same session-scoped mock-mutation pattern
- * as `lib/api/addresses.ts`/`lib/api/site.ts#updateUser`). Real
- * server-side persistence (and actually gating delivery per channel)
- * lands with M9's SMS/WhatsApp/email integrations.
- */
 export async function updateNotificationPreference(
   category: NotificationCategory,
   patch: NotificationChannelPatch,
 ): Promise<NotificationPreference> {
-  const pref = notificationPreferences.find((p) => p.category === category);
-  if (!pref) {
-    throw new Error(`No notification preference row for category "${category}"`);
+  if (isMockMode()) {
+    const pref = notificationPreferences.find((p) => p.category === category);
+    if (!pref) {
+      throw new Error(`No notification preference row for category "${category}"`);
+    }
+    Object.assign(pref, patch);
+    return pref;
   }
-  Object.assign(pref, patch);
-  return pref;
+  return http.patch<NotificationPreference>(
+    `/notifications/preferences/${encodeURIComponent(category)}`,
+    patch,
+  );
 }
 
-/** Mock read/unread mutation for the inbox list — mutates the shared `notifications` array in place. */
+/** Real mode: `PATCH /notifications/:id/read` — owner-scoped, `404` if it exists but isn't mine (surfaced as `undefined` here, matching the mock's shape). */
 export async function setNotificationRead(id: string, read: boolean): Promise<Notification | undefined> {
-  const notification = notifications.find((n) => n.id === id);
-  if (notification) notification.read = read;
-  return notification;
+  if (isMockMode()) {
+    const notification = notifications.find((n) => n.id === id);
+    if (notification) notification.read = read;
+    return notification;
+  }
+  try {
+    return await http.patch<Notification>(`/notifications/${encodeURIComponent(id)}/read`, { read });
+  } catch {
+    return undefined;
+  }
 }

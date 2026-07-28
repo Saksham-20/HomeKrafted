@@ -3,6 +3,12 @@ import type { OrderStatus } from "@/lib/types";
 import styles from "./OrderStatusPill.module.css";
 
 const LABEL: Record<OrderStatus, string> = {
+  // M8.4a: `OrderStatus` gained `"pending-payment"` for the real client
+  // swap (`docs/API.md`'s M8.2 seam) — the seller portal itself stays
+  // mock until M8.4b, so this is purely a type-completeness fix, not a
+  // seller-facing feature (a seller can't fulfil an unpaid order anyway;
+  // `POST /seller/orders/:id/advance` already 409s on it server-side).
+  "pending-payment": "Payment pending",
   placed: "Placed",
   confirmed: "Confirmed",
   packed: "Packed",
@@ -13,6 +19,7 @@ const LABEL: Record<OrderStatus, string> = {
 };
 
 const VARIANT_CLASS: Record<OrderStatus, string> = {
+  "pending-payment": styles.placed,
   placed: styles.placed,
   confirmed: styles.confirmed,
   packed: styles.packed,

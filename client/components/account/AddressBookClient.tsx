@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { MapPin, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -9,16 +9,13 @@ import { Textarea } from "@/components/ui/Textarea";
 import {
   createAddress,
   deleteAddress,
+  getAddresses,
   setDefaultAddress,
   updateAddress,
   type AddressInput,
 } from "@/lib/api";
 import type { Address } from "@/lib/types";
 import styles from "./AddressBookClient.module.css";
-
-export interface AddressBookClientProps {
-  initialAddresses: Address[];
-}
 
 const EMPTY_FORM: AddressInput = {
   label: "",
@@ -45,21 +42,34 @@ function isFormValid(form: AddressInput): boolean {
 }
 
 /**
- * Address book CRUD (M7a) — full add/edit/delete/set-default over the
- * address book, backed by `lib/api/addresses.ts`'s mock mutations (which
- * mutate the same shared `addresses` array Checkout's `getAddresses()`
- * reads — see that module's comment on the session-scoped persistence
- * caveat). Local `addresses` state here starts from the server-fetched
- * `initialAddresses` and is kept in sync from each mutation's return
- * value, the same "server-seeded, client-updated" pattern
- * `CheckoutClient`'s own inline `addAddress` already established.
+ * Address book CRUD (M7a; M8.4a real). Full add/edit/delete/set-default
+ * over the address book, backed by `lib/api/addresses.ts`'s owner-scoped
+ * `/users/me/addresses*` endpoints. Fetches its own initial list on mount
+ * (owner-scoped real read, same reasoning as `OrdersListClient` — see
+ * `lib/auth/session.ts`'s file header) rather than a server-fetched prop;
+ * every mutation keeps local `addresses` state in sync from its return
+ * value, same "fetch once, client-updated" pattern `CheckoutClient`'s own
+ * inline `addAddress` uses.
  */
-export function AddressBookClient({ initialAddresses }: AddressBookClientProps) {
-  const [addresses, setAddresses] = useState<Address[]>(initialAddresses);
+export function AddressBookClient() {
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [ready, setReady] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<AddressInput>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAddresses().then((list) => {
+      if (cancelled) return;
+      setAddresses(list);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function startAdd() {
     setForm(EMPTY_FORM);
@@ -141,6 +151,14 @@ export function AddressBookClient({ initialAddresses }: AddressBookClientProps) 
   }
 
   const showForm = adding || editingId !== null;
+
+  if (!ready) {
+    return (
+      <div className={styles.wrap}>
+        <p className={styles.loading}>Loading your address book…</p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.wrap}>

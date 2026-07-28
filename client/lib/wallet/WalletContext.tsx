@@ -1,19 +1,30 @@
 "use client";
 
 /**
- * Client-side wallet store (M6) — mirrors `lib/cart/CartContext.tsx`'s
- * shape exactly: a React context, hydrated post-mount from `localStorage`
- * (guards against an SSR/client markup mismatch, same as Cart), seeded on
- * first-ever load from the mock `lib/api/wallet` layer. There is no
- * backend yet, so every op below (`topUp`/`pay`/`earnCashback`/`refund`/
- * `setAutoTopup`) mutates local React state and appends a `WalletTransaction`
- * that matches `lib/types/wallet.ts`'s shape exactly — M8 lifts this same
- * shape server-side (swap the localStorage read/write + local ledger math
- * for `fetch` calls against a real, **server-authoritative** `/api/wallet`
- * ledger; the server must own `balanceAfter` and make every write
- * idempotent, since a client can never be trusted to compute its own
- * balance — see `docs/DATA-MODEL.md`). Every `useWallet()` call site stays
- * unchanged across that swap.
+ * Wallet store (M8.4a — real for the consumer role). Real mode: hydrates
+ * from `GET /wallet` + `GET /wallet/transactions` + `GET /wallet/auto-topup`
+ * once the signed-in consumer session is ready (`useAuth()`), and every
+ * mutation now goes through the server:
+ *  - `topUp` → `POST /payments/razorpay/order` (`purpose: "topup"`) + the
+ *    Razorpay Checkout SDK (`lib/payments/razorpay.ts`); the wallet credit
+ *    itself only happens once Razorpay's `payment.captured` webhook lands
+ *    server-side, so this refetches the wallet after a successful charge.
+ *  - `pay` → `POST /orders/:id/pay` (marketplace wallet-pay; laundry's
+ *    wallet-pay is atomic with booking creation server-side, so
+ *    `LaundryBookingClient` no longer calls this at all — see that file).
+ *  - `earnCashback`/`refund`/`earnReferralCredit` no longer compute
+ *    anything client-side (the server is the only ledger writer now) —
+ *    they just trigger a refetch of the balance/transactions the caller's
+ *    own server-side mutation (order pay, laundry booking, referral
+ *    apply-credit, admin refund) already applied. Kept as named,
+ *    void-returning methods so every existing call site
+ *    (`CheckoutClient`, `LaundryBookingClient`, `ReferralsClient`) keeps
+ *    working unchanged.
+ *
+ * `NEXT_PUBLIC_USE_MOCK=true` keeps the exact pre-M8.4a behavior: a
+ * `localStorage`-persisted local ledger with client-computed
+ * `balanceAfter`, seeded from the mock `lib/api/wallet` layer, no network
+ * calls, no auth gating.
  */
 
 import {
@@ -25,12 +36,23 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getAutoTopupRule, getTransactions, getWallet } from "@/lib/api";
+import {
+  createRazorpayOrder,
+  getAutoTopupRule,
+  getTransactions,
+  getWallet,
+  payOrder,
+  updateAutoTopupRule,
+} from "@/lib/api";
+import { ApiError, isMockMode } from "@/lib/api/http";
+import { openRazorpayCheckout } from "@/lib/payments/razorpay";
+import { useAuth } from "@/lib/auth/AuthContext";
 import type { AutoTopupRule, ID, WalletTransaction, WalletTransactionRefType } from "@/lib/types";
 
 const STORAGE_KEY = "hk_wallet_v1";
+const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 
-/** Top-ups above this amount earn a 3% bonus credit — ported from the prototype's "Get 3% extra on top-ups above ₹2,000" copy, now actually wired instead of purely decorative. */
+/** Top-ups above this amount earn a 3% bonus credit — ported from the prototype's "Get 3% extra on top-ups above ₹2,000" copy. Real mode: the server applies the identical rule on webhook capture (`server/src/payments/`) — these constants stay here only for the mock math + the pre-payment "you'll earn a bonus" preview copy in `WalletClient`. */
 export const TOPUP_BONUS_THRESHOLD = 2000;
 export const TOPUP_BONUS_RATE = 0.03;
 
@@ -42,7 +64,7 @@ interface WalletState {
   autoTopup: AutoTopupRule;
 }
 
-/** Reference info a caller attaches to a ledger-mutating op — becomes the `WalletTransaction`'s `title`/`refType`/`refId`. */
+/** Reference info a caller attaches to a ledger-mutating op — becomes the mock `WalletTransaction`'s `title`/`refType`/`refId` (mock mode) or is otherwise unused for display only (real mode — the server already wrote the real title). */
 export interface WalletTxnRef {
   title: string;
   refType?: WalletTransactionRefType;
@@ -51,6 +73,8 @@ export interface WalletTxnRef {
 
 export interface PayResult {
   ok: boolean;
+  /** Real mode only — a server-provided message when `ok: false` (e.g. balance changed), for a more specific error than the caller's own generic fallback copy. */
+  message?: string;
 }
 
 export interface WalletContextValue {
@@ -59,28 +83,22 @@ export interface WalletContextValue {
   lifetimeSaved: number;
   transactions: WalletTransaction[];
   autoTopup: AutoTopupRule;
-  /** True once localStorage + the seeded mock wallet/ledger have both loaded. */
+  /** True once the wallet has hydrated (mock: localStorage + seed; real: the signed-in consumer's `GET /wallet`, or immediately `true` with zero values for a non-consumer/signed-out session). */
   ready: boolean;
-  /** Credits the wallet — a top-up above `TOPUP_BONUS_THRESHOLD` also appends a separate 3% bonus credit. */
-  topUp: (amount: number) => void;
-  /** Debits the wallet for a purchase. Returns `{ ok: false }` without mutating state when the balance can't cover `amount` — callers must gate the wallet payment option on this / on a live `balance >= total` check before calling. Auto-fires the configured `below-threshold` top-up rule (if enabled) when the debit drops the balance under the threshold. */
-  pay: (amount: number, ref: WalletTxnRef) => PayResult;
-  /** Credits cashback earned on an order/booking; also adds to `lifetimeSaved`. */
+  /** Credits the wallet. Real mode: opens Razorpay Checkout for `amount`, resolves once the server has re-confirmed the credit; rejects if the checkout is dismissed/fails. */
+  topUp: (amount: number) => Promise<void>;
+  /** Debits the wallet for a purchase. Real mode: `ref.refType` must be `"order"` with `ref.refId` set to the real `Order.id` — pays via `POST /orders/:id/pay`. Returns `{ ok: false }` without mutating anything when the balance can't cover `amount` (mock) or the server rejects with `INSUFFICIENT_BALANCE` (real). */
+  pay: (amount: number, ref: WalletTxnRef) => Promise<PayResult>;
+  /** Refreshes the wallet after cashback was credited server-side elsewhere (or, in mock mode, credits it locally). */
   earnCashback: (amount: number, ref: WalletTxnRef) => void;
-  /** Credits an instant refund. Does not add to `lifetimeSaved` (it's a return of the shopper's own money, not a saving). */
+  /** Refreshes the wallet after a refund was credited server-side elsewhere (or, in mock mode, credits it locally). */
   refund: (amount: number, ref: WalletTxnRef) => void;
-  /**
-   * Credits a referral reward (M7b) — same shape as `earnCashback` but
-   * appends `category: "referral"` (matching `WalletTransactionCategory`)
-   * instead of `"cashback"`, and does not add to `lifetimeSaved` (a
-   * referral bonus isn't a shopping saving). Used by
-   * `/account/referrals`'s demo "apply referral credit" button after
-   * `applyReferralCredit()` (`lib/api/referrals.ts`) advances a `Referral`
-   * to `rewarded`.
-   */
+  /** Refreshes the wallet after `lib/api/referrals.ts#applyReferralCredit` credited a referral reward server-side (or, in mock mode, credits it locally). */
   earnReferralCredit: (amount: number, ref: WalletTxnRef) => void;
-  /** Merges a partial update into the auto-top-up rule (e.g. `{ enabled: true }` or `{ thresholdAmount: 500 }`). */
+  /** Merges a partial update into the auto-top-up rule — optimistic locally, reconciled with `PUT /wallet/auto-topup`'s response in real mode. */
   setAutoTopup: (patch: Partial<AutoTopupRule>) => void;
+  /** Re-fetches balance/transactions from the server (no-op in mock mode). Used after a mutation that credited/debited the wallet as a side effect of a *different* endpoint — e.g. `LaundryBookingClient`'s wallet-paid booking, which debits atomically server-side inside `POST /laundry/bookings` itself. */
+  refresh: () => void;
 }
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
@@ -126,23 +144,35 @@ const EMPTY_STATE: WalletState = {
 };
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const mock = isMockMode();
+  const { ready: authReady, isSignedIn, role, user } = useAuth();
   const [state, setState] = useState<WalletState>(EMPTY_STATE);
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
 
-  // Hydrate from localStorage + load the seeded mock wallet once, client-side
-  // only (same reasoning as CartProvider: avoids an SSR/client markup
-  // mismatch — server always renders the zero-balance state, then this
-  // fills in a moment after mount).
+  const refreshFromServer = useCallback(async () => {
+    const [w, transactions] = await Promise.all([getWallet(), getTransactions()]);
+    setState((current) => ({
+      ...current,
+      balance: w.balance,
+      pendingCashback: w.pendingCashback,
+      lifetimeSaved: w.lifetimeSaved,
+      transactions,
+    }));
+  }, []);
+
+  // Mock mode: hydrate from localStorage + the seeded mock wallet once,
+  // client-side only, exactly as pre-M8.4a (no auth gating).
   useEffect(() => {
+    if (!mock) return;
     const stored = readStorage();
     Promise.all([getWallet(), getTransactions(), getAutoTopupRule()]).then(
-      ([wallet, transactions, autoTopup]) => {
+      ([w, transactions, autoTopup]) => {
         setState(
           stored ?? {
-            balance: wallet.balance,
-            pendingCashback: wallet.pendingCashback,
-            lifetimeSaved: wallet.lifetimeSaved,
+            balance: w.balance,
+            pendingCashback: w.pendingCashback,
+            lifetimeSaved: w.lifetimeSaved,
             transactions,
             autoTopup,
           },
@@ -151,202 +181,303 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         hydrated.current = true;
       },
     );
-  }, []);
+  }, [mock]);
 
-  // Persist on every change, once initial hydration has happened (so we
-  // don't clobber existing storage with the pre-hydration empty state).
+  // Real mode: wait for the auth session, then hydrate the signed-in
+  // consumer's real wallet. A seller/admin session (or signed-out) just
+  // renders the zero-value empty state — this store is consumer-only.
   useEffect(() => {
-    if (!hydrated.current) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
-
-  const topUp = useCallback((amount: number) => {
-    if (amount <= 0) return;
-    setState((current) => {
-      const now = new Date().toISOString();
-      let nextBalance = current.balance + amount;
-      const transactions: WalletTransaction[] = [
-        {
-          id: genId("wt"),
-          walletId: current.autoTopup.walletId,
-          direction: "credit",
-          category: "topup",
-          amount,
-          balanceAfter: nextBalance,
-          title: "Wallet top-up",
-          refType: "topup",
-          createdAt: now,
-        },
-        ...current.transactions,
-      ];
-
-      if (amount > TOPUP_BONUS_THRESHOLD) {
-        const bonus = Math.round(amount * TOPUP_BONUS_RATE);
-        nextBalance += bonus;
-        transactions.unshift({
-          id: genId("wt"),
-          walletId: current.autoTopup.walletId,
-          direction: "credit",
-          category: "cashback",
-          amount: bonus,
-          balanceAfter: nextBalance,
-          title: "Top-up bonus (3%)",
-          refType: "topup",
-          createdAt: now,
+    if (mock) return;
+    if (!authReady) return;
+    if (!isSignedIn || role !== "consumer") {
+      // Deferred a tick to avoid a synchronous `setState` directly in the
+      // effect body (`react-hooks/set-state-in-effect`).
+      let cancelled = false;
+      Promise.resolve().then(() => {
+        if (cancelled) return;
+        setState(EMPTY_STATE);
+        setReady(true);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    let cancelled = false;
+    Promise.all([getWallet(), getTransactions(), getAutoTopupRule()]).then(
+      ([w, transactions, autoTopup]) => {
+        if (cancelled) return;
+        setState({
+          balance: w.balance,
+          pendingCashback: w.pendingCashback,
+          lifetimeSaved: w.lifetimeSaved,
+          transactions,
+          autoTopup,
         });
+        setReady(true);
+        hydrated.current = true;
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [mock, authReady, isSignedIn, role]);
+
+  // Mock mode only — persist on every change, once initial hydration has
+  // happened (so we don't clobber existing storage with the pre-hydration
+  // empty state).
+  useEffect(() => {
+    if (!mock || !hydrated.current) return;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [mock, state]);
+
+  const topUp = useCallback(
+    async (amount: number): Promise<void> => {
+      if (amount <= 0) return;
+
+      if (mock) {
+        setState((current) => {
+          const now = new Date().toISOString();
+          let nextBalance = current.balance + amount;
+          const transactions: WalletTransaction[] = [
+            {
+              id: genId("wt"),
+              walletId: current.autoTopup.walletId,
+              direction: "credit",
+              category: "topup",
+              amount,
+              balanceAfter: nextBalance,
+              title: "Wallet top-up",
+              refType: "topup",
+              createdAt: now,
+            },
+            ...current.transactions,
+          ];
+
+          if (amount > TOPUP_BONUS_THRESHOLD) {
+            const bonus = Math.round(amount * TOPUP_BONUS_RATE);
+            nextBalance += bonus;
+            transactions.unshift({
+              id: genId("wt"),
+              walletId: current.autoTopup.walletId,
+              direction: "credit",
+              category: "cashback",
+              amount: bonus,
+              balanceAfter: nextBalance,
+              title: "Top-up bonus (3%)",
+              refType: "topup",
+              createdAt: now,
+            });
+          }
+
+          return { ...current, balance: nextBalance, transactions };
+        });
+        return;
       }
 
-      return { ...current, balance: nextBalance, transactions };
-    });
-  }, []);
-
-  // `pay`'s insufficient-balance check reads the last-rendered `state`
-  // (not a stale value in normal single-call usage — every op re-renders
-  // every `useWallet()` consumer) rather than reaching into the `setState`
-  // updater's `current`, so the caller gets a synchronous, deterministic
-  // `{ ok }` back instead of depending on React's update-batching timing.
-  const pay = useCallback(
-    (amount: number, ref: WalletTxnRef): PayResult => {
-      if (amount <= 0) return { ok: true };
-      if (state.balance < amount) return { ok: false };
-
-      setState((current) => {
-        if (current.balance < amount) return current; // safety net; shouldn't happen given the guard above
-        const now = new Date().toISOString();
-        const afterPay = current.balance - amount;
-        const transactions: WalletTransaction[] = [
-          {
-            id: genId("wt"),
-            walletId: current.autoTopup.walletId,
-            direction: "debit",
-            category: "payment",
-            amount,
-            balanceAfter: afterPay,
-            title: ref.title,
-            refType: ref.refType,
-            refId: ref.refId,
-            createdAt: now,
+      const order = await createRazorpayOrder({ purpose: "topup", amount });
+      await new Promise<void>((resolve, reject) => {
+        openRazorpayCheckout({
+          keyId: order.keyId || RAZORPAY_KEY_ID,
+          amountPaise: order.amountPaise,
+          currency: order.currency,
+          name: "Homekrafted",
+          description: "Wallet top-up",
+          orderId: order.razorpayOrderId,
+          prefill: { name: user?.name, email: user?.email, contact: user?.phone },
+          onSuccess: () => {
+            refreshFromServer().then(resolve).catch(reject);
           },
-          ...current.transactions,
-        ];
-
-        let nextBalance = afterPay;
-        const rule = current.autoTopup;
-        // Auto-top-up only ever fires reactively, after a successful
-        // payment leaves the balance under the configured floor — it
-        // never rescues an insufficient payment (see the early-return
-        // guard above). M8's server should make this an idempotent,
-        // server-scheduled job instead of a synchronous client append.
-        if (
-          rule.enabled &&
-          rule.trigger === "below-threshold" &&
-          rule.thresholdAmount !== undefined &&
-          nextBalance < rule.thresholdAmount
-        ) {
-          nextBalance += rule.topupAmount;
-          transactions.unshift({
-            id: genId("wt"),
-            walletId: rule.walletId,
-            direction: "credit",
-            category: "topup",
-            amount: rule.topupAmount,
-            balanceAfter: nextBalance,
-            title: "Auto top-up",
-            refType: "topup",
-            createdAt: now,
-          });
-        }
-
-        return { ...current, balance: nextBalance, transactions };
+          onDismiss: () => reject(new Error("Top-up cancelled")),
+        }).catch(reject);
       });
-
-      return { ok: true };
     },
-    [state.balance],
+    [mock, refreshFromServer, user],
   );
 
-  const earnCashback = useCallback((amount: number, ref: WalletTxnRef) => {
-    if (amount <= 0) return;
-    setState((current) => {
-      const nextBalance = current.balance + amount;
-      return {
-        ...current,
-        balance: nextBalance,
-        lifetimeSaved: current.lifetimeSaved + amount,
-        transactions: [
-          {
-            id: genId("wt"),
-            walletId: current.autoTopup.walletId,
-            direction: "credit",
-            category: "cashback",
-            amount,
-            balanceAfter: nextBalance,
-            title: ref.title,
-            refType: ref.refType,
-            refId: ref.refId,
-            createdAt: new Date().toISOString(),
-          },
-          ...current.transactions,
-        ],
-      };
-    });
-  }, []);
+  const pay = useCallback(
+    async (amount: number, ref: WalletTxnRef): Promise<PayResult> => {
+      if (amount <= 0) return { ok: true };
 
-  const refund = useCallback((amount: number, ref: WalletTxnRef) => {
-    if (amount <= 0) return;
-    setState((current) => {
-      const nextBalance = current.balance + amount;
-      return {
-        ...current,
-        balance: nextBalance,
-        transactions: [
-          {
-            id: genId("wt"),
-            walletId: current.autoTopup.walletId,
-            direction: "credit",
-            category: "refund",
-            amount,
-            balanceAfter: nextBalance,
-            title: ref.title,
-            refType: ref.refType,
-            refId: ref.refId,
-            createdAt: new Date().toISOString(),
-          },
-          ...current.transactions,
-        ],
-      };
-    });
-  }, []);
+      if (mock) {
+        if (state.balance < amount) return { ok: false };
+        setState((current) => {
+          if (current.balance < amount) return current;
+          const now = new Date().toISOString();
+          const afterPay = current.balance - amount;
+          const transactions: WalletTransaction[] = [
+            {
+              id: genId("wt"),
+              walletId: current.autoTopup.walletId,
+              direction: "debit",
+              category: "payment",
+              amount,
+              balanceAfter: afterPay,
+              title: ref.title,
+              refType: ref.refType,
+              refId: ref.refId,
+              createdAt: now,
+            },
+            ...current.transactions,
+          ];
 
-  const earnReferralCredit = useCallback((amount: number, ref: WalletTxnRef) => {
-    if (amount <= 0) return;
-    setState((current) => {
-      const nextBalance = current.balance + amount;
-      return {
-        ...current,
-        balance: nextBalance,
-        transactions: [
-          {
-            id: genId("wt"),
-            walletId: current.autoTopup.walletId,
-            direction: "credit",
-            category: "referral",
-            amount,
-            balanceAfter: nextBalance,
-            title: ref.title,
-            refType: ref.refType,
-            refId: ref.refId,
-            createdAt: new Date().toISOString(),
-          },
-          ...current.transactions,
-        ],
-      };
-    });
-  }, []);
+          let nextBalance = afterPay;
+          const rule = current.autoTopup;
+          if (
+            rule.enabled &&
+            rule.trigger === "below-threshold" &&
+            rule.thresholdAmount !== undefined &&
+            nextBalance < rule.thresholdAmount
+          ) {
+            nextBalance += rule.topupAmount;
+            transactions.unshift({
+              id: genId("wt"),
+              walletId: rule.walletId,
+              direction: "credit",
+              category: "topup",
+              amount: rule.topupAmount,
+              balanceAfter: nextBalance,
+              title: "Auto top-up",
+              refType: "topup",
+              createdAt: now,
+            });
+          }
 
-  const setAutoTopup = useCallback((patch: Partial<AutoTopupRule>) => {
-    setState((current) => ({ ...current, autoTopup: { ...current.autoTopup, ...patch } }));
-  }, []);
+          return { ...current, balance: nextBalance, transactions };
+        });
+        return { ok: true };
+      }
+
+      if (ref.refType !== "order" || !ref.refId) return { ok: false };
+      try {
+        await payOrder(ref.refId);
+        await refreshFromServer();
+        return { ok: true };
+      } catch (err) {
+        if (err instanceof ApiError) return { ok: false, message: err.message };
+        return { ok: false };
+      }
+    },
+    [mock, state.balance, refreshFromServer],
+  );
+
+  const earnCashback = useCallback(
+    (amount: number, ref: WalletTxnRef) => {
+      if (amount <= 0) return;
+      if (!mock) {
+        void refreshFromServer();
+        return;
+      }
+      setState((current) => {
+        const nextBalance = current.balance + amount;
+        return {
+          ...current,
+          balance: nextBalance,
+          lifetimeSaved: current.lifetimeSaved + amount,
+          transactions: [
+            {
+              id: genId("wt"),
+              walletId: current.autoTopup.walletId,
+              direction: "credit",
+              category: "cashback",
+              amount,
+              balanceAfter: nextBalance,
+              title: ref.title,
+              refType: ref.refType,
+              refId: ref.refId,
+              createdAt: new Date().toISOString(),
+            },
+            ...current.transactions,
+          ],
+        };
+      });
+    },
+    [mock, refreshFromServer],
+  );
+
+  const refund = useCallback(
+    (amount: number, ref: WalletTxnRef) => {
+      if (amount <= 0) return;
+      if (!mock) {
+        void refreshFromServer();
+        return;
+      }
+      setState((current) => {
+        const nextBalance = current.balance + amount;
+        return {
+          ...current,
+          balance: nextBalance,
+          transactions: [
+            {
+              id: genId("wt"),
+              walletId: current.autoTopup.walletId,
+              direction: "credit",
+              category: "refund",
+              amount,
+              balanceAfter: nextBalance,
+              title: ref.title,
+              refType: ref.refType,
+              refId: ref.refId,
+              createdAt: new Date().toISOString(),
+            },
+            ...current.transactions,
+          ],
+        };
+      });
+    },
+    [mock, refreshFromServer],
+  );
+
+  const earnReferralCredit = useCallback(
+    (amount: number, ref: WalletTxnRef) => {
+      if (amount <= 0) return;
+      if (!mock) {
+        void refreshFromServer();
+        return;
+      }
+      setState((current) => {
+        const nextBalance = current.balance + amount;
+        return {
+          ...current,
+          balance: nextBalance,
+          transactions: [
+            {
+              id: genId("wt"),
+              walletId: current.autoTopup.walletId,
+              direction: "credit",
+              category: "referral",
+              amount,
+              balanceAfter: nextBalance,
+              title: ref.title,
+              refType: ref.refType,
+              refId: ref.refId,
+              createdAt: new Date().toISOString(),
+            },
+            ...current.transactions,
+          ],
+        };
+      });
+    },
+    [mock, refreshFromServer],
+  );
+
+  const setAutoTopup = useCallback(
+    (patch: Partial<AutoTopupRule>) => {
+      setState((current) => ({ ...current, autoTopup: { ...current.autoTopup, ...patch } }));
+      if (!mock) {
+        updateAutoTopupRule(patch)
+          .then((updated) => setState((current) => ({ ...current, autoTopup: updated })))
+          .catch(() => {
+            // best-effort — the optimistic local merge above already reflects the intent
+          });
+      }
+    },
+    [mock],
+  );
+
+  const refresh = useCallback(() => {
+    if (mock) return;
+    void refreshFromServer();
+  }, [mock, refreshFromServer]);
 
   const value: WalletContextValue = {
     balance: state.balance,
@@ -361,6 +492,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     refund,
     earnReferralCredit,
     setAutoTopup,
+    refresh,
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

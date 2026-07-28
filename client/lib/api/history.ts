@@ -15,6 +15,7 @@
 
 import type { LaundryBooking, LaundryBookingStatus, Order, OrderStatus } from "@/lib/types";
 import { laundryServices, seedLaundryBookings, seedOrders } from "@/lib/data";
+import { isMockMode } from "./http";
 import { getPlacedOrders } from "./orders";
 import { getPlacedBookings } from "./laundry";
 
@@ -62,6 +63,7 @@ const LAUNDRY_PIPELINE: { status: LaundryBookingStatus; label: string }[] = [
 ];
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
+  "pending-payment": "Payment pending",
   placed: "Placed",
   confirmed: "Confirmed",
   packed: "Packed",
@@ -94,6 +96,9 @@ export function getOrderStatusSteps(status: OrderStatus): OrderHistoryStep[] {
       { label: "Placed", done: true },
       { label: status === "cancelled" ? "Cancelled" : "Returned", done: true },
     ];
+  }
+  if (status === "pending-payment") {
+    return [{ label: "Payment pending", done: false, current: true }];
   }
   const index = ORDER_PIPELINE.findIndex((step) => step.status === status);
   return ORDER_PIPELINE.map((step, i) => ({
@@ -161,15 +166,26 @@ function toBookingEntry(booking: LaundryBooking): OrderHistoryEntry {
   };
 }
 
-/** Full unified history (seeded + this-session-live), newest first. */
+/**
+ * Full unified history, newest first. Mock mode: seeded history + this-
+ * session-live orders/bookings (pre-M8.4a behavior, unchanged). Real
+ * mode: `getPlacedOrders()`/`getPlacedBookings()` now resolve to *every*
+ * order/booking of the signed-in account straight from `server/`
+ * (`GET /orders` + `GET /laundry/bookings`) — the seeded rows already live
+ * in Postgres (`server/prisma/seed.ts` seeds the same ids as
+ * `lib/data`'s mock arrays), so concatenating the local `seedOrders`/
+ * `seedLaundryBookings` mock arrays here would double them up.
+ */
 export async function getOrderHistory(): Promise<OrderHistoryEntry[]> {
   const [liveOrders, liveBookings] = await Promise.all([getPlacedOrders(), getPlacedBookings()]);
-  const entries: OrderHistoryEntry[] = [
-    ...seedOrders.map(toOrderEntry),
-    ...liveOrders.map(toOrderEntry),
-    ...seedLaundryBookings.map(toBookingEntry),
-    ...liveBookings.map(toBookingEntry),
-  ];
+  const entries: OrderHistoryEntry[] = isMockMode()
+    ? [
+        ...seedOrders.map(toOrderEntry),
+        ...liveOrders.map(toOrderEntry),
+        ...seedLaundryBookings.map(toBookingEntry),
+        ...liveBookings.map(toBookingEntry),
+      ]
+    : [...liveOrders.map(toOrderEntry), ...liveBookings.map(toBookingEntry)];
   return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 

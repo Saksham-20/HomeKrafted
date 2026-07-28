@@ -19,9 +19,13 @@ import {
   type NavLink,
   type TrustStat,
 } from "@/lib/data";
+import { getMe, updateMe } from "./auth";
+import { http, isMockMode } from "./http";
+import { getSessionUser, toAppUser, updateSessionUser } from "@/lib/auth/session";
 
 export async function getHamperBoxes(): Promise<HamperBox[]> {
-  return hamperBoxes;
+  if (isMockMode()) return hamperBoxes;
+  return http.get<HamperBox[]>("/hamper/boxes", { auth: false });
 }
 
 export async function getMealPromo(): Promise<MealPromo> {
@@ -55,10 +59,10 @@ export async function getHomePromoBands(): Promise<HomePromoBandContent[]> {
 
 /**
  * `getCart`/`getCartCount` are the M0 seed-cart stubs, superseded by the
- * real client-side cart store (`lib/cart/CartContext`) from M3 onward —
- * the Header badge and every add-to-cart control now read/write that
- * instead. Left in place only because `mockCart`/`getCartItemCount`
- * aren't worth deleting for a still-harmless legacy export.
+ * real cart store (`lib/cart/CartContext`) from M3 onward — the Header
+ * badge and every add-to-cart control read/write that instead. Left in
+ * place only because `mockCart`/`getCartItemCount` aren't worth deleting
+ * for a still-harmless legacy export.
  */
 export async function getCart(): Promise<Cart> {
   return mockCart;
@@ -68,8 +72,13 @@ export async function getCartCount(): Promise<number> {
   return getCartItemCount(mockCart);
 }
 
+/** `GET /users/me` — prefers the already-hydrated session snapshot (`AuthContext`) to avoid a redundant network round trip; falls back to a fresh fetch (e.g. called before `AuthProvider` has hydrated). */
 export async function getCurrentUser(): Promise<User> {
-  return currentUser;
+  if (isMockMode()) return currentUser;
+  const sessionUser = getSessionUser();
+  if (sessionUser) return toAppUser(sessionUser);
+  const me = await getMe();
+  return toAppUser(me);
 }
 
 export interface UpdateUserInput {
@@ -79,25 +88,30 @@ export interface UpdateUserInput {
 }
 
 /**
- * Profile edit mutation (M7a) — mutates the shared `currentUser` record
- * in place, same mock-mutation pattern/caveat as
- * `lib/api/addresses.ts`'s CRUD (session/module-instance scoped, not real
- * persistence). Because `useAuth()`'s `user` is this exact object
- * reference, any component that re-reads `user.name`/`.email`/`.phone` on
- * its next render (e.g. on remount/navigation) picks up the change
- * without needing a dedicated "refresh" call. Real profile persistence
- * (and a real users table) lands in M8.
+ * Profile edit mutation. Real mode: `PATCH /users/me`, then mirrors the
+ * updated snapshot back into `lib/auth/session.ts` so `useAuth().user`
+ * reflects it without a separate refresh (see `AuthContext.refreshUser`,
+ * which `ProfileClient` also calls after this resolves, belt-and-braces).
  */
 export async function updateUser(patch: UpdateUserInput): Promise<User> {
-  Object.assign(currentUser, patch);
-  return currentUser;
+  if (isMockMode()) {
+    Object.assign(currentUser, patch);
+    return currentUser;
+  }
+  const updated = await updateMe(patch);
+  updateSessionUser(updated);
+  return toAppUser(updated);
 }
 
+/** Real mode: `GET /users/me/addresses`, first `isDefault` (or first overall if none flagged yet). */
 export async function getDefaultAddress(): Promise<Address> {
-  return demoAddress;
+  if (isMockMode()) return demoAddress;
+  const all = await getAddresses();
+  return all.find((a) => a.isDefault) ?? all[0] ?? demoAddress;
 }
 
-/** Full address book for the signed-in demo user — checkout's multi-address split reads this. */
+/** Full address book for the signed-in account — checkout's multi-address split reads this. */
 export async function getAddresses(): Promise<Address[]> {
-  return addresses;
+  if (isMockMode()) return addresses;
+  return http.get<Address[]>("/users/me/addresses");
 }

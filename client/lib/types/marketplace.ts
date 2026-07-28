@@ -159,6 +159,39 @@ export interface Cart {
   updatedAt: ISODateString;
 }
 
+/**
+ * M8.4a — the real `GET /cart` response line shape (`docs/API.md` "Cart
+ * (owner-scoped)"): richer than the base `CartItem` above, since the
+ * server resolves every display/pricing field
+ * (`CartContext.lineInfo()`'s pre-M8.4a job) itself from
+ * `resolveCartLine`, rather than the client computing them from a
+ * separately-fetched catalog. `CartContext` reads these fields directly
+ * and no longer needs its own `lineInfo()` catalog lookup in real mode.
+ */
+export interface ServerCartLine extends CartItem {
+  name: string;
+  unitPrice: number;
+  lineTotal: number;
+  imageSrc?: string;
+  weightLabel?: string;
+  /** Stock cap for a product line — absent (unbounded) for a hamper line. */
+  maxQuantity?: number;
+  isHamper: boolean;
+}
+
+/** M8.4a — the real `GET /cart` response envelope; `count`/`subtotal`/`shippingFee`/`total`/`cashbackEstimate` are server-computed, same rules as `lib/cart/pricing.ts`. */
+export interface ServerCart {
+  id: ID;
+  userId: ID;
+  updatedAt: ISODateString;
+  items: ServerCartLine[];
+  count: number;
+  subtotal: number;
+  shippingFee: number;
+  total: number;
+  cashbackEstimate: number;
+}
+
 export interface WishlistItem {
   productId: ID;
   addedAt: ISODateString;
@@ -209,7 +242,18 @@ export interface Hamper {
 // Orders
 // ---------------------------------------------------------------------------
 
+/**
+ * `"pending-payment"` (M8.4a) — a real order's starting status
+ * (`server/src/orders/orders.service.ts#create`, every `paymentMethod`,
+ * see `docs/API.md`'s M8.2 seam notes): the wallet-debit/cashback-credit
+ * (`POST /orders/:id/pay`) or Razorpay capture webhook transitions a
+ * `"wallet"`/`"razorpay"` order on to `"placed"`. `"cod"` has no follow-up
+ * transition endpoint yet (a flagged server-side gap, not client-fixable)
+ * — `ORDER_STATUS_LABEL` below still shows a shopper-friendly label for
+ * it rather than a raw "pending payment" that would read as broken.
+ */
 export type OrderStatus =
+  | "pending-payment"
   | "placed"
   | "confirmed"
   | "packed"
@@ -245,6 +289,14 @@ export interface OrderShipment {
 export interface OrderGift {
   isGift: boolean;
   recipientName?: string;
+  /**
+   * M8.4a: must be one of the caller's own saved `Address` ids — the real
+   * `POST /orders` endpoint 404s otherwise (`docs/API.md` "Orders
+   * (owner-scoped)"). The pre-M8.4a mock accepted a synthetic
+   * `"gift-recipient"` placeholder string here; `CheckoutClient` now saves
+   * the recipient's address to the account's address book (via
+   * `createAddress`) before placing the order so this is always real.
+   */
   recipientAddressId?: ID;
   /** Hide price on the packing slip / recipient-facing surfaces. */
   hidePrice: boolean;

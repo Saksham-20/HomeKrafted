@@ -13,7 +13,14 @@ export interface JwtPayload {
   sub: string;
   role: UserRole;
   sellerId?: string;
-  /** Only present on refresh tokens — ties the JWT to its DB row for rotation/revocation. */
+  /**
+   * Random per-issuance nonce set on both access and refresh tokens (see
+   * `AuthService#signTokenPair`) so two tokens minted for the same user in
+   * the same wall-clock second are never byte-identical — without it,
+   * `refresh()`'s `tokenHash` uniqueness check collides and 500s. Not a
+   * lookup key itself; the refresh token's SHA-256 hash is still what
+   * `RefreshToken.tokenHash` indexes on.
+   */
   jti?: string;
 }
 

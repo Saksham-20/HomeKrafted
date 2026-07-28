@@ -72,6 +72,26 @@
   gap: var(--hk-s3);
 }
 
+.sellerModePill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--hk-gold-border);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-pill);
+  padding: 7px 12px;
+  color: var(--hk-pine);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sellerModePill:hover {
+  border-color: var(--hk-pine);
+  background: var(--hk-gold-tint);
+}
+
 .searchPill {
   display: flex;
   align-items: center;

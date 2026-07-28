@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Award, Copy, Gift, Share2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CapacityMeter } from "@/components/ui/CapacityMeter";
-import { applyReferralCredit } from "@/lib/api";
+import { applyReferralCredit, getLoyaltyAccount, getReferralCode, getReferrals } from "@/lib/api";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { LoyaltyAccount, Referral } from "@/lib/types";
@@ -14,9 +14,6 @@ import type { HowItWorksStep, LoyaltyTierInfo } from "@/lib/data";
 import styles from "./ReferralsClient.module.css";
 
 export interface ReferralsClientProps {
-  code: string;
-  initialReferrals: Referral[];
-  loyaltyAccount: LoyaltyAccount;
   tiers: LoyaltyTierInfo[];
   howItWorks: HowItWorksStep[];
   rewardAmount: number;
@@ -29,26 +26,39 @@ const STATUS_LABEL: Record<Referral["status"], string> = {
 };
 
 /**
- * Referrals + loyalty (M7b) — referral code with copy/share, a demo
- * "apply referral credit" button that wires `applyReferralCredit()`
- * (`lib/api/referrals.ts`, advances a `Referral` to `rewarded`) into
- * `useWallet().earnReferralCredit()` (real wallet ledger write), and the
- * loyalty tier/points ladder. No prototype screen to port from — built
- * fresh inside the established `Card`/`Button`/`CapacityMeter` system,
- * same as every other M7 screen.
+ * Referrals + loyalty (M7b; M8.4a real) — referral code with copy/share, a
+ * demo "apply referral credit" button that wires `applyReferralCredit()`
+ * (`lib/api/referrals.ts`, owner-scoped, targets one referral id — see
+ * that function's doc comment) into `useWallet().earnReferralCredit()`
+ * (which just refreshes the wallet in real mode — the server already
+ * credited it as part of the same call), and the loyalty tier/points
+ * ladder. `code`/referrals/`loyaltyAccount` are owner-scoped real reads
+ * now, fetched here on mount (same reasoning as `OrdersListClient` — see
+ * `lib/auth/session.ts`'s file header) instead of server-fetched props;
+ * `tiers`/`howItWorks`/`rewardAmount` stay static server-fetched props.
  */
-export function ReferralsClient({
-  code,
-  initialReferrals,
-  loyaltyAccount,
-  tiers,
-  howItWorks,
-  rewardAmount,
-}: ReferralsClientProps) {
+export function ReferralsClient({ tiers, howItWorks, rewardAmount }: ReferralsClientProps) {
   const { earnReferralCredit } = useWallet();
-  const [referrals, setReferrals] = useState<Referral[]>(initialReferrals);
+  const [code, setCode] = useState("");
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [loyaltyAccount, setLoyaltyAccount] = useState<LoyaltyAccount | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getReferralCode(), getReferrals(), getLoyaltyAccount()]).then(
+      ([referralCode, myReferrals, loyalty]) => {
+        if (cancelled) return;
+        setCode(referralCode);
+        setReferrals(myReferrals);
+        setLoyaltyAccount(loyalty);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const shareUrl = `https://homekrafted.in/join?ref=${code}`;
   const shareText = `Join me on Homekrafted — use my code ${code} and we both get ${formatCurrency(rewardAmount)} to our wallet.`;
@@ -86,11 +96,17 @@ export function ReferralsClient({
 
   const hasCreditable = referrals.some((r) => r.status !== "rewarded");
 
+  /** M8.4a: the real endpoint targets one referral id explicitly (see `lib/api/referrals.ts#applyReferralCredit`'s doc comment) — picks the same "oldest `joined`, else oldest `pending`" candidate the pre-M8.4a mock auto-picked server-side. */
+  function nextCreditableReferral(): Referral | undefined {
+    return referrals.find((r) => r.status === "joined") ?? referrals.find((r) => r.status === "pending");
+  }
+
   async function handleApplyCredit() {
     if (!hasCreditable || busy) return;
     setBusy(true);
     try {
-      const result = await applyReferralCredit();
+      const target = nextCreditableReferral();
+      const result = await applyReferralCredit(target?.id);
       if (!result) {
         showToast("No pending invites to reward right now");
         return;
@@ -107,6 +123,14 @@ export function ReferralsClient({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!loyaltyAccount) {
+    return (
+      <div className={styles.wrap}>
+        <p className={styles.loading}>Loading your referrals…</p>
+      </div>
+    );
   }
 
   const tierIndex = tiers.findIndex((t) => t.tier === loyaltyAccount.tier);

@@ -1,15 +1,12 @@
-import { getAddresses, getOrderHistory } from "@/lib/api";
 import { AccountOverviewClient } from "@/components/account/AccountOverviewClient";
 
 /**
- * Account overview (M7a) — server wrapper: fetches the seeded order-
- * history count and address-book count (real reads, cheap and stable),
- * hands off to the client overview for the auth/wallet/wishlist-dependent
- * bits (greeting, wallet balance snapshot, wishlist count) that only
- * exist as client state pre-M8.
+ * Account overview (M7a; M8.4a swap) — `getOrderHistory()`/`getAddresses()`
+ * are owner-scoped real reads now, so `AccountOverviewClient` fetches its
+ * own order/address counts on mount instead of this page fetching them
+ * server-side (same reasoning as `OrdersListClient` pre-M8.4 — see
+ * `lib/auth/session.ts`'s file header).
  */
-export default async function AccountOverviewPage() {
-  const [orderHistory, addresses] = await Promise.all([getOrderHistory(), getAddresses()]);
-
-  return <AccountOverviewClient orderCount={orderHistory.length} addressCount={addresses.length} />;
+export default function AccountOverviewPage() {
+  return <AccountOverviewClient />;
 }

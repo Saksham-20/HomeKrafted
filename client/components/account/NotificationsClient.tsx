@@ -1,19 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Bell, Mail, MessageCircle, MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
-import { updateNotificationPreference, setNotificationRead } from "@/lib/api";
+import {
+  getNotificationPreferences,
+  getNotifications,
+  updateNotificationPreference,
+  setNotificationRead,
+} from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { Notification, NotificationCategory, NotificationChannel, NotificationPreference } from "@/lib/types";
 import styles from "./NotificationsClient.module.css";
-
-export interface NotificationsClientProps {
-  initialNotifications: Notification[];
-  initialPreferences: NotificationPreference[];
-}
 
 const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   order: "Orders",
@@ -39,19 +39,35 @@ const CHANNEL_ICON: Record<NotificationChannel, typeof Bell> = {
 };
 
 /**
- * Notifications (M7b) — per-category channel preference toggles
- * (`updateNotificationPreference`, mock-persisted) and a read/unread
- * inbox (`setNotificationRead`, mock-persisted). No prototype screen to
- * port from; the toggle grid reuses the same "styled `<input
+ * Notifications (M7b; M8.4a real) — per-category channel preference
+ * toggles (`updateNotificationPreference`) and a read/unread inbox
+ * (`setNotificationRead`), both owner-scoped real endpoints now. Fetches
+ * its own initial data on mount (same reasoning as `OrdersListClient` —
+ * see `lib/auth/session.ts`'s file header) rather than server-fetched
+ * props. The toggle grid reuses the same "styled `<input
  * type=checkbox>`" convention `WalletClient`'s auto-top-up editor already
  * established, rather than inventing a dedicated `ui/` switch primitive
  * for a single consumer.
  */
-export function NotificationsClient({ initialNotifications, initialPreferences }: NotificationsClientProps) {
-  const [preferences, setPreferences] = useState<NotificationPreference[]>(initialPreferences);
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+export function NotificationsClient() {
+  const [preferences, setPreferences] = useState<NotificationPreference[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getNotifications(), getNotificationPreferences()]).then(([notifs, prefs]) => {
+      if (cancelled) return;
+      setNotifications(notifs);
+      setPreferences(prefs);
+      setReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleToggle(category: NotificationCategory, channel: NotificationChannel, checked: boolean) {
     const key = `${category}:${channel}`;
@@ -76,6 +92,14 @@ export function NotificationsClient({ initialNotifications, initialPreferences }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const visibleNotifications = filter === "unread" ? notifications.filter((n) => !n.read) : notifications;
+
+  if (!ready) {
+    return (
+      <div className={styles.wrap}>
+        <p className={styles.loading}>Loading your notifications…</p>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.wrap}>

@@ -7,6 +7,7 @@ import {
   type SellerBenefit,
   type SellerStep,
 } from "@/lib/data";
+import { http, isMockMode } from "./http";
 
 export async function getSellerBenefits(): Promise<SellerBenefit[]> {
   return sellerBenefits;
@@ -42,14 +43,34 @@ export interface CreateSellerApplicationInput {
 }
 
 /**
- * Mock seller-onboarding application mutation. Seller onboarding itself
- * is future-flagged (see `docs/PRD.md`) — this "un-flags" only once M8/M9
- * stand up a real vendor-application backend + review workflow;
- * `status` starts `"waitlisted"` rather than `"new"` to match `/sell`'s
- * framing ("we'll reach out when onboarding opens"), not an immediate
- * review queue.
+ * Seller-onboarding application submission — **real as of M9**
+ * (`docs/PRD.md`'s "future-flagged" note no longer applies): `POST
+ * /seller-applications` (`@Public()`, same "no account needed to submit"
+ * shape as `createCorporateInquiry`) persists straight into the real
+ * admin approval queue (`GET /admin/sellers/applications`) that
+ * `AdminSellersService.approveApplication` promotes into a live `Seller`
+ * + `Vendor` — this closes the `/sell` -> admin-approve -> seller-active
+ * loop end-to-end. Starts at the server's own default status (`"new"`),
+ * a genuine pending-review row, not the old mock's synthetic
+ * `"waitlisted"` framing.
  */
 export async function createSellerApplication(input: CreateSellerApplicationInput): Promise<SellerApplication> {
+  if (!isMockMode()) {
+    return http.post<SellerApplication>(
+      "/seller-applications",
+      {
+        businessName: input.businessName,
+        contactName: input.contactName,
+        email: input.email,
+        phone: input.phone,
+        category: input.category,
+        city: input.city,
+        description: input.description,
+      },
+      { auth: false },
+    );
+  }
+
   const application: SellerApplication = {
     id: `sa-${Date.now()}`,
     businessName: input.businessName,

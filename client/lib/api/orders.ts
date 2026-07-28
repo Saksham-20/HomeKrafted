@@ -1,7 +1,9 @@
 import type { Order, OrderGift, OrderItem, OrderShipment, PaymentMethod } from "@/lib/types";
 import { currentUser, deliveryDateOptions, nextOrderNumber } from "@/lib/data";
 import { computeCashback, computeShipping } from "@/lib/cart/pricing";
+import { http, isMockMode } from "./http";
 
+/** Static content today — no delivery-date-options endpoint, this stays client-side (`docs/API.md`). */
 export async function getDeliveryDateOptions() {
   return deliveryDateOptions;
 }
@@ -18,80 +20,120 @@ export interface CreateOrderLineInput {
 }
 
 export interface CreateOrderInput {
+  /** Mock-mode-only — the real `POST /orders` derives every line from the caller's own server-side `Cart`, never a client-submitted line list (`docs/API.md` "Server-authoritative pricing"). Ignored in real mode. */
   lines: CreateOrderLineInput[];
+  /** Real mode: which saved address unassigned lines ship to, if the caller didn't split every line explicitly. */
+  defaultAddressId?: string;
   shipments: OrderShipment[];
   gift?: OrderGift;
   paymentMethod: PaymentMethod;
-  /** How much of the total the shopper chose to pay from wallet balance. */
+  /** Mock-mode-only display value — the real endpoint computes `walletApplied` itself from `paymentMethod`. */
   walletApplied: number;
 }
 
-/**
- * In-memory mock order "table". Called from Checkout's client component,
- * so this runs in the browser tab, not on any server — it resets on a
- * hard reload/new tab, same caveat as `lib/data/orders.ts`'s sequence.
- */
+/** Mock-mode-only in-memory order "table" — see `createOrder`'s doc comment. */
 const orders: Order[] = [];
 
 /**
- * Mock order-placement mutation. Computes subtotal/shipping/cashback from
- * `lib/cart/pricing`'s shared rules, generates an id + order number, and
- * "persists" to an in-memory array — swap this body for a real POST
- * /api/orders call in M8 without touching any call site (Checkout just
- * awaits this and reads back the `Order`).
+ * Real mode: `POST /orders` — creates an order from the caller's current
+ * server-side cart (`CartContext` keeps that in sync on every add/update/
+ * remove, so by the time Checkout calls this the server cart already
+ * matches what's on screen). Starts `status: "pending-payment"` for every
+ * `paymentMethod` (see `docs/API.md`'s M8.2 seam notes) — a
+ * `"wallet"`-paid order still needs an explicit `payOrder()` call
+ * afterward (`CheckoutClient` does this), `"razorpay"` needs the Checkout
+ * SDK + webhook, and `"cod"` has no follow-up transition yet (a
+ * server-side gap flagged in `docs/API.md`, not fixable from the client).
+ *
+ * Mock mode keeps the pre-M8.4a in-memory placement (computes
+ * subtotal/shipping/cashback from `input.lines`, starts `status: "placed"`
+ * directly — no pending-payment staging in the mock).
  */
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
-  const subtotal = input.lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
-  const shippingFee = computeShipping(subtotal);
-  const cashbackEarned = computeCashback(subtotal);
-  const total = subtotal + shippingFee;
+  if (isMockMode()) {
+    const subtotal = input.lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+    const shippingFee = computeShipping(subtotal);
+    const cashbackEarned = computeCashback(subtotal);
+    const total = subtotal + shippingFee;
 
-  const items: OrderItem[] = input.lines.map((line, index) => ({
-    id: `oi-${Date.now()}-${index}`,
-    productId: line.productId,
-    sku: line.sku,
-    hamperId: line.hamperId,
-    name: line.name,
-    quantity: line.quantity,
-    price: line.price,
-    addressId: line.addressId,
-    giftWrap: line.giftWrap ?? false,
-  }));
+    const items: OrderItem[] = input.lines.map((line, index) => ({
+      id: `oi-${Date.now()}-${index}`,
+      productId: line.productId,
+      sku: line.sku,
+      hamperId: line.hamperId,
+      name: line.name,
+      quantity: line.quantity,
+      price: line.price,
+      addressId: line.addressId,
+      giftWrap: line.giftWrap ?? false,
+    }));
 
-  const shippingAddressIds = [...new Set(input.shipments.map((s) => s.addressId))];
+    const shippingAddressIds = [...new Set(input.shipments.map((s) => s.addressId))];
 
-  const order: Order = {
-    id: `ord-${Date.now()}`,
-    orderNumber: nextOrderNumber(),
-    userId: currentUser.id,
-    status: "placed",
-    items,
-    shippingAddressIds,
+    const order: Order = {
+      id: `ord-${Date.now()}`,
+      orderNumber: nextOrderNumber(),
+      userId: currentUser.id,
+      status: "placed",
+      items,
+      shippingAddressIds,
+      shipments: input.shipments,
+      gift: input.gift,
+      placedAt: new Date().toISOString(),
+      subtotal,
+      shippingFee,
+      total,
+      walletApplied: Math.min(input.walletApplied, total),
+      cashbackEarned,
+      refundStatus: "none",
+      paymentMethod: input.paymentMethod,
+    };
+
+    orders.push(order);
+    return order;
+  }
+
+  return http.post<Order>("/orders", {
+    defaultAddressId: input.defaultAddressId,
     shipments: input.shipments,
     gift: input.gift,
-    placedAt: new Date().toISOString(),
-    subtotal,
-    shippingFee,
-    total,
-    walletApplied: Math.min(input.walletApplied, total),
-    cashbackEarned,
-    refundStatus: "none",
     paymentMethod: input.paymentMethod,
-  };
+  });
+}
 
-  orders.push(order);
-  return order;
+/** `GET /orders/:id` — owner-scoped full order detail. */
+export async function getOrder(id: string): Promise<Order | undefined> {
+  if (isMockMode()) return orders.find((o) => o.id === id);
+  try {
+    return await http.get<Order>(`/orders/${encodeURIComponent(id)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
- * Orders placed live in this browser tab's session (M7a) — read by
- * `lib/api/history.ts`'s `getOrderHistory()` alongside the seeded
- * `lib/data/orders.ts#seedOrders` history. Only ever sees anything when
- * called from the same client-bundle module instance that `createOrder`
- * ran in (i.e. `/account/orders` reached by client-side navigation after
- * a checkout, within the same tab) — a hard reload resets `orders` to
- * empty, same caveat as `createOrder` itself.
+ * `POST /orders/:id/pay` — completes the `pending-payment -> placed` seam
+ * for a `paymentMethod: "wallet"` order: debits the wallet, credits
+ * cashback, atomically (`docs/API.md` "Orders (owner-scoped)"). Called by
+ * `CheckoutClient` right after `createOrder()` when the shopper paid by
+ * wallet — `402 INSUFFICIENT_BALANCE` if the live balance can't cover it
+ * (a narrow race — the UI already gates the wallet option on a sufficient
+ * balance).
+ */
+export async function payOrder(orderId: string, idempotencyKey?: string): Promise<Order> {
+  return http.post<Order>(`/orders/${encodeURIComponent(orderId)}/pay`, undefined, { idempotencyKey });
+}
+
+/**
+ * Real mode: `GET /orders` (mine, newest first) — every order of the
+ * signed-in account, not just ones placed this session (unlike the
+ * pre-M8.4a mock's in-memory array).
  */
 export async function getPlacedOrders(): Promise<Order[]> {
-  return orders;
+  if (isMockMode()) return orders;
+  const page = await http.get<{ items: Order[]; page: number; pageSize: number; total: number }>(
+    "/orders",
+    { query: { pageSize: 100 } },
+  );
+  return page.items;
 }

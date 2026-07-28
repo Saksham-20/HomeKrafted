@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
+import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { SellerController } from './seller.controller';
 import { SellerService } from './seller.service';
 import { SellerListingsController } from './listings.controller';
@@ -29,7 +30,7 @@ import { SellerPayoutsService } from './payouts.service';
  * cross-seller-isolation proofs.
  */
 @Module({
-  imports: [IdempotencyModule],
+  imports: [IdempotencyModule, WhatsAppModule],
   controllers: [
     SellerController,
     SellerListingsController,

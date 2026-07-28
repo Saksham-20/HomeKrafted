@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import clsx from "clsx";
 import { Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { ApiError } from "@/lib/api/http";
+import { RoleChoice, type AuthRole } from "./RoleChoice";
+import type { SellerType, UserRole } from "@/lib/types";
 import styles from "./LoginClient.module.css";
 
 type Method = "phone" | "email" | "social";
@@ -46,68 +50,159 @@ function AppleGlyph() {
   );
 }
 
+/** One seeded demo seller per `SellerType` — labels for the seller tab's "continue as" row. */
+const DEMO_SELLER_OPTIONS: { type: SellerType; label: string }[] = [
+  { type: "maker", label: "Continue as demo maker →" },
+  { type: "laundry", label: "Continue as demo laundry partner →" },
+  { type: "snack", label: "Continue as demo snack seller →" },
+];
+
 /**
- * Login (M7a) — phone-OTP, email, and social sign-in, all mock: there's
- * no real credential check (Auth.js lands in M8), every path just calls
- * `useAuth().signIn()` and redirects to `/account`. Account screens are
- * built assuming the demo user is signed in (per the M7a brief), so this
- * screen exists mainly to demonstrate the three UI flows the plan calls
- * for and to give `signOut()` (Profile page) somewhere to send the
- * shopper back to.
+ * Sign in (M8.4a real auth, reworked M8.5 to lead with a role choice).
+ *
+ * Both `/login` and `/signup` open on the same "I'm a shopper / I'm a
+ * seller" choice (`RoleChoice`) — admin is never offered here, staying a
+ * separate internal-only `/admin/login`. The **shopper** tab is unchanged
+ * from M8.4a: phone-OTP, email, and social sign-in against the live
+ * `server/` (`useAuth()`'s `requestOtp`/`verifyOtp`/`signInWithEmail`/
+ * `signInSocial`/`signInDemo`, `lib/api/auth.ts`). The **seller** tab is
+ * new: email/password only (real accounts are approval-provisioned, not
+ * self-serve — no phone-OTP/social account creation for sellers) plus
+ * "continue as demo maker/laundry/snack", all now real `POST /auth/login`
+ * calls (`signInAsSeller`, M8.5) rather than a local state flip, and a
+ * link into the `/sell` application flow for anyone without a seller
+ * account yet. `/seller/login` (M10a) now just redirects to
+ * `/login?role=seller` — this screen is the single entry point for both
+ * roles. Whichever account actually signs in decides the redirect
+ * (`/seller` vs `/account`), not which tab was selected — see
+ * `redirectForRole`.
  */
 export function LoginClient() {
   const router = useRouter();
-  const { isSignedIn, ready, signIn, signOut } = useAuth();
+  const {
+    isSignedIn,
+    ready,
+    role: currentRole,
+    busy,
+    requestOtp,
+    verifyOtp,
+    signInWithEmail,
+    signInSocial,
+    signInDemo,
+    signInAsSeller,
+    signOut,
+  } = useAuth();
+
+  const [authRole, setAuthRole] = useState<AuthRole>("shopper");
+  // Read `?role=seller` (the old `/seller/login`'s redirect target) after
+  // mount only — deciding this during the initial render would disagree
+  // with the server-rendered "shopper" default and trip a hydration
+  // mismatch, since `window` isn't available during SSR.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time post-mount read of the ?role= query param; kept in an effect (not a lazy useState initializer / useSearchParams) precisely to avoid an SSR↔client hydration mismatch, since window.location isn't available during SSR.
+    if (params.get("role") === "seller") setAuthRole("seller");
+  }, []);
 
   const [method, setMethod] = useState<Method>("phone");
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  function goToAccount() {
-    router.push("/account");
+  /** The signed-in account's own `role` decides where to land — not which tab was used to sign in (a seller email entered while the shopper tab happened to be open still lands on `/seller`, and vice versa). */
+  function redirectForRole(resultRole: UserRole) {
+    router.push(resultRole === "seller" ? "/seller" : "/account");
   }
 
-  function handleSendOtp() {
+  function friendlyError(err: unknown): string {
+    if (err instanceof ApiError) return err.message;
+    return "Something went wrong — please try again.";
+  }
+
+  async function handleSendOtp() {
     if (phone.trim().length < 10) return;
-    setOtpSent(true);
+    setError(null);
+    try {
+      await requestOtp(phone.trim());
+      setOtpSent(true);
+    } catch (err) {
+      setError(friendlyError(err));
+    }
   }
 
-  function handleVerifyOtp() {
+  async function handleVerifyOtp() {
     if (otp.trim().length < 4) return;
-    signIn("phone");
-    goToAccount();
+    setError(null);
+    try {
+      const resultRole = await verifyOtp(phone.trim(), otp.trim());
+      redirectForRole(resultRole);
+    } catch (err) {
+      setError(friendlyError(err));
+    }
   }
 
-  function handleEmailContinue() {
-    if (!email.trim().includes("@")) return;
-    signIn("email");
-    goToAccount();
+  async function handleEmailContinue() {
+    if (!email.trim().includes("@") || password.length < 8) return;
+    setError(null);
+    try {
+      const resultRole = await signInWithEmail(email.trim(), password);
+      redirectForRole(resultRole);
+    } catch (err) {
+      setError(friendlyError(err));
+    }
   }
 
-  function handleSocial(provider: "google" | "apple") {
-    signIn(provider);
-    goToAccount();
+  async function handleSocial(provider: "google" | "apple") {
+    setError(null);
+    try {
+      const resultRole = await signInSocial(provider);
+      redirectForRole(resultRole);
+    } catch (err) {
+      setError(friendlyError(err));
+    }
   }
 
-  function handleDemoSignIn() {
-    signIn();
-    goToAccount();
+  async function handleDemoSignIn() {
+    setError(null);
+    try {
+      const resultRole = await signInDemo();
+      redirectForRole(resultRole);
+    } catch (err) {
+      setError(friendlyError(err));
+    }
+  }
+
+  async function handleDemoSeller(type: SellerType) {
+    setError(null);
+    try {
+      const resultRole = await signInAsSeller(type);
+      redirectForRole(resultRole);
+    } catch (err) {
+      setError(friendlyError(err));
+    }
   }
 
   if (ready && isSignedIn) {
+    const signedInAsSeller = currentRole === "seller";
     return (
       <section className={clsx("container", styles.page)}>
         <Card className={styles.signedInCard}>
           <span className={styles.eyebrow}>Already signed in</span>
           <h1 className={styles.title}>You&rsquo;re all set</h1>
           <p className={styles.subtitle}>
-            You&rsquo;re signed in as the Homekrafted demo account.
+            {signedInAsSeller
+              ? "You're signed in to your Homekrafted seller account."
+              : "You're signed in as the Homekrafted demo account."}
           </p>
           <div className={styles.signedInActions}>
-            <Button variant="primary" onClick={goToAccount}>
-              Go to my account
+            <Button
+              variant="primary"
+              onClick={() => router.push(signedInAsSeller ? "/seller" : "/account")}
+            >
+              {signedInAsSeller ? "Go to my dashboard" : "Go to my account"}
             </Button>
             <Button variant="secondary" onClick={signOut}>
               Sign out
@@ -124,138 +219,263 @@ export function LoginClient() {
         <span className={styles.eyebrow}>Homekrafted</span>
         <h1 className={styles.title}>Sign in</h1>
         <p className={styles.subtitle}>
-          One account for the Marketplace, Laundry and Wallet.
+          {authRole === "shopper"
+            ? "One account for the Marketplace, Laundry and Wallet."
+            : "Manage your listings, orders, storefront and payouts."}
         </p>
       </div>
 
-      <Card className={styles.card}>
-        <div className={styles.methodTabs} role="tablist" aria-label="Sign-in method">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={method === "phone"}
-            className={clsx(styles.methodTab, method === "phone" && styles.methodTabActive)}
-            onClick={() => setMethod("phone")}
-          >
-            <Phone size={15} strokeWidth={1.7} /> Phone
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={method === "email"}
-            className={clsx(styles.methodTab, method === "email" && styles.methodTabActive)}
-            onClick={() => setMethod("email")}
-          >
-            <Mail size={15} strokeWidth={1.7} /> Email
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={method === "social"}
-            className={clsx(styles.methodTab, method === "social" && styles.methodTabActive)}
-            onClick={() => setMethod("social")}
-          >
-            Social
-          </button>
-        </div>
+      <RoleChoice
+        value={authRole}
+        onChange={(next) => {
+          setAuthRole(next);
+          setError(null);
+        }}
+        className={styles.roleChoice}
+      />
 
-        {method === "phone" && (
-          <div className={styles.form}>
-            {!otpSent ? (
-              <>
+      {authRole === "shopper" ? (
+        <>
+          <Card className={styles.card}>
+            <div className={styles.methodTabs} role="tablist" aria-label="Sign-in method">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={method === "phone"}
+                className={clsx(styles.methodTab, method === "phone" && styles.methodTabActive)}
+                onClick={() => {
+                  setMethod("phone");
+                  setError(null);
+                }}
+              >
+                <Phone size={15} strokeWidth={1.7} /> Phone
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={method === "email"}
+                className={clsx(styles.methodTab, method === "email" && styles.methodTabActive)}
+                onClick={() => {
+                  setMethod("email");
+                  setError(null);
+                }}
+              >
+                <Mail size={15} strokeWidth={1.7} /> Email
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={method === "social"}
+                className={clsx(styles.methodTab, method === "social" && styles.methodTabActive)}
+                onClick={() => {
+                  setMethod("social");
+                  setError(null);
+                }}
+              >
+                Social
+              </button>
+            </div>
+
+            {method === "phone" && (
+              <div className={styles.form}>
+                {!otpSent ? (
+                  <>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Mobile number</span>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        className={styles.input}
+                        placeholder="+91 98450 12345"
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                      />
+                    </label>
+                    <Button
+                      variant="primary"
+                      onClick={handleSendOtp}
+                      disabled={phone.trim().length < 10 || busy}
+                    >
+                      {busy ? "Sending…" : "Send OTP"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className={styles.hint}>
+                      We&rsquo;ve sent a code to <strong>{phone}</strong> — check the server
+                      console (SMS delivery is stubbed until M9).
+                    </p>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Enter OTP</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        className={clsx(styles.input, styles.otpInput)}
+                        placeholder="••••"
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
+                      />
+                    </label>
+                    <Button variant="primary" onClick={handleVerifyOtp} disabled={otp.trim().length < 4 || busy}>
+                      {busy ? "Verifying…" : "Verify & sign in"}
+                    </Button>
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtp("");
+                      }}
+                    >
+                      Change number
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {method === "email" && (
+              <div className={styles.form}>
                 <label className={styles.field}>
-                  <span className={styles.label}>Mobile number</span>
+                  <span className={styles.label}>Email address</span>
                   <input
-                    type="tel"
-                    inputMode="tel"
+                    type="email"
                     className={styles.input}
-                    placeholder="+91 98450 12345"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                   />
                 </label>
-                <Button variant="primary" onClick={handleSendOtp} disabled={phone.trim().length < 10}>
-                  Send OTP
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className={styles.hint}>
-                  We&rsquo;ve sent a code to <strong>{phone}</strong>.
-                </p>
                 <label className={styles.field}>
-                  <span className={styles.label}>Enter OTP</span>
+                  <span className={styles.label}>Password</span>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    className={clsx(styles.input, styles.otpInput)}
-                    placeholder="••••"
-                    value={otp}
-                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
+                    type="password"
+                    className={styles.input}
+                    placeholder="At least 8 characters"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
                   />
                 </label>
-                <Button variant="primary" onClick={handleVerifyOtp} disabled={otp.trim().length < 4}>
-                  Verify &amp; sign in
+                <Button
+                  variant="primary"
+                  onClick={handleEmailContinue}
+                  disabled={!email.trim().includes("@") || password.length < 8 || busy}
+                >
+                  {busy ? "Signing in…" : "Continue with email"}
                 </Button>
+              </div>
+            )}
+
+            {method === "social" && (
+              <div className={styles.form}>
                 <button
                   type="button"
-                  className={styles.linkButton}
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtp("");
-                  }}
+                  className={styles.socialButton}
+                  onClick={() => handleSocial("google")}
+                  disabled={busy}
                 >
-                  Change number
+                  <GoogleGlyph />
+                  Continue with Google
                 </button>
-              </>
+                <button
+                  type="button"
+                  className={styles.socialButton}
+                  onClick={() => handleSocial("apple")}
+                  disabled={busy}
+                >
+                  <AppleGlyph />
+                  Continue with Apple
+                </button>
+              </div>
             )}
-          </div>
-        )}
+          </Card>
 
-        {method === "email" && (
+          <button type="button" className={styles.demoButton} onClick={handleDemoSignIn} disabled={busy}>
+            Sign in as demo shopper →
+          </button>
+          {error && (
+            <p className={styles.hint} role="alert">
+              {error}
+            </p>
+          )}
+          <p className={styles.applyRow}>
+            New here? <Link href="/signup">Create an account</Link>
+          </p>
+          <p className={styles.footnote}>
+            Phone/email/social sign-in are real (server-backed) — social login
+            is a stub that trusts the browser instead of verifying a real
+            Google/Apple token until a later milestone.
+          </p>
+        </>
+      ) : (
+        <>
+          <Card className={styles.card}>
+            <p className={styles.hint}>
+              Sign in with the email your seller account was approved with.
+            </p>
+            <div className={styles.form}>
+              <label className={styles.field}>
+                <span className={styles.label}>Email address</span>
+                <input
+                  type="email"
+                  className={styles.input}
+                  placeholder="you@yourbusiness.example"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </label>
+              <label className={styles.field}>
+                <span className={styles.label}>Password</span>
+                <input
+                  type="password"
+                  className={styles.input}
+                  placeholder="At least 8 characters"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+              <Button
+                variant="primary"
+                onClick={handleEmailContinue}
+                disabled={!email.trim().includes("@") || password.length < 8 || busy}
+              >
+                {busy ? "Signing in…" : "Sign in to sell"}
+              </Button>
+            </div>
+          </Card>
+
           <div className={styles.form}>
-            <label className={styles.field}>
-              <span className={styles.label}>Email address</span>
-              <input
-                type="email"
-                className={styles.input}
-                placeholder="you@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </label>
-            <Button
-              variant="primary"
-              onClick={handleEmailContinue}
-              disabled={!email.trim().includes("@")}
-            >
-              Continue with email
-            </Button>
+            {DEMO_SELLER_OPTIONS.map((option) => (
+              <button
+                key={option.type}
+                type="button"
+                className={styles.demoButton}
+                onClick={() => handleDemoSeller(option.type)}
+                disabled={busy}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-        )}
 
-        {method === "social" && (
-          <div className={styles.form}>
-            <button type="button" className={styles.socialButton} onClick={() => handleSocial("google")}>
-              <GoogleGlyph />
-              Continue with Google
-            </button>
-            <button type="button" className={styles.socialButton} onClick={() => handleSocial("apple")}>
-              <AppleGlyph />
-              Continue with Apple
-            </button>
-          </div>
-        )}
-      </Card>
+          {error && (
+            <p className={styles.hint} role="alert">
+              {error}
+            </p>
+          )}
 
-      <button type="button" className={styles.demoButton} onClick={handleDemoSignIn}>
-        Sign in as demo user →
-      </button>
-      <p className={styles.footnote}>
-        Real authentication (Auth.js) arrives with the M8 backend — every
-        path above signs you in as the same Homekrafted demo account.
-      </p>
+          <p className={styles.applyRow}>
+            Not a seller yet? <Link href="/sell">Apply to sell on Homekrafted</Link>
+          </p>
+          <p className={styles.footnote}>
+            Seller sign-in goes through the same account system as
+            shoppers — there&rsquo;s no separate seller sign-up here.
+            Apply above, and once approved you&rsquo;ll sign in right on
+            this page.
+          </p>
+        </>
+      )}
     </section>
   );
 }

@@ -22,6 +22,8 @@ import type { Address, Order, OrderStatus } from "@/lib/types";
 import styles from "./MakerOrderDetailClient.module.css";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
+  // M8.4a type-completeness fix — see `OrderStatusPill`'s identical comment.
+  "pending-payment": "Payment pending",
   placed: "Placed",
   confirmed: "Confirmed",
   packed: "Packed",

@@ -4,57 +4,77 @@ import {
   getProductBySlug,
   products,
 } from "@/lib/data";
+import { http, isMockMode } from "./http";
 
 /**
- * Client-stub API for products. Every function is `async` and returns
- * mock data today; swapping to real fetch calls in M8 only touches this
- * file — callers already await a Promise.
+ * Products/catalog (M8.4a — real). `GET /products`/`GET /products/:slug`
+ * (`docs/API.md` "Commerce (M8.1)") are `@Public()` — no auth header
+ * needed, safe to call from a Server Component during SSR. The catalog is
+ * small (8 seed products) so `getProducts()` fetches the whole list in one
+ * page (`pageSize=100`, comfortably above `total`) rather than wiring real
+ * pagination through every call site — `ShopClient`'s own filter/sort/
+ * pagination stays entirely client-side over that full list, unchanged.
+ * `getProductsByCategory`/`getProductsByOccasion`/`getProductsByVendor`
+ * take an *id* (not a slug) at their existing call sites, so — rather than
+ * resolving id→slug through an extra round trip to use the server's
+ * `?category=slug` query filter — they simply filter the same full list
+ * client-side, identical to the pre-M8.4a mock's own filtering logic.
  */
 
-/**
- * Excludes `moderationStatus: "hidden"` products (an admin take-down,
- * M11b `/admin/catalog`) — a `"flagged"` product stays browsable (flagging
- * just queues it for review), only `"hidden"` is a real soft-delete from
- * every consumer-facing browse surface below. Single-lookup functions
- * (`getProduct`/`getProductById`) deliberately don't apply this filter —
- * an existing cart line, order or wishlist entry must still resolve even
- * if the product's since been taken down. Note: every caller of the
- * functions below runs server-side (these are all Server Components'
- * `lib/api` calls), a separate JS module graph from the browser tab
- * `/admin/catalog`'s client component mutates — see `lib/api/admin.ts`'s
- * "Catalog & review moderation" section header for the full explanation
- * of that boundary.
- */
 function isBrowsable(product: Product): boolean {
   return product.moderationStatus !== "hidden";
 }
 
+interface ProductsPage {
+  items: Product[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
 export async function getProducts(): Promise<Product[]> {
-  return products.filter(isBrowsable);
+  if (isMockMode()) return products.filter(isBrowsable);
+  const page = await http.get<ProductsPage>("/products", { auth: false, query: { pageSize: 100 } });
+  return page.items;
 }
 
 export async function getProduct(slug: string): Promise<Product | undefined> {
-  return getProductBySlug(slug);
+  if (isMockMode()) return getProductBySlug(slug);
+  try {
+    return await http.get<Product>(`/products/${encodeURIComponent(slug)}`, { auth: false });
+  } catch {
+    return undefined;
+  }
 }
 
-/** Lookup by id — the cart store only persists `productId`, so it needs this to resolve a line. */
+/** Lookup by id — the cart store only persists `productId`, so it needs this to resolve a line. No dedicated by-id endpoint; resolves from the full catalog fetch. */
 export async function getProductById(id: string): Promise<Product | undefined> {
-  return getProductByIdData(id);
+  if (isMockMode()) return getProductByIdData(id);
+  const all = await getProducts();
+  return all.find((p) => p.id === id);
 }
 
-/** "This week's small batches" home rail — every `featured` product (admin-curated, M11b `/admin/catalog`'s feature toggle), not a hardcoded id list. */
+/** "This week's small batches" home rail — every `featured` product. */
 export async function getFeatured(): Promise<Product[]> {
-  return products.filter((p) => p.featured && isBrowsable(p));
+  if (isMockMode()) return products.filter((p) => p.featured && isBrowsable(p));
+  const all = await getProducts();
+  return all.filter((p) => p.featured);
 }
 
 export async function getProductsByCategory(categoryId: string): Promise<Product[]> {
-  return products.filter((p) => p.categoryId === categoryId && isBrowsable(p));
+  if (isMockMode()) return products.filter((p) => p.categoryId === categoryId && isBrowsable(p));
+  const all = await getProducts();
+  return all.filter((p) => p.categoryId === categoryId);
 }
 
 export async function getProductsByOccasion(occasionId: string): Promise<Product[]> {
-  return products.filter((p) => p.occasionIds.includes(occasionId) && isBrowsable(p));
+  if (isMockMode()) return products.filter((p) => p.occasionIds.includes(occasionId) && isBrowsable(p));
+  const all = await getProducts();
+  return all.filter((p) => p.occasionIds.includes(occasionId));
 }
 
 export async function getProductsByVendor(vendorId: string): Promise<Product[]> {
-  return products.filter((p) => p.vendorId === vendorId && isBrowsable(p));
+  if (isMockMode()) return products.filter((p) => p.vendorId === vendorId && isBrowsable(p));
+  const all = await getProducts();
+  return all.filter((p) => p.vendorId === vendorId);
 }

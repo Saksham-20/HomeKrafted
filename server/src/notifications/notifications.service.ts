@@ -7,10 +7,13 @@ import { mapNotification, mapNotificationPreference } from './notifications.mapp
 const ALL_CATEGORIES: NotificationCategory[] = ['order', 'laundry', 'snacks', 'wallet', 'promo', 'account'];
 
 /**
- * Owner-scoped (auth). Actual SMS/WhatsApp/email delivery is **M9**
- * (WhatsApp Cloud API + notification integrations) — this module only
- * persists + reads: the inbox list, read/unread state, and per-category
- * channel preferences. Nothing here sends anything.
+ * Owner-scoped (auth). This service is still read/preferences-only — the
+ * inbox list, read/unread state, and per-category channel preferences.
+ * Actual delivery (SMS/WhatsApp/email sends, gated by
+ * `NotificationPreference`) is `NotificationsDeliveryService` (M9,
+ * `notifications-delivery.service.ts`) — callers with an event worth
+ * notifying a user about inject that service directly rather than
+ * writing a bare `prisma.notification.create` themselves.
  */
 @Injectable()
 export class NotificationsService {

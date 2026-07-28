@@ -24,6 +24,8 @@ import { SupportModule } from './support/support.module';
 import { CorporateModule } from './corporate/corporate.module';
 import { SellerModule } from './seller/seller.module';
 import { AdminModule } from './admin/admin.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { SellerApplicationsModule } from './seller-applications/seller-applications.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -93,6 +95,14 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     // refunds, wallet oversight, collections CMS, and the audit log every
     // mutation above writes to. `@Roles('admin')` on every route.
     AdminModule,
+    // M9 (integrations) — WhatsApp Cloud API (outbound status sends +
+    // the verified inbound webhook) and the public seller-application
+    // create endpoint that closes the `/sell` -> admin-approve ->
+    // seller-active loop end-to-end. `NotificationsModule` (already
+    // imported above) also depends on `WhatsAppModule` for its
+    // per-preference fan-out — see `NotificationsDeliveryService`.
+    WhatsAppModule,
+    SellerApplicationsModule,
   ],
   providers: [
     // Order matters: Nest runs APP_GUARDs in registration order, and

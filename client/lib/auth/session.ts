@@ -30,6 +30,8 @@
  *    token rather than a possibly-stale SSR cookie snapshot.
  */
 
+import type { User } from "@/lib/types";
+
 export interface SessionUser {
   id: string;
   name: string;
@@ -124,9 +126,63 @@ export function updateSessionUser(user: SessionUser): void {
   setSession({ ...current, user });
 }
 
+/**
+ * Best-effort JWT `exp` decode (no signature verification — this only
+ * decides whether it's worth *asking* the server for a fresh token, the
+ * server is still the one actually enforcing expiry). Used by
+ * `AuthContext`'s hydration to skip `POST /auth/refresh` when the stored
+ * access token is still comfortably valid.
+ *
+ * **Why this matters**: `server/src/auth/auth.service.ts#refresh` hashes
+ * the *newly-signed* JWT (`sub`+`role`+`iat`+`exp`, second-granularity) as
+ * the `RefreshToken.tokenHash` unique key — two refresh calls for the same
+ * user inside the same wall-clock second mint byte-identical tokens and
+ * the second insert 500s on a unique-constraint violation (verified live:
+ * `POST /auth/refresh` twice in a row `curl`'d back to back). That's a
+ * server-side bug outside this milestone's scope (`server/` is untouched
+ * by M8.4a) — the mitigation here is simply calling refresh far less
+ * often, since a real page-navigation-triggered remount of `AuthProvider`
+ * used to call it unconditionally on every mount.
+ */
+function decodeJwtExpMs(token: string): number | null {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return null;
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const decoded = JSON.parse(json) as { exp?: number };
+    return typeof decoded.exp === "number" ? decoded.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the stored access token is missing, unparseable, or within `graceMs` of expiring (default 30s). */
+export function isAccessTokenStale(token: string, graceMs = 30_000): boolean {
+  const expMs = decodeJwtExpMs(token);
+  if (expMs === null) return true;
+  return Date.now() >= expMs - graceMs;
+}
+
 export function clearSession(): void {
   memory = null;
   if (!isBrowser()) return;
   window.localStorage.removeItem(STORAGE_KEY);
   writeAccessCookie(null);
+}
+
+/** Maps the server's `PublicUser`-shaped `SessionUser` onto the app-wide `User` type. `walletId`/`loyaltyAccountId`/`authProviders` have no server equivalent yet — synthesized placeholders; nothing in the consumer UI dereferences them (wallet/loyalty state comes from `useWallet()`/`lib/api/referrals.ts`, not `user.walletId`). Shared by `AuthContext` and `lib/api/site.ts#getCurrentUser`/`updateUser`. */
+export function toAppUser(sessionUser: SessionUser): User {
+  return {
+    id: sessionUser.id,
+    name: sessionUser.name,
+    email: sessionUser.email,
+    phone: sessionUser.phone,
+    authProviders: [],
+    createdAt: sessionUser.createdAt,
+    walletId: `wallet-${sessionUser.id}`,
+    loyaltyAccountId: `loyalty-${sessionUser.id}`,
+    referralCode: sessionUser.referralCode,
+    role: sessionUser.role,
+    suspended: sessionUser.suspended,
+  };
 }

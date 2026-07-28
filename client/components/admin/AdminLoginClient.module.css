@@ -133,6 +133,12 @@
   line-height: 1.5;
 }
 
+.error {
+  color: var(--hk-terracotta);
+  font-size: 13px;
+  text-align: center;
+}
+
 .signedInCard {
   text-align: center;
   display: flex;

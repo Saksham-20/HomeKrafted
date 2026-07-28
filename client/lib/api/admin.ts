@@ -1,18 +1,29 @@
 /**
- * Unscoped admin mock API (M11a) — every function here reads/writes
- * across ALL sellers/users/orders, unlike `lib/api/seller.ts` (always
- * scoped to the caller's own `vendorId`/`sellerId`). There is no real
- * authorization yet: these functions trust that only `AdminShell`'s
- * role-gated screens ever call them (`useAuth().role === "admin"`,
- * itself only a `localStorage`+cookie mock — see `AuthContext`'s file
- * header). **M8 must enforce real admin-role RBAC server-side and
- * audit-log every unscoped read/write made here** — today it's just an
- * unguarded query over the same in-memory mock arrays every other
- * `lib/api/*` module reads, with no record of who looked at or changed
- * what. Mutations follow the same session-scoped, lost-on-hard-reload
- * pattern as every other mock mutation in this codebase
- * (`lib/api/orders.ts#createOrder`, `lib/api/seller.ts`'s listing/order
- * mutations, etc.) — M8's Postgres tables replace all of it.
+ * Unscoped admin API — real as of M8.4b (`server/src/admin/*`, `docs/API.md`
+ * "Admin panel (M8.3c)"). Every real branch hits an `@Roles('admin')`
+ * `/admin/*` endpoint, unscoped (spans every user/seller/order/wallet, never
+ * filtered to a caller's own resource) and audit-logged server-side on every
+ * mutation. `NEXT_PUBLIC_USE_MOCK=true` keeps the pre-M8.4b mock behavior
+ * byte-for-byte (module-level arrays, lost on reload) — see each function's
+ * `if (isMockMode())` branch.
+ *
+ * **Two functions have no real backend and stay mock-only** (flagged, not
+ * silently left half-working):
+ * - `updateProductAdmin` — `server/src/admin/catalog.controller.ts` only
+ *   exposes `PATCH .../moderate` (hide/unhide/flag/feature toggles), no
+ *   generic full-record edit endpoint for a *different* vendor's listing
+ *   (an admin token also can't call the maker-only `PATCH
+ *   /seller/listings/:id` — that whole controller is `@Roles('seller')`).
+ *   A future milestone needs a dedicated `PATCH /admin/catalog/products/:id`
+ *   if full admin-side listing edits are wanted.
+ * - `updateHomePromoBand`/`getHomePromoBands` — no home-promo-band table or
+ *   endpoint exists server-side at all (`docs/API.md`'s "Site chrome & misc"
+ *   still lists this as static/content, not domain data).
+ *
+ * `createSellerApplication` (`lib/api/sell.ts`, the public `/sell` form) also
+ * has no real endpoint yet — out of this milestone's scope — so a real-mode
+ * admin approval queue only ever shows the seeded `SellerApplication` rows
+ * (`server/prisma/seed.ts`), not anything submitted live via `/sell`.
  */
 
 import {
@@ -34,10 +45,17 @@ import {
   vendors,
 } from "@/lib/data";
 import type { HomePromoBandContent } from "@/lib/data";
+import { toAppUser, type SessionUser } from "@/lib/auth/session";
+import { http, isMockMode } from "./http";
+import { getCategories, getOccasions } from "./catalog";
 import { getPlacedBookings } from "./laundry";
 import { getPlacedOrders } from "./orders";
 import { getAllSnackOrders, getSellerPayouts, type SellerListingInput } from "./seller";
-import { getSellerApplicationById, getSellerApplications, setSellerApplicationStatus } from "./sell";
+import {
+  getSellerApplicationById,
+  getSellerApplications as getSellerApplicationsMock,
+  setSellerApplicationStatus,
+} from "./sell";
 import type {
   Category,
   Collection,
@@ -63,41 +81,92 @@ import type {
 // Users
 // ---------------------------------------------------------------------------
 
+/**
+ * Maps the server's `PublicUser` (`id/name/email/phone/role/referralCode/
+ * createdAt/suspended` — never `authProviders`/`walletId`/`loyaltyAccountId`,
+ * see `server/src/auth/auth.service.ts#PublicUser`) onto the client `User`
+ * shape via the exact same `toAppUser` helper `AuthContext` already uses for
+ * the signed-in session user — same synthesized placeholders
+ * (`authProviders: []`, `walletId`/`loyaltyAccountId` as `"wallet-"`/
+ * `"loyalty-"` + id), so admin screens render identically to the session
+ * path instead of inventing a second adaptation.
+ */
+function toAdminUser(sessionUser: SessionUser): User {
+  return toAppUser(sessionUser);
+}
+
 export async function getAllUsers(): Promise<User[]> {
-  return users;
+  if (isMockMode()) return users;
+  const list = await http.get<SessionUser[]>("/admin/users");
+  return list.map(toAdminUser);
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {
-  return users.find((u) => u.id === id);
+  if (isMockMode()) return users.find((u) => u.id === id);
+  try {
+    const found = await http.get<SessionUser>(`/admin/users/${encodeURIComponent(id)}`);
+    return toAdminUser(found);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function setUserSuspended(id: string, suspended: boolean): Promise<User | undefined> {
-  const user = users.find((u) => u.id === id);
-  if (!user) return undefined;
-  user.suspended = suspended;
-  return user;
+  if (isMockMode()) {
+    const user = users.find((u) => u.id === id);
+    if (!user) return undefined;
+    user.suspended = suspended;
+    return user;
+  }
+  try {
+    const updated = await http.patch<SessionUser>(`/admin/users/${encodeURIComponent(id)}`, { suspended });
+    return toAdminUser(updated);
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Sellers + the onboarding approval queue — closes the M7b `/sell` →
-// M11a admin loop: a pending `SellerApplication` becomes an active
-// `Seller` (+ `Vendor` storefront for marketplace types) once approved.
+// Sellers + the onboarding approval queue — closes the `/sell` → admin →
+// seller-access loop: a pending `SellerApplication` becomes an active
+// `Seller` (+ `Vendor` storefront) once approved. Real mode:
+// `server/src/admin/sellers.controller.ts`.
 // ---------------------------------------------------------------------------
 
 export async function getAllSellers(): Promise<Seller[]> {
-  return sellers;
+  if (isMockMode()) return sellers;
+  return http.get<Seller[]>("/admin/sellers");
 }
 
 export async function getSellerById(id: string): Promise<Seller | undefined> {
-  return sellers.find((s) => s.id === id);
+  if (isMockMode()) return sellers.find((s) => s.id === id);
+  try {
+    return await http.get<Seller>(`/admin/sellers/${encodeURIComponent(id)}`);
+  } catch {
+    return undefined;
+  }
 }
 
-export { getSellerApplications };
+/**
+ * Not exported — `lib/api/sell.ts` already exports a `getSellerApplications`
+ * (mock, used by the `/sell` flow's own bookkeeping); re-declaring the name
+ * here too would make `@/lib/api`'s barrel (`export * from "./sell"` +
+ * `export * from "./admin"`) ambiguous. Every real admin call site only
+ * ever needs `getPendingSellerApplications` below, so this stays a private
+ * helper for that one function.
+ */
+async function getAllSellerApplicationsAdmin(): Promise<SellerApplication[]> {
+  if (isMockMode()) return getSellerApplicationsMock();
+  return http.get<SellerApplication[]>("/admin/sellers/applications");
+}
 
-/** Applications still awaiting a decision — every status short of the two terminal ones (`approved`/`rejected`); see `SellerApplicationStatus`'s doc comment. */
+/** Applications still awaiting a decision — every status short of the two terminal ones (`approved`/`rejected`); see `SellerApplicationStatus`'s doc comment. Real mode: `?status=pending` narrows `AdminSellersService.listApplications` to the same "every non-terminal status" set. */
 export async function getPendingSellerApplications(): Promise<SellerApplication[]> {
-  const all = await getSellerApplications();
-  return all.filter((a) => a.status !== "approved" && a.status !== "rejected");
+  if (isMockMode()) {
+    const all = await getAllSellerApplicationsAdmin();
+    return all.filter((a) => a.status !== "approved" && a.status !== "rejected");
+  }
+  return http.get<SellerApplication[]>("/admin/sellers/applications", { query: { status: "pending" } });
 }
 
 let sellerIdSequence = 100;
@@ -129,26 +198,27 @@ export interface ApproveSellerApplicationResult {
 }
 
 /**
- * Approves a pending `SellerApplication`: sets the application
- * `approved`, mints a new `Vendor` storefront from its business details
- * (`SellerApplicationCategory` maps 1:1 onto `VendorType` except
- * `"other"`, which reads as a plain `"maker"` storefront — the closest
- * fit among the 3 real `VendorType`s an application can become), and an
- * `approved`-status `Seller` (`type: "maker"`, the only `SellerType`
- * `/sell`-origin applications become — laundry/snack partners are
- * onboarded outside this flow today, no application type for them yet)
- * pointing at it.
- *
- * No real `User`/session exists for the new seller yet — a live
- * onboarding would invite one by email at this point; `Seller.userId`
- * here is a synthetic placeholder id rather than a real account,
- * flagged explicitly so it isn't mistaken for one. M8's real onboarding
- * creates the account (and probably an actual invite/verification step)
- * before the `Seller` row, not after.
+ * Approves a pending `SellerApplication`. Mock mode: mints a synthetic
+ * `Vendor`/`Seller` pair with a placeholder `Seller.userId` (no real
+ * account, see the doc comment this used to carry). Real mode: `POST
+ * /admin/sellers/applications/:id/approve` — one atomic server transaction
+ * that finds-or-creates a real `User` account, `Vendor`, and `approved`
+ * `Seller` row (`docs/API.md`'s "Sellers + the onboarding approval queue"),
+ * a real fix over the mock's synthetic id.
  */
 export async function approveSellerApplication(
   applicationId: string,
 ): Promise<ApproveSellerApplicationResult | undefined> {
+  if (!isMockMode()) {
+    try {
+      return await http.post<ApproveSellerApplicationResult>(
+        `/admin/sellers/applications/${encodeURIComponent(applicationId)}/approve`,
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
   const application = await getSellerApplicationById(applicationId);
   if (!application) return undefined;
 
@@ -186,22 +256,39 @@ export async function approveSellerApplication(
 }
 
 export async function rejectSellerApplication(applicationId: string): Promise<SellerApplication | undefined> {
+  if (!isMockMode()) {
+    try {
+      return await http.post<SellerApplication>(
+        `/admin/sellers/applications/${encodeURIComponent(applicationId)}/reject`,
+      );
+    } catch {
+      return undefined;
+    }
+  }
   return setSellerApplicationStatus(applicationId, "rejected");
 }
 
-/** Suspend an active seller, or reactivate a suspended one — the same `Seller.status` field the 3 demo sellers and every M11a-approved seller share. */
+/** Suspend an active seller, or reactivate a suspended one — the same `Seller.status` field the 3 demo sellers and every admin-approved seller share. */
 export async function setSellerStatus(sellerId: string, status: SellerStatus): Promise<Seller | undefined> {
-  const seller = sellers.find((s) => s.id === sellerId);
-  if (!seller) return undefined;
-  seller.status = status;
-  return seller;
+  if (isMockMode()) {
+    const seller = sellers.find((s) => s.id === sellerId);
+    if (!seller) return undefined;
+    seller.status = status;
+    return seller;
+  }
+  if (status !== "approved" && status !== "suspended") return undefined;
+  try {
+    return await http.patch<Seller>(`/admin/sellers/${encodeURIComponent(sellerId)}/status`, { status });
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Orders oversight — unifies marketplace `Order`s, `LaundryBooking`s and
-// `SnackOrder`s into one read-only shape for `/admin/orders`. Not a new
-// domain entity (no `lib/types` addition): a display-layer aggregation,
-// the same way `SellerDashboardSnapshot` (`lib/api/seller.ts`) is.
+// `SnackOrder`s into one read-only shape for `/admin/orders`. Real mode:
+// `server/src/admin/orders.controller.ts` already returns this exact
+// unified shape server-side — no client-side aggregation needed.
 // ---------------------------------------------------------------------------
 
 export type AdminOrderType = "marketplace" | "laundry" | "snack";
@@ -214,12 +301,11 @@ export interface AdminOrderSummary {
   customerName: string;
   customerPhone?: string;
   /**
-   * The `User.id` a wallet refund would credit (M11b `/admin/wallet`) —
-   * set for marketplace `Order`s and `LaundryBooking`s (both carry a real
+   * The `User.id` a wallet refund would credit (`/admin/wallet`) — set for
+   * marketplace `Order`s and `LaundryBooking`s (both carry a real
    * `userId`), left `undefined` for `SnackOrder`s (WhatsApp-only, no
-   * registered account/wallet to refund — see `SnackOrder`'s doc
-   * comment). `OrderDetailClient` only renders the refund form when this
-   * is present.
+   * registered account/wallet — see `SnackOrder`'s doc comment).
+   * `OrderDetailClient` only renders the refund form when this is present.
    */
   customerUserId?: string;
   sellerNames: string[];
@@ -255,6 +341,10 @@ function sellerNameForSnackOrder(order: SnackOrder): string[] {
 }
 
 export async function getAllOrdersUnified(): Promise<AdminOrderSummary[]> {
+  if (!isMockMode()) {
+    return http.get<AdminOrderSummary[]>("/admin/orders");
+  }
+
   const [placedOrders, placedBookings, snackOrders] = await Promise.all([
     getPlacedOrders(),
     getPlacedBookings(),
@@ -302,7 +392,14 @@ export async function getAllOrdersUnified(): Promise<AdminOrderSummary[]> {
   );
 }
 
-/** The one summary row matching a `/admin/orders/[type]/[id]` route — `OrderDetailClient` uses this for the customer/seller/status/total header, and one of the 3 full-record getters below for line-item detail. */
+/**
+ * The one summary row matching a `/admin/orders/[type]/[id]` route.
+ * Real mode: no dedicated single-summary endpoint exists (only the full
+ * per-type record, via `getAdminMarketplaceOrder`/etc. below, and the
+ * unified list) — resolved by filtering the same unified list this module
+ * already fetches, same "no by-id endpoint, resolve from the full list"
+ * pattern `lib/api/products.ts#getProductById` uses.
+ */
 export async function getAdminOrderById(type: AdminOrderType, id: string): Promise<AdminOrderSummary | undefined> {
   const all = await getAllOrdersUnified();
   return all.find((o) => o.id === `${type}:${id}`);
@@ -310,18 +407,39 @@ export async function getAdminOrderById(type: AdminOrderType, id: string): Promi
 
 /** Full record fetch for `/admin/orders/[type]/[id]` — the summary above is deliberately thin (list-row shaped); the detail screen needs the real `Order`/`LaundryBooking`/`SnackOrder` for its line items. */
 export async function getAdminMarketplaceOrder(id: string): Promise<Order | undefined> {
-  const placed = await getPlacedOrders();
-  return [...seedOrders, ...placed].find((o) => o.id === id);
+  if (isMockMode()) {
+    const placed = await getPlacedOrders();
+    return [...seedOrders, ...placed].find((o) => o.id === id);
+  }
+  try {
+    return await http.get<Order>(`/admin/orders/marketplace/${encodeURIComponent(id)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getAdminLaundryBooking(id: string): Promise<LaundryBooking | undefined> {
-  const placed = await getPlacedBookings();
-  return [...seedLaundryBookings, ...placed].find((b) => b.id === id);
+  if (isMockMode()) {
+    const placed = await getPlacedBookings();
+    return [...seedLaundryBookings, ...placed].find((b) => b.id === id);
+  }
+  try {
+    return await http.get<LaundryBooking>(`/admin/orders/laundry/${encodeURIComponent(id)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getAdminSnackOrder(id: string): Promise<SnackOrder | undefined> {
-  const all = await getAllSnackOrders();
-  return all.find((o) => o.id === id);
+  if (isMockMode()) {
+    const all = await getAllSnackOrders();
+    return all.find((o) => o.id === id);
+  }
+  try {
+    return await http.get<SnackOrder>(`/admin/orders/snack/${encodeURIComponent(id)}`);
+  } catch {
+    return undefined;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -338,11 +456,15 @@ export interface AdminDashboardSnapshot {
   usersCount: number;
   pendingApplicationsCount: number;
   pendingPayoutsAmount: number;
-  /** Sum of every seeded `Wallet` balance (M11b: `adminWalletsByUser`, one per account — see `/admin/wallet`). Still a mock sum computed client-side, not a real server aggregate; M8's wallet ledger computes this figure server-side instead. */
+  /** Real mode: server-side `Wallet.balance` aggregate (`server/src/admin/dashboard.service.ts`). Mock mode: sum of every seeded `Wallet` balance (`adminWalletsByUser`). */
   walletLiability: number;
 }
 
 export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
+  if (!isMockMode()) {
+    return http.get<AdminDashboardSnapshot>("/admin/dashboard");
+  }
+
   const unified = await getAllOrdersUnified();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -379,28 +501,8 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
 }
 
 // ---------------------------------------------------------------------------
-// Catalog & review moderation (M11b `/admin/catalog`) — every `Product`
-// across every vendor, unscoped. Moderation actions mutate the shared
-// `Product`/`Review` objects in place (same pattern as `setUserSuspended`
-// above): `moderateProduct`'s "hide" is a real soft-delete in intent —
-// `lib/api/products.ts`'s browse/listing getters already filter
-// `moderationStatus: "hidden"` out. "flag" only queues it for review
-// (stays browsable). "feature"/"unfeature" toggles the same
-// `Product.featured` flag `getFeatured()` reads for the home page's
-// "This week's small batches" rail.
-//
-// **Known mock-architecture limit, not new to M11b:** the browse pages
-// that read these filters (`/shop`, `/`, `/product/[slug]`,
-// `/storefront/[vendor]`, `/collections/[occasion]`) are Server
-// Components — they fetch on the Next.js server, a separate JS module
-// graph from the browser tab this `"use client"` admin screen mutates
-// in. So a hide/feature/flag/reply action here is instantly visible to
-// every other admin client component in this same tab (same pattern
-// `setUserSuspended`/`setSellerStatus` already document), but never
-// propagates to a server-rendered consumer page without a real backend
-// round-trip — the exact same boundary `lib/api/seller.ts`'s
-// `updateSellerStorefront` doc comment already calls out for
-// `/storefront/[vendor]`. M8's real API removes this gap entirely.
+// Catalog & review moderation (`/admin/catalog`) — every `Product` across
+// every vendor, unscoped. Real mode: `server/src/admin/catalog.controller.ts`.
 // ---------------------------------------------------------------------------
 
 export interface AdminProductSummary extends Product {
@@ -409,6 +511,9 @@ export interface AdminProductSummary extends Product {
 }
 
 export async function getAllProductsAdmin(): Promise<AdminProductSummary[]> {
+  if (!isMockMode()) {
+    return http.get<AdminProductSummary[]>("/admin/catalog/products");
+  }
   return products.map((product) => ({
     ...product,
     vendorName: getVendorById(product.vendorId)?.name ?? "Unknown vendor",
@@ -424,10 +529,30 @@ const MODERATION_STATUS_BY_ACTION: Partial<Record<ProductModerationAction, Produ
   flag: "flagged",
 };
 
+/** Client's 5-value `ProductModerationAction` → the server DTO's 7 explicit toggle values (`docs/API.md`: "the mock's 'approve' here is 'unhide'"). */
+const SERVER_MODERATION_ACTION: Record<ProductModerationAction, string> = {
+  approve: "unhide",
+  hide: "hide",
+  flag: "flag",
+  feature: "feature",
+  unfeature: "unfeature",
+};
+
 export async function moderateProduct(
   productId: string,
   action: ProductModerationAction,
 ): Promise<Product | undefined> {
+  if (!isMockMode()) {
+    try {
+      return await http.patch<AdminProductSummary>(
+        `/admin/catalog/products/${encodeURIComponent(productId)}/moderate`,
+        { action: SERVER_MODERATION_ACTION[action] },
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
   const product = products.find((p) => p.id === productId);
   if (!product) return undefined;
 
@@ -440,13 +565,10 @@ export async function moderateProduct(
 }
 
 /**
- * Full-record admin edit, mirroring `lib/api/seller.ts#updateSellerListing`
- * exactly, minus the `vendorId` scope — an admin can edit any vendor's
- * listing, a maker can only edit their own. Shares `SellerListingInput`/
- * `ListingForm` (`components/seller/ListingForm.tsx`) with the seller
- * surface: it's a plain presentational form driven by props, not
- * seller-shell-specific, so `/admin/catalog/[id]`'s editor reuses it
- * directly instead of forking a near-identical copy.
+ * **Stays mock-only** — no real endpoint exists for a full admin-side
+ * listing edit (only the moderate-action toggles above); see this file's
+ * header comment. Mirrors `lib/api/seller.ts#updateSellerListing` exactly,
+ * minus the `vendorId` scope.
  */
 export async function updateProductAdmin(
   productId: string,
@@ -487,11 +609,21 @@ function resolveReviewTargetName(review: Review): string {
 }
 
 export async function getAllReviewsAdmin(): Promise<AdminReviewSummary[]> {
+  if (!isMockMode()) {
+    return http.get<AdminReviewSummary[]>("/admin/catalog/reviews");
+  }
   return reviews.map((review) => ({ ...review, targetName: resolveReviewTargetName(review) }));
 }
 
-/** Hides/unhides a review — mutates the shared `Review` object, filtered by (or restored to) `getProductReviews`/`getVendorReviews` (`lib/api/reviews.ts`) on their next server-side read (see this section's header comment for the client/server module-graph caveat). Doesn't clear `flagged`: a moderator hiding a flagged review is expected to leave the flag as an audit trail of why it was hidden. */
+/** Hides/unhides a review — mutates the shared `Review` object (mock mode), filtered by (or restored to) `getProductReviews`/`getVendorReviews` (`lib/api/reviews.ts`) on their next server-side read. Doesn't clear `flagged`: a moderator hiding a flagged review is expected to leave the flag as an audit trail of why it was hidden. */
 export async function moderateReview(reviewId: string, hidden: boolean): Promise<Review | undefined> {
+  if (!isMockMode()) {
+    try {
+      return await http.patch<Review>(`/admin/catalog/reviews/${encodeURIComponent(reviewId)}/moderate`, { hidden });
+    } catch {
+      return undefined;
+    }
+  }
   const review = reviews.find((r) => r.id === reviewId);
   if (!review) return undefined;
   review.hidden = hidden;
@@ -499,15 +631,9 @@ export async function moderateReview(reviewId: string, hidden: boolean): Promise
 }
 
 // ---------------------------------------------------------------------------
-// Wallet & refunds (M11b `/admin/wallet`) — platform-wide wallet
-// oversight over `adminWalletsByUser`/`adminWalletTransactionsByUser`
-// (`lib/data/admin.ts`), a separate per-user ledger from the consumer's
-// own `WalletContext` (see that file's doc comment for why they can
-// drift in this mock). **M8 must make this one real,
-// server-authoritative ledger per user, with every write audit-logged
-// (who issued it, when, against which order) — today it's an unguarded
-// in-memory mutation with no audit trail, same caveat as every other
-// unscoped admin mutation in this file.**
+// Wallet & refunds (`/admin/wallet`) — platform-wide wallet oversight. Real
+// mode: `server/src/admin/wallet.controller.ts`, every mutation funnelled
+// through `WalletService`'s row-locked ledger primitives server-side.
 // ---------------------------------------------------------------------------
 
 export interface AdminWalletUserSummary {
@@ -543,6 +669,10 @@ function walletUserSummary(userId: string): AdminWalletUserSummary {
 }
 
 export async function getWalletOverview(): Promise<AdminWalletOverview> {
+  if (!isMockMode()) {
+    return http.get<AdminWalletOverview>("/admin/wallet");
+  }
+
   const balances = Object.keys(adminWalletsByUser)
     .map(walletUserSummary)
     .sort((a, b) => b.balance - a.balance);
@@ -561,6 +691,13 @@ export interface AdminUserWallet {
 }
 
 export async function getUserWallet(userId: string): Promise<AdminUserWallet | undefined> {
+  if (!isMockMode()) {
+    try {
+      return await http.get<AdminUserWallet>(`/admin/wallet/${encodeURIComponent(userId)}`);
+    } catch {
+      return undefined;
+    }
+  }
   const w = adminWalletsByUser[userId];
   if (!w) return undefined;
   return { wallet: w, transactions: adminWalletTransactionsByUser[userId] ?? [] };
@@ -579,14 +716,39 @@ export interface IssueRefundInput {
 }
 
 /**
- * Credits a refund to a user's wallet — same ledger shape as the
- * consumer-side `WalletContext.refund` (`category: "refund"`, `direction:
- * "credit"`), just written server-side-of-the-mock (the admin data
- * layer) instead of client `localStorage`. Wired from
- * `OrderDetailClient`'s "Issue refund" action for marketplace/laundry
- * orders (`AdminOrderSummary.customerUserId`).
+ * Credits a refund to a user's wallet. Real mode: `POST
+ * /admin/wallet/:userId/refund` — the server's response is now `{wallet,
+ * balanceAfter, transactionId}` (M9 closed the M8.4b-flagged shape gap:
+ * the created ledger row's own id is returned rather than discarded), so
+ * the full `WalletTransaction` this function's callers expect to prepend
+ * to their local ledger view uses the real id — only `createdAt` is
+ * still a client-side stand-in (cosmetic — a hard reload's next
+ * `getUserWallet` fetch shows the real row's exact timestamp).
  */
 export async function issueRefund(input: IssueRefundInput): Promise<WalletTransaction | undefined> {
+  if (!isMockMode()) {
+    try {
+      const result = await http.post<{ wallet: Wallet; balanceAfter: number; transactionId: string }>(
+        `/admin/wallet/${encodeURIComponent(input.userId)}/refund`,
+        { amount: input.amount, title: input.title, refType: input.refType, refId: input.refId },
+      );
+      return {
+        id: result.transactionId,
+        walletId: result.wallet.id,
+        direction: "credit",
+        category: "refund",
+        amount: input.amount,
+        balanceAfter: result.balanceAfter,
+        title: input.title,
+        refType: input.refType,
+        refId: input.refId,
+        createdAt: new Date().toISOString(),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
   const w = adminWalletsByUser[input.userId];
   if (!w || input.amount <= 0) return undefined;
 
@@ -626,14 +788,36 @@ export interface AdjustWalletInput {
 }
 
 /**
- * Manual credit/debit not tied to an order — `category: "adjustment"`
- * (distinct from `"refund"`, see that category's doc comment on
- * `WalletTransactionCategory`). A debit is rejected (returns `undefined`)
- * if it would take the balance negative — an admin fixing a mistake
- * still shouldn't be able to leave a wallet in an invalid state; M8's
- * server-side ledger should enforce the same invariant transactionally.
+ * Manual credit/debit not tied to an order. Real mode: `POST
+ * /admin/wallet/:userId/adjust` — same `{wallet, balanceAfter,
+ * transactionId}` shape as `issueRefund` above (the real ledger-row id is
+ * used, no longer synthesized). A debit that would take the balance
+ * negative surfaces as a `402` from `WalletService.postLedgerEntryTx` —
+ * caught here and translated to `undefined`, matching the mock's
+ * "rejected debit" contract exactly.
  */
 export async function adjustWallet(input: AdjustWalletInput): Promise<WalletTransaction | undefined> {
+  if (!isMockMode()) {
+    try {
+      const result = await http.post<{ wallet: Wallet; balanceAfter: number; transactionId: string }>(
+        `/admin/wallet/${encodeURIComponent(input.userId)}/adjust`,
+        { direction: input.direction, amount: input.amount, reason: input.reason },
+      );
+      return {
+        id: result.transactionId,
+        walletId: result.wallet.id,
+        direction: input.direction,
+        category: "adjustment",
+        amount: input.amount,
+        balanceAfter: result.balanceAfter,
+        title: `Admin adjustment — ${input.reason}`,
+        createdAt: new Date().toISOString(),
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
   const w = adminWalletsByUser[input.userId];
   if (!w || input.amount <= 0) return undefined;
   if (input.direction === "debit" && w.balance < input.amount) return undefined;
@@ -660,14 +844,16 @@ export async function adjustWallet(input: AdjustWalletInput): Promise<WalletTran
 }
 
 // ---------------------------------------------------------------------------
-// Collections & CMS (M11b `/admin/collections`) — occasion `Collection`s
-// (title, occasion, product membership + order) and the home page's two
-// promo bands (`lib/data/site.ts#homePromoBands`). Both mutate shared
-// arrays/objects in place, same session-scoped mock-persistence caveat as
-// every other admin mutation in this file.
+// Collections & CMS (`/admin/collections`) — occasion `Collection`s (title,
+// occasion, product membership + order). Real mode:
+// `server/src/admin/collections.controller.ts`. The home page's two promo
+// bands (`lib/data/site.ts#homePromoBands`) have no server table/endpoint
+// yet — `updateHomePromoBand` stays mock-only unconditionally, see this
+// file's header comment.
 // ---------------------------------------------------------------------------
 
 export async function getCollectionsAdmin(): Promise<Collection[]> {
+  if (!isMockMode()) return http.get<Collection[]>("/admin/collections");
   return collections;
 }
 
@@ -697,6 +883,19 @@ export interface UpsertCollectionInput {
 }
 
 export async function upsertCollection(input: UpsertCollectionInput): Promise<Collection> {
+  if (!isMockMode()) {
+    const body = {
+      title: input.title,
+      description: input.description,
+      occasionId: input.occasionId,
+      productIds: input.productIds,
+    };
+    if (input.id) {
+      return http.patch<Collection>(`/admin/collections/${encodeURIComponent(input.id)}`, body);
+    }
+    return http.post<Collection>("/admin/collections", body);
+  }
+
   if (input.id) {
     const existing = collections.find((c) => c.id === input.id);
     if (existing) {
@@ -721,14 +920,19 @@ export async function upsertCollection(input: UpsertCollectionInput): Promise<Co
   return collection;
 }
 
+/** Real mode: same public `GET /categories` the consumer catalog already reads (`lib/api/catalog.ts`) — admin has no separate scoped category table. */
 export async function getCategoriesAdmin(): Promise<Category[]> {
+  if (!isMockMode()) return getCategories();
   return categories;
 }
 
+/** Real mode: same public `GET /occasions` the consumer catalog already reads. */
 export async function getOccasionsAdmin(): Promise<Occasion[]> {
+  if (!isMockMode()) return getOccasions();
   return occasions;
 }
 
+/** **Stays mock-only** — no server table/endpoint for home promo bands exists yet; see this file's header comment. */
 export async function updateHomePromoBand(
   id: string,
   patch: Partial<Omit<HomePromoBandContent, "id">>,
@@ -740,13 +944,10 @@ export async function updateHomePromoBand(
 }
 
 // ---------------------------------------------------------------------------
-// Analytics (M11b `/admin/analytics`) — GMV over time, orders by module,
-// top sellers/products, new users, wallet flow. Derived entirely from the
-// existing mock arrays (no new data model), same "display-layer
-// aggregation" status as `AdminOrderSummary`/`AdminDashboardSnapshot`. No
-// chart library anywhere in this codebase — `AnalyticsClient` renders
-// these numbers as plain CSS bars/sparklines, the same recipe
-// `AdminDashboardClient`'s "Orders by module" bar chart already uses.
+// Analytics (`/admin/analytics`) — GMV over time, orders by module, top
+// sellers/products, new users, wallet flow. Real mode:
+// `server/src/admin/dashboard.service.ts#getAnalytics` computes the exact
+// same aggregates server-side; no client-side computation needed.
 // ---------------------------------------------------------------------------
 
 export interface AnalyticsDailyPoint {
@@ -926,6 +1127,10 @@ function computeWalletFlow(): AnalyticsWalletFlow {
 }
 
 export async function getAnalytics(): Promise<AdminAnalyticsSnapshot> {
+  if (!isMockMode()) {
+    return http.get<AdminAnalyticsSnapshot>("/admin/analytics");
+  }
+
   const [gmvSeries, sellerLeaderboard, productLeaderboard, dashboard] = await Promise.all([
     computeGmvSeries(),
     computeSellerLeaderboard(),

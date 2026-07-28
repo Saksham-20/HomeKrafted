@@ -23,30 +23,51 @@ import {
   type LaundrySubscriptionPlanOption,
 } from "@/lib/data";
 import { computeCashback } from "@/lib/cart/pricing";
+import { http, isMockMode } from "./http";
 
 /** Re-exported so components import the plan-option shape via `@/lib/api`, never `@/lib/data` directly. */
 export type { LaundrySubscriptionPlanOption };
 
+/**
+ * Laundry (M8.4a — real). Services/availability are `@Public()` reads;
+ * bookings + subscriptions are owner-scoped (`docs/API.md` "Services
+ * (M8.3a)"). Every booking's price is server-authoritative — the create
+ * DTO has no price field — so `createBooking`'s `unitPrice` input is kept
+ * only so the call site (`LaundryBookingClient`) doesn't need to change;
+ * it's simply not sent to the server, which recomputes the same estimate
+ * fresh from `LaundryService.price` server-side.
+ */
+
 export async function getLaundryServices(): Promise<LaundryService[]> {
-  return laundryServices;
+  if (isMockMode()) return laundryServices;
+  return http.get<LaundryService[]>("/laundry/services", { auth: false });
 }
 
 export async function getLaundryService(slug: string): Promise<LaundryService | undefined> {
-  return getLaundryServiceBySlug(slug);
+  if (isMockMode()) return getLaundryServiceBySlug(slug);
+  try {
+    return await http.get<LaundryService>(`/laundry/services/${encodeURIComponent(slug)}`, { auth: false });
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getLaundryDays(): Promise<LaundryDay[]> {
-  return laundryDays;
+  if (isMockMode()) return laundryDays;
+  return http.get<LaundryDay[]>("/laundry/availability/days", { auth: false });
 }
 
 export async function getLaundrySlots(): Promise<LaundrySlot[]> {
-  return laundrySlots;
+  if (isMockMode()) return laundrySlots;
+  return http.get<LaundrySlot[]>("/laundry/availability/slots", { auth: false });
 }
 
+/** Static copy — stays client-side content, not an endpoint. */
 export async function getLaundryHowItWorks(): Promise<LaundryHowItWorksStep[]> {
   return laundrySteps;
 }
 
+/** Static copy — stays client-side content, not an endpoint. */
 export async function getLaundrySubscriptionPlanOptions(): Promise<
   LaundrySubscriptionPlanOption[]
 > {
@@ -54,12 +75,8 @@ export async function getLaundrySubscriptionPlanOptions(): Promise<
 }
 
 // ---------------------------------------------------------------------------
-// Booking flow mutations (M4) — in-memory mocks, called from the client
-// booking component (no server boundary yet, same caveat as
-// `lib/api/orders.ts`'s `createOrder`: resets on a hard reload, persists
-// across client-side navigation within a session). Swap for real
-// POST /api/v1/laundry/bookings + /subscriptions calls in M8 without
-// touching any call site.
+// Mock-mode-only in-memory "table" — real mode reads/writes go straight
+// through `http` to `server/`, nothing kept locally.
 // ---------------------------------------------------------------------------
 
 const bookings: LaundryBooking[] = [];
@@ -70,7 +87,7 @@ export interface CreateBookingInput {
   estimatedWeightKg?: number;
   itemCount?: number;
   estimatedHours?: number;
-  /** Baseline price used to compute the estimate — the selected service's `price`. */
+  /** Baseline price used for the *mock* estimate only — the real endpoint recomputes this itself from `LaundryService.price` and ignores anything price-shaped in the request body. */
   unitPrice: number;
   pickupSlot: { date: ISODateString; slotId: ID };
   deliverySlot: { date: ISODateString; slotId: ID };
@@ -82,33 +99,57 @@ export interface CreateBookingInput {
 }
 
 /**
- * Mock booking-placement mutation — computes the estimate from the
- * chosen service's quantity dimension (kg/item/hr), generates an id +
- * human-readable booking number, "persists" to an in-memory array. Every
- * new booking starts life `status: "scheduled"` (the confirmation screen's
- * basic status line starts here) — real-time pickup/delivery progress
- * updates are app-only per `lib/channel.ts`, so nothing here ever
- * transitions the status client-side.
+ * Mock mode: computes the estimate from the chosen service's quantity
+ * dimension (kg/item/hr) and "persists" to an in-memory array. Real mode:
+ * `POST /laundry/bookings` — server-priced, and (unlike the mock) a
+ * `paymentMethod: "wallet"` booking debits the wallet + credits cashback
+ * **atomically with the booking insert** server-side, so the caller
+ * (`LaundryBookingClient`) no longer makes a separate `useWallet().pay()`/
+ * `earnCashback()` call afterward — it just re-fetches the wallet balance.
  */
 export async function createBooking(input: CreateBookingInput): Promise<LaundryBooking> {
-  const qty = input.estimatedWeightKg ?? input.itemCount ?? input.estimatedHours ?? 0;
-  const estimatedTotal = Math.round(input.unitPrice * qty);
-  const walletCashback =
-    input.paymentMethod === "wallet" ? computeCashback(estimatedTotal) : undefined;
+  if (isMockMode()) {
+    const qty = input.estimatedWeightKg ?? input.itemCount ?? input.estimatedHours ?? 0;
+    const estimatedTotal = Math.round(input.unitPrice * qty);
+    const walletCashback =
+      input.paymentMethod === "wallet" ? computeCashback(estimatedTotal) : undefined;
 
-  const booking: LaundryBooking = {
-    id: `lb-${Date.now()}`,
-    bookingNumber: nextBookingNumber(),
-    userId: currentUser.id,
-    lines: [
-      {
-        serviceId: input.serviceId,
-        estimatedWeightKg: input.estimatedWeightKg,
-        itemCount: input.itemCount,
-        estimatedHours: input.estimatedHours,
-        estimatedPrice: estimatedTotal,
-      },
-    ],
+    const booking: LaundryBooking = {
+      id: `lb-${Date.now()}`,
+      bookingNumber: nextBookingNumber(),
+      userId: currentUser.id,
+      lines: [
+        {
+          serviceId: input.serviceId,
+          estimatedWeightKg: input.estimatedWeightKg,
+          itemCount: input.itemCount,
+          estimatedHours: input.estimatedHours,
+          estimatedPrice: estimatedTotal,
+        },
+      ],
+      pickupSlot: input.pickupSlot,
+      deliverySlot: input.deliverySlot,
+      addressId: input.addressId,
+      photos: input.photos,
+      specialInstructions: input.specialInstructions,
+      subscriptionId: input.subscriptionId,
+      paymentMethod: input.paymentMethod,
+      status: "scheduled" as LaundryBookingStatus,
+      estimatedTotal,
+      walletCashback,
+      createdAt: new Date().toISOString(),
+      partnerId: "sl2",
+    };
+
+    bookings.push(booking);
+    return booking;
+  }
+
+  return http.post<LaundryBooking>("/laundry/bookings", {
+    serviceId: input.serviceId,
+    estimatedWeightKg: input.estimatedWeightKg,
+    itemCount: input.itemCount,
+    estimatedHours: input.estimatedHours,
     pickupSlot: input.pickupSlot,
     deliverySlot: input.deliverySlot,
     addressId: input.addressId,
@@ -116,20 +157,7 @@ export async function createBooking(input: CreateBookingInput): Promise<LaundryB
     specialInstructions: input.specialInstructions,
     subscriptionId: input.subscriptionId,
     paymentMethod: input.paymentMethod,
-    status: "scheduled" as LaundryBookingStatus,
-    estimatedTotal,
-    walletCashback,
-    createdAt: new Date().toISOString(),
-    // M10b: real partner-assignment/dispatch (routing a new booking to
-    // whichever partner covers the pickup address) is M8/M9 scope — every
-    // booking placed today, live or seeded, auto-assigns to the one
-    // seeded demo laundry partner (`sl2`, `lib/data/sellers.ts`) so
-    // `/seller/pickups` has something real to show.
-    partnerId: "sl2",
-  };
-
-  bookings.push(booking);
-  return booking;
+  });
 }
 
 export interface CreateSubscriptionInput {
@@ -139,31 +167,52 @@ export interface CreateSubscriptionInput {
   nextPickup: ISODateString;
 }
 
-/** Mock subscription-creation mutation — same in-memory caveat as `createBooking`. */
+/** Real mode: `POST /laundry/subscriptions` — the create DTO flattens `slot: {day, slotId}` to `slotDay`/`slotId` (`docs/API.md`'s noted seam); the response is re-nested back into the frontend's `slot` shape here so the call site never sees the flattening. */
 export async function createSubscription(
   input: CreateSubscriptionInput,
 ): Promise<LaundrySubscription> {
-  const subscription: LaundrySubscription = {
-    id: `lsub-${Date.now()}`,
-    userId: currentUser.id,
+  if (isMockMode()) {
+    const subscription: LaundrySubscription = {
+      id: `lsub-${Date.now()}`,
+      userId: currentUser.id,
+      serviceId: input.serviceId,
+      plan: input.plan,
+      slot: input.slot,
+      active: true,
+      nextPickup: input.nextPickup,
+    };
+
+    subscriptions.push(subscription);
+    return subscription;
+  }
+
+  interface SubscriptionDto extends Omit<LaundrySubscription, "slot"> {
+    slot?: { day: string; slotId: ID };
+    slotDay?: string;
+    slotId?: ID;
+  }
+
+  const dto = await http.post<SubscriptionDto>("/laundry/subscriptions", {
     serviceId: input.serviceId,
     plan: input.plan,
-    slot: input.slot,
-    active: true,
+    slotDay: input.slot.day,
+    slotId: input.slot.slotId,
     nextPickup: input.nextPickup,
-  };
+  });
 
-  subscriptions.push(subscription);
-  return subscription;
+  return {
+    ...dto,
+    slot: dto.slot ?? { day: dto.slotDay ?? input.slot.day, slotId: dto.slotId ?? input.slot.slotId },
+  };
 }
 
 /**
- * Bookings placed live in this browser tab's session (M7a) — same
- * reasoning and same caveat as `lib/api/orders.ts`'s `getPlacedOrders()`:
- * read by `lib/api/history.ts`'s `getOrderHistory()` alongside the seeded
- * `lib/data/laundry.ts#seedLaundryBookings` history, only populated within
- * the client-bundle module instance a booking was actually placed in.
+ * Real mode: `GET /laundry/bookings` — every booking of the signed-in
+ * account, not just ones placed this session (unlike the pre-M8.4a mock,
+ * whose in-memory array only ever held this-tab's live bookings on top of
+ * `lib/data`'s seed history).
  */
 export async function getPlacedBookings(): Promise<LaundryBooking[]> {
-  return bookings;
+  if (isMockMode()) return bookings;
+  return http.get<LaundryBooking[]>("/laundry/bookings");
 }

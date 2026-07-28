@@ -13,43 +13,61 @@ import { OrderConfirmation } from "./OrderConfirmation";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
-import { createOrder, type CreateOrderLineInput } from "@/lib/api";
+import {
+  createAddress,
+  createOrder,
+  createRazorpayOrder,
+  getAddresses,
+  getOrder,
+  getWallet,
+  type CreateOrderLineInput,
+} from "@/lib/api";
+import { isMockMode } from "@/lib/api/http";
+import { openRazorpayCheckout } from "@/lib/payments/razorpay";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { formatCurrency } from "@/lib/format";
 import type { DeliveryDateOption } from "@/lib/data";
-import type { Address, Order, OrderGift, OrderShipment, PaymentMethod, Wallet } from "@/lib/types";
+import type { Address, Order, OrderGift, OrderShipment, PaymentMethod } from "@/lib/types";
 import styles from "./CheckoutClient.module.css";
 
 export interface CheckoutClientProps {
-  initialAddresses: Address[];
-  wallet: Wallet;
   deliveryDateOptions: DeliveryDateOption[];
 }
 
-/** Synthetic address id for a gift-to-recipient order — not a saved address book row (M7 owns real CRUD). */
-const GIFT_ADDRESS_ID = "gift-recipient";
+/** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
+const MOCK_GIFT_ADDRESS_ID = "gift-recipient";
+const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 
 /**
- * Checkout (M3) — the full Marketplace checkout: multi-address split
- * with a per-address delivery date, gift-to-recipient (hide price), and
- * wallet/Razorpay payment. Gift-to-recipient ships the *entire* order to
- * one recipient rather than being combined with per-item multi-address
- * splitting — simpler mental model (you're sending one thing to one
- * person), and it's how gifting actually works; flag this decision for
- * Opus if a mixed "some items to me, one to a gift recipient" flow turns
- * out to be wanted later.
+ * Checkout (M3; real as of M8.4a) — the full Marketplace checkout: multi-
+ * address split with a per-address delivery date, gift-to-recipient (hide
+ * price), and wallet/Razorpay/COD payment. Gift-to-recipient ships the
+ * *entire* order to one recipient rather than being combined with
+ * per-item multi-address splitting — simpler mental model, and it's how
+ * gifting actually works; flag this decision for Opus if a mixed "some
+ * items to me, one to a gift recipient" flow turns out to be wanted
+ * later.
+ *
+ * M8.4a: `initialAddresses`/`wallet` used to be server-fetched props
+ * (`app/checkout/page.tsx`) — both are owner-scoped real reads now, so
+ * this component fetches them itself on mount instead (same reasoning as
+ * `LaundryBookingClient`).
  */
-export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }: CheckoutClientProps) {
+export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
+  const mock = isMockMode();
   const router = useRouter();
+  const { user } = useAuth();
   const { items, ready, lineInfo, subtotal, assignAddress, clear } = useCart();
-  // Live wallet balance (M6) — the `wallet` prop still supplies the static
-  // `payWithWalletDefault` preference (server-fetched config), but every
-  // balance-sufficiency check reads this instead so a top-up/payment made
-  // in another tab/screen this session is reflected immediately.
+  // Live wallet balance (M6) — every balance-sufficiency check reads this
+  // instead of a static prop, so a top-up/payment made in another tab/
+  // screen this session is reflected immediately.
   const { balance: walletBalance, pay, earnCashback } = useWallet();
 
-  const [addressList, setAddressList] = useState<Address[]>(initialAddresses);
+  const [addressList, setAddressList] = useState<Address[]>([]);
+  const [accountReady, setAccountReady] = useState(false);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
+  const [savingAddress, setSavingAddress] = useState(false);
 
   const [isGift, setIsGift] = useState(false);
   const [recipient, setRecipient] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
@@ -58,25 +76,23 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
   const [giftDateId, setGiftDateId] = useState(deliveryDateOptions[0]?.id ?? "");
 
   const [dateByAddress, setDateByAddress] = useState<Record<string, string>>({});
-  // The shopper's *preference* — the actually-effective method (below) falls
-  // back to Razorpay whenever the wallet can't cover the total, so a cart
-  // that grows after this mounts (e.g. a hamper hand-off) can never leave a
-  // disabled-but-still-"selected" wallet option silently under-billing.
-  // Seeded from the server-fetched `wallet` prop (always populated at first
-  // paint via SSR), not the live `walletBalance` from `useWallet()` — that
-  // context hydrates from localStorage *after* mount (same guard
-  // `CartContext` uses), so on a hard navigation/reload it would briefly
-  // read 0 and wrongly default this preference to "razorpay" even when
-  // `payWithWalletDefault` is on. This is only ever a one-time starting
-  // guess anyway; `walletSufficient` below re-derives the *effective*
-  // `paymentMethod` from the live balance on every render, so a stale
-  // prop here can never let an actually-insufficient wallet get selected.
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>(
-    wallet.payWithWalletDefault && wallet.balance > 0 ? "wallet" : "razorpay",
-  );
+  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>("razorpay");
   const [placing, setPlacing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getAddresses(), getWallet()]).then(([addresses, w]) => {
+      if (cancelled) return;
+      setAddressList(addresses);
+      if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
+      setAccountReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const defaultAddress = addressList.find((a) => a.isDefault) ?? addressList[0];
 
@@ -84,11 +100,11 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
   // address — this is what makes the multi-address split start from a
   // sane place (everything ships to "Home" until reassigned).
   useEffect(() => {
-    if (!ready || isGift || !defaultAddress) return;
+    if (!ready || !accountReady || isGift || !defaultAddress) return;
     for (const item of items) {
       if (!item.addressId) assignAddress(item.id, defaultAddress.id);
     }
-  }, [ready, isGift, items, defaultAddress, assignAddress]);
+  }, [ready, accountReady, isGift, items, defaultAddress, assignAddress]);
 
   const groups = useMemo(() => {
     const map = new Map<string, typeof items>();
@@ -110,27 +126,62 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
   const paymentMethod: PaymentMethod = walletSufficient ? preferredPaymentMethod : "razorpay";
   const walletApplied = paymentMethod === "wallet" ? total : 0;
 
-  function addAddress() {
+  async function addAddress() {
     if (!newAddress.recipientName || !newAddress.line1 || !newAddress.city || !newAddress.pincode) {
       return;
     }
-    const address: Address = {
-      id: `addr-${Date.now()}`,
-      userId: "user-demo",
-      label: "New address",
-      recipientName: newAddress.recipientName,
-      phone: newAddress.phone,
-      line1: newAddress.line1,
-      line2: newAddress.line2 || undefined,
-      city: newAddress.city,
-      state: newAddress.state,
-      pincode: newAddress.pincode,
-      country: "India",
-      isDefault: false,
-    };
-    setAddressList((current) => [...current, address]);
-    setNewAddress(EMPTY_ADDRESS_FORM);
-    setShowAddAddress(false);
+    setSavingAddress(true);
+    try {
+      if (mock) {
+        const address: Address = {
+          id: `addr-${Date.now()}`,
+          userId: "user-demo",
+          label: "New address",
+          recipientName: newAddress.recipientName,
+          phone: newAddress.phone,
+          line1: newAddress.line1,
+          line2: newAddress.line2 || undefined,
+          city: newAddress.city,
+          state: newAddress.state,
+          pincode: newAddress.pincode,
+          country: "India",
+          isDefault: false,
+        };
+        setAddressList((current) => [...current, address]);
+      } else {
+        const address = await createAddress({
+          label: "New address",
+          recipientName: newAddress.recipientName,
+          phone: newAddress.phone,
+          line1: newAddress.line1,
+          line2: newAddress.line2 || undefined,
+          city: newAddress.city,
+          state: newAddress.state,
+          pincode: newAddress.pincode,
+        });
+        setAddressList((current) => [...current, address]);
+      }
+      setNewAddress(EMPTY_ADDRESS_FORM);
+      setShowAddAddress(false);
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
+  /** Real mode only: the gift recipient needs a real, owned `Address` row before `POST /orders` — see `OrderGift.recipientAddressId`'s doc comment. */
+  async function resolveGiftAddressId(): Promise<string> {
+    if (mock) return MOCK_GIFT_ADDRESS_ID;
+    const saved = await createAddress({
+      label: `Gift — ${recipient.recipientName}`,
+      recipientName: recipient.recipientName,
+      phone: recipient.phone,
+      line1: recipient.line1,
+      line2: recipient.line2 || undefined,
+      city: recipient.city,
+      state: recipient.state,
+      pincode: recipient.pincode,
+    });
+    return saved.id;
   }
 
   async function handlePlaceOrder() {
@@ -148,6 +199,8 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
 
     setPlacing(true);
 
+    const giftAddressId = isGift ? await resolveGiftAddressId() : undefined;
+
     const lines: CreateOrderLineInput[] = items.map((item) => {
       const info = lineInfo(item);
       return {
@@ -157,7 +210,7 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
         name: info.name,
         quantity: info.quantity,
         price: info.unitPrice,
-        addressId: isGift ? GIFT_ADDRESS_ID : (item.addressId ?? defaultAddress?.id ?? ""),
+        addressId: isGift ? (giftAddressId ?? MOCK_GIFT_ADDRESS_ID) : (item.addressId ?? defaultAddress?.id ?? ""),
         giftWrap: item.giftWrap,
       };
     });
@@ -165,7 +218,7 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
     const shipments: OrderShipment[] = isGift
       ? [
           {
-            addressId: GIFT_ADDRESS_ID,
+            addressId: giftAddressId ?? MOCK_GIFT_ADDRESS_ID,
             deliveryDate: deliveryDateOptions.find((d) => d.id === giftDateId)?.isoDate,
           },
         ]
@@ -180,51 +233,73 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
       ? {
           isGift: true,
           recipientName: recipient.recipientName,
-          recipientAddressId: GIFT_ADDRESS_ID,
+          recipientAddressId: giftAddressId ?? MOCK_GIFT_ADDRESS_ID,
           hidePrice,
           message: giftMessage.trim() || undefined,
         }
       : undefined;
 
-    const created = await createOrder({ lines, shipments, gift, paymentMethod, walletApplied });
+    const created = await createOrder({
+      lines,
+      defaultAddressId: defaultAddress?.id,
+      shipments,
+      gift,
+      paymentMethod,
+      walletApplied,
+    });
 
-    // M6: wire the real wallet-debit ledger write. `walletSufficient`
-    // already gates the wallet option in the UI (so `paymentMethod` can
-    // only be "wallet" when the live balance covers `total`) — `pay`'s
-    // `{ ok: false }` path is a defensive fallback for the narrow race
-    // where the balance changed between that check and this click (e.g. a
-    // second tab). The mock `createOrder` above has no rollback, so this
-    // is a known mock-layer gap; M8's server must make order-placement +
-    // wallet-debit one atomic, idempotent transaction.
     if (paymentMethod === "wallet") {
-      const result = pay(created.total, {
+      const result = await pay(created.total, {
         title: `Paid — Order #${created.orderNumber}`,
         refType: "order",
-        refId: created.orderNumber,
+        refId: created.id,
       });
       if (!result.ok) {
         setFormError(
-          "Your wallet balance changed before this order could be charged — please choose Card / UPI instead.",
+          result.message ??
+            "Your wallet balance changed before this order could be charged — please choose Card / UPI instead.",
         );
+        setPlacing(false);
+        return;
+      }
+    } else if (paymentMethod === "razorpay" && !mock) {
+      try {
+        const rzpOrder = await createRazorpayOrder({ purpose: "order", orderId: created.id });
+        await new Promise<void>((resolve, reject) => {
+          openRazorpayCheckout({
+            keyId: rzpOrder.keyId || RAZORPAY_KEY_ID,
+            amountPaise: rzpOrder.amountPaise,
+            currency: rzpOrder.currency,
+            name: "Homekrafted",
+            description: `Order #${created.orderNumber}`,
+            orderId: rzpOrder.razorpayOrderId,
+            prefill: { name: user?.name, email: user?.email, contact: user?.phone },
+            onSuccess: () => resolve(),
+            onDismiss: () => reject(new Error("Payment cancelled")),
+          }).catch(reject);
+        });
+      } catch {
+        setFormError("Payment wasn't completed — your order is saved and awaiting payment.");
         setPlacing(false);
         return;
       }
     }
 
-    // Cashback is earned on every order regardless of payment method
-    // (matches `createOrder`'s unconditional `cashbackEarned` and the
-    // summary's "Earn ₹X wallet cashback on this order" copy shown even
-    // when paying by Razorpay) — unlike Laundry, where M4 scoped cashback
-    // to wallet-paid bookings only.
-    if (created.cashbackEarned > 0) {
-      earnCashback(created.cashbackEarned, {
-        title: `Cashback — Order #${created.orderNumber}`,
+    // Re-read the order once — a wallet pay/Razorpay webhook may have
+    // already flipped `pending-payment -> placed` and credited cashback
+    // server-side by now; fall back to the just-created snapshot if the
+    // refetch fails for any reason (still a perfectly valid confirmation).
+    const finalOrder = mock ? created : ((await getOrder(created.id).catch(() => undefined)) ?? created);
+
+    if (finalOrder.cashbackEarned > 0) {
+      earnCashback(finalOrder.cashbackEarned, {
+        title: `Cashback — Order #${finalOrder.orderNumber}`,
         refType: "order",
-        refId: created.orderNumber,
+        refId: finalOrder.id,
       });
     }
 
-    setOrder(created);
+    setOrder(finalOrder);
     clear();
     setPlacing(false);
   }
@@ -237,7 +312,7 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
     );
   }
 
-  if (!ready) {
+  if (!ready || !accountReady) {
     return (
       <section className={clsx("container", styles.page)}>
         <p className={styles.loading}>Loading checkout…</p>
@@ -404,8 +479,8 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
                 <div className={styles.addAddressForm}>
                   <AddressForm values={newAddress} onChange={setNewAddress} idPrefix="new-addr" />
                   <div className={styles.addAddressActions}>
-                    <Button variant="primary" size="sm" onClick={addAddress}>
-                      Save address
+                    <Button variant="primary" size="sm" onClick={addAddress} disabled={savingAddress}>
+                      {savingAddress ? "Saving…" : "Save address"}
                     </Button>
                     <Button variant="secondary" size="sm" onClick={() => setShowAddAddress(false)}>
                       Cancel
@@ -462,7 +537,9 @@ export function CheckoutClient({ initialAddresses, wallet, deliveryDateOptions }
                 <span className={styles.paymentTileBody}>
                   <span className={styles.paymentTileTitle}>Card / UPI (Razorpay)</span>
                   <span className={styles.paymentTileHint}>
-                    Real payment integration lands in M8 — this is a stub.
+                    {mock
+                      ? "Real payment integration lands in M8 — this is a stub."
+                      : "Razorpay test checkout — needs a real test key to fully complete."}
                   </span>
                 </span>
               </button>

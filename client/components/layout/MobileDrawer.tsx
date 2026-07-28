@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Heart, User, Wallet, X } from "lucide-react";
+import { Heart, Store, User, Wallet, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
@@ -15,6 +15,8 @@ export interface MobileDrawerProps {
   navItems: NavLink[];
   /** Undefined while `useWallet()` is still hydrating (see `HeaderClient`) — renders "…" instead of a misleading ₹0. */
   walletBalance: number | undefined;
+  /** Present only for a signed-in seller currently in shopping mode — `HeaderClient`'s `sellerModePill` hides below ~840px (`.hideOnMobile`), so this is the only way to reach the dual-mode toggle on mobile (M8.5, same reasoning as the Wishlist entry below). */
+  onSwitchToSelling?: () => void;
 }
 
 /**
@@ -23,7 +25,7 @@ export interface MobileDrawerProps {
  * wishlist/account icons below ~840px, so this is the only way to reach
  * them on small screens.
  */
-export function MobileDrawer({ open, onClose, navItems, walletBalance }: MobileDrawerProps) {
+export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchToSelling }: MobileDrawerProps) {
   const { count: wishlistCount } = useWishlist();
 
   useEffect(() => {
@@ -85,6 +87,21 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance }: MobileD
         <div className={styles.divider} />
 
         <div className={styles.utilList}>
+          {onSwitchToSelling && (
+            <button
+              type="button"
+              className={styles.utilItem}
+              onClick={() => {
+                onClose();
+                onSwitchToSelling();
+              }}
+            >
+              <span className={styles.utilIcon}>
+                <Store size={19} strokeWidth={1.7} />
+              </span>
+              <span className={styles.utilLabel}>Switch to selling</span>
+            </button>
+          )}
           <Link href="/wallet" className={styles.utilItem} onClick={onClose}>
             <span className={styles.utilIcon}>
               <Wallet size={19} strokeWidth={1.7} />

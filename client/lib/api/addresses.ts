@@ -1,22 +1,19 @@
 /**
- * Address-book CRUD mutations (M7a) — same in-memory-mock-mutation
- * pattern already established by `lib/api/orders.ts`'s `createOrder` and
- * `lib/api/laundry.ts`'s `createBooking`: these mutate the shared
- * `addresses` array from `lib/data/user.ts` in place — the exact same
- * array `getAddresses()` (`lib/api/site.ts`) reads and Checkout's
- * `initialAddresses` is seeded from. "Persists" only within one running
- * module instance (a server process between requests, or a browser tab's
- * client bundle within a session) — resets on a hard reload/new process,
- * same caveat as every other pre-M8 mock mutation in this codebase. Real
- * address persistence lands in M8 (`POST`/`PATCH`/`DELETE
- * /api/v1/addresses` against Postgres).
+ * Address-book CRUD (M8.4a — real). `GET/POST/PATCH/DELETE
+ * /users/me/addresses*` (`docs/API.md` "Users & addresses"), owner-scoped
+ * from the verified JWT — no `userId` in any request body. Mock mode keeps
+ * the pre-M8.4a in-memory mutation over the shared `lib/data` `addresses`
+ * array.
  */
 
 import type { Address } from "@/lib/types";
 import { addresses, currentUser } from "@/lib/data";
+import { http, isMockMode } from "./http";
 
 export async function getAddressById(id: string): Promise<Address | undefined> {
-  return addresses.find((a) => a.id === id);
+  if (isMockMode()) return addresses.find((a) => a.id === id);
+  const all = await http.get<Address[]>("/users/me/addresses");
+  return all.find((a) => a.id === id);
 }
 
 export interface AddressInput {
@@ -31,17 +28,20 @@ export interface AddressInput {
   instructions?: string;
 }
 
-/** Creates a new address. The very first address in an empty book is automatically the default; every later one starts non-default (use `setDefaultAddress` to change it) — enforces "exactly one default" the same way `deleteAddress`/`setDefaultAddress` do below. */
+/** Creates a new address. The very first address in an empty book is automatically the default (real endpoint enforces this server-side too). */
 export async function createAddress(input: AddressInput): Promise<Address> {
-  const address: Address = {
-    id: `addr-${Date.now()}`,
-    userId: currentUser.id,
-    country: "India",
-    isDefault: addresses.length === 0,
-    ...input,
-  };
-  addresses.push(address);
-  return address;
+  if (isMockMode()) {
+    const address: Address = {
+      id: `addr-${Date.now()}`,
+      userId: currentUser.id,
+      country: "India",
+      isDefault: addresses.length === 0,
+      ...input,
+    };
+    addresses.push(address);
+    return address;
+  }
+  return http.post<Address>("/users/me/addresses", input);
 }
 
 /** Patches an existing address's fields (not `isDefault` — see `setDefaultAddress`). */
@@ -49,26 +49,41 @@ export async function updateAddress(
   id: string,
   patch: Partial<AddressInput>,
 ): Promise<Address | undefined> {
-  const address = addresses.find((a) => a.id === id);
-  if (!address) return undefined;
-  Object.assign(address, patch);
-  return address;
+  if (isMockMode()) {
+    const address = addresses.find((a) => a.id === id);
+    if (!address) return undefined;
+    Object.assign(address, patch);
+    return address;
+  }
+  try {
+    return await http.patch<Address>(`/users/me/addresses/${encodeURIComponent(id)}`, patch);
+  } catch {
+    return undefined;
+  }
 }
 
-/** Removes an address. If it was the default and others remain, promotes the first remaining address to default — the book always has exactly one default while non-empty. */
+/** Removes an address. If it was the default and others remain, the server promotes another to default. */
 export async function deleteAddress(id: string): Promise<void> {
-  const index = addresses.findIndex((a) => a.id === id);
-  if (index === -1) return;
-  const wasDefault = addresses[index].isDefault;
-  addresses.splice(index, 1);
-  if (wasDefault && addresses.length > 0) {
-    addresses[0].isDefault = true;
+  if (isMockMode()) {
+    const index = addresses.findIndex((a) => a.id === id);
+    if (index === -1) return;
+    const wasDefault = addresses[index].isDefault;
+    addresses.splice(index, 1);
+    if (wasDefault && addresses.length > 0) {
+      addresses[0].isDefault = true;
+    }
+    return;
   }
+  await http.delete<void>(`/users/me/addresses/${encodeURIComponent(id)}`);
 }
 
-/** Sets one address as the default, unsetting every other one — enforces "exactly one default" in the book. */
+/** Sets one address as the default, unsetting every other one. */
 export async function setDefaultAddress(id: string): Promise<void> {
-  for (const address of addresses) {
-    address.isDefault = address.id === id;
+  if (isMockMode()) {
+    for (const address of addresses) {
+      address.isDefault = address.id === id;
+    }
+    return;
   }
+  await http.post<Address>(`/users/me/addresses/${encodeURIComponent(id)}/default`);
 }

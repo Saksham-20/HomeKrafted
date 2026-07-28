@@ -115,9 +115,13 @@ export function HamperBuilderClient({ boxes, products }: HamperBuilderClientProp
     setItemIds((current) => current.filter((id) => id !== productId));
   }
 
-  function finishAndCheckout() {
+  async function finishAndCheckout() {
     if (!box) return;
-    addHamperItem({
+    // M8.4a: real mode's `addHamperItem` doesn't resolve to a real id
+    // until the server creates the `Hamper` row — await it (a no-op await
+    // in mock mode, which already returns a plain `ID`) so the navigation
+    // below never races the cart write.
+    await addHamperItem({
       boxId: box.id,
       items: itemIds.map((productId) => ({ productId, quantity: 1 })),
       giftNote: giftNote.trim() || undefined,

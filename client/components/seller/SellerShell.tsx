@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -77,14 +77,32 @@ function navForType(type: SellerType | undefined): SellerNavItem[] {
  *
  * Gates on `useAuth()` client-side as a defensive fallback —
  * `middleware.ts` is the primary gate (redirects a non-seller request to
- * `/seller/login` before this ever renders) — this only covers the brief
- * window before `ready` flips true post-hydration, or a role that
+ * `/login?role=seller` before this ever renders) — this only covers the
+ * brief window before `ready` flips true post-hydration, or a role that
  * changed in another tab.
+ *
+ * **Dual-mode toggle (M8.5)**: the topbar's former "View site" link is
+ * now "Switch to shopping" — it flips `useAuth().sellerMode` to
+ * `"shopping"` (persisted, survives reload — see `AuthContext`'s file
+ * header) *before* navigating home, so the consumer chrome that renders
+ * at `/` already reflects the new mode rather than the toggle looking
+ * like a no-op for one render. There's a matching "Switch to selling"
+ * pill in `HeaderClient`/`MobileDrawer` for the reverse direction — both
+ * read/write the same one `role === "seller"` session, no re-login.
  */
 export function SellerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { ready, isSignedIn, role, user, seller, signOut } = useAuth();
+  const { ready, isSignedIn, role, user, seller, switchToShopping, switchToSelling, signOut } = useAuth();
+
+  // Keep the persisted `sellerMode` honest for anyone who lands on a
+  // `/seller/*` page directly (bookmark, back/forward, a link elsewhere)
+  // rather than via the shopping-side toggle — see `HeaderClient`'s
+  // matching effect for the reverse direction.
+  useEffect(() => {
+    if (ready && isSignedIn && role === "seller") switchToSelling();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, isSignedIn, role]);
 
   if (ready && (!isSignedIn || role !== "seller" || !seller)) {
     return (
@@ -95,7 +113,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
           <p className={styles.gateCopy}>
             You need a seller account to view this page.
           </p>
-          <Button variant="primary" onClick={() => router.push("/seller/login")}>
+          <Button variant="primary" onClick={() => router.push("/login?role=seller")}>
             Go to seller sign-in
           </Button>
         </div>
@@ -107,6 +125,11 @@ export function SellerShell({ children }: { children: ReactNode }) {
 
   function handleSignOut() {
     signOut();
+    router.push("/");
+  }
+
+  function handleSwitchToShopping() {
+    switchToShopping();
     router.push("/");
   }
 
@@ -122,9 +145,9 @@ export function SellerShell({ children }: { children: ReactNode }) {
             <span className={styles.sellerName}>
               {seller?.displayName ?? user?.name ?? "Seller"}
             </span>
-            <Link href="/" className={styles.viewSiteLink}>
-              View site
-            </Link>
+            <button type="button" onClick={handleSwitchToShopping} className={styles.viewSiteLink}>
+              Switch to shopping
+            </button>
             <Button
               variant="secondary"
               size="sm"

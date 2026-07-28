@@ -23,9 +23,11 @@ shape is finalized — this doc is the prose version until then.
   "Backend (M8.0)" below for why) for phone OTP / email / social login.
   Razorpay for online payment. `lib/api/` function bodies swap from mock
   reads to real `fetch()` calls — call sites don't change.
-- **Messaging:** `lib/messaging.ts` — a `Messaging` interface with a
-  click-to-chat (`wa.me` deep link) implementation today; a WhatsApp Cloud
-  API implementation drops in behind the same interface in M9.
+- **Messaging:** `lib/messaging.ts` — a client-side `Messaging` interface,
+  click-to-chat (`wa.me` deep link) only; there is no server-side send
+  capability here by design. The real WhatsApp Cloud API integration
+  (M9) is server-side instead — `server/src/whatsapp/` — see "Messaging
+  & notification flow (M9)" below.
 
 ## Why frontend-first
 
@@ -58,9 +60,11 @@ Two cross-cutting modules sit beside this stack, not inside it:
   flag instead of re-deriving the rule. Marketplace/Laundry render
   checkout; Snacks renders a menu + WhatsApp send, never a cart; full
   meals renders promo copy only, never a menu.
-- `lib/messaging.ts` — the messaging abstraction Snacks (and later,
-  Laundry/order status notifications) send through, isolating the M9
-  Cloud-API swap to one file.
+- `lib/messaging.ts` — the client-side click-to-chat messaging
+  abstraction Snacks' "send list on WhatsApp" builds its link through.
+  The real, server-side Cloud API integration (outbound status sends,
+  the verified inbound webhook) lives in `server/src/whatsapp/` instead —
+  see "Messaging & notification flow (M9)" below.
 
 ## App shell
 
@@ -273,6 +277,72 @@ the schema (M8.0) but nothing here credits a seller's payout ledger from
 a captured payment — that's a distinct flow (platform's share vs. a
 specific seller's share of a specific line item) explicitly deferred to
 M8.3, not implemented or stubbed in M8.2.
+
+## Messaging & notification flow (M9) — `server/src/{whatsapp,notifications}/`
+
+Two independent flows share the same "env-gated real code path, obvious
+stub otherwise" convention Razorpay established in M8.2 — no separate
+mock/real branch to maintain, no silent pretend-success.
+
+**Outbound WhatsApp status (snack orders).** `SellerSnackOrdersService.advance`
+(M8.3b, a snack seller moving an order received → accepted → out-for-
+delivery → delivered) calls `WhatsAppService.sendStatus(customer, orderId,
+nextStatus)` after the status transition commits. `WhatsAppService` always
+runs the real code path — `POST https://graph.facebook.com/{apiVersion}/{phoneNumberId}/messages`
+— but checks `WHATSAPP_TOKEN`/`WHATSAPP_PHONE_NUMBER_ID` first: still the
+`.env.example` placeholders → logs the exact rendered message + recipient
+at `warn` (`[WHATSAPP STUB]`) instead of calling Meta. The send is
+best-effort and never rolls back or blocks the status advance itself — a
+seller's own order record is the source of truth, not the notification.
+This is the server-side analogue of `client/lib/messaging.ts`'s
+`Messaging` interface (that one stays click-to-chat only, with no
+server-side send capability — unaffected by this milestone); the two
+don't share code, only a naming convention (`sendStatus`).
+
+**Inbound WhatsApp (webhook) → real `SnackOrder`s.** `POST
+/whatsapp/webhook` mirrors the Razorpay webhook's verify-then-trust
+shape exactly: `X-Hub-Signature-256` (HMAC-SHA256 over the **raw** body,
+keyed with `WHATSAPP_APP_SECRET`, `crypto.timingSafeEqual`) must check
+out before anything is parsed — an invalid signature is `400` with zero
+state change. Once verified, `WhatsAppInboundService` parses each inbound
+text message against the exact shape `client/lib/snacks/message.ts#buildSnackListMessage`
+emits (`"NNx Snack Name"` lines) — matched item names are looked up
+against real `Snack` rows, grouped by the matched `Snack.sellerId`, and
+one `SnackOrder` (+ items) is created per seller referenced. This closes
+a loop that was open through M8.3b: a snack seller's order queue used to
+only ever contain seeded demo rows; a customer's actual "send list on
+WhatsApp" tap can now become a real row a real seller sees and advances.
+Deliberately minimal free-text parsing, not a production-grade WhatsApp
+Flow/interactive-list integration — documented as a seam, not hidden.
+
+**Notification delivery, gated by preference.** `NotificationsDeliveryService.deliver({userId,
+category, title, body, refType?, refId?})` is the one place a
+`Notification` row gets created from here on (M8.3a's `NotificationsService`
+stays read/preferences-only). It reads the user's `NotificationPreference`
+row for that category and, for each channel toggled on, calls that
+channel's provider (`SmsProviderService` — Twilio-shaped; `EmailProviderService`
+— SendGrid-shaped; `WhatsAppService` — reused from above) then persists
+one `Notification` row **per channel actually delivered** — the inbox
+reflects exactly what went out, not an ambiguous "all channels" flag. A
+channel with no contact info on file, or whose provider call throws, is
+skipped (logged) rather than failing the whole delivery or the event that
+triggered it (an admin wallet adjustment still succeeds even if the
+user's email bounces). Every provider follows the same placeholder-detect
+→ logged-stub pattern as `WhatsAppService`. `OtpService` (M8.0) now routes
+through the same `SmsProviderService` for real OTP delivery, replacing
+its console-only stub — a raw-code console line is still logged, but only
+when the provider itself reports it ran in stub mode (logging a live
+verification code once real SMS is wired would defeat the code's purpose).
+
+**What triggers a delivery today**: `AdminWalletService.adjust`/
+`issueRefund` (category `"wallet"`) — the concrete, curl-provable example
+this milestone shipped. `NotificationsDeliveryService` is exported from
+`NotificationsModule` specifically so any other event-producing module
+(order status changes, laundry booking updates, promos) can call
+`deliver()` the same way in a future pass; wiring every such call site is
+explicitly out of this milestone's scope (would touch most of `orders/`,
+`laundry/`, `snacks/` for marginal proof value beyond the one demonstrated
+path).
 
 ## Security model
 

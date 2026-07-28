@@ -30,10 +30,51 @@
   margin-top: 6px;
 }
 
+.roleChoice {
+  margin-bottom: 2px;
+}
+
 .card {
   display: flex;
   flex-direction: column;
   gap: var(--hk-s4);
+}
+
+.sellerStepsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.sellerStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  line-height: 1.5;
+}
+
+.sellerStep svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--hk-pine);
+}
+
+.applyRow {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.applyRow a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.applyRow a:hover {
+  color: var(--hk-gold);
 }
 
 .methodTabs {

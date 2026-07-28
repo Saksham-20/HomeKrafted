@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * Client-side wishlist store (M7a) — mirrors `lib/cart/CartContext.tsx`'s
- * shape exactly: a React context, hydrated post-mount from `localStorage`
- * (guards against an SSR/client markup mismatch, same as Cart/Wallet),
- * aligned with the `WishlistItem`/`Wishlist` shape in
- * `lib/types/marketplace.ts` so M8 can lift this same shape server-side
- * (swap the localStorage read/write for `fetch` calls against a real
- * `/api/wishlist`, keep every `useWishlist()` call site unchanged). There
- * is no backend yet, so `toggle`/`remove` just mutate local React state —
- * no `userId`/`Wishlist.id` wrapper is kept client-side (that's a server
- * concern once M8 lands); this context only ever deals in the `items[]`
- * list for the single demo user.
+ * Wishlist store (M8.4a — real for the consumer role). Real mode:
+ * `toggle`/`remove` call through `lib/api/wishlist.ts` to the owner-scoped
+ * `/wishlist` endpoints (idempotent adds/removes server-side) and refetch
+ * afterward; hydrates from `GET /wishlist` once the signed-in consumer
+ * session is ready (`useAuth()`), same gating pattern as `CartContext`/
+ * `WalletContext`. Every method stays synchronous/fire-and-forget at the
+ * call site — no `useWishlist()` consumer needs to change.
+ *
+ * `NEXT_PUBLIC_USE_MOCK=true` keeps the exact pre-M8.4a behavior: a
+ * `localStorage`-persisted list, no network calls, no auth gating.
  */
 
 import {
@@ -24,13 +23,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { addWishlistItem, getServerWishlist, removeWishlistItem } from "@/lib/api";
+import { isMockMode } from "@/lib/api/http";
+import { useAuth } from "@/lib/auth/AuthContext";
 import type { ID, WishlistItem } from "@/lib/types";
 
 const STORAGE_KEY = "hk_wishlist_v1";
 
 export interface WishlistContextValue {
   productIds: ID[];
-  /** True once localStorage has been read on the client (avoids a pre-hydration false-empty flash mattering for logic, not just display). */
+  /** True once the wishlist (mock: localStorage; real: the signed-in consumer's `GET /wishlist`) has loaded. */
   ready: boolean;
   has: (productId: ID) => boolean;
   toggle: (productId: ID) => void;
@@ -57,51 +59,96 @@ function readStorage(): WishlistItem[] {
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
+  const mock = isMockMode();
+  const { ready: authReady, isSignedIn, role } = useAuth();
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
 
-  // Hydrate from localStorage once, client-side only (same reasoning as
-  // CartProvider/WalletProvider: the server always renders the empty
-  // state, then this fills in a moment after mount). Deferred a tick via
-  // `Promise.resolve().then()` — same "no synchronous setState in an
-  // effect body" shape CartProvider/WalletProvider get for free from
-  // their real `getProducts()`/`getWallet()` awaits; this store has no
-  // async data source (it's pure localStorage), so this is the smallest
-  // stand-in that keeps the same async-hydration shape and satisfies the
-  // `react-hooks/set-state-in-effect` rule.
+  // Mock mode: hydrate from localStorage once, client-side only — exactly
+  // pre-M8.4a (no auth gating). Deferred a tick via `Promise.resolve()`
+  // (no real async data source), same reasoning as before.
   useEffect(() => {
+    if (!mock) return;
     Promise.resolve().then(() => {
       setItems(readStorage());
       setReady(true);
       hydrated.current = true;
     });
-  }, []);
+  }, [mock]);
 
-  // Persist on every change, once initial hydration has happened (so we
-  // don't clobber existing storage with the pre-hydration empty state).
+  // Real mode: wait for the auth session, then hydrate the signed-in
+  // consumer's real wishlist. A seller/admin session (or signed-out)
+  // renders an empty wishlist — this store is consumer-only.
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (mock) return;
+    if (!authReady) return;
+    if (!isSignedIn || role !== "consumer") {
+      // Deferred a tick to avoid a synchronous `setState` directly in the
+      // effect body (`react-hooks/set-state-in-effect`).
+      let cancelled = false;
+      Promise.resolve().then(() => {
+        if (cancelled) return;
+        setItems([]);
+        setReady(true);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    let cancelled = false;
+    getServerWishlist().then((wishlist) => {
+      if (cancelled) return;
+      setItems(wishlist.items);
+      setReady(true);
+      hydrated.current = true;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mock, authReady, isSignedIn, role]);
+
+  // Mock mode only — persist on every change, once initial hydration has
+  // happened.
+  useEffect(() => {
+    if (!mock || !hydrated.current) return;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  }, [items]);
+  }, [mock, items]);
 
   const has = useCallback(
     (productId: ID) => items.some((item) => item.productId === productId),
     [items],
   );
 
-  const toggle = useCallback((productId: ID) => {
-    setItems((current) => {
-      if (current.some((item) => item.productId === productId)) {
-        return current.filter((item) => item.productId !== productId);
-      }
-      return [...current, { productId, addedAt: new Date().toISOString() }];
-    });
-  }, []);
+  const toggle = useCallback(
+    (productId: ID) => {
+      const alreadyIn = items.some((item) => item.productId === productId);
 
-  const remove = useCallback((productId: ID) => {
-    setItems((current) => current.filter((item) => item.productId !== productId));
-  }, []);
+      if (mock) {
+        setItems((current) =>
+          current.some((item) => item.productId === productId)
+            ? current.filter((item) => item.productId !== productId)
+            : [...current, { productId, addedAt: new Date().toISOString() }],
+        );
+        return;
+      }
+
+      const request = alreadyIn ? removeWishlistItem(productId) : addWishlistItem(productId);
+      void request.then((wishlist) => setItems(wishlist.items));
+    },
+    [mock, items],
+  );
+
+  const remove = useCallback(
+    (productId: ID) => {
+      if (mock) {
+        setItems((current) => current.filter((item) => item.productId !== productId));
+        return;
+      }
+      void removeWishlistItem(productId).then((wishlist) => setItems(wishlist.items));
+    },
+    [mock],
+  );
 
   const productIds = useMemo(() => items.map((item) => item.productId), [items]);
 

@@ -189,6 +189,90 @@ price-snapshotting/stock-decrement/multi-address shipments, cross-user
 404s on cart/orders, wishlist add/remove, review create with
 `verifiedPurchase: true`).
 
+Integrations (M9) — WhatsApp Cloud API, notification fan-out, seller
+onboarding closing the loop:
+
+```bash
+BASE=http://localhost:4000/api/v1
+
+# --- WhatsApp webhook: GET verify handshake -------------------------------
+# WHATSAPP_VERIFY_TOKEN in .env must match `hub.verify_token` below.
+curl -sS "$BASE/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=<WHATSAPP_VERIFY_TOKEN>&hub.challenge=CHALLENGE_OK"
+# -> 200, body: CHALLENGE_OK  (verbatim echo)
+curl -sS -i "$BASE/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=X"
+# -> 403 (wrong token — challenge never echoed)
+
+# --- WhatsApp webhook: POST, HMAC-verified over the raw body --------------
+# WHATSAPP_APP_SECRET in .env is the HMAC key (for local testing, any
+# string works — it's a shared secret, not a real Meta credential).
+PAYLOAD='{"object":"whatsapp_business_account","entry":[{"id":"1","changes":[{"field":"messages","value":{"contacts":[{"profile":{"name":"Priya Sharma"}}],"messages":[{"from":"919812399999","type":"text","text":{"body":"Hi Homekrafted! I'\''d like to order:\n2x Masala Mathri\n1x Besan Ladoo\n\nEstimated total: ₹400"}}]}}]}]}'
+BAD_SIG="sha256=deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+curl -sS -i -X POST "$BASE/whatsapp/webhook" -H 'Content-Type: application/json' \
+  -H "X-Hub-Signature-256: $BAD_SIG" -d "$PAYLOAD"
+# -> 400 {"error":{"code":"BAD_REQUEST","message":"Invalid webhook signature"}} — no SnackOrder written
+
+SIG=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hmac "<WHATSAPP_APP_SECRET>" | sed 's/^.* //')
+curl -sS -X POST "$BASE/whatsapp/webhook" -H 'Content-Type: application/json' \
+  -H "X-Hub-Signature-256: sha256=$SIG" -d "$PAYLOAD"
+# -> 200 {"received":true} — the exact "1x Snack Name" lines
+# (client/lib/snacks/message.ts#buildSnackListMessage's own shape) are
+# parsed into a real SnackOrder, matched against each Snack row's
+# sellerId; server log shows:
+#   [WhatsAppInboundService] [WHATSAPP INBOUND] created SnackOrder <id> for seller sl3 ...
+#   [WhatsAppService] [WHATSAPP STUB — not sent, ...] to=919812399999 text="Hi Priya Sharma, update on order <id>: we've received your order." ...
+
+# --- Snack seller advances the new order: real WhatsApp send seam --------
+SELLER=$(curl -sS -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"meera@meerassnackbox.example","password":"Passw0rd!123"}')
+SELLER_TOKEN=$(python3 -c "import json,sys;print(json.load(sys.stdin)['accessToken'])" <<< "$SELLER")
+curl -sS $BASE/seller/snack-orders -H "Authorization: Bearer $SELLER_TOKEN"   # find the new order's id
+curl -sS -X POST "$BASE/seller/snack-orders/<orderId>/advance" -H "Authorization: Bearer $SELLER_TOKEN"
+# -> status "received" -> "accepted"; server log shows a second
+# [WHATSAPP STUB] line with the "accepted" status text, same recipient.
+
+# --- Notification fan-out gated by NotificationPreference -----------------
+CONSUMER=$(curl -sS -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"ananya.iyer@example.com","password":"Passw0rd!123"}')
+CONSUMER_TOKEN=$(python3 -c "import json,sys;print(json.load(sys.stdin)['accessToken'])" <<< "$CONSUMER")
+CONSUMER_ID=$(python3 -c "import json,sys;print(json.load(sys.stdin)['user']['id'])" <<< "$CONSUMER")
+curl -sS -X PATCH "$BASE/notifications/preferences/wallet" -H "Authorization: Bearer $CONSUMER_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"sms":true,"whatsapp":false,"email":true,"inapp":true}'
+
+ADMIN=$(curl -sS -X POST $BASE/auth/login -H 'Content-Type: application/json' \
+  -d '{"email":"admin@homekrafted.example","password":"Passw0rd!123"}')
+ADMIN_TOKEN=$(python3 -c "import json,sys;print(json.load(sys.stdin)['accessToken'])" <<< "$ADMIN")
+curl -sS -X POST "$BASE/admin/wallet/$CONSUMER_ID/adjust" -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"direction":"credit","amount":75,"reason":"proof"}'
+# -> {"wallet":{...},"balanceAfter":...,"transactionId":"..."} — the
+# transactionId gap flagged in docs/API.md is closed (M9)
+curl -sS $BASE/notifications -H "Authorization: Bearer $CONSUMER_TOKEN"
+# -> 3 new rows for this event, channel "sms"/"email"/"inapp" — no
+# "whatsapp" row, since that channel was left off. Server log shows one
+# [SMS STUB] + one [EMAIL STUB] line with the exact rendered message.
+
+# --- Seller-application create closes the /sell -> admin -> seller loop --
+curl -sS -X POST "$BASE/seller-applications" -H 'Content-Type: application/json' \
+  -d '{"businessName":"Test Studio","contactName":"Test Person","email":"test@example.com","phone":"+919800000000","category":"artist","city":"Pune","description":"Handmade decor."}'
+# -> 201, status "new" — a real row, not a mock
+curl -sS "$BASE/admin/sellers/applications?status=pending" -H "Authorization: Bearer $ADMIN_TOKEN"
+# -> includes the application just created
+curl -sS -X POST "$BASE/admin/sellers/applications/<id>/approve" -H "Authorization: Bearer $ADMIN_TOKEN"
+# -> {application: {status:"approved"}, seller: {status:"approved", type:"maker"}, vendor: {...}}
+curl -sS -X POST $BASE/auth/otp/request -H 'Content-Type: application/json' -d '{"phone":"+919800000000"}'
+# then, using the code from the [OTP STUB] log line:
+curl -sS -X POST $BASE/auth/otp/verify -H 'Content-Type: application/json' \
+  -d '{"phone":"+919800000000","code":"<code from log>"}'
+# -> accessToken whose decoded payload carries role:"seller" + a real
+# sellerId — the new account can now call every `/seller/*` route.
+```
+
+All of the above was run against the seeded local Postgres during this
+milestone's build (real values: `businessName: "Kavya's Terracotta
+Studio"`, phone `+919876500001`) and returned the exact shapes/status
+codes described — including the negative cases (bad HMAC signature never
+writes a `SnackOrder`; the `whatsapp` channel never gets a `Notification`
+row when the preference is off).
+
 ## Project layout
 
 ```
@@ -264,6 +348,22 @@ server/
   (`WeightOption.updateMany({where:{stock:{gte:qty}}})`) — closes the
   race two concurrent requests could otherwise both pass a plain
   pre-check through.
+- **(M9)** The WhatsApp Cloud API webhook (`POST /whatsapp/webhook`)
+  verifies `X-Hub-Signature-256` (HMAC-SHA256 over the **raw** body,
+  keyed with `WHATSAPP_APP_SECRET`, constant-time compare) before
+  parsing or acting on anything — same pattern as the Razorpay webhook
+  above, mirrored in `whatsapp/whatsapp-signature.util.ts`. An invalid
+  signature is rejected `400` with zero state change (no `SnackOrder`
+  written). All 3 new outbound providers (WhatsApp, SMS, email) are
+  env-gated: placeholder credentials degrade to an **obviously-labeled**
+  logged stub (`[WHATSAPP STUB]`/`[SMS STUB]`/`[EMAIL STUB]`) rather than
+  a silent pretend-success — see `docs/ARCHITECTURE.md`'s messaging/
+  notification-flow section.
+- **(M9)** `POST /seller-applications` is `@Public()` but throttled
+  tighter than the app-wide default (`{ limit: 5, ttl: 60_000 }`, same as
+  `AuthController`'s abuse-worth routes) and fully DTO-validated
+  (`CreateSellerApplicationDto`) — an unauthenticated public form is the
+  one surface here worth extra rate-limit scrutiny.
 
 ## Seams for later milestones
 
@@ -308,22 +408,51 @@ server/
 - **M8.4 (client swap)** — `client/lib/api/*` function bodies swap from
   mock reads to real `fetch()` calls against this API; call sites in
   `client/` don't change (see `docs/API.md`).
-- **M9 (WhatsApp/notifications)** — actually sending anything over SMS/
-  WhatsApp/email/push, and WhatsApp Cloud API ingestion of inbound snack
-  orders. Nothing through M8.3c sends a real message; it only persists
-  state this integration will read/write.
-- **Real OTP/social/Razorpay providers** need real credentials — flagged
-  for the user below.
+- **M9 (WhatsApp/notifications) — done.** WhatsApp Cloud API (`src/whatsapp/`
+  — outbound status sends for snack orders, the HMAC-verified inbound
+  webhook creating/updating `SnackOrder` rows), real per-preference
+  notification delivery (`src/notifications/notifications-delivery.service.ts`
+  fanning out to SMS/WhatsApp/email provider stubs, `src/notifications/
+  providers/`), the OTP sender wired to the same SMS provider, and the
+  public `POST /seller-applications` create endpoint closing the `/sell`
+  → admin-approve → seller-active loop end-to-end — see `docs/API.md`'s
+  "WhatsApp & inbound webhook (M9)" / "Notification delivery (M9)" /
+  "Seller applications (M9)" sections and the curl walkthrough above.
+  Every provider is env-gated: real credentials -> real send, placeholders
+  (the `.env.example` defaults) -> an obviously-labeled logged stub — see
+  "Needs real credentials" below for exactly what to supply to go live.
+- **This completes the planned milestone list (M0–M9)** — every module in
+  the plan (`~/.claude/plans/read-the-handoff-i-jolly-hennessy.md`) is now
+  either real or a clearly-labeled, real-code-path stub waiting only on
+  credentials.
 
 ## Needs real credentials before going further than local dev
 
 - `DATABASE_URL` — a real managed Postgres instance for staging/prod.
 - `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` — real random secrets, not the
   `.env.example` placeholders.
-- An SMS/WhatsApp provider (e.g. MSG91, Twilio) to replace `OtpService`'s
-  stub sender (currently logs the code to the server console).
 - Real Google/Apple OAuth app credentials to replace `/auth/social/:provider`'s
   stub (currently trusts a client-submitted profile payload instead of
   verifying a provider token — see `SocialLoginDto`'s doc comment).
 - `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`/`RAZORPAY_WEBHOOK_SECRET` — real
   test-mode (then live-mode) keys, wired in M8.2.
+- **To go fully live on M9's integrations** (see `.env.example` for the
+  full annotated list + where to get each one):
+  - **Meta WhatsApp Cloud API** — a Meta Business app with the WhatsApp
+    product added, a permanent System User access token
+    (`WHATSAPP_TOKEN`), the app's Phone Number ID
+    (`WHATSAPP_PHONE_NUMBER_ID`), a webhook verify token you choose
+    yourself (`WHATSAPP_VERIFY_TOKEN`, entered into the Meta App
+    Dashboard's webhook subscription form), the App Secret for HMAC
+    verification (`WHATSAPP_APP_SECRET`), and — for sends outside the 24h
+    customer-service window — an approved Message Template name
+    (`WHATSAPP_STATUS_TEMPLATE`).
+  - **SMS (Twilio-shaped)** — a Twilio account (or MSG91/any REST SMS
+    provider, swapped behind `SmsProviderService`), its Account SID
+    (`TWILIO_ACCOUNT_SID`) + Auth Token (`TWILIO_AUTH_TOKEN`) from the
+    console dashboard, and a purchased/verified sending number
+    (`TWILIO_FROM_NUMBER`). This also goes live for OTP delivery — no
+    separate OTP credential needed.
+  - **Email (SendGrid-shaped)** — a SendGrid account, a "Mail Send"-scoped
+    API key (`SENDGRID_API_KEY`), and a verified sending domain for
+    `EMAIL_FROM` (SendGrid's Sender Authentication).

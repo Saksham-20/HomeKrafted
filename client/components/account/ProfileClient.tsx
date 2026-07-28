@@ -35,7 +35,7 @@ function formFromUser(user: User): FormState {
  */
 export function ProfileClient() {
   const router = useRouter();
-  const { user, ready, signOut } = useAuth();
+  const { user, ready, signOut, refreshUser } = useAuth();
 
   function handleSignOut() {
     signOut();
@@ -63,10 +63,19 @@ export function ProfileClient() {
     );
   }
 
-  return <ProfileDetails user={user} onSignOut={handleSignOut} />;
+  return <ProfileDetails user={user} onSignOut={handleSignOut} onSaved={refreshUser} />;
 }
 
-function ProfileDetails({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+function ProfileDetails({
+  user,
+  onSignOut,
+  onSaved,
+}: {
+  user: User;
+  onSignOut: () => void;
+  /** Real mode: re-fetches `GET /users/me` after a save so `useAuth().user` reflects the change on the next render/remount — no-op in mock mode. */
+  onSaved: () => Promise<void>;
+}) {
   const [form, setForm] = useState<FormState>(() => formFromUser(user));
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -86,6 +95,7 @@ function ProfileDetails({ user, onSignOut }: { user: User; onSignOut: () => void
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
       });
+      await onSaved();
       setEditing(false);
       setSaved(true);
     } finally {

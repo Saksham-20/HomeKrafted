@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Banknote, CreditCard, Wallet as WalletIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,7 +13,14 @@ import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { StickySummary, type StickySummaryLine } from "@/components/ui/StickySummary";
 import { LaundryBookingConfirmation } from "./LaundryBookingConfirmation";
 import { AppTrackingBand } from "./AppTrackingBand";
-import { createBooking, createSubscription, type LaundrySubscriptionPlanOption } from "@/lib/api";
+import {
+  createBooking,
+  createSubscription,
+  getDefaultAddress,
+  getWallet,
+  type LaundrySubscriptionPlanOption,
+} from "@/lib/api";
+import { isMockMode } from "@/lib/api/http";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { computeCashback } from "@/lib/cart/pricing";
 import { formatCurrency } from "@/lib/format";
@@ -25,7 +32,6 @@ import type {
   LaundrySlot,
   LaundrySubscriptionPlan,
   PaymentMethod,
-  Wallet,
 } from "@/lib/types";
 import styles from "./LaundryBookingClient.module.css";
 
@@ -35,8 +41,6 @@ export interface LaundryBookingClientProps {
   slots: LaundrySlot[];
   steps: LaundryHowItWorksStep[];
   subscriptionPlans: LaundrySubscriptionPlanOption[];
-  wallet: Wallet;
-  addressId: string;
 }
 
 /** Default estimate quantities per pricing model, matching the prototype's own sample estimate ("Wash & Fold (est. 4 kg)"). */
@@ -59,14 +63,20 @@ export function LaundryBookingClient({
   slots,
   steps,
   subscriptionPlans,
-  wallet,
-  addressId,
 }: LaundryBookingClientProps) {
-  // Live wallet balance (M6) — the `wallet` prop still supplies the static
-  // `payWithWalletDefault` preference (server-fetched config); every
-  // balance-sufficiency check reads this instead, same reasoning as
-  // `CheckoutClient`.
-  const { balance: walletBalance, pay, earnCashback } = useWallet();
+  const mock = isMockMode();
+  // Live wallet balance (M6) — every balance-sufficiency check reads this,
+  // same reasoning as `CheckoutClient`.
+  const { balance: walletBalance, pay, earnCashback, refresh: refreshWallet } = useWallet();
+
+  // M8.4a: `wallet`/`addressId` used to be server-fetched props
+  // (`app/laundry/page.tsx`) — both are owner-scoped real reads now, so
+  // this component fetches them itself on mount instead (same reasoning
+  // `OrdersListClient` established pre-M8.4 for session-scoped data; see
+  // `lib/auth/session.ts`'s file header). `wallet` here only ever supplies
+  // the static `payWithWalletDefault` preference — the live balance above
+  // still comes from `useWallet()`.
+  const [addressId, setAddressId] = useState<string | null>(null);
 
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
   const service = services.find((s) => s.id === serviceId);
@@ -91,15 +101,24 @@ export function LaundryBookingClient({
   // pattern: the effective `paymentMethod` (below) falls back to Razorpay
   // whenever the wallet can't cover the estimate, so a service/qty change
   // that grows the total after mount can never leave a disabled-but-
-  // still-"selected" wallet tile silently under-billing.
-  // Seeded from the server-fetched `wallet` prop, not the live
-  // `walletBalance` — see `CheckoutClient`'s identical comment for why
-  // (avoids a hydration-race default to "razorpay" on a hard navigation;
-  // `walletSufficient` below still gates the *effective* payment method
-  // against the live balance on every render).
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>(
-    wallet.payWithWalletDefault && wallet.balance > 0 ? "wallet" : "razorpay",
-  );
+  // still-"selected" wallet tile silently under-billing. Starts
+  // `"razorpay"` and is seeded once from the fetched wallet's
+  // `payWithWalletDefault` the moment it loads (see the effect below) —
+  // `walletSufficient` still gates the *effective* payment method against
+  // the live balance on every render regardless.
+  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>("razorpay");
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getWallet(), getDefaultAddress()]).then(([w, address]) => {
+      if (cancelled) return;
+      setAddressId(address.id);
+      if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [placing, setPlacing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -150,7 +169,7 @@ export function LaundryBookingClient({
 
   async function handleConfirm() {
     setFormError(null);
-    if (!service || !pickupDay || !pickupSlot || !deliveryDay || !deliverySlot) return;
+    if (!service || !pickupDay || !pickupSlot || !deliveryDay || !deliverySlot || !addressId) return;
 
     if (deliveryDay.isoDate < pickupDay.isoDate) {
       setFormError("Delivery date can't be before the pickup date.");
@@ -185,34 +204,36 @@ export function LaundryBookingClient({
       paymentMethod,
     });
 
-    // M6: wire the real wallet-debit ledger write, same pattern as
-    // `CheckoutClient.handlePlaceOrder`. `walletSufficient` already gates
-    // the wallet tile in the UI; `pay`'s `{ ok: false }` path is a
-    // defensive fallback for the narrow race where the balance changed
-    // between that check and this click.
     if (paymentMethod === "wallet") {
-      const result = pay(created.estimatedTotal, {
-        title: `Paid — ${service.name} (Booking #${created.bookingNumber})`,
-        refType: "laundryBooking",
-        refId: created.bookingNumber,
-      });
-      if (!result.ok) {
-        setFormError(
-          "Your wallet balance changed before this booking could be charged — please choose another payment method.",
-        );
-        setPlacing(false);
-        return;
-      }
-      // Cashback is scoped to wallet-paid bookings only (matches M4's
-      // `createBooking`, which only sets `walletCashback` when
-      // `paymentMethod === "wallet"` — unlike Checkout, where cashback is
-      // earned on every order regardless of payment method).
-      if (created.walletCashback) {
-        earnCashback(created.walletCashback, {
-          title: `Cashback — Booking #${created.bookingNumber}`,
+      if (mock) {
+        // M6 mock behavior: the mock `createBooking` doesn't touch the
+        // wallet itself, so this client-side call was the only debit.
+        const result = await pay(created.estimatedTotal, {
+          title: `Paid — ${service.name} (Booking #${created.bookingNumber})`,
           refType: "laundryBooking",
           refId: created.bookingNumber,
         });
+        if (!result.ok) {
+          setFormError(
+            "Your wallet balance changed before this booking could be charged — please choose another payment method.",
+          );
+          setPlacing(false);
+          return;
+        }
+        if (created.walletCashback) {
+          earnCashback(created.walletCashback, {
+            title: `Cashback — Booking #${created.bookingNumber}`,
+            refType: "laundryBooking",
+            refId: created.bookingNumber,
+          });
+        }
+      } else {
+        // M8.4a real mode: `POST /laundry/bookings` already debited the
+        // wallet + credited cashback atomically server-side (see
+        // `lib/api/laundry.ts#createBooking`'s doc comment) — just
+        // refresh the balance/ledger the header chip and Wallet screen
+        // read from.
+        refreshWallet();
       }
     }
 
@@ -492,7 +513,7 @@ export function LaundryBookingClient({
             }
             footnote="Final price weighed at pickup"
           >
-            <Button variant="primary" onClick={handleConfirm} disabled={placing}>
+            <Button variant="primary" onClick={handleConfirm} disabled={placing || !addressId}>
               {placing ? "Confirming…" : "Confirm pickup →"}
             </Button>
           </StickySummary>
