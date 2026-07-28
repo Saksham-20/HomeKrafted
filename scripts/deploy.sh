@@ -41,11 +41,13 @@ die() { printf '\n\033[1;31mERROR:\033[0m %s\n' "$1" >&2; exit 1; }
 [ -f client/.env.production ] || die "client/.env.production is missing. Restore it before deploying (see docs/DEPLOY.md)."
 command -v pm2 >/dev/null || die "pm2 is not installed."
 
-# A dirty tree means someone edited files directly on the box. Refuse rather
-# than clobber their work with a pull.
-if [ -n "$(git status --porcelain)" ]; then
-  git status --short
-  die "Working tree on this box has local changes. Commit, stash or discard them first."
+# Modified tracked files mean someone edited the app directly on the box.
+# Refuse rather than clobber their work with a pull. Untracked files are
+# deliberately ignored — stray logs, tarballs and editor droppings collect on
+# a long-lived box and shouldn't be able to block a deploy.
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  git status --short --untracked-files=no
+  die "Working tree on this box has local changes to tracked files. Commit, stash or discard them first."
 fi
 
 # --- pull --------------------------------------------------------------------
