@@ -716,13 +716,27 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------
   console.log('Seeding laundry...');
 
+  // Availability rolls forward from "tomorrow" relative to the seed run, so
+  // pickup/delivery slots are always in the future — never stale past dates.
+  // Ids stay ld1..ld4 (bookings/slots reference them); only the dates move.
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // Anchor at local noon (not midnight) so the stored UTC timestamptz stays
+  // on the same calendar day as the "Wed 29 Jul" label in every timezone,
+  // instead of slipping a day back for +05:30 (IST) and other +offsets.
+  const laundryDayBase = new Date();
+  laundryDayBase.setHours(12, 0, 0, 0);
   await prisma.laundryDay.createMany({
-    data: [
-      { id: 'ld1', day: 'Sun', date: '19 Jul', isoDate: new Date('2026-07-19') },
-      { id: 'ld2', day: 'Mon', date: '20 Jul', isoDate: new Date('2026-07-20') },
-      { id: 'ld3', day: 'Tue', date: '21 Jul', isoDate: new Date('2026-07-21') },
-      { id: 'ld4', day: 'Wed', date: '22 Jul', isoDate: new Date('2026-07-22') },
-    ],
+    data: [0, 1, 2, 3].map((offset, i) => {
+      const d = new Date(laundryDayBase);
+      d.setDate(d.getDate() + offset + 1); // start tomorrow
+      return {
+        id: `ld${i + 1}`,
+        day: dayNames[d.getDay()],
+        date: `${d.getDate()} ${monthNames[d.getMonth()]}`,
+        isoDate: d,
+      };
+    }),
   });
 
   await prisma.laundrySlot.createMany({

@@ -17,16 +17,30 @@ export interface DeliveryDateOption {
 }
 
 /**
- * Next 4 days from "today" (24 Jul 2026, a Friday) with real 2026
- * weekday labels — same convention as `lib/data/laundry.ts`'s pickup
- * days, one module over since this is a Marketplace-only picker.
+ * Next 4 delivery days, computed relative to "today" (rolling from
+ * tomorrow) so the picker never offers a past date — same convention as
+ * `lib/data/laundry.ts`'s pickup days, one module over since this is a
+ * Marketplace-only picker. Ids stay dd1..dd4.
  */
-export const deliveryDateOptions: DeliveryDateOption[] = [
-  { id: "dd1", day: "Sun", date: "26 Jul", isoDate: "2026-07-26" },
-  { id: "dd2", day: "Mon", date: "27 Jul", isoDate: "2026-07-27" },
-  { id: "dd3", day: "Tue", date: "28 Jul", isoDate: "2026-07-28" },
-  { id: "dd4", day: "Wed", date: "29 Jul", isoDate: "2026-07-29" },
-];
+function buildDeliveryDateOptions(): DeliveryDateOption[] {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  return [0, 1, 2, 3].map((offset, i) => {
+    const d = new Date(base);
+    d.setDate(d.getDate() + offset + 1); // start tomorrow
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return {
+      id: `dd${i + 1}`,
+      day: dayNames[d.getDay()],
+      date: `${d.getDate()} ${monthNames[d.getMonth()]}`,
+      isoDate: iso,
+    };
+  });
+}
+
+export const deliveryDateOptions: DeliveryDateOption[] = buildDeliveryDateOptions();
 
 /**
  * In-memory order-number sequence, continuing on from the wallet ledger's
