@@ -109,7 +109,7 @@ export function LaundryBookingConfirmation({
         </div>
         {booking.walletCashback !== undefined && (
           <p className={styles.cashback}>
-            Earn {formatCurrency(booking.walletCashback)} wallet cashback once delivered
+            Earn {formatCurrency(booking.walletCashback)} wallet cashback on this booking
           </p>
         )}
         <p className={styles.footnote}>Final price weighed at pickup.</p>

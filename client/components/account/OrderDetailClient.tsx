@@ -152,7 +152,7 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
             <p className={styles.cashback}>
               {order.status === "delivered"
                 ? `Earned ${formatCurrency(order.cashbackEarned)} wallet cashback`
-                : `Earn ${formatCurrency(order.cashbackEarned)} wallet cashback once delivered`}
+                : `Earn ${formatCurrency(order.cashbackEarned)} wallet cashback on this order`}
             </p>
           )}
           {order.refundStatus !== "none" && (
@@ -242,7 +242,7 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
             <p className={styles.cashback}>
               {booking.status === "delivered"
                 ? `Earned ${formatCurrency(booking.walletCashback)} wallet cashback`
-                : `Earn ${formatCurrency(booking.walletCashback)} wallet cashback once delivered`}
+                : `Earn ${formatCurrency(booking.walletCashback)} wallet cashback on this booking`}
             </p>
           )}
         </Card>
