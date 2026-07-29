@@ -24,9 +24,14 @@ export function ModuleUnavailable({ module }: { module: string }) {
         <Lock size={18} strokeWidth={1.7} aria-hidden="true" />
       </span>
       <h2 className={styles.title}>{module} isn&rsquo;t set up for your account</h2>
+      {/*
+        One template literal rather than text-around-an-expression: JSX was
+        swallowing the space between `{module.toLowerCase()}` and the word
+        after it, rendering "doesn't include menuyet".
+      */}
       <p className={styles.copy}>
-        Your HomeKrafter account doesn&rsquo;t include {module.toLowerCase()} yet. If you&rsquo;d
-        like to add it, get in touch and we&rsquo;ll enable it for you.
+        {`Your HomeKrafter account doesn’t include ${module.toLowerCase()} yet. ` +
+          `If you’d like to add it, get in touch and we’ll enable it for you.`}
       </p>
     </div>
   );

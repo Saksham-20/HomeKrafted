@@ -136,6 +136,28 @@ ufw allow 80/tcp
 | Deploy refuses to start | It'll say why: missing env file, or local changes on the box |
 | Client build fails on prerender | The API wasn't up — see the gotcha above |
 | Changes not showing | `NEXT_PUBLIC_*` changes need a rebuild, not a restart |
+| Blank sections, "Missing bearer token", random empty dashboards | Rate limiting. See below. |
+
+## Rate limits
+
+`server/.env` controls two throttles, both keyed on **client IP** — so
+everyone behind one office NAT shares a single budget:
+
+```
+THROTTLE_LIMIT=120          # all routes, per THROTTLE_TTL_SECONDS
+THROTTLE_AUTH_LIMIT=20      # /auth/* only, per THROTTLE_AUTH_TTL_SECONDS
+```
+
+When exceeded the API returns `429 RATE_LIMITED`. The frontend doesn't
+special-case that, so it surfaces as blank modules or a "Missing bearer
+token" error — it looks like a broken page, not a rate limit. If testers
+report that, check `pm2 logs homekrafted-api` for 429s before chasing a UI
+bug.
+
+Both take effect on `pm2 restart homekrafted-api` — no rebuild needed,
+they're read from `process.env` at boot. Don't lower `THROTTLE_AUTH_LIMIT`
+to single digits: it's the brute-force guard on login, but set too tight it
+also blocks ordinary sign-ins.
 
 ## Going to a real domain
 
