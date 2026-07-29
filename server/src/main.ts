@@ -1,4 +1,10 @@
 import 'reflect-metadata';
+// Populate `process.env` from `.env` BEFORE the module graph is imported.
+// `ConfigModule.forRoot()` also loads it, but that runs at module *init* —
+// too late for anything evaluated at import time, such as
+// `AuthController`'s `@Throttle(AUTH_THROTTLE)` decorator. Keep this above
+// the `AppModule` import.
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';

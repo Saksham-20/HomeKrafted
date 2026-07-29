@@ -42,7 +42,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
         throttlers: [
           {
             ttl: parseInt(process.env.THROTTLE_TTL_SECONDS ?? '60', 10) * 1000,
-            limit: parseInt(process.env.THROTTLE_LIMIT ?? '20', 10),
+            limit: parseInt(process.env.THROTTLE_LIMIT ?? '120', 10),
           },
         ],
       }),

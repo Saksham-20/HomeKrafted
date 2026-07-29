@@ -100,8 +100,8 @@ export default (): AppConfig => ({
   },
   throttle: {
     ttlSeconds: parseInt(process.env.THROTTLE_TTL_SECONDS ?? '60', 10),
-    limit: parseInt(process.env.THROTTLE_LIMIT ?? '20', 10),
+    limit: parseInt(process.env.THROTTLE_LIMIT ?? '120', 10),
     authTtlSeconds: parseInt(process.env.THROTTLE_AUTH_TTL_SECONDS ?? '60', 10),
-    authLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '5', 10),
+    authLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '20', 10),
   },
 });

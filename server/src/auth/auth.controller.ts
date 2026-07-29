@@ -11,6 +11,26 @@ import { SocialLoginDto } from './dto/social-login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 
 /**
+ * Brute-force budget for the auth routes, from `THROTTLE_AUTH_LIMIT` /
+ * `THROTTLE_AUTH_TTL_SECONDS`.
+ *
+ * These were hardcoded to `5 / 60s`, which made both env vars dead config:
+ * `configuration.ts` read them, nothing consumed them, and raising them in
+ * `.env` changed nothing. Worth keeping in mind when tuning: the throttler
+ * keys on client IP, so everyone behind one office NAT shares this budget.
+ *
+ * Evaluated once, when this module is first imported — which is why
+ * `main.ts` loads `dotenv/config` before pulling in `AppModule`, so
+ * `process.env` is already populated by the time this runs.
+ */
+const AUTH_THROTTLE = {
+  default: {
+    limit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '20', 10),
+    ttl: parseInt(process.env.THROTTLE_AUTH_TTL_SECONDS ?? '60', 10) * 1000,
+  },
+};
+
+/**
  * All routes here are `@Public()` (no access token required to reach
  * them — that's the point of an auth endpoint) but still sit behind the
  * app-wide `ThrottlerGuard`; `@Throttle` tightens the default limit
@@ -22,14 +42,14 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle(AUTH_THROTTLE)
   @Post('register')
   register(@Body() dto: RegisterDto): Promise<AuthResult> {
     return this.authService.register(dto);
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @Post('login')
   login(@Body() dto: LoginDto): Promise<AuthResult> {
@@ -37,7 +57,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @Post('otp/request')
   async requestOtp(@Body() dto: RequestOtpDto): Promise<{ message: string }> {
@@ -46,7 +66,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @Post('otp/verify')
   verifyOtp(@Body() dto: VerifyOtpDto): Promise<AuthResult> {
@@ -54,7 +74,7 @@ export class AuthController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle(AUTH_THROTTLE)
   @HttpCode(HttpStatus.OK)
   @Post('social/:provider')
   socialLogin(

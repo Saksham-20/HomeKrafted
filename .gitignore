@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (opt-in commit if ever needed)
 .env*
+# ...except the templates. These hold only placeholders (the API refuses to
+# boot on them in production), and docs/DEPLOY.md sends you to them when
+# recreating a box — so a fresh clone needs to actually have them.
+!.env.example
 
 # vercel
 .vercel
