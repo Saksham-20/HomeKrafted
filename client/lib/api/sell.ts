@@ -1,4 +1,9 @@
-import type { SellerApplication, SellerApplicationCategory, SellerApplicationStatus } from "@/lib/types";
+import type {
+  SellerApplication,
+  SellerApplicationCategory,
+  SellerApplicationStatus,
+  SellerSpecialty,
+} from "@/lib/types";
 import {
   sellerBenefits,
   sellerCategories,
@@ -38,7 +43,13 @@ export interface CreateSellerApplicationInput {
   email: string;
   phone: string;
   category: SellerApplicationCategory;
+  /** What they'll offer — becomes `Seller.specialties` once approved. */
+  specialties: SellerSpecialty[];
   city: string;
+  /** Tricity area id — sets where their kitchen sits for the buyer distance filter. */
+  area: string;
+  /** How far they'll deliver, km. Defaults to 10 server-side when omitted. */
+  deliveryRadiusKm?: number;
   description: string;
 }
 
@@ -64,7 +75,10 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
         email: input.email,
         phone: input.phone,
         category: input.category,
+        specialties: input.specialties,
         city: input.city,
+        area: input.area,
+        deliveryRadiusKm: input.deliveryRadiusKm,
         description: input.description,
       },
       { auth: false },
@@ -78,6 +92,9 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
     email: input.email,
     phone: input.phone,
     category: input.category,
+    specialties: input.specialties,
+    area: input.area,
+    deliveryRadiusKm: input.deliveryRadiusKm,
     city: input.city,
     description: input.description,
     status: "waitlisted",

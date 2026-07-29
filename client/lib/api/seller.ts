@@ -365,6 +365,12 @@ export function describeSellerOrderItems(order: Order, vendorId: string): string
 // Dashboard snapshot
 // ---------------------------------------------------------------------------
 
+/**
+ * The one dashboard snapshot, matching `SellerService.getDashboard` on the
+ * server. Covers all three revenue streams a HomeKrafter can have; the ones
+ * they don't use come back as zeroes rather than being absent, so the UI
+ * never has to branch on account type.
+ */
 export interface SellerDashboardSnapshot {
   todayOrdersCount: number;
   todayRevenue: number;
@@ -372,6 +378,54 @@ export interface SellerDashboardSnapshot {
   lowStockCount: number;
   rating: number;
   reviewCount: number;
+  /** Storefront items, and how many are switched on right now. */
+  listingsCount?: number;
+  activeListingsCount?: number;
+  /** Laundry/pickup counters — zero for a HomeKrafter who doesn't do them. */
+  todayPickupsCount?: number;
+  todayDeliveriesCount?: number;
+  weekEarnings?: number;
+  /** WhatsApp snack-order counters. */
+  incomingOrdersCount?: number;
+  menuSize?: number;
+  snackEarnings?: number;
+}
+
+/**
+ * `PATCH /seller/listings/:id/availability` — the HomeKrafter's own
+ * "am I making this today" switch. Returns the updated product.
+ */
+export async function setListingAvailability(
+  vendorId: string,
+  productId: string,
+  isAvailable: boolean,
+): Promise<Product> {
+  if (!isMockMode()) {
+    return http.patch<Product>(`/seller/listings/${encodeURIComponent(productId)}/availability`, {
+      isAvailable,
+    });
+  }
+  const product = ensureListings(vendorId).find((p) => p.id === productId);
+  if (!product) throw new Error("Listing not found");
+  product.isAvailable = isAvailable;
+  return product;
+}
+
+/** `PATCH /seller/menu/:id/availability` — same switch over a `Snack`. */
+export async function setMenuItemAvailability(
+  sellerId: string,
+  snackId: string,
+  isAvailable: boolean,
+): Promise<Snack> {
+  if (!isMockMode()) {
+    return http.patch<Snack>(`/seller/menu/${encodeURIComponent(snackId)}/availability`, {
+      isAvailable,
+    });
+  }
+  const snack = ensureMenu(sellerId).find((x) => x.id === snackId);
+  if (!snack) throw new Error("Menu item not found");
+  snack.available = isAvailable;
+  return snack;
 }
 
 /** Any weight-tier SKU under this stock count counts toward the dashboard's "low stock" tile. */

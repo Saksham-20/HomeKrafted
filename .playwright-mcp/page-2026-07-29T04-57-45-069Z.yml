@@ -1,0 +1,104 @@
+- generic [active] [ref=f1e1]:
+  - alert [ref=f1e138]
+  - main [ref=f1e139]:
+    - generic [ref=f1e140]:
+      - generic [ref=f1e142]:
+        - link "Home krafted HomeKrafter" [ref=f1e143] [cursor=pointer]:
+          - /url: /seller
+          - text: Home
+          - generic [ref=f1e144]: krafted
+          - generic [ref=f1e145]: HomeKrafter
+        - generic [ref=f1e146]:
+          - generic [ref=f1e147]: Anjali's Kitchen
+          - button "Switch to shopping" [ref=f1e148] [cursor=pointer]
+          - button "Sign out" [ref=f1e149] [cursor=pointer]
+      - generic [ref=f1e153]:
+        - navigation "HomeKrafter" [ref=f1e154]:
+          - link "Dashboard" [ref=f1e155] [cursor=pointer]:
+            - /url: /seller
+          - link "Listings" [ref=f1e162] [cursor=pointer]:
+            - /url: /seller/listings
+          - link "Menu" [ref=f1e168] [cursor=pointer]:
+            - /url: /seller/menu
+          - link "Orders" [ref=f1e175] [cursor=pointer]:
+            - /url: /seller/orders
+          - link "Pickups" [ref=f1e180] [cursor=pointer]:
+            - /url: /seller/pickups
+          - link "Storefront" [ref=f1e187] [cursor=pointer]:
+            - /url: /seller/storefront
+          - link "Payouts" [ref=f1e193] [cursor=pointer]:
+            - /url: /seller/payouts
+          - link "Reviews" [ref=f1e198] [cursor=pointer]:
+            - /url: /seller/reviews
+        - generic [ref=f1e203]:
+          - generic [ref=f1e205]:
+            - heading "Hi, Anjali's Kitchen" [level=1] [ref=f1e206]
+            - paragraph [ref=f1e207]: Here's how your storefront is doing.
+          - generic [ref=f1e208]:
+            - generic [ref=f1e209]:
+              - generic [ref=f1e210]: Today's orders
+              - generic [ref=f1e211]: "0"
+            - generic [ref=f1e212]:
+              - generic [ref=f1e213]: Today's revenue
+              - generic [ref=f1e214]: ₹0
+            - generic [ref=f1e215]:
+              - generic [ref=f1e216]: Pending payout
+              - generic [ref=f1e217]: ₹0
+              - generic [ref=f1e218]: Next settlement
+            - generic [ref=f1e219]:
+              - generic [ref=f1e220]: Low stock
+              - generic [ref=f1e221]: "1"
+              - generic [ref=f1e222]: SKUs under 15 units
+            - generic [ref=f1e223]:
+              - generic [ref=f1e224]: Rating
+              - generic [ref=f1e225]: "4.8"
+              - generic [ref=f1e226]: 128 reviews
+          - generic [ref=f1e227]:
+            - link [ref=f1e229] [cursor=pointer]:
+              - /url: /seller/listings
+            - link [ref=f1e236] [cursor=pointer]:
+              - /url: /seller/orders
+            - link [ref=f1e242] [cursor=pointer]:
+              - /url: /seller/storefront
+            - link [ref=f1e249] [cursor=pointer]:
+              - /url: /seller/payouts
+            - link [ref=f1e255] [cursor=pointer]:
+              - /url: /seller/reviews
+          - heading "Recent orders" [level=2] [ref=f1e259]
+          - generic [ref=f1e260]:
+            - link "#HK2109 28 Jul 2026 · Mango Thokku Pickle ×1 Placed ₹858" [ref=f1e261] [cursor=pointer]:
+              - /url: /seller/orders/cms4lyxis001ox22ic0y41tan
+              - generic [ref=f1e262]:
+                - generic [ref=f1e263]:
+                  - generic [ref=f1e264]: "#HK2109"
+                  - generic [ref=f1e265]: 28 Jul 2026 · Mango Thokku Pickle ×1
+                - generic [ref=f1e266]:
+                  - generic [ref=f1e267]: Placed
+                  - generic [ref=f1e268]: ₹858
+            - link "#HK2039 25 Jul 2026 · Mango Thokku Pickle ×2 Placed ₹987" [ref=f1e269] [cursor=pointer]:
+              - /url: /seller/orders/ord-seed-2039
+              - generic [ref=f1e270]:
+                - generic [ref=f1e271]:
+                  - generic [ref=f1e272]: "#HK2039"
+                  - generic [ref=f1e273]: 25 Jul 2026 · Mango Thokku Pickle ×2
+                - generic [ref=f1e274]:
+                  - generic [ref=f1e275]: Placed
+                  - generic [ref=f1e276]: ₹987
+            - link "#HK2040 22 Jul 2026 · Mango Thokku Pickle ×1 Packed ₹518" [ref=f1e277] [cursor=pointer]:
+              - /url: /seller/orders/ord-seed-2040
+              - generic [ref=f1e278]:
+                - generic [ref=f1e279]:
+                  - generic [ref=f1e280]: "#HK2040"
+                  - generic [ref=f1e281]: 22 Jul 2026 · Mango Thokku Pickle ×1
+                - generic [ref=f1e282]:
+                  - generic [ref=f1e283]: Packed
+                  - generic [ref=f1e284]: ₹518
+            - link "#HK2041 20 Jul 2026 · Mango Thokku Pickle ×1 Shipped ₹899" [ref=f1e285] [cursor=pointer]:
+              - /url: /seller/orders/ord-seed-2041
+              - generic [ref=f1e286]:
+                - generic [ref=f1e287]:
+                  - generic [ref=f1e288]: "#HK2041"
+                  - generic [ref=f1e289]: 20 Jul 2026 · Mango Thokku Pickle ×1
+                - generic [ref=f1e290]:
+                  - generic [ref=f1e291]: Shipped
+                  - generic [ref=f1e292]: ₹899

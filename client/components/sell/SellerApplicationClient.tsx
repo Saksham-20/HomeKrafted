@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
+import { areasByCity } from "@/lib/geo";
+import { SPECIALTY_LABELS, type SellerSpecialty } from "@/lib/types";
 import { createSellerApplication, type CreateSellerApplicationInput } from "@/lib/api";
 import type { SellerApplication, SellerApplicationCategory } from "@/lib/types";
 import type { SellerBenefit, SellerStep } from "@/lib/data";
@@ -24,8 +26,26 @@ const EMPTY_FORM = {
   email: "",
   phone: "",
   city: "",
+  /** Tricity area id — required, it's what places the kitchen on the map. */
+  area: "",
+  /** Kept as a string because it comes off a <select>; parsed on submit. */
+  deliveryRadiusKm: "10",
   description: "",
 };
+
+/** Every HomeKrafter can offer any of these; picking some just helps buyers find you. */
+const SPECIALTY_OPTIONS: SellerSpecialty[] = [
+  "homemade_food",
+  "bakery",
+  "sweets",
+  "snacks",
+  "pickles_preserves",
+  "crafts",
+  "laundry",
+  "cleaning",
+];
+
+const RADIUS_OPTIONS = [3, 5, 8, 10, 15, 20, 30];
 
 /**
  * Sell on Homekrafted — seller-onboarding info + a real, submittable
@@ -39,6 +59,7 @@ const EMPTY_FORM = {
 export function SellerApplicationClient({ benefits, steps, categories }: SellerApplicationClientProps) {
   const [category, setCategory] = useState<SellerApplicationCategory>(categories[0]?.value ?? "maker");
   const [form, setForm] = useState(EMPTY_FORM);
+  const [specialties, setSpecialties] = useState<SellerSpecialty[]>(["homemade_food"]);
   const [busy, setBusy] = useState(false);
   const [application, setApplication] = useState<SellerApplication | null>(null);
 
@@ -52,6 +73,11 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
     form.email.trim().length > 0 &&
     form.phone.trim().length > 0 &&
     form.city.trim().length > 0 &&
+    // Area and at least one specialty are required: the first decides where
+    // the kitchen sits for every buyer's distance filter, the second is how
+    // buyers find them at all.
+    form.area.length > 0 &&
+    specialties.length > 0 &&
     form.description.trim().length > 0;
 
   async function handleSubmit() {
@@ -64,7 +90,10 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
         email: form.email.trim(),
         phone: form.phone.trim(),
         category,
+        specialties,
         city: form.city.trim(),
+        area: form.area,
+        deliveryRadiusKm: Number(form.deliveryRadiusKm),
         description: form.description.trim(),
       };
       const created = await createSellerApplication(input);
@@ -177,6 +206,58 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
                 onChange={(event) => set("city", event.target.value)}
               />
             </label>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>Which area is your kitchen in?</span>
+              <select
+                className={styles.input}
+                value={form.area}
+                onChange={(event) => set("area", event.target.value)}
+              >
+                <option value="">Choose your area…</option>
+                {areasByCity().map((group) => (
+                  <optgroup key={group.city} label={group.city}>
+                    {group.areas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>How far will you deliver?</span>
+              <select
+                className={styles.input}
+                value={form.deliveryRadiusKm}
+                onChange={(event) => set("deliveryRadiusKm", event.target.value)}
+              >
+                {RADIUS_OPTIONS.map((km) => (
+                  <option key={km} value={String(km)}>
+                    Up to {km} km
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>What will you offer?</span>
+              <div className={styles.chipRow}>
+                {SPECIALTY_OPTIONS.map((option) => (
+                  <Chip
+                    key={option}
+                    label={SPECIALTY_LABELS[option]}
+                    selected={specialties.includes(option)}
+                    onClick={() =>
+                      setSpecialties((current) =>
+                        current.includes(option)
+                          ? current.filter((x) => x !== option)
+                          : [...current, option],
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            </div>
             <div className={styles.field}>
               <span className={styles.fieldLabel}>Category</span>
               <div className={styles.chipRow}>

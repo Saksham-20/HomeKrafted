@@ -8,26 +8,35 @@ export interface HeroProps {
   trustStats: TrustStat[];
 }
 
-/** Home hero — ported from the prototype's store-first hero: headline, CTAs, trust stats, hero ImageSlot. */
+/**
+ * Home hero.
+ *
+ * Rewritten to say plainly what this is: **real home kitchens near you,
+ * cooking real food.** The previous copy ("Made with love, gifted from the
+ * heart", "pickles, bakes and curated hampers") read as a gifting site, and
+ * a visitor could get all the way down the page without learning that daily
+ * home-cooked food is the main event or that everything is local to the
+ * tricity.
+ */
 export function Hero({ trustStats }: HeroProps) {
   return (
     <section className={styles.hero}>
       <div className="container">
         <div className={styles.grid}>
           <div className={styles.copy}>
-            <span className={styles.eyebrow}>Handmade gifts · Homemade goodness</span>
+            <span className={styles.eyebrow}>Home kitchens · Chandigarh, Mohali &amp; Panchkula</span>
             <h1 className={styles.heading}>
-              Made with love,
+              Real <em className={styles.emphasis}>home food</em>,
               <br />
-              <em className={styles.emphasis}>gifted</em> from the heart.
+              cooked near you.
             </h1>
             <p className={styles.lede}>
-              Small-batch pickles, bakes and curated hampers from real home kitchens — thoughtfully
-              packed for every occasion.
+              Daily meals, fresh bakes, snacks, sweets and small-batch pickles — made this morning
+              in home kitchens around the tricity, by people who cook for their own families too.
             </p>
             <div className={styles.ctaRow}>
               <Link href="/shop" className={styles.ctaPrimary}>
-                Shop homemade foods
+                Order home food near you
               </Link>
               {/* Still links to /hamper while the builder is held — that route
                   serves <HamperComingSoon>, so the CTA lands somewhere real. */}

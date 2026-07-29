@@ -107,7 +107,17 @@ import {
   updateTokens,
   type SessionUser,
 } from "@/lib/auth/session";
-import type { Seller, SellerType, User, UserRole } from "@/lib/types";
+import type { Seller, User, UserRole } from "@/lib/types";
+
+/**
+ * Which seeded demo HomeKrafter to sign in as.
+ *
+ * Was `SellerType`, back when the three accounts were three different
+ * roles. They're all the same role now — this key just picks which seeded
+ * kitchen you land in, so the demo can show accounts with different
+ * specialties and different items.
+ */
+export type DemoHomeKrafter = "maker" | "laundry" | "snack";
 
 const STORAGE_KEY = "hk_auth_v1";
 const ROLE_COOKIE = "hk_role";
@@ -123,7 +133,7 @@ const SOCIAL_ACCOUNT_ID_KEY = "hk_social_account_ids_v1";
 export type SellerMode = "shopping" | "selling";
 
 /** The three seeded demo sellers' real emails (`server/prisma/seed.ts`) — every seeded account shares `DEMO_PASSWORD`, so "continue as demo maker/laundry/snack" is a real `POST /auth/login`, not a local state flip. */
-const SELLER_DEMO_EMAILS: Record<SellerType, string> = {
+const SELLER_DEMO_EMAILS: Record<DemoHomeKrafter, string> = {
   maker: "anjali@anjaliskitchen.example",
   laundry: "ravi@freshfoldlaundry.example",
   snack: "meera@meerassnackbox.example",
@@ -158,7 +168,7 @@ export interface AuthContextValue {
   /** "Sign in as demo user" — real login against the seeded demo consumer account. */
   signInDemo: () => Promise<UserRole>;
   /** "Continue as demo maker/laundry/snack" — real `POST /auth/login` against the matching seeded seller account (mock-mode: local state flip only). Resolves `"seller"`. */
-  signInAsSeller: (type?: SellerType) => Promise<UserRole>;
+  signInAsSeller: (type?: DemoHomeKrafter) => Promise<UserRole>;
   /** "Continue as demo admin" — real `POST /auth/login` against the seeded admin account (mock-mode: local state flip only), internal-only. Resolves `"admin"`. */
   signInAsAdmin: () => Promise<UserRole>;
   /** Flips a signed-in seller's active view to consumer shopping — persisted, does not navigate (callers `router.push` themselves). No-op for non-sellers. */
@@ -176,7 +186,7 @@ interface StoredAuth {
   signedIn: boolean;
   role?: UserRole;
   /** Only meaningful when `role === "seller"` and there's no real session backing it (legacy/mock fallback — see `hydrate`). */
-  sellerType?: SellerType;
+  sellerType?: DemoHomeKrafter;
   /** Only meaningful when `role === "seller"` — the persisted dual-mode view (M8.5), see file header. */
   sellerMode?: SellerMode;
 }
@@ -214,7 +224,7 @@ function writeRoleCookie(role: UserRole | undefined) {
 }
 
 /** The demo `User` record for each seller type — `resolveDemoSeller` looks the matching `Seller` up by whichever of these the signed-in `sellerType` points at. */
-function demoSellerUserFor(type: SellerType): User {
+function demoSellerUserFor(type: DemoHomeKrafter): User {
   switch (type) {
     case "laundry":
       return laundryPartnerUser;
@@ -226,7 +236,7 @@ function demoSellerUserFor(type: SellerType): User {
 }
 
 /** Resolves the seeded demo `Seller` (`lib/data/sellers.ts`) matching `type` — defaults to `"maker"` (`sl1`) when unset, e.g. a stale pre-M10b `localStorage` value with no `sellerType`. */
-function resolveDemoSeller(type: SellerType = "maker"): Seller | undefined {
+function resolveDemoSeller(type: DemoHomeKrafter = "maker"): Seller | undefined {
   const demoUser = demoSellerUserFor(type);
   return sellers.find((s) => s.userId === demoUser.id);
 }
@@ -258,7 +268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // signed-in demo consumer; see the hydrate() tail below.)
   const [signedIn, setSignedIn] = useState(false);
   const [role, setRole] = useState<UserRole | undefined>(undefined);
-  const [sellerType, setSellerType] = useState<SellerType | undefined>(undefined);
+  const [sellerType, setDemoHomeKrafter] = useState<DemoHomeKrafter | undefined>(undefined);
   const [sellerMode, setSellerModeState] = useState<SellerMode | undefined>(undefined);
   const [sessionUser, setSessionUserState] = useState<SessionUser | undefined>(undefined);
   const [ready, setReady] = useState(false);
@@ -276,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (mock) {
         setSignedIn(stored.signedIn);
         setRole(stored.signedIn ? stored.role : undefined);
-        setSellerType(stored.signedIn && stored.role === "seller" ? stored.sellerType : undefined);
+        setDemoHomeKrafter(stored.signedIn && stored.role === "seller" ? stored.sellerType : undefined);
         setSellerModeState(stored.signedIn && stored.role === "seller" ? (stored.sellerMode ?? "selling") : undefined);
         setReady(true);
         hydrated.current = true;
@@ -305,7 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSignedIn(true);
           setRole(me.role);
           setSessionUserState(me);
-          setSellerType(undefined);
+          setDemoHomeKrafter(undefined);
           setSellerModeState(me.role === "seller" ? (stored.sellerMode ?? "selling") : undefined);
           setReady(true);
           hydrated.current = true;
@@ -333,7 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // path.
         setSignedIn(true);
         setRole("seller");
-        setSellerType(stored.sellerType);
+        setDemoHomeKrafter(stored.sellerType);
         setSellerModeState(stored.sellerMode ?? "selling");
         setReady(true);
         hydrated.current = true;
@@ -406,7 +416,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionUserState(result.user);
     setSignedIn(true);
     setRole(result.user.role);
-    setSellerType(undefined);
+    setDemoHomeKrafter(undefined);
     if (result.user.role === "seller") {
       setSellerModeState((prev) => prev ?? "selling");
     } else {
@@ -428,7 +438,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
-      setSellerType(undefined);
+      setDemoHomeKrafter(undefined);
       return "consumer";
     }
     setBusy(true);
@@ -444,7 +454,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
-      setSellerType(undefined);
+      setDemoHomeKrafter(undefined);
       return "consumer";
     }
     setBusy(true);
@@ -471,7 +481,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
-      setSellerType(undefined);
+      setDemoHomeKrafter(undefined);
       return "consumer";
     }
     setBusy(true);
@@ -487,7 +497,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
-      setSellerType(undefined);
+      setDemoHomeKrafter(undefined);
       return "consumer";
     }
     setBusy(true);
@@ -504,7 +514,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
-      setSellerType(undefined);
+      setDemoHomeKrafter(undefined);
       return "consumer";
     }
     setBusy(true);
@@ -522,11 +532,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * state flip only). Mock mode keeps the pre-M8.5 local-only behavior,
    * same as every other sign-in method above.
    */
-  async function signInAsSeller(type: SellerType = "maker"): Promise<UserRole> {
+  async function signInAsSeller(type: DemoHomeKrafter = "maker"): Promise<UserRole> {
     if (mock) {
       setSignedIn(true);
       setRole("seller");
-      setSellerType(type);
+      setDemoHomeKrafter(type);
       setSellerModeState((prev) => prev ?? "selling");
       return "seller";
     }
@@ -549,7 +559,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (mock) {
       setSignedIn(true);
       setRole("admin");
-      setSellerType(undefined);
+      setDemoHomeKrafter(undefined);
       setSellerModeState(undefined);
       return "admin";
     }
@@ -597,7 +607,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setSignedIn(false);
     setRole(undefined);
-    setSellerType(undefined);
+    setDemoHomeKrafter(undefined);
     setSellerModeState(undefined);
     setSessionUserState(undefined);
   }

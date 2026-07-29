@@ -313,15 +313,23 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------
   console.log('Seeding vendors...');
 
+  // Every kitchen sits somewhere real in the Chandigarh tricity — the
+  // coordinates are what the buyer distance filter measures against, and
+  // they line up with `server/src/common/geo.ts#TRICITY_AREAS` so a buyer
+  // who picks the same area lands at distance ~0.
   const vendorSeeds = [
-    { id: 'vd1', slug: 'anjalis-kitchen', name: "Anjali's Kitchen", type: 'maker', bio: "Small-batch Andhra pickles made the way Anjali's grandmother taught her — slow-cooked, hand-tempered, no shortcuts.", location: 'Guntur, Andhra Pradesh', rating: 4.8, reviewCount: 128, followerCount: 612, joinedAt: '2023-11-02' },
-    { id: 'vd2', slug: 'meeras-homefoods', name: "Meera's Homefoods", type: 'maker', bio: 'Home-style chutneys and pickles from a Nagpur kitchen, ground fresh in small weekly batches.', location: 'Nagpur, Maharashtra', rating: 4.7, reviewCount: 86, followerCount: 234, joinedAt: '2024-02-14' },
-    { id: 'vd3', slug: 'home-batch', name: 'Home Batch', type: 'baker', bio: 'A Bengaluru home-bakery specialising in better-for-you cookies made with millets and nuts.', location: 'Bengaluru, Karnataka', rating: 4.9, reviewCount: 204, followerCount: 540, joinedAt: '2023-06-20' },
-    { id: 'vd4', slug: 'crunch-corner', name: 'Crunch Corner', type: 'maker', bio: 'Ahmedabad-based snack makers turning roasted nuts and seeds into everyday munching.', location: 'Ahmedabad, Gujarat', rating: 4.6, reviewCount: 92, followerCount: 178, joinedAt: '2024-05-09' },
-    { id: 'vd5', slug: 'cocoa-homemade', name: 'Cocoa Homemade', type: 'baker', bio: 'Small-batch bean-to-bar chocolate crafted in a home kitchen in Kochi.', location: 'Kochi, Kerala', rating: 4.8, reviewCount: 73, followerCount: 265, joinedAt: '2024-01-11' },
-    { id: 'vd6', slug: 'dadis-recipe', name: "Dadi's Recipe", type: 'maker', bio: 'Traditional Rajasthani sweets and dry-fruit preparations made from a family recipe book passed down three generations.', location: 'Jaipur, Rajasthan', rating: 4.9, reviewCount: 140, followerCount: 601, joinedAt: '2022-12-03' },
-    { id: 'vd7', slug: 'hills-leaves', name: 'Hills & Leaves', type: 'maker', bio: 'Hand-blended teas sourced from small Darjeeling estates.', location: 'Darjeeling, West Bengal', rating: 4.7, reviewCount: 61, followerCount: 145, joinedAt: '2024-03-27' },
-    { id: 'vd8', slug: 'homekrafted', name: 'Homekrafted', type: 'homekrafted', bio: 'Our in-house curation team, building gift-ready hampers from the best of the maker community.', location: 'Bengaluru, Karnataka', rating: 4.9, reviewCount: 57, followerCount: 890, joinedAt: '2022-08-15' },
+    { id: 'vd1', slug: 'anjalis-kitchen', name: "Anjali's Kitchen", type: 'maker', bio: 'Home-cooked Punjabi food and small-batch pickles, made fresh every morning in a Sector 35 kitchen. Daily thalis, weekend specials, nothing frozen.', location: 'Sector 35, Chandigarh', area: 'chd-sector-35', lat: 30.7266, lng: 76.7554, deliveryRadiusKm: 12, rating: 4.8, reviewCount: 128, followerCount: 612, joinedAt: '2023-11-02' },
+    { id: 'vd2', slug: 'meeras-homefoods', name: "Meera's Homefoods", type: 'maker', bio: 'Everyday home food from a Mohali kitchen — dal, sabzi, rotis packed hot, plus chutneys ground fresh each week.', location: 'Phase 3B2, Mohali', area: 'moh-phase-3b2', lat: 30.7050, lng: 76.7180, deliveryRadiusKm: 10, rating: 4.7, reviewCount: 86, followerCount: 234, joinedAt: '2024-02-14' },
+    { id: 'vd3', slug: 'home-batch', name: 'Home Batch', type: 'baker', bio: 'A Sector 15 home-bakery: millet cookies, eggless cakes and breads baked to order, never off a shelf.', location: 'Sector 15, Chandigarh', area: 'chd-sector-15', lat: 30.7594, lng: 76.7681, deliveryRadiusKm: 8, rating: 4.9, reviewCount: 204, followerCount: 540, joinedAt: '2023-06-20' },
+    { id: 'vd4', slug: 'crunch-corner', name: 'Crunch Corner', type: 'maker', bio: 'Panchkula home kitchen roasting nuts, seeds and namkeen in small weekly batches.', location: 'Sector 5, Panchkula', area: 'pkl-sector-5', lat: 30.6930, lng: 76.8540, deliveryRadiusKm: 10, rating: 4.6, reviewCount: 92, followerCount: 178, joinedAt: '2024-05-09' },
+    { id: 'vd5', slug: 'cocoa-homemade', name: 'Cocoa Homemade', type: 'baker', bio: 'Bean-to-bar chocolate and homemade desserts, made in a Sector 22 flat one batch at a time.', location: 'Sector 22, Chandigarh', area: 'chd-sector-22', lat: 30.7333, lng: 76.7794, deliveryRadiusKm: 9, rating: 4.8, reviewCount: 73, followerCount: 265, joinedAt: '2024-01-11' },
+    { id: 'vd6', slug: 'dadis-recipe', name: "Dadi's Recipe", type: 'maker', bio: 'Traditional sweets, mathri and dry-fruit preparations from a Zirakpur family kitchen, three generations of recipes.', location: 'VIP Road, Zirakpur', area: 'zkp-vip-road', lat: 30.6425, lng: 76.8173, deliveryRadiusKm: 14, rating: 4.9, reviewCount: 140, followerCount: 601, joinedAt: '2022-12-03' },
+    { id: 'vd7', slug: 'hills-leaves', name: 'Hills & Leaves', type: 'maker', bio: 'Hand-blended teas and homemade masalas, packed in Panchkula.', location: 'Sector 9, Panchkula', area: 'pkl-sector-9', lat: 30.6870, lng: 76.8480, deliveryRadiusKm: 12, rating: 4.7, reviewCount: 61, followerCount: 145, joinedAt: '2024-03-27' },
+    { id: 'vd8', slug: 'homekrafted', name: 'Homekrafted', type: 'homekrafted', bio: 'Our in-house team, building gift-ready hampers from the best of the tricity home kitchens.', location: 'Sector 17, Chandigarh', area: 'chd-sector-17', lat: 30.7418, lng: 76.7822, deliveryRadiusKm: 30, rating: 4.9, reviewCount: 57, followerCount: 890, joinedAt: '2022-08-15' },
+    // Under the single-role model a laundry partner and a snack seller are
+    // HomeKrafters like any other, so they get storefronts too.
+    { id: 'vd9', slug: 'fresh-fold-laundry', name: 'Fresh Fold Laundry Co.', type: 'maker', bio: 'Wash, fold, dry-clean and steam ironing, picked up and returned across Mohali and south Chandigarh.', location: 'Phase 7, Mohali', area: 'moh-phase-7', lat: 30.7130, lng: 76.7020, deliveryRadiusKm: 15, rating: 4.7, reviewCount: 214, followerCount: 96, joinedAt: '2024-02-10' },
+    { id: 'vd10', slug: 'meeras-snack-box', name: "Meera's Snack Box", type: 'maker', bio: 'Evening snacks, samosas and homemade namkeen from a Sector 46 kitchen — order on WhatsApp, delivered hot.', location: 'Sector 46, Chandigarh', area: 'chd-sector-46', lat: 30.7083, lng: 76.7626, deliveryRadiusKm: 8, rating: 4.5, reviewCount: 96, followerCount: 143, joinedAt: '2024-05-20' },
   ] as const;
 
   for (const v of vendorSeeds) {
@@ -337,6 +345,10 @@ async function main(): Promise<void> {
         avatarSrc: '/images/vendors/avatar.jpg',
         bannerSrc: '/images/vendors/banner.jpg',
         location: v.location,
+        area: v.area,
+        lat: v.lat,
+        lng: v.lng,
+        deliveryRadiusKm: v.deliveryRadiusKm,
         rating: v.rating,
         reviewCount: v.reviewCount,
         followerCount: v.followerCount,
@@ -626,14 +638,18 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------
   console.log('Seeding sellers + payouts...');
 
+  // One role. All three have a storefront and every portal module; the
+  // only difference between them is `specialties`, which buyers filter on
+  // and nothing authorises against. Anjali deliberately carries two, to
+  // prove a single account can cook *and* offer something else.
   const sl1 = await prisma.seller.create({
-    data: { id: 'sl1', userId: sellerUser.id, type: 'maker', vendorId: 'vd1', displayName: "Anjali's Kitchen", status: 'approved', createdAt: new Date('2023-11-02') },
+    data: { id: 'sl1', userId: sellerUser.id, specialties: ['homemade_food', 'pickles_preserves'], vendorId: 'vd1', displayName: "Anjali's Kitchen", status: 'approved', createdAt: new Date('2023-11-02'), rating: 4.8, reviewCount: 128 },
   });
   const sl2 = await prisma.seller.create({
-    data: { id: 'sl2', userId: laundryPartnerUser.id, type: 'laundry', displayName: 'Fresh Fold Laundry Co.', status: 'approved', createdAt: new Date('2024-02-10'), rating: 4.7, reviewCount: 214 },
+    data: { id: 'sl2', userId: laundryPartnerUser.id, specialties: ['laundry', 'cleaning'], vendorId: 'vd9', displayName: 'Fresh Fold Laundry Co.', status: 'approved', createdAt: new Date('2024-02-10'), rating: 4.7, reviewCount: 214 },
   });
   const sl3 = await prisma.seller.create({
-    data: { id: 'sl3', userId: snackSellerUser.id, type: 'snack', displayName: "Meera's Snack Box", status: 'approved', createdAt: new Date('2024-05-20'), rating: 4.5, reviewCount: 96 },
+    data: { id: 'sl3', userId: snackSellerUser.id, specialties: ['snacks', 'homemade_food'], vendorId: 'vd10', displayName: "Meera's Snack Box", status: 'approved', createdAt: new Date('2024-05-20'), rating: 4.5, reviewCount: 96 },
   });
 
   const payoutSeeds = [
@@ -950,10 +966,10 @@ async function main(): Promise<void> {
 
   await prisma.sellerApplication.createMany({
     data: [
-      { id: 'sa-seed-1', businessName: "Kaveri's Kitchen", contactName: 'Kaveri Rao', email: 'kaveri@example.com', phone: '+919000111222', category: 'maker', city: 'Mysuru, Karnataka', description: "Traditional Karnataka pickles and podis, small-batch, home-kitchen made — my grandmother's recipes, no preservatives.", status: 'new', createdAt: new Date('2026-07-20T10:00:00+05:30') },
-      { id: 'sa-seed-2', businessName: 'Sugar & Slate Bakes', contactName: 'Rohan Mehta', email: 'rohan@example.com', phone: '+919000222333', category: 'baker', city: 'Pune, Maharashtra', description: 'Eggless cakes and festive bakes for small home celebrations, made to order.', status: 'reviewing', createdAt: new Date('2026-07-21T14:30:00+05:30') },
-      { id: 'sa-seed-3', businessName: 'Terracotta & Thread', contactName: 'Ila Bhatt', email: 'ila@example.com', phone: '+919000333444', category: 'artist', city: 'Jaipur, Rajasthan', description: 'Hand-painted terracotta décor and block-printed textile gifting pieces.', status: 'waitlisted', createdAt: new Date('2026-07-15T09:00:00+05:30') },
-      { id: 'sa-seed-4', businessName: 'Coastal Crate Co.', contactName: 'Manoj Pillai', email: 'manoj@example.com', phone: '+919000444555', category: 'other', city: 'Kochi, Kerala', description: 'Curated coastal Kerala snack and spice hampers.', status: 'rejected', createdAt: new Date('2026-07-10T09:00:00+05:30') },
+      { id: 'sa-seed-1', businessName: "Kaveri's Kitchen", contactName: 'Kaveri Rao', email: 'kaveri@example.com', phone: '+919000111222', category: 'maker', specialties: ['homemade_food', 'pickles_preserves'], city: 'Chandigarh', area: 'chd-sector-34', deliveryRadiusKm: 10, description: 'Daily home-cooked South Indian meals and small-batch podis from my Sector 34 kitchen — my grandmother\u2019s recipes, no preservatives.', status: 'new', createdAt: new Date('2026-07-20T10:00:00+05:30') },
+      { id: 'sa-seed-2', businessName: 'Sugar & Slate Bakes', contactName: 'Rohan Mehta', email: 'rohan@example.com', phone: '+919000222333', category: 'baker', specialties: ['bakery', 'sweets'], city: 'Mohali', area: 'moh-phase-5', deliveryRadiusKm: 8, description: 'Eggless cakes and festive bakes for small home celebrations, made to order in Phase 5.', status: 'reviewing', createdAt: new Date('2026-07-21T14:30:00+05:30') },
+      { id: 'sa-seed-3', businessName: 'Terracotta & Thread', contactName: 'Ila Bhatt', email: 'ila@example.com', phone: '+919000333444', category: 'artist', specialties: ['crafts'], city: 'Panchkula', area: 'pkl-sector-11', deliveryRadiusKm: 12, description: 'Hand-painted terracotta décor and block-printed textile gifting pieces.', status: 'waitlisted', createdAt: new Date('2026-07-15T09:00:00+05:30') },
+      { id: 'sa-seed-4', businessName: 'Tricity Tiffin Co.', contactName: 'Manoj Pillai', email: 'manoj@example.com', phone: '+919000444555', category: 'other', specialties: ['homemade_food'], city: 'Zirakpur', area: 'zkp-dhakoli', deliveryRadiusKm: 15, description: 'Daily tiffin service — home-style North Indian lunch boxes delivered across Zirakpur and Dhakoli.', status: 'rejected', createdAt: new Date('2026-07-10T09:00:00+05:30') },
     ],
   });
 

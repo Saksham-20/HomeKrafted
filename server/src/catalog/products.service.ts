@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { distanceKm, formatDistanceKm } from '../common/geo';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListProductsQueryDto } from './dto/list-products.query.dto';
 import { PRODUCT_INCLUDE, defaultPriceOf, mapProduct } from './mappers/product.mapper';
@@ -31,6 +32,13 @@ export class ProductsService {
   async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
     const where: Prisma.ProductWhereInput = { moderationStatus: { not: 'hidden' } };
 
+    // Buyers never see something the kitchen has switched off for the day.
+    // An explicit `availableOnly=false` is how the seller portal and admin
+    // fetch their own full list including paused items.
+    if (query.availableOnly !== false) {
+      where.isAvailable = true;
+    }
+
     if (query.category) {
       where.category = { slug: { in: splitCsv(query.category) } };
     }
@@ -47,9 +55,36 @@ export class ProductsService {
       where.featured = query.featured;
     }
 
-    const products = await this.prisma.product.findMany({ where, include: PRODUCT_INCLUDE });
+    const products = await this.prisma.product.findMany({
+      where,
+      // `vendor` joined here (not in the shared PRODUCT_INCLUDE) purely for
+      // its lat/lng/deliveryRadiusKm — the distance filter below needs them.
+      include: { ...PRODUCT_INCLUDE, vendor: true },
+    });
 
-    let withPrice = products.map((p) => ({ product: p, price: defaultPriceOf(p) }));
+    // "Near me": keep only kitchens whose own delivery radius reaches the
+    // buyer, and remember how far each one is so the card can show it.
+    // Filtering here rather than in SQL because there's no PostGIS and the
+    // candidate set is one row per HomeKrafter — see `common/geo.ts`.
+    const buyer =
+      query.lat !== undefined && query.lng !== undefined
+        ? { lat: query.lat, lng: query.lng }
+        : undefined;
+
+    const distanceByProduct = new Map<string, number>();
+    let inRange = products;
+    if (buyer) {
+      inRange = products.filter((p) => {
+        const v = p.vendor;
+        if (!v) return false;
+        const km = distanceKm(buyer, { lat: v.lat, lng: v.lng });
+        if (km > v.deliveryRadiusKm) return false;
+        distanceByProduct.set(p.id, km);
+        return true;
+      });
+    }
+
+    let withPrice = inRange.map((p) => ({ product: p, price: defaultPriceOf(p) }));
 
     if (query.minPrice !== undefined) {
       withPrice = withPrice.filter((x) => x.price >= query.minPrice!);
@@ -62,6 +97,9 @@ export class ProductsService {
     withPrice.sort((a, b) => {
       if (sort === 'price-asc') return a.price - b.price;
       if (sort === 'price-desc') return b.price - a.price;
+      if (sort === 'nearest' && buyer) {
+        return (distanceByProduct.get(a.product.id) ?? 0) - (distanceByProduct.get(b.product.id) ?? 0);
+      }
       const ratingDelta = Number(b.product.rating) - Number(a.product.rating);
       if (ratingDelta !== 0) return ratingDelta;
       return b.product.reviewCount - a.product.reviewCount;
@@ -71,7 +109,15 @@ export class ProductsService {
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
-    const items = withPrice.slice(start, start + pageSize).map((x) => mapProduct(x.product));
+    const items = withPrice.slice(start, start + pageSize).map((x) => {
+      const km = distanceByProduct.get(x.product.id);
+      return {
+        ...mapProduct(x.product),
+        ...(km !== undefined
+          ? { distanceKm: Math.round(km * 10) / 10, distanceLabel: formatDistanceKm(km) }
+          : {}),
+      };
+    });
 
     return { items, page, pageSize, total };
   }

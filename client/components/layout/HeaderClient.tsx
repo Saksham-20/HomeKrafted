@@ -69,7 +69,7 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
           <span className={styles.wordmark}>
             Home<span className={styles.krafted}>krafted</span>
           </span>
-          <span className={styles.tagline}>Homemade · Handpicked</span>
+          <span className={styles.tagline}>Home food · Tricity</span>
         </Link>
 
         <nav className={styles.nav} aria-label="Primary">

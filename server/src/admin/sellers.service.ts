@@ -1,6 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Seller, SellerApplication, SellerApplicationCategory, VendorType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { areaById, TRICITY_CENTRE } from '../common/geo';
+import { NotificationsService } from '../notifications/notifications.service';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { generateReferralCode } from '../auth/referral-code.util';
 import { AdminAuditLogService } from './audit-log.service';
@@ -22,8 +24,8 @@ function mapSeller(seller: Seller, vendorName?: string) {
   return {
     id: seller.id,
     userId: seller.userId,
-    type: seller.type,
-    vendorId: seller.vendorId ?? undefined,
+    specialties: seller.specialties,
+    vendorId: seller.vendorId,
     vendorName,
     displayName: seller.displayName,
     status: seller.status,
@@ -68,6 +70,7 @@ export class AdminSellersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async listSellers() {
@@ -162,6 +165,11 @@ export class AdminSellersService {
         await tx.loyaltyAccount.create({ data: { userId: user.id } });
       }
 
+      // The applicant's chosen tricity area decides where their kitchen sits
+      // on the map, which is what every buyer's distance filter measures
+      // against. Falls back to the tricity centre only if an application
+      // predates the area field.
+      const area = areaById(application.area);
       const vendorSlug = await this.uniqueVendorSlug(tx, application.businessName);
       const vendor = await tx.vendor.create({
         data: {
@@ -171,14 +179,21 @@ export class AdminSellersService {
           bio: application.description,
           avatarPlaceholder: `${application.businessName} — AVATAR`,
           bannerPlaceholder: `${application.businessName} — BANNER`,
-          location: application.city,
+          location: area ? `${area.label}, ${area.city}` : application.city,
+          area: application.area,
+          lat: area?.lat ?? TRICITY_CENTRE.lat,
+          lng: area?.lng ?? TRICITY_CENTRE.lng,
+          deliveryRadiusKm: application.deliveryRadiusKm,
         },
       });
 
+      // One role: an approved application always produces a full
+      // HomeKrafter with a storefront and every module. What they said they
+      // make becomes `specialties`, which is discovery metadata only.
       const seller = await tx.seller.create({
         data: {
           userId: user.id,
-          type: 'maker',
+          specialties: application.specialties.length ? application.specialties : ['homemade_food'],
           vendorId: vendor.id,
           displayName: application.businessName,
           status: 'approved',
@@ -191,6 +206,17 @@ export class AdminSellersService {
       });
 
       return { application: decidedApplication, seller, vendor };
+    });
+
+    // Welcome the new HomeKrafter. Their account exists now, so this lands
+    // in an inbox they can actually open.
+    await this.notifications.notify({
+      userId: result.seller.userId,
+      category: 'account',
+      title: 'You are a HomeKrafter',
+      body: `${result.seller.displayName} is approved and live. Add your first items from the Listings or Menu tab, then switch them on when you are ready to take orders.`,
+      refType: 'seller',
+      refId: result.seller.id,
     });
 
     await this.auditLog.log({
@@ -219,6 +245,20 @@ export class AdminSellersService {
       where: { id: applicationId },
       data: { status: 'rejected' },
     });
+
+    // Only reachable if they already have an account — an application can
+    // predate one (there's no userId FK), so this is best-effort.
+    const applicantUser = await this.prisma.user.findUnique({ where: { email: application.email } });
+    if (applicantUser) {
+      await this.notifications.notify({
+        userId: applicantUser.id,
+        category: 'account',
+        title: 'About your HomeKrafter application',
+        body: 'We could not take your application forward this time. Reply to this and we will explain what would change our mind.',
+        refType: 'seller_application',
+        refId: applicationId,
+      });
+    }
 
     await this.auditLog.log({
       actorId: adminUserId,

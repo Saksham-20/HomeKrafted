@@ -243,6 +243,37 @@ export type SellerApplicationStatus =
   | "approved"
   | "rejected";
 
+/**
+ * What a HomeKrafter makes or offers.
+ *
+ * A **display/discovery tag, not a role.** There is one supply-side role —
+ * HomeKrafter — and every one of them gets every portal module. Nothing may
+ * branch on this to decide access; it exists so buyers can filter and so a
+ * kitchen can say what it does. Mirrors `SellerSpecialty` in the Prisma
+ * schema.
+ */
+export type SellerSpecialty =
+  | "homemade_food"
+  | "bakery"
+  | "pickles_preserves"
+  | "snacks"
+  | "sweets"
+  | "crafts"
+  | "laundry"
+  | "cleaning";
+
+/** Human labels for `SellerSpecialty`, for chips and the apply form. */
+export const SPECIALTY_LABELS: Record<SellerSpecialty, string> = {
+  homemade_food: "Homemade food",
+  bakery: "Bakery",
+  pickles_preserves: "Pickles & preserves",
+  snacks: "Snacks",
+  sweets: "Sweets",
+  crafts: "Crafts",
+  laundry: "Laundry",
+  cleaning: "Cleaning",
+};
+
 export interface SellerApplication {
   id: ID;
   businessName: string;
@@ -250,9 +281,21 @@ export interface SellerApplication {
   email: string;
   phone: string;
   category: SellerApplicationCategory;
+  /** What they intend to offer — becomes `Seller.specialties` on approval. */
+  specialties?: SellerSpecialty[];
   city: string;
+  /**
+   * Tricity area id from `lib/geo.ts#TRICITY_AREAS`. Decides the
+   * coordinates the new kitchen is created at, which is what every buyer's
+   * distance filter measures against — so the apply form requires it.
+   */
+  area: string;
+  /** How far they'll deliver, km. Editable later from storefront settings. */
+  deliveryRadiusKm?: number;
   description: string;
   status: SellerApplicationStatus;
+  /** Set when an admin rejects or waitlists — shown back to the applicant. */
+  decisionNote?: string;
   createdAt: ISODateString;
 }
 

@@ -1,0 +1,129 @@
+.card {
+  margin-top: 20px;
+  padding: 20px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.title {
+  margin: 0 0 2px;
+  font-family: var(--hk-font-display);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.sub {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--hk-ink-muted);
+}
+
+.addLink {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--hk-pine);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.addLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.error {
+  margin: 0 0 10px;
+  font-size: 0.875rem;
+  color: var(--hk-terracotta);
+}
+
+.empty {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--hk-ink-muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--hk-border);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.9375rem;
+  color: var(--hk-ink);
+}
+
+.kind {
+  font-family: var(--hk-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hk-ink-muted);
+}
+
+.price {
+  font-size: 0.875rem;
+  color: var(--hk-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggle input {
+  width: 34px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--hk-pine);
+}
+
+.toggleLabel {
+  min-width: 58px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hk-ink-muted);
+}
+
+.toggle input:checked + .toggleLabel {
+  color: var(--hk-pine);
+}
+
+@media (max-width: 560px) {
+  .row {
+    grid-template-columns: 1fr auto;
+    row-gap: 6px;
+  }
+
+  .toggle {
+    grid-column: 1 / -1;
+  }
+}

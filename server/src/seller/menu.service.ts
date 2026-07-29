@@ -64,6 +64,16 @@ export class SellerMenuService {
     return mapSnack(updated);
   }
 
+  /** Same one-tap availability switch as listings, over a `Snack`. */
+  async setAvailability(sellerId: string, snackId: string, isAvailable: boolean) {
+    await this.assertOwned(sellerId, snackId);
+    const updated = await this.prisma.snack.update({
+      where: { id: snackId },
+      data: { available: isAvailable },
+    });
+    return mapSnack(updated);
+  }
+
   async remove(sellerId: string, snackId: string): Promise<void> {
     await this.assertOwned(sellerId, snackId);
     try {

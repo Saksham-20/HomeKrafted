@@ -32,9 +32,22 @@ interface ProductsPage {
   total: number;
 }
 
-export async function getProducts(): Promise<Product[]> {
+/**
+ * The browsable catalogue.
+ *
+ * `near` is the buyer's coordinates. Supplied, the server returns only
+ * items from kitchens whose delivery radius actually reaches them, each
+ * carrying a `distanceKm`. Omitted — which is the case for anyone who
+ * declined the location prompt and hasn't picked an area — the full
+ * catalogue comes back, because browsing is never gated on a permission
+ * the visitor refused.
+ */
+export async function getProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
   if (isMockMode()) return products.filter(isBrowsable);
-  const page = await http.get<ProductsPage>("/products", { auth: false, query: { pageSize: 100 } });
+  const page = await http.get<ProductsPage>("/products", {
+    auth: false,
+    query: { pageSize: 100, ...(near ? { lat: near.lat, lng: near.lng } : {}) },
+  });
   return page.items;
 }
 

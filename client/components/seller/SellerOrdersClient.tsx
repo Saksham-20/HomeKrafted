@@ -5,22 +5,29 @@ import { MakerOrdersClient } from "./MakerOrdersClient";
 import { SnackOrdersClient } from "./SnackOrdersClient";
 
 /**
- * `/seller/orders` — M10b type router. A maker's `Order`s and a snack
- * seller's `SnackOrder`s are different entities entirely (see
- * `lib/types/food.ts`'s `SnackOrder` doc comment for why), so this stays
- * a thin switch over two sibling components rather than one component
- * branching mid-render — same "no conditional hooks" reasoning as
- * `SellerDashboardClient`. Every HomeKrafter now sees an Orders nav entry
- * (`SellerShell`'s single `HOMEKRAFTER_NAV`), so a laundry partner does
- * reach this: they fall through to the maker view, whose own fetch
- * resolves to `ModuleUnavailable` when the API scopes them out. Their
- * day-to-day work lives under Pickups.
+ * `/seller/orders` — a HomeKrafter's incoming work.
+ *
+ * Was a router over `seller.type`: marketplace orders for a maker, WhatsApp
+ * snack orders for a snack seller, and nothing at all for a laundry
+ * partner. One role means one account can have both, so both render, each
+ * resolving its own data and its own empty state.
+ *
+ * Still two components rather than one merged list: an `Order` and a
+ * `SnackOrder` are genuinely different entities with different statuses and
+ * different fulfilment steps (see `lib/types/food.ts#SnackOrder`), and
+ * flattening them would mean inventing a status vocabulary that fits
+ * neither.
  */
 export function SellerOrdersClient() {
   const { seller } = useAuth();
+  const takesSnackOrders = seller?.specialties.includes("snacks") ?? false;
 
-  if (seller?.type === "snack") {
-    return <SnackOrdersClient />;
-  }
-  return <MakerOrdersClient />;
+  return (
+    <>
+      <MakerOrdersClient />
+      {/* Only for HomeKrafters who actually take WhatsApp snack orders —
+          otherwise this is a permanently empty section on every page load. */}
+      {takesSnackOrders && <SnackOrdersClient />}
+    </>
+  );
 }

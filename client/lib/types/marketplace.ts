@@ -22,7 +22,14 @@ export interface Vendor {
   bannerPlaceholder: string;
   avatarSrc?: string;
   bannerSrc?: string;
+  /** Human-readable address line, e.g. "Sector 35, Chandigarh". */
   location: string;
+  /** Tricity area id from `lib/geo.ts#TRICITY_AREAS`. */
+  area: string;
+  lat: number;
+  lng: number;
+  /** How far this kitchen delivers. Buyers outside it don't see its items. */
+  deliveryRadiusKm: number;
   rating: number;
   reviewCount: number;
   followerCount: number;
@@ -124,6 +131,21 @@ export interface Product {
   madeIn?: string;
   /** See `ProductModerationStatus`'s doc comment. Absent reads as `"active"`. */
   moderationStatus?: ProductModerationStatus;
+  /**
+   * The HomeKrafter's own "am I making this right now" switch, toggled from
+   * the portal's Availability panel. Distinct from `moderationStatus`,
+   * which is the admin's call — an item can be perfectly allowed and simply
+   * not being cooked today. Buyers never see `false`.
+   */
+  isAvailable?: boolean;
+  /**
+   * Distance from the buyer to this kitchen, in km. Only present when the
+   * request carried the buyer's coordinates; absent means "we don't know
+   * where you are", not "far away".
+   */
+  distanceKm?: number;
+  /** Pre-formatted `distanceKm`, e.g. "4.6 km". */
+  distanceLabel?: string;
   /** Admin-curated home "This week's small batches" flag (M11b) — `getFeatured()` (`lib/api/products.ts`) filters on this directly instead of a hardcoded id list. `/admin/catalog`'s feature toggle mutates it client-side; since Home is a Server Component, the effect lands on that page's next server-side fetch (a real backend request in M8), not this same browser tab — see `lib/api/admin.ts`'s "Catalog & review moderation" section header. */
   featured?: boolean;
 }

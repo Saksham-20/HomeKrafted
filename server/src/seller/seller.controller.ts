@@ -34,13 +34,13 @@ export class SellerController {
   /** Maker-only — 403s for a laundry/snack seller token. */
   @Get('storefront')
   async getStorefront(@CurrentUser() user: RequestUser) {
-    const seller = await this.sellerService.resolveMaker(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.sellerService.getStorefront(seller.vendorId);
   }
 
   @Patch('storefront')
   async updateStorefront(@CurrentUser() user: RequestUser, @Body() dto: UpdateStorefrontDto) {
-    const seller = await this.sellerService.resolveMaker(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.sellerService.updateStorefront(seller.vendorId, dto);
   }
 }

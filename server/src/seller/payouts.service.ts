@@ -89,24 +89,29 @@ export class SellerPayoutsService {
     tx: Prisma.TransactionClient | PrismaService,
     seller: Seller,
   ): Promise<number> {
-    if (seller.type === 'maker' && seller.vendorId) {
-      const items = await tx.orderItem.findMany({
+    // Sum every stream a HomeKrafter can earn from, rather than picking one
+    // by `seller.type`. Under the single-role model the same account can
+    // sell jars, run pickups and take WhatsApp snack orders in the same
+    // week; paying out only the stream matching a type label would quietly
+    // drop the rest of their money.
+    const [items, bookings, orders] = await Promise.all([
+      tx.orderItem.findMany({
         where: { product: { vendorId: seller.vendorId }, order: { status: 'delivered' } },
         select: { price: true, quantity: true },
-      });
-      return items.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
-    }
-    if (seller.type === 'laundry') {
-      const bookings = await tx.laundryBooking.findMany({
+      }),
+      tx.laundryBooking.findMany({
         where: { partnerId: seller.id, status: 'delivered' },
         select: { estimatedTotal: true },
-      });
-      return bookings.reduce((sum, b) => sum + Number(b.estimatedTotal), 0);
-    }
-    const orders = await tx.snackOrder.findMany({
-      where: { sellerId: seller.id, status: 'delivered' },
-      select: { total: true },
-    });
-    return orders.reduce((sum, o) => sum + Number(o.total), 0);
+      }),
+      tx.snackOrder.findMany({
+        where: { sellerId: seller.id, status: 'delivered' },
+        select: { total: true },
+      }),
+    ]);
+
+    const marketplace = items.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
+    const laundry = bookings.reduce((sum, b) => sum + Number(b.estimatedTotal), 0);
+    const snacks = orders.reduce((sum, o) => sum + Number(o.total), 0);
+    return marketplace + laundry + snacks;
   }
 }

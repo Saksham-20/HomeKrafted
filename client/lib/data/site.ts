@@ -36,13 +36,13 @@ export const primaryNav: NavLink[] = [
 ];
 
 export const announcementItems: AnnouncementItem[] = [
-  { text: "✦ Made with love in real homes", emphasis: true },
-  { text: "Free shipping over ₹999" },
+  { text: "✦ Cooked this morning in a home kitchen near you", emphasis: true },
+  { text: "Chandigarh · Mohali · Panchkula · Zirakpur" },
   { text: "Freshly prepared · No preservatives" },
 ];
 
 export const brandBlurb =
-  "Handmade gifts and homemade goodness from real home kitchens, thoughtfully packed for every occasion.";
+  "Home-cooked food, fresh bakes and small-batch pickles from real home kitchens across Chandigarh, Mohali, Panchkula and Zirakpur.";
 
 export const footerColumns: FooterColumn[] = [
   {

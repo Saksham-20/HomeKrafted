@@ -14,16 +14,18 @@ import {
   rejectSellerApplication,
   setSellerStatus,
 } from "@/lib/api";
-import type { Seller, SellerApplication, SellerType } from "@/lib/types";
+import type { Seller, SellerApplication, SellerSpecialty } from "@/lib/types";
 import styles from "./SellersClient.module.css";
 
 type Tab = "sellers" | "queue";
 
-const TYPE_FILTERS: { value: SellerType | "all"; label: string }[] = [
-  { value: "all", label: "All types" },
-  { value: "maker", label: "Makers" },
-  { value: "laundry", label: "Laundry partners" },
-  { value: "snack", label: "Snack HomeKrafters" },
+/** Filters map to `SellerSpecialty`, which is a list per HomeKrafter — so these overlap by design. */
+const TYPE_FILTERS: { value: SellerSpecialty | "all"; label: string }[] = [
+  { value: "all", label: "All HomeKrafters" },
+  { value: "homemade_food", label: "Homemade food" },
+  { value: "bakery", label: "Bakery" },
+  { value: "snacks", label: "Snacks" },
+  { value: "laundry", label: "Laundry" },
 ];
 
 /**
@@ -43,7 +45,7 @@ export function SellersClient() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [applications, setApplications] = useState<SellerApplication[]>([]);
   const [loading, setLoading] = useState(true);
-  const [typeFilter, setTypeFilter] = useState<SellerType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<SellerSpecialty | "all">("all");
 
   async function refetch() {
     const [sellerList, pending] = await Promise.all([getAllSellers(), getPendingSellerApplications()]);
@@ -83,7 +85,9 @@ export function SellersClient() {
   }
 
   const filteredSellers = useMemo(
-    () => (typeFilter === "all" ? sellers : sellers.filter((s) => s.type === typeFilter)),
+    // `specialties` is a list, so a HomeKrafter who both cooks and does
+    // laundry shows under either filter — matching how they actually work.
+    () => (typeFilter === "all" ? sellers : sellers.filter((s) => s.specialties.includes(typeFilter))),
     [sellers, typeFilter],
   );
 

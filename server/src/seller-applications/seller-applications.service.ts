@@ -26,7 +26,10 @@ export class SellerApplicationsService {
         email: dto.email,
         phone: dto.phone,
         category: dto.category,
+        specialties: dto.specialties,
         city: dto.city,
+        area: dto.area,
+        deliveryRadiusKm: dto.deliveryRadiusKm ?? 10,
         description: dto.description,
       },
     });

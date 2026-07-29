@@ -12,6 +12,10 @@ import { NotificationsDeliveryService } from './notifications-delivery.service';
   // Exported so any module with an event worth notifying a user about
   // (wallet ledger, orders, laundry, snacks, admin actions) can inject
   // `NotificationsDeliveryService.deliver(...)` directly.
-  exports: [NotificationsDeliveryService],
+  // `NotificationsService` is exported too (not just the delivery service)
+  // so modules can call `notify()` for inbox-only messages — a HomeKrafter
+  // hearing about a new order, an applicant hearing back — without going
+  // through an SMS/WhatsApp provider.
+  exports: [NotificationsDeliveryService, NotificationsService],
 })
 export class NotificationsModule {}

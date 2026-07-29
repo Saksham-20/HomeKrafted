@@ -73,7 +73,7 @@ export const sellers: Seller[] = [
   {
     id: "sl1",
     userId: sellerUser.id,
-    type: "maker",
+    specialties: ["homemade_food", "pickles_preserves"],
     vendorId: "vd1",
     displayName: "Anjali's Kitchen",
     status: "approved",
@@ -82,7 +82,8 @@ export const sellers: Seller[] = [
   {
     id: "sl2",
     userId: laundryPartnerUser.id,
-    type: "laundry",
+    specialties: ["laundry", "cleaning"],
+    vendorId: "vd9",
     displayName: "Fresh Fold Laundry Co.",
     status: "approved",
     createdAt: "2024-02-10",
@@ -92,7 +93,8 @@ export const sellers: Seller[] = [
   {
     id: "sl3",
     userId: snackSellerUser.id,
-    type: "snack",
+    specialties: ["snacks", "homemade_food"],
+    vendorId: "vd10",
     displayName: "Meera's Snack Box",
     status: "approved",
     createdAt: "2024-05-20",

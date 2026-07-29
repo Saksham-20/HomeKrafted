@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { NotificationCategory } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
@@ -17,6 +17,8 @@ const ALL_CATEGORIES: NotificationCategory[] = ['order', 'laundry', 'snacks', 'w
  */
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getPreferences(userId: string) {
@@ -56,6 +58,48 @@ export class NotificationsService {
         });
 
     return mapNotificationPreference(updated);
+  }
+
+  /**
+   * Drop a notification into someone's inbox.
+   *
+   * Added for the HomeKrafter side: a cook needs to hear about a new order
+   * without watching the dashboard, and an applicant needs to hear back
+   * about their application. Respects the recipient's per-category
+   * preference — if they've muted `order`, this writes nothing rather than
+   * filling an inbox they've opted out of.
+   *
+   * Never throws into the caller's path: an order must not fail because a
+   * notification couldn't be written.
+   */
+  async notify(input: {
+    userId: string;
+    category: NotificationCategory;
+    title: string;
+    body: string;
+    refType?: string;
+    refId?: string;
+  }): Promise<void> {
+    try {
+      const pref = await this.prisma.notificationPreference.findUnique({
+        where: { userId_category: { userId: input.userId, category: input.category } },
+      });
+      if (pref && !pref.inapp) return;
+
+      await this.prisma.notification.create({
+        data: {
+          userId: input.userId,
+          channel: 'inapp',
+          category: input.category,
+          title: input.title,
+          body: input.body,
+          refType: input.refType,
+          refId: input.refId,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Could not write notification for user ${input.userId}: ${String(err)}`);
+    }
   }
 
   async listInbox(userId: string) {

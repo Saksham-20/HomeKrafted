@@ -11,6 +11,8 @@ import { CartProvider } from "@/lib/cart/CartContext";
 import { WalletProvider } from "@/lib/wallet/WalletContext";
 import { WishlistProvider } from "@/lib/wishlist/WishlistContext";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { LocationProvider } from "@/lib/location/LocationContext";
+import { LocationPrompt } from "@/components/location/LocationPrompt";
 
 // Fraunces (display/headings/prices) — 400-700 + italic, per the design system.
 const fraunces = Fraunces({
@@ -55,19 +57,26 @@ export default function RootLayout({
     >
       <body>
         <AuthProvider>
-          <WalletProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <ConsumerChrome
-                  announcementBar={<AnnouncementBar />}
-                  header={<Header />}
-                  footer={<Footer />}
-                >
-                  <main>{children}</main>
-                </ConsumerChrome>
-              </WishlistProvider>
-            </CartProvider>
-          </WalletProvider>
+          {/* Outside the shopping providers: where the buyer is decides
+              which kitchens can reach them, so cart/wishlist/wallet all
+              read from it rather than the other way round. */}
+          <LocationProvider>
+            <WalletProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <ConsumerChrome
+                    announcementBar={<AnnouncementBar />}
+                    header={<Header />}
+                    footer={<Footer />}
+                  >
+                    <main>{children}</main>
+                  </ConsumerChrome>
+                  {/* Renders itself only on a first visit — see LocationPrompt. */}
+                  <LocationPrompt />
+                </WishlistProvider>
+              </CartProvider>
+            </WalletProvider>
+          </LocationProvider>
         </AuthProvider>
       </body>
     </html>

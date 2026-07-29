@@ -8,7 +8,12 @@ export interface AdminDashboardSnapshot {
   ordersTodayCount: number;
   ordersTotalCount: number;
   ordersByType: Record<AdminOrderType, number>;
-  activeSellersByType: Record<'maker' | 'laundry' | 'snack', number>;
+  /** Total approved HomeKrafters — the real headcount. */
+  activeHomeKraftersCount: number;
+  /** Per-specialty counts. Deliberately overlapping: one HomeKrafter with
+   *  three specialties is counted in all three, so these sum to more than
+   *  `activeHomeKraftersCount`. */
+  activeBySpecialty: Record<string, number>;
   usersCount: number;
   pendingApplicationsCount: number;
   pendingPayoutsAmount: number;
@@ -99,23 +104,32 @@ export class AdminDashboardService {
     const ordersByType: Record<AdminOrderType, number> = { marketplace: 0, laundry: 0, snack: 0 };
     for (const order of unified) ordersByType[order.type] += 1;
 
-    const [sellersByType, usersCount, pendingApplicationsCount, pendingPayoutsAgg, walletAgg] = await Promise.all([
-      this.prisma.seller.groupBy({ by: ['type'], where: { status: 'approved' }, _count: { _all: true } }),
+    const [approvedSellers, usersCount, pendingApplicationsCount, pendingPayoutsAgg, walletAgg] = await Promise.all([
+      // `groupBy({ by: ['type'] })` no longer works: a HomeKrafter's
+      // `specialties` is a list, so one account can land in several buckets
+      // and the counts deliberately overlap (they sum to more than the
+      // headcount). `activeHomeKraftersCount` is the real total.
+      this.prisma.seller.findMany({ where: { status: 'approved' }, select: { specialties: true } }),
       this.prisma.user.count(),
       this.prisma.sellerApplication.count({ where: { status: { notIn: ['approved', 'rejected'] } } }),
       this.prisma.payout.aggregate({ where: { status: 'pending' }, _sum: { amount: true } }),
       this.prisma.wallet.aggregate({ _sum: { balance: true } }),
     ]);
 
-    const activeSellersByType: Record<'maker' | 'laundry' | 'snack', number> = { maker: 0, laundry: 0, snack: 0 };
-    for (const row of sellersByType) activeSellersByType[row.type] = row._count._all;
+    const activeBySpecialty: Record<string, number> = {};
+    for (const row of approvedSellers) {
+      for (const specialty of row.specialties) {
+        activeBySpecialty[specialty] = (activeBySpecialty[specialty] ?? 0) + 1;
+      }
+    }
 
     return {
       gmvTotal,
       ordersTodayCount,
       ordersTotalCount: unified.length,
       ordersByType,
-      activeSellersByType,
+      activeHomeKraftersCount: approvedSellers.length,
+      activeBySpecialty,
       usersCount,
       pendingApplicationsCount,
       pendingPayoutsAmount: Number(pendingPayoutsAgg._sum.amount ?? 0),

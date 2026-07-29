@@ -16,20 +16,20 @@ export class SellerBookingsController {
 
   @Get()
   async list(@CurrentUser() user: RequestUser) {
-    const seller = await this.sellerService.resolveLaundryPartner(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.bookingsService.list(seller.id);
   }
 
   @Get(':id')
   async getOne(@CurrentUser() user: RequestUser, @Param('id') id: string) {
-    const seller = await this.sellerService.resolveLaundryPartner(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.bookingsService.getOne(seller.id, id);
   }
 
   /** Advances scheduled -> picked-up -> in-progress -> out-for-delivery -> delivered. */
   @Post(':id/advance')
   async advance(@CurrentUser() user: RequestUser, @Param('id') id: string) {
-    const seller = await this.sellerService.resolveLaundryPartner(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.bookingsService.advance(seller.id, id);
   }
 }

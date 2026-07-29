@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
@@ -6,6 +6,7 @@ import { RawCartItem, resolveCartLine } from '../common/pricing/resolve-cart-lin
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { WalletService } from '../wallet/wallet.service';
 import { LaundryService } from '../laundry/laundry.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders.query.dto';
 import { mapOrder, orderStatusToFrontend } from './order.mapper';
@@ -15,11 +16,14 @@ const ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInc
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly walletService: WalletService,
     private readonly idempotency: IdempotencyService,
     private readonly laundryService: LaundryService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -176,7 +180,52 @@ export class OrdersService {
       return order;
     });
 
+    // Tell each HomeKrafter whose food is in this order that it came in.
+    // Outside the transaction and never awaited into the failure path: a
+    // paid order must not roll back because an inbox write failed.
+    void this.notifyHomeKraftersOfOrder(created.id);
+
     return mapOrder(created);
+  }
+
+  /**
+   * One notification per HomeKrafter in the order, not per line — an order
+   * with three of Anjali's jars should ping Anjali once.
+   */
+  private async notifyHomeKraftersOfOrder(orderId: string): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: { include: { product: { include: { vendor: { include: { seller: true } } } } } },
+        },
+      });
+      if (!order) return;
+
+      const byUser = new Map<string, { count: number; name: string }>();
+      for (const item of order.items) {
+        const seller = item.product?.vendor?.seller;
+        if (!seller) continue;
+        const entry = byUser.get(seller.userId) ?? { count: 0, name: seller.displayName };
+        entry.count += item.quantity;
+        byUser.set(seller.userId, entry);
+      }
+
+      await Promise.all(
+        [...byUser.entries()].map(([userId, { count }]) =>
+          this.notifications.notify({
+            userId,
+            category: 'order',
+            title: `New order ${order.orderNumber}`,
+            body: `${count} item${count === 1 ? '' : 's'} of yours were ordered. Open Orders to confirm and start packing.`,
+            refType: 'order',
+            refId: order.id,
+          }),
+        ),
+      );
+    } catch (err) {
+      this.logger.warn(`Could not notify HomeKrafters for order ${orderId}: ${String(err)}`);
+    }
   }
 
   async list(userId: string, query: ListOrdersQueryDto) {

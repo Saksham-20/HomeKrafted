@@ -85,9 +85,13 @@ export function AdminDashboardClient() {
           value={formatCurrency(snapshot.walletLiability)}
           hint="See /admin/wallet for per-user balances"
         />
-        <StatCard label="Active makers" value={String(snapshot.activeSellersByType.maker)} />
-        <StatCard label="Active laundry partners" value={String(snapshot.activeSellersByType.laundry)} />
-        <StatCard label="Active snack HomeKrafters" value={String(snapshot.activeSellersByType.snack)} />
+        <StatCard label="Active HomeKrafters" value={String(snapshot.activeHomeKraftersCount)} />
+        {/* Specialty counts overlap — one HomeKrafter can appear in several. */}
+        <StatCard
+          label="Cooking homemade food"
+          value={String(snapshot.activeBySpecialty?.homemade_food ?? 0)}
+        />
+        <StatCard label="Offering laundry" value={String(snapshot.activeBySpecialty?.laundry ?? 0)} />
       </div>
 
       <h2 className={styles.sectionTitle}>Orders by module</h2>

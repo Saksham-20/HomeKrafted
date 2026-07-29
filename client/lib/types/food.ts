@@ -29,6 +29,10 @@ export interface Snack {
    * matching the single-menu reality of a one-seller catalog today).
    */
   sellerId?: ID;
+  /** Distance from the buyer to this kitchen, km. Absent when location is unknown. */
+  distanceKm?: number;
+  /** Pre-formatted `distanceKm`, e.g. "2.3 km". */
+  distanceLabel?: string;
 }
 
 export interface SnackListItem {

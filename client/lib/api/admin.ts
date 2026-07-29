@@ -44,6 +44,7 @@ import {
   users,
   vendors,
 } from "@/lib/data";
+import { areaById, TRICITY_CENTRE } from "@/lib/geo";
 import type { HomePromoBandContent } from "@/lib/data";
 import { toAppUser, type SessionUser } from "@/lib/auth/session";
 import { http, isMockMode } from "./http";
@@ -67,8 +68,8 @@ import type {
   Review,
   Seller,
   SellerApplication,
+  SellerSpecialty,
   SellerStatus,
-  SellerType,
   SnackOrder,
   User,
   Vendor,
@@ -231,7 +232,13 @@ export async function approveSellerApplication(
     bio: application.description,
     avatarPlaceholder: `${application.businessName} — AVATAR`,
     bannerPlaceholder: `${application.businessName} — BANNER`,
-    location: application.city,
+    location: areaById(application.area)
+      ? `${areaById(application.area)!.label}, ${areaById(application.area)!.city}`
+      : application.city,
+    area: application.area,
+    lat: areaById(application.area)?.lat ?? TRICITY_CENTRE.lat,
+    lng: areaById(application.area)?.lng ?? TRICITY_CENTRE.lng,
+    deliveryRadiusKm: application.deliveryRadiusKm ?? 10,
     rating: 0,
     reviewCount: 0,
     followerCount: 0,
@@ -243,7 +250,7 @@ export async function approveSellerApplication(
   const seller: Seller = {
     id: sellerId,
     userId: `user-${sellerId}`, // synthetic — no real account yet, see doc comment above
-    type: "maker",
+    specialties: application.specialties?.length ? application.specialties : ["homemade_food"],
     vendorId,
     displayName: application.businessName,
     status: "approved",
@@ -452,7 +459,11 @@ export interface AdminDashboardSnapshot {
   ordersTodayCount: number;
   ordersTotalCount: number;
   ordersByType: Record<AdminOrderType, number>;
-  activeSellersByType: Record<SellerType, number>;
+  /** Total approved HomeKrafters — the real headcount. */
+  activeHomeKraftersCount: number;
+  /** Per-specialty counts. Overlapping by design: one HomeKrafter with
+   *  three specialties appears in all three. */
+  activeBySpecialty: Partial<Record<SellerSpecialty, number>>;
   usersCount: number;
   pendingApplicationsCount: number;
   pendingPayoutsAmount: number;
@@ -474,9 +485,16 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
   const ordersByType: Record<AdminOrderType, number> = { marketplace: 0, laundry: 0, snack: 0 };
   for (const order of unified) ordersByType[order.type] += 1;
 
-  const activeSellersByType: Record<SellerType, number> = { maker: 0, laundry: 0, snack: 0 };
+  // Specialties overlap by design — a HomeKrafter with three is counted in
+  // all three, so these sum to more than the headcount below.
+  const activeBySpecialty: Partial<Record<SellerSpecialty, number>> = {};
+  let activeHomeKraftersCount = 0;
   for (const seller of sellers) {
-    if (seller.status === "approved") activeSellersByType[seller.type] += 1;
+    if (seller.status !== "approved") continue;
+    activeHomeKraftersCount += 1;
+    for (const specialty of seller.specialties) {
+      activeBySpecialty[specialty] = (activeBySpecialty[specialty] ?? 0) + 1;
+    }
   }
 
   const pendingApplications = await getPendingSellerApplications();
@@ -492,7 +510,8 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
     ordersTodayCount,
     ordersTotalCount: unified.length,
     ordersByType,
-    activeSellersByType,
+    activeHomeKraftersCount,
+    activeBySpecialty,
     usersCount: users.length,
     pendingApplicationsCount: pendingApplications.length,
     pendingPayoutsAmount,
@@ -960,7 +979,7 @@ export interface AnalyticsDailyPoint {
 export interface AnalyticsLeaderboardRow {
   key: string;
   name: string;
-  type: SellerType;
+  type: AdminOrderType;
   orderCount: number;
   revenue: number;
 }
@@ -1028,7 +1047,7 @@ async function computeSellerLeaderboard(): Promise<AnalyticsLeaderboardRow[]> {
   ]);
 
   const byKey = new Map<string, AnalyticsLeaderboardRow>();
-  function addRevenue(key: string, name: string, type: SellerType, amount: number) {
+  function addRevenue(key: string, name: string, type: AdminOrderType, amount: number) {
     const existing = byKey.get(key);
     if (existing) {
       existing.revenue += amount;
@@ -1054,7 +1073,7 @@ async function computeSellerLeaderboard(): Promise<AnalyticsLeaderboardRow[]> {
     for (const [vendorId, amount] of vendorTotals) {
       const vendor = getVendorById(vendorId);
       if (!vendor) continue;
-      addRevenue(`vendor:${vendorId}`, vendor.name, "maker", amount);
+      addRevenue(`vendor:${vendorId}`, vendor.name, "marketplace", amount);
     }
   }
 

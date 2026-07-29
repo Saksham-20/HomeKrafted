@@ -1,27 +1,28 @@
 /**
- * Seller-portal types (M10a) — shared by every seller type (`maker` now,
- * `laundry`/`snack` land in M10b) and by M11's admin approval queue.
- * `Seller` is the role-scoping record `lib/api/seller.ts` filters every
- * query through (`vendorId` for a maker); `Payout` is that seller's
+ * HomeKrafter-portal types. One supply-side role: every HomeKrafter has a
+ * storefront (`vendorId`) and every portal module, and `specialties` only
+ * describes what they make. `Seller` is the owner-scoping record
+ * `lib/api/seller.ts` filters every query through; `Payout` is their
  * earnings-settlement ledger. Both become real Prisma tables at M8 — see
  * `docs/DATA-MODEL.md` for the mapping and the server-side enforcement
  * note (owner-scoping is simulated client-side today, enforced for real
  * once a session exists).
  */
 
-import type { ID, ISODateString } from "./shared";
+import type { ID, ISODateString, SellerSpecialty } from "./shared";
 
 /** M10a builds `maker` only; `laundry`/`snack` are M10b's route + nav sets. */
-export type SellerType = "maker" | "laundry" | "snack";
+export type { SellerSpecialty } from "./shared";
+export { SPECIALTY_LABELS } from "./shared";
 
 export type SellerStatus = "pending" | "approved" | "suspended";
 
 export interface Seller {
   id: ID;
   userId: ID;
-  type: SellerType;
-  /** Set for `type: "maker"` — the `Vendor` this seller manages. */
-  vendorId?: ID;
+  specialties: SellerSpecialty[];
+  /** Every HomeKrafter has a storefront now — this is always set. */
+  vendorId: ID;
   displayName: string;
   status: SellerStatus;
   createdAt: ISODateString;

@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { Wallet as WalletIcon, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StickySummary, type StickySummaryLine } from "@/components/ui/StickySummary";
+import { DeliveryLocationConfirm } from "./DeliveryLocationConfirm";
 import { SlotPicker } from "@/components/ui/SlotPicker";
 import { Textarea } from "@/components/ui/Textarea";
 import { AddressForm, EMPTY_ADDRESS_FORM, type AddressFormValues } from "./AddressForm";
@@ -563,6 +564,9 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                 : undefined
             }
           >
+            {/* Second location ask, right before money moves — see the
+                component for why this confirms rather than blocks. */}
+            <DeliveryLocationConfirm />
             <Button variant="primary" onClick={handlePlaceOrder} disabled={placing}>
               {placing ? "Placing order…" : "Place order"}
             </Button>

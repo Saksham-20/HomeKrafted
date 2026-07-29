@@ -35,29 +35,22 @@ export class SellerService {
     return seller;
   }
 
-  /** Narrows to a `type: "maker"` seller (the only type with a `vendorId`) — used by listings/orders/storefront/reviews, all maker-only surfaces. */
-  async resolveMaker(user: RequestUser): Promise<Seller & { vendorId: string }> {
+  /**
+   * Every `/seller/*` surface resolves through here now.
+   *
+   * This replaced `resolveMaker`/`resolveLaundryPartner`/`resolveSnackSeller`,
+   * which threw `403 "only available to <type> sellers"` and were the reason
+   * a HomeKrafter could see a module in their nav but not open it. There is
+   * one role: if you have an approved HomeKrafter account you get every
+   * module, and whether you happen to make pickles or run a laundry is a
+   * `specialties` tag for buyers to filter on, never an access decision.
+   *
+   * `vendorId` is non-null in the schema, so the storefront-scoped services
+   * (listings, orders, reviews) can rely on it without a narrowing check.
+   */
+  async resolveHomeKrafter(user: RequestUser): Promise<Seller & { vendorId: string }> {
     const seller = await this.resolveSeller(user);
-    if (seller.type !== 'maker' || !seller.vendorId) {
-      throw new ForbiddenException('This endpoint is only available to maker sellers');
-    }
     return seller as Seller & { vendorId: string };
-  }
-
-  async resolveLaundryPartner(user: RequestUser): Promise<Seller> {
-    const seller = await this.resolveSeller(user);
-    if (seller.type !== 'laundry') {
-      throw new ForbiddenException('This endpoint is only available to laundry-partner sellers');
-    }
-    return seller;
-  }
-
-  async resolveSnackSeller(user: RequestUser): Promise<Seller> {
-    const seller = await this.resolveSeller(user);
-    if (seller.type !== 'snack') {
-      throw new ForbiddenException('This endpoint is only available to snack sellers');
-    }
-    return seller;
   }
 
   // -------------------------------------------------------------------
@@ -96,95 +89,82 @@ export class SellerService {
   // swap is a straight fetch() substitution.
   // -------------------------------------------------------------------
 
+  /**
+   * One dashboard snapshot for every HomeKrafter.
+   *
+   * Was three mutually exclusive shapes chosen by `seller.type`
+   * (maker/laundry/snack), which is exactly what the single-role change
+   * removes. A HomeKrafter who cooks *and* runs pickups sees both sets of
+   * numbers; one who only cooks sees zeroes in the pickup counters, which
+   * is honest rather than hidden.
+   */
   async getDashboard(
-    seller: Seller,
-    listingsService: SellerListingsService,
-    payoutsService: SellerPayoutsService,
-  ) {
-    if (seller.type === 'maker' && seller.vendorId) {
-      return this.getMakerDashboard(seller as Seller & { vendorId: string }, listingsService, payoutsService);
-    }
-    if (seller.type === 'laundry') {
-      return this.getLaundryDashboard(seller, payoutsService);
-    }
-    return this.getSnackDashboard(seller, payoutsService);
-  }
-
-  private async getMakerDashboard(
     seller: Seller & { vendorId: string },
     listingsService: SellerListingsService,
     payoutsService: SellerPayoutsService,
   ) {
-    const vendorId = seller.vendorId;
-    const [vendor, productIds, pendingPayoutAmount] = await Promise.all([
-      this.prisma.vendor.findUnique({ where: { id: vendorId } }),
-      this.prisma.product.findMany({ where: { vendorId }, select: { id: true } }),
-      payoutsService.getPendingBalance(seller),
-    ]);
-
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const productIdList = productIds.map((p) => p.id);
-
-    const todayOrders = productIdList.length
-      ? await this.prisma.order.findMany({
-          where: { placedAt: { gte: todayStart }, items: { some: { productId: { in: productIdList } } } },
-          select: { total: true },
-        })
-      : [];
-
-    const lowStockCount = productIdList.length
-      ? await this.prisma.weightOption.count({ where: { productId: { in: productIdList }, stock: { lt: 15 } } })
-      : 0;
-
-    return {
-      todayOrdersCount: todayOrders.length,
-      todayRevenue: todayOrders.reduce((sum, o) => sum + Number(o.total), 0),
-      pendingPayoutAmount,
-      lowStockCount,
-      rating: vendor ? Number(vendor.rating) : 0,
-      reviewCount: vendor?.reviewCount ?? 0,
-    };
-  }
-
-  private async getLaundryDashboard(seller: Seller, payoutsService: SellerPayoutsService) {
     const today = new Date().toISOString().slice(0, 10);
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const vendorId = seller.vendorId;
 
-    const [bookings, pendingPayoutAmount] = await Promise.all([
+    const [vendor, products, pendingPayoutAmount, bookings, snackStats] = await Promise.all([
+      this.prisma.vendor.findUnique({ where: { id: vendorId } }),
+      this.prisma.product.findMany({ where: { vendorId }, select: { id: true, isAvailable: true } }),
+      payoutsService.getPendingBalance(seller),
       this.prisma.laundryBooking.findMany({ where: { partnerId: seller.id } }),
-      payoutsService.getPendingBalance(seller),
+      Promise.all([
+        this.prisma.snackOrder.count({ where: { sellerId: seller.id, status: 'received' } }),
+        this.prisma.snack.count({ where: { sellerId: seller.id } }),
+        this.prisma.snackOrder.findMany({
+          where: { sellerId: seller.id, status: 'delivered' },
+          select: { total: true },
+        }),
+      ]),
     ]);
 
-    const todayPickupsCount = bookings.filter((b) => b.pickupDate.toISOString().slice(0, 10) === today).length;
-    const todayDeliveriesCount = bookings.filter((b) => b.deliveryDate.toISOString().slice(0, 10) === today).length;
-    const weekEarnings = bookings
-      .filter((b) => b.status !== 'cancelled' && b.createdAt >= weekAgo)
-      .reduce((sum, b) => sum + Number(b.estimatedTotal), 0);
+    const productIdList = products.map((p) => p.id);
+    const [incomingSnackOrders, menuSize, deliveredSnackOrders] = snackStats;
 
-    return {
-      todayPickupsCount,
-      todayDeliveriesCount,
-      weekEarnings,
-      pendingPayoutAmount,
-      rating: seller.rating !== null ? Number(seller.rating) : 0,
-      reviewCount: seller.reviewCount ?? 0,
-    };
-  }
-
-  private async getSnackDashboard(seller: Seller, payoutsService: SellerPayoutsService) {
-    const [incomingOrdersCount, menuSize, deliveredOrders, pendingPayoutAmount] = await Promise.all([
-      this.prisma.snackOrder.count({ where: { sellerId: seller.id, status: 'received' } }),
-      this.prisma.snack.count({ where: { sellerId: seller.id } }),
-      this.prisma.snackOrder.findMany({ where: { sellerId: seller.id, status: 'delivered' }, select: { total: true } }),
-      payoutsService.getPendingBalance(seller),
+    const [todayOrders, lowStockCount] = await Promise.all([
+      productIdList.length
+        ? this.prisma.order.findMany({
+            where: { placedAt: { gte: todayStart }, items: { some: { productId: { in: productIdList } } } },
+            select: { total: true },
+          })
+        : Promise.resolve([]),
+      productIdList.length
+        ? this.prisma.weightOption.count({
+            where: { productId: { in: productIdList }, stock: { lt: 15 } },
+          })
+        : Promise.resolve(0),
     ]);
 
+    const marketplaceRevenue = todayOrders.reduce((sum, o) => sum + Number(o.total), 0);
+    const snackEarnings = deliveredSnackOrders.reduce((sum, o) => sum + Number(o.total), 0);
+
     return {
-      incomingOrdersCount,
+      // Storefront / marketplace
+      todayOrdersCount: todayOrders.length,
+      todayRevenue: marketplaceRevenue,
+      listingsCount: products.length,
+      activeListingsCount: products.filter((p) => p.isAvailable).length,
+      lowStockCount,
+      // Laundry / pickups — zero for a HomeKrafter who doesn't do pickups.
+      todayPickupsCount: bookings.filter((b) => b.pickupDate.toISOString().slice(0, 10) === today).length,
+      todayDeliveriesCount: bookings.filter((b) => b.deliveryDate.toISOString().slice(0, 10) === today).length,
+      weekEarnings: bookings
+        .filter((b) => b.status !== 'cancelled' && b.createdAt >= weekAgo)
+        .reduce((sum, b) => sum + Number(b.estimatedTotal), 0),
+      // Snacks / WhatsApp orders
+      incomingOrdersCount: incomingSnackOrders,
       menuSize,
-      earnings: deliveredOrders.reduce((sum, o) => sum + Number(o.total), 0),
+      snackEarnings,
+      // Money + reputation
       pendingPayoutAmount,
+      rating: vendor ? Number(vendor.rating) : 0,
+      reviewCount: vendor?.reviewCount ?? 0,
     };
   }
 }

@@ -302,10 +302,20 @@ enum SnackOrderChannel {
   whatsapp
 }
 
-enum SellerType {
-  maker
+/// What a HomeKrafter makes or offers. This is a **discovery/display tag,
+/// not a role** — every HomeKrafter has the same single role and the same
+/// full set of portal modules. Nothing in `server/src/seller/*` may branch
+/// on this to decide access; it exists so buyers can filter ("show me
+/// bakers near me") and so a kitchen can say what it does.
+enum SellerSpecialty {
+  homemade_food
+  bakery
+  pickles_preserves
+  snacks
+  sweets
+  crafts
   laundry
-  snack
+  cleaning
 }
 
 enum SellerStatus {
@@ -388,6 +398,11 @@ model Address {
   pincode       String
   country       String   @default("India")
   isDefault     Boolean  @default(false)
+  /// Set when the buyer allows the browser location prompt or picks an area
+  /// at checkout. Null is normal (typed address, permission denied).
+  lat           Float?
+  lng           Float?
+  area          String?
   instructions  String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -604,17 +619,31 @@ model CorporateInquiry {
   createdAt         DateTime               @default(now())
 }
 
+/// The one way in. Everyone who wants to sell fills this in at `/sell`; an
+/// admin approves it and that creates the `User` (if new), the `Vendor` and
+/// the `Seller`. There is no self-serve HomeKrafter signup.
 model SellerApplication {
-  id           String                    @id @default(cuid())
-  businessName String
-  contactName  String
-  email        String
-  phone        String
-  category     SellerApplicationCategory
-  city         String
-  description  String
-  status       SellerApplicationStatus   @default(new)
-  createdAt    DateTime                  @default(now())
+  id               String                    @id @default(cuid())
+  businessName     String
+  contactName      String
+  email            String
+  phone            String
+  category         SellerApplicationCategory
+  /// What they intend to offer. Carried onto `Seller.specialties` on approval.
+  specialties      SellerSpecialty[]
+  city             String
+  /// Tricity area id from `server/src/common/geo.ts#TRICITY_AREAS`. Decides
+  /// the coordinates the new Vendor is created with, which is what buyers'
+  /// distance filter measures against — so it's required, not free text.
+  area             String
+  /// How far they're willing to deliver, in km. Editable later from their
+  /// storefront settings.
+  deliveryRadiusKm Int                       @default(10)
+  description      String
+  status           SellerApplicationStatus   @default(new)
+  /// Set when an admin rejects or waitlists, shown back to the applicant.
+  decisionNote     String?
+  createdAt        DateTime                  @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -737,7 +766,19 @@ model Vendor {
   bannerPlaceholder String
   avatarSrc         String?
   bannerSrc         String?
+  /// Human-readable address line shown on the storefront ("Sector 35, Chandigarh").
   location          String
+  /// Tricity area this kitchen sits in — the value a buyer picks in the
+  /// manual area picker when they decline the browser location prompt.
+  area              String
+  /// Kitchen coordinates. Distance to a buyer is computed with haversine
+  /// (`server/src/common/geo.ts`); a listing is shown when that distance is
+  /// within `deliveryRadiusKm`.
+  lat               Float
+  lng               Float
+  /// How far this HomeKrafter is willing to deliver. They control it from
+  /// their storefront settings.
+  deliveryRadiusKm  Int        @default(10)
   rating            Decimal    @default(0) @db.Decimal(2, 1)
   reviewCount       Int        @default(0)
   followerCount     Int        @default(0)
@@ -836,6 +877,12 @@ model Product {
   storageInstructions String?
   madeIn              String?
   moderationStatus    ProductModerationStatus @default(active)
+  /// HomeKrafter-controlled "am I making this right now" switch, toggled
+  /// from the portal's Availability panel. Distinct from `moderationStatus`,
+  /// which is admin-controlled: an item can be perfectly allowed but simply
+  /// not being cooked today. Unavailable items stay off the storefront and
+  /// out of search.
+  isAvailable         Boolean                 @default(true)
   featured            Boolean                 @default(false)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
@@ -1249,20 +1296,24 @@ model MealPromo {
 // seller-scoped endpoints are M8.3.
 // ---------------------------------------------------------------------------
 
+/// A HomeKrafter — the single supply-side role. There is no longer a
+/// maker/laundry/snack split: one account type, one portal, every module
+/// available to everyone. What a HomeKrafter actually does is described by
+/// `specialties`, which is never consulted for authorization.
 model Seller {
-  id          String       @id @default(cuid())
-  userId      String       @unique
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        SellerType
-  /// Maker-only — the Vendor this seller manages. Null for laundry/snack
-  /// sellers, which have no storefront concept (see lib/types/seller.ts).
-  vendorId    String?      @unique
-  vendor      Vendor?      @relation(fields: [vendorId], references: [id])
+  id          String            @id @default(cuid())
+  userId      String            @unique
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// What this kitchen/business offers. Discovery only — see `SellerSpecialty`.
+  specialties SellerSpecialty[]
+  /// Every HomeKrafter has a storefront now (it's how buyers find them and
+  /// where their items hang), so this is required rather than maker-only.
+  vendorId    String            @unique
+  vendor      Vendor            @relation(fields: [vendorId], references: [id])
   displayName String
-  status      SellerStatus @default(pending)
-  createdAt   DateTime     @default(now())
-  /// Laundry/snack only — a maker's rating comes from its Vendor instead.
-  rating      Decimal?     @db.Decimal(2, 1)
+  status      SellerStatus      @default(pending)
+  createdAt   DateTime          @default(now())
+  rating      Decimal?          @db.Decimal(2, 1)
   reviewCount Int?
 
   payouts         Payout[]
@@ -1270,7 +1321,7 @@ model Seller {
   snacks          Snack[]
   snackOrders     SnackOrder[]
 
-  @@index([type])
+  @@index([status])
 }
 
 model Payout {

@@ -17,13 +17,13 @@ export class SellerReviewsController {
 
   @Get()
   async list(@CurrentUser() user: RequestUser) {
-    const seller = await this.sellerService.resolveMaker(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.reviewsService.list(seller.vendorId);
   }
 
   @Post(':id/reply')
   async reply(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: ReplyReviewDto) {
-    const seller = await this.sellerService.resolveMaker(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.reviewsService.reply(seller.vendorId, id, dto);
   }
 }

@@ -1,0 +1,63 @@
+.band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: var(--hk-sand);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-md);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--hk-surface);
+  color: var(--hk-pine);
+  flex: none;
+}
+
+.text {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--hk-ink);
+}
+
+.place {
+  font-weight: 600;
+}
+
+.muted {
+  display: block;
+  color: var(--hk-ink-muted);
+}
+
+.select {
+  flex: 1 1 190px;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--hk-ink);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-sm);
+}
+
+.change {
+  padding: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hk-pine);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}

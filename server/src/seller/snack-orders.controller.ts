@@ -16,20 +16,20 @@ export class SellerSnackOrdersController {
 
   @Get()
   async list(@CurrentUser() user: RequestUser) {
-    const seller = await this.sellerService.resolveSnackSeller(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.snackOrdersService.list(seller.id);
   }
 
   @Get(':id')
   async getOne(@CurrentUser() user: RequestUser, @Param('id') id: string) {
-    const seller = await this.sellerService.resolveSnackSeller(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.snackOrdersService.getOne(seller.id, id);
   }
 
   /** Advances received -> accepted -> out-for-delivery -> delivered. */
   @Post(':id/advance')
   async advance(@CurrentUser() user: RequestUser, @Param('id') id: string) {
-    const seller = await this.sellerService.resolveSnackSeller(user);
+    const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.snackOrdersService.advance(seller.id, id);
   }
 }

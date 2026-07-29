@@ -17,7 +17,7 @@ export interface SellerOrderDetailClientProps {
 export function SellerOrderDetailClient({ orderId }: SellerOrderDetailClientProps) {
   const { seller } = useAuth();
 
-  if (seller?.type === "snack") {
+  if (seller?.specialties.includes("snacks")) {
     return <SnackOrderDetailClient orderId={orderId} />;
   }
   return <MakerOrderDetailClient orderId={orderId} />;

@@ -141,10 +141,16 @@ export class LaundryService {
       const estimatedTotal = estimatedPrice;
       const walletCashback = dto.paymentMethod === 'wallet' ? computeCashback(estimatedTotal) : undefined;
 
-      // Auto-assigns to the one seeded demo laundry partner, same
-      // stand-in as `client/lib/api/laundry.ts#createBooking` — real
-      // pickup-address-based partner routing/dispatch is M9/M10b scope.
-      const partner = await tx.seller.findFirst({ where: { type: 'laundry' }, orderBy: { createdAt: 'asc' } });
+      // Auto-assigns to the longest-standing approved HomeKrafter who
+      // offers laundry. Was `where: { type: 'laundry' }`, which the
+      // single-role change removed — `specialties` is the replacement, and
+      // unlike the old type it's a list, so one account can offer laundry
+      // alongside food. Real pickup-address-based routing (nearest partner
+      // with capacity) is still M9 scope.
+      const partner = await tx.seller.findFirst({
+        where: { specialties: { has: 'laundry' }, status: 'approved' },
+        orderBy: { createdAt: 'asc' },
+      });
 
       const bookingNumber = await this.generateBookingNumber(tx);
 

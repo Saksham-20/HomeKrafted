@@ -12,9 +12,13 @@ export type { SnackCategoryFilter };
 
 /** Snacks (M8.4a — real menu reads). `GET /snacks`/`GET /snacks/:slug` are `@Public()` (`docs/API.md` "Services (M8.3a)") — ordering stays WhatsApp-only (`lib/channel.ts`), no cart/checkout endpoint exists for Snacks. */
 
-export async function getSnacks(): Promise<Snack[]> {
+/** `near` filters to kitchens that deliver to the buyer — see `getProducts`. */
+export async function getSnacks(near?: { lat: number; lng: number }): Promise<Snack[]> {
   if (isMockMode()) return snacks;
-  return http.get<Snack[]>("/snacks", { auth: false });
+  return http.get<Snack[]>("/snacks", {
+    auth: false,
+    query: near ? { lat: near.lat, lng: near.lng } : undefined,
+  });
 }
 
 export async function getSnack(slug: string): Promise<Snack | undefined> {

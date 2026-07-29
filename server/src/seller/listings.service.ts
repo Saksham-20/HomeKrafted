@@ -140,6 +140,24 @@ export class SellerListingsService {
     return mapProduct(updated);
   }
 
+  /**
+   * Flip a single listing on or off for the day.
+   *
+   * `isAvailable` is the HomeKrafter's switch; `moderationStatus` is the
+   * admin's. Keeping them apart means an admin un-hiding an item can't
+   * silently put a dish back on sale that the cook isn't making, and a cook
+   * marking themselves sold out can't override a moderation hide.
+   */
+  async setAvailability(vendorId: string, productId: string, isAvailable: boolean) {
+    await this.assertOwned(vendorId, productId);
+    const updated = await this.prisma.product.update({
+      where: { id: productId },
+      data: { isAvailable },
+      include: PRODUCT_INCLUDE,
+    });
+    return mapProduct(updated);
+  }
+
   async remove(vendorId: string, productId: string): Promise<void> {
     await this.assertOwned(vendorId, productId);
     try {

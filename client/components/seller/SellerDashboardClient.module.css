@@ -4,3 +4,37 @@
   padding: var(--hk-s6);
   text-align: center;
 }
+
+/* --- one-dashboard layout (single HomeKrafter role) ---------------------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.quickLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.quickLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--hk-ink);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.quickLink:hover {
+  border-color: var(--hk-pine);
+  color: var(--hk-pine);
+}

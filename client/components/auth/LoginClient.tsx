@@ -10,7 +10,8 @@ import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import { RoleChoice, type AuthRole } from "./RoleChoice";
-import type { SellerType, UserRole } from "@/lib/types";
+import type { UserRole } from "@/lib/types";
+import type { DemoHomeKrafter } from "@/lib/auth/AuthContext";
 import styles from "./LoginClient.module.css";
 
 type Method = "phone" | "email" | "social";
@@ -50,10 +51,10 @@ function AppleGlyph() {
   );
 }
 
-/** One seeded demo seller per `SellerType` — labels for the seller tab's "continue as" row. */
-const DEMO_SELLER_OPTIONS: { type: SellerType; label: string }[] = [
-  { type: "maker", label: "Continue as demo maker →" },
-  { type: "laundry", label: "Continue as demo laundry partner →" },
+/** The three seeded demo HomeKrafters — same role, different kitchens and specialties. */
+const DEMO_SELLER_OPTIONS: { type: DemoHomeKrafter; label: string }[] = [
+  { type: "maker", label: "Continue as demo home cook →" },
+  { type: "laundry", label: "Continue as demo laundry HomeKrafter →" },
   { type: "snack", label: "Continue as demo snack HomeKrafter →" },
 ];
 
@@ -186,7 +187,7 @@ export function LoginClient() {
     }
   }
 
-  async function handleDemoSeller(type: SellerType) {
+  async function handleDemoSeller(type: DemoHomeKrafter) {
     setError(null);
     try {
       const resultRole = await signInAsSeller(type);

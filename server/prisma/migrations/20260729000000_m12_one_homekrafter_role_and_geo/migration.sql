@@ -59,7 +59,7 @@ CREATE TYPE "GiftWrapStyle" AS ENUM ('kraft', 'floral', 'festive', 'minimal');
 CREATE TYPE "RibbonColor" AS ENUM ('gold', 'terracotta', 'pine', 'ivory');
 
 -- CreateEnum
-CREATE TYPE "OrderStatus" AS ENUM ('placed', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'returned');
+CREATE TYPE "OrderStatus" AS ENUM ('pending-payment', 'placed', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled', 'returned');
 
 -- CreateEnum
 CREATE TYPE "PaymentMethod" AS ENUM ('wallet', 'razorpay', 'cod');
@@ -78,6 +78,12 @@ CREATE TYPE "WalletTransactionRefType" AS ENUM ('order', 'laundryBooking', 'topu
 
 -- CreateEnum
 CREATE TYPE "AutoTopupTrigger" AS ENUM ('below-threshold', 'scheduled');
+
+-- CreateEnum
+CREATE TYPE "RazorpayOrderPurpose" AS ENUM ('order', 'topup');
+
+-- CreateEnum
+CREATE TYPE "RazorpayOrderStatus" AS ENUM ('created', 'captured', 'failed');
 
 -- CreateEnum
 CREATE TYPE "LaundryPricingModel" AS ENUM ('per-kg', 'per-item', 'per-hour');
@@ -104,7 +110,7 @@ CREATE TYPE "SnackOrderStatus" AS ENUM ('received', 'accepted', 'out-for-deliver
 CREATE TYPE "SnackOrderChannel" AS ENUM ('whatsapp');
 
 -- CreateEnum
-CREATE TYPE "SellerType" AS ENUM ('maker', 'laundry', 'snack');
+CREATE TYPE "SellerSpecialty" AS ENUM ('homemade_food', 'bakery', 'pickles_preserves', 'snacks', 'sweets', 'crafts', 'laundry', 'cleaning');
 
 -- CreateEnum
 CREATE TYPE "SellerStatus" AS ENUM ('pending', 'approved', 'suspended');
@@ -144,6 +150,9 @@ CREATE TABLE "Address" (
     "pincode" TEXT NOT NULL,
     "country" TEXT NOT NULL DEFAULT 'India',
     "isDefault" BOOLEAN NOT NULL DEFAULT false,
+    "lat" DOUBLE PRECISION,
+    "lng" DOUBLE PRECISION,
+    "area" TEXT,
     "instructions" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -316,9 +325,13 @@ CREATE TABLE "SellerApplication" (
     "email" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
     "category" "SellerApplicationCategory" NOT NULL,
+    "specialties" "SellerSpecialty"[],
     "city" TEXT NOT NULL,
+    "area" TEXT NOT NULL,
+    "deliveryRadiusKm" INTEGER NOT NULL DEFAULT 10,
     "description" TEXT NOT NULL,
     "status" "SellerApplicationStatus" NOT NULL DEFAULT 'new',
+    "decisionNote" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SellerApplication_pkey" PRIMARY KEY ("id")
@@ -367,6 +380,44 @@ CREATE TABLE "AutoTopupRule" (
 );
 
 -- CreateTable
+CREATE TABLE "IdempotencyKey" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "responseBody" JSONB NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "IdempotencyKey_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "WebhookEvent" (
+    "id" TEXT NOT NULL,
+    "provider" TEXT NOT NULL DEFAULT 'razorpay',
+    "eventId" TEXT NOT NULL,
+    "paymentId" TEXT,
+    "processedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "WebhookEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RazorpayOrder" (
+    "id" TEXT NOT NULL,
+    "razorpayOrderId" TEXT NOT NULL,
+    "purpose" "RazorpayOrderPurpose" NOT NULL,
+    "amount" DECIMAL(12,2) NOT NULL,
+    "userId" TEXT NOT NULL,
+    "orderId" TEXT,
+    "walletId" TEXT,
+    "status" "RazorpayOrderStatus" NOT NULL DEFAULT 'created',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RazorpayOrder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Vendor" (
     "id" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
@@ -378,6 +429,10 @@ CREATE TABLE "Vendor" (
     "avatarSrc" TEXT,
     "bannerSrc" TEXT,
     "location" TEXT NOT NULL,
+    "area" TEXT NOT NULL,
+    "lat" DOUBLE PRECISION NOT NULL,
+    "lng" DOUBLE PRECISION NOT NULL,
+    "deliveryRadiusKm" INTEGER NOT NULL DEFAULT 10,
     "rating" DECIMAL(2,1) NOT NULL DEFAULT 0,
     "reviewCount" INTEGER NOT NULL DEFAULT 0,
     "followerCount" INTEGER NOT NULL DEFAULT 0,
@@ -459,6 +514,7 @@ CREATE TABLE "Product" (
     "storageInstructions" TEXT,
     "madeIn" TEXT,
     "moderationStatus" "ProductModerationStatus" NOT NULL DEFAULT 'active',
+    "isAvailable" BOOLEAN NOT NULL DEFAULT true,
     "featured" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -797,8 +853,8 @@ CREATE TABLE "MealPromo" (
 CREATE TABLE "Seller" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "type" "SellerType" NOT NULL,
-    "vendorId" TEXT,
+    "specialties" "SellerSpecialty"[],
+    "vendorId" TEXT NOT NULL,
     "displayName" TEXT NOT NULL,
     "status" "SellerStatus" NOT NULL DEFAULT 'pending',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -819,6 +875,19 @@ CREATE TABLE "Payout" (
     "paidAt" TIMESTAMP(3),
 
     CONSTRAINT "Payout_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AdminAuditLog" (
+    "id" TEXT NOT NULL,
+    "actorId" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
+    "targetId" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AdminAuditLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -883,6 +952,18 @@ CREATE INDEX "WalletTransaction_walletId_createdAt_idx" ON "WalletTransaction"("
 
 -- CreateIndex
 CREATE UNIQUE INDEX "AutoTopupRule_walletId_key" ON "AutoTopupRule"("walletId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "IdempotencyKey_userId_scope_key_key" ON "IdempotencyKey"("userId", "scope", "key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "WebhookEvent_provider_eventId_key" ON "WebhookEvent"("provider", "eventId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RazorpayOrder_razorpayOrderId_key" ON "RazorpayOrder"("razorpayOrderId");
+
+-- CreateIndex
+CREATE INDEX "RazorpayOrder_userId_idx" ON "RazorpayOrder"("userId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Vendor_slug_key" ON "Vendor"("slug");
@@ -984,10 +1065,19 @@ CREATE UNIQUE INDEX "Seller_userId_key" ON "Seller"("userId");
 CREATE UNIQUE INDEX "Seller_vendorId_key" ON "Seller"("vendorId");
 
 -- CreateIndex
-CREATE INDEX "Seller_type_idx" ON "Seller"("type");
+CREATE INDEX "Seller_status_idx" ON "Seller"("status");
 
 -- CreateIndex
 CREATE INDEX "Payout_sellerId_idx" ON "Payout"("sellerId");
+
+-- CreateIndex
+CREATE INDEX "AdminAuditLog_actorId_idx" ON "AdminAuditLog"("actorId");
+
+-- CreateIndex
+CREATE INDEX "AdminAuditLog_targetType_targetId_idx" ON "AdminAuditLog"("targetType", "targetId");
+
+-- CreateIndex
+CREATE INDEX "AdminAuditLog_createdAt_idx" ON "AdminAuditLog"("createdAt");
 
 -- AddForeignKey
 ALTER TABLE "Address" ADD CONSTRAINT "Address_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1030,6 +1120,15 @@ ALTER TABLE "WalletTransaction" ADD CONSTRAINT "WalletTransaction_walletId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "AutoTopupRule" ADD CONSTRAINT "AutoTopupRule_walletId_fkey" FOREIGN KEY ("walletId") REFERENCES "Wallet"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RazorpayOrder" ADD CONSTRAINT "RazorpayOrder_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RazorpayOrder" ADD CONSTRAINT "RazorpayOrder_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "Order"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RazorpayOrder" ADD CONSTRAINT "RazorpayOrder_walletId_fkey" FOREIGN KEY ("walletId") REFERENCES "Wallet"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "VendorFollow" ADD CONSTRAINT "VendorFollow_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1185,7 +1284,11 @@ ALTER TABLE "SnackOrderItem" ADD CONSTRAINT "SnackOrderItem_snackId_fkey" FOREIG
 ALTER TABLE "Seller" ADD CONSTRAINT "Seller_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Seller" ADD CONSTRAINT "Seller_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Seller" ADD CONSTRAINT "Seller_vendorId_fkey" FOREIGN KEY ("vendorId") REFERENCES "Vendor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Payout" ADD CONSTRAINT "Payout_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "Seller"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AdminAuditLog" ADD CONSTRAINT "AdminAuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
