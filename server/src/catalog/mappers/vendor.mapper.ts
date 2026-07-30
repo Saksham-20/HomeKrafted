@@ -12,6 +12,13 @@ export function mapVendor(vendor: Vendor, isFollowing?: boolean) {
     avatarSrc: vendor.avatarSrc ?? undefined,
     bannerSrc: vendor.bannerSrc ?? undefined,
     location: vendor.location,
+    // Geography is part of the public shape: the storefront shows where a
+    // kitchen is, and `client/lib/types` marks these required — omitting
+    // them handed the client `undefined` for fields it type-guarantees.
+    area: vendor.area,
+    lat: vendor.lat,
+    lng: vendor.lng,
+    deliveryRadiusKm: vendor.deliveryRadiusKm,
     rating: Number(vendor.rating),
     reviewCount: vendor.reviewCount,
     followerCount: vendor.followerCount,
