@@ -155,10 +155,6 @@ Sign in as any of the three HomeKrafter accounts.
 Every HomeKrafter now sees **one dashboard with the same full menu**:
 Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts, Reviews.
 
-Because the three demo accounts are set up for different kinds of business,
-some modules will say **"… isn't set up for your account"**. That is
-expected, not a bug. What it should look like:
-
 **All three accounts now have all eight modules working.** There is one
 role, so a laundry HomeKrafter can add food, and a cook can take pickups.
 The "isn't set up" card should no longer appear for any of the three demo
@@ -177,7 +173,7 @@ accounts — if you see it, report it.
 **A module must never sit on "Loading…" forever.** A permanent spinner is a
 bug — report it with the account and module name.
 
-Then exercise the modules that do work for each account:
+Then exercise the rest:
 
 - Dashboard summary numbers
 - **Listings / Menu** — create a new one, edit an existing one
