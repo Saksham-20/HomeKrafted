@@ -1,11 +1,40 @@
 # Deploying Homekrafted
 
-Staging runs on a single VPS, serving the web app and the API behind one
-nginx on port 80.
+Runs on a single VPS, serving the web app and the API behind one nginx.
 
-- **Site:** http://187.127.171.48 (HTTP only — it's a bare IP, so no cert)
+- **Site:** https://homekrafted.in — `www` and all plain HTTP 301 to it
 - **Box:** `ssh -i ~/.ssh/homekrafted_vps root@187.127.171.48` (Ubuntu 24.04)
 - **App root:** `/var/www/homekrafted/HomeKrafted` — a git clone tracking `main`
+
+## Domain & TLS
+
+DNS is at Hostinger. `@` and `www` are **A records to `187.127.171.48`**;
+everything else on the zone belongs to other systems and must stay put —
+the two `MX`, the SPF `TXT`, `_dmarc`, the three `hostingermail-*._domainkey`
+DKIM `CNAME`s, `autodiscover` and `autoconfig` are Hostinger email, and
+`order`, `ordernew`, `admin` and `kitchen` point at a **different** box
+(`62.72.28.224`) running the older ordering system. Changing the apex does
+not affect any of them.
+
+The cert is Let's Encrypt via `certbot --nginx`, covering `homekrafted.in`
+and `www.homekrafted.in`, renewed automatically by `certbot.timer`:
+
+```bash
+certbot certificates                 # what's installed, and when it expires
+systemctl list-timers certbot.timer  # next renewal check
+certbot renew --dry-run              # rehearse a renewal
+```
+
+If a `--dry-run` reports "Another instance of Certbot is already running",
+that is the timer holding the lock, not a failure — re-run it after the
+timer's check finishes.
+
+**One gotcha when repointing a name:** deleting a `CNAME` and adding an `A`
+leaves a window where the name doesn't resolve, and resolvers cache that
+NXDOMAIN for the zone's SOA negative TTL (600s here). The name will look
+dead for up to ten minutes after the record is correct. Confirm with
+`dig +short @ns1.dns-parking.com <name>` (authoritative, uncached) before
+believing anything is actually broken.
 
 ## Updating the site
 
@@ -42,7 +71,7 @@ scripts/deploy.sh --api-only       # backend-only change
 | Web (Next.js) | pm2 `homekrafted-web`, `next start` on 127.0.0.1:3000 |
 | API (NestJS) | pm2 `homekrafted-api`, `server/dist/main.js` on :4000 |
 | Process config | `ecosystem.config.cjs` (in git) |
-| nginx | `/etc/nginx/sites-available/homekrafted`, `default_server` on :80 — `/api/` and `/health` → :4000, everything else → :3000 |
+| nginx | `/etc/nginx/sites-available/homekrafted` — :443 TLS for `homekrafted.in`/`www`, :80 `default_server` redirecting to https; `/api/` and `/health` → :4000, everything else → :3000 |
 | Database | local Postgres 16, db and role both `homekrafted` |
 | Boot | `pm2 startup systemd` + `pm2 save`, so both apps come back after a reboot |
 
@@ -61,7 +90,7 @@ matter in production:
 ```
 NODE_ENV=production
 PORT=4000
-CLIENT_ORIGIN=http://187.127.171.48
+CLIENT_ORIGIN=https://homekrafted.in
 DATABASE_URL="postgresql://homekrafted:<password>@localhost:5432/homekrafted?schema=public"
 JWT_ACCESS_SECRET=<openssl rand -base64 48>
 JWT_REFRESH_SECRET=<a different openssl rand -base64 48>
@@ -74,7 +103,7 @@ placeholder secret, so a bad `.env` shows up as a pm2 restart loop — check
 `client/.env.production`:
 
 ```
-NEXT_PUBLIC_API_URL=http://187.127.171.48/api/v1
+NEXT_PUBLIC_API_URL=https://homekrafted.in/api/v1
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_placeholder
 NEXT_PUBLIC_USE_MOCK=false
 ```
@@ -120,7 +149,11 @@ pm2 save && pm2 startup systemd
 ln -sf /etc/nginx/sites-available/homekrafted /etc/nginx/sites-enabled/homekrafted
 rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
-ufw allow 80/tcp
+ufw allow 'Nginx Full'          # 80 + 443
+
+# TLS, once DNS points here (certbot rewrites the nginx file in place)
+certbot --nginx -d homekrafted.in -d www.homekrafted.in \
+  --agree-tos -m support@homekrafted.in --redirect
 ```
 
 `npx prisma db seed` is first-time only — it creates the demo accounts in
@@ -159,10 +192,20 @@ they're read from `process.env` at boot. Don't lower `THROTTLE_AUTH_LIMIT`
 to single digits: it's the brute-force guard on login, but set too tight it
 also blocks ordinary sign-ins.
 
-## Going to a real domain
+## Moving to another domain
 
-When a domain points at the box: add it to `server_name` in the nginx
-config, run `certbot --nginx`, then update `CLIENT_ORIGIN` in `server/.env`
-and `NEXT_PUBLIC_API_URL` in `client/.env.production` to the `https://` host
-and redeploy. Both need to change together — the API's CORS check and the
-browser's request origin have to agree.
+Done once already for `homekrafted.in` (see "Domain & TLS" above); the
+order matters if it happens again:
+
+1. Point the name's `A` record at the box.
+2. Add it to `server_name` in the nginx config and reload.
+3. `certbot --nginx -d <name>` — this needs step 1 to have propagated,
+   since Let's Encrypt validates over HTTP against the live record.
+4. Update `CLIENT_ORIGIN` in `server/.env` **and** `NEXT_PUBLIC_API_URL` in
+   `client/.env.production` to the `https://` host, then redeploy.
+
+Steps 3 and 4 have to happen in that order, and 4's two values have to
+change together: the API's CORS check and the browser's request origin
+have to agree, and `NEXT_PUBLIC_API_URL` is inlined at build time, so a
+stale `http://` value there makes every API call mixed content that the
+browser blocks outright on an HTTPS page.

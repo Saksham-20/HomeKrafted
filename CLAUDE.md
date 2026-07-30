@@ -17,7 +17,8 @@ frontend-first with typed mock data before the backend lands; `client/lib/api`
 now makes **real calls** against `server/` (`NEXT_PUBLIC_USE_MOCK=true`
 reverts every module to the old in-memory mocks for offline frontend work).
 
-**Live staging:** http://187.127.171.48 — see `docs/DEPLOY.md` (runbook,
+**Live:** https://homekrafted.in (www redirects to apex; Let's Encrypt,
+auto-renewing) — see `docs/DEPLOY.md` (runbook,
 env, one-command redeploy) and `docs/TESTING.md` (tester handout, demo
 accounts).
 

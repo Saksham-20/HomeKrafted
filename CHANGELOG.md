@@ -3,6 +3,52 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M13] — Brand identity, /about, live on homekrafted.in — 2026-07-30
+
+The app moves off the bare IP onto its real domain, picks up the supplied
+brand lockup, and gains the story page carried over from the marketing
+site it replaces.
+
+### Added
+
+- **Brand lockup.** `client/public/images/site/logo.svg` — the supplied
+  artwork dropped in byte-for-byte, replacing seven hand-typed
+  `Home<span>krafted</span>` text lockups (header, footer, HomeKrafter
+  shell, admin shell, admin login, consumer login, signup).
+- **`/about`.** Story, mission, the four differentiators, offerings, team
+  and contact, sourced from homekrafted.in — see `lib/data/about.ts` for
+  which lines are verbatim. The header's "About" nav pointed at `/` for
+  want of a destination; it now points here, superseding that M0 standing
+  decision. The footer's Help column links it too.
+
+### Changed
+
+- **Live at https://homekrafted.in.** Hostinger DNS `@` and `www` now A
+  records to the box; Let's Encrypt cert covers both, `certbot.timer`
+  renews it, and plain HTTP 301s to https. `CLIENT_ORIGIN` and
+  `NEXT_PUBLIC_API_URL` moved to the https origin. Every other record on
+  the zone — mail, and the `order`/`ordernew`/`admin`/`kitchen` hosts on
+  the older ordering box — was left untouched.
+
+### Fixed
+
+- **Squashed logo in the header and footer.** `.logo` and `.brandCol` are
+  flex columns, so the default `align-items: stretch` set the image's
+  cross size — its width — which beats `width: auto`. A 1.75:1 mark was
+  being drawn at roughly 3.7:1. Both now pin `align-self: flex-start`.
+- **Invisible footer logo.** The lockup's "Krafted" is `#004e19` against
+  `--hk-pine-deep`. The three dark surfaces knock the artwork to white in
+  CSS rather than forking the supplied file.
+
+### Docs
+
+- `docs/DEPLOY.md` gains a "Domain & TLS" section (which records are ours
+  vs. mail vs. the other box, the certbot commands, and the cached-NXDOMAIN
+  trap when swapping a CNAME for an A). Its "Going to a real domain"
+  section described this as future work and was rewritten as an ordered
+  runbook. `docs/TESTING.md` and `CLAUDE.md` moved to the https URL, and
+  TESTING's "no padlock is expected" notes are gone — there is a padlock now.
+
 ## [M12] — One HomeKrafter role, local discovery, pre-order — 2026-07-30
 
 Turns the supply side into a single role and makes the marketplace local

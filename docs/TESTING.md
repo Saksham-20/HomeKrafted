@@ -1,13 +1,13 @@
 # Homekrafted — Tester Guide
 
-**Test site:** http://187.127.171.48
+**Test site:** https://homekrafted.in
 
 This is a staging build with demo data. Nothing here is real — no real
 money moves, no real orders ship. Break things freely.
 
-> **Note:** the site runs on plain HTTP (no padlock in the browser). That's
-> expected for staging. Don't enter any real password, card, or personal
-> detail — only use the demo accounts below.
+> **Note:** the site is on its real domain with HTTPS now, so you'll see a
+> padlock. It's still a staging build with demo data — don't enter any real
+> password, card, or personal detail. Use the demo accounts below.
 
 **A note on names:** people who sell on Homekrafted are called
 **HomeKrafters**. You'll see that word throughout the site and in this
@@ -27,7 +27,7 @@ your first visit.
 
 ## How to log in
 
-Go to **http://187.127.171.48/login** and use **email + password**.
+Go to **https://homekrafted.in/login** and use **email + password**.
 
 All demo accounts share the same password:
 
@@ -195,7 +195,7 @@ report it immediately** — that's the most serious kind of bug on this list.
 - The new HomeKrafter should get a welcome notification
 
 ### 8. Admin panel
-Sign in as **admin** at http://187.127.171.48/admin/login
+Sign in as **admin** at https://homekrafted.in/admin/login
 
 - **Users** — list, open a user, see their detail
 - **HomeKrafters** — review applications, approve/reject
@@ -219,7 +219,6 @@ Sign in as **admin** at http://187.127.171.48/admin/login
 | **Phone/OTP login** never sends a code | SMS provider not connected on staging. |
 | **WhatsApp messages** don't actually send | WhatsApp provider not connected on staging. |
 | **Live delivery tracking / map** missing on web | App-only by design. Web shows a status line. |
-| **No HTTPS padlock** | Staging runs on a bare IP. |
 | Product photos show a **hatched placeholder** in some slots | Real photography hasn't been shot for those items yet. |
 | The **video reel rail** always shows the same clips | Reels aren't wired to the backend yet — they come from fixed sample data. |
 | Web addresses containing **`/seller`** | Internal naming; the visible wording is HomeKrafter. |
