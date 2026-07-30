@@ -9,9 +9,13 @@ export function mapSellerApplication(app: SellerApplication) {
     email: app.email,
     phone: app.phone,
     category: app.category,
+    specialties: app.specialties,
     city: app.city,
+    area: app.area,
+    deliveryRadiusKm: app.deliveryRadiusKm,
     description: app.description,
     status: app.status,
+    decisionNote: app.decisionNote ?? undefined,
     createdAt: app.createdAt.toISOString(),
   };
 }
