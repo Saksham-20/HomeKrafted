@@ -14,6 +14,15 @@ money moves, no real orders ship. Break things freely.
 guide. (Some web addresses still contain `/seller` — that's internal
 plumbing, not a mistake.)
 
+**Everything is Chandigarh tricity now.** Every kitchen sits in a real
+area — Chandigarh sectors, Mohali, Panchkula, Zirakpur — and you only see
+food from kitchens that deliver to *you*. The site asks for your area on
+your first visit.
+
+> **Accounts were reset.** If you tested before 30 July, your old account,
+> orders and wallet balance are gone. Sign in again with the demo accounts
+> below.
+
 ---
 
 ## How to log in
@@ -64,6 +73,21 @@ testing both directions.
 
 ## What to test
 
+### 0. Location — do this first
+Open the site in a **fresh browser window** (or clear site data).
+
+- You should be asked **"Where should we deliver?"** on the first visit
+- Try **Use my current location** (allow it), and separately try **picking
+  an area** from the list
+- Also try **Skip for now** — you must still be able to browse everything.
+  Nothing should be locked behind sharing your location.
+- Once an area is set, **/shop** and **/snacks** should only show food from
+  kitchens that deliver there
+- Pick an area far from most kitchens (say Kharar) and confirm the list
+  gets shorter, not broken
+- At **checkout**, there's a "Delivering to …" band — check it matches, and
+  that you can change it
+
 ### 1. Shopper — browse
 Sign in as **Ananya**.
 
@@ -103,12 +127,27 @@ Sign in as **Ananya**.
 - Live tracking is **app-only** — on the web you should only see a status
   line, not a map. Confirm that's what you get.
 
-### 6. Snacks
+### 6. Snacks — including pre-order
 - **Snacks** page — browse the menu
+- Add a few things, then use the **delivery window** picker to choose a day
+  and time
+- Send the list on WhatsApp and check the message includes a
+  `Requested for: …` line matching what you picked
 - Ordering is **WhatsApp only** by design. There should be **no cart and no
   checkout** on the snacks pages — it should hand you to WhatsApp instead.
   If you find an add-to-cart or checkout button anywhere in Snacks, **that's
-  a bug — report it.**
+  a bug — report it.** (The delivery-window picker is not a checkout — it
+  just tells the kitchen when you want it.)
+
+**Worth poking at:** the picker should never offer a time that's already
+gone. If it's 3pm, you shouldn't be able to pick 9am today. If it's late
+evening, today may disappear entirely and it should start at Tomorrow.
+
+### 6b. Full meals — pre-order
+- Open **/app-promo** (Food Delivery)
+- Full meals are still app-only, so there's no menu here — but you can
+  **pre-order**: pick a time and send it on WhatsApp
+- Check the message carries your preferred time
 
 ### 7. HomeKrafter dashboard
 Sign in as any of the three HomeKrafter accounts.
@@ -120,20 +159,23 @@ Because the three demo accounts are set up for different kinds of business,
 some modules will say **"… isn't set up for your account"**. That is
 expected, not a bug. What it should look like:
 
-| Module | Maker (Anjali) | Laundry (Ravi) | Snacks (Meera) |
-|---|---|---|---|
-| Dashboard | works | works | works |
-| Listings | works | not set up | not set up |
-| Menu | not set up | not set up | works |
-| Orders | works | not set up | works |
-| Pickups | not set up | works | not set up |
-| Storefront | works | not set up | not set up |
-| Payouts | works | works | works |
-| Reviews | works | not set up | not set up |
+**All three accounts now have all eight modules working.** There is one
+role, so a laundry HomeKrafter can add food, and a cook can take pickups.
+The "isn't set up" card should no longer appear for any of the three demo
+accounts — if you see it, report it.
 
-**A module must never sit on "Loading…" forever.** It either shows real
-data or the "isn't set up" card. A permanent spinner is a bug — report it
-with the account and module name.
+**The big one to test: adding your own items.**
+
+- Open **Listings** (or **Menu**) → add an item, with a price and a photo path
+- It should appear on **/shop** (or the Snacks menu) for shoppers in range
+- On the **Dashboard**, the "Today's menu" panel lists everything you sell
+  with an on/off switch
+- Switch something **off** → it should vanish from the shopper side
+  immediately. Switch it back on → it returns.
+- This is the thing a cook does every day, so be rough with it
+
+**A module must never sit on "Loading…" forever.** A permanent spinner is a
+bug — report it with the account and module name.
 
 Then exercise the modules that do work for each account:
 
@@ -148,6 +190,13 @@ Then exercise the modules that do work for each account:
 **Important:** a HomeKrafter must only ever see their **own** data. If you
 can see another HomeKrafter's orders, listings, or payouts, **stop and
 report it immediately** — that's the most serious kind of bug on this list.
+
+### 7b. Becoming a HomeKrafter
+- Open **/sell** and fill in the application — it now asks which **area**
+  your kitchen is in, **what you'll offer**, and **how far you'll deliver**
+- Submit it, then sign in as **admin** → **HomeKrafters** → review queue
+- Approve it, and check a new kitchen appears with the right area
+- The new HomeKrafter should get a welcome notification
 
 ### 8. Admin panel
 Sign in as **admin** at http://187.127.171.48/admin/login
@@ -170,7 +219,6 @@ Sign in as **admin** at http://187.127.171.48/admin/login
 | **Gift hamper builder** shows a "coming soon" page | Held before launch on purpose. Every link into it points at the coming-soon page. |
 | **Full meals** has no menu — promo page only | By design on web. Meals are app-only. |
 | **Snacks** has no cart/checkout | By design — WhatsApp ordering only. |
-| Some HomeKrafter modules say **"isn't set up for your account"** | By design — see the table above. |
 | **Payments** don't really charge | Test mode. Orders complete without a real transaction. |
 | **Phone/OTP login** never sends a code | SMS provider not connected on staging. |
 | **WhatsApp messages** don't actually send | WhatsApp provider not connected on staging. |
