@@ -3,7 +3,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import type { DietaryTag, ProductTag } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
 import styles from "./ListingForm.module.css";
@@ -317,31 +317,15 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
 
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Photo</h2>
-        <div className={styles.imageRow}>
-          <div className={styles.imagePreview}>
-            <ImageSlot
-              ratio="1/1"
-              label={values.name || "Product photo"}
-              src={values.imagePath || undefined}
-              compact
-            />
-          </div>
-          <div className={styles.imageFields}>
-            <label className={styles.field}>
-              <span className={styles.label}>Image path</span>
-              <input
-                className={styles.input}
-                value={values.imagePath}
-                onChange={(event) => set("imagePath", event.target.value)}
-                placeholder="/images/products/your-product.jpg"
-              />
-            </label>
-            <span className={styles.hint}>
-              No upload yet — point at an existing path under{" "}
-              <code>public/images/products/</code>, or leave blank for the placeholder.
-            </span>
-          </div>
-        </div>
+        <ImageUpload
+          label="Product photo"
+          purpose="listing"
+          ratio="1/1"
+          placeholderLabel={values.name || "Product photo"}
+          hint="Shot in daylight, on a plain surface, sells better than a styled one. Leave blank for a placeholder."
+          value={values.imagePath}
+          onChange={(url) => set("imagePath", url)}
+        />
       </div>
     </div>
   );

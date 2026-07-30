@@ -1,6 +1,6 @@
 import { IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 
-/** Maker-only. No `vendorId` field on purpose — the vendor being edited always comes from the resolved seller's own `vendorId`, never a client-supplied id (see `SellerService.updateStorefront`). */
+/** No `vendorId` field on purpose — the vendor being edited always comes from the resolved seller's own `vendorId`, never a client-supplied id (see `SellerService.updateStorefront`). */
 export class UpdateStorefrontDto {
   @IsOptional()
   @IsString()

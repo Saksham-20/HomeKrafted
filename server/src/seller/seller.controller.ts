@@ -24,14 +24,13 @@ export class SellerController {
     private readonly payoutsService: SellerPayoutsService,
   ) {}
 
-  /** Branches by `seller.type` — see `SellerService.getDashboard`'s three shapes. */
+  /** One shape for every HomeKrafter — see `SellerService.getDashboard`. */
   @Get('dashboard')
   async dashboard(@CurrentUser() user: RequestUser) {
     const seller = await this.sellerService.resolveSeller(user);
     return this.sellerService.getDashboard(seller, this.listingsService, this.payoutsService);
   }
 
-  /** Maker-only — 403s for a laundry/snack seller token. */
   @Get('storefront')
   async getStorefront(@CurrentUser() user: RequestUser) {
     const seller = await this.sellerService.resolveHomeKrafter(user);

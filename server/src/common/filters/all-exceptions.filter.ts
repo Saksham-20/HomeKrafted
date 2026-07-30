@@ -66,6 +66,13 @@ function httpStatusToCode(status: number): string {
       return 'NOT_FOUND';
     case HttpStatus.CONFLICT:
       return 'CONFLICT';
+    // Upload rejections: the status is what distinguishes "too big" from
+    // "not an image we accept", so the client can branch without matching
+    // on message text (see `UploadsService.storeImage`).
+    case HttpStatus.PAYLOAD_TOO_LARGE:
+      return 'FILE_TOO_LARGE';
+    case HttpStatus.UNSUPPORTED_MEDIA_TYPE:
+      return 'UNSUPPORTED_IMAGE';
     case HttpStatus.TOO_MANY_REQUESTS:
       return 'RATE_LIMITED';
     default:

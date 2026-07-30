@@ -54,6 +54,15 @@ export interface AppConfig {
     authTtlSeconds: number;
     authLimit: number;
   };
+  uploads: {
+    /** `local` today. Any other value must have a driver registered in `UploadsModule` or boot fails loudly. */
+    driver: string;
+    /** Absolute path for the `local` driver. Keep it OUTSIDE the git clone — deploys reset the clone. */
+    dir: string;
+    /** URL prefix nginx maps to `dir`. Also the prefix stored in the database. */
+    publicPrefix: string;
+    maxBytes: number;
+  };
 }
 
 export default (): AppConfig => ({
@@ -103,5 +112,11 @@ export default (): AppConfig => ({
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '120', 10),
     authTtlSeconds: parseInt(process.env.THROTTLE_AUTH_TTL_SECONDS ?? '60', 10),
     authLimit: parseInt(process.env.THROTTLE_AUTH_LIMIT ?? '20', 10),
+  },
+  uploads: {
+    driver: process.env.STORAGE_DRIVER ?? 'local',
+    dir: process.env.UPLOAD_DIR ?? '/var/lib/homekrafted/uploads',
+    publicPrefix: (process.env.UPLOAD_PUBLIC_PREFIX ?? '/uploads').replace(/\/$/, ''),
+    maxBytes: parseInt(process.env.UPLOAD_MAX_BYTES ?? '5242880', 10),
   },
 });

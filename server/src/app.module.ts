@@ -25,6 +25,7 @@ import { CorporateModule } from './corporate/corporate.module';
 import { SellerModule } from './seller/seller.module';
 import { AdminModule } from './admin/admin.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { UploadsModule } from './uploads/uploads.module';
 import { SellerApplicationsModule } from './seller-applications/seller-applications.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -103,6 +104,8 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     // per-preference fan-out — see `NotificationsDeliveryService`.
     WhatsAppModule,
     SellerApplicationsModule,
+    // One image-upload endpoint shared by every module that takes a photo.
+    UploadsModule,
   ],
   providers: [
     // Order matters: Nest runs APP_GUARDs in registration order, and

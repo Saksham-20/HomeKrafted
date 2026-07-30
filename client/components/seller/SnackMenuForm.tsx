@@ -2,7 +2,7 @@
 
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import type { DietType, SnackCategory } from "@/lib/types";
 import type { SellerMenuInput } from "@/lib/api";
 import styles from "./SnackMenuForm.module.css";
@@ -143,26 +143,15 @@ export function SnackMenuForm({ values, onChange }: SnackMenuFormProps) {
 
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Photo</h2>
-        <div className={styles.imageRow}>
-          <div className={styles.imagePreview}>
-            <ImageSlot ratio="1/1" label={values.name || "Snack photo"} src={values.imagePath || undefined} compact />
-          </div>
-          <div className={styles.imageFields}>
-            <label className={styles.field}>
-              <span className={styles.label}>Image path</span>
-              <input
-                className={styles.input}
-                value={values.imagePath}
-                onChange={(event) => set("imagePath", event.target.value)}
-                placeholder="/images/snacks/your-snack.jpg"
-              />
-            </label>
-            <span className={styles.hint}>
-              No upload yet — point at an existing path under{" "}
-              <code>public/images/snacks/</code>, or leave blank for the placeholder.
-            </span>
-          </div>
-        </div>
+        <ImageUpload
+          label="Snack photo"
+          purpose="menu"
+          ratio="1/1"
+          placeholderLabel={values.name || "Snack photo"}
+          hint="A clear shot of the actual portion. Leave blank for a placeholder."
+          value={values.imagePath}
+          onChange={(url) => set("imagePath", url)}
+        />
       </div>
     </div>
   );

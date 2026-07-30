@@ -21,11 +21,6 @@
   align-items: flex-start;
 }
 
-.avatarPreview {
-  width: 96px;
-  flex-shrink: 0;
-}
-
 .fields {
   flex: 1;
   min-width: 0;

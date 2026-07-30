@@ -6,7 +6,7 @@ import { SellerService } from './seller.service';
 import { SellerReviewsService } from './reviews.service';
 import { ReplyReviewDto } from './dto/reply-review.dto';
 
-/** Maker-only — reviews on this vendor's own products/vendor record. */
+/** Reviews on this HomeKrafter's own products/vendor record. */
 @Controller('seller/reviews')
 @Roles('seller')
 export class SellerReviewsController {

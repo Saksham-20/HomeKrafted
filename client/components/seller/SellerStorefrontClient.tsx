@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -113,34 +114,26 @@ export function SellerStorefrontClient() {
         </div>
 
         <div className={styles.row}>
-          <div className={styles.avatarPreview}>
-            <ImageSlot
-              ratio="1/1"
-              shape="circle"
-              label={vendor.avatarPlaceholder}
-              src={form.avatarSrc || undefined}
-              compact
-            />
-          </div>
           <div className={styles.fields}>
-            <label className={styles.field}>
-              <span className={styles.label}>Avatar image path</span>
-              <input
-                className={styles.input}
-                value={form.avatarSrc}
-                onChange={(event) => setForm((f) => ({ ...f, avatarSrc: event.target.value }))}
-                placeholder="/images/vendors/avatar.jpg"
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Banner image path</span>
-              <input
-                className={styles.input}
-                value={form.bannerSrc}
-                onChange={(event) => setForm((f) => ({ ...f, bannerSrc: event.target.value }))}
-                placeholder="/images/vendors/banner.jpg"
-              />
-            </label>
+            <ImageUpload
+              label="Shop photo"
+              purpose="storefront"
+              shape="circle"
+              ratio="1/1"
+              placeholderLabel={vendor.avatarPlaceholder}
+              hint="Square works best — this is the round photo buyers see next to your name."
+              value={form.avatarSrc}
+              onChange={(url) => setForm((f) => ({ ...f, avatarSrc: url }))}
+            />
+            <ImageUpload
+              label="Banner"
+              purpose="storefront"
+              ratio="16/5"
+              placeholderLabel={vendor.bannerPlaceholder}
+              hint="A wide shot of your kitchen or your food, roughly 3:1."
+              value={form.bannerSrc}
+              onChange={(url) => setForm((f) => ({ ...f, bannerSrc: url }))}
+            />
             <label className={styles.field}>
               <span className={styles.label}>Location</span>
               <input

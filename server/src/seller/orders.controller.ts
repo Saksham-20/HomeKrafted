@@ -5,7 +5,7 @@ import { RequestUser } from '../common/types/jwt-payload.type';
 import { SellerService } from './seller.service';
 import { SellerOrdersService } from './orders.service';
 
-/** Maker-only — orders containing at least one of this seller's own vendor's items. */
+/** Orders containing at least one of this HomeKrafter's own vendor's items. */
 @Controller('seller/orders')
 @Roles('seller')
 export class SellerOrdersController {

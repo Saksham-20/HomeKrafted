@@ -26,6 +26,7 @@ import { Chip } from "@/components/ui/Chip";
 import { DietDot } from "@/components/ui/DietDot";
 import { OccasionTile } from "@/components/ui/OccasionTile";
 import { PhotoUpload } from "@/components/ui/PhotoUpload";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductCard } from "@/components/ui/ProductCard";
 import { PromoBand } from "@/components/ui/PromoBand";
@@ -134,7 +135,8 @@ export function GalleryClient({
   const [snackAdded, setSnackAdded] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState(laundryServices[0]?.id);
   const [chipSelected, setChipSelected] = useState(true);
-  const [photos, setPhotos] = useState<string[]>(["SHIRT_STAIN.jpg"]);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [galleryImage, setGalleryImage] = useState("");
 
   const heroProduct = products[0];
   const plainProduct = products[2];
@@ -507,17 +509,19 @@ export function GalleryClient({
           </div>
         </Group>
 
-        <Group title="PhotoUpload — add/remove wired to local state">
+        <Group title="PhotoUpload — real uploads; needs a signed-in session">
           <div className={styles.cardSlotWide}>
-            <PhotoUpload
-              photos={photos}
-              maxPhotos={4}
-              onAdd={() =>
-                setPhotos((current) => [...current, `PHOTO_${current.length + 1}.jpg`])
-              }
-              onRemove={(index) =>
-                setPhotos((current) => current.filter((_, i) => i !== index))
-              }
+            <PhotoUpload photos={photos} onChange={setPhotos} purpose="laundry" maxPhotos={4} />
+          </div>
+        </Group>
+
+        <Group title="ImageUpload — drag, click or paste; needs a signed-in session">
+          <div className={styles.cardSlotWide}>
+            <ImageUpload
+              label="Product photo"
+              purpose="listing"
+              value={galleryImage}
+              onChange={setGalleryImage}
             />
           </div>
         </Group>

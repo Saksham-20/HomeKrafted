@@ -1,0 +1,188 @@
+/**
+ * Drag-and-drop image upload.
+ *
+ * White-first like every other surface: the resting state is the standard
+ * card recipe with a dashed border to read as a drop target, and gold is
+ * only ever the active/hover accent. The dashed tile follows the same
+ * precedent `PhotoUpload` took from the hamper basket's "add more" tile.
+ */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s2);
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.removeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--hk-terracotta);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.removeLink:hover {
+  text-decoration: underline;
+}
+
+.removeLink:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- drop zone ---- */
+
+.zone {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px dashed var(--hk-border-2);
+  border-radius: var(--hk-r-lg);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.zone:hover:not(.disabled) {
+  border-color: var(--hk-gold-border);
+  background: var(--hk-gold-tint);
+}
+
+.zone:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+/* Solid border once there's something to see — dashed reads as "empty". */
+.filled {
+  border-style: solid;
+  border-color: var(--hk-border);
+}
+
+.dragging {
+  border-color: var(--hk-pine);
+  border-style: solid;
+  background: var(--hk-gold-tint);
+}
+
+.errored {
+  border-color: var(--hk-terracotta);
+}
+
+.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.preview {
+  width: 76px;
+  flex-shrink: 0;
+  border-radius: var(--hk-r-md);
+  overflow: hidden;
+}
+
+.preview[data-shape="circle"] {
+  border-radius: 50%;
+}
+
+.zoneBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  color: var(--hk-ink-2);
+}
+
+.zoneTitle {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.zoneHint {
+  font-size: 12px;
+  color: var(--hk-muted);
+  line-height: 1.5;
+}
+
+/* ---- progress ---- */
+
+.spinner {
+  animation: spin 900ms linear infinite;
+  color: var(--hk-pine);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progressTrack {
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  margin-top: 4px;
+  background: var(--hk-border);
+  border-radius: var(--hk-r-pill);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--hk-pine);
+  border-radius: var(--hk-r-pill);
+  transition: width 120ms linear;
+}
+
+/* Visually hidden rather than `display: none` — a hidden-by-display input
+   can't be opened by `.click()` in some browsers. */
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error {
+  font-size: 12.5px;
+  color: var(--hk-terracotta);
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zone,
+  .progressBar {
+    transition: none;
+  }
+
+  .spinner {
+    animation: none;
+  }
+}

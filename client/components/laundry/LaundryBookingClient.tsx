@@ -165,14 +165,6 @@ export function LaundryBookingClient({
     setServiceId(id);
   }
 
-  function addPhoto() {
-    setPhotos((current) => [...current, `dry-clean-photo-${current.length + 1}.jpg`]);
-  }
-
-  function removePhoto(index: number) {
-    setPhotos((current) => current.filter((_, i) => i !== index));
-  }
-
   function bookAnother() {
     setBooking(null);
     setPhotos([]);
@@ -392,8 +384,8 @@ export function LaundryBookingClient({
             {service?.pricingModel === "per-item" && (
               <PhotoUpload
                 photos={photos}
-                onAdd={addPhoto}
-                onRemove={removePhoto}
+                onChange={setPhotos}
+                purpose="laundry"
                 label="Add photo"
                 className={styles.photoUpload}
               />
