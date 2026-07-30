@@ -14,6 +14,22 @@ import { areaById, nearestArea, TRICITY_AREAS, type Coords, type TricityArea } f
 const STORAGE_KEY = "hk_location_v1";
 
 /**
+ * Cookie mirror of the stored coordinates.
+ *
+ * `/shop` and `/snacks` are Server Components — they fetch the catalogue
+ * during the server render, where `localStorage` doesn't exist. Without a
+ * cookie the buyer's location could never reach the query, so those pages
+ * would always render the unfiltered catalogue no matter what area was
+ * picked. Same technique `hk_role` already uses for `middleware.ts`.
+ *
+ * Coordinates only, and area-centroid precision at that — never a precise
+ * address. Not httpOnly because the client owns this value; it isn't a
+ * security boundary, just a hint the server render can read.
+ */
+const LOCATION_COOKIE = "hk_loc";
+const LOCATION_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
+
+/**
  * How we came to know where the buyer is. Worth distinguishing because a
  * GPS fix and a hand-picked sector deserve different copy ("Using your
  * location" vs "Delivering to Sector 35").
@@ -73,6 +89,18 @@ function writeStored(value: StoredLocation) {
     // Private mode / storage disabled — the session still works, it just
     // won't be remembered on the next visit.
   }
+  writeLocationCookie(value);
+}
+
+/** Mirrors coordinates into `hk_loc` so the server render can filter too. */
+function writeLocationCookie(value: StoredLocation) {
+  if (typeof document === "undefined") return;
+  if (value.lat === undefined || value.lng === undefined) {
+    document.cookie = `${LOCATION_COOKIE}=; Max-Age=0; path=/; SameSite=Lax`;
+    return;
+  }
+  const payload = encodeURIComponent(`${value.lat},${value.lng}`);
+  document.cookie = `${LOCATION_COOKIE}=${payload}; Max-Age=${LOCATION_COOKIE_MAX_AGE_S}; path=/; SameSite=Lax`;
 }
 
 /**

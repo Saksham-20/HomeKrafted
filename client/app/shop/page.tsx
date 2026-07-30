@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { getBuyerCoords } from "@/lib/location/server";
 import { getCategories, getOccasions, getProducts, getVendors } from "@/lib/api";
 import { ShopClient } from "./ShopClient";
 import styles from "./Shop.module.css";
@@ -16,8 +17,13 @@ export interface ShopPageProps {
  */
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams;
+  // Read the buyer's area from the `hk_loc` cookie so the server render
+  // filters too — `LocationContext` lives in localStorage, which this
+  // Server Component can't see. Undefined (no area picked, prompt
+  // declined) means the full catalogue, never an empty page.
+  const near = await getBuyerCoords();
   const [products, categories, occasions, vendors] = await Promise.all([
-    getProducts(),
+    getProducts(near),
     getCategories(),
     getOccasions(),
     getVendors(),

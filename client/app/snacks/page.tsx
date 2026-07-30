@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { getBuyerCoords } from "@/lib/location/server";
 import { getSnackCategoryFilters, getSnacks } from "@/lib/api";
 import { getChannelRule } from "@/lib/channel";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
@@ -26,7 +27,9 @@ export default async function SnacksPage() {
     );
   }
 
-  const [snacks, categories] = await Promise.all([getSnacks(), getSnackCategoryFilters()]);
+  // Same cookie-read as /shop — see `getBuyerCoords`.
+  const near = await getBuyerCoords();
+  const [snacks, categories] = await Promise.all([getSnacks(near), getSnackCategoryFilters()]);
 
   return (
     <>
