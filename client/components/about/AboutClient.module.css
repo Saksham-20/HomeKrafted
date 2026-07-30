@@ -1,0 +1,306 @@
+/**
+ * `/about` — brand story page. White-first: canvas stays --hk-bg, every
+ * panel is a white Card with the standard hairline border. Gold is used
+ * only for the eyebrow and the "coming soon" chip (decorative), never for
+ * body copy, per the design system's gold-contrast rule.
+ */
+
+.page {
+  padding-block: var(--hk-s6) var(--hk-s8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s7);
+}
+
+/* ---- hero ---- */
+
+.hero {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h1);
+  color: var(--hk-ink);
+}
+
+.lede {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-style: italic;
+  color: var(--hk-pine);
+}
+
+.h2 {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+  margin-bottom: var(--hk-s4);
+}
+
+.body {
+  color: var(--hk-ink-2);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* ---- story ---- */
+
+.storySection {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.storyCopy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.storyCopy .h2 {
+  margin-bottom: 0;
+}
+
+.storyImage {
+  border-radius: var(--hk-r-lg);
+  overflow: hidden;
+}
+
+/* ---- mission ---- */
+
+.missionCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  border-left: 3px solid var(--hk-gold);
+}
+
+.missionEyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.missionText {
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--hk-ink);
+}
+
+/* ---- pillars ---- */
+
+.pillarGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.pillar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pillarTitle {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.pillarBody {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--hk-muted);
+}
+
+/* ---- offerings ---- */
+
+.offeringList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--hk-s4);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.offering {
+  padding-top: var(--hk-s3);
+  border-top: 2px solid var(--hk-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.offeringHead {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.offeringTitle {
+  font-family: var(--hk-font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.soon {
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  border-radius: var(--hk-r-pill);
+  padding: 2px 8px;
+}
+
+.offeringBody {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--hk-muted);
+}
+
+/* ---- team ---- */
+
+.teamIntro {
+  color: var(--hk-muted);
+  font-size: 14.5px;
+  margin-top: calc(-1 * var(--hk-s2));
+  margin-bottom: var(--hk-s4);
+}
+
+.teamGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--hk-s3);
+}
+
+.member {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.member > :first-child {
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.founder {
+  border-color: var(--hk-gold-border);
+  background: var(--hk-gold-tint);
+}
+
+.memberName {
+  font-family: var(--hk-font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.memberRole {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin-top: 2px;
+}
+
+/* ---- contact ---- */
+
+.contact {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.ctaRow {
+  display: flex;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s4);
+  flex-wrap: wrap;
+}
+
+.primaryCta,
+.secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--hk-r-pill);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.primaryCta {
+  background: var(--hk-pine);
+  color: #fff;
+}
+
+.primaryCta:hover {
+  background: var(--hk-pine-deep);
+  color: #fff;
+}
+
+.secondaryCta {
+  border: 1px solid var(--hk-border-2);
+  color: var(--hk-ink-2);
+}
+
+.secondaryCta:hover {
+  border-color: var(--hk-pine);
+  color: var(--hk-pine);
+}
+
+.contactCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.contactRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--hk-ink-2);
+  line-height: 1.5;
+}
+
+a.contactRow:hover {
+  color: var(--hk-pine);
+}
+
+.contactRow svg {
+  flex-shrink: 0;
+  color: var(--hk-muted-2);
+}
+
+@media (max-width: 860px) {
+  .storySection,
+  .contact {
+    grid-template-columns: 1fr;
+  }
+
+  .storyImage {
+    max-width: 320px;
+  }
+}

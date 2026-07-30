@@ -65,10 +65,10 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
   return (
     <header className={styles.header}>
       <div className={clsx("container", styles.row)}>
-        <Link href="/" className={styles.logo}>
-          <span className={styles.wordmark}>
-            Home<span className={styles.krafted}>krafted</span>
-          </span>
+        <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
+          {/* eslint-disable-next-line @next/next/no-img-element -- the brand
+              lockup is a fixed vector; next/image adds no value for an SVG. */}
+          <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
           <span className={styles.tagline}>Home food · Tricity</span>
         </Link>
 

@@ -27,3 +27,4 @@ export * from "./corporate";
 export * from "./sell";
 export * from "./sellers";
 export * from "./admin";
+export * from "./about";

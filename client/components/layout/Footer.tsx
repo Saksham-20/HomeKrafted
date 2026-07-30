@@ -15,9 +15,8 @@ export async function Footer() {
     <footer className={styles.footer}>
       <div className={clsx("container", styles.top)}>
         <div className={styles.brandCol}>
-          <span className={styles.wordmark}>
-            Home<span className={styles.krafted}>krafted</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
+          <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
           <p className={styles.blurb}>{brandBlurb}</p>
         </div>
 

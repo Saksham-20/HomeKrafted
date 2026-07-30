@@ -86,9 +86,8 @@ export function AdminLoginClient() {
     <div className={styles.page}>
       <div className={styles.inner}>
         <div className={styles.header}>
-          <span className={styles.wordmark}>
-            Home<span className={styles.krafted}>krafted</span>
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
+          <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
           <span className={styles.eyebrow}>Admin panel — staff only</span>
           <h1 className={styles.title}>Sign in</h1>
           <p className={styles.subtitle}>

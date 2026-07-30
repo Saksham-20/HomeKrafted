@@ -19,15 +19,13 @@
   text-align: center;
 }
 
-.wordmark {
-  font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 24px;
-  color: var(--hk-pine);
-}
-
-.krafted {
-  color: var(--hk-gold);
+/* Centred lockup above the sign-in card; light background, so the artwork
+   keeps its own gold/green. */
+.logoMark {
+  display: block;
+  height: 46px;
+  width: auto;
+  margin: 0 auto;
 }
 
 .eyebrow {

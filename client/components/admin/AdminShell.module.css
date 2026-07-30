@@ -23,21 +23,23 @@
 
 .logo {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 20px;
+  align-items: center;
+  gap: 10px;
   color: #ffffff;
   flex-shrink: 0;
 }
 
-.logo:hover {
-  color: #ffffff;
+/* Pine-deep topbar: same white-knockout as the footer, since the lockup's
+   dark-green "Krafted" is invisible here. See Footer.module.css. */
+.logoMark {
+  display: block;
+  height: 30px;
+  width: auto;
+  filter: brightness(0) invert(1);
 }
 
-.krafted {
-  color: var(--hk-gold-bright);
+.logo:hover {
+  color: #ffffff;
 }
 
 .portalTag {

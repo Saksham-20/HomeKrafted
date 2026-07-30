@@ -24,16 +24,18 @@
   color: inherit;
 }
 
-.wordmark {
-  font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 25px;
-  color: var(--hk-pine);
-  letter-spacing: -0.01em;
+/* The supplied brand lockup ships at 1381x789 with its own gold/green;
+   height-constrained so the header row keeps its rhythm at any width. */
+.logoMark {
+  display: block;
+  height: 42px;
+  width: auto;
 }
 
-.krafted {
-  color: var(--hk-gold);
+@media (max-width: 400px) {
+  .logoMark {
+    height: 34px;
+  }
 }
 
 .tagline {

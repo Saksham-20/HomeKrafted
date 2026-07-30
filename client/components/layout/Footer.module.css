@@ -22,15 +22,16 @@
   flex-direction: column;
 }
 
-.wordmark {
-  font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 23px;
-  color: #ffffff;
-}
-
-.krafted {
-  color: var(--hk-gold-bright);
+/* The lockup's "Krafted" is dark green (#004e19), which disappears against
+   --hk-pine-deep. The SVG file is the supplied original and must not be
+   edited, so the dark-surface variant is made here in CSS: knock the artwork
+   to solid white. Losing the gold is the accepted trade for legibility —
+   the light-background lockup (header) keeps the real brand colours. */
+.logoMark {
+  display: block;
+  height: 40px;
+  width: auto;
+  filter: brightness(0) invert(1);
 }
 
 .blurb {

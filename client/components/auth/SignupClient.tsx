@@ -183,7 +183,8 @@ export function SignupClient() {
   return (
     <section className={clsx("container", styles.page)}>
       <div className={styles.header}>
-        <span className={styles.eyebrow}>Homekrafted</span>
+        {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
+        <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
         <h1 className={styles.title}>Create your account</h1>
         <p className={styles.subtitle}>
           {authRole === "shopper"

@@ -123,7 +123,8 @@ export function SellerShell({ children }: { children: ReactNode }) {
       <header className={styles.topbar}>
         <div className={clsx("container", styles.topbarRow)}>
           <Link href="/seller" className={styles.logo}>
-            Home<span className={styles.krafted}>krafted</span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
+            <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
             <span className={styles.portalTag}>HomeKrafter</span>
           </Link>
           <div className={styles.topbarActions}>

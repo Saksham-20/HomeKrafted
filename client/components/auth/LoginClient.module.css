@@ -10,6 +10,15 @@
   text-align: center;
 }
 
+/* Brand lockup above the sign-in / sign-up form. Light background, so the
+   supplied artwork keeps its own gold/green. */
+.logoMark {
+  display: block;
+  height: 44px;
+  width: auto;
+  margin: 0 auto var(--hk-s2);
+}
+
 .eyebrow {
   font-family: var(--hk-font-mono);
   font-size: 11px;

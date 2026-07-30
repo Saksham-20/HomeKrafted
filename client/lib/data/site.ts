@@ -32,7 +32,7 @@ export const primaryNav: NavLink[] = [
   { label: "Build a Hamper", href: "/hamper" },
   { label: "Laundry", href: "/laundry" },
   { label: "Snacks", href: "/snacks" },
-  { label: "About", href: "/" },
+  { label: "About", href: "/about" },
 ];
 
 export const announcementItems: AnnouncementItem[] = [
@@ -59,6 +59,7 @@ export const footerColumns: FooterColumn[] = [
   {
     title: "Help",
     links: [
+      { label: "About us", href: "/about" },
       { label: "Track order", href: "/account/orders" },
       { label: "Shipping & returns", href: "/support" },
       { label: "FAQ", href: "/support" },
