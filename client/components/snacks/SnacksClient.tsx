@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { buildWhatsAppLink, HOMEKRAFTED_WHATSAPP_NUMBER } from "@/lib/messaging";
 import { buildSnackListMessage } from "@/lib/snacks/message";
 import { PreOrderPicker, type PreOrderSelection } from "@/components/ui/PreOrderPicker";
-import { describeSlot, firstAvailableSlot } from "@/lib/schedule";
+import { describeSlot } from "@/lib/schedule";
 import { CHANNEL_RULES } from "@/lib/channel";
 import { formatCurrency } from "@/lib/format";
 import type { Snack, SnackListItem } from "@/lib/types";
@@ -66,7 +66,7 @@ export function SnacksClient({ snacks, categories }: SnacksClientProps) {
 
   // Pre-order slot. Defaults to the soonest bookable window so someone who
   // just wants food now doesn't have to touch the picker at all.
-  const [preOrder, setPreOrder] = useState<PreOrderSelection | undefined>(() => firstAvailableSlot());
+  const [preOrder, setPreOrder] = useState<PreOrderSelection | undefined>(undefined);
 
   function withoutKey(record: Record<string, number>, key: string): Record<string, number> {
     return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));

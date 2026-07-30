@@ -1,0 +1,205 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e4]: ✦ Cooked this morning in a home kitchen near you
+    - generic [ref=f3e5]: ·
+    - generic [ref=f3e6]: Chandigarh · Mohali · Panchkula · Zirakpur
+    - generic [ref=f3e7]: ·
+    - generic [ref=f3e8]: Freshly prepared · No preservatives
+  - banner [ref=f3e9]:
+    - generic [ref=f3e10]:
+      - link "Homekrafted Home food · Tricity" [ref=f3e11] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f3e12]: Homekrafted
+        - generic [ref=f3e13]: Home food · Tricity
+      - navigation "Primary" [ref=f3e14]:
+        - link "Shop" [ref=f3e15] [cursor=pointer]:
+          - /url: /shop
+        - link "Build a Hamper" [ref=f3e16] [cursor=pointer]:
+          - /url: /hamper
+        - link "Laundry" [ref=f3e17] [cursor=pointer]:
+          - /url: /laundry
+        - link "Snacks" [ref=f3e18] [cursor=pointer]:
+          - /url: /snacks
+        - link "About" [ref=f3e19] [cursor=pointer]:
+          - /url: /
+      - generic [ref=f3e20]:
+        - link "Search homemade products" [ref=f3e21] [cursor=pointer]:
+          - /url: /shop
+          - generic [ref=f3e25]: Search homemade…
+        - link "₹0" [ref=f3e26] [cursor=pointer]:
+          - /url: /wallet
+        - link "Wishlist, 0 items" [ref=f3e31] [cursor=pointer]:
+          - /url: /account/wishlist
+        - link "Account" [ref=f3e34] [cursor=pointer]:
+          - /url: /account/profile
+        - link "Cart, 0 items" [ref=f3e38] [cursor=pointer]:
+          - /url: /cart
+    - dialog [ref=f3e43]:
+      - generic [ref=f3e44]:
+        - generic [ref=f3e45]: Menu
+        - button [ref=f3e46] [cursor=pointer]
+      - navigation [ref=f3e50]:
+        - link [ref=f3e51] [cursor=pointer]:
+          - /url: /shop
+          - text: Shop
+        - link [ref=f3e52] [cursor=pointer]:
+          - /url: /hamper
+          - text: Build a Hamper
+        - link [ref=f3e53] [cursor=pointer]:
+          - /url: /laundry
+          - text: Laundry
+        - link [ref=f3e54] [cursor=pointer]:
+          - /url: /snacks
+          - text: Snacks
+        - link [ref=f3e55] [cursor=pointer]:
+          - /url: /
+          - text: About
+      - generic [ref=f3e57]:
+        - link [ref=f3e58] [cursor=pointer]:
+          - /url: /wallet
+          - generic [ref=f3e63]: Wallet
+          - generic [ref=f3e64]: ₹0
+        - link [ref=f3e65] [cursor=pointer]:
+          - /url: /account/wishlist
+          - generic [ref=f3e69]: Wishlist
+        - link [ref=f3e70] [cursor=pointer]:
+          - /url: /account/profile
+          - generic [ref=f3e75]: Account
+  - main [ref=f3e76]:
+    - generic [ref=f3e78]:
+      - generic [ref=f3e79]:
+        - generic [ref=f3e80]: Order on WhatsApp
+        - generic [ref=f3e81]: No checkout — we reply on chat
+      - heading "Fresh home snacks, daily" [level=1] [ref=f3e82]
+      - paragraph [ref=f3e83]: Browse today’s menu, build your list, and send it to us on WhatsApp — you’ll get order updates right in the chat. Full meals & live tracking are on the app.
+    - generic [ref=f3e85]:
+      - generic [ref=f3e86]:
+        - generic [ref=f3e87]:
+          - button "All" [pressed] [ref=f3e88] [cursor=pointer]
+          - button "Savoury" [ref=f3e89] [cursor=pointer]
+          - button "Sweet" [ref=f3e90] [cursor=pointer]
+          - button "Baked" [ref=f3e91] [cursor=pointer]
+          - button "Namkeen" [ref=f3e92] [cursor=pointer]
+        - generic [ref=f3e93]:
+          - generic [ref=f3e94]:
+            - generic [ref=f3e95]:
+              - img "LADOO" [ref=f3e96]
+              - img "Vegetarian" [ref=f3e98]
+            - generic [ref=f3e100]:
+              - generic [ref=f3e101]: Besan Ladoo
+              - generic [ref=f3e102]: Slow-roasted, 6 pcs
+              - generic [ref=f3e103]:
+                - generic [ref=f3e104]: ₹160
+                - button "+ Add" [ref=f3e105] [cursor=pointer]
+          - generic [ref=f3e106]:
+            - generic [ref=f3e107]:
+              - img "CHAKLI" [ref=f3e108]
+              - img "Vegetarian" [ref=f3e110]
+            - generic [ref=f3e112]:
+              - generic [ref=f3e113]: Chakli Spirals
+              - generic [ref=f3e114]: Rice & lentil, hand-rolled
+              - generic [ref=f3e115]:
+                - generic [ref=f3e116]: ₹110
+                - button "+ Add" [ref=f3e117] [cursor=pointer]
+          - generic [ref=f3e118]:
+            - generic [ref=f3e119]:
+              - img "MATHRI" [ref=f3e120]
+              - img "Vegetarian" [ref=f3e122]
+            - generic [ref=f3e124]:
+              - generic [ref=f3e125]: Masala Mathri
+              - generic [ref=f3e126]: Crispy, flaky, ghee-fried
+              - generic [ref=f3e127]:
+                - generic [ref=f3e128]: ₹120
+                - button "+ Add" [ref=f3e129] [cursor=pointer]
+          - generic [ref=f3e130]:
+            - generic [ref=f3e131]:
+              - img "NANKHATAI" [ref=f3e132]
+              - img "Vegetarian" [ref=f3e134]
+            - generic [ref=f3e136]:
+              - generic [ref=f3e137]: Nankhatai Cookies
+              - generic [ref=f3e138]: Cardamom shortbread, 8 pcs
+              - generic [ref=f3e139]:
+                - generic [ref=f3e140]: ₹140
+                - button "+ Add" [ref=f3e141] [cursor=pointer]
+          - generic [ref=f3e142]:
+            - generic [ref=f3e143]:
+              - img "CHIVDA" [ref=f3e144]
+              - img "Vegetarian" [ref=f3e146]
+            - generic [ref=f3e148]:
+              - generic [ref=f3e149]: Roasted Chivda
+              - generic [ref=f3e150]: Light poha namkeen mix
+              - generic [ref=f3e151]:
+                - generic [ref=f3e152]: ₹90
+                - button "+ Add" [ref=f3e153] [cursor=pointer]
+          - generic [ref=f3e154]:
+            - generic [ref=f3e155]:
+              - img "PEANUTS" [ref=f3e156]
+              - img "Vegetarian" [ref=f3e158]
+            - generic [ref=f3e160]:
+              - generic [ref=f3e161]: Spicy Peanut Masala
+              - generic [ref=f3e162]: Roasted, tangy coating
+              - generic [ref=f3e163]:
+                - generic [ref=f3e164]: ₹80
+                - button "+ Add" [ref=f3e165] [cursor=pointer]
+      - complementary [ref=f3e166]:
+        - generic [ref=f3e167]:
+          - generic [ref=f3e168]: Your snack list
+          - generic [ref=f3e169]: No snacks added yet — tap “+ Add” on a snack
+          - generic [ref=f3e172]:
+            - button "Send list on WhatsApp" [disabled]
+          - paragraph [ref=f3e173]: Final price confirmed in chat
+        - generic [ref=f3e174]:
+          - text: Order updates on WhatsApp
+          - list [ref=f3e175]:
+            - listitem [ref=f3e176]:
+              - generic [ref=f3e178]: Order received
+            - listitem [ref=f3e179]:
+              - generic [ref=f3e181]: Order accepted
+            - listitem [ref=f3e182]:
+              - generic [ref=f3e184]: Out for delivery
+          - paragraph [ref=f3e185]: Full meals & live rider tracking are on the Homekrafted app.
+  - contentinfo [ref=f3e186]:
+    - generic [ref=f3e187]:
+      - generic [ref=f3e188]:
+        - generic [ref=f3e189]: Homekrafted
+        - paragraph [ref=f3e190]: Home-cooked food, fresh bakes and small-batch pickles from real home kitchens across Chandigarh, Mohali, Panchkula and Zirakpur.
+      - generic [ref=f3e191]:
+        - generic [ref=f3e192]: Services
+        - link "Homemade Foods" [ref=f3e193] [cursor=pointer]:
+          - /url: /shop
+        - link "Gift Hampers" [ref=f3e194] [cursor=pointer]:
+          - /url: /hamper
+        - link "Laundry & Cleaning" [ref=f3e195] [cursor=pointer]:
+          - /url: /laundry
+        - link "Food Delivery (app)" [ref=f3e196] [cursor=pointer]:
+          - /url: /app-promo
+        - link "Corporate gifting" [ref=f3e197] [cursor=pointer]:
+          - /url: /corporate
+        - link "Sell on Homekrafted" [ref=f3e198] [cursor=pointer]:
+          - /url: /sell
+      - generic [ref=f3e199]:
+        - generic [ref=f3e200]: Help
+        - link "Track order" [ref=f3e201] [cursor=pointer]:
+          - /url: /account/orders
+        - link "Shipping & returns" [ref=f3e202] [cursor=pointer]:
+          - /url: /support
+        - link "FAQ" [ref=f3e203] [cursor=pointer]:
+          - /url: /support
+        - link "Support" [ref=f3e204] [cursor=pointer]:
+          - /url: /support
+      - generic [ref=f3e205]:
+        - generic [ref=f3e206]: Account
+        - link "Login" [ref=f3e207] [cursor=pointer]:
+          - /url: /login
+        - link "Address book" [ref=f3e208] [cursor=pointer]:
+          - /url: /account/addresses
+        - link "Wallet" [ref=f3e209] [cursor=pointer]:
+          - /url: /wallet
+        - link "Referrals & loyalty" [ref=f3e210] [cursor=pointer]:
+          - /url: /account/referrals
+        - link "Order history" [ref=f3e211] [cursor=pointer]:
+          - /url: /account/orders
+    - generic [ref=f3e212]:
+      - generic [ref=f3e213]: © 2026 Homekrafted · Made with love in real homes
+      - generic [ref=f3e214]: Login · Address book · Wallet · Support
+  - alert [ref=f3e215]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { getScheduleDays, describeSlot, type ScheduleDay } from "@/lib/schedule";
 import styles from "./PreOrderPicker.module.css";
@@ -31,12 +31,49 @@ export interface PreOrderPickerProps {
  * 6 PM. Switching to a day whose windows don't include the current
  * selection re-picks the first available one rather than silently keeping
  * an impossible combination.
+ *
+ * **Client-only by construction.** The day list depends on `new Date()`,
+ * and the server renders at a different instant — and often in a different
+ * timezone — than the browser hydrating it. Computing during SSR produced
+ * a hydration mismatch (React #418) whenever the two disagreed about what
+ * "Today" is. So the schedule is built in an effect, after mount, and the
+ * first paint is a stable placeholder that matches on both sides.
  */
 export function PreOrderPicker({ value, onChange, title = "When would you like it?", days }: PreOrderPickerProps) {
-  const scheduleDays = useMemo(() => days ?? getScheduleDays(), [days]);
+  const [scheduleDays, setScheduleDays] = useState<ScheduleDay[]>(days ?? []);
 
-  const selectedDay =
-    scheduleDays.find((d) => d.id === value?.dayId) ?? scheduleDays[0];
+  useEffect(() => {
+    if (days) return;
+    // Deferred a tick to keep this off the "synchronous setState in an
+    // effect body" path, same as the other client stores here.
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setScheduleDays(getScheduleDays());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
+
+  // Auto-select the soonest slot once the schedule exists, so someone who
+  // just wants food now never has to touch this.
+  useEffect(() => {
+    if (value || scheduleDays.length === 0) return;
+    const first = scheduleDays[0];
+    if (first?.windows[0]) onChange({ dayId: first.id, windowId: first.windows[0].id });
+  }, [value, scheduleDays, onChange]);
+
+  const selectedDay = scheduleDays.find((d) => d.id === value?.dayId) ?? scheduleDays[0];
+
+  // Pre-hydration placeholder — identical on server and client.
+  if (scheduleDays.length === 0) {
+    return (
+      <div className={styles.wrap}>
+        <h3 className={styles.title}>{title}</h3>
+        <p className={styles.none}>Loading delivery times…</p>
+      </div>
+    );
+  }
 
   if (!selectedDay) {
     return (

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PreOrderPicker, type PreOrderSelection } from "@/components/ui/PreOrderPicker";
-import { describeSlot, firstAvailableSlot } from "@/lib/schedule";
+import { describeSlot } from "@/lib/schedule";
 import { buildWhatsAppLink, HOMEKRAFTED_WHATSAPP_NUMBER } from "@/lib/messaging";
 import styles from "./MealPreOrder.module.css";
 
@@ -23,7 +23,7 @@ import styles from "./MealPreOrder.module.css";
  * who can answer with what's cooking.
  */
 export function MealPreOrder() {
-  const [slot, setSlot] = useState<PreOrderSelection | undefined>(() => firstAvailableSlot());
+  const [slot, setSlot] = useState<PreOrderSelection | undefined>(undefined);
   const [sent, setSent] = useState(false);
 
   function handleSend() {
