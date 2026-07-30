@@ -13,8 +13,13 @@ shared account layer. It ships as a **monorepo**: `client/` (the Next.js
 web app — all web source lives here), `server/` (a standalone backend API
 **shared by the web + the native apps**, arriving in M8), and `app/` (the
 native mobile apps — React Native/Expo, future). The web is built
-frontend-first with typed mock data before the backend lands; the mock
-`client/lib/api` layer swaps to real calls against `server/` at M8.
+frontend-first with typed mock data before the backend lands; `client/lib/api`
+now makes **real calls** against `server/` (`NEXT_PUBLIC_USE_MOCK=true`
+reverts every module to the old in-memory mocks for offline frontend work).
+
+**Live staging:** http://187.127.171.48 — see `docs/DEPLOY.md` (runbook,
+env, one-command redeploy) and `docs/TESTING.md` (tester handout, demo
+accounts).
 
 - **Approved plan (scope authority):** `~/.claude/plans/read-the-handoff-i-jolly-hennessy.md`
 - **Design system (visual contract):** `handoff/design-system/` + the reference
@@ -37,15 +42,26 @@ primitives → M2 Marketplace browse → M3 Buy flow → M4 Laundry → M5 Snack
 + Food promo → M6 Wallet → M7 Account & shared (done) → **M10 Seller
 portal** (`/seller/*`) → **M11 Admin panel** (`/admin/*`) → M8 Secure
 backend (role-based auth/RBAC, Postgres+Prisma, wallet ledger + payouts,
-Razorpay) → M9 Integrations (WhatsApp Cloud API, notifications).
+Razorpay) → M9 Integrations (WhatsApp Cloud API, notifications) → **M12
+HomeKrafter + local** (single supply role, item availability, tricity
+location filtering, pre-order — see CHANGELOG).
 
 **Three role surfaces, one app, route groups in `client/`:** consumer `/`
 (built), seller `/seller/*` (M10), admin `/admin/*` (M11) — each its own
 login + shell, gated by `client/middleware.ts` on `User.role`
 (`consumer|seller|admin`), all sharing `components/ui` + tokens + `lib`.
-Seller scope = **all supply roles**: makers, laundry partners, snack/food
-sellers (dashboard renders only the modules for their `Seller.type`).
-Seller dashboards scoped to own `vendorId`/partner id; admin unscoped.
+**One supply role — "HomeKrafter" (M12).** `Seller.type`
+(maker/laundry/snack) is gone; it gated module access and is replaced by
+`Seller.specialties: SellerSpecialty[]`, a **discovery/display tag that
+must never decide access**. Every HomeKrafter has a `vendorId` (required)
+and every portal module. All `/seller/*` controllers resolve through the
+single `SellerService.resolveHomeKrafter` — no per-type 403s. Dashboards
+stay scoped to the caller's own `vendorId`/`sellerId`; admin unscoped.
+
+**Naming:** user-facing copy says **HomeKrafter(s)**. Code keeps `seller`
+— `role: "seller"`, `/seller/*` routes, `Seller` type, DB columns —
+because renaming those churns middleware, the `hk_role` cookie, JWT claims
+and the Prisma enum for nothing a user sees.
 
 ## Stack
 
@@ -56,9 +72,10 @@ Seller dashboards scoped to own `vendorId`/partner id; admin unscoped.
 - Icons: `lucide-react` (line icons) + inline SVG for brand marks
   (WhatsApp/App Store/Play) when needed
 - `clsx` for conditional className composition
-- **Not yet installed** (arrive in M8): Prisma, Auth.js, Razorpay. Don't add
-  them early — `lib/api` is a mock layer specifically so the frontend can
-  be built without a backend.
+- **server/**: NestJS + Prisma + Postgres 16, JWT auth, Razorpay (test keys),
+  WhatsApp/SMS/email providers all env-gated (placeholder → logged stub)
+- **No Tailwind, no shadcn, no framer-motion, no cva.** Components sent in
+  that style get *ported* to CSS Modules + `--hk-*` tokens, never pasted.
 
 ## Run commands
 
@@ -101,13 +118,21 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
       format/                 formatCurrency, formatDate helpers
       channel.ts              channel rules — what each module may do on web
       messaging.ts            Messaging interface + click-to-chat (wa.me) impl
-      api/                    typed async client-stub functions — the only way
-                              components should read data (swap to real calls → server/ in M8)
+      api/                    typed async fns — the ONLY way components read data
+                              (real HTTP to server/; NEXT_PUBLIC_USE_MOCK=true reverts to mocks)
+      geo.ts                  haversine + TRICITY_AREAS — mirror of server/src/common/geo.ts,
+                              KEEP THE TWO IN STEP or buyer/kitchen resolve to different points
+      schedule.ts             rolling delivery days + windows; suppresses today's expired slots
+      location/               LocationContext (localStorage + `hk_loc` cookie mirror)
+                              + server.ts#getBuyerCoords for Server Components
     styles/
       tokens.css              verbatim copy of handoff/design-system/tokens.css — LAW
       tokens.extend.css       app-level vars for the known token gaps (M1) — NOT part of handoff
       globals.css             reset, base body, font-variable bridge, .container utility
-  server/                  standalone backend API — shared by client + app (M8; placeholder now)
+  server/                  standalone backend API — NestJS + Prisma + Postgres (live)
+    src/common/geo.ts        haversine, TRICITY_AREAS (source of truth for kitchen coords)
+  scripts/deploy.sh        pull main + build + migrate + pm2 restart on the box
+  ecosystem.config.cjs     pm2 process definitions
   app/                     native mobile apps — React Native/Expo (future; placeholder now)
   handoff/                 DESIGN SYSTEM ONLY — read, never edit, never delete
   docs/                    PRD, API, architecture, data model, design system, ADRs
@@ -151,17 +176,64 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 
 ## Channel rules (see `lib/channel.ts` — read before building any module screen)
 
-| Module | Browse web | Checkout web | Live tracking |
-|---|---|---|---|
-| Marketplace | yes | full web checkout | status only (no map/rider) |
-| Laundry | yes | web checkout **or COD** | app-only (web shows status line + "track on the app") |
-| Snacks | yes (menu) | **no** — WhatsApp only (`wa.me`), no cart/checkout on site | WhatsApp status text |
-| Full meals | **no** — promo only, no menu/cart | app-only | app-only |
+| Module | Browse web | Checkout web | Pre-order web | Live tracking |
+|---|---|---|---|---|
+| Marketplace | yes | full web checkout | yes | status only (no map/rider) |
+| Laundry | yes | web checkout **or COD** | yes | app-only (web shows status line + "track on the app") |
+| Snacks | yes (menu) | **no** — WhatsApp only (`wa.me`), no cart/checkout on site | yes | WhatsApp status text |
+| Full meals | **no** — promo only, no menu/cart | app-only | yes (interest only) | app-only |
+
+`hasPreOrderOnWeb` is deliberately separate from `hasCheckoutOnWeb`:
+scheduling is information, not a transaction. Snacks/meals carry the
+chosen slot into the **WhatsApp message**, never an order record on the
+site — so pre-order never reopens the cart question.
 
 `CHANNEL_RULES` in `lib/channel.ts` is the enforceable form of this table —
 check `hasMenuOnWeb` / `hasCartOnWeb` / `hasCheckoutOnWeb` before rendering
 anything in a Snacks or full-meals screen. If a component would need a flag
 that isn't there, add it to `ChannelRule`, don't route around the module.
+
+## Location & availability (M12) — read before touching catalog or portal
+
+- **Location is never a gate.** No coords → the API returns the *full*
+  catalogue, and the UI says so. The browser prompt has a manual tricity
+  area picker behind it and a first-class "skip". Most people decline a
+  location prompt; a visitor who declines must still be able to shop.
+- **Two copies of the area table** (`client/lib/geo.ts`,
+  `server/src/common/geo.ts`) because client/ and server/ are separate
+  packages. They MUST stay identical — a kitchen's coords come from the
+  server's table at approval, a buyer's from the client's; drift silently
+  mis-sorts distance.
+- **Server Components can't read `localStorage`.** `/shop` and `/snacks`
+  read the `hk_loc` cookie via `getBuyerCoords()`. Any new server-rendered
+  listing page must do the same or it will silently ignore the filter.
+- **Anything keyed on the current time must be client-only.** The schedule
+  derives from `new Date()`; computing it during SSR caused React #418
+  (server and browser disagree on "Today"). Build in an effect after mount
+  behind a stable placeholder.
+- **Two different "is this visible" switches, don't merge them:**
+  `Product.isAvailable`/`Snack.available` is the HomeKrafter's "am I making
+  this today"; `moderationStatus` is the admin's. Buyers need both to pass.
+
+## Docs upkeep — do this as part of the work, not after
+
+Features pile up and these rot fast. When a change lands, update in the
+same commit:
+
+| Changed | Update |
+|---|---|
+| Domain model / roles / channel rules | `CLAUDE.md` (this file) + `docs/DATA-MODEL.md` |
+| Any endpoint added/changed/removed | `docs/API.md` |
+| Anything a tester can see or click | `docs/TESTING.md` |
+| Env vars, services, deploy steps, rate limits | `docs/DEPLOY.md` |
+| A milestone's worth of work | `CHANGELOG.md` (one entry per milestone) |
+
+Rules of thumb: if a doc now says something **untrue**, that's a bug —
+fix it in the same change, don't leave a contradiction next to the new
+text. If you removed a concept (a role, a flag, an endpoint), grep for its
+name across `docs/` and `CLAUDE.md` before you finish. Keep this file
+compact: it is loaded into every session, so prefer replacing stale
+paragraphs over appending new ones.
 
 ## How to add things
 
@@ -272,32 +344,16 @@ automatically.
   see `lib/data/*.ts`), not slugs — `slug` is a separate field, faithful
   to how these will exist as real DB rows + URL-friendly slugs later.
 
-## Decisions made in M0 that Opus should confirm
+## Standing decisions (carried from M0)
 
-- **`About` nav link** points at `/` (home) — the plan's route tree has no
-  dedicated `/about`, and the prototype's own "About" nav item just calls
-  `goHome()`. Add a real `/about` route later if one's wanted.
-- **Wishlist added to `<MobileDrawer>`** beyond the brief's literal "links
-  + wallet + account entries" — without it, Wishlist would be completely
-  unreachable below the 840px breakpoint (its header icon is hidden there
-  too), which reads as a real gap rather than a copy omission.
-- **`LoyaltyTier`** modeled as `'bronze' | 'silver' | 'gold' | 'platinum'`
-  — the plan specifies `tier` + `points` but not tier names; picked the
-  most legible convention pending brand input.
-- **Laundry `pricingModel`** exercises all three union values across the 4
-  services: Wash & Fold `per-kg`, Dry Clean + Steam Ironing `per-item`,
-  Home Cleaning `per-hour` (the prototype's copy says "per room" for
-  cleaning, which doesn't map cleanly to the plan's 3-value union — modeled
-  it as hourly labor pricing, a common real-world convention for deep
-  cleaning).
-- **Laundry day-picker mock dates**: kept the prototype's literal dates
-  (19–22 Jul 2026) but corrected the day-name labels to match the real
-  2026 calendar (the prototype's own "Sat 19 Jul" is wrong — 19 Jul 2026
-  is a Sunday).
-- **Snack list estimate total**: computed as the real sum of its line
-  items (₹360), not the prototype's hardcoded "₹340" (which doesn't match
-  its own three listed items).
-- **Vendor records**: seeded all 8 (one per seed product, including
-  "Homekrafted" itself for the in-house Festive Assorted Hamper) rather
-  than "a few" — with only 8 products total, partial vendor coverage would
-  leave some `Product.vendorId` pointing nowhere.
+- **`About` nav** points at `/` — no dedicated `/about` route exists yet.
+- **Wishlist is in `<MobileDrawer>`** — otherwise unreachable below 840px.
+- **`LoyaltyTier`** = `bronze|silver|gold|platinum` (naming pending brand input).
+- **Laundry `pricingModel`** uses all three union values: Wash & Fold
+  `per-kg`, Dry Clean + Steam Ironing `per-item`, Home Cleaning `per-hour`
+  (prototype says "per room", which doesn't map to the union).
+- **Every vendor is seeded** (one per seed product incl. "Homekrafted"
+  itself) so no `Product.vendorId` dangles.
+
+Superseded: the hardcoded laundry day-picker dates (server now generates
+rolling days from today — see `lib/schedule.ts`).

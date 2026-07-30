@@ -380,7 +380,7 @@ amount outright.
 | `GET /laundry/availability/slots` | `@Public()` | `LaundrySlot[]`. |
 | `GET /laundry/bookings` | any authed role | Mine, newest first. |
 | `GET /laundry/bookings/:id` | any authed role | Owner-scoped — `404` (not `403`) if it exists but isn't mine. |
-| `POST /laundry/bookings` | any authed role | Body: `{ serviceId, estimatedWeightKg?/itemCount?/estimatedHours? (whichever matches the service), pickupSlot: {date, slotId}, deliverySlot: {date, slotId}, addressId, photos?, specialInstructions?, subscriptionId?, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `paymentMethod: "wallet"` debits the computed total + credits cashback **atomically with the booking insert** via `WalletService.postLedgerEntryTx` (the same M8.2 ledger primitive `OrdersService` uses) — insufficient balance → `402`, whole transaction (including the booking) rolls back. Unlike marketplace orders there's no `pending-payment` staging status for laundry (see `schema.prisma`'s `LaundryBookingStatus`), so the debit happens inline rather than via a separate `/pay` step. `razorpay`/`cod` create the booking with no wallet movement (settled at pickup / a future online-payment integration — out of scope here). Auto-assigns `partnerId` to the one seeded demo laundry partner (real pickup-address routing is M9/M10b). Supports `Idempotency-Key`. |
+| `POST /laundry/bookings` | any authed role | Body: `{ serviceId, estimatedWeightKg?/itemCount?/estimatedHours? (whichever matches the service), pickupSlot: {date, slotId}, deliverySlot: {date, slotId}, addressId, photos?, specialInstructions?, subscriptionId?, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `paymentMethod: "wallet"` debits the computed total + credits cashback **atomically with the booking insert** via `WalletService.postLedgerEntryTx` (the same M8.2 ledger primitive `OrdersService` uses) — insufficient balance → `402`, whole transaction (including the booking) rolls back. Unlike marketplace orders there's no `pending-payment` staging status for laundry (see `schema.prisma`'s `LaundryBookingStatus`), so the debit happens inline rather than via a separate `/pay` step. `razorpay`/`cod` create the booking with no wallet movement (settled at pickup / a future online-payment integration — out of scope here). Auto-assigns `partnerId` to the longest-standing approved HomeKrafter whose `specialties` include `laundry` (real pickup-address routing still pending). Supports `Idempotency-Key`. |
 | `GET /laundry/subscriptions` | any authed role | Mine. |
 | `GET /laundry/subscriptions/:id` | any authed role | Owner-scoped. |
 | `POST /laundry/subscriptions` | any authed role | Body: `{ serviceId, plan, slotDay, slotId, nextPickup }`. |
@@ -468,8 +468,8 @@ history; exposing snack orders is a seller-side surface (M8.3b).
 
 ### Seam for M9 (delivery) — closed
 
-Seller-scoped reads/writes (a laundry partner's pickup queue, a snack
-seller's `SnackOrder` inbox, a maker's own `Payout`s) are **real as of
+Seller-scoped reads/writes (a HomeKrafter's pickup queue, `SnackOrder`
+inbox, listings and `Payout`s) are **real as of
 M8.3b** — see "Seller portal (M8.3b)" below. Admin-unscoped views (every
 seller's data unscoped, orders oversight, wallet oversight, catalog/review
 moderation) are **real as of M8.3c** — see "Admin panel (M8.3c)" below.
@@ -551,11 +551,15 @@ mints into the JWT server-side at login/refresh from `Seller.userId ===
 user.id` (see `docs/DATA-MODEL.md`), **never** a client-supplied
 `sellerId`/`vendorId` in a route, query, or body param.
 `SellerService.resolveSeller` re-reads the `Seller` row fresh from the DB
-on every call (not just trusting the token's claim) and
-`resolveMaker`/`resolveLaundryPartner`/`resolveSnackSeller` additionally
-require `seller.type` to match the surface — a laundry-partner token on a
-maker-only route (or vice versa) gets `403`, distinct from the
-cross-seller-ownership case below.
+on every call (not just trusting the token's claim), and every `/seller/*`
+controller goes through the single `resolveHomeKrafter`.
+
+**There is no per-type gating any more (M12).** The old
+`resolveMaker`/`resolveLaundryPartner`/`resolveSnackSeller` trio, and the
+`403 "only available to <type> sellers"` they threw, are gone: one supply
+role, every module open to every HomeKrafter. `Seller.specialties` is a
+discovery tag and never an access decision. The only `403` left on these
+routes is the cross-seller-ownership case below.
 
 **Ownership on every read + write**: a resource that exists but belongs to
 a *different* seller **404s** — never `403`, never a partial/redacted
@@ -616,7 +620,31 @@ Orders containing at least one `OrderItem` whose `productId` belongs to
 | `GET /seller/reviews` | Reviews targeting my vendor (`targetType: "vendor"`) or any of my products (`targetType: "product"`), newest first. |
 | `POST /seller/reviews/:id/reply` | Body: `{ body }`. Owner-scoped by the review's *target*, not a direct FK — `404` if the review targets a different vendor/product. Sets `sellerReplyBody`/`sellerReplyCreatedAt`. |
 
-### Bookings — laundry partner only (`server/src/seller/bookings.controller.ts`)
+### Item availability (M12)
+
+| Route | Who | Notes |
+|---|---|---|
+| `PATCH /seller/listings/:id/availability` | own HomeKrafter | Body `{ isAvailable }`. The HomeKrafter's own "am I making this today" switch. Separate from `PATCH /seller/listings/:id` so a toggle doesn't submit the whole item, and separate from admin `moderationStatus` — an item can be allowed and simply not being cooked. Buyers need both to pass. |
+| `PATCH /seller/menu/:id/availability` | own HomeKrafter | Same, over a `Snack` (writes `Snack.available`). |
+
+### Location filtering (M12)
+
+`GET /products` and `GET /snacks` accept optional `lat` + `lng`. Supplied
+together, results are limited to kitchens whose own `Vendor.deliveryRadiusKm`
+reaches the buyer (haversine, `server/src/common/geo.ts`), and each item
+carries `distanceKm` + `distanceLabel`. `GET /products` also takes
+`sort=nearest` and `availableOnly=false` (portal/admin use, to include
+paused items).
+
+**Omitting them is a first-class case**, not an error: the visitor declined
+the location prompt or hasn't picked an area, and the full catalogue is
+returned rather than an empty page.
+
+`POST /seller-applications` now requires `area` (a `TRICITY_AREAS` id —
+anything else `400`s) and `specialties`, and accepts `deliveryRadiusKm`.
+Approval creates the Vendor at that area's coordinates.
+
+### Bookings — any HomeKrafter (`server/src/seller/bookings.controller.ts`)
 
 `LaundryBooking` rows where `partnerId === seller.id`.
 
@@ -626,7 +654,7 @@ Orders containing at least one `OrderItem` whose `productId` belongs to
 | `GET /seller/bookings/:id` | Owner-scoped. |
 | `POST /seller/bookings/:id/advance` | Advances `scheduled → picked-up → in-progress → out-for-delivery → delivered`. `409` at a terminal status (`delivered`/`cancelled`). |
 
-### Menu — snack seller only (`server/src/seller/menu.controller.ts`)
+### Menu — any HomeKrafter (`server/src/seller/menu.controller.ts`)
 
 CRUD over `Snack` rows where `sellerId === seller.id`. Same "seller sets
 their own price" reasoning as Listings above.
@@ -639,7 +667,7 @@ their own price" reasoning as Listings above.
 | `PATCH /seller/menu/:id` | Partial patch. |
 | `DELETE /seller/menu/:id` | `204`. `409` if still referenced by an existing snack-list/order line. |
 
-### Snack orders — snack seller only (`server/src/seller/snack-orders.controller.ts`)
+### Snack orders — any HomeKrafter (`server/src/seller/snack-orders.controller.ts`)
 
 `SnackOrder` rows where `sellerId === seller.id` — the WhatsApp-origin
 inbound orders the M8.3a doc noted were seamed here.

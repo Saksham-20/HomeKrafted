@@ -3,6 +3,119 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M12] — One HomeKrafter role, local discovery, pre-order — 2026-07-30
+
+Turns the supply side into a single role and makes the marketplace local
+to the Chandigarh tricity. Shipped straight to the live staging box
+(http://187.127.171.48) with a deliberate database reset — the schema
+changes are destructive and the box was demo data.
+
+### Changed
+
+- **One supply role, "HomeKrafter".** `Seller.type`
+  (`maker|laundry|snack`) removed. It was a role in all but name: it
+  decided which portal modules you could open, and `server/src/seller/*`
+  threw `403 "only available to <type> sellers"` at everything else — so
+  two of the three account types literally could not add an item to sell.
+  Replaced by `Seller.specialties: SellerSpecialty[]`, a discovery/display
+  tag that must never decide access. Every HomeKrafter now has a required
+  `vendorId` (storefront) and all eight modules.
+  `resolveMaker`/`resolveLaundryPartner`/`resolveSnackSeller` collapse into
+  one `resolveHomeKrafter`.
+- **One dashboard snapshot** covering storefront orders, pickups and snack
+  orders, replacing three mutually exclusive per-type shapes. Modules a
+  HomeKrafter doesn't use read zero rather than being hidden.
+- **Payouts sum every stream.** `computeDeliveredEarnings` picked one
+  stream by `seller.type`; an account that both cooked and ran pickups was
+  paid for only one of them.
+- **Laundry partner routing** matches `specialties: { has: 'laundry' }`
+  instead of `type: 'laundry'`.
+- **User-facing copy says HomeKrafter(s).** Code keeps `seller` —
+  `role: "seller"`, `/seller/*`, the `Seller` type, DB columns — since
+  renaming those churns middleware, the `hk_role` cookie, JWT claims and
+  the Prisma enum for nothing a user sees.
+- **Landing page** leads with home-cooked food from kitchens near you
+  rather than reading as a gifting site; announcement bar and footer blurb
+  follow.
+- **Seed relocated to the tricity** — ten kitchens across Chandigarh
+  sectors, Mohali, Panchkula and Zirakpur, each with real coordinates.
+- **Migrations collapsed to one init.** This ships with a reset, so
+  replaying four historical migrations that create and then drop the same
+  columns would be noise.
+
+### Added
+
+- **Item availability.** `Product.isAvailable` / `Snack.available` with
+  `PATCH /seller/{listings,menu}/:id/availability`, surfaced as one-tap
+  toggles in the dashboard's "Today's menu" panel. Deliberately distinct
+  from admin `moderationStatus`: an item can be perfectly allowed and
+  simply not being cooked today, and neither actor should silently
+  override the other.
+- **Location.** `Vendor.area`/`lat`/`lng`/`deliveryRadiusKm`, haversine
+  filtering in `common/geo.ts` (application code, not SQL — no PostGIS and
+  the candidate set is one row per HomeKrafter). Buyers get a location
+  prompt on first visit with a manual tricity area picker behind it, and a
+  "Delivering to…" confirm at checkout. **Nothing is ever gated on having
+  a location**: declining is first-class, and with no coordinates the API
+  returns the full catalogue rather than an empty page.
+- **Everyone applies.** `/sell` now captures specialties, tricity area and
+  delivery radius; approving creates the user, a geo-located Vendor and a
+  full HomeKrafter, and notifies them. Rejection notifies too when the
+  applicant already has an account.
+- **HomeKrafter notifications** — `NotificationsService.notify()`, honouring
+  per-category preferences and never throwing into the caller's path (a
+  paid order must not roll back because an inbox write failed). Wired to
+  new orders and application decisions.
+- **Pre-order** for Snacks and full meals, on a shared `lib/schedule.ts`.
+  New `ChannelRule.hasPreOrderOnWeb`, kept separate from
+  `hasCheckoutOnWeb`: scheduling is information, not a transaction, so the
+  chosen slot travels in the WhatsApp message rather than becoming an order
+  record. Snacks still has no cart; full meals still has no web menu.
+- **`PreOrderPicker`** — delivery-window scheduler (month header, paged day
+  strip, time grid). Design ported from a supplied Tailwind/shadcn
+  component onto CSS Modules + tokens; its date logic was *not* ported,
+  because `getWeekDays()` returns Mon–Sat of the current week including
+  days already past and never filters expired times.
+
+### Fixed
+
+- **The near-me filter never reached `/shop` or `/snacks`.** Both are
+  Server Components, so they fetch during the server render where
+  `localStorage` doesn't exist — the buyer's area could never reach the
+  query. Now mirrored into an `hk_loc` cookie and read via
+  `getBuyerCoords()`.
+- **React #418 hydration mismatch** on any page rendering the scheduler:
+  the day list derives from `new Date()`, and server and browser disagree
+  on "Today". Time-dependent UI is now built in an effect after mount
+  behind a stable placeholder.
+- **`mapVendor` never returned `area`/`lat`/`lng`/`deliveryRadiusKm`**,
+  though `client/lib/types` marks them required — every storefront got
+  `undefined` for fields it type-guarantees.
+- **Application responses dropped `area`/`specialties`/`deliveryRadiusKm`**,
+  so the admin review queue couldn't show what it was deciding on.
+- **`THROTTLE_AUTH_LIMIT` was dead config** — `configuration.ts` read it and
+  nothing consumed it; `AuthController` hardcoded `limit: 5`. Raised to
+  120/60s overall and 20/60s on auth: the old ceiling was low enough that
+  ordinary use tripped it, and the 429s surfaced as blank modules and
+  "Missing bearer token", reading as a broken site. Brute-force protection
+  verified still active.
+- **Module-unavailable copy** rendered "doesn't include menuyet" — JSX was
+  eating the space around an expression.
+- **`.env.example` files were untracked**, swallowed by the blanket `.env*`
+  ignore, so a fresh clone had none of the templates `docs/DEPLOY.md` tells
+  you to copy.
+
+### Docs
+
+- `CLAUDE.md` rewritten for the single role, location/availability rules
+  and the no-Tailwind constraint, with a **Docs upkeep** table naming which
+  file to update for which kind of change.
+- `docs/API.md` — per-type `403`s removed (they no longer exist), new
+  availability + location-filtering endpoints documented.
+- `docs/DATA-MODEL.md` — `Seller.type` → `specialties`.
+- `docs/DEPLOY.md`, `docs/TESTING.md` — deploy runbook, rate limits, and a
+  tester handout covering location, pre-order and the reset accounts.
+
 ## [M9] — Integrations: WhatsApp Cloud API, notification delivery, seller onboarding closed — 2026-07-28
 
 Final planned milestone (M0–M9 now complete). Real WhatsApp Cloud API

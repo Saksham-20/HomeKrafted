@@ -153,11 +153,12 @@ place the Prisma model deviates from the literal TS shape). All ids are
   `lib/data/laundry.ts#seedLaundryBookings` with whatever
   `createOrder`/`createBooking` placed live in the current session —
   `/account/orders`'s single read model for the unified history list.
-- **Seller portal (M10a maker; M10b laundry partner + snack seller):**
-  `Seller`/`Payout` (M10a) model the multi-role "seller" account layer —
-  one `Seller` row per signed-in seller account, `type` the discriminant
-  every seller-portal screen branches on (`SellerShell`'s nav, the
-  Dashboard/Orders type routers). M10b's additions are all id-reference
+- **HomeKrafter portal:** `Seller`/`Payout` model the single supply-side
+  account layer — one `Seller` row per signed-in HomeKrafter, always with a
+  `vendorId` (storefront). **`Seller.type` was removed in M12**; it gated
+  module access and is replaced by `Seller.specialties: SellerSpecialty[]`,
+  which is discovery/display only and must never decide access. No portal
+  screen branches on it. Related additions are id-reference
   fields on *existing* domain types rather than new join tables:
   `LaundryBooking.partnerId` and `Snack.sellerId`/`SnackOrder.sellerId`
   all point at `Seller.id` directly — no separate "laundry partner
