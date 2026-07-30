@@ -72,11 +72,40 @@ scripts/deploy.sh --api-only       # backend-only change
 | API (NestJS) | pm2 `homekrafted-api`, `server/dist/main.js` on :4000 |
 | Process config | `ecosystem.config.cjs` (in git) |
 | nginx | `/etc/nginx/sites-available/homekrafted` — :443 TLS for `homekrafted.in`/`www`, :80 `default_server` redirecting to https; `/api/` and `/health` → :4000, everything else → :3000 |
+| Uploaded images | `/var/lib/homekrafted/uploads`, served by nginx at `/uploads/` — **outside the git clone on purpose** |
 | Database | local Postgres 16, db and role both `homekrafted` |
 | Boot | `pm2 startup systemd` + `pm2 save`, so both apps come back after a reboot |
 
 The box has a 2 GB swapfile. It has 1 vCPU and ~4 GB RAM, and `next build`
 needs the headroom.
+
+## Uploaded images
+
+User-uploaded photos (`POST /uploads`, see `docs/API.md`) are written to
+`UPLOAD_DIR` and served by nginx straight from disk at `/uploads/` — they
+never touch Node on the read path.
+
+**`UPLOAD_DIR` must stay outside `/var/www/homekrafted/HomeKrafted`.**
+Deploys `git merge --ff-only` in that clone and the clone is disposable;
+anything written inside it is one `git clean` away from gone. The default
+is `/var/lib/homekrafted/uploads` for exactly that reason.
+
+```bash
+du -sh /var/lib/homekrafted/uploads          # how much has accumulated
+find /var/lib/homekrafted/uploads -type f | wc -l
+```
+
+Nothing reclaims space yet: replacing a listing photo leaves the old file
+on disk, because the row only ever held the new URL. That is fine at
+current volume and is the first thing to revisit if the disk gets tight —
+the endpoint returns a `key` specifically so a caller can delete later.
+
+Storage is behind a driver (`server/src/uploads/storage/`). Moving to S3,
+R2 or Cloudinary means implementing `StorageDriver`, registering it in
+`UploadsModule` and setting `STORAGE_DRIVER` — existing rows keep working,
+because what is persisted is the URL the driver returned, not a
+driver-specific key. An unrecognised `STORAGE_DRIVER` fails at boot rather
+than silently falling back to local disk.
 
 ## Env files — the one thing not in git
 
@@ -133,6 +162,9 @@ Only needed on a fresh machine. Node 20+, nginx, Postgres 16, pm2 and git.
 ```bash
 git clone https://github.com/Saksham-20/HomeKrafted.git /var/www/homekrafted/HomeKrafted
 cd /var/www/homekrafted/HomeKrafted
+
+# Upload directory — deliberately outside the clone (see "Uploaded images")
+mkdir -p /var/lib/homekrafted/uploads
 
 # Postgres role + database
 sudo -u postgres psql -c "CREATE ROLE homekrafted LOGIN PASSWORD '<password>';"

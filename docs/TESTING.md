@@ -162,13 +162,28 @@ accounts — if you see it, report it.
 
 **The big one to test: adding your own items.**
 
-- Open **Listings** (or **Menu**) → add an item, with a price and a photo path
+- Open **Listings** (or **Menu**) → add an item, with a price and a photo
 - It should appear on **/shop** (or the Snacks menu) for shoppers in range
 - On the **Dashboard**, the "Today's menu" panel lists everything you sell
   with an on/off switch
 - Switch something **off** → it should vanish from the shopper side
   immediately. Switch it back on → it returns.
 - This is the thing a cook does every day, so be rough with it
+
+**Photos are real uploads now.** Anywhere you see a photo box you can
+**drag an image onto it**, click it to browse, or paste one from the
+clipboard. It should show a progress bar, then the picture itself.
+
+Worth trying to break:
+
+- Drag a **PDF, a .txt, or a Word doc** in — it should refuse, politely
+- Drag a **very large photo** (over 5MB — most phone photos are under it,
+  a DSLR shot won't be) — it should say it's too large, not fail silently
+- Upload, then hit **Remove**, then upload a different one
+- Do it on your **phone** — tapping the box should open your camera roll
+- Upload, save, then open the item as a shopper — the photo should be there
+- **Dry-clean booking** takes several photos at once — try dropping 3-4
+  together
 
 **A module must never sit on "Loading…" forever.** A permanent spinner is a
 bug — report it with the account and module name.
@@ -219,7 +234,7 @@ Sign in as **admin** at https://homekrafted.in/admin/login
 | **Phone/OTP login** never sends a code | SMS provider not connected on staging. |
 | **WhatsApp messages** don't actually send | WhatsApp provider not connected on staging. |
 | **Live delivery tracking / map** missing on web | App-only by design. Web shows a status line. |
-| Product photos show a **hatched placeholder** in some slots | Real photography hasn't been shot for those items yet. |
+| Product photos show a **hatched placeholder** in some slots | Nobody has uploaded a photo for that item yet — add one and it replaces the placeholder. |
 | The **video reel rail** always shows the same clips | Reels aren't wired to the backend yet — they come from fixed sample data. |
 | Web addresses containing **`/seller`** | Internal naming; the visible wording is HomeKrafter. |
 

@@ -3,6 +3,57 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M14] — Real image uploads — 2026-07-30
+
+Every image field in the app was a text input asking a home cook to type a
+path at a file they had no way to put on the server. They upload now.
+
+### Added
+
+- **`POST /uploads?purpose=…`** (`server/src/uploads/`) — multipart, behind
+  the global `JwtAuthGuard`. Not role-gated: buyers upload dry-clean photos
+  as well as HomeKrafters uploading product shots, so authorization is "a
+  valid session", and `purpose` plus the caller's own id decide the folder.
+- **`StorageDriver` seam** — local disk today, cloud later as a config
+  change rather than a rewrite. What gets persisted is the URL the driver
+  returned, not a driver-specific key, so rows written to disk keep
+  resolving alongside rows written by a future bucket driver. An
+  unrecognised `STORAGE_DRIVER` throws at boot instead of falling back.
+- **`ImageUpload`** (single value) and a rebuilt **`PhotoUpload`** (lists).
+  Drag, click and paste all reach the same handler — drop suits a desktop,
+  the file picker is the only one that works on a phone, paste catches the
+  screenshot workflow. Real progress, because uploads go through
+  `XMLHttpRequest`: `fetch` cannot report upload progress, and multipart
+  needs the browser to set its own boundary header.
+- Wired into product listings, the snack menu, storefront avatar + banner,
+  the dry-clean booking, and the dev gallery.
+
+### Security
+
+- **Accepted type comes from sniffing the leading bytes**, never the
+  multipart `Content-Type` or the filename — both are caller-supplied. A
+  file stored as `.jpg` and served back from our own origin as HTML is
+  stored XSS, not a cosmetic bug. SVG is rejected for the same reason: it
+  is XML that can carry script.
+- **Stored filenames are UUIDs.** A client filename is a path-traversal and
+  collision vector and is worth nothing for an image.
+- Multer buffers in memory with a hard cap above the configurable limit, so
+  an oversized body is cut off by the parser while the real limit stays in
+  the service where it cannot be bypassed.
+- nginx serves `/uploads/` with `X-Content-Type-Options: nosniff` and a
+  sandboxing CSP, from a directory outside the git clone.
+
+### Fixed
+
+- Five comments under `server/src/seller/*` still described the per-type
+  `403`s that M12 deleted ("Maker-only", "Branches by `seller.type`").
+
+### Known gap
+
+- Nothing reclaims disk yet: replacing a photo leaves the old file behind,
+  since the row only ever held the new URL. The endpoint returns a `key`
+  specifically so a caller can delete later. Recorded in `docs/DEPLOY.md`.
+
 ## [M13] — Brand identity, /about, live on homekrafted.in — 2026-07-30
 
 The app moves off the bare IP onto its real domain, picks up the supplied

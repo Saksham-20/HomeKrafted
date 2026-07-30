@@ -98,7 +98,7 @@ export interface ListingFormProps {
 /**
  * Shared create/edit form for a maker's `Product` — covers the real
  * schema (name, category, occasions, dietary, description, multi-tier
- * `weightOptions`, tags, image path). Both `/seller/listings/new` and
+ * `weightOptions`, tags, photo). Both `/seller/listings/new` and
  * `/seller/listings/[id]` render this and only differ in how they submit
  * (`createSellerListing` vs. `updateSellerListing`, `lib/api/seller.ts`).
  */

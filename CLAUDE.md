@@ -159,13 +159,13 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   regular weight — its contrast on white is only 3.6:1. Terracotta
   (`--hk-terracotta`) is for prices/remove in the marketplace.
 - **Real photos where supplied, placeholder otherwise — always via
-  `<ImageSlot>`.** Real brand photography now lives under
-  `client/public/images/{products,categories,snacks,vendors,site}` and is
-  wired through `<ImageSlot src="/images/...">` (falls back to the labelled
-  diagonal-hatch placeholder when `src` is absent). Use the supplied photos
-  where they exist; use the placeholder for slots that have none. **Never
-  generate or AI-fabricate product/food imagery** (Firefly/Canva/Higgsfield
-  image-gen stay unused) — only real supplied assets or the placeholder.
+  `<ImageSlot>`.** Brand photography lives under
+  `client/public/images/{products,categories,snacks,vendors,site}`;
+  HomeKrafter- and buyer-uploaded photos live at `/uploads/...` (M14, see
+  below). Both are just a `src` — `<ImageSlot src={...}>` falls back to the
+  labelled diagonal-hatch placeholder when it's absent. **Never generate or
+  AI-fabricate product/food imagery** (Firefly/Canva/Higgsfield image-gen
+  stay unused) — only real assets, real uploads, or the placeholder.
 - **CSS Modules only**, consuming token vars (`var(--hk-...)`), not
   scattered hex. No inline `style={{...}}` styling (that was the
   prototype's technique, not ours) except for genuinely dynamic values
@@ -301,7 +301,27 @@ since centralizing a single-use color doesn't pay for itself: ProductCard's
 TransactionRow's debit icon tint (`#f6e7e0`), StoreBadges' on-dark border
 (`#56493a`). See each component's `.module.css` for the inline rationale.
 
-## `ImageSlot` — the only way images render until real photography lands
+## Image uploads (M14) — read before adding another photo field
+
+Never add a text input for an image path; that was the pre-M14 pattern and
+it asked a home cook to type a server path. Use `<ImageUpload>` for a
+single image or `<PhotoUpload>` for a list — both drag/click/paste, upload
+to `POST /uploads?purpose=…`, and hand back a URL to store.
+
+- **Store the `url`, not the `key`.** It's relative today (`/uploads/...`)
+  and absolute behind a CDN driver; storing the URL is what makes swapping
+  `StorageDriver` a config change rather than a data migration.
+- **`purpose` is a closed set** (`listing|menu|storefront|application|
+  laundry`) shared between `lib/api/uploads.ts` and
+  `server/src/uploads/uploads.service.ts`. Adding a field means adding a
+  purpose in both — it decides the folder, so it can never be free-form.
+- **The server decides the file type from the bytes**, not the filename or
+  `Content-Type`. Don't add a type to the allowlist without checking it's
+  inert when served from our own origin (this is why SVG is excluded).
+- **Nothing deletes old files yet.** Replacing a photo orphans the previous
+  one. See `docs/DEPLOY.md`.
+
+## `ImageSlot` — how every image renders, uploaded or not
 
 `components/placeholder/ImageSlot.tsx`:
 
@@ -315,9 +335,10 @@ TransactionRow's debit icon tint (`#f6e7e0`), StoreBadges' on-dark border
 />
 ```
 
-Renders the diagonal-hatch placeholder from the prototype. Swap for
-`next/image` per-slot once real photography exists — don't render actual
-photos, renders, or AI-generated imagery in the meantime.
+With a `src` it renders that image; without one it renders the
+diagonal-hatch placeholder from the prototype. The `src` may be a bundled
+asset (`/images/...`) or an upload (`/uploads/...`) — `ImageSlot` doesn't
+care, which is why upload wiring needed no changes here.
 
 ## Fonts & tokens wiring (established in M0 — don't re-derive this)
 

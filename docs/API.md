@@ -123,6 +123,48 @@ All three return the same shape:
 | `POST /users/me/addresses/:id/default` | any authed role, own address only | `Address` with `isDefault: true` |
 | `GET /users/:id` | **`admin` only** | any user's `PublicUser` — exists specifically to prove `RolesGuard` end to end against a real resource (see `UsersController`'s doc comment); a fuller admin user-management surface is M8.3/M11 scope |
 
+## Uploads (M13 — real, `server/src/uploads/`)
+
+| Endpoint | Auth | Returns |
+|---|---|---|
+| `POST /uploads?purpose=…` | any authed role | `{ url, key, bytes, mime }` |
+
+`multipart/form-data` with the image in a `file` field. `purpose` is
+required and must be one of `listing` \| `menu` \| `storefront` \|
+`application` \| `laundry` — it picks the folder, and a value outside that
+set is a `400` rather than a path.
+
+Deliberately **not** role-gated: buyers upload dry-clean photos as well as
+HomeKrafters uploading product shots, so authorization is "a valid
+session", and `purpose` plus the caller's own id (never a body param)
+decide where the bytes land.
+
+**`url` is the value to persist**, not `key`. It's relative
+(`/uploads/listing/<sellerId>/<uuid>.jpg`) while storage is local disk,
+and would be absolute behind a CDN driver — a stored `url` keeps resolving
+either way, which is what makes swapping drivers a config change rather
+than a data migration. `key` is only needed to delete an object later.
+
+Rejections:
+
+| Status | `code` | When |
+|---|---|---|
+| `400` | `BAD_REQUEST` | missing/unknown `purpose`, or no file |
+| `401` | `UNAUTHORIZED` | no session |
+| `413` | `FILE_TOO_LARGE` | over `UPLOAD_MAX_BYTES` (default 5MB) |
+| `415` | `UNSUPPORTED_IMAGE` | bytes aren't a JPEG, PNG, WebP or AVIF |
+| `429` | `RATE_LIMITED` | over `THROTTLE_UPLOAD_LIMIT` (default 30/min) |
+
+The accepted type is decided by **sniffing the leading bytes**, not the
+multipart `Content-Type` or the filename — both are caller-supplied. SVG
+is rejected on purpose: it is XML that can carry script, and it would be
+served from our own origin. Stored filenames are UUIDs; the client's
+filename is never used for anything.
+
+Reads don't go through the API — nginx serves `/uploads/` straight from
+disk with `X-Content-Type-Options: nosniff` and a sandboxing CSP. See
+`docs/DEPLOY.md`.
+
 ## Commerce (M8.1 — real, `server/src/{catalog,reviews,wishlist,cart,orders}/`)
 
 Catalog browse is public (`@Public()`, per `lib/channel.ts`'s Marketplace

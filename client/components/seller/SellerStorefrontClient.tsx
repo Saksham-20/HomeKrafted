@@ -149,10 +149,6 @@ export function SellerStorefrontClient() {
                 onChange={(event) => setForm((f) => ({ ...f, bio: event.target.value }))}
               />
             </div>
-            <p className={styles.hint}>
-              No upload yet — point image paths at an existing file under{" "}
-              <code>public/images/vendors/</code>.
-            </p>
           </div>
         </div>
 
