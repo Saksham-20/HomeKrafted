@@ -1,0 +1,117 @@
+.wrap {
+  margin: 18px 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--hk-font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.chosen {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hk-pine);
+}
+
+.label {
+  display: block;
+  margin: 12px 0 7px;
+  font-family: var(--hk-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-ink-muted);
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.day {
+  flex: none;
+  min-width: 74px;
+  padding: 9px 12px;
+  text-align: center;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-md);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.day:hover {
+  border-color: var(--hk-pine);
+}
+
+.daySelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-sand);
+}
+
+.dayName {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.dayDate {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.75rem;
+  color: var(--hk-ink-muted);
+}
+
+.windows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.window {
+  padding: 8px 13px;
+  font-size: 0.875rem;
+  color: var(--hk-ink);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.window:hover {
+  border-color: var(--hk-pine);
+}
+
+.windowSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
+}
+
+.part {
+  display: block;
+  font-size: 0.6875rem;
+  opacity: 0.72;
+}
+
+.none {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--hk-ink-muted);
+}

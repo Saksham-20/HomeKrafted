@@ -18,12 +18,21 @@ import type { SnackListItem } from "@/lib/types";
  * `snacks.hasCheckoutOnWeb === false`); this text, sent via wa.me, is the
  * entire "order" — the vendor confirms final price & slot back in chat.
  */
-export function buildSnackListMessage(items: SnackListItem[], estimateTotal: number): string {
+export function buildSnackListMessage(
+  items: SnackListItem[],
+  estimateTotal: number,
+  /** Pre-order slot, e.g. "Tomorrow, 6 – 8 PM". Omitted means "as soon as you can". */
+  requestedSlot?: string,
+): string {
   const lines = items.map((item) => `${item.quantity}x ${item.name}`);
   return [
     "Hi Homekrafted! I'd like to order:",
     ...lines,
     "",
     `Estimated total: ${formatCurrency(estimateTotal)}`,
+    // The slot goes in the message rather than into an order record on the
+    // site: Snacks has no on-site checkout, so the chat *is* the order, and
+    // the kitchen needs to see the requested time in the same place.
+    ...(requestedSlot ? [`Requested for: ${requestedSlot}`] : []),
   ].join("\n");
 }

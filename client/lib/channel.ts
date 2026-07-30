@@ -40,6 +40,16 @@ export interface ChannelRule {
   hasCartOnWeb: boolean;
   /** Does the website carry its own checkout/payment step? */
   hasCheckoutOnWeb: boolean;
+  /**
+   * Can the customer schedule *when* they want it, on the web?
+   *
+   * Deliberately separate from `hasCheckoutOnWeb`. Snacks take no payment
+   * on the site and never will — but "I want this at 6pm tomorrow" is
+   * scheduling information, not a transaction, and it rides along in the
+   * WhatsApp handoff. Keeping the two flags apart is what lets Snacks
+   * offer pre-order without reopening the cart question.
+   */
+  hasPreOrderOnWeb: boolean;
   orderVia: OrderVia;
   liveTracking: LiveTracking;
   badge: ChannelBadgeConfig;
@@ -54,6 +64,7 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
     hasMenuOnWeb: true,
     hasCartOnWeb: true,
     hasCheckoutOnWeb: true,
+    hasPreOrderOnWeb: true,
     orderVia: "web-checkout",
     liveTracking: "status-only",
     badge: { label: "Book online now", variant: "pine" },
@@ -65,6 +76,7 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
     hasMenuOnWeb: true,
     hasCartOnWeb: true,
     hasCheckoutOnWeb: true,
+    hasPreOrderOnWeb: true,
     orderVia: "web-checkout-or-cod",
     liveTracking: "app-only",
     badge: { label: "Book online now", variant: "pine" },
@@ -77,6 +89,9 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
     hasMenuOnWeb: true,
     hasCartOnWeb: false,
     hasCheckoutOnWeb: false,
+    // Pre-order without a cart: the chosen day/window is written into the
+    // WhatsApp message rather than into an order record on this site.
+    hasPreOrderOnWeb: true,
     orderVia: "whatsapp",
     liveTracking: "whatsapp-status",
     badge: { label: "Order on WhatsApp", variant: "whatsapp" },
@@ -89,6 +104,9 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
     hasMenuOnWeb: false,
     hasCartOnWeb: false,
     hasCheckoutOnWeb: false,
+    // Pre-order interest only — there's still no menu on the web, so this
+    // registers "I want meals, at these times" rather than an actual order.
+    hasPreOrderOnWeb: true,
     orderVia: "app-only",
     liveTracking: "app-only",
     badge: { label: "On the app · Coming soon", variant: "gold-dark" },

@@ -1,0 +1,26 @@
+.card {
+  padding: 22px;
+  margin-top: 28px;
+}
+
+.title {
+  margin: 0 0 6px;
+  font-family: var(--hk-font-display);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.copy {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--hk-ink-muted);
+}
+
+.sent {
+  margin: 10px 0 0;
+  font-size: 0.875rem;
+  color: var(--hk-pine);
+}

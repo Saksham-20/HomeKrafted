@@ -9,6 +9,9 @@ import { StatusTimeline } from "@/components/ui/StatusTimeline";
 import { Button } from "@/components/ui/Button";
 import { buildWhatsAppLink, HOMEKRAFTED_WHATSAPP_NUMBER } from "@/lib/messaging";
 import { buildSnackListMessage } from "@/lib/snacks/message";
+import { PreOrderPicker, type PreOrderSelection } from "@/components/ui/PreOrderPicker";
+import { describeSlot, firstAvailableSlot } from "@/lib/schedule";
+import { CHANNEL_RULES } from "@/lib/channel";
 import { formatCurrency } from "@/lib/format";
 import type { Snack, SnackListItem } from "@/lib/types";
 import type { SnackCategoryFilter } from "@/lib/api";
@@ -61,6 +64,10 @@ export function SnacksClient({ snacks, categories }: SnacksClientProps) {
   const estimateTotal = listItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const hasItems = listItems.length > 0;
 
+  // Pre-order slot. Defaults to the soonest bookable window so someone who
+  // just wants food now doesn't have to touch the picker at all.
+  const [preOrder, setPreOrder] = useState<PreOrderSelection | undefined>(() => firstAvailableSlot());
+
   function withoutKey(record: Record<string, number>, key: string): Record<string, number> {
     return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
   }
@@ -83,7 +90,11 @@ export function SnacksClient({ snacks, categories }: SnacksClientProps) {
 
   function handleSend() {
     if (!hasItems) return;
-    const message = buildSnackListMessage(listItems, estimateTotal);
+    const message = buildSnackListMessage(
+      listItems,
+      estimateTotal,
+      preOrder ? describeSlot(preOrder.dayId, preOrder.windowId) : undefined,
+    );
     const link = buildWhatsAppLink(HOMEKRAFTED_WHATSAPP_NUMBER, message);
     window.open(link, "_blank", "noopener,noreferrer");
   }
@@ -152,8 +163,15 @@ export function SnacksClient({ snacks, categories }: SnacksClientProps) {
           title="Your snack list"
           stickyOnMobile
           lines={lines}
-          footnote="Final price & slot confirmed in chat"
+          footnote="Final price confirmed in chat"
         >
+          {/* Pre-order. `snacks.hasPreOrderOnWeb` is true while
+              `hasCartOnWeb`/`hasCheckoutOnWeb` stay false — scheduling is
+              not a transaction, and the chosen slot travels in the WhatsApp
+              message rather than into an order record here. */}
+          {hasItems && CHANNEL_RULES.snacks.hasPreOrderOnWeb && (
+            <PreOrderPicker value={preOrder} onChange={setPreOrder} title="When do you want it?" />
+          )}
           <Button variant="whatsapp" onClick={handleSend} disabled={!hasItems}>
             Send list on WhatsApp
           </Button>

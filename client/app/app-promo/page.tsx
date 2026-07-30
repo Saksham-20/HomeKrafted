@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { MapPin, Percent, UtensilsCrossed, Zap } from "lucide-react";
 import { getMealPromo } from "@/lib/api";
+import { MealPreOrder } from "@/components/food/MealPreOrder";
 import { getChannelRule } from "@/lib/channel";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { StoreBadges } from "@/components/ui/StoreBadges";
@@ -82,6 +83,17 @@ export default async function AppPromoPage() {
           </div>
         </div>
       </section>
+
+      {/* Pre-order. `full-meals.hasPreOrderOnWeb` is true while
+          `hasMenuOnWeb` stays false — there's still no menu here, so this
+          asks for a time and hands off to a human, rather than pretending
+          to be a checkout. */}
+      {channel.hasPreOrderOnWeb && (
+        <section className={clsx("container", styles.propsSection)}>
+          <MealPreOrder />
+        </section>
+      )}
+
 
       <section className={clsx("container", styles.propsSection)}>
         <span className={styles.propsEyebrow}>Why the app</span>
