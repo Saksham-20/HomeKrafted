@@ -1,22 +1,205 @@
-.wrap {
-  margin: 18px 0;
+/**
+ * Delivery-window scheduler.
+ *
+ * Ported from a Tailwind/shadcn `DeliveryScheduler` onto CSS Modules +
+ * `--hk-*` tokens, since this project has no Tailwind (CLAUDE.md's
+ * "CSS Modules only" rule). Token mapping used throughout:
+ *   bg-card / text-card-foreground  -> --hk-surface / --hk-ink
+ *   text-muted-foreground           -> --hk-ink-muted
+ *   bg-primary / primary-foreground -> --hk-pine / #fff
+ *   border                          -> --hk-border
+ *   rounded-2xl / shadow-lg         -> --hk-radius-lg + a soft token-tinted shadow
+ */
+
+.card {
+  width: 100%;
+  padding: 20px;
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-lg);
+  box-shadow: 0 6px 20px rgba(20, 28, 24, 0.06);
 }
 
-.head {
+.stack {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.title {
+/* --- header ------------------------------------------------------------ */
+
+.fieldLabel {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hk-ink-muted);
+}
+
+.headRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.monthYear {
   margin: 0;
   font-family: var(--hk-font-display);
   font-size: 1rem;
   font-weight: 600;
   color: var(--hk-ink);
+}
+
+.navGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navButton {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--hk-ink);
+  background: none;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.navButton:hover:not(:disabled) {
+  background: var(--hk-sand);
+  border-color: var(--hk-pine);
+}
+
+.navButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* --- day row ------------------------------------------------------------ */
+
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+  gap: 8px;
+}
+
+.dayCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dayName {
+  font-size: 0.6875rem;
+  color: var(--hk-ink-muted);
+  white-space: nowrap;
+}
+
+/* The animated "pill" behind a selected date is a background+transform
+   transition rather than a framer-motion layoutId — same read, no extra
+   runtime dependency. */
+.dayButton {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--hk-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--hk-radius-md);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.dayButton:hover:not(.daySelected):not(:disabled) {
+  background: var(--hk-sand);
+}
+
+.daySelected {
+  background: var(--hk-pine);
+  color: #fff;
+  transform: scale(1.04);
+}
+
+.dayButton:disabled {
+  color: var(--hk-ink-muted);
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dayButton:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+/* --- time slots ---------------------------------------------------------- */
+
+.zone {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.timeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+.timeButton {
+  padding: 9px 10px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--hk-ink);
+  background: transparent;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-md);
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+
+.timeButton:hover:not(.timeSelected) {
+  background: var(--hk-sand);
+  border-color: var(--hk-pine);
+}
+
+.timeSelected {
+  background: var(--hk-pine);
+  border-color: var(--hk-pine);
+  color: #fff;
+}
+
+.timeButton:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+.part {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.6875rem;
+  opacity: 0.72;
+}
+
+/* --- footer -------------------------------------------------------------- */
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hk-border);
 }
 
 .chosen {
@@ -25,93 +208,20 @@
   color: var(--hk-pine);
 }
 
-.label {
-  display: block;
-  margin: 12px 0 7px;
-  font-family: var(--hk-font-mono);
-  font-size: 0.6875rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--hk-ink-muted);
-}
-
-.row {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
-}
-
-.day {
-  flex: none;
-  min-width: 74px;
-  padding: 9px 12px;
-  text-align: center;
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-md);
-  cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease;
-}
-
-.day:hover {
-  border-color: var(--hk-pine);
-}
-
-.daySelected {
-  border-color: var(--hk-pine);
-  background: var(--hk-sand);
-}
-
-.dayName {
-  display: block;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--hk-ink);
-}
-
-.dayDate {
-  display: block;
-  margin-top: 1px;
-  font-size: 0.75rem;
-  color: var(--hk-ink-muted);
-}
-
-.windows {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.window {
-  padding: 8px 13px;
-  font-size: 0.875rem;
-  color: var(--hk-ink);
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.window:hover {
-  border-color: var(--hk-pine);
-}
-
-.windowSelected {
-  border-color: var(--hk-pine);
-  background: var(--hk-pine);
-  color: #fff;
-}
-
-.part {
-  display: block;
-  font-size: 0.6875rem;
-  opacity: 0.72;
-}
-
 .none {
   margin: 0;
   font-size: 0.875rem;
   color: var(--hk-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dayButton,
+  .timeButton,
+  .navButton {
+    transition: none;
+  }
+
+  .daySelected {
+    transform: none;
+  }
 }
