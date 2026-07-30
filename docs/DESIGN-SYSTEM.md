@@ -620,25 +620,27 @@ just this milestone's diff.
 
 Notes on how M10b composes the M10a shell, and where it deviates:
 
-- **`SellerShell`'s nav is a pure data switch, not per-route logic** —
-  `navForType(seller.type)` (`SellerShell.tsx`) picks `MAKER_NAV`/
-  `LAUNDRY_NAV`/`SNACK_NAV`, three flat arrays of `{label, href, icon}`.
-  Laundry drops Listings/Storefront/Reviews (maker-only concepts) for a
-  single "Pickups" entry; snack drops them for "Menu" + "Orders" (which
-  means something different from the maker's "Orders" — see below).
-- **`SellerDashboardClient`/`SellerOrdersClient`/`SellerOrderDetailClient`
-  are thin `seller.type` routers, not branching components** — each
-  calls `useAuth()` once and renders one of 2–3 sibling components
-  (`MakerDashboardClient`/`PartnerDashboardClient`/`SnackDashboardClient`,
-  etc.). This is a hooks-correctness constraint, not a style preference:
-  a single component returning early based on `seller.type` before
-  calling its own `useState`/`useEffect` would call a different number
-  of hooks depending on which type is signed in, which
-  `react-hooks/rules-of-hooks` forbids. The M10a maker components were
-  renamed into the sibling shape (`SellerDashboardClient`→
-  `MakerDashboardClient`, `SellerOrdersClient`→`MakerOrdersClient`,
-  `SellerOrderDetailClient`→`MakerOrderDetailClient`) with no behavior
-  change — verified live, maker flows are pixel-identical to M10a.
+- **`SellerShell`'s nav is one flat array for everyone (M12).**
+  `HOMEKRAFTER_NAV` in `SellerShell.tsx` lists all eight modules
+  (Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts,
+  Reviews). This replaced `navForType(seller.type)` and its three arrays
+  (`MAKER_NAV`/`LAUNDRY_NAV`/`SNACK_NAV`): there is one supply role now,
+  so hiding modules by account type is exactly what was removed. A module
+  the account isn't set up for renders `<ModuleUnavailable>` rather than
+  disappearing from the nav.
+- **`SellerDashboardClient` is a single component, not a type router.**
+  It was a three-way switch over `seller.type` rendering
+  `MakerDashboardClient`/`PartnerDashboardClient`/`SnackDashboardClient`;
+  the server now returns one snapshot covering every revenue stream, so
+  there is one dashboard and unused counters simply read zero.
+  `SellerOrdersClient` still composes two siblings — a marketplace `Order`
+  and a WhatsApp `SnackOrder` are genuinely different entities with
+  different statuses, and flattening them would mean inventing a status
+  vocabulary that fits neither — but it renders both rather than choosing
+  by type. Sibling components (rather than one component branching
+  mid-render) remain a hooks-correctness constraint: an early return
+  before `useState`/`useEffect` would call a different number of hooks
+  depending on the account, which `react-hooks/rules-of-hooks` forbids.
 - **"Orders" means two unrelated entities depending on type** — for a
   maker it's the marketplace `Order`/`OrderStatus` pipeline (placed→
   confirmed→packed→shipped→delivered, `OrderStatusPill`); for a snack

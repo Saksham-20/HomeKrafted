@@ -1068,7 +1068,7 @@ flip.
   `lib/api/seller.ts#updatePartnerBookingSlots` (not built in M8.3b), and
   `lib/api/admin.ts#updateProductAdmin` (no generic full-record admin edit
   endpoint exists — only the 7 moderate-action toggles;
-  `PATCH /seller/listings/:id` is maker-only, `@Roles('seller')`, so an
+  `PATCH /seller/listings/:id` is `@Roles('seller')` and owner-scoped, so an
   admin token can't reach it either), and `lib/api/admin.ts#updateHomePromoBand`/
   `getHomePromoBands` (no server table for the home page's promo bands).
   `lib/api/sell.ts#createSellerApplication` (the public `/sell` form) **is
