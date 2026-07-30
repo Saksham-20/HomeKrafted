@@ -25,23 +25,34 @@
 }
 
 /* The supplied brand lockup ships at 1381x789 with its own gold/green;
-   height-constrained so the header row keeps its rhythm at any width. */
+   height-constrained so the header row keeps its rhythm at any width.
+
+   `align-self` matters: `.logo` is a flex column, whose default
+   `align-items: stretch` sets a flex item's cross size — here the width —
+   and that beats `width: auto`, stretching the artwork to the column's
+   width at a fixed height. Pinning the cross axis to the start restores
+   the intrinsic aspect ratio. */
 .logoMark {
   display: block;
-  height: 42px;
+  align-self: flex-start;
+  height: 64px;
   width: auto;
+  max-width: 100%;
 }
 
 @media (max-width: 400px) {
   .logoMark {
-    height: 34px;
+    height: 48px;
   }
 }
 
 .tagline {
   font-family: var(--hk-font-mono);
   font-size: 8.5px;
-  letter-spacing: 0.34em;
+  /* Tracked to sit under the lockup rather than overhang it — the artwork
+     is ~1.75:1, so at 64px tall it is ~112px wide and this row has to
+     match. Was 0.34em when the brand was set in type at a wider ratio. */
+  letter-spacing: 0.115em;
   color: var(--hk-muted-2);
   margin-top: 2px;
   text-transform: uppercase;

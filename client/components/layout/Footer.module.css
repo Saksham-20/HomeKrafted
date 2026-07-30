@@ -29,8 +29,12 @@
    the light-background lockup (header) keeps the real brand colours. */
 .logoMark {
   display: block;
+  /* `.brandCol` is a flex column — see Header.module.css `.logoMark` for
+     why the cross-axis alignment is what preserves the aspect ratio. */
+  align-self: flex-start;
   height: 40px;
   width: auto;
+  max-width: 100%;
   filter: brightness(0) invert(1);
 }
 
