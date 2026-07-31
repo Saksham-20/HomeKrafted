@@ -1,0 +1,32 @@
+.error {
+  margin-top: var(--hk-s2);
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.report {
+  margin-top: var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s3) var(--hk-s4);
+  max-width: 46ch;
+}
+
+.reportLine {
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  font-weight: 500;
+}
+
+.skipped {
+  margin-top: var(--hk-s2);
+  padding-left: var(--hk-s4);
+  font-size: 13px;
+  color: var(--hk-ink-3);
+}
+
+.skippedName {
+  color: var(--hk-ink);
+  font-weight: 500;
+}

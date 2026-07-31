@@ -181,3 +181,10 @@
   color: #ffffff;
   opacity: 0.92;
 }
+
+.actionsButtons {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}

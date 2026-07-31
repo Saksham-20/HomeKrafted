@@ -114,6 +114,11 @@ Sign in as **Ananya**.
   route is test mode, no real charge and no real card details needed
 - Check the order appears under **Account → Orders**
 - Open the order and check the status/timeline reads correctly
+- On a **delivered** order, use **Order this again** — it should put the
+  same items back in your cart and take you there. If something has sold
+  out or the HomeKrafter has paused it, the page should *say so by name*
+  rather than quietly leaving it out. (Ask an admin to pause an item on
+  a delivered order if you want to see that case.)
 
 ### 3. Shopper — wallet
 - **Wallet** page — balance, transaction history

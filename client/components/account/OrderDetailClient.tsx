@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { StatusTimeline } from "@/components/ui/StatusTimeline";
 import { AppTrackingBand } from "@/components/laundry/AppTrackingBand";
+import { ReorderButton } from "./ReorderButton";
 import {
   getAddressById,
   getLaundryServices,
@@ -125,9 +126,12 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
               Your review is what the next buyer reads before trusting a home kitchen.
             </p>
           </div>
-          <Link href="/account/reviews" className={styles.actionLink}>
-            Review these items
-          </Link>
+          <div className={styles.actionsButtons}>
+            <ReorderButton orderId={order.id} />
+            <Link href="/account/reviews" className={styles.actionLink}>
+              Review these items
+            </Link>
+          </div>
         </Card>
       )}
 

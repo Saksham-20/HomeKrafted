@@ -137,3 +137,37 @@ export async function getPlacedOrders(): Promise<Order[]> {
   );
   return page.items;
 }
+
+/** One line of a reorder attempt that made it into the cart. */
+export interface ReorderAdded {
+  name: string;
+  quantity: number;
+}
+
+/** One that didn't, and why — shown to the buyer rather than dropped silently. */
+export interface ReorderSkipped {
+  name: string;
+  reason: string;
+}
+
+export interface ReorderResult {
+  added: ReorderAdded[];
+  skipped: ReorderSkipped[];
+}
+
+/**
+ * `POST /orders/:id/reorder` (M15) — puts a past order back in the cart.
+ *
+ * Checked server-side against today's catalogue, so partial success is
+ * the normal outcome: a home kitchen pauses items, sells out, and retires
+ * weights between one order and the next. The caller must render
+ * `skipped` — a reorder that quietly drops half the order is worse than
+ * one that says which half.
+ *
+ * Mock mode has no server cart to add to, so it reports nothing added
+ * rather than faking a result.
+ */
+export async function reorder(orderId: string): Promise<ReorderResult> {
+  if (isMockMode()) return { added: [], skipped: [] };
+  return http.post<ReorderResult>(`/orders/${encodeURIComponent(orderId)}/reorder`, {});
+}

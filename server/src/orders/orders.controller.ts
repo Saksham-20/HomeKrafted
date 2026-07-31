@@ -38,6 +38,12 @@ export class OrdersController {
     return this.ordersService.getById(user.userId, id);
   }
 
+  /** Puts a past order back in the cart, line by line against today's catalogue — see `OrdersService.reorder`. */
+  @Post(':id/reorder')
+  reorder(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.ordersService.reorder(user.userId, id);
+  }
+
   /**
    * M8.2 — completes the M8.1 `pending-payment` seam for `paymentMethod:
    * "wallet"` orders: debits the wallet for the order total, credits

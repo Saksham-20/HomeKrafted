@@ -252,6 +252,100 @@ export class OrdersService {
   }
 
   /**
+   * Put a past order back in the cart (M15).
+   *
+   * Server-side rather than "loop `addItem` in the browser", because a
+   * home kitchen's catalogue moves under you: by the time someone
+   * reorders, an item may be out of stock, paused for the day
+   * (`isAvailable`), delisted by a moderator, or missing the exact weight
+   * they bought. Each line is checked against *today's* catalogue and
+   * either added or **skipped with a reason the UI can show** — a reorder
+   * that silently drops half the order is worse than one that says which
+   * half.
+   *
+   * Partial success is the expected outcome, not an error: adding three
+   * of four things and naming the fourth is what the buyer wants.
+   */
+  async reorder(userId: string, orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+    if (!order || order.userId !== userId) throw new NotFoundException('Order not found');
+
+    const cart = await this.getOrCreateCartForUser(userId);
+    const added: { name: string; quantity: number }[] = [];
+    const skipped: { name: string; reason: string }[] = [];
+
+    for (const item of order.items) {
+      if (!item.productId || !item.sku) {
+        // A hamper line. The builder is behind `FEATURES.hamperBuilder`
+        // and a hamper is a composed thing, not a SKU — rebuilding one
+        // belongs to the builder, not here.
+        skipped.push({ name: item.name, reason: "Hampers can't be reordered — build a new one" });
+        continue;
+      }
+
+      const product = await this.prisma.product.findUnique({
+        where: { id: item.productId },
+        include: { weightOptions: true },
+      });
+      if (!product) {
+        skipped.push({ name: item.name, reason: 'No longer sold' });
+        continue;
+      }
+      if (product.moderationStatus === 'hidden') {
+        skipped.push({ name: product.name, reason: 'No longer available' });
+        continue;
+      }
+      if (!product.isAvailable) {
+        skipped.push({ name: product.name, reason: "The HomeKrafter isn't making this today" });
+        continue;
+      }
+
+      const weight = product.weightOptions.find((w) => w.sku === item.sku);
+      if (!weight) {
+        skipped.push({ name: product.name, reason: 'That size is no longer offered' });
+        continue;
+      }
+
+      const existing = await this.prisma.cartItem.findFirst({
+        where: { cartId: cart.id, productId: product.id, sku: item.sku },
+      });
+      const wanted = (existing?.quantity ?? 0) + item.quantity;
+      if (wanted > weight.stock) {
+        skipped.push({
+          name: product.name,
+          reason: weight.stock === 0 ? 'Out of stock' : `Only ${weight.stock} left`,
+        });
+        continue;
+      }
+
+      if (existing) {
+        await this.prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: wanted } });
+      } else {
+        await this.prisma.cartItem.create({
+          data: { cartId: cart.id, productId: product.id, sku: item.sku, quantity: item.quantity },
+        });
+      }
+      added.push({ name: product.name, quantity: item.quantity });
+    }
+
+    if (added.length > 0) {
+      await this.prisma.cart.update({ where: { id: cart.id }, data: { updatedAt: new Date() } });
+    }
+
+    return { added, skipped };
+  }
+
+  /** Mirrors `CartService.getOrCreateCart` — `Cart.userId` is unique, so this can only ever touch the caller's own. */
+  private async getOrCreateCartForUser(userId: string) {
+    const existing = await this.prisma.cart.findUnique({ where: { userId } });
+    if (existing) return existing;
+    return this.prisma.cart.create({ data: { userId } });
+  }
+
+  /**
    * `client/lib/api/history.ts#getOrderHistory`'s unified shape — merges
    * marketplace `Order`s and `LaundryBooking`s into one list, newest
    * first, exactly mirroring the mock's own merge-then-sort. `SnackOrder`

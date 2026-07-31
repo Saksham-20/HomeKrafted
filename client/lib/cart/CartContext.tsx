@@ -82,6 +82,14 @@ export interface CartContextValue {
   /** Hands an assembled hamper off from `/hamper` into the cart as one line. Real mode: `Promise<ID>` — the hamper doesn't exist until the server creates it. */
   addHamperItem: (hamper: Omit<Hamper, "id" | "userId" | "createdAt">) => ID | Promise<ID>;
   clear: () => void;
+  /**
+   * Re-pull the server cart. Needed when something *other* than this
+   * store changed it — M15's reorder adds lines server-side (it has to
+   * check each one against today's stock and availability), so the
+   * header badge and `/cart` would otherwise stay stale until a reload.
+   * A no-op in mock mode, where this store is the only writer.
+   */
+  refresh: () => Promise<void>;
   count: number;
   subtotal: number;
   lineInfo: (item: CartItem) => CartLineInfo;
@@ -369,6 +377,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items, lineInfo],
   );
 
+  const refresh = useCallback(async () => {
+    if (mock) return;
+    const cart = await getServerCart();
+    applyServerCart(cart.items);
+  }, [mock, applyServerCart]);
+
   const value: CartContextValue = {
     items,
     hampers,
@@ -379,6 +393,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     assignAddress,
     addHamperItem,
     clear,
+    refresh,
     count,
     subtotal,
     lineInfo,
