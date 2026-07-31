@@ -57,7 +57,12 @@ export class SellerOrdersService {
     }
     const updated = await this.prisma.order.update({
       where: { id: orderId },
-      data: { status: next },
+      data: {
+        status: next,
+        // Stamped here because this is where "delivered" actually
+        // happens. M15's return window counts from it.
+        ...(next === 'delivered' ? { deliveredAt: new Date() } : {}),
+      },
       include: SELLER_ORDER_INCLUDE,
     });
     return mapOrder(updated);

@@ -44,7 +44,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | `Wishlist` | items[{productId, addedAt}] | belongs to `User` |
 | `HamperBox` | name, maxItems, price | referenced by `Hamper.boxId` |
 | `Hamper` | boxId, items[{productId,quantity}], giftNote?, wrap?, ribbon?, nameCard?, recipientAddressId?, hidePrice | belongs to `User`; optional `Address` (recipient) — **M3 note:** the recipient/hide-price fields exist on this type but aren't set by the Hamper builder UI; gift-to-recipient is Checkout's order-wide `Order.gift`, not per-hamper (see CHANGELOG M3) |
-| `Order` (+`OrderItem`, +`OrderShipment`) | status (7-state), shippingAddressIds[], shipments[{addressId, deliveryDate?}], gift? {isGift, recipientAddressId?, hidePrice, message?}, walletApplied, cashbackEarned, refundStatus, paymentMethod (`wallet`\|`razorpay`\|`cod`) | belongs to `User`; `OrderItem` is the same product-or-hamper polymorphism as `CartItem`; `OrderItem.addressId` ties each line to one of `shippingAddressIds`; `shipments` carries that address's own delivery date (M3 — replaces a single order-wide `deliveryDate`) |
+| `Order` (+`OrderItem`, +`OrderShipment`) | status (7-state), shippingAddressIds[], shipments[{addressId, deliveryDate?}], gift? {isGift, recipientAddressId?, hidePrice, message?}, walletApplied, cashbackEarned, refundStatus, **refundReason?/refundRequestedAt?/cancelledAt?/deliveredAt? (M15)**, paymentMethod (`wallet`\|`razorpay`\|`cod`) | belongs to `User`; `OrderItem` is the same product-or-hamper polymorphism as `CartItem`; `OrderItem.addressId` ties each line to one of `shippingAddressIds`; `shipments` carries that address's own delivery date (M3 — replaces a single order-wide `deliveryDate`) |
 
 ## Laundry (`lib/types/laundry.ts`)
 

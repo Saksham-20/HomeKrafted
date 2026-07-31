@@ -167,7 +167,14 @@ export class AdminOrdersService {
       if (!dbStatus) throw new BadRequestException(`Invalid marketplace order status "${status}"`);
       const existing = await this.prisma.order.findUnique({ where: { id } });
       if (!existing) throw new NotFoundException('Order not found');
-      const updated = await this.prisma.order.update({ where: { id }, data: { status: dbStatus }, include: ORDER_INCLUDE });
+      const updated = await this.prisma.order.update({
+        where: { id },
+        // An admin override is the other way an order reaches
+        // `delivered`, so it stamps `deliveredAt` too — otherwise the
+        // return window would silently fall back to `placedAt`.
+        data: { status: dbStatus, ...(dbStatus === 'delivered' ? { deliveredAt: new Date() } : {}) },
+        include: ORDER_INCLUDE,
+      });
       await this.logStatusOverride(adminUserId, 'Order', id, status);
       return mapOrder(updated);
     }

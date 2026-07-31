@@ -343,5 +343,15 @@ export interface Order {
   walletApplied: number;
   cashbackEarned: number;
   refundStatus: RefundStatus;
+  /**
+   * What the buyer said when they cancelled or asked to return, in their
+   * own words, and when (M15). Optional because most orders never have
+   * one — and because every row written before M15 predates the columns.
+   */
+  refundReason?: string;
+  refundRequestedAt?: ISODateString;
+  cancelledAt?: ISODateString;
+  /** When the HomeKrafter marked it delivered — what the 7-day return window counts from. */
+  deliveredAt?: ISODateString;
   paymentMethod: PaymentMethod;
 }

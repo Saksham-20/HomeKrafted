@@ -120,6 +120,20 @@ Sign in as **Ananya**.
   rather than quietly leaving it out. (Ask an admin to pause an item on
   a delivered order if you want to see that case.)
 
+**Cancelling and returning**
+- Open an order that is still **placed** or **confirmed** and use
+  **Cancel this order**. Check the money comes back to your wallet, the
+  status reads Cancelled, and the reason you typed is shown back to you.
+- Try the same on an order that's already **shipped** — it should refuse
+  and tell you to request a return instead.
+- On a **delivered** order, use **Request a return** and write what went
+  wrong. It should say someone is looking at it — **it should not refund
+  you on the spot**, that's deliberate. Ask an admin to check the request
+  appears on the order in the admin panel.
+- Seeded delivered orders are old, so the 7-day return window may have
+  closed on them — that refusal is correct. Place and complete a fresh
+  order to see the window open.
+
 ### 3. Shopper — wallet
 - **Wallet** page — balance, transaction history
 - Pay for an order using wallet balance, then confirm the balance dropped

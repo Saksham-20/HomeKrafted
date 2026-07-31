@@ -1,0 +1,63 @@
+.card,
+.statusCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s5);
+}
+
+/* Resolved/in-progress state reads as information, not an action, so it
+   sits on the warm gold surface rather than the plain card white. */
+.statusCard {
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+}
+
+.cardTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.body,
+.statusBody {
+  font: var(--hk-body);
+  color: var(--hk-ink-3);
+  max-width: 52ch;
+}
+
+.reasonEcho {
+  font: var(--hk-small);
+  color: var(--hk-ink-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-md);
+  padding: 10px 14px;
+  max-width: 52ch;
+}
+
+.reasonLabel {
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.reasonMeta {
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  color: var(--hk-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.note {
+  font: var(--hk-small);
+  color: var(--hk-muted);
+  max-width: 52ch;
+}

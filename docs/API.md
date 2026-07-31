@@ -262,7 +262,26 @@ additionally re-checks the parent cart's `userId` before touching a row
 | `GET /orders/:id` | any authed role, own order only (`404` otherwise) | Full order incl. items/shipments/gift. |
 | `POST /orders/:id/pay` | any authed role, own order only | **M8.2.** Completes the `pending-payment -> placed` seam for a `paymentMethod: "wallet"` order: debits the wallet for `order.total` (read fresh from the DB), credits `order.cashbackEarned`, transitions the order to `placed` — one atomic transaction. `402` (`INSUFFICIENT_BALANCE`) if the wallet can't cover it, order left untouched. `409` if the order isn't `pending-payment` (already paid/cancelled) or `400` if its `paymentMethod` isn't `"wallet"`. Accepts an `Idempotency-Key` header (see "Idempotency" below) — safe to retry. |
 | `POST /orders/:id/reorder` | owner | Puts a past order back in the caller's cart, **line by line against today's catalogue**. Returns `{ added: [{name, quantity}], skipped: [{name, reason}] }`. Partial success is the normal outcome, not an error: an item may be sold out, paused (`isAvailable`), delisted, or missing the exact weight that was bought — a home kitchen's catalogue moves between one order and the next. Hamper lines are always skipped (a hamper is a composed thing; rebuilding one belongs to the builder). Callers **must render `skipped`** — a reorder that silently drops half an order is worse than one that names the half. |
+| `POST /orders/:id/cancel` | owner | Body: `{ reason? }`. Cancels while the order is `pending-payment`, `placed` or `confirmed`; `409` after that (the line is drawn at `packed` — once a home cook has cooked and boxed it, the cost of a cancellation lands on them). Restocks every line, and credits the wallet with the full total **only if money was actually taken** — a `pending-payment` order never captured any, and crediting there would mint money out of an abandoned checkout. Idempotent: cancelling twice returns the cancelled order. |
+| `POST /orders/:id/return` | owner | Body: `{ reason }` (10–1000 chars, **required** — a return is a claim about food that already arrived, and "refund requested" with no words attached is unactionable). Requires `status: delivered`, `refundStatus: none`, and within **7 days of `deliveredAt`** (falling back to `placedAt` on pre-M15 rows). Sets `refundStatus: requested` + `refundReason` + `refundRequestedAt`. **Moves no money** — an admin resolves it with `POST /admin/orders/marketplace/:id/refund`. |
 | `POST /orders/:id/refund` | `@Roles('admin')` | **M8.2.** Credits the order owner's wallet for `order.total` (`category: "refund"`) and sets `refundStatus: "refunded"`. `404` unknown order, `409` if the order was never paid (`pending-payment`). Idempotent: a second call (same `Idempotency-Key`, or none at all — the "already refunded" check alone catches it) returns the same result without a second credit. |
+
+**Why a return doesn't auto-refund.** Whether a homemade jar that "tasted
+off" earns a refund is a judgement call. Auto-refunding would make the
+platform's most abusable path also its most frictionless one, and the
+loss lands on a home cook, not a warehouse. The request is recorded with
+the buyer's own words and handed to a person.
+
+**Refunds go to the wallet**, not the original payment method, matching
+every other refund path in this codebase (`OrdersService.refundOrder`,
+admin refunds). A card reversal through Razorpay is a separate
+integration, not something to half-introduce.
+
+**`Order.deliveredAt`** is stamped wherever an order actually reaches
+`delivered` — the HomeKrafter's `POST /seller/orders/:id/advance` and an
+admin's `PATCH /admin/orders/:type/:id/status`. The return window counts
+from it rather than `placedAt`, which on a made-to-order item can be a
+week earlier.
 
 #### Server-authoritative pricing + price-snapshotting
 

@@ -52,6 +52,13 @@ export function mapOrder(order: OrderWithRelations) {
     walletApplied: Number(order.walletApplied),
     cashbackEarned: Number(order.cashbackEarned),
     refundStatus: order.refundStatus,
+    // M15 — what the buyer said and when. The order detail screen shows
+    // the reason back to them, so "we're looking at it" has something
+    // concrete attached rather than a bare status word.
+    refundReason: order.refundReason ?? undefined,
+    refundRequestedAt: order.refundRequestedAt?.toISOString(),
+    cancelledAt: order.cancelledAt?.toISOString(),
+    deliveredAt: order.deliveredAt?.toISOString(),
     paymentMethod: order.paymentMethod,
   };
 }

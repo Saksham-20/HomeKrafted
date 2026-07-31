@@ -171,3 +171,41 @@ export async function reorder(orderId: string): Promise<ReorderResult> {
   if (isMockMode()) return { added: [], skipped: [] };
   return http.post<ReorderResult>(`/orders/${encodeURIComponent(orderId)}/reorder`, {});
 }
+
+/**
+ * Cancel an order (M15). Allowed up to `confirmed` — once a home cook
+ * has packed it, the cost of a cancellation lands on them, so after that
+ * the path is a return. Restocks, and refunds to the wallet if money was
+ * actually taken (a `pending-payment` order never captured any).
+ *
+ * `reason` is optional here and required for a return: someone cancelling
+ * a minute after checkout has usually just changed their mind.
+ */
+export async function cancelOrder(orderId: string, reason?: string): Promise<Order> {
+  if (isMockMode()) {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) throw new Error("Order not found");
+    order.status = "cancelled";
+    order.refundReason = reason;
+    return order;
+  }
+  return http.post<Order>(`/orders/${encodeURIComponent(orderId)}/cancel`, { reason });
+}
+
+/**
+ * Request a return on a delivered order (M15). **Moves no money** — it
+ * records the claim and hands it to a human, because whether a homemade
+ * jar that "tasted off" earns a refund is a judgement call, and
+ * auto-refunding would make the most abusable path the most frictionless
+ * one. Closes 7 days after delivery.
+ */
+export async function requestReturn(orderId: string, reason: string): Promise<Order> {
+  if (isMockMode()) {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) throw new Error("Order not found");
+    order.refundStatus = "requested";
+    order.refundReason = reason;
+    return order;
+  }
+  return http.post<Order>(`/orders/${encodeURIComponent(orderId)}/return`, { reason });
+}

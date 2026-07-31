@@ -1054,6 +1054,23 @@ model Order {
   walletApplied          Decimal       @default(0) @db.Decimal(12, 2)
   cashbackEarned         Decimal       @default(0) @db.Decimal(12, 2)
   refundStatus           RefundStatus  @default(none)
+  /// Why the buyer asked for their money back, in their own words, and
+  /// when. Set by `POST /orders/:id/cancel` and `POST /orders/:id/return`
+  /// (M15) — before that, `RefundStatus.requested` existed in the enum
+  /// with no path in the product that could reach it, so every refund was
+  /// something an admin started with no record of what the buyer said.
+  refundReason           String?
+  refundRequestedAt      DateTime?
+  /// When the HomeKrafter marked it delivered. The return window counts
+  /// from here, not from `placedAt` — those can be a week apart on a
+  /// made-to-order item, and counting from the wrong one either closes
+  /// the window before the food arrives or leaves it open far too long.
+  /// Null on rows that reached `delivered` before M15 added this.
+  deliveredAt            DateTime?
+  /// Set when the order is cancelled, by the buyer or an admin. Distinct
+  /// from `refundRequestedAt`: a `pending-payment` order can be cancelled
+  /// with no money involved at all.
+  cancelledAt            DateTime?
   paymentMethod          PaymentMethod
 
   items          OrderItem[]

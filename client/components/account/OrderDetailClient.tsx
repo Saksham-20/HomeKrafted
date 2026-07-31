@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { StatusTimeline } from "@/components/ui/StatusTimeline";
 import { AppTrackingBand } from "@/components/laundry/AppTrackingBand";
 import { ReorderButton } from "./ReorderButton";
+import { OrderResolutionPanel } from "./OrderResolutionPanel";
 import {
   getAddressById,
   getLaundryServices,
@@ -135,6 +136,18 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
         </Card>
       )}
 
+      {/* Cancel / return (M15). Placed above the item summary because
+          someone opening a problem order is here for this, not to re-read
+          what they bought. Renders nothing when neither applies. */}
+      {order && (
+        <OrderResolutionPanel
+          order={order}
+          onUpdated={(updated) =>
+            setEntry((current) => (current ? { ...current, order: updated } : current))
+          }
+        />
+      )}
+
       {order && (
         <Card className={styles.card}>
           <span className={styles.cardTitle}>Items</span>
@@ -175,9 +188,6 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
                 ? `Earned ${formatCurrency(order.cashbackEarned)} wallet cashback`
                 : `Earn ${formatCurrency(order.cashbackEarned)} wallet cashback on this order`}
             </p>
-          )}
-          {order.refundStatus !== "none" && (
-            <p className={styles.refundNote}>Refund status: {order.refundStatus}</p>
           )}
         </Card>
       )}

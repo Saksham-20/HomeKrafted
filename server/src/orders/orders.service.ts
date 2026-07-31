@@ -338,6 +338,139 @@ export class OrdersService {
     return { added, skipped };
   }
 
+  // -------------------------------------------------------------------
+  // Cancellation & returns (M15)
+  //
+  // `RefundStatus.requested` had been in the enum since M8 with nothing
+  // in the product able to reach it. A buyer whose order went wrong had
+  // exactly one option — open a support ticket that, until this same
+  // milestone, no admin surface could read.
+  // -------------------------------------------------------------------
+
+  /**
+   * Statuses a buyer may still cancel from. The line is drawn at
+   * `packed`: once a home cook has cooked and boxed it, the cost of a
+   * cancellation lands on them, not on a warehouse. After that the path
+   * is a return.
+   */
+  private static readonly CANCELLABLE: ReadonlySet<string> = new Set([
+    'pending_payment',
+    'placed',
+    'confirmed',
+  ]);
+
+  /** How long after delivery a return can be raised. Food — short by nature. */
+  private static readonly RETURN_WINDOW_DAYS = 7;
+
+  /**
+   * Buyer-initiated cancellation. Restocks every line and, if money was
+   * actually taken, refunds it to the wallet in the same transaction.
+   *
+   * Refunds to the wallet rather than the original payment method
+   * because that is what the rest of this codebase already does
+   * (`refundOrder`, admin refunds) — a card reversal through Razorpay is
+   * a separate integration, not something to half-introduce here.
+   */
+  async cancelOrder(userId: string, orderId: string, reason?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
+      if (!order || order.userId !== userId) throw new NotFoundException('Order not found');
+
+      if (order.status === 'cancelled') {
+        return mapOrder(order); // Idempotent — a double-tap isn't an error.
+      }
+      if (!OrdersService.CANCELLABLE.has(order.status)) {
+        throw new ConflictException(
+          order.status === 'delivered'
+            ? 'This order has already been delivered — request a return instead'
+            : 'This order is already being prepared and can no longer be cancelled',
+        );
+      }
+
+      // Stock went down when the order was created, whether or not it was
+      // ever paid for, so it comes back regardless of payment state.
+      for (const item of order.items) {
+        if (!item.sku) continue;
+        await tx.weightOption.updateMany({
+          where: { sku: item.sku },
+          data: { stock: { increment: item.quantity } },
+        });
+      }
+
+      // `pending_payment` means nothing was ever captured — there is
+      // nothing to give back, and crediting a wallet here would mint
+      // money out of an abandoned checkout.
+      const wasPaid = order.status !== 'pending_payment';
+      const refundable = wasPaid && Number(order.total) > 0;
+      if (refundable) {
+        const wallet = await this.walletService.getOrCreateWalletTx(tx, order.userId);
+        await this.walletService.postLedgerEntryTx(tx, {
+          walletId: wallet.id,
+          direction: 'credit',
+          category: 'refund',
+          amount: Number(order.total),
+          title: `Refund — cancelled order #${order.orderNumber}`,
+          refType: 'order',
+          refId: order.id,
+        });
+      }
+
+      const updated = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          refundReason: reason,
+          refundRequestedAt: reason ? new Date() : undefined,
+          refundStatus: refundable ? 'refunded' : order.refundStatus,
+        },
+        include: ORDER_INCLUDE,
+      });
+      return mapOrder(updated);
+    });
+  }
+
+  /**
+   * Buyer-initiated return request. Records the claim and hands it to a
+   * human — it does **not** move money. Whether a homemade jar of pickle
+   * that "tasted off" earns a refund is a judgement call, and auto-
+   * refunding it would make the platform's most abusable path also its
+   * most frictionless one. An admin resolves it with the existing
+   * `POST /admin/orders/order/:id/refund`.
+   */
+  async requestReturn(userId: string, orderId: string, reason: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
+    if (!order || order.userId !== userId) throw new NotFoundException('Order not found');
+
+    if (order.status !== 'delivered') {
+      throw new ConflictException('Only a delivered order can be returned');
+    }
+    if (order.refundStatus !== 'none') {
+      throw new ConflictException('A refund is already in progress for this order');
+    }
+
+    // Pre-M15 rows have no `deliveredAt`; `placedAt` is the only date
+    // they carry, and it's the conservative choice (an older window).
+    const deliveredAt = order.deliveredAt ?? order.placedAt;
+    const windowMs = OrdersService.RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    if (Date.now() - deliveredAt.getTime() > windowMs) {
+      throw new ConflictException(
+        `Returns close ${OrdersService.RETURN_WINDOW_DAYS} days after an order — contact support if something's wrong`,
+      );
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        refundStatus: 'requested',
+        refundReason: reason,
+        refundRequestedAt: new Date(),
+      },
+      include: ORDER_INCLUDE,
+    });
+    return mapOrder(updated);
+  }
+
   /** Mirrors `CartService.getOrCreateCart` — `Cart.userId` is unique, so this can only ever touch the caller's own. */
   private async getOrCreateCartForUser(userId: string) {
     const existing = await this.prisma.cart.findUnique({ where: { userId } });
