@@ -4,6 +4,7 @@ import { WalletModule } from '../wallet/wallet.module';
 import { OrdersModule } from '../orders/orders.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ReviewsModule } from '../reviews/reviews.module';
+import { CatalogModule } from '../catalog/catalog.module';
 import { AdminAuditLogService } from './audit-log.service';
 import { AdminAuditController } from './audit.controller';
 import { AdminUsersController } from './users.controller';
@@ -40,7 +41,16 @@ import { AdminDashboardService } from './dashboard.service';
  * rather than re-implementing it.
  */
 @Module({
-  imports: [IdempotencyModule, WalletModule, OrdersModule, NotificationsModule, ReviewsModule],
+  // `CatalogModule` (M16) for `VendorProfileService` — the verification
+  // panel shows the same trust/completion numbers the storefront does.
+  imports: [
+    IdempotencyModule,
+    WalletModule,
+    OrdersModule,
+    NotificationsModule,
+    ReviewsModule,
+    CatalogModule,
+  ],
   controllers: [
     AdminDashboardController,
     AdminUsersController,

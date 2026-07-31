@@ -1,0 +1,33 @@
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0 0 var(--hk-s3);
+  padding: 0;
+}
+
+/* Pine-tinted rather than gold: this is a statement of fact, not a
+   decorative accent, and gold at this size fails contrast on white
+   (see CLAUDE.md's gold rule). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine-tint);
+  /* No token for a pine-family border on the pine tint — --hk-border is
+     the neutral card line and disappears against this fill. Local
+     hardcode + comment, per CLAUDE.md's known-token-gaps rule; it is
+     used only here so it doesn't earn a place in tokens.extend.css. */
+  border: 1px solid #dbe4d3;
+  color: var(--hk-pine);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.badge svg {
+  flex-shrink: 0;
+}

@@ -74,7 +74,7 @@ remains is Phase 2 onward — see §7.
 | H2 ✅ | **Fixed in M15.** **SEO is effectively absent.** Two of 65 route files export metadata (`layout`, `about`). No `sitemap.ts`, no `robots.ts`, no canonical URLs, no Open Graph images, no JSON-LD (`Product`, `Offer`, `AggregateRating`, `LocalBusiness`, `BreadcrumbList`). A discovery marketplace that cannot be discovered. | grep for `generateMetadata` across `client/app` |
 | H3 ✅ | **Fixed in M15.** **Follow is fake.** `FollowButton` is local `useState` with a comment saying "no persistence yet". `VendorFollow` exists in the schema with a `@@unique([userId, vendorId])` — no endpoint, no mutation, no `/account/following`. `Vendor.followerCount` is decorative. | `client/components/storefront/FollowButton.tsx`, `server/prisma/schema.prisma` (`VendorFollow`) |
 | H4 ✅ | **Fixed in M15.** **No reorder.** Zero occurrences outside app-promo marketing copy — which advertises "reorder a past meal in one tap" as an app feature the web does not have. Reorder is the cheapest repeat-purchase lever a food marketplace has. | grep `reorder` across `client/` |
-| H5 | **HomeKrafter profiles are a store page, not a profile.** `Vendor` carries slug, name, type, bio, avatar, banner, location, area, lat/lng, radius, rating, reviewCount, followerCount, joinedAt. Nothing of: shop story, kitchen photos, certifications (FSSAI), prep time, response time, policies, languages, achievements, trust score, profile completion, social links. The storefront renders header + product grid + reviews and stops. | `server/prisma/schema.prisma` (`Vendor`), `client/app/storefront/[vendor]/page.tsx` |
+| H5 ✅ | **Fixed in M16.** **HomeKrafter profiles are a store page, not a profile.** `Vendor` carries slug, name, type, bio, avatar, banner, location, area, lat/lng, radius, rating, reviewCount, followerCount, joinedAt. Nothing of: shop story, kitchen photos, certifications (FSSAI), prep time, response time, policies, languages, achievements, trust score, profile completion, social links. The storefront renders header + product grid + reviews and stops. | `server/prisma/schema.prisma` (`Vendor`), `client/app/storefront/[vendor]/page.tsx` |
 | H6 | **Seller portal has no analytics.** Eight nav items — Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts, Reviews — none of which answer "what is selling, and when". No `/seller/analytics` route and no seller-scoped analytics endpoint. | `client/components/seller/SellerShell.tsx:41-48` |
 | H7 | **No image optimisation.** `next/image` is used nowhere; `ImageSlot` renders a raw `<img>`. Every uploaded product photo ships at whatever resolution the HomeKrafter's phone produced, to every buyer's phone. `next.config.ts` is empty. | `client/components/placeholder/ImageSlot.tsx:45`, `client/next.config.ts` |
 | H8 | **Occasion shopping is a filter, not a destination.** `Occasion` + `ProductOccasion` + `Collection` exist and `/collections/[occasion]` renders, but there is no occasion hub, no gift guide, no seasonal merchandising, and no way to browse "what's coming up". The gifting marketplace's strongest seasonal hook is unexploited. | `client/app/collections/[occasion]/page.tsx` |
@@ -296,8 +296,10 @@ left.
 
 ### Phase 2 — important
 
-10. Rich HomeKrafter profiles: schema, storefront redesign, seller
-    editor, verification badge, trust score, profile completion. *(H5)*
+10. ✅ **Shipped (M16).** Rich HomeKrafter profiles: `VendorProfile` +
+    `VendorPhoto`, storefront story/photos/facts/policies, seller
+    editor with a completion meter, admin-only verification badge,
+    computed trust signals and derived achievements. *(H5)*
 11. Occasion hub, curated gift guides, seasonal banners. *(H8)*
 12. Seller analytics. *(H6)*
 13. Pre-order calendar: custom dates, blocked dates, holidays, prep-time

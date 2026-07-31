@@ -3,6 +3,76 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M16] — Phase 2 — 2026-07-31
+
+Phase 1 made trust *mechanically* possible: a review can be written, a
+dispute can be answered, a HomeKrafter can be paid. But the profile that
+trust attaches to was still a store page — a banner, a bio and a product
+grid. Phase 2 starts there.
+
+### Added
+
+- **Rich HomeKrafter profiles (H5).** `VendorProfile` (1:1 with `Vendor`)
+  and `VendorPhoto`: story, tagline, what they are known for, languages,
+  working days and hours, preparation and response time, daily capacity,
+  minimum order, hygiene and packaging notes, cancellation/return/custom
+  order policies, FSSAI licence, social links, kitchen photos. The
+  storefront now leads with the profile, because the question a buyer is
+  answering on a home-kitchen page is not "which jar" but "do I want food
+  from this person's house".
+- **Verification, admin-only.** `PATCH /admin/sellers/:id/verification`
+  sets identity / address / FSSAI. Expanded inline from the seller row,
+  showing the submitted licence number, profile completeness and a link
+  to the live storefront. Notifies the HomeKrafter with what was granted
+  or withdrawn plus the admin's note, and audits the full before/after
+  flag state.
+- **Trust signals, computed.** A tier ("Trusted kitchen") plus every
+  check behind it — the three verifications, review aggregate, delivered
+  order count, tenure, cancellation rate — each with its real detail
+  line, met and unmet. Derived achievement badges (`250+ orders`,
+  `Top rated`, `2 years on Homekrafted`) alongside.
+- **`/seller/profile`** with a completeness meter that names what is
+  missing in plain words ("Your story", "Kitchen photos") rather than
+  showing a percentage and stopping.
+
+### Decisions worth keeping
+
+- **A seller cannot verify themselves.** The flags are absent from
+  `UpdateSellerProfileDto` entirely, so `forbidNonWhitelisted` rejects an
+  attempt with a 400 rather than dropping it silently; the service also
+  assembles its Prisma payload field-by-field instead of spreading the
+  DTO, so a field added later cannot reach a column by accident. A badge
+  a seller can award themselves is worth nothing to the buyer who is
+  trusting it.
+- **Changing the FSSAI number clears the verification.** Otherwise
+  editing the thing being verified preserves the badge that verified it —
+  the one route by which a seller could have set their own.
+- **The licence number is never published.** A buyer needs the verified
+  fact; the identifier belongs to the HomeKrafter. It is returned to
+  them and to admins only.
+- **Nothing derived is stored.** Trust, badges and completion are all
+  computed on read, for the reason M15 recomputes rating aggregates
+  rather than incrementing them: a stored score has no owner and quietly
+  stops being true. `cancellationRate` is `null` rather than `0` before
+  anything has closed — an unknown rate is not a perfect one.
+- **The score is never shown to a buyer as a bare number.** "75/100" is
+  not something a shopper can act on, and a number with no working shown
+  is exactly the kind of platform-invented metric that stops meaning
+  anything. The storefront shows the tier and the full signal list.
+- **An empty profile renders as a shorter page, not an empty one.** Every
+  section is conditional; a kitchen approved this morning is the normal
+  case. The gaps are named in the portal, to the person who can fill
+  them.
+- **Seed verification is deliberately partial** — one kitchen fully
+  verified, one with a licence submitted and unchecked, eight with no
+  profile at all — so "verified" still means something on a seeded
+  database and all three states are testable.
+
+### Migrations
+
+- `20260731130000_m16_vendor_profile` — `VendorProfile`, `VendorPhoto`,
+  `VendorPhotoKind`.
+
 ## [M15] — Phase 1 production readiness — 2026-07-31
 
 A full production audit (`docs/PRODUCTION-AUDIT.md`) found the build was

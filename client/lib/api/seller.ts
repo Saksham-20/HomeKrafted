@@ -21,6 +21,7 @@
 import {
   getProductById as getProductByIdData,
   getVendorById as getVendorByIdData,
+  getOwnVendorProfile,
   payouts as seedPayouts,
   products as seedProducts,
   reviews as allReviews,
@@ -46,7 +47,10 @@ import type {
   SnackCategory,
   SnackOrder,
   SnackOrderStatus,
+  OwnVendorProfile,
   Vendor,
+  VendorPhoto,
+  VendorPhotoKind,
   WeightOption,
 } from "@/lib/types";
 import { http, isMockMode } from "./http";
@@ -596,6 +600,91 @@ export async function updateSellerStorefront(
 
   try {
     return await http.patch<Vendor>("/seller/storefront", input);
+  } catch {
+    return undefined;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HomeKrafter profile (M16) — `/seller/profile`
+//
+// Separate from the storefront edit above, which stays what it always was:
+// the four catalogue-facing fields (bio, location, avatar, banner) that
+// ride on every product card. This is the page a buyer reads *before*
+// deciding to trust a kitchen — story, hours, policies, hygiene, licence.
+//
+// Note the absent verification fields. `fssaiVerified`/`identityVerified`/
+// `addressVerified` are the badge, and a seller setting their own badge
+// would make it worthless — they are admin-only
+// (`PATCH /admin/sellers/:id/verification`). A HomeKrafter submits
+// `fssaiNumber`; changing it clears any existing verification, server-side.
+// ---------------------------------------------------------------------------
+
+export interface SellerProfileInput {
+  tagline?: string;
+  story?: string;
+  knownFor?: string[];
+  languages?: string[];
+  prepTimeMins?: number;
+  responseTimeMins?: number;
+  capacityPerDay?: number;
+  minOrderValue?: number;
+  workingDays?: number[];
+  opensAt?: string;
+  closesAt?: string;
+  cancellationPolicy?: string;
+  returnPolicy?: string;
+  customOrderPolicy?: string;
+  acceptsCustomOrders?: boolean;
+  packagingNote?: string;
+  hygieneNote?: string;
+  fssaiNumber?: string;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  youtubeUrl?: string;
+  websiteUrl?: string;
+}
+
+export async function getSellerProfile(vendorSlug?: string): Promise<OwnVendorProfile | undefined> {
+  if (isMockMode()) return getOwnVendorProfile(vendorSlug ?? "anjalis-kitchen");
+  try {
+    return await http.get<OwnVendorProfile>("/seller/profile");
+  } catch {
+    return undefined;
+  }
+}
+
+export async function updateSellerProfile(
+  input: SellerProfileInput,
+  vendorSlug?: string,
+): Promise<OwnVendorProfile | undefined> {
+  if (isMockMode()) return getOwnVendorProfile(vendorSlug ?? "anjalis-kitchen");
+  try {
+    return await http.patch<OwnVendorProfile>("/seller/profile", input);
+  } catch {
+    return undefined;
+  }
+}
+
+export async function addSellerPhoto(input: {
+  url: string;
+  caption?: string;
+  kind?: VendorPhotoKind;
+}): Promise<VendorPhoto | undefined> {
+  if (isMockMode()) {
+    return { id: `vp-${Date.now()}`, url: input.url, caption: input.caption, kind: input.kind ?? "kitchen", sortOrder: 0 };
+  }
+  try {
+    return await http.post<VendorPhoto>("/seller/profile/photos", input);
+  } catch {
+    return undefined;
+  }
+}
+
+export async function removeSellerPhoto(photoId: string): Promise<VendorPhoto[] | undefined> {
+  if (isMockMode()) return [];
+  try {
+    return await http.delete<VendorPhoto[]>(`/seller/profile/photos/${encodeURIComponent(photoId)}`);
   } catch {
     return undefined;
   }

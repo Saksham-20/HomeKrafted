@@ -6,6 +6,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { generateReferralCode } from '../auth/referral-code.util';
 import { AdminAuditLogService } from './audit-log.service';
+import { VendorProfileService } from '../catalog/vendor-profile.service';
+import { SetVerificationDto } from './dto/set-verification.dto';
 
 function slugify(value: string): string {
   return value
@@ -75,6 +77,7 @@ export class AdminSellersService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
     private readonly notifications: NotificationsService,
+    private readonly vendorProfiles: VendorProfileService,
   ) {}
 
   async listSellers() {
@@ -89,6 +92,122 @@ export class AdminSellersService {
     const seller = await this.prisma.seller.findUnique({ where: { id }, include: { vendor: { select: { name: true } } } });
     if (!seller) throw new NotFoundException('Seller not found');
     return mapSeller(seller, seller.vendor?.name);
+  }
+
+  /**
+   * The verification badge (M16). This is the only write path to
+   * `VendorProfile`'s three verified flags — `PATCH /seller/profile`
+   * cannot reach them, by construction. Audit-logged with the before/after
+   * state, because "who said this kitchen's licence was real" is exactly
+   * the question that gets asked after something goes wrong.
+   */
+  async setVerification(adminUserId: string, sellerId: string, dto: SetVerificationDto) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: sellerId },
+      include: { vendor: { select: { id: true, name: true } } },
+    });
+    if (!seller) throw new NotFoundException('Seller not found');
+
+    const before = await this.prisma.vendorProfile.findUnique({
+      where: { vendorId: seller.vendorId },
+    });
+
+    const flags = {
+      identityVerified: dto.identityVerified,
+      addressVerified: dto.addressVerified,
+      fssaiVerified: dto.fssaiVerified,
+      fssaiExpiry: dto.fssaiExpiry ? new Date(dto.fssaiExpiry) : undefined,
+      verificationNote: dto.note,
+      // Stamped on any decision, including a revocation — the question is
+      // "when was this last looked at", not "when was it approved".
+      verifiedAt: new Date(),
+    };
+
+    const profile = await this.prisma.vendorProfile.upsert({
+      where: { vendorId: seller.vendorId },
+      create: { vendorId: seller.vendorId, ...flags },
+      update: flags,
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'seller.verification',
+      targetType: 'Seller',
+      targetId: sellerId,
+      metadata: {
+        vendorId: seller.vendorId,
+        before: {
+          identityVerified: before?.identityVerified ?? false,
+          addressVerified: before?.addressVerified ?? false,
+          fssaiVerified: before?.fssaiVerified ?? false,
+        },
+        after: {
+          identityVerified: profile.identityVerified,
+          addressVerified: profile.addressVerified,
+          fssaiVerified: profile.fssaiVerified,
+        },
+        note: dto.note,
+      },
+    });
+
+    // Tell them. A badge that appears silently teaches a HomeKrafter
+    // nothing about what earned it, and a revoked one that appears
+    // silently is how a support ticket starts.
+    const granted = [
+      dto.identityVerified === true && 'identity',
+      dto.addressVerified === true && 'address',
+      dto.fssaiVerified === true && 'FSSAI licence',
+    ].filter(Boolean) as string[];
+    const revoked = [
+      dto.identityVerified === false && 'identity',
+      dto.addressVerified === false && 'address',
+      dto.fssaiVerified === false && 'FSSAI licence',
+    ].filter(Boolean) as string[];
+
+    if (granted.length > 0 || revoked.length > 0) {
+      await this.notifications.notify({
+        userId: seller.userId,
+        category: 'account',
+        title: granted.length > 0 ? 'Your verification is through' : 'A verification was withdrawn',
+        body: [
+          granted.length > 0 ? `Verified: ${granted.join(', ')}. Buyers now see this on your storefront.` : '',
+          revoked.length > 0 ? `Withdrawn: ${revoked.join(', ')}.` : '',
+          dto.note ?? '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+        refType: 'seller',
+        refId: sellerId,
+      });
+    }
+
+    return this.getSellerProfile(sellerId);
+  }
+
+  /** Everything the admin panel shows about one HomeKrafter's profile, including the submitted FSSAI number an admin has to read in order to check it. */
+  async getSellerProfile(sellerId: string) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: sellerId },
+      include: { vendor: { select: { slug: true } } },
+    });
+    if (!seller) throw new NotFoundException('Seller not found');
+    const profile = await this.prisma.vendorProfile.findUnique({
+      where: { vendorId: seller.vendorId },
+    });
+    const own = await this.vendorProfiles.ownProfile(seller.vendorId);
+    return {
+      sellerId,
+      vendorId: seller.vendorId,
+      // So the admin can open the page they are deciding about, without
+      // the panel needing a second round trip to resolve a slug.
+      vendorSlug: seller.vendor.slug,
+      displayName: seller.displayName,
+      ...own,
+      fssaiNumber: profile?.fssaiNumber ?? undefined,
+      fssaiExpiry: profile?.fssaiExpiry?.toISOString(),
+      verifiedAt: profile?.verifiedAt?.toISOString(),
+      verificationNote: profile?.verificationNote ?? undefined,
+    };
   }
 
   /** Suspend an active seller, or reactivate a suspended one. */

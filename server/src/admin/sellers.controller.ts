@@ -4,6 +4,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminSellersService } from './sellers.service';
 import { SetSellerStatusDto } from './dto/set-seller-status.dto';
+import { SetVerificationDto } from './dto/set-verification.dto';
 
 /**
  * Unscoped seller directory + the onboarding approval queue — closes the
@@ -41,6 +42,22 @@ export class AdminSellersController {
   @Get(':id')
   getById(@Param('id') id: string) {
     return this.sellersService.getSellerById(id);
+  }
+
+  /** The profile an admin has to read in order to verify it (M16) — includes the submitted FSSAI number, which the public storefront deliberately never publishes. */
+  @Get(':id/profile')
+  getProfile(@Param('id') id: string) {
+    return this.sellersService.getSellerProfile(id);
+  }
+
+  /** The only write path to the verification badge — see `SetVerificationDto`. */
+  @Patch(':id/verification')
+  setVerification(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: SetVerificationDto,
+  ) {
+    return this.sellersService.setVerification(admin.userId, id, dto);
   }
 
   @Patch(':id/status')

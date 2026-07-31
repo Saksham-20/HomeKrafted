@@ -363,6 +363,85 @@ async function main(): Promise<void> {
   }
 
   // -------------------------------------------------------------------
+  // HomeKrafter profiles (M16)
+  //
+  // Only three vendors get one, on purpose: a tester needs to see all
+  // three states side by side — a full, verified profile (vd1), a partly
+  // filled one with an FSSAI number still awaiting a check (vd3), and the
+  // seven vendors with no profile row at all, which is what every kitchen
+  // looks like the day it is approved.
+  //
+  // The verification flags here are demo data and the only place in the
+  // seed that asserts something Homekrafted would have had to check. They
+  // are set explicitly rather than across the board so that "verified"
+  // still means something on a seeded database.
+  // -------------------------------------------------------------------
+  console.log('Seeding HomeKrafter profiles...');
+
+  await prisma.vendorProfile.create({
+    data: {
+      vendorId: 'vd1',
+      tagline: 'Punjabi home cooking, made the way my mother taught me',
+      story:
+        "I started cooking for neighbours in 2019, when a friend asked if I could send over a jar of the mango thokku I make every summer. One jar became ten, then a WhatsApp group, and by 2023 it was a proper kitchen in Sector 35.\n\nEverything still goes through my hands. The pickles are sun-cured on the terrace the way they always have been, the masalas are ground in small lots so nothing sits, and I cook the day's thali the same morning it goes out. I do not freeze anything and I do not buy in bulk — if a batch is gone, it is gone until the next one.",
+      knownFor: ['Mango thokku', 'Daily Punjabi thali', 'Winter gajar halwa'],
+      languages: ['Hindi', 'Punjabi', 'English'],
+      prepTimeMins: 180,
+      responseTimeMins: 30,
+      capacityPerDay: 25,
+      minOrderValue: 250,
+      workingDays: [1, 2, 3, 4, 5, 6],
+      opensAt: '08:00',
+      closesAt: '19:00',
+      cancellationPolicy:
+        'Cancel any time before I start cooking — usually up to 3 hours before your slot. After that the food is already made, so I can only offer to reschedule.',
+      returnPolicy:
+        'If something arrives spoiled or wrong, send a photo within 24 hours and I will refund it in full. Pickles and preserves cannot be returned once opened.',
+      customOrderPolicy:
+        'Happy to take festival and bulk orders with 3 days notice. Tell me the spice level and I will adjust.',
+      acceptsCustomOrders: true,
+      packagingNote:
+        'Glass jars with tamper seals for pickles, food-grade steel tiffins for thalis (returned on the next delivery).',
+      hygieneNote:
+        'Kitchen is cleaned and sanitised before every batch. Hair covered, gloves for packing, and nothing is packed until it has cooled fully.',
+      fssaiNumber: '12419064000123',
+      fssaiVerified: true,
+      identityVerified: true,
+      addressVerified: true,
+      verifiedAt: new Date('2026-03-14'),
+      instagramUrl: 'https://instagram.com/anjaliskitchen',
+    },
+  });
+
+  await prisma.vendorProfile.create({
+    data: {
+      vendorId: 'vd3',
+      tagline: 'Millet baking for people who still want it to taste good',
+      story:
+        'Home Batch began as an experiment in baking without refined flour after my son was told to cut it out. Most of what we tried was terrible. The ragi almond cookie was the first thing he asked for twice, and that recipe is still the one we sell most of.',
+      knownFor: ['Ragi almond cookies', 'Eggless celebration cakes'],
+      languages: ['Hindi', 'English'],
+      prepTimeMins: 1440,
+      workingDays: [2, 3, 4, 5, 6],
+      opensAt: '09:00',
+      closesAt: '17:00',
+      acceptsCustomOrders: true,
+      customOrderPolicy: 'Cakes need 48 hours. Send a reference photo and I will tell you honestly if I can do it.',
+      // Submitted, not yet checked — this is what the storefront must render
+      // as *nothing at all*, and the admin panel as a pending decision.
+      fssaiNumber: '12419064000456',
+      instagramUrl: 'https://instagram.com/homebatch',
+    },
+  });
+
+  await prisma.vendorPhoto.createMany({
+    data: [
+      { vendorId: 'vd1', url: '/images/vendors/banner.jpg', caption: 'The Sector 35 kitchen', kind: 'kitchen', sortOrder: 0 },
+      { vendorId: 'vd1', url: '/images/products/mango-thokku-pickle.jpg', caption: 'Thokku, mid-batch', kind: 'process', sortOrder: 1 },
+    ],
+  });
+
+  // -------------------------------------------------------------------
   // Categories & occasions
   // -------------------------------------------------------------------
   console.log('Seeding categories + occasions...');

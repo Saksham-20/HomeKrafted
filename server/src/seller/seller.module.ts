@@ -17,6 +17,9 @@ import { SellerSnackOrdersController } from './snack-orders.controller';
 import { SellerSnackOrdersService } from './snack-orders.service';
 import { SellerPayoutsController } from './payouts.controller';
 import { SellerPayoutsService } from './payouts.service';
+import { SellerProfileController } from './profile.controller';
+import { SellerProfileService } from './profile.service';
+import { CatalogModule } from '../catalog/catalog.module';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -30,7 +33,10 @@ import { SellerPayoutsService } from './payouts.service';
  * cross-seller-isolation proofs.
  */
 @Module({
-  imports: [IdempotencyModule, WhatsAppModule],
+  // `CatalogModule` for `VendorProfileService` — the seller editor shows the
+  // same trust/completion computation the public storefront renders, so it
+  // reuses that service rather than keeping a second copy of the rules.
+  imports: [IdempotencyModule, WhatsAppModule, CatalogModule],
   controllers: [
     SellerController,
     SellerListingsController,
@@ -40,6 +46,7 @@ import { SellerPayoutsService } from './payouts.service';
     SellerMenuController,
     SellerSnackOrdersController,
     SellerPayoutsController,
+    SellerProfileController,
   ],
   providers: [
     SellerService,
@@ -50,6 +57,7 @@ import { SellerPayoutsService } from './payouts.service';
     SellerMenuService,
     SellerSnackOrdersService,
     SellerPayoutsService,
+    SellerProfileService,
   ],
 })
 export class SellerModule {}

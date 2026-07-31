@@ -41,6 +41,18 @@
   color: var(--hk-pine);
 }
 
+/* M16. Sits between the name and the rating row — display face, because
+   it is the HomeKrafter's own line about themselves, not UI chrome. */
+.tagline {
+  font-family: var(--hk-font-display);
+  font-size: 15.5px;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--hk-ink-2);
+  margin-top: 4px;
+  max-width: 52ch;
+}
+
 .meta {
   display: flex;
   align-items: center;

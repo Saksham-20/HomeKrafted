@@ -1,0 +1,244 @@
+/* Field/label/input recipe deliberately matches SellerStorefrontClient's —
+   the two pages sit next to each other in the nav and edit the same
+   storefront, so they should not look like two different products. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+.previewLink {
+  font-size: 13px;
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.completion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.completionNote {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  max-width: 64ch;
+}
+
+.missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.missing li {
+  padding: 5px 11px;
+  border-radius: var(--hk-r-pill);
+  border: 1px dashed var(--hk-border-2);
+  background: var(--hk-surface-3);
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.sectionTitle {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--hk-pine);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.input {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.hint {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+  max-width: 64ch;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s4);
+}
+
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.dayOn,
+.dayOff {
+  min-width: 52px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: var(--hk-r-pill);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dayOn {
+  background: var(--hk-pine);
+  border: 1px solid var(--hk-pine);
+  color: var(--hk-on-pine);
+}
+
+.dayOff {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border-2);
+  color: var(--hk-ink-2);
+}
+
+.dayOn:focus-visible,
+.dayOff:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+/* ---- Verification (read-only here) --------------------------------- */
+
+.verifications {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.verified,
+.unverified {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-radius: var(--hk-r-md);
+  font-size: 13.5px;
+}
+
+.verified {
+  background: var(--hk-pine-tint);
+  border: 1px solid #dbe4d3; /* see VerifiedBadges.module.css — one-off pine-on-tint line */
+  color: var(--hk-pine);
+}
+
+.unverified {
+  background: var(--hk-surface-3);
+  border: 1px solid var(--hk-border-2);
+  color: var(--hk-ink-3);
+}
+
+.verificationState {
+  display: block;
+  font-size: 11.5px;
+  color: var(--hk-muted);
+}
+
+.verified .verificationState {
+  color: var(--hk-pine);
+  opacity: 0.8;
+}
+
+.verificationNote {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-2);
+  padding: var(--hk-s3);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hk-pine);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  position: sticky;
+  bottom: 0;
+  padding: var(--hk-s4) 0;
+  background: linear-gradient(to top, var(--hk-bg) 70%, transparent);
+}
+
+.status {
+  font-size: 13px;
+  color: var(--hk-ink-3);
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

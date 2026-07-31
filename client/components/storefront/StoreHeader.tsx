@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { FollowButton } from "./FollowButton";
-import type { Vendor } from "@/lib/types";
+import { VerifiedBadges } from "./VerifiedBadges";
+import type { Vendor, VendorProfile } from "@/lib/types";
 import styles from "./StoreHeader.module.css";
 
 export interface StoreHeaderProps {
   vendor: Vendor;
+  /** M16. Optional so the header still renders for a kitchen with no profile row yet. */
+  profile?: VendorProfile;
 }
 
 /**
@@ -20,7 +23,7 @@ export interface StoreHeaderProps {
  * splitting the header into two islands. It takes a `vendor` prop and
  * fetches nothing, so no data-fetching follows it into the bundle.
  */
-export function StoreHeader({ vendor }: StoreHeaderProps) {
+export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
   const [followerCount, setFollowerCount] = useState(vendor.followerCount);
 
   return (
@@ -40,6 +43,7 @@ export function StoreHeader({ vendor }: StoreHeaderProps) {
         </div>
         <div className={styles.details}>
           <h1 className={styles.name}>{vendor.name}</h1>
+          {profile?.tagline && <p className={styles.tagline}>{profile.tagline}</p>}
           <div className={styles.meta}>
             <span className={styles.rating}>
               ★ {vendor.rating.toFixed(1)} ({vendor.reviewCount} reviews)
@@ -55,6 +59,7 @@ export function StoreHeader({ vendor }: StoreHeaderProps) {
             </span>
             <span>{vendor.location}</span>
           </div>
+          {profile && <VerifiedBadges profile={profile} />}
           <p className={styles.bio}>{vendor.bio}</p>
         </div>
         <FollowButton

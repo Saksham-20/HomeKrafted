@@ -186,6 +186,7 @@ dropping it.
 | `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
 | `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` here — this route is `@Public()`, so the global guard attaches no session and there is nobody to answer "am *I* following this" for. Use `GET /vendors/:slug/follow`. |
 | `GET /vendors/:slug/products` | public | `Product[]`, excludes `hidden` — same rule `lib/api/products.ts#getProductsByVendor` applies |
+| `GET /vendors/:slug/profile` | public | **M16.** The rich HomeKrafter profile — story, kitchen photos, hours, prep time, policies, plus computed `trust`, `achievements` and `stats`. Split from `GET /vendors/:slug` because that route answers every product card and every follow check and none of them need a return policy. Returns a fully-shaped **empty** profile for a kitchen that has filled in nothing, so the storefront never branches on absence; `404` only when the vendor itself is gone. **Never includes `fssaiNumber`** — see below. |
 | `GET /vendors/following` | any authed role | Storefronts the caller follows, newest follow first, each with `isFollowing: true`. **Declared above `:slug`** — Nest matches in declaration order, and the reverse would read `following` as a vendor slug. |
 | `GET /vendors/:slug/follow` | any authed role | `{ following, followerCount }` for this caller. |
 | `POST /vendors/:slug/follow` | any authed role | Follows. Idempotent — a second press is the same state, not a `409`. Returns `{ following: true, followerCount }`. |
@@ -198,6 +199,26 @@ endpoint behind it — `FollowButton` was local `useState` and
 reason review aggregates are: an incremented counter drifts and nothing
 notices. The seed stopped writing invented follower numbers in the same
 change, so a real follow doesn't collapse a fictional 612 to 1.
+
+**HomeKrafter profiles (M16).** `VendorProfile` is a 1:1 optional table,
+not columns on `Vendor`, because `Vendor` is read by every product card
+and every distance filter. Three things it returns are **computed on
+read, never stored** (`VendorProfileService`):
+
+- `trust` — `{ score, tier, signals[] }`. Signals are the three admin
+  verifications plus counted facts: review aggregate, delivered-order
+  count, tenure, cancellation rate. Unearned signals are returned too,
+  with their real detail line, because the seller portal renders the same
+  list as a checklist.
+- `achievements` — derived badges (`250+ orders`, `Top rated`, `2 years
+  on Homekrafted`). Every one restates a fact visible elsewhere on the
+  page; none is awarded, and none survives the behaviour that earned it.
+- `stats` — `cancellationRate` is `null`, not `0`, until something has
+  closed. An unknown rate is not a perfect one.
+
+A stored trust score is a number with no owner that stops being true the
+first time a kitchen's behaviour changes — the same reasoning that made
+M15 recompute rating aggregates instead of incrementing them.
 | `GET /categories`, `GET /categories/:slug` | public | `Category[]` / `Category` |
 | `GET /occasions`, `GET /occasions/:slug` | public | `Occasion[]` / `Occasion` |
 | `GET /collections`, `GET /collections/:slug` | public | `Collection[]` / `Collection` — `productIds` ordered by `CollectionProduct.sortOrder` |
@@ -674,6 +695,37 @@ filtered client-side).
 | `GET /seller/storefront` | `maker` only | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param) — `403` for laundry/snack. |
 | `PATCH /seller/storefront` | `maker` only | Body: `{ bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. |
 
+### Profile (M16 — `server/src/seller/profile.controller.ts`)
+
+The story, hours, policies and licence behind the storefront. Separate
+from `/seller/storefront`, which stays the four catalogue-facing fields
+that ride on every product card.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/profile` | The caller's own profile — everything the public one has, plus `fssaiNumber`, `fssaiExpiry`, `verifiedAt`, `verificationNote` and `completion: { percent, missing[] }`. |
+| `PATCH /seller/profile` | Body: any of `tagline`, `story`, `knownFor[]`, `languages[]`, `prepTimeMins`, `responseTimeMins`, `capacityPerDay`, `minOrderValue`, `workingDays[]` (0 = Sunday), `opensAt`/`closesAt` (`HH:MM`), `cancellationPolicy`, `returnPolicy`, `customOrderPolicy`, `acceptsCustomOrders`, `packagingNote`, `hygieneNote`, `fssaiNumber` (14 digits), the four social URLs. Upserts — approval mints a `Vendor`, not a `VendorProfile`, so the first save is a create. |
+| `GET /seller/profile/photos` | Kitchen photos, `sortOrder` ascending. |
+| `POST /seller/profile/photos` | `{ url, caption?, kind? }`. `url` is what `POST /uploads?purpose=storefront` returned — the URL, never the key (M14's rule). `409` past 12 photos. |
+| `PUT /seller/profile/photos/order` | `{ ids: string[] }` in display order. Scoped by `vendorId` in the update filter, so another kitchen's id matches nothing rather than reordering their gallery. Declared **above** `:id`. |
+| `PATCH /seller/profile/photos/:id` | `{ caption?, kind?, sortOrder? }`. `404` for a photo the caller doesn't own. |
+| `DELETE /seller/profile/photos/:id` | Removes the row and returns the remaining list. The file stays on disk — nothing deletes uploads yet (M14, see `docs/DEPLOY.md`). |
+
+**`PATCH /seller/profile` cannot set a verification flag.**
+`fssaiVerified` / `identityVerified` / `addressVerified` are absent from
+`UpdateSellerProfileDto`, and the global `ValidationPipe`'s
+`forbidNonWhitelisted` turns an attempt into a `400
+VALIDATION_ERROR: property fssaiVerified should not exist` rather than
+silently dropping it. `SellerProfileService.updateOwn` additionally
+assembles its Prisma payload field-by-field instead of spreading the DTO,
+so a field added to that DTO later cannot reach a column by accident.
+
+**Submitting a new `fssaiNumber` clears an existing verification**
+(`fssaiVerified: false`, `verifiedAt: null`). A changed licence has not
+been checked, and letting a badge survive an edit to the thing it
+verifies would be the one route by which a seller could set their own
+badge.
+
 ### Listings — maker only (`server/src/seller/listings.controller.ts`)
 
 CRUD over `Product` rows where `vendorId === seller.vendorId`. No
@@ -869,6 +921,8 @@ ever reads/decides on rows it didn't create.
 | `GET /admin/sellers` | Every seller (any type/status), newest first. |
 | `GET /admin/sellers/:id` | Single seller detail. |
 | `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
+| `GET /admin/sellers/:id/profile` | **M16.** The seller's own profile view plus `sellerId`/`vendorId`/`vendorSlug`/`displayName` — including the submitted `fssaiNumber`, which an admin has to read in order to check it and which the public storefront never publishes. |
+| `PATCH /admin/sellers/:id/verification` | **M16.** Body: any of `{ identityVerified?, addressVerified?, fssaiVerified?, fssaiExpiry?, note? }`. **The only write path to the verification badge** — see the `/seller/profile` section for why. Every field optional, so identity can be verified today and the licence next week without clearing what was already checked. Stamps `verifiedAt` on any decision including a revocation ("when was this last looked at", not "when was it approved"), notifies the HomeKrafter with the granted/withdrawn list plus the note, and audits `seller.verification` with the full before/after flag state. |
 | `GET /admin/sellers/applications` | Every `SellerApplication`, any status (`?status=pending` narrows to the queue — every status short of the two terminal ones). |
 | `POST /admin/sellers/applications/:id/approve` | `409` if already `approved`/`rejected`. Otherwise, **one atomic transaction**: (1) finds-or-creates the applicant's `User` account (reuses an existing account by email if one exists, upgrading `consumer` → `seller`; otherwise mints a fresh `role: "seller"` account with `authProviders: ["phone"]` and no password — phone-OTP is its login path — plus a `Wallet` + `LoyaltyAccount`, same recipe `AuthService.verifyOtp`'s first-time-phone signup uses); (2) creates a `Vendor` storefront from the application's business details (`SellerApplicationCategory` → `VendorType`, `"other"` → `"maker"`); (3) creates the `Seller` row (`type: "maker"`, `status: "approved"`) pointing at it; (4) marks the application `approved`. Unlike the M11a frontend mock (which pointed `Seller.userId` at a synthetic placeholder id), this is a real FK — a live `User` row must exist, so one is provisioned right here. Returns `{ application, seller, vendor }`. Audited (`seller_application.approve`). |
 | `POST /admin/sellers/applications/:id/reject` | `409` if already `approved`/`rejected`. Audited (`seller_application.reject`). |

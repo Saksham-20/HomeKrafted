@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from './mappers/product.mapper';
 import { mapVendor } from './mappers/vendor.mapper';
+import { VendorProfileService } from './vendor-profile.service';
 
 @Injectable()
 export class VendorsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly profiles: VendorProfileService,
+  ) {}
 
   /**
    * `q` searches the HomeKrafter's name, their bio and their area, so
@@ -93,6 +97,12 @@ export class VendorsService {
     const followerCount = await this.prisma.vendorFollow.count({ where: { vendorId } });
     await this.prisma.vendor.update({ where: { id: vendorId }, data: { followerCount } });
     return followerCount;
+  }
+
+  /** M16. Resolves the slug here so the profile service only ever deals in ids — it is also called by the seller and admin surfaces, which have a `vendorId` and no slug. */
+  async profileBySlug(slug: string) {
+    const vendor = await this.requireVendor(slug);
+    return this.profiles.publicProfile(vendor.id);
   }
 
   private async requireVendor(slug: string) {

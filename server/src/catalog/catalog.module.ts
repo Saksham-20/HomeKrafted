@@ -8,6 +8,7 @@ import { OccasionsController } from './occasions.controller';
 import { CollectionsController } from './collections.controller';
 import { HamperBoxesController } from './hamper-boxes.controller';
 import { TaxonomyService } from './taxonomy.service';
+import { VendorProfileService } from './vendor-profile.service';
 
 /**
  * Public read-side of the Gifting Marketplace catalog (M8.1): products,
@@ -26,7 +27,11 @@ import { TaxonomyService } from './taxonomy.service';
     CollectionsController,
     HamperBoxesController,
   ],
-  providers: [ProductsService, VendorsService, TaxonomyService],
-  exports: [ProductsService, VendorsService],
+  providers: [ProductsService, VendorsService, TaxonomyService, VendorProfileService],
+  // `VendorProfileService` is exported for `SellerModule` (the profile
+  // editor) and `AdminModule` (verification), which both need the same
+  // completion/trust computation the storefront renders — one definition
+  // of "how complete is this profile", not three.
+  exports: [ProductsService, VendorsService, VendorProfileService],
 })
 export class CatalogModule {}

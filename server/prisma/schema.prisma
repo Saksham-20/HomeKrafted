@@ -796,6 +796,121 @@ model Vendor {
   products Product[]
   seller   Seller?
   follows  VendorFollow[]
+  profile  VendorProfile?
+  photos   VendorPhoto[]
+}
+
+/// M16 (H5). Everything a buyer wants to know before trusting a stranger's
+/// kitchen, kept **off** `Vendor` on purpose: `Vendor` is the catalogue
+/// entity, read on every product card, every distance filter and every
+/// listing query, and none of those need a shop's story or its return
+/// policy. A 1:1 optional table means the profile is loaded only by the
+/// storefront and the seller editor, and "has this HomeKrafter filled
+/// anything in" is answerable by the row's existence.
+///
+/// **The verification flags are admin-only.** A HomeKrafter submits an
+/// FSSAI number; an admin decides whether the badge appears. The badge is
+/// the entire point of the panel, so the write path for it is
+/// `PATCH /admin/sellers/:id/verification`, never `PATCH /seller/profile`
+/// — see `SellerProfileService.updateOwn`, which strips them.
+///
+/// Nothing derived is stored here. Trust score, achievements and profile
+/// completion are all computed from rows on read
+/// (`VendorProfileService`), for the same reason M15's rating aggregates
+/// are recomputed rather than incremented: a stored trust score is a
+/// number that silently stops being true.
+model VendorProfile {
+  vendorId String @id
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  // --- Story: who is behind the kitchen ---------------------------------
+  /// One line under the name. Not `bio` — `bio` is the catalogue blurb.
+  tagline   String?
+  /// Long-form. The "we started this in 2019 with my mother's recipe" text.
+  story     String?
+  /// Free-text dish/craft names this kitchen is known for. Display only —
+  /// discovery still runs off `Seller.specialties` and `Category`.
+  knownFor  String[]
+  /// Languages the HomeKrafter can take an order in. Real friction in the
+  /// tricity: a buyer who can only phone in Punjabi needs to know.
+  languages String[]
+
+  // --- Operations: what ordering from them is actually like -------------
+  /// Typical time from order to ready, in minutes. Feeds the pre-order
+  /// slot suggestion (M2) and sets the buyer's expectation on the listing.
+  prepTimeMins     Int?
+  /// Self-declared "I usually reply within". Shown as declared, not as
+  /// measured — we do not track message latency yet, and claiming a
+  /// measured number we do not measure would be a lie on a trust panel.
+  responseTimeMins Int?
+  /// How many orders a day this kitchen can take. A home cook's ceiling is
+  /// real and low; surfacing it is what stops a festival rush from
+  /// producing a hundred cancellations.
+  capacityPerDay   Int?
+  minOrderValue    Decimal? @db.Decimal(10, 2)
+  /// Days of the week the kitchen works, 0 = Sunday. Empty = unspecified,
+  /// which the UI reads as "no set days", not "closed".
+  workingDays      Int[]
+  /// "09:00" / "19:30", local time, stored as strings for the same reason
+  /// `LaundrySlot` windows are: they are a label, not an instant.
+  opensAt          String?
+  closesAt         String?
+
+  // --- Policies: what a dispute gets decided on -------------------------
+  cancellationPolicy  String?
+  returnPolicy        String?
+  customOrderPolicy   String?
+  acceptsCustomOrders Boolean @default(false)
+  packagingNote       String?
+  /// How the kitchen handles hygiene — gloves, sealed packing, FSSAI
+  /// practices. The single most asked question about home food.
+  hygieneNote         String?
+
+  // --- Verification: admin writes only ----------------------------------
+  /// As submitted by the HomeKrafter. Present + `fssaiVerified` false means
+  /// "claimed, not checked" — the UI must never render that as a badge.
+  fssaiNumber       String?
+  fssaiExpiry       DateTime?
+  fssaiVerified     Boolean   @default(false)
+  identityVerified  Boolean   @default(false)
+  addressVerified   Boolean   @default(false)
+  /// When an admin last touched any of the three flags above, and why.
+  verifiedAt        DateTime?
+  verificationNote  String?
+
+  // --- Social ------------------------------------------------------------
+  instagramUrl String?
+  facebookUrl  String?
+  youtubeUrl   String?
+  websiteUrl   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum VendorPhotoKind {
+  kitchen
+  process
+  team
+  award
+}
+
+/// M16 (H5). Photos of the kitchen itself, separate from `Product.images`.
+/// A list rather than columns on `VendorProfile` because the count is
+/// open-ended and ordering matters — the same reason `ProductImage` is its
+/// own table. Uploaded through `<PhotoUpload>` (M14), so `url` is stored,
+/// never the storage key.
+model VendorPhoto {
+  id        String          @id @default(cuid())
+  vendorId  String
+  vendor    Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  kind      VendorPhotoKind @default(kitchen)
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+
+  @@index([vendorId, sortOrder])
 }
 
 /// Not a lib/types entity yet — `Vendor.isFollowing` is a per-viewer

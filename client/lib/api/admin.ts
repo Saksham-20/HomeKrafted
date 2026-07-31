@@ -32,6 +32,7 @@ import {
   categories,
   collections,
   getCategoryById,
+  getOwnVendorProfile,
   getProductById,
   getVendorById,
   homePromoBands,
@@ -58,6 +59,7 @@ import {
   setSellerApplicationStatus,
 } from "./sell";
 import type {
+  AdminSellerProfile,
   Category,
   Collection,
   ID,
@@ -77,6 +79,7 @@ import type {
   SupportTicketStatus,
   User,
   Vendor,
+  VerificationInput,
   Wallet,
   WalletTransaction,
   WalletTransactionRefType,
@@ -290,6 +293,50 @@ export async function setSellerStatus(sellerId: string, status: SellerStatus): P
   if (status !== "approved" && status !== "suspended") return undefined;
   try {
     return await http.patch<Seller>(`/admin/sellers/${encodeURIComponent(sellerId)}/status`, { status });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The verification panel's read (M16) — includes the submitted FSSAI
+ * number, which the public storefront deliberately never publishes.
+ */
+export async function getAdminSellerProfile(sellerId: string): Promise<AdminSellerProfile | undefined> {
+  if (isMockMode()) {
+    const seller = sellers.find((s) => s.id === sellerId);
+    if (!seller) return undefined;
+    const own = getOwnVendorProfile("anjalis-kitchen");
+    return {
+      ...own,
+      sellerId,
+      vendorId: seller.vendorId ?? "",
+      vendorSlug: "anjalis-kitchen",
+      displayName: seller.displayName,
+    };
+  }
+  try {
+    return await http.get<AdminSellerProfile>(`/admin/sellers/${encodeURIComponent(sellerId)}/profile`);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The only write path to a HomeKrafter's verification badge. A seller
+ * cannot set these on themselves — that is what makes the badge worth
+ * anything to a buyer — and every change lands in `AdminAuditLog`.
+ */
+export async function setSellerVerification(
+  sellerId: string,
+  input: VerificationInput,
+): Promise<AdminSellerProfile | undefined> {
+  if (isMockMode()) return getAdminSellerProfile(sellerId);
+  try {
+    return await http.patch<AdminSellerProfile>(
+      `/admin/sellers/${encodeURIComponent(sellerId)}/verification`,
+      input,
+    );
   } catch {
     return undefined;
   }

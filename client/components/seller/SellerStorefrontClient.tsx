@@ -23,16 +23,17 @@ interface FormState {
 
 /**
  * `/seller/storefront` (M10a) — edits the exact `Vendor` fields the
- * consumer `/storefront/[vendor]` page renders (`StoreHeader`): bio,
- * location, avatar/banner paths. Saved via `updateSellerStorefront`
- * (`lib/api/seller.ts`), which mutates the shared `Vendor` record in this
- * browser tab's in-memory module instance — real within the live session
- * (edit, navigate elsewhere in the portal via a Link, come back: still
- * there), but lost on a hard reload of *any* page, and never visible on
- * the consumer storefront at all, since that page is a Server Component
- * re-rendered against the server's own untouched copy on every request.
- * See the long comment on `updateSellerStorefront` for why — a real fix
- * needs a server-side write, which lands with M8.
+ * consumer `/storefront/[vendor]` page renders in its header: bio,
+ * location, avatar and banner. Since M8.4b these are a real
+ * `PATCH /seller/storefront` against the row every request reads, so an
+ * edit here shows up on the public storefront immediately.
+ * (`NEXT_PUBLIC_USE_MOCK=true` still keeps the old in-memory behaviour,
+ * lost on reload — see `updateSellerStorefront`'s mock branch.)
+ *
+ * Deliberately **not** the whole profile. The story, hours, policies,
+ * kitchen photos and licence live on `/seller/profile` (M16), because
+ * these four fields ride on every product card and a return policy has
+ * no business in a listing query.
  */
 export function SellerStorefrontClient() {
   const { ready, seller } = useAuth();

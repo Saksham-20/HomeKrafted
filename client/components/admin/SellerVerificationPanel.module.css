@@ -1,0 +1,111 @@
+.panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.2fr);
+  gap: var(--hk-s5);
+  padding: var(--hk-s4);
+  margin-top: var(--hk-s2);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-lg);
+  background: var(--hk-surface-3);
+}
+
+.loading {
+  padding: var(--hk-s4);
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.heading {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  margin-bottom: var(--hk-s3);
+}
+
+.evidence,
+.decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--hk-s3);
+  margin: 0;
+}
+
+.facts dt {
+  font-size: 11.5px;
+  color: var(--hk-muted);
+  margin-bottom: 2px;
+}
+
+.facts dd {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--hk-ink);
+}
+
+.mono {
+  font-family: var(--hk-font-mono);
+  letter-spacing: 0.02em;
+}
+
+.absent {
+  color: var(--hk-muted);
+  font-style: italic;
+}
+
+.storefrontLink {
+  font-size: 13px;
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.check input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--hk-pine);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.status {
+  font-size: 12.5px;
+  /* There is no error token — terracotta is the palette's "something went
+     wrong / remove" accent (tokens.css line 18). */
+  color: var(--hk-terracotta);
+}
+
+@media (max-width: 720px) {
+  .panel {
+    grid-template-columns: 1fr;
+  }
+}

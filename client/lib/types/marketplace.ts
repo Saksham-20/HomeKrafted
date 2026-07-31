@@ -38,6 +38,131 @@ export interface Vendor {
 }
 
 // ---------------------------------------------------------------------------
+// HomeKrafter profile (M16)
+//
+// Kept separate from `Vendor` for the same reason `VendorProfile` is its
+// own table: `Vendor` rides on every product card and every distance
+// filter, and none of those need a shop's return policy. The storefront
+// and the seller editor fetch this; nothing else does.
+// ---------------------------------------------------------------------------
+
+export type VendorPhotoKind = "kitchen" | "process" | "team" | "award";
+
+export interface VendorPhoto {
+  id: ID;
+  url: string;
+  caption?: string;
+  kind: VendorPhotoKind;
+  sortOrder: number;
+}
+
+/**
+ * One thing a buyer can check about a kitchen. `earned: false` entries are
+ * returned too — the seller's own view is a checklist, and the storefront
+ * needs to be able to say "not verified yet" rather than silently omitting.
+ */
+export interface TrustSignal {
+  key: string;
+  label: string;
+  earned: boolean;
+  detail: string;
+  weight: number;
+}
+
+export type TrustTier = "new" | "building" | "established" | "trusted";
+
+export interface TrustSummary {
+  score: number;
+  tier: TrustTier;
+  signals: TrustSignal[];
+}
+
+/** Derived badge. Every one is a fact visible elsewhere on the page — nothing here is awarded. */
+export interface VendorAchievement {
+  key: string;
+  label: string;
+  detail: string;
+}
+
+export interface VendorStats {
+  ordersDelivered: number;
+  /** `null` when nothing has closed yet — an unknown rate, not a perfect one. */
+  cancellationRate: number | null;
+  monthsActive: number;
+  rating: number;
+  reviewCount: number;
+  followerCount: number;
+}
+
+export interface VendorProfileCompletion {
+  percent: number;
+  missing: { key: string; label: string }[];
+}
+
+/**
+ * The public shape. Note what is **not** here: `fssaiNumber`. The licence
+ * identifier belongs to the HomeKrafter; a buyer needs the verified fact,
+ * not the number, and publishing it buys them nothing.
+ */
+export interface VendorProfile {
+  tagline?: string;
+  story?: string;
+  knownFor: string[];
+  languages: string[];
+  prepTimeMins?: number;
+  responseTimeMins?: number;
+  capacityPerDay?: number;
+  minOrderValue?: number;
+  /** 0 = Sunday, matching `Date.getDay()`. Empty means "not stated", never "closed". */
+  workingDays: number[];
+  opensAt?: string;
+  closesAt?: string;
+  cancellationPolicy?: string;
+  returnPolicy?: string;
+  customOrderPolicy?: string;
+  acceptsCustomOrders: boolean;
+  packagingNote?: string;
+  hygieneNote?: string;
+  fssaiVerified: boolean;
+  identityVerified: boolean;
+  addressVerified: boolean;
+  instagramUrl?: string;
+  facebookUrl?: string;
+  youtubeUrl?: string;
+  websiteUrl?: string;
+  photos: VendorPhoto[];
+  trust: TrustSummary;
+  achievements: VendorAchievement[];
+  stats: VendorStats;
+}
+
+/** The seller's own view — adds what only they (and an admin) should see. */
+export interface OwnVendorProfile extends VendorProfile {
+  fssaiNumber?: string;
+  fssaiExpiry?: ISODateString;
+  verifiedAt?: ISODateString;
+  verificationNote?: string;
+  completion: VendorProfileCompletion;
+}
+
+/** What the admin verification panel reads — the seller's own view plus who it belongs to. */
+export interface AdminSellerProfile extends OwnVendorProfile {
+  sellerId: ID;
+  vendorId: ID;
+  vendorSlug: string;
+  displayName: string;
+}
+
+/** Admin-only write. Absent fields are left as they are, so identity can be verified today and the licence next week. */
+export interface VerificationInput {
+  identityVerified?: boolean;
+  addressVerified?: boolean;
+  fssaiVerified?: boolean;
+  fssaiExpiry?: ISODateString;
+  note?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Catalog: category, occasion, collection
 // ---------------------------------------------------------------------------
 

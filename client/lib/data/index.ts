@@ -5,6 +5,7 @@
  */
 
 export * from "./vendors";
+export * from "./vendorProfiles";
 export * from "./products";
 export * from "./categories";
 export * from "./occasions";

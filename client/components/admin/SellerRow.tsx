@@ -1,8 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
 import { formatDate } from "@/lib/format";
 import { SPECIALTY_LABELS, type Seller } from "@/lib/types";
+import { SellerVerificationPanel } from "./SellerVerificationPanel";
 import styles from "./ApplicationRow.module.css";
 
 export interface SellerRowProps {
@@ -10,9 +14,16 @@ export interface SellerRowProps {
   onToggleStatus: (sellerId: string, nextStatus: "approved" | "suspended") => void;
 }
 
-/** `/admin/sellers` row — displayName, specialties, status, rating (if any), suspend/reactivate. */
+/**
+ * `/admin/sellers` row — displayName, specialties, status, rating (if
+ * any), suspend/reactivate, and (M16) the verification decision behind a
+ * disclosure. Collapsed by default: verification is a deliberate act on
+ * one kitchen, not something to skim past on every row, and the panel
+ * only fetches that seller's profile once it is opened.
+ */
 export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
   const suspended = seller.status === "suspended";
+  const [verifying, setVerifying] = useState(false);
   return (
     <Card padding="sm" className={styles.row}>
       <div className={styles.body}>
@@ -28,6 +39,14 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
       </span>
       <span className={styles.actions}>
         <Button
+          variant="ghost-gold"
+          size="sm"
+          onClick={() => setVerifying((open) => !open)}
+          aria-expanded={verifying}
+        >
+          {verifying ? "Close" : "Verify"}
+        </Button>
+        <Button
           variant="secondary"
           size="sm"
           onClick={() => onToggleStatus(seller.id, suspended ? "approved" : "suspended")}
@@ -35,6 +54,7 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
           {suspended ? "Reactivate" : "Suspend"}
         </Button>
       </span>
+      {verifying && <SellerVerificationPanel sellerId={seller.id} />}
     </Card>
   );
 }

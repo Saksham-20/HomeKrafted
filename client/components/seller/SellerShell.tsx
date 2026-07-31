@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Star,
   Store,
+  UserRound,
   Truck,
   UtensilsCrossed,
   Wallet,
@@ -44,6 +45,10 @@ const HOMEKRAFTER_NAV: SellerNavItem[] = [
   { label: "Orders", href: "/seller/orders", icon: ShoppingBag },
   { label: "Pickups", href: "/seller/pickups", icon: Truck },
   { label: "Storefront", href: "/seller/storefront", icon: Store },
+  // M16. Separate from Storefront on purpose: that page is the four
+  // catalogue fields on every product card; this one is the story,
+  // hours, policies and licence a buyer reads before trusting a kitchen.
+  { label: "Profile", href: "/seller/profile", icon: UserRound },
   { label: "Payouts", href: "/seller/payouts", icon: Wallet },
   { label: "Reviews", href: "/seller/reviews", icon: Star },
 ];

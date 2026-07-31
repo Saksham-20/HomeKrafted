@@ -35,7 +35,9 @@ place the Prisma model deviates from the literal TS shape). All ids are
 
 | Entity | Key fields | Relationships |
 |---|---|---|
-| `Vendor` | type (`maker`\|`baker`\|`artist`\|`homekrafted`), rating, followerCount | has many `Product` |
+| `Vendor` | type (`maker`\|`baker`\|`artist`\|`homekrafted`), rating, followerCount | has many `Product`, has one `VendorProfile`, has many `VendorPhoto` |
+| `VendorProfile` (M16) | 1:1 with `Vendor`, PK is `vendorId`. tagline, story, knownFor[], languages[], prepTimeMins, responseTimeMins, capacityPerDay, minOrderValue, workingDays[] (0 = Sun), opensAt/closesAt (`HH:MM` strings), cancellationPolicy, returnPolicy, customOrderPolicy, acceptsCustomOrders, packagingNote, hygieneNote, **fssaiNumber, fssaiExpiry, fssaiVerified, identityVerified, addressVerified, verifiedAt, verificationNote**, four social URLs | belongs to `Vendor` (cascade delete) |
+| `VendorPhoto` (M16) | vendorId, url, caption?, kind (`kitchen`\|`process`\|`team`\|`award`), sortOrder | belongs to `Vendor` (cascade delete) |
 | `Category` | name, productCount | referenced by `Product.categoryId` |
 | `Occasion` | name, initial | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
 | `Collection` | title, productIds[] | many-to-many with `Product` (by id list, not a join table yet) |
@@ -313,7 +315,8 @@ tables.
 
 **Wallet:** `Wallet`, `WalletTransaction`, `AutoTopupRule`.
 
-**Marketplace:** `Vendor`, `VendorFollow`, `Category`, `Occasion`,
+**Marketplace:** `Vendor`, `VendorProfile`, `VendorPhoto`,
+`VendorFollow`, `Category`, `Occasion`,
 `Collection`, `CollectionProduct`, `Product`, `ProductOccasion`,
 `ProductImage`, `WeightOption`, `Cart`, `CartItem`, `Wishlist`,
 `WishlistItem`, `HamperBox`, `Hamper`, `HamperItem`, `Order`, `OrderItem`,
@@ -427,3 +430,34 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   error envelope, auth model) for what M8.0 actually implemented
   (auth + users/addresses) — this doc stays the entity/relationship
   reference.
+### Notes for M16 — HomeKrafter profiles
+
+- **`VendorProfile` is a separate table, not columns on `Vendor`.**
+  `Vendor` is read by every product card, every distance filter and every
+  follow check; none of those need a shop's story or its return policy.
+  The 1:1 optional row also makes "has this kitchen filled anything in"
+  answerable by the row's existence.
+- **The three verification flags are admin-write-only.**
+  `UpdateSellerProfileDto` does not declare them, and the global
+  `ValidationPipe`'s `forbidNonWhitelisted` rejects an attempt with a
+  `400` rather than dropping it silently.
+  `PATCH /admin/sellers/:id/verification` is the only path, and it audits
+  the before/after state. A seller who could set their own badge would
+  make the badge worthless, which is the whole reason a buyer trusts a
+  stranger's kitchen.
+- **`fssaiNumber` never reaches the public payload.** A buyer needs the
+  verified fact; the licence identifier belongs to the HomeKrafter.
+  Submitting a *changed* number resets `fssaiVerified` to `false` —
+  otherwise editing the thing being verified would preserve the badge
+  that verified it.
+- **Trust score, achievements and profile completion are computed on
+  read** (`VendorProfileService`) from verification flags, review
+  aggregates, delivered/cancelled order counts and tenure. Nothing is
+  stored, for the same reason M15 recomputes rating aggregates rather
+  than incrementing them: a stored score has no owner and quietly stops
+  being true. `stats.cancellationRate` is `null` until something has
+  closed — an unknown rate, not a perfect one.
+- **`VendorPhoto` is a list, not columns**, because the count is
+  open-ended and ordering matters — the same reasoning as `ProductImage`.
+  Capped at 12 server-side. Deleting a row does not delete the file (M14,
+  see `docs/DEPLOY.md`).

@@ -277,7 +277,52 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   > "Mark paid" **does not send money** — the platform has no bank
   > integration. It records a transfer someone made by hand. That's
   > deliberate, not a missing feature.
+- **Verification (M16)** — on **HomeKrafters**, press **Verify** on any
+  row. The panel shows the FSSAI number they submitted, how complete
+  their profile is, and a link to their live storefront. Tick a check,
+  write a note, save. Then look at that HomeKrafter's storefront: the
+  badge should appear next to their name and in "What we know about…".
+  Sign in as them and their Profile screen should show your note.
+  Untick it again and the badge should come straight off.
 - **Analytics** — dashboard charts
+
+### HomeKrafter profiles (M16)
+
+The storefront is now the page a buyer reads *before* deciding to trust
+a kitchen. Three states are seeded so you can see all of them:
+
+- **[Anjali's Kitchen](https://homekrafted.in/storefront/anjalis-kitchen)** —
+  a full, verified profile. Story, kitchen photos, "usually ready in",
+  working days, hygiene and packaging notes, cancellation and return
+  policies, verified badges, and a "What we know about…" panel listing
+  every trust check with the real number behind it.
+- **[Home Batch](https://homekrafted.in/storefront/home-batch)** — half
+  filled in, licence submitted but **not** checked. The badge must
+  **not** appear, and the trust panel should say "Licence submitted,
+  awaiting check".
+- **Any other kitchen** (e.g. Crunch Corner) — no profile at all. You
+  should see a plain storefront plus the trust panel, and **no** empty
+  "Story"/"Inside the kitchen" sections. A blank profile should look
+  like a simpler page, not a broken one.
+
+As a HomeKrafter, the new **Profile** tab in the portal is where all of
+that is written. Worth checking:
+
+- The completeness meter at the top names what is still missing in plain
+  words. Fill something in, save, and the meter and the list should both
+  move.
+- The three verification rows are **read-only** — you cannot tick your
+  own. That is the point: a badge you can award yourself is worth
+  nothing to a buyer.
+- Change your FSSAI number and save. Any existing verification should
+  drop off, and the trust score with it — a changed licence has not been
+  checked. An admin has to look again.
+- Kitchen photos drag/drop or click to upload, up to 12.
+
+> The trust score is never shown as a bare number to buyers. What they
+> see is a tier ("Trusted kitchen") and every check behind it, met and
+> unmet. A score with no working shown isn't something a shopper can act
+> on.
 
 ---
 
@@ -295,6 +340,8 @@ Sign in as **admin** at https://homekrafted.in/admin/login
 | Product photos show a **hatched placeholder** in some slots | Nobody has uploaded a photo for that item yet — add one and it replaces the placeholder. |
 | The **video reel rail** always shows the same clips | Reels aren't wired to the backend yet — they come from fixed sample data. |
 | Web addresses containing **`/seller`** | Internal naming; the visible wording is HomeKrafter. |
+| A kitchen with **no story or photos** on its storefront | Nobody has filled that profile in yet. Sections with no content are hidden rather than shown empty. |
+| **"0 orders delivered"** on a well-rated kitchen | Ratings are seeded demo data; delivered-order counts are real. They will disagree on staging until orders are actually placed. |
 
 ---
 

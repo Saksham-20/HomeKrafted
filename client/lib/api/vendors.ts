@@ -1,5 +1,10 @@
-import type { Vendor } from "@/lib/types";
-import { getVendorById as getVendorByIdData, getVendorBySlug, vendors } from "@/lib/data";
+import type { Vendor, VendorProfile } from "@/lib/types";
+import {
+  getVendorById as getVendorByIdData,
+  getVendorBySlug,
+  getVendorProfileBySlug,
+  vendors,
+} from "@/lib/data";
 import { http, isMockMode } from "./http";
 
 /** Vendors (M8.4a — real). `GET /vendors`/`GET /vendors/:slug` are `@Public()` (`docs/API.md` "Commerce (M8.1)"). */
@@ -13,6 +18,26 @@ export async function getVendor(slug: string): Promise<Vendor | undefined> {
   if (isMockMode()) return getVendorBySlug(slug);
   try {
     return await http.get<Vendor>(`/vendors/${encodeURIComponent(slug)}`, { auth: false });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The rich profile (M16) — story, kitchen photos, policies, trust signals.
+ * Its own request rather than part of `getVendor`, because that call
+ * answers product cards and follow checks too and none of them need this.
+ *
+ * Returns `undefined` only when the vendor itself is gone; a HomeKrafter
+ * who has filled in nothing still gets a fully-shaped empty profile from
+ * the server, so the storefront never has to branch on "no profile".
+ */
+export async function getVendorProfile(slug: string): Promise<VendorProfile | undefined> {
+  if (isMockMode()) return getVendorProfileBySlug(slug);
+  try {
+    return await http.get<VendorProfile>(`/vendors/${encodeURIComponent(slug)}/profile`, {
+      auth: false,
+    });
   } catch {
     return undefined;
   }

@@ -53,7 +53,9 @@ HomeKrafter + local** (single supply role, item availability, tricity
 location filtering, pre-order) → M13 brand/domain → M14 image uploads →
 **M15 Phase 1 production readiness** (search, review submission, buyer
 cancel/return, admin payouts, admin disputes, follow, reorder, error/404
-boundaries, SEO — see `docs/PRODUCTION-AUDIT.md` + CHANGELOG).
+boundaries, SEO — see `docs/PRODUCTION-AUDIT.md` + CHANGELOG) → **M16
+Phase 2** (rich HomeKrafter profiles + verification, occasion hub, seller
+analytics, pre-order calendar, `next/image`, admin reports, a11y).
 
 **Three role surfaces, one app, route groups in `client/`:** consumer `/`
 (built), seller `/seller/*` (M10), admin `/admin/*` (M11) — each its own
@@ -359,6 +361,40 @@ accident:
   link to a real transfer. Both payout decisions are one-way.
 - **A customer replying to a `resolved` ticket reopens it** — the admin
   queue's "waiting on us" count depends on that being true.
+
+## HomeKrafter profiles & verification (M16) — the badge is the product
+
+`VendorProfile` (1:1 with `Vendor`) and `VendorPhoto` hold everything a
+buyer reads before trusting a stranger's kitchen. Rules that are easy to
+undo by accident:
+
+- **A seller can never set their own verification.** `fssaiVerified` /
+  `identityVerified` / `addressVerified` are absent from
+  `UpdateSellerProfileDto`; `forbidNonWhitelisted` turns an attempt into
+  a 400. The only write path is
+  `PATCH /admin/sellers/:id/verification`, which audits before/after.
+  Adding these to the seller DTO "for convenience" destroys the only
+  thing making the badge worth anything.
+- **Submitting a changed `fssaiNumber` clears the verification.**
+  Otherwise editing the thing being verified preserves the badge that
+  verified it.
+- **`fssaiNumber` never enters the public payload.** The buyer needs the
+  verified fact, not the licence identifier.
+- **Trust score, achievements and completion are computed on read**
+  (`VendorProfileService`), never stored — same rule as M15's rating
+  aggregates. `cancellationRate` is `null`, not `0`, before anything has
+  closed.
+- **Never render the trust score as a bare number to a buyer.** The
+  storefront shows the tier plus every signal, met and unmet. A score
+  with no working shown is a platform-invented metric nobody can act on.
+- **Keep `/seller/storefront` and `/seller/profile` separate.** The
+  first is the four catalogue fields that ride on every product card;
+  the second is the story/hours/policies nothing else reads. Merging
+  them puts a return policy on every listing query.
+- **An empty profile renders as a shorter page, not an empty one.**
+  Every section is conditional. A kitchen approved this morning is the
+  normal case, and the completion meter — in the portal, aimed at the
+  person who can fix it — is where gaps get named.
 
 ## SEO — every new public route owes three things (M15)
 
