@@ -73,6 +73,8 @@ import type {
   SellerSpecialty,
   SellerStatus,
   SnackOrder,
+  SupportTicket,
+  SupportTicketStatus,
   User,
   Vendor,
   Wallet,
@@ -1234,4 +1236,65 @@ export async function markPayoutPaid(
 /** `note` is required — a payout refused with no explanation is worse than one that never happened. */
 export async function rejectPayout(payoutId: string, note: string): Promise<AdminPayout> {
   return http.post<AdminPayout>(`/admin/payouts/${encodeURIComponent(payoutId)}/reject`, { note });
+}
+
+// ---------------------------------------------------------------------
+// Support / disputes (M15)
+//
+// The missing reader for tickets the `/support` form has been writing
+// since M7b. `SupportService.addMessage` had a comment reserving
+// `sender: "agent"` for "the M11 support-queue surface, not built yet" —
+// it was never built, so tickets were written and nothing could read
+// them.
+//
+// Mock-only returns an empty queue: `lib/api/support.ts`'s mock ticket
+// store is a per-session array scoped to the current shopper, so there is
+// nothing cross-account for an offline admin view to show, and faking one
+// would let the offline build claim a dispute flow the real path owns.
+// ---------------------------------------------------------------------
+
+export interface AdminSupportTicket extends SupportTicket {
+  userName: string;
+  userEmail?: string;
+  userPhone?: string;
+  lastMessageAt: string;
+  /** The newest message came from the customer — it's our turn. */
+  awaitingReply: boolean;
+}
+
+export interface AdminSupportQueue {
+  items: AdminSupportTicket[];
+  summary: { open: number; inProgress: number; awaitingReply: number };
+}
+
+export async function getAdminSupportTickets(
+  status?: SupportTicketStatus,
+): Promise<AdminSupportQueue> {
+  if (isMockMode()) {
+    return { items: [], summary: { open: 0, inProgress: 0, awaitingReply: 0 } };
+  }
+  return http.get<AdminSupportQueue>("/admin/support/tickets", {
+    query: status ? { status } : undefined,
+  });
+}
+
+/** Posts as `agent`, and moves an `open` ticket to `in-progress` server-side — a ticket someone has answered isn't still untouched. */
+export async function replyToSupportTicket(
+  ticketId: string,
+  body: string,
+): Promise<AdminSupportTicket> {
+  return http.post<AdminSupportTicket>(
+    `/admin/support/tickets/${encodeURIComponent(ticketId)}/messages`,
+    { body },
+  );
+}
+
+export async function setSupportTicketStatus(
+  ticketId: string,
+  status: SupportTicketStatus,
+): Promise<AdminSupportTicket> {
+  return http.patch<AdminSupportTicket>(
+    `/admin/support/tickets/${encodeURIComponent(ticketId)}/status`,
+    { status },
+  );
 }

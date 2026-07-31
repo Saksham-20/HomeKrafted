@@ -920,6 +920,31 @@ save — reordering is just re-submitting `productIds` in the new order).
 | `DELETE /admin/collections/:id` | `204`. Audited (`collection.delete`). |
 
 
+
+### Support / disputes (M15) — `server/src/admin/support.controller.ts`
+
+`SupportTicket`/`SupportMessage` and the customer-facing
+`/support/tickets` endpoints shipped in M7b/M8.3a, and
+`SupportService.addMessage` carried a comment reserving `sender: "agent"`
+for "the M11 support-queue surface, not built yet". It was never built:
+tickets were written and **nothing on the platform could read them**.
+Until M15 that was also the *only* remedy a buyer had, since there was no
+cancel or return path either.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/support/tickets` | Optional `?status=open\|in-progress\|resolved\|closed`. Returns `{ items, summary: { open, inProgress, awaitingReply } }`, newest activity first. Each item adds the customer's name/email/phone, `lastMessageAt`, and `awaitingReply` (the newest message came from the customer). |
+| `GET /admin/support/tickets/:id` | One ticket with its full thread. |
+| `POST /admin/support/tickets/:id/messages` | Body: `{ body }`. Posts as `sender: "agent"` and moves an `open` ticket to `in-progress` in the same write — a ticket someone has answered is not still untouched, and making an agent set that by hand guarantees the queue lies. Audited (`support.reply`), notifies the customer. |
+| `PATCH /admin/support/tickets/:id/status` | Body: `{ status }` (hyphenated frontend form). Audited (`support.status`). Resolving notifies the customer — "we consider this done" is a claim they may want to argue with. |
+
+**`awaitingReply` is the number that matters** on this queue, not the
+status counts: status labels drift, "the customer wrote last" doesn't. It
+excludes `resolved`/`closed`, which is only safe because **a customer
+writing back on a resolved ticket reopens it** (`SupportService.addMessage`,
+M15) — otherwise "that didn't actually fix it" would land in a bucket the
+queue treats as done.
+
 ### Payouts (M15) — `server/src/admin/payouts.controller.ts`
 
 The other end of `POST /seller/payouts/request`. Between M8.3b and M15 a

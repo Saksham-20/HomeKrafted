@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Banknote, BarChart3, FolderOpen, LayoutGrid, LogOut, Package, ShoppingBag, Store, Users, Wallet } from "lucide-react";
+import { Banknote, BarChart3, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ShoppingBag, Store, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AdminShell.module.css";
@@ -27,6 +27,9 @@ const NAV: AdminNavItem[] = [
   // M15 — until this existed, a HomeKrafter's payout request had nowhere
   // to go: `pending` was terminal in practice.
   { label: "Payouts", href: "/admin/payouts", icon: Banknote },
+  // M15 — customers had been filing tickets since M7b with nothing on the
+  // platform able to read them.
+  { label: "Support", href: "/admin/support", icon: LifeBuoy },
   { label: "Collections", href: "/admin/collections", icon: FolderOpen },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
 ];

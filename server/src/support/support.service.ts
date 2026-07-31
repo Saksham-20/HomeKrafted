@@ -57,11 +57,18 @@ export class SupportService {
     await this.prisma.supportMessage.create({
       data: { ticketId: id, sender, body: dto.body },
     });
-    // Re-writes `status` to its own current value purely to bump
-    // `updatedAt` (`@updatedAt` only fires on a real `.update()` call,
-    // not a no-op) — a new message should always move a ticket to the
-    // top of a "most recently active" list.
-    await this.prisma.supportTicket.update({ where: { id }, data: { status: ticket.status } });
+    // Re-writes `status` purely to bump `updatedAt` (`@updatedAt` only
+    // fires on a real `.update()` call, not a no-op) — a new message
+    // should always move a ticket to the top of a "most recently active"
+    // list.
+    //
+    // A customer writing back on a ticket we called `resolved` reopens it
+    // (M15). Otherwise the answer to "did that actually fix it?" lands in
+    // a bucket the admin queue treats as done, and disagreeing with a
+    // resolution would be the one message nobody reads.
+    const nextStatus =
+      sender === 'user' && ticket.status === 'resolved' ? 'in_progress' : ticket.status;
+    await this.prisma.supportTicket.update({ where: { id }, data: { status: nextStatus } });
 
     return this.getById(userId, id);
   }

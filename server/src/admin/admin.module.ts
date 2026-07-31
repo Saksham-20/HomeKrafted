@@ -16,6 +16,8 @@ import { AdminOrdersController } from './orders.controller';
 import { AdminOrdersService } from './orders.service';
 import { AdminPayoutsController } from './payouts.controller';
 import { AdminPayoutsService } from './payouts.service';
+import { AdminSupportController } from './support.controller';
+import { AdminSupportService } from './support.service';
 import { AdminWalletController } from './wallet.controller';
 import { AdminWalletService } from './wallet.service';
 import { AdminCollectionsController } from './collections.controller';
@@ -46,6 +48,7 @@ import { AdminDashboardService } from './dashboard.service';
     AdminCatalogController,
     AdminOrdersController,
     AdminPayoutsController,
+    AdminSupportController,
     AdminWalletController,
     AdminCollectionsController,
     AdminAuditController,
@@ -57,6 +60,7 @@ import { AdminDashboardService } from './dashboard.service';
     AdminCatalogService,
     AdminOrdersService,
     AdminPayoutsService,
+    AdminSupportService,
     AdminWalletService,
     AdminCollectionsService,
     AdminDashboardService,

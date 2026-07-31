@@ -1,0 +1,179 @@
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5) 0;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s5);
+}
+
+.filters {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s4);
+}
+
+/* Queue left, thread right; stacks below 900px so the thread doesn't get
+   squeezed into an unreadable column. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) 1fr;
+  gap: var(--hk-s4);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.empty {
+  color: var(--hk-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.rowButton {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+}
+
+.row,
+.rowActive {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rowActive {
+  border-color: var(--hk-pine);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s2);
+}
+
+.subject {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.waiting {
+  align-self: flex-start;
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-terracotta);
+}
+
+.thread {
+  min-width: 0;
+}
+
+.threadCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.threadHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+}
+
+.threadSubject {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: 2px;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.userMsg,
+.agentMsg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s3) var(--hk-s4);
+  max-width: 46rem;
+}
+
+.userMsg {
+  background: var(--hk-surface-3);
+}
+
+/* Our own replies on the pine tint, so a thread reads as a conversation
+   at a glance rather than a wall of identical blocks. */
+.agentMsg {
+  background: var(--hk-pine-tint);
+  align-self: flex-end;
+}
+
+.msgSender {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.msgBody {
+  font: var(--hk-body);
+  color: var(--hk-ink-2);
+  white-space: pre-wrap;
+}
+
+.msgTime {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.actions {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}

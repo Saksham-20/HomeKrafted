@@ -9,6 +9,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { createSupportTicket, type CreateSupportTicketInput } from "@/lib/api";
 import { getAutoReply } from "@/lib/support/autoReply";
+import { MyTickets } from "./MyTickets";
 import type { SupportChannel, SupportTicket } from "@/lib/types";
 import styles from "./SupportClient.module.css";
 
@@ -54,6 +55,12 @@ export function SupportClient({ phone, chatGreeting }: SupportClientProps) {
         <ChatWidget greeting={chatGreeting} />
         <TicketForm />
       </div>
+
+      {/* M15 — before this, `getSupportTickets` had no call site anywhere:
+          you could file a ticket and never see it again, and an agent's
+          reply had nowhere to be read. Renders nothing when signed out or
+          when there are no tickets. */}
+      <MyTickets />
     </section>
   );
 }

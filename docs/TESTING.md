@@ -146,7 +146,8 @@ Sign in as **Ananya**.
 - Addresses — add, edit, set default, delete
 - Notifications
 - Referrals — referral code and sharing
-- Support page
+- Support page — raise a ticket, then check it appears under **Your
+  tickets** on that same page with the message you sent
 - **Reviews** (`Account → Reviews`) — Ananya has two delivered orders, so
   a few items should be listed under "Waiting for your review". Write
   one: pick stars, add a headline and a couple of sentences, post it.
@@ -259,6 +260,12 @@ Sign in as **admin** at https://homekrafted.in/admin/login
 - **Reviews** — moderate reviews
 - **Collections** — create and edit collections, promo slots
 - **Wallet** — view and adjust a user's wallet
+- **Support** — the dispute queue. As a shopper, raise a ticket from
+  `/support` first. Then here: it should appear under "Waiting on us",
+  open it, read the thread, write a reply, and mark it resolved. Back as
+  the shopper, `/support` → **Your tickets** should show your reply
+  thread with a "Reply" badge, and you should be able to write back —
+  which reopens a resolved ticket, by design.
 - **Payouts** — the HomeKrafter earnings queue. Sign in as a HomeKrafter
   first and request a payout from their **Payouts** screen, then come
   back here: the request should appear under Pending. Try both

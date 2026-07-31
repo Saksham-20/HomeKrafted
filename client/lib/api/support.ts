@@ -68,3 +68,35 @@ export async function getSupportTickets(): Promise<SupportTicket[]> {
   if (isMockMode()) return supportTickets;
   return http.get<SupportTicket[]>("/support/tickets");
 }
+
+/**
+ * Add a message to one of your own tickets (M15).
+ *
+ * The customer half of the dispute loop. `GET /support/tickets` had no
+ * call site anywhere and there was no way to reply, so an agent's answer
+ * — once M15 gave agents a queue to answer from — would have had nowhere
+ * to be read.
+ *
+ * Writing back on a ticket we marked `resolved` reopens it server-side:
+ * "that didn't actually fix it" must not land in a bucket the admin queue
+ * treats as done.
+ */
+export async function addSupportMessage(ticketId: string, body: string): Promise<SupportTicket> {
+  if (isMockMode()) {
+    const ticket = supportTickets.find((t) => t.id === ticketId);
+    if (!ticket) throw new Error("Ticket not found");
+    ticket.messages.push({
+      id: `sm-${Date.now()}`,
+      ticketId,
+      sender: "user",
+      body,
+      createdAt: new Date().toISOString(),
+    });
+    ticket.updatedAt = new Date().toISOString();
+    return ticket;
+  }
+  return http.post<SupportTicket>(
+    `/support/tickets/${encodeURIComponent(ticketId)}/messages`,
+    { body },
+  );
+}
