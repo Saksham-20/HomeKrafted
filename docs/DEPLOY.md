@@ -135,6 +135,11 @@ placeholder secret, so a bad `.env` shows up as a pm2 restart loop — check
 NEXT_PUBLIC_API_URL=https://homekrafted.in/api/v1
 NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_placeholder
 NEXT_PUBLIC_USE_MOCK=false
+# M15 — the absolute origin canonicals, Open Graph images, the sitemap
+# and every JSON-LD `url` are built from. Must match the real origin: a
+# staging box left on the production value advertises production URLs to
+# crawlers and social unfurlers. Defaults to https://homekrafted.in.
+NEXT_PUBLIC_SITE_URL=https://homekrafted.in
 ```
 
 `NEXT_PUBLIC_*` values are inlined **at build time**, so changing one means a

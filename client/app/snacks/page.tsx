@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import clsx from "clsx";
 import { getBuyerCoords } from "@/lib/location/server";
 import { getSnackCategoryFilters, getSnacks } from "@/lib/api";
 import { getChannelRule } from "@/lib/channel";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { SnacksClient } from "@/components/snacks/SnacksClient";
+import { pageMetadata } from "@/lib/seo";
 import styles from "./Snacks.module.css";
 
 /**
@@ -19,6 +21,13 @@ import styles from "./Snacks.module.css";
  * being deliberately redesigned — nothing here should quietly grow a
  * cart/checkout.
  */
+export const metadata: Metadata = pageMetadata({
+  title: "Homemade snacks",
+  description:
+    "Evening snacks, samosas and namkeen from tricity home kitchens. Browse the menu and order on WhatsApp — no checkout, we reply on chat.",
+  path: "/snacks",
+});
+
 export default async function SnacksPage() {
   const channel = getChannelRule("snacks");
   if (channel.hasCartOnWeb || channel.hasCheckoutOnWeb) {

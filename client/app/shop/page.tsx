@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import clsx from "clsx";
 import { getBuyerCoords } from "@/lib/location/server";
 import { getCategories, getOccasions, getProducts, getVendors } from "@/lib/api";
 import { ShopClient } from "./ShopClient";
+import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
 
 export interface ShopPageProps {
@@ -15,6 +17,13 @@ export interface ShopPageProps {
  * (set by Home's category tiles + occasion tiles) seed the sidebar's
  * initial selection.
  */
+export const metadata: Metadata = pageMetadata({
+  title: "Shop homemade foods",
+  description:
+    "Small-batch pickles, sweets, bakes and snacks from home kitchens across Chandigarh, Mohali, Panchkula and Zirakpur. Filter by category, occasion, diet and distance.",
+  path: "/shop",
+});
+
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams;
   // Read the buyer's area from the `hk_loc` cookie so the server render

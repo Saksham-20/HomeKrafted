@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import clsx from "clsx";
 import { notFound } from "next/navigation";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
@@ -8,10 +9,32 @@ import {
   getProductsByOccasion,
   getVendors,
 } from "@/lib/api";
+import { pageMetadata } from "@/lib/seo";
 import styles from "./Collection.module.css";
 
 export interface CollectionPageProps {
   params: Promise<{ occasion: string }>;
+}
+
+/**
+ * Occasion pages are the site's seasonal search surface — "diwali gift
+ * hamper", "housewarming gift" — and until M15 every one of them shared
+ * the site-wide title.
+ */
+export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
+  const { occasion: occasionSlug } = await params;
+  const occasion = await getOccasion(occasionSlug);
+  if (!occasion) return { title: "Collection not found" };
+
+  const collection = await getCollectionByOccasion(occasion.id);
+
+  return pageMetadata({
+    title: collection?.title ?? `${occasion.name} gifts`,
+    description:
+      collection?.description ??
+      `Handpicked ${occasion.name.toLowerCase()} gifts from home kitchens and makers across the Chandigarh tricity.`,
+    path: `/collections/${occasion.slug}`,
+  });
 }
 
 /**

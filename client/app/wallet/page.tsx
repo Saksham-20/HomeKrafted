@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getTopupOptions } from "@/lib/api";
 import { WalletClient } from "@/components/wallet/WalletClient";
 
@@ -10,6 +11,16 @@ import { WalletClient } from "@/components/wallet/WalletClient";
  * — the same "the store is the deliberate pre-backend exception" pattern
  * `CartContext` established in M3.
  */
+/**
+ * Never indexable: a wallet is one person's balance and ledger. `robots.ts` disallows the path too — this is
+ * the belt to that braces, for the case where a crawler reaches the page
+ * from an external link rather than by crawling the site.
+ */
+export const metadata: Metadata = {
+  title: "Wallet",
+  robots: { index: false, follow: false },
+};
+
 export default async function WalletPage() {
   const topupOptions = await getTopupOptions();
 

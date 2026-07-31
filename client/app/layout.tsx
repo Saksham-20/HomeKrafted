@@ -13,6 +13,7 @@ import { WishlistProvider } from "@/lib/wishlist/WishlistContext";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { LocationProvider } from "@/lib/location/LocationContext";
 import { LocationPrompt } from "@/components/location/LocationPrompt";
+import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
 // Fraunces (display/headings/prices) — 400-700 + italic, per the design system.
 const fraunces = Fraunces({
@@ -39,10 +40,45 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+/**
+ * Site-wide defaults. `metadataBase` is what makes every route's
+ * relative Open Graph image and canonical resolve to an absolute URL —
+ * without it Next emits relative `og:image`s, which crawlers and social
+ * unfurlers silently ignore.
+ *
+ * The title template lets each route set only its own name; anything
+ * that wants a bare title (a product page, say) uses `title.absolute`.
+ */
 export const metadata: Metadata = {
-  title: "Homekrafted — Homemade, Handpicked",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Homekrafted — Homemade, Handpicked",
+    template: "%s — Homekrafted",
+  },
   description:
     "Handmade gifts, homemade foods, laundry & cleaning, and home snacks — from real home kitchens and makers, delivered with care.",
+  applicationName: SITE_NAME,
+  keywords: [
+    "homemade gifts",
+    "home kitchen food",
+    "Chandigarh",
+    "Mohali",
+    "Panchkula",
+    "homemade snacks",
+    "gift hampers",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_IN",
+    url: SITE_URL,
+    title: "Homekrafted — Homemade, Handpicked",
+    description:
+      "Handmade gifts, homemade foods, laundry & cleaning, and home snacks — from real home kitchens across the Chandigarh tricity.",
+    images: [{ url: "/images/site/hero-hamper.jpg" }],
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   getCategories,
@@ -30,6 +31,16 @@ import { GalleryClient } from "./GalleryClient";
  * `lib/data` directly, per the project convention) and hands resolved
  * data down to the interactive `<GalleryClient>`.
  */
+/**
+ * Never indexable: a dev-only primitives gallery that ships in the production bundle. `robots.ts` disallows the path too — this is
+ * the belt to that braces, for the case where a crawler reaches the page
+ * from an external link rather than by crawling the site.
+ */
+export const metadata: Metadata = {
+  title: "Component gallery",
+  robots: { index: false, follow: false },
+};
+
 export default async function GalleryPage() {
   if (process.env.NODE_ENV === "production") notFound();
 

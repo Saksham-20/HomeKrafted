@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import clsx from "clsx";
 import { MapPin, Percent, UtensilsCrossed, Zap } from "lucide-react";
 import { getMealPromo } from "@/lib/api";
@@ -7,6 +8,7 @@ import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { StoreBadges } from "@/components/ui/StoreBadges";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
+import { pageMetadata } from "@/lib/seo";
 import styles from "./AppPromo.module.css";
 
 const VALUE_PROPS = [
@@ -47,6 +49,13 @@ const VALUE_PROPS = [
  * without this page being deliberately redesigned; nothing here should
  * quietly grow a menu.
  */
+export const metadata: Metadata = pageMetadata({
+  title: "Homemade food delivery on the app",
+  description:
+    "Full meals from home kitchens, with live tracking, are coming to the Homekrafted app. Pre-order your slot and we'll message you when it opens.",
+  path: "/app-promo",
+});
+
 export default async function AppPromoPage() {
   const channel = getChannelRule("full-meals");
   if (channel.hasMenuOnWeb) {

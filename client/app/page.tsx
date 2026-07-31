@@ -17,6 +17,7 @@ import {
   getTrustStats,
   getVendors,
 } from "@/lib/api";
+import { absoluteUrl, jsonLdProps, SITE_NAME, SITE_URL } from "@/lib/seo";
 import styles from "./page.module.css";
 
 /** Splits a `HomePromoBandContent.title` on its literal `"\n"` line break into React fragments joined by `<br />` — see that type's doc comment (`lib/data/site.ts`). */
@@ -52,8 +53,45 @@ export default async function Home() {
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
 
+  // Organization + WebSite structured data, on the home page only —
+  // stating it once site-wide is what the spec expects, and repeating it
+  // per route just bloats every document. `SearchAction` is what lets a
+  // search engine offer a Homekrafted search box directly in results; it
+  // points at the real `/search` route added in the same milestone.
+  const siteJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: SITE_NAME,
+        url: SITE_URL,
+        logo: absoluteUrl("/images/site/logo.svg"),
+        description:
+          "A marketplace for homemade creations — gifts, foods, snacks and home services from real home kitchens across the Chandigarh tricity.",
+        areaServed: ["Chandigarh", "Mohali", "Panchkula", "Zirakpur"],
+      },
+      {
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+        url: SITE_URL,
+        name: SITE_NAME,
+        publisher: { "@id": `${SITE_URL}/#organization` },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ],
+  };
+
   return (
     <>
+      <script {...jsonLdProps(siteJsonLd)} />
       <Hero trustStats={trustStats} />
 
       <section className={clsx("container", styles.section)}>

@@ -1,13 +1,33 @@
+import type { Metadata } from "next";
 import clsx from "clsx";
 import { notFound } from "next/navigation";
 import { StoreHeader } from "@/components/storefront/StoreHeader";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { ReviewList } from "@/components/review/ReviewList";
 import { getProductsByVendor, getVendor, getVendorReviews } from "@/lib/api";
+import { absoluteUrl, jsonLdProps, pageMetadata } from "@/lib/seo";
 import styles from "./Storefront.module.css";
 
 export interface StorefrontPageProps {
   params: Promise<{ vendor: string }>;
+}
+
+/**
+ * A storefront is the page a HomeKrafter shares — it needs to unfurl as
+ * *them*, not as the generic site card it did before M15.
+ */
+export async function generateMetadata({ params }: StorefrontPageProps): Promise<Metadata> {
+  const { vendor: vendorSlug } = await params;
+  const vendor = await getVendor(vendorSlug);
+  if (!vendor) return { title: "HomeKrafter not found" };
+
+  return pageMetadata({
+    title: `${vendor.name} — ${vendor.location}`,
+    description:
+      vendor.bio.length > 155 ? `${vendor.bio.slice(0, 152).trimEnd()}…` : vendor.bio,
+    path: `/storefront/${vendor.slug}`,
+    image: vendor.bannerSrc ?? vendor.avatarSrc,
+  });
 }
 
 /**
@@ -26,8 +46,33 @@ export default async function StorefrontPage({ params }: StorefrontPageProps) {
     getVendorReviews(vendor.id),
   ]);
 
+  // A home kitchen with a real address and a delivery radius is a
+  // `LocalBusiness` in schema.org terms, which is what puts it in the
+  // local pack for "homemade pickles near me". `geo` is already on the
+  // record for the delivery-radius filter, so it costs nothing to state.
+  const storeJsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: vendor.name,
+    description: vendor.bio,
+    url: absoluteUrl(`/storefront/${vendor.slug}`),
+    ...(vendor.avatarSrc ? { image: absoluteUrl(vendor.avatarSrc) } : {}),
+    address: { "@type": "PostalAddress", addressLocality: vendor.location, addressCountry: "IN" },
+    geo: { "@type": "GeoCoordinates", latitude: vendor.lat, longitude: vendor.lng },
+    ...(vendor.reviewCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: vendor.rating,
+            reviewCount: vendor.reviewCount,
+          },
+        }
+      : {}),
+  };
+
   return (
     <>
+      <script {...jsonLdProps(storeJsonLd)} />
       <section className={clsx("container", styles.headerWrap)}>
         <StoreHeader vendor={vendor} />
       </section>
