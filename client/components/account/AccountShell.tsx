@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Bell, Gift, Heart, LayoutGrid, MapPin, Package, Star, User } from "lucide-react";
+import { Bell, Gift, Heart, LayoutGrid, MapPin, Package, Star, Store, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AccountShell.module.css";
@@ -29,6 +29,9 @@ export const ACCOUNT_NAV_ITEMS: AccountNavItem[] = [
   // M15 — the buyer's half of the review loop: what's waiting to be
   // rated, and what they've already written.
   { label: "Reviews", href: "/account/reviews", icon: Star },
+  // M15 — following persists now (`VendorFollow`), so there's something
+  // to list. Before, the storefront's Follow button was local state.
+  { label: "Following", href: "/account/following", icon: Store },
   { label: "Referrals", href: "/account/referrals", icon: Gift },
   { label: "Notifications", href: "/account/notifications", icon: Bell },
   { label: "Profile", href: "/account/profile", icon: User },

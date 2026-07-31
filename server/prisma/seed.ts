@@ -318,18 +318,18 @@ async function main(): Promise<void> {
   // they line up with `server/src/common/geo.ts#TRICITY_AREAS` so a buyer
   // who picks the same area lands at distance ~0.
   const vendorSeeds = [
-    { id: 'vd1', slug: 'anjalis-kitchen', name: "Anjali's Kitchen", type: 'maker', bio: 'Home-cooked Punjabi food and small-batch pickles, made fresh every morning in a Sector 35 kitchen. Daily thalis, weekend specials, nothing frozen.', location: 'Sector 35, Chandigarh', area: 'chd-sector-35', lat: 30.7266, lng: 76.7554, deliveryRadiusKm: 12, rating: 4.8, reviewCount: 128, followerCount: 612, joinedAt: '2023-11-02' },
-    { id: 'vd2', slug: 'meeras-homefoods', name: "Meera's Homefoods", type: 'maker', bio: 'Everyday home food from a Mohali kitchen — dal, sabzi, rotis packed hot, plus chutneys ground fresh each week.', location: 'Phase 3B2, Mohali', area: 'moh-phase-3b2', lat: 30.7050, lng: 76.7180, deliveryRadiusKm: 10, rating: 4.7, reviewCount: 86, followerCount: 234, joinedAt: '2024-02-14' },
-    { id: 'vd3', slug: 'home-batch', name: 'Home Batch', type: 'baker', bio: 'A Sector 15 home-bakery: millet cookies, eggless cakes and breads baked to order, never off a shelf.', location: 'Sector 15, Chandigarh', area: 'chd-sector-15', lat: 30.7594, lng: 76.7681, deliveryRadiusKm: 8, rating: 4.9, reviewCount: 204, followerCount: 540, joinedAt: '2023-06-20' },
-    { id: 'vd4', slug: 'crunch-corner', name: 'Crunch Corner', type: 'maker', bio: 'Panchkula home kitchen roasting nuts, seeds and namkeen in small weekly batches.', location: 'Sector 5, Panchkula', area: 'pkl-sector-5', lat: 30.6930, lng: 76.8540, deliveryRadiusKm: 10, rating: 4.6, reviewCount: 92, followerCount: 178, joinedAt: '2024-05-09' },
-    { id: 'vd5', slug: 'cocoa-homemade', name: 'Cocoa Homemade', type: 'baker', bio: 'Bean-to-bar chocolate and homemade desserts, made in a Sector 22 flat one batch at a time.', location: 'Sector 22, Chandigarh', area: 'chd-sector-22', lat: 30.7333, lng: 76.7794, deliveryRadiusKm: 9, rating: 4.8, reviewCount: 73, followerCount: 265, joinedAt: '2024-01-11' },
-    { id: 'vd6', slug: 'dadis-recipe', name: "Dadi's Recipe", type: 'maker', bio: 'Traditional sweets, mathri and dry-fruit preparations from a Zirakpur family kitchen, three generations of recipes.', location: 'VIP Road, Zirakpur', area: 'zkp-vip-road', lat: 30.6425, lng: 76.8173, deliveryRadiusKm: 14, rating: 4.9, reviewCount: 140, followerCount: 601, joinedAt: '2022-12-03' },
-    { id: 'vd7', slug: 'hills-leaves', name: 'Hills & Leaves', type: 'maker', bio: 'Hand-blended teas and homemade masalas, packed in Panchkula.', location: 'Sector 9, Panchkula', area: 'pkl-sector-9', lat: 30.6870, lng: 76.8480, deliveryRadiusKm: 12, rating: 4.7, reviewCount: 61, followerCount: 145, joinedAt: '2024-03-27' },
-    { id: 'vd8', slug: 'homekrafted', name: 'Homekrafted', type: 'homekrafted', bio: 'Our in-house team, building gift-ready hampers from the best of the tricity home kitchens.', location: 'Sector 17, Chandigarh', area: 'chd-sector-17', lat: 30.7418, lng: 76.7822, deliveryRadiusKm: 30, rating: 4.9, reviewCount: 57, followerCount: 890, joinedAt: '2022-08-15' },
+    { id: 'vd1', slug: 'anjalis-kitchen', name: "Anjali's Kitchen", type: 'maker', bio: 'Home-cooked Punjabi food and small-batch pickles, made fresh every morning in a Sector 35 kitchen. Daily thalis, weekend specials, nothing frozen.', location: 'Sector 35, Chandigarh', area: 'chd-sector-35', lat: 30.7266, lng: 76.7554, deliveryRadiusKm: 12, rating: 4.8, reviewCount: 128, joinedAt: '2023-11-02' },
+    { id: 'vd2', slug: 'meeras-homefoods', name: "Meera's Homefoods", type: 'maker', bio: 'Everyday home food from a Mohali kitchen — dal, sabzi, rotis packed hot, plus chutneys ground fresh each week.', location: 'Phase 3B2, Mohali', area: 'moh-phase-3b2', lat: 30.7050, lng: 76.7180, deliveryRadiusKm: 10, rating: 4.7, reviewCount: 86, joinedAt: '2024-02-14' },
+    { id: 'vd3', slug: 'home-batch', name: 'Home Batch', type: 'baker', bio: 'A Sector 15 home-bakery: millet cookies, eggless cakes and breads baked to order, never off a shelf.', location: 'Sector 15, Chandigarh', area: 'chd-sector-15', lat: 30.7594, lng: 76.7681, deliveryRadiusKm: 8, rating: 4.9, reviewCount: 204, joinedAt: '2023-06-20' },
+    { id: 'vd4', slug: 'crunch-corner', name: 'Crunch Corner', type: 'maker', bio: 'Panchkula home kitchen roasting nuts, seeds and namkeen in small weekly batches.', location: 'Sector 5, Panchkula', area: 'pkl-sector-5', lat: 30.6930, lng: 76.8540, deliveryRadiusKm: 10, rating: 4.6, reviewCount: 92, joinedAt: '2024-05-09' },
+    { id: 'vd5', slug: 'cocoa-homemade', name: 'Cocoa Homemade', type: 'baker', bio: 'Bean-to-bar chocolate and homemade desserts, made in a Sector 22 flat one batch at a time.', location: 'Sector 22, Chandigarh', area: 'chd-sector-22', lat: 30.7333, lng: 76.7794, deliveryRadiusKm: 9, rating: 4.8, reviewCount: 73, joinedAt: '2024-01-11' },
+    { id: 'vd6', slug: 'dadis-recipe', name: "Dadi's Recipe", type: 'maker', bio: 'Traditional sweets, mathri and dry-fruit preparations from a Zirakpur family kitchen, three generations of recipes.', location: 'VIP Road, Zirakpur', area: 'zkp-vip-road', lat: 30.6425, lng: 76.8173, deliveryRadiusKm: 14, rating: 4.9, reviewCount: 140, joinedAt: '2022-12-03' },
+    { id: 'vd7', slug: 'hills-leaves', name: 'Hills & Leaves', type: 'maker', bio: 'Hand-blended teas and homemade masalas, packed in Panchkula.', location: 'Sector 9, Panchkula', area: 'pkl-sector-9', lat: 30.6870, lng: 76.8480, deliveryRadiusKm: 12, rating: 4.7, reviewCount: 61, joinedAt: '2024-03-27' },
+    { id: 'vd8', slug: 'homekrafted', name: 'Homekrafted', type: 'homekrafted', bio: 'Our in-house team, building gift-ready hampers from the best of the tricity home kitchens.', location: 'Sector 17, Chandigarh', area: 'chd-sector-17', lat: 30.7418, lng: 76.7822, deliveryRadiusKm: 30, rating: 4.9, reviewCount: 57, joinedAt: '2022-08-15' },
     // Under the single-role model a laundry partner and a snack seller are
     // HomeKrafters like any other, so they get storefronts too.
-    { id: 'vd9', slug: 'fresh-fold-laundry', name: 'Fresh Fold Laundry Co.', type: 'maker', bio: 'Wash, fold, dry-clean and steam ironing, picked up and returned across Mohali and south Chandigarh.', location: 'Phase 7, Mohali', area: 'moh-phase-7', lat: 30.7130, lng: 76.7020, deliveryRadiusKm: 15, rating: 4.7, reviewCount: 214, followerCount: 96, joinedAt: '2024-02-10' },
-    { id: 'vd10', slug: 'meeras-snack-box', name: "Meera's Snack Box", type: 'maker', bio: 'Evening snacks, samosas and homemade namkeen from a Sector 46 kitchen — order on WhatsApp, delivered hot.', location: 'Sector 46, Chandigarh', area: 'chd-sector-46', lat: 30.7083, lng: 76.7626, deliveryRadiusKm: 8, rating: 4.5, reviewCount: 96, followerCount: 143, joinedAt: '2024-05-20' },
+    { id: 'vd9', slug: 'fresh-fold-laundry', name: 'Fresh Fold Laundry Co.', type: 'maker', bio: 'Wash, fold, dry-clean and steam ironing, picked up and returned across Mohali and south Chandigarh.', location: 'Phase 7, Mohali', area: 'moh-phase-7', lat: 30.7130, lng: 76.7020, deliveryRadiusKm: 15, rating: 4.7, reviewCount: 214, joinedAt: '2024-02-10' },
+    { id: 'vd10', slug: 'meeras-snack-box', name: "Meera's Snack Box", type: 'maker', bio: 'Evening snacks, samosas and homemade namkeen from a Sector 46 kitchen — order on WhatsApp, delivered hot.', location: 'Sector 46, Chandigarh', area: 'chd-sector-46', lat: 30.7083, lng: 76.7626, deliveryRadiusKm: 8, rating: 4.5, reviewCount: 96, joinedAt: '2024-05-20' },
   ] as const;
 
   for (const v of vendorSeeds) {
@@ -351,7 +351,12 @@ async function main(): Promise<void> {
         deliveryRadiusKm: v.deliveryRadiusKm,
         rating: v.rating,
         reviewCount: v.reviewCount,
-        followerCount: v.followerCount,
+        // followerCount is deliberately left at its 0 default. It used to
+        // be seeded with a plausible-looking number (612, 890, ...) with
+        // no `VendorFollow` row behind any of it, which was harmless only
+        // while nothing could follow — M15's real follow endpoint counts
+        // the rows, so a seeded 612 would collapse to 1 the first time
+        // anyone pressed the button.
         joinedAt: new Date(v.joinedAt),
       },
     });

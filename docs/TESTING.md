@@ -93,7 +93,10 @@ Sign in as **Ananya**.
 
 - Home page — banners, category tiles, the video reel rail
 - **Shop** — filter and sort products, open a product page
-- Open a **HomeKrafter storefront** from a product
+- Open a **HomeKrafter storefront** from a product, and **Follow** it —
+  the follower count should move, the button should still say "Following"
+  after a reload, and the shop should be listed under
+  `Account → Following` (unfollow from either place)
 - **Occasion collections** (e.g. from the home page)
 - **Wishlist** — add/remove, check it survives a page reload
 - **Search** — the box in the header (and inside the mobile menu below

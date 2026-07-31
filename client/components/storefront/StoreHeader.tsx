@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { FollowButton } from "./FollowButton";
 import type { Vendor } from "@/lib/types";
@@ -7,8 +10,19 @@ export interface StoreHeaderProps {
   vendor: Vendor;
 }
 
-/** Maker storefront header — banner, circular avatar, name, rating, follow, bio + location. */
+/**
+ * Maker storefront header — banner, circular avatar, name, rating,
+ * follow, bio + location.
+ *
+ * A client component since M15 purely so the follower count and the
+ * follow button move together: the count sits in the meta row and the
+ * button on the far right, so lifting one piece of state here beats
+ * splitting the header into two islands. It takes a `vendor` prop and
+ * fetches nothing, so no data-fetching follows it into the bundle.
+ */
 export function StoreHeader({ vendor }: StoreHeaderProps) {
+  const [followerCount, setFollowerCount] = useState(vendor.followerCount);
+
   return (
     <div className={styles.wrap}>
       <div className={styles.banner}>
@@ -33,7 +47,9 @@ export function StoreHeader({ vendor }: StoreHeaderProps) {
             <span className={styles.dot} aria-hidden="true">
               ·
             </span>
-            <span>{vendor.followerCount} followers</span>
+            <span>
+              {followerCount} follower{followerCount === 1 ? "" : "s"}
+            </span>
             <span className={styles.dot} aria-hidden="true">
               ·
             </span>
@@ -41,7 +57,11 @@ export function StoreHeader({ vendor }: StoreHeaderProps) {
           </div>
           <p className={styles.bio}>{vendor.bio}</p>
         </div>
-        <FollowButton initialFollowing={vendor.isFollowing} className={styles.followBtn} />
+        <FollowButton
+          vendorSlug={vendor.slug}
+          onCountChange={setFollowerCount}
+          className={styles.followBtn}
+        />
       </div>
     </div>
   );

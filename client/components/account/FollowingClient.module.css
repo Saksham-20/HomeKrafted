@@ -1,0 +1,151 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+}
+
+.subtitle {
+  color: var(--hk-muted);
+  font-size: 14px;
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5) 0;
+}
+
+.error {
+  font-size: 14px;
+  color: var(--hk-terracotta);
+}
+
+.empty {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s7) var(--hk-s5);
+  text-align: center;
+}
+
+.emptyTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.emptyBody {
+  margin: var(--hk-s2) auto 0;
+  max-width: 42ch;
+  font: var(--hk-small);
+  color: var(--hk-ink-3);
+}
+
+.emptyCta {
+  display: inline-block;
+  margin-top: var(--hk-s4);
+  background: var(--hk-pine);
+  color: #ffffff;
+  border-radius: var(--hk-r-pill);
+  padding: 11px 22px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.emptyCta:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s4);
+}
+
+.rowLink {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+
+.rowLink:hover {
+  color: inherit;
+}
+
+.rowLink:hover .name {
+  color: var(--hk-gold);
+}
+
+.avatar {
+  display: block;
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.meta {
+  font-size: 13px;
+  color: var(--hk-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unfollow {
+  flex-shrink: 0;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-pill);
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--hk-ink-2);
+}
+
+.unfollow:hover {
+  border-color: var(--hk-terracotta);
+  color: var(--hk-terracotta);
+}

@@ -184,8 +184,20 @@ dropping it.
 | `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
 | `GET /products/:slug` | public | No `hidden` filter — a direct-link/cart/order/wishlist resolve must still work, matching `lib/api/products.ts#getProduct`'s doc comment. `404` if no product has that slug. |
 | `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
-| `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` — `VendorFollow` exists in the schema but M8.1 doesn't add follow endpoints. |
+| `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` here — this route is `@Public()`, so the global guard attaches no session and there is nobody to answer "am *I* following this" for. Use `GET /vendors/:slug/follow`. |
 | `GET /vendors/:slug/products` | public | `Product[]`, excludes `hidden` — same rule `lib/api/products.ts#getProductsByVendor` applies |
+| `GET /vendors/following` | any authed role | Storefronts the caller follows, newest follow first, each with `isFollowing: true`. **Declared above `:slug`** — Nest matches in declaration order, and the reverse would read `following` as a vendor slug. |
+| `GET /vendors/:slug/follow` | any authed role | `{ following, followerCount }` for this caller. |
+| `POST /vendors/:slug/follow` | any authed role | Follows. Idempotent — a second press is the same state, not a `409`. Returns `{ following: true, followerCount }`. |
+| `DELETE /vendors/:slug/follow` | any authed role | Unfollows. Returns `{ following: false, followerCount }`. |
+
+**Follows (M15).** `VendorFollow` had sat in the schema since M8.1 with no
+endpoint behind it — `FollowButton` was local `useState` and
+`Vendor.followerCount` a seeded decoration. `followerCount` is now
+**counted from the rows** after every follow/unfollow, for the same
+reason review aggregates are: an incremented counter drifts and nothing
+notices. The seed stopped writing invented follower numbers in the same
+change, so a real follow doesn't collapse a fictional 612 to 1.
 | `GET /categories`, `GET /categories/:slug` | public | `Category[]` / `Category` |
 | `GET /occasions`, `GET /occasions/:slug` | public | `Occasion[]` / `Occasion` |
 | `GET /collections`, `GET /collections/:slug` | public | `Collection[]` / `Collection` — `productIds` ordered by `CollectionProduct.sortOrder` |
