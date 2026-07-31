@@ -1,0 +1,105 @@
+.wrap {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--hk-s8);
+}
+
+.panel {
+  width: 100%;
+  max-width: 560px;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s8) var(--hk-s6);
+  text-align: center;
+  animation: hkfade var(--hk-dur) var(--hk-ease);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: var(--hk-eyebrow-spacing);
+  text-transform: uppercase;
+  /* Gold at 11px regular would fail AA on white — the small-size gold
+     ramp from styles/tokens.extend.css is the AA-safe stand-in. */
+  color: var(--hk-gold-text-sm);
+}
+
+.error .eyebrow {
+  color: var(--hk-terracotta);
+}
+
+.title {
+  margin-top: var(--hk-s3);
+  font: var(--hk-h2);
+  color: var(--hk-pine);
+}
+
+.body {
+  margin-top: var(--hk-s3);
+  margin-inline: auto;
+  max-width: 44ch;
+  font: var(--hk-body);
+  color: var(--hk-ink-3);
+}
+
+.actions {
+  margin-top: var(--hk-s6);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  justify-content: center;
+}
+
+/* Same pill CTA pair the Hero uses, so a 404 offers a way out that looks
+   like every other primary action on the site. */
+.actionPrimary,
+.actionOutline {
+  border-radius: var(--hk-r-pill);
+  padding: 13px 26px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  text-align: center;
+}
+
+.actionPrimary {
+  background: var(--hk-pine);
+  color: #ffffff;
+}
+
+.actionPrimary:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.actionOutline {
+  background: none;
+  color: var(--hk-pine);
+  border: 1.5px solid var(--hk-pine);
+  padding: 11.5px 24.5px;
+}
+
+.actionOutline:hover {
+  border-color: var(--hk-gold);
+}
+
+.detail {
+  margin-top: var(--hk-s5);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+  word-break: break-all;
+}
+
+@media (max-width: 520px) {
+  .panel {
+    padding: var(--hk-s6) var(--hk-s4);
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+}
