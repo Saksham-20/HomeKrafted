@@ -142,3 +142,42 @@
   color: var(--hk-muted);
   font-size: 13.5px;
 }
+
+/* M15 — post-delivery actions (review; reorder joins this card). */
+.actionsCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+  padding: var(--hk-s5);
+  background: var(--hk-pine-tint);
+  border-color: var(--hk-pine-tint);
+}
+
+.actionsText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.actionsBody {
+  font: var(--hk-small);
+  color: var(--hk-ink-3);
+}
+
+.actionLink {
+  flex-shrink: 0;
+  background: var(--hk-pine);
+  color: #ffffff;
+  border-radius: var(--hk-r-pill);
+  padding: 11px 22px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.actionLink:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}

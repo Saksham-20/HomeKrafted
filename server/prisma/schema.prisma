@@ -502,6 +502,7 @@ model Review {
   flagged              Boolean          @default(false)
   hidden               Boolean          @default(false)
 
+  @@unique([userId, targetType, targetId])
   @@index([targetType, targetId])
   @@index([userId])
 }

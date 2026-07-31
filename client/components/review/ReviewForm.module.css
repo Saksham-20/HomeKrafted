@@ -1,0 +1,115 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5);
+}
+
+.heading {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.ratingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  border: none;
+  flex-wrap: wrap;
+}
+
+.legend {
+  /* Visually redundant next to the stars, but the fieldset needs a name. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  border: none;
+  background: none;
+  padding: 2px;
+  font-size: 28px;
+  line-height: 1;
+  /* Empty stars sit on white — the muted grey reads as "not chosen"
+     without competing with the gold of the chosen ones. */
+  color: var(--hk-border-2);
+  transition: color var(--hk-dur) var(--hk-ease);
+}
+
+.starOn {
+  /* Decorative at 28px, well past the ≥16px bold threshold gold needs. */
+  color: var(--hk-gold);
+}
+
+.ratingLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--hk-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+}
+
+.input {
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface);
+  padding: 11px 13px;
+  font-size: 14px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--hk-pine);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.actions {
+  display: flex;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.done {
+  background: var(--hk-pine-tint);
+  border-color: var(--hk-pine-tint);
+  gap: var(--hk-s2);
+}
+
+.doneTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.doneBody {
+  font: var(--hk-small);
+  color: var(--hk-ink-3);
+}

@@ -114,6 +114,23 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
         <StatusTimeline orientation="horizontal" steps={entry.steps} />
       </Card>
 
+      {/* Delivery is the only moment a review can be written (the server
+          requires a delivered order), and until M15 nothing in the app
+          said so — every rating on the site was seed data. */}
+      {order?.status === "delivered" && (
+        <Card className={styles.actionsCard}>
+          <div className={styles.actionsText}>
+            <span className={styles.cardTitle}>How was it?</span>
+            <p className={styles.actionsBody}>
+              Your review is what the next buyer reads before trusting a home kitchen.
+            </p>
+          </div>
+          <Link href="/account/reviews" className={styles.actionLink}>
+            Review these items
+          </Link>
+        </Card>
+      )}
+
       {order && (
         <Card className={styles.card}>
           <span className={styles.cardTitle}>Items</span>

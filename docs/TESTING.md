@@ -125,6 +125,18 @@ Sign in as **Ananya**.
 - Notifications
 - Referrals — referral code and sharing
 - Support page
+- **Reviews** (`Account → Reviews`) — Ananya has two delivered orders, so
+  a few items should be listed under "Waiting for your review". Write
+  one: pick stars, add a headline and a couple of sentences, post it.
+  Then check
+  - the item leaves the waiting list and appears under "Written by you"
+  - the review shows on that product's page with a **Verified purchase**
+    badge, and the product's rating has moved
+  - reviewing the same item twice is refused with "You have already
+    reviewed this"
+  - "Write a review" on a product you have *not* had delivered is refused
+    with a message telling you to wait for delivery — that refusal is
+    correct behaviour, not a bug
 
 ### 5. Laundry
 - **Laundry** page — services and pricing

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
 import { mapReview } from '../reviews/reviews.mapper';
+import { ReviewAggregatesService } from '../reviews/review-aggregates.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
 
@@ -22,6 +23,7 @@ export class AdminCatalogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
+    private readonly reviewAggregates: ReviewAggregatesService,
   ) {}
 
   async listProducts() {
@@ -79,6 +81,12 @@ export class AdminCatalogService {
     if (!existing) throw new NotFoundException('Review not found');
 
     const updated = await this.prisma.review.update({ where: { id }, data: { hidden } });
+
+    // Hiding a review has to move the rating it was counted in, or the
+    // moderator's action is invisible everywhere a rating is shown.
+    // `targetType` is a `ReviewTargetType` enum value, which is exactly
+    // the union `recompute` takes.
+    await this.reviewAggregates.recompute(updated.targetType, updated.targetId);
 
     await this.auditLog.log({
       actorId: adminUserId,

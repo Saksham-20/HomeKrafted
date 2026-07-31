@@ -1,0 +1,152 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s6);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h2);
+  color: var(--hk-ink);
+}
+
+.subtitle {
+  color: var(--hk-muted);
+  font-size: 14px;
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5) 0;
+}
+
+.error {
+  font-size: 14px;
+  color: var(--hk-terracotta);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.sectionTitle {
+  font: var(--hk-h3);
+  color: var(--hk-pine);
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s2);
+}
+
+.count {
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-muted);
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--hk-muted);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5);
+}
+
+.pendingList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.pendingItem {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.pendingRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+}
+
+.thumb {
+  display: block;
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.pendingText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pendingName {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.pendingMaker {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.form {
+  /* Sits inside the row's card, so it drops its own frame. */
+  border: none;
+  padding: 0;
+  background: none;
+}
+
+.mineList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.mineItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.hiddenNote {
+  font-size: 12.5px;
+  color: var(--hk-terracotta);
+  padding-left: var(--hk-s4);
+}
+
+@media (max-width: 520px) {
+  .pendingRow {
+    flex-wrap: wrap;
+  }
+
+  .pendingText {
+    flex-basis: calc(100% - 56px - var(--hk-s4));
+  }
+}

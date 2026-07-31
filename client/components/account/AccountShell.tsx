@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Bell, Gift, Heart, LayoutGrid, MapPin, Package, User } from "lucide-react";
+import { Bell, Gift, Heart, LayoutGrid, MapPin, Package, Star, User } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AccountShell.module.css";
@@ -26,6 +26,9 @@ export const ACCOUNT_NAV_ITEMS: AccountNavItem[] = [
   { label: "Orders", href: "/account/orders", icon: Package },
   { label: "Addresses", href: "/account/addresses", icon: MapPin },
   { label: "Wishlist", href: "/account/wishlist", icon: Heart },
+  // M15 — the buyer's half of the review loop: what's waiting to be
+  // rated, and what they've already written.
+  { label: "Reviews", href: "/account/reviews", icon: Star },
   { label: "Referrals", href: "/account/referrals", icon: Gift },
   { label: "Notifications", href: "/account/notifications", icon: Bell },
   { label: "Profile", href: "/account/profile", icon: User },

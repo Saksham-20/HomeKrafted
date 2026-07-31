@@ -14,7 +14,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 |---|---|---|
 | `User` | name, email?, phone?, authProviders[], referralCode, role (`consumer`\|`seller`\|`admin`), suspended? (M11a) | 1:1 `Wallet` (`walletId`), 1:1 `LoyaltyAccount` (`loyaltyAccountId`) |
 | `Address` | label, recipientName, phone, line1/2, city, state, pincode, isDefault | belongs to `User` (`userId`) |
-| `Review` | targetType (`product`\|`vendor`\|`service`), targetId, rating 1–5, body, verifiedPurchase, flagged? (M11b), hidden? (M11b) | belongs to `User`; polymorphic target |
+| `Review` | targetType (`product`\|`vendor`\|`service`), targetId, rating 1–5, body, verifiedPurchase, flagged? (M11b), hidden? (M11b) | belongs to `User`; polymorphic target; **unique on `(userId, targetType, targetId)`** (M15 — one review per person per thing) |
 | `Notification` | channel (`sms`\|`whatsapp`\|`email`\|`inapp`), category, read | belongs to `User`; optional polymorphic ref (`refType`/`refId`) |
 | `NotificationPreference` | one row per (user, category): sms/whatsapp/email/inapp booleans | belongs to `User` |
 | `Referral` | code, refereeName?, status (`pending`\|`joined`\|`rewarded`), rewardAmount? | belongs to referrer `User` |

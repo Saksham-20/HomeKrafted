@@ -195,7 +195,24 @@ dropping it.
 | Endpoint | Auth | Notes |
 |---|---|---|
 | `GET /reviews?targetType=&targetId=` | public | `targetType`: `product`\|`vendor`\|`service`. Excludes `hidden: true` — same rule `lib/api/reviews.ts` applies. |
-| `POST /reviews` | any authed role | Body: `{ targetType, targetId, rating (1–5), title?, body }`. Server sets `userId`/`userName` from the session; computes `verifiedPurchase` = the reviewer has a non-cancelled `Order` containing the product (or, for a vendor review, any product from that vendor) — always `false` for `targetType: "service"` today (an M8.3 seam: `LaundryBooking`-based verification needs the laundry endpoints that land then; `targetId` for `"service"` currently validates against `LaundryService`, the only service-shaped entity that exists pre-M8.3). `404` if `targetId` doesn't resolve to a real `Product`/`Vendor`/`LaundryService`. |
+| `POST /reviews` | any authed role | Body: `{ targetType, targetId, rating (1–5), title?, body }`. Server sets `userId`/`userName` from the session. **Requires a delivered purchase (M15):** `403` unless the caller has a `delivered` `Order` containing that product (for a vendor review, any product from that vendor; for `targetType: "service"`, a `delivered` `LaundryBooking` for that `LaundryService`). `409` on a second review of the same target by the same user — `Review` is unique on `(userId, targetType, targetId)`. `404` if `targetId` doesn't resolve. On success the target's denormalised `rating`/`reviewCount` are **recomputed in the same transaction** (`ReviewAggregatesService`), for the product, its vendor and that vendor's `Seller` row. |
+| `GET /reviews/mine` | any authed role | The caller's own reviews, newest first, **including `hidden: true` ones** — a moderated review has to stay visible to its author. |
+| `GET /reviews/mine/pending` | any authed role | Delivered-but-unreviewed products: `{ targetType, targetId, name, slug, vendorName, imageSrc?, imagePlaceholder }[]`. Powers `/account/reviews`'s "waiting for your review" list. |
+
+**Why delivered-only.** Before M15 the rule was "anyone signed in", with
+`verifiedPurchase` recorded as a badge — but no submission UI existed, so
+the endpoint had never been exercised. Opening a write endpoint on a
+marketplace built on trusting a stranger's home kitchen, with no purchase
+requirement, is a review-bombing surface aimed at the newest HomeKrafter.
+`verifiedPurchase` stays on the model: seeded rows predate the rule, and
+a moderator correction needs somewhere truthful to live.
+
+**Ratings are recomputed, never incremented.** `PATCH
+/admin/catalog/reviews/:id/moderate` calls the same recompute, because a
+hide that leaves the average untouched is a moderator action silently not
+taking effect. A vendor's rating spans direct storefront reviews *and*
+every review of anything they make — both are "what people think of this
+kitchen".
 
 ### Wishlist (owner-scoped)
 

@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { ReviewList } from "@/components/review/ReviewList";
+import { ReviewForm } from "@/components/review/ReviewForm";
+import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/lib/auth/AuthContext";
 import type { Product, Review } from "@/lib/types";
 import styles from "./ProductTabs.module.css";
 
@@ -17,8 +21,13 @@ export interface ProductTabsProps {
  * side on desktop) and "Reviews" (the `ReviewList` — the prototype doesn't
  * show reviews at all, so this tab is a genuine M2 addition per the brief).
  */
-export function ProductTabs({ product, reviews }: ProductTabsProps) {
+export function ProductTabs({ product, reviews: initialReviews }: ProductTabsProps) {
   const [tab, setTab] = useState<"description" | "reviews">("description");
+  const { user, ready: authReady } = useAuth();
+  const [writing, setWriting] = useState(false);
+  // Held locally so a review the visitor just wrote appears immediately —
+  // this page is a Server Component render and won't refetch on its own.
+  const [reviews, setReviews] = useState(initialReviews);
 
   const specs: { k: string; v: string }[] = [
     product.ingredients && { k: "Ingredients", v: product.ingredients },
@@ -61,7 +70,40 @@ export function ProductTabs({ product, reviews }: ProductTabsProps) {
           )}
         </div>
       ) : (
-        <ReviewList reviews={reviews} emptyLabel="No reviews yet — be the first to review this product." />
+        <div className={styles.reviewsPane}>
+          {/* The write side only became reachable in M15 — `POST /reviews`
+              had existed since M8 with no call site anywhere. The server
+              still decides eligibility (a delivered order), so this offers
+              the form to any signed-in visitor and lets the refusal come
+              back with its reason rather than guessing here. */}
+          {writing ? (
+            <ReviewForm
+              targetType="product"
+              targetId={product.id}
+              targetName={product.name}
+              onSubmitted={(review) => setReviews((current) => [review, ...current])}
+              onCancel={() => setWriting(false)}
+            />
+          ) : authReady && !user ? (
+            <p className={styles.reviewPrompt}>
+              <Link href="/login">Sign in</Link> to review something you&apos;ve had delivered.
+            </p>
+          ) : (
+            <div className={styles.reviewPrompt}>
+              <Button variant="secondary" size="sm" onClick={() => setWriting(true)}>
+                Write a review
+              </Button>
+              <span className={styles.reviewHint}>
+                You can review this once an order containing it has been delivered.
+              </span>
+            </div>
+          )}
+
+          <ReviewList
+            reviews={reviews}
+            emptyLabel="No reviews yet — be the first to review this product."
+          />
+        </div>
       )}
     </div>
   );
