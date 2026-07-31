@@ -3,6 +3,11 @@
 **Audited:** 2026-07-31, against `main` @ `7d4a203` (post-M14).
 **Scope:** whole monorepo — `client/` (65 routes), `server/` (~190 files,
 60+ endpoints), `server/prisma/schema.prisma` (63 models/enums), docs.
+**Phase 1 shipped:** 2026-07-31 (M15) — every item in §7 Phase 1 is done.
+
+Findings are kept **as they were found**, each marked ✅ with the
+milestone that closed it, so the record of what was wrong survives the
+fix. Phases 2–4 are untouched.
 
 This is a **gap audit of a working marketplace**, not a review of a
 scaffold. M0→M14 shipped; the site is live on https://homekrafted.in with
@@ -29,18 +34,23 @@ logging on every admin mutation, idempotency on every money mutation,
 byte-sniffed uploads. The gaps are not sloppiness — they are **loops that
 were built from one end and never joined at the other.**
 
-Five of those open loops are launch-blocking:
+Five of those open loops are launch-blocking. **All five were closed in
+M15** — listed here as found, with what each became:
 
 1. **Nobody can search.** No search exists anywhere in the product.
+   → `q` on products/vendors/snacks, a `/search` route, a real header form.
 2. **Nobody can leave a review.** The endpoint exists; no UI reaches it.
+   → `<ReviewForm>`, `/account/reviews`, and ratings that recompute.
 3. **No HomeKrafter can be paid.** They can request a payout; no admin
-   surface exists to approve or settle it.
+   surface exists to approve or settle it. → `/admin/payouts`.
 4. **No dispute can be resolved.** Customers can open support tickets; no
-   admin surface exists to read them.
+   admin surface exists to read them. → `/admin/support`, plus the
+   customer's own thread on `/support`.
 5. **No customer can cancel, return, or ask for a refund.**
+   → `POST /orders/:id/cancel` and `/return`.
 
-Everything else in this document is downstream of getting those five
-closed.
+Everything else in this document was downstream of those five. What
+remains is Phase 2 onward — see §7.
 
 ---
 
@@ -50,20 +60,20 @@ closed.
 
 | # | Finding | Evidence |
 |---|---|---|
-| C1 | **No search anywhere in the product.** `SearchField` exists as a UI primitive but is used only by the dev gallery and admin orders. There is no `/search` route, no header search input, and `ListProductsQueryDto` has no `q` field — so even the API cannot answer "pickle". The header's search pill is a `<Link href="/shop">`. | `client/components/ui/SearchField.tsx`, `client/components/layout/HeaderClient.tsx:95`, `server/src/catalog/dto/list-products.query.dto.ts` |
-| C2 | **Review submission has no UI.** `POST /reviews` is implemented, including verified-purchase computation against non-cancelled orders. `lib/api/reviews.ts` states outright: "There's no review-submission UI in the frontend yet… `POST /reviews` has no call site." Ratings on cards and storefronts are therefore fed only by seed data. | `server/src/reviews/reviews.service.ts:24`, `client/lib/api/reviews.ts:5` |
-| C3 | **Payout loop is open.** `POST /seller/payouts/request` creates `Payout{status: pending}`. There is no `admin/payouts` controller, no admin page, and no transition to `paid`/`rejected` anywhere in `server/`. Sellers accrue delivered earnings that can never leave the platform. | `server/src/seller/payouts.service.ts`, absence of `server/src/admin/payouts.*` |
-| C4 | **Disputes have no admin surface.** `SupportTicket`/`SupportMessage` models and the customer-side `/support/tickets` API exist. No `/admin/support*` endpoint, no admin nav entry, no page. Tickets are written and never read. | `server/src/support/support.controller.ts`, `client/components/admin/AdminShell.tsx:31-38` |
-| C5 | **No customer cancellation, return or refund request.** `RefundStatus` carries `requested`, and admins can push a refund from `/admin/orders/:type/:id/refund` — but no customer-facing path reaches `requested`, and no order screen offers "cancel". The only listed remedy is a support ticket nobody reads (C4). | `server/prisma/schema.prisma` (`RefundStatus`), grep of `client/app` + `client/components` for cancel/return |
+| C1 ✅ | **Fixed in M15.** **No search anywhere in the product.** `SearchField` exists as a UI primitive but is used only by the dev gallery and admin orders. There is no `/search` route, no header search input, and `ListProductsQueryDto` has no `q` field — so even the API cannot answer "pickle". The header's search pill is a `<Link href="/shop">`. | `client/components/ui/SearchField.tsx`, `client/components/layout/HeaderClient.tsx:95`, `server/src/catalog/dto/list-products.query.dto.ts` |
+| C2 ✅ | **Fixed in M15.** **Review submission has no UI.** `POST /reviews` is implemented, including verified-purchase computation against non-cancelled orders. `lib/api/reviews.ts` states outright: "There's no review-submission UI in the frontend yet… `POST /reviews` has no call site." Ratings on cards and storefronts are therefore fed only by seed data. | `server/src/reviews/reviews.service.ts:24`, `client/lib/api/reviews.ts:5` |
+| C3 ✅ | **Fixed in M15.** **Payout loop is open.** `POST /seller/payouts/request` creates `Payout{status: pending}`. There is no `admin/payouts` controller, no admin page, and no transition to `paid`/`rejected` anywhere in `server/`. Sellers accrue delivered earnings that can never leave the platform. | `server/src/seller/payouts.service.ts`, absence of `server/src/admin/payouts.*` |
+| C4 ✅ | **Fixed in M15.** **Disputes have no admin surface.** `SupportTicket`/`SupportMessage` models and the customer-side `/support/tickets` API exist. No `/admin/support*` endpoint, no admin nav entry, no page. Tickets are written and never read. | `server/src/support/support.controller.ts`, `client/components/admin/AdminShell.tsx:31-38` |
+| C5 ✅ | **Fixed in M15.** **No customer cancellation, return or refund request.** `RefundStatus` carries `requested`, and admins can push a refund from `/admin/orders/:type/:id/refund` — but no customer-facing path reaches `requested`, and no order screen offers "cancel". The only listed remedy is a support ticket nobody reads (C4). | `server/prisma/schema.prisma` (`RefundStatus`), grep of `client/app` + `client/components` for cancel/return |
 
 ### 2.2 High
 
 | # | Finding | Evidence |
 |---|---|---|
-| H1 | **No error, loading or 404 boundaries.** The app has zero `error.tsx`, `not-found.tsx`, `loading.tsx` or `global-error.tsx` files. `notFound()` is called by product, storefront and collection pages and lands on Next's unstyled default; any thrown render error takes the whole page white. | `find client/app -name 'error.tsx' -o -name 'not-found.tsx'` → empty |
-| H2 | **SEO is effectively absent.** Two of 65 route files export metadata (`layout`, `about`). No `sitemap.ts`, no `robots.ts`, no canonical URLs, no Open Graph images, no JSON-LD (`Product`, `Offer`, `AggregateRating`, `LocalBusiness`, `BreadcrumbList`). A discovery marketplace that cannot be discovered. | grep for `generateMetadata` across `client/app` |
-| H3 | **Follow is fake.** `FollowButton` is local `useState` with a comment saying "no persistence yet". `VendorFollow` exists in the schema with a `@@unique([userId, vendorId])` — no endpoint, no mutation, no `/account/following`. `Vendor.followerCount` is decorative. | `client/components/storefront/FollowButton.tsx`, `server/prisma/schema.prisma` (`VendorFollow`) |
-| H4 | **No reorder.** Zero occurrences outside app-promo marketing copy — which advertises "reorder a past meal in one tap" as an app feature the web does not have. Reorder is the cheapest repeat-purchase lever a food marketplace has. | grep `reorder` across `client/` |
+| H1 ✅ | **Fixed in M15.** **No error, loading or 404 boundaries.** The app has zero `error.tsx`, `not-found.tsx`, `loading.tsx` or `global-error.tsx` files. `notFound()` is called by product, storefront and collection pages and lands on Next's unstyled default; any thrown render error takes the whole page white. | `find client/app -name 'error.tsx' -o -name 'not-found.tsx'` → empty |
+| H2 ✅ | **Fixed in M15.** **SEO is effectively absent.** Two of 65 route files export metadata (`layout`, `about`). No `sitemap.ts`, no `robots.ts`, no canonical URLs, no Open Graph images, no JSON-LD (`Product`, `Offer`, `AggregateRating`, `LocalBusiness`, `BreadcrumbList`). A discovery marketplace that cannot be discovered. | grep for `generateMetadata` across `client/app` |
+| H3 ✅ | **Fixed in M15.** **Follow is fake.** `FollowButton` is local `useState` with a comment saying "no persistence yet". `VendorFollow` exists in the schema with a `@@unique([userId, vendorId])` — no endpoint, no mutation, no `/account/following`. `Vendor.followerCount` is decorative. | `client/components/storefront/FollowButton.tsx`, `server/prisma/schema.prisma` (`VendorFollow`) |
+| H4 ✅ | **Fixed in M15.** **No reorder.** Zero occurrences outside app-promo marketing copy — which advertises "reorder a past meal in one tap" as an app feature the web does not have. Reorder is the cheapest repeat-purchase lever a food marketplace has. | grep `reorder` across `client/` |
 | H5 | **HomeKrafter profiles are a store page, not a profile.** `Vendor` carries slug, name, type, bio, avatar, banner, location, area, lat/lng, radius, rating, reviewCount, followerCount, joinedAt. Nothing of: shop story, kitchen photos, certifications (FSSAI), prep time, response time, policies, languages, achievements, trust score, profile completion, social links. The storefront renders header + product grid + reviews and stops. | `server/prisma/schema.prisma` (`Vendor`), `client/app/storefront/[vendor]/page.tsx` |
 | H6 | **Seller portal has no analytics.** Eight nav items — Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts, Reviews — none of which answer "what is selling, and when". No `/seller/analytics` route and no seller-scoped analytics endpoint. | `client/components/seller/SellerShell.tsx:41-48` |
 | H7 | **No image optimisation.** `next/image` is used nowhere; `ImageSlot` renders a raw `<img>`. Every uploaded product photo ships at whatever resolution the HomeKrafter's phone produced, to every buyer's phone. `next.config.ts` is empty. | `client/components/placeholder/ImageSlot.tsx:45`, `client/next.config.ts` |
@@ -256,10 +266,11 @@ platform settings.
 
 ## 7. Launch roadmap
 
-### Phase 1 — critical before launch
+### Phase 1 — critical before launch ✅ **shipped (M15, 2026-07-31)**
 
 Closing the five open loops plus the two things that make a marketplace
-usable and findable.
+usable and findable. See `CHANGELOG.md`'s M15 entry for what each one
+actually became, and the decisions taken along the way.
 
 1. `not-found` / `error` / `loading` / `global-error` across consumer,
    seller and admin surfaces. *(H1)*
@@ -276,6 +287,12 @@ usable and findable.
 8. **Admin disputes** — ticket queue, thread, reply, resolve. *(C4)*
 9. **SEO** — per-route metadata, `sitemap.ts`, `robots.ts`, JSON-LD.
    *(H2)*
+
+**Still open after Phase 1**, and the reason Phase 2 matters: trust is
+now *mechanically* possible (a review can be written, a dispute can be
+answered, a HomeKrafter can be paid) but the seller profile that trust
+attaches to is still a store page — H5 is the single highest-value item
+left.
 
 ### Phase 2 — important
 

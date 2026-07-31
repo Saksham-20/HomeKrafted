@@ -3,6 +3,134 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M15] — Phase 1 production readiness — 2026-07-31
+
+A full production audit (`docs/PRODUCTION-AUDIT.md`) found the build was
+unusually disciplined for its stage and that its gaps were not sloppiness
+but **loops built from one end and never joined at the other**. Five of
+them blocked launch. This milestone closes all five, plus the two things
+that made the marketplace unusable and unfindable.
+
+### Added
+
+- **Site search.** There was none — anywhere. `SearchField` existed as a
+  primitive used only by the dev gallery and admin orders; the header's
+  search pill was a `<Link href="/shop">`; no endpoint took a query. Now
+  `q` on `GET /products`, `/vendors` and `/snacks` (AND across terms, OR
+  across each entity's fields, so "mango pickle" narrows rather than
+  widens), a `/search` route fanning out to all three in parallel, and a
+  real form in the header and the mobile drawer.
+- **Review submission.** `POST /reviews` had shipped in M8 with **no call
+  site anywhere** — `lib/api/reviews.ts` said so in its own comment — so
+  every rating on the site was seed data. Now a `<ReviewForm>` reachable
+  from a delivered order and from the product page, `/account/reviews`
+  with a "waiting for your review" list, and ratings that actually move.
+- **Buyer cancellation and returns.** `RefundStatus.requested` had been
+  in the enum since M8 with nothing able to reach it; a buyer whose order
+  went wrong could only file a support ticket nobody read.
+- **Admin payout settlement** (`/admin/payouts`). A HomeKrafter could
+  request a payout from M8.3b onward and nothing could act on it —
+  `pending` was terminal in practice. Money went in and had no way out.
+- **Admin dispute queue** (`/admin/support`). Tickets had been written
+  since M7b and read by nothing. `SupportService.addMessage` even carried
+  a comment reserving `sender: "agent"` for a surface that was never
+  built. Customers can now see and reply to their own tickets too —
+  `getSupportTickets` had had no call site either.
+- **Reorder** (`POST /orders/:id/reorder`), which `/app-promo` had been
+  advertising as an app feature the web didn't have.
+- **Real follows.** `FollowButton` was `useState` with a comment
+  admitting "no persistence yet"; `VendorFollow` had sat in the schema
+  since M8.1 with no endpoint. Adds the endpoints, `/account/following`,
+  and a follower count counted from the rows.
+- **Error, 404 and loading boundaries** on all three surfaces. The app
+  had none: `notFound()` landed on Next's unstyled default and any thrown
+  render error whited out the document.
+- **SEO.** Two of ~65 routes exported metadata. Adds `metadataBase`, a
+  title template, per-route metadata and canonicals, `sitemap.ts` built
+  from the live catalogue, `robots.ts`, and JSON-LD (Product with Offer,
+  LocalBusiness per storefront, Organization + WebSite with a
+  SearchAction).
+
+### Changed
+
+- **A review now requires a delivered order.** The old rule was "anyone
+  signed in", with `verifiedPurchase` recorded as a decorative badge. An
+  open review endpoint on a platform built on trusting a stranger's home
+  kitchen is a review-bombing surface aimed at whichever HomeKrafter has
+  three reviews. Delivered rather than merely not-cancelled: a review
+  written while the parcel is still in the kitchen reviews the checkout.
+- **Ratings and follower counts are recomputed from rows, never
+  incremented** (`ReviewAggregatesService`) — and admin review moderation
+  calls the same recompute, because a hide that leaves the average
+  untouched is a moderator's action silently not applying.
+- **`Order` gains `deliveredAt`**, stamped at both places an order
+  actually reaches `delivered`. The return window counts from it rather
+  than `placedAt`, which on a made-to-order item can be a week earlier.
+- **The seed stopped inventing follower counts.** 612 followers with zero
+  `VendorFollow` rows behind them was harmless only while nothing could
+  follow.
+- **A customer replying to a `resolved` ticket reopens it** — otherwise
+  "that didn't actually fix it" lands in a bucket the queue treats as
+  done.
+- `/cart` split into a server wrapper plus `CartPageClient`, since a
+  `"use client"` route file can't export `metadata`.
+
+### Decisions worth keeping
+
+- **A return request moves no money.** Whether a homemade jar that
+  "tasted off" earns a refund is a judgement call, and auto-refunding
+  would make the platform's most abusable path also its most
+  frictionless one — with the loss landing on a home cook. An admin
+  resolves it.
+- **Cancellation closes at `packed`.** Once a home cook has cooked and
+  boxed it, the cost of a cancellation is theirs, not a warehouse's.
+- **"Mark paid" records a settlement, it does not perform one.** There is
+  no payout-provider integration; an admin transfers out of band and
+  stores the bank reference, which is the only link between the row and a
+  real transfer. Implying otherwise would be worse than an honest ledger.
+- **Reorder reports what it skipped, by name.** A home kitchen's
+  catalogue moves between one order and the next; a reorder that silently
+  drops half an order is the failure worth designing against.
+- **No `GET /search` endpoint.** The client fans out to the three list
+  endpoints, reusing each one's visibility rules — moderation status,
+  availability, delivery radius — rather than keeping a fourth copy of
+  "what may a buyer see".
+
+### Migrations
+
+- `20260731090000_m15_review_unique_per_target` — one review per person
+  per target (dedupes first, so it can't fail on the one database that
+  has the problem).
+- `20260731100000_m15_order_cancel_and_return` — `refundReason`,
+  `refundRequestedAt`, `cancelledAt`, `deliveredAt`.
+- `20260731110000_m15_admin_payout_settlement` — `PayoutStatus.rejected`
+  plus `reference`, `note`, `decidedById`, `decidedAt`.
+
+### Caught in review
+
+- **A soft-404 regression, introduced and removed inside this
+  milestone.** The first pass added an app-wide `app/loading.tsx`. A
+  `loading.tsx` is a Suspense boundary, and a dynamic route behind one
+  starts streaming its response — status line included — before the page
+  body runs, so a later `notFound()` can no longer set 404: `/product/nope`
+  and `/storefront/nope` began returning **200 with the 404 page**. On a
+  catalogue site in the same milestone that added a sitemap, that is
+  about the worst thing to hand a crawler. Verified by measurement in a
+  production build, not by reading docs. Loading boundaries now live only
+  on routes that never call `notFound()` (`/shop`, `/search`, `/snacks`)
+  plus the two dashboard groups, whose paths `robots.ts` disallows
+  anyway. Rule recorded in `CLAUDE.md`.
+
+### Known gaps
+
+- Seeded products carry decorative `rating`/`reviewCount` that don't
+  match their few seeded review rows, so the first real review snaps a
+  product to its true average. Recorded rather than back-filled —
+  back-filling would drop most demo products to a handful of reviews.
+- Phases 2–4 of `docs/PRODUCTION-AUDIT.md` are untouched: rich
+  HomeKrafter profiles, the occasion hub, seller analytics, the
+  pre-order calendar, `next/image`, subscriptions, admin reports.
+
 ## [M14] — Real image uploads — 2026-07-30
 
 Every image field in the app was a text input asking a home cook to type a

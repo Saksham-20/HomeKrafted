@@ -104,8 +104,9 @@ Sign in as **Ananya**.
   area ("Sector 35"); results split into Products / HomeKrafters /
   Snacks. Two words should narrow, not widen. Search for nonsense and
   check the empty state offers a way back to browsing.
-- **Broken links** — try a URL that doesn't exist (e.g. `/product/nope`)
-  and check you get a Homekrafted 404 with a way out, not a blank page
+- **Broken links** — try a URL that doesn't exist (e.g. `/product/nope`,
+  `/storefront/nope`, or any nonsense path) and check you get a
+  Homekrafted 404 with a way out, not a blank page
 
 ### 2. Shopper — buy something
 - Add items to **cart**, change quantities, remove a line

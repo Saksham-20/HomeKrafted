@@ -26,6 +26,11 @@ accounts).
 - **Design system (visual contract):** `handoff/design-system/` + the reference
   prototype `handoff/prototype/Homekrafted.dc.html`
 - **Docs:** `docs/` (PRD, API, architecture, data model, design system, ADRs)
+- **Production audit + launch roadmap:** `docs/PRODUCTION-AUDIT.md` —
+  every gap between this build and a public launch, ranked, with a
+  four-phase roadmap. **Phase 1 shipped (M15); phases 2–4 are the
+  standing backlog** — check it before proposing new work, so a "great
+  idea" isn't already a ranked item there.
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
 ## Execution model
@@ -45,7 +50,10 @@ portal** (`/seller/*`) → **M11 Admin panel** (`/admin/*`) → M8 Secure
 backend (role-based auth/RBAC, Postgres+Prisma, wallet ledger + payouts,
 Razorpay) → M9 Integrations (WhatsApp Cloud API, notifications) → **M12
 HomeKrafter + local** (single supply role, item availability, tricity
-location filtering, pre-order — see CHANGELOG).
+location filtering, pre-order) → M13 brand/domain → M14 image uploads →
+**M15 Phase 1 production readiness** (search, review submission, buyer
+cancel/return, admin payouts, admin disputes, follow, reorder, error/404
+boundaries, SEO — see `docs/PRODUCTION-AUDIT.md` + CHANGELOG).
 
 **Three role surfaces, one app, route groups in `client/`:** consumer `/`
 (built), seller `/seller/*` (M10), admin `/admin/*` (M11) — each its own
@@ -227,6 +235,7 @@ same commit:
 | Any endpoint added/changed/removed | `docs/API.md` |
 | Anything a tester can see or click | `docs/TESTING.md` |
 | Env vars, services, deploy steps, rate limits | `docs/DEPLOY.md` |
+| A gap you fixed that the audit listed | mark it ✅ in `docs/PRODUCTION-AUDIT.md` |
 | A milestone's worth of work | `CHANGELOG.md` (one entry per milestone) |
 
 Rules of thumb: if a doc now says something **untrue**, that's a bug —
@@ -320,6 +329,63 @@ to `POST /uploads?purpose=…`, and hand back a URL to store.
   inert when served from our own origin (this is why SVG is excluded).
 - **Nothing deletes old files yet.** Replacing a photo orphans the previous
   one. See `docs/DEPLOY.md`.
+
+## Trust & money loops (M15) — don't quietly reopen these
+
+Phase 1 of `docs/PRODUCTION-AUDIT.md` closed five loops that had been
+built from one end only. Each carries a rule that is easy to undo by
+accident:
+
+- **A review needs a delivered order.** `POST /reviews` refuses anything
+  else. Don't relax it to "any signed-in user" for testing convenience —
+  an open review endpoint on a platform built on trusting a stranger's
+  kitchen is a review-bombing surface. Seed a delivered order instead.
+- **Denormalised aggregates are recomputed from rows, never
+  incremented** — `Vendor`/`Product`/`Seller` `rating`+`reviewCount`
+  (`ReviewAggregatesService`) and `Vendor.followerCount`. Any new path
+  that hides, un-hides or deletes a review **must** call the recompute,
+  or a moderator's action silently doesn't apply.
+- **Cancellation closes at `packed`; returns close 7 days after
+  `deliveredAt`.** Both are enforced server-side; the UI only decides
+  what to *offer*. `deliveredAt` is stamped wherever an order reaches
+  `delivered` (seller advance, admin override) — a new transition path
+  has to stamp it too or the return window silently falls back to
+  `placedAt`.
+- **A return request moves no money.** An admin resolves it. Auto-refund
+  would make the most abusable path the most frictionless, and the loss
+  lands on a home cook.
+- **`POST /admin/payouts/:id/pay` records a settlement, it does not
+  perform one.** There is no payout provider. The `reference` is the only
+  link to a real transfer. Both payout decisions are one-way.
+- **A customer replying to a `resolved` ticket reopens it** — the admin
+  queue's "waiting on us" count depends on that being true.
+
+## SEO — every new public route owes three things (M15)
+
+`lib/seo.ts` is the seam: `pageMetadata()` for title/description/
+canonical/OG in one call, `jsonLdProps()` for structured data,
+`SITE_URL` from `NEXT_PUBLIC_SITE_URL`.
+
+1. **Metadata** — `export const metadata = pageMetadata({...})`, or
+   `generateMetadata` for a dynamic route. Never hand-roll a `Metadata`
+   object; that's how a page ships a title and no canonical.
+2. **`app/sitemap.ts`** — add it if it's public and indexable.
+3. **`app/robots.ts`** — add it to `disallow` if it's behind a login,
+   per-visitor, or a dev surface.
+
+A `"use client"` route file **cannot export `metadata`** — split a server
+wrapper the way `app/cart/page.tsx` → `components/cart/CartPageClient.tsx`
+does. Only claim `aggregateRating` in JSON-LD where reviews actually
+exist.
+
+**Never put a `loading.tsx` over a route that can `notFound()`.** A
+`loading.tsx` is a Suspense boundary; a dynamic route behind one starts
+streaming — status line included — before the page body runs, so a later
+`notFound()` can't set 404 and the visitor gets a **soft 404** (right
+page, 200 status). Measured during M15: a root `app/loading.tsx` made
+`/product/nope` and `/storefront/nope` return 200; deleting it restored
+404. Boundaries therefore live only on `/shop`, `/search`, `/snacks` and
+the two dashboard groups — never app-wide.
 
 ## `ImageSlot` — how every image renders, uploaded or not
 
