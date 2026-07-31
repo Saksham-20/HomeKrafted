@@ -39,6 +39,24 @@ export class ProductsService {
       where.isAvailable = true;
     }
 
+    // Free-text search. Every term has to match *somewhere* on the row
+    // (AND across terms, OR across fields), which is what makes "mango
+    // pickle" narrower than "mango" rather than wider — the opposite of
+    // OR-ing the terms, and the behaviour people expect from a search box.
+    if (query.q) {
+      const terms = query.q.split(/\s+/).filter(Boolean).slice(0, 6);
+      if (terms.length > 0) {
+        where.AND = terms.map((term) => ({
+          OR: [
+            { name: { contains: term, mode: 'insensitive' as const } },
+            { description: { contains: term, mode: 'insensitive' as const } },
+            { category: { name: { contains: term, mode: 'insensitive' as const } } },
+            { vendor: { name: { contains: term, mode: 'insensitive' as const } } },
+          ],
+        }));
+      }
+    }
+
     if (query.category) {
       where.category = { slug: { in: splitCsv(query.category) } };
     }
@@ -94,7 +112,17 @@ export class ProductsService {
     }
 
     const sort = query.sort ?? 'most-loved';
+    // A search hit in the product's own name beats one that only matched
+    // its description or its kitchen's name, whatever the sort. Applied
+    // ahead of the chosen sort rather than instead of it, so "price: low
+    // to high" over a search still means what it says within each tier.
+    const needle = query.q?.toLowerCase();
+    const nameHit = (name: string) => (needle && name.toLowerCase().includes(needle) ? 0 : 1);
     withPrice.sort((a, b) => {
+      if (needle) {
+        const hitDelta = nameHit(a.product.name) - nameHit(b.product.name);
+        if (hitDelta !== 0) return hitDelta;
+      }
       if (sort === 'price-asc') return a.price - b.price;
       if (sort === 'price-desc') return b.price - a.price;
       if (sort === 'nearest' && buyer) {

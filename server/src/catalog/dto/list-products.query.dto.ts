@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export type ProductSort = 'most-loved' | 'price-asc' | 'price-desc' | 'nearest';
 
@@ -13,6 +13,24 @@ export type ProductSort = 'most-loved' | 'price-asc' | 'price-desc' | 'nearest';
  * product's `defaultWeightSku` price, not any/every weight option.
  */
 export class ListProductsQueryDto {
+  /**
+   * Free-text search. Case-insensitive substring across the product name,
+   * its description, its category name and its HomeKrafter's name — so
+   * "pickle", "Sector 35" and a maker's own name all find something.
+   *
+   * Substring rather than full-text on purpose at this catalogue size:
+   * Postgres FTS would need a tsvector column, a trigger to keep it fresh
+   * and a migration, and would still lose to `ILIKE` on the two-word
+   * queries people actually type ("mango pick"). Revisit when the
+   * catalogue outgrows a sequential scan — recorded in
+   * `docs/PRODUCTION-AUDIT.md` phase 4.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  q?: string;
+
   /** Comma-separated category slugs, OR-matched. */
   @IsOptional()
   @IsString()

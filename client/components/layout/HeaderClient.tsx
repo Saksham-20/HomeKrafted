@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Heart, Menu, Search, ShoppingCart, Store, User, Wallet } from "lucide-react";
+import { Heart, Menu, ShoppingCart, Store, User, Wallet } from "lucide-react";
+import { SearchForm } from "@/components/search/SearchForm";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -92,10 +93,10 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
             </button>
           )}
 
-          <Link href="/shop" className={styles.searchPill} aria-label="Search homemade products">
-            <Search size={17} strokeWidth={1.7} />
-            <span>Search homemade…</span>
-          </Link>
+          {/* Was a `<Link href="/shop">` dressed as a search box — a dead
+              affordance, since nothing in the app could search. Real form
+              now; the pill styling moved into `SearchForm.module.css`. */}
+          <SearchForm className={styles.searchPill} />
 
           <Link href="/wallet" className={styles.walletChip}>
             <Wallet size={17} strokeWidth={1.7} />

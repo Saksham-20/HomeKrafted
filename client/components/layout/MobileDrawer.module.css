@@ -62,6 +62,11 @@
   color: var(--hk-ink-2);
 }
 
+.searchWrap {
+  padding: var(--hk-s4) var(--hk-s4) 0;
+  flex-shrink: 0;
+}
+
 .navList {
   display: flex;
   flex-direction: column;

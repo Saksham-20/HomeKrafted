@@ -181,9 +181,9 @@ dropping it.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /products` | public | Query params: `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
+| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
 | `GET /products/:slug` | public | No `hidden` filter — a direct-link/cart/order/wishlist resolve must still work, matching `lib/api/products.ts#getProduct`'s doc comment. `404` if no product has that slug. |
-| `GET /vendors` | public | `Vendor[]` |
+| `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
 | `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` — `VendorFollow` exists in the schema but M8.1 doesn't add follow endpoints. |
 | `GET /vendors/:slug/products` | public | `Product[]`, excludes `hidden` — same rule `lib/api/products.ts#getProductsByVendor` applies |
 | `GET /categories`, `GET /categories/:slug` | public | `Category[]` / `Category` |
@@ -443,7 +443,7 @@ WhatsApp messages actually create these rows — see "WhatsApp Cloud API
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /snacks` | `@Public()` | Available snacks, optional `?category=savoury\|sweet\|baked\|namkeen`. |
+| `GET /snacks` | `@Public()` | Available snacks, optional `?category=savoury\|sweet\|baked\|namkeen` and `?q=` (name + description, same term semantics as `GET /products?q=`). |
 | `GET /snacks/:slug` | `@Public()` | Single snack. |
 
 ### Referrals & loyalty (`server/src/referrals/`)
@@ -668,6 +668,36 @@ Orders containing at least one `OrderItem` whose `productId` belongs to
 |---|---|---|
 | `PATCH /seller/listings/:id/availability` | own HomeKrafter | Body `{ isAvailable }`. The HomeKrafter's own "am I making this today" switch. Separate from `PATCH /seller/listings/:id` so a toggle doesn't submit the whole item, and separate from admin `moderationStatus` — an item can be allowed and simply not being cooked. Buyers need both to pass. |
 | `PATCH /seller/menu/:id/availability` | own HomeKrafter | Same, over a `Snack` (writes `Snack.available`). |
+
+### Search (M15)
+
+`GET /products`, `GET /vendors` and `GET /snacks` each accept an optional
+`q` (trimmed, max 80 chars). The query is split on whitespace into at
+most 6 terms; **every term has to match somewhere on the row (AND across
+terms), in any of that entity's searchable fields (OR across fields)** —
+so `mango pickle` narrows `mango` rather than widening it.
+
+| Endpoint | Fields searched |
+|---|---|
+| `GET /products?q=` | `name`, `description`, its category's `name`, its vendor's `name` |
+| `GET /vendors?q=` | `name`, `bio`, `area` |
+| `GET /snacks?q=` | `name`, `description` |
+
+`GET /products?q=` additionally floats rows whose **own name** matched
+above rows that only matched on description/category/vendor, ahead of the
+chosen `sort` — so `sort=price-asc` still orders by price within each of
+those two tiers.
+
+Matching is case-insensitive `contains` (`ILIKE`), not Postgres
+full-text: FTS needs a `tsvector` column plus a refresh trigger, and
+still loses on the partial words people type. Revisit at catalogue sizes
+where a sequential scan hurts — see `docs/PRODUCTION-AUDIT.md` phase 4.
+
+**There is no `GET /search`.** The client fans out to these three
+endpoints in parallel (`client/lib/api/search.ts`), which reuses each
+one's existing visibility rules — moderation status, HomeKrafter
+availability, delivery radius — rather than keeping a fourth copy of "what
+may a buyer see".
 
 ### Location filtering (M12)
 

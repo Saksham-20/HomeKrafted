@@ -1,0 +1,203 @@
+.page {
+  padding-block: var(--hk-s7) var(--hk-s8);
+}
+
+.head {
+  max-width: 640px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: var(--hk-eyebrow-spacing);
+  text-transform: uppercase;
+  /* Gold at 11px regular is below AA on white — small-size gold ramp. */
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  margin-top: var(--hk-s2);
+  font: var(--hk-h2);
+  color: var(--hk-pine);
+}
+
+.term {
+  font-style: italic;
+  color: var(--hk-terracotta);
+}
+
+.field {
+  margin-top: var(--hk-s5);
+}
+
+.suggestions {
+  margin-top: var(--hk-s6);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.suggestLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: var(--hk-eyebrow-spacing);
+  text-transform: uppercase;
+  color: var(--hk-muted);
+  margin-right: var(--hk-s2);
+}
+
+.suggestChip {
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  background: var(--hk-surface);
+}
+
+.suggestChip:hover {
+  border-color: var(--hk-gold-border);
+  color: var(--hk-pine);
+}
+
+.empty {
+  margin-top: var(--hk-s7);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s8) var(--hk-s6);
+  text-align: center;
+}
+
+.emptyTitle {
+  font: var(--hk-h3);
+  color: var(--hk-pine);
+}
+
+.emptyBody {
+  margin: var(--hk-s3) auto 0;
+  max-width: 44ch;
+  font: var(--hk-body);
+  color: var(--hk-ink-3);
+}
+
+.emptyCta {
+  display: inline-block;
+  margin-top: var(--hk-s5);
+  background: var(--hk-pine);
+  color: #ffffff;
+  border-radius: var(--hk-r-pill);
+  padding: 13px 26px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.emptyCta:hover {
+  color: #ffffff;
+  opacity: 0.92;
+}
+
+.section {
+  margin-top: var(--hk-s8);
+}
+
+.sectionTitle {
+  font: var(--hk-h3);
+  color: var(--hk-pine);
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s2);
+}
+
+.count {
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-muted);
+}
+
+.snackHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+}
+
+.grid {
+  margin-top: var(--hk-s5);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--hk-s5);
+}
+
+.snackLink {
+  display: block;
+  color: inherit;
+}
+
+.snackLink:hover {
+  color: inherit;
+}
+
+.makerGrid {
+  margin-top: var(--hk-s5);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.makerCard {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s4);
+  color: inherit;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.makerCard:hover {
+  color: inherit;
+  border-color: var(--hk-gold-border);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.makerAvatar {
+  display: block;
+  width: 54px;
+  flex-shrink: 0;
+}
+
+.makerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.makerName {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.makerMeta {
+  font-size: 13px;
+  color: var(--hk-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--hk-s4);
+  }
+}

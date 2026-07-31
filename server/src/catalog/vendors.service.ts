@@ -7,8 +7,28 @@ import { mapVendor } from './mappers/vendor.mapper';
 export class VendorsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list() {
-    const vendors = await this.prisma.vendor.findMany({ orderBy: { name: 'asc' } });
+  /**
+   * `q` searches the HomeKrafter's name, their bio and their area, so
+   * "Sector 35" and "pickle" both surface kitchens on `/search`. AND
+   * across terms, OR across fields — same rule as `ProductsService.list`.
+   */
+  async list(q?: string) {
+    const terms = q ? q.trim().split(/\s+/).filter(Boolean).slice(0, 6) : [];
+    const vendors = await this.prisma.vendor.findMany({
+      where:
+        terms.length > 0
+          ? {
+              AND: terms.map((term) => ({
+                OR: [
+                  { name: { contains: term, mode: 'insensitive' as const } },
+                  { bio: { contains: term, mode: 'insensitive' as const } },
+                  { area: { contains: term, mode: 'insensitive' as const } },
+                ],
+              })),
+            }
+          : undefined,
+      orderBy: { name: 'asc' },
+    });
     return vendors.map((v) => mapVendor(v));
   }
 

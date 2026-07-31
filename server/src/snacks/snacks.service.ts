@@ -21,8 +21,23 @@ export class SnacksService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: ListSnacksQueryDto) {
+    // AND across terms, OR across fields — see `ProductsService.list`.
+    const terms = query.q ? query.q.split(/\s+/).filter(Boolean).slice(0, 6) : [];
     const snacks = await this.prisma.snack.findMany({
-      where: { available: true, category: query.category },
+      where: {
+        available: true,
+        category: query.category,
+        ...(terms.length > 0
+          ? {
+              AND: terms.map((term) => ({
+                OR: [
+                  { name: { contains: term, mode: 'insensitive' as const } },
+                  { description: { contains: term, mode: 'insensitive' as const } },
+                ],
+              })),
+            }
+          : {}),
+      },
       // Seller joined for its vendor's coordinates — the "near me" filter.
       include: { seller: { include: { vendor: true } } },
       orderBy: { name: 'asc' },

@@ -96,7 +96,13 @@ Sign in as **Ananya**.
 - Open a **HomeKrafter storefront** from a product
 - **Occasion collections** (e.g. from the home page)
 - **Wishlist** — add/remove, check it survives a page reload
-- **Search** and empty states (search for nonsense, see what shows)
+- **Search** — the box in the header (and inside the mobile menu below
+  ~840px). Try a product word ("pickle"), a HomeKrafter's name, and an
+  area ("Sector 35"); results split into Products / HomeKrafters /
+  Snacks. Two words should narrow, not widen. Search for nonsense and
+  check the empty state offers a way back to browsing.
+- **Broken links** — try a URL that doesn't exist (e.g. `/product/nope`)
+  and check you get a Homekrafted 404 with a way out, not a blank page
 
 ### 2. Shopper — buy something
 - Add items to **cart**, change quantities, remove a line

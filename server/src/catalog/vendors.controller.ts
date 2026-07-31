@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { VendorsService } from './vendors.service';
 
@@ -8,8 +8,8 @@ export class VendorsController {
 
   @Public()
   @Get()
-  list() {
-    return this.vendorsService.list();
+  list(@Query('q') q?: string) {
+    return this.vendorsService.list(q);
   }
 
   @Public()

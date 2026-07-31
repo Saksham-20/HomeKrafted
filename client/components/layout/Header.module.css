@@ -105,22 +105,12 @@
   background: var(--hk-gold-tint);
 }
 
+/* The pill's own look lives in `components/search/SearchForm.module.css`
+   now that it is a real form rather than a link — this class is only the
+   header's layout hook (and what the ≤840px rule below hides). */
 .searchPill {
-  display: flex;
-  align-items: center;
-  gap: var(--hk-s2);
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
-  padding: 7px 12px;
-  color: var(--hk-muted);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.searchPill:hover {
-  color: var(--hk-ink-2);
-  border-color: var(--hk-gold-border);
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .walletChip {

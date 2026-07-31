@@ -7,6 +7,7 @@ import { Heart, Store, User, Wallet, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
+import { SearchForm } from "@/components/search/SearchForm";
 import styles from "./MobileDrawer.module.css";
 
 export interface MobileDrawerProps {
@@ -69,6 +70,13 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchT
           >
             <X size={18} strokeWidth={1.8} />
           </button>
+        </div>
+
+        {/* The header's search pill is one of the things `.hideOnMobile`
+            hides below ~840px, so without this the drawer's whole width
+            range has no way to search at all. */}
+        <div className={styles.searchWrap}>
+          <SearchForm variant="block" placeholder="Search homemade…" onSubmitted={onClose} />
         </div>
 
         <nav className={styles.navList} aria-label="Primary">
