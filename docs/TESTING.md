@@ -259,6 +259,16 @@ Sign in as **admin** at https://homekrafted.in/admin/login
 - **Reviews** — moderate reviews
 - **Collections** — create and edit collections, promo slots
 - **Wallet** — view and adjust a user's wallet
+- **Payouts** — the HomeKrafter earnings queue. Sign in as a HomeKrafter
+  first and request a payout from their **Payouts** screen, then come
+  back here: the request should appear under Pending. Try both
+  **Mark paid** (add a made-up bank reference) and **Decline** (you have
+  to give a reason). Then check the HomeKrafter's own Payouts screen —
+  paid should show the reference, declined should show your reason.
+  Trying to decide the same payout twice should be refused.
+  > "Mark paid" **does not send money** — the platform has no bank
+  > integration. It records a transfer someone made by hand. That's
+  > deliberate, not a missing feature.
 - **Analytics** — dashboard charts
 
 ---

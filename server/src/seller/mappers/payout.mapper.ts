@@ -9,5 +9,12 @@ export function mapPayout(payout: Payout) {
     periodEnd: payout.periodEnd.toISOString().slice(0, 10),
     status: payout.status,
     paidAt: payout.paidAt ? payout.paidAt.toISOString().slice(0, 10) : undefined,
+    // M15 — the HomeKrafter's side of an admin decision. `reference` is
+    // what they quote if the transfer never landed; `note` is why a
+    // request was declined, which is the difference between "fix your
+    // bank details and re-request" and silence.
+    reference: payout.reference ?? undefined,
+    note: payout.note ?? undefined,
+    decidedAt: payout.decidedAt ? payout.decidedAt.toISOString().slice(0, 10) : undefined,
   };
 }

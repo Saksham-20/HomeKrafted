@@ -60,9 +60,11 @@ import {
 import type {
   Category,
   Collection,
+  ID,
   LaundryBooking,
   Occasion,
   Order,
+  PayoutStatus,
   Product,
   ProductModerationStatus,
   Review,
@@ -1165,4 +1167,71 @@ export async function getAnalytics(): Promise<AdminAnalyticsSnapshot> {
     newUsersByMonth: computeNewUsersByMonth(),
     walletFlow: computeWalletFlow(),
   };
+}
+
+// ---------------------------------------------------------------------
+// Payouts (M15)
+//
+// The other end of `/seller/payouts`. Between M8.3b and M15 a HomeKrafter
+// could request a payout and nothing on the platform could act on it —
+// no admin endpoint, no screen, no transition out of `pending`. Earnings
+// accrued and had no way to leave.
+//
+// Mock-only, deliberately: there is no mock payout store to mutate (the
+// seller-side mock array lives in `lib/data/sellers.ts` and isn't keyed
+// for cross-account admin access), and inventing one would let the
+// offline build claim a settlement the real path can't. Mock mode returns
+// an empty queue.
+// ---------------------------------------------------------------------
+
+export interface AdminPayout {
+  id: ID;
+  sellerId: ID;
+  sellerName: string;
+  vendorName: string;
+  sellerEmail?: string;
+  sellerPhone?: string;
+  amount: number;
+  periodStart: string;
+  periodEnd: string;
+  status: PayoutStatus;
+  paidAt?: string;
+  reference?: string;
+  note?: string;
+  decidedByName?: string;
+  decidedAt?: string;
+}
+
+export interface AdminPayoutQueue {
+  items: AdminPayout[];
+  summary: { pendingCount: number; pendingTotal: number; paidTotal: number };
+}
+
+export async function getAdminPayouts(status?: PayoutStatus): Promise<AdminPayoutQueue> {
+  if (isMockMode()) {
+    return { items: [], summary: { pendingCount: 0, pendingTotal: 0, paidTotal: 0 } };
+  }
+  return http.get<AdminPayoutQueue>("/admin/payouts", { query: status ? { status } : undefined });
+}
+
+/**
+ * Records a settlement — it does **not** move money. There is no
+ * payout-provider integration; an admin transfers out of band and puts
+ * the bank reference here, which is the only link between this row and a
+ * real transfer.
+ */
+export async function markPayoutPaid(
+  payoutId: string,
+  reference?: string,
+  note?: string,
+): Promise<AdminPayout> {
+  return http.post<AdminPayout>(`/admin/payouts/${encodeURIComponent(payoutId)}/pay`, {
+    reference,
+    note,
+  });
+}
+
+/** `note` is required — a payout refused with no explanation is worse than one that never happened. */
+export async function rejectPayout(payoutId: string, note: string): Promise<AdminPayout> {
+  return http.post<AdminPayout>(`/admin/payouts/${encodeURIComponent(payoutId)}/reject`, { note });
 }

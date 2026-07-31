@@ -43,6 +43,9 @@ const TONE_BY_STATUS: Record<string, StatusPillTone> = {
   pending: "gold",
   suspended: "danger",
   active: "success",
+  // PayoutStatus (M15 `/admin/payouts`) — `pending`/`rejected` already
+  // resolve above; `paid` is money that has actually moved.
+  paid: "success",
   // Product.moderationStatus / Review moderation (M11b `/admin/catalog`)
   hidden: "danger",
   flagged: "gold",

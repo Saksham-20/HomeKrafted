@@ -59,3 +59,18 @@
   color: var(--hk-ink);
   flex-shrink: 0;
 }
+
+/* M15 — a declined request, and the reason the admin had to give. */
+.rejected {
+  /* Terracotta-on-tint; no --hk-terracotta-tint token exists, so this is
+     the one-off documented-hardcode pattern the other .added/.debit
+     tints in components/ui use. */
+  background: #f6e7e0;
+  color: var(--hk-terracotta);
+}
+
+.note {
+  font-size: 12.5px;
+  color: var(--hk-ink-3);
+  max-width: 46ch;
+}

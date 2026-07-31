@@ -17,18 +17,35 @@ export interface PayoutRowProps {
  */
 export function PayoutRow({ payout, className }: PayoutRowProps) {
   const isPaid = payout.status === "paid";
+  const isRejected = payout.status === "rejected";
+
+  // What happened to this request, in one line. Before M15 there was only
+  // "Pending settlement" forever, because nothing could settle a payout.
+  const statusLine = isPaid
+    ? `Paid ${payout.paidAt ? formatDate(payout.paidAt) : ""}${payout.reference ? ` · ref ${payout.reference}` : ""}`
+    : isRejected
+      ? `Declined${payout.decidedAt ? ` ${formatDate(payout.decidedAt)}` : ""}`
+      : "Pending settlement";
+
   return (
     <div className={clsx(styles.row, className)}>
-      <span className={clsx(styles.iconTile, isPaid ? styles.paid : styles.pending)} aria-hidden="true">
-        {isPaid ? "✓" : "…"}
+      <span
+        className={clsx(
+          styles.iconTile,
+          isPaid ? styles.paid : isRejected ? styles.rejected : styles.pending,
+        )}
+        aria-hidden="true"
+      >
+        {isPaid ? "✓" : isRejected ? "×" : "…"}
       </span>
       <div className={styles.body}>
         <span className={styles.title}>
           {formatDate(payout.periodStart)} – {formatDate(payout.periodEnd)}
         </span>
-        <span className={styles.date}>
-          {isPaid && payout.paidAt ? `Paid ${formatDate(payout.paidAt)}` : "Pending settlement"}
-        </span>
+        <span className={styles.date}>{statusLine}</span>
+        {/* A refusal with no reason attached is worse than one that never
+            happened — the admin has to give one, so show it. */}
+        {isRejected && payout.note ? <span className={styles.note}>{payout.note}</span> : null}
       </div>
       <span className={styles.amount}>{formatCurrency(payout.amount)}</span>
     </div>

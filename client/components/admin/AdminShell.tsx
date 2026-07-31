@@ -4,17 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import {
-  BarChart3,
-  FolderOpen,
-  LayoutGrid,
-  LogOut,
-  Package,
-  ShoppingBag,
-  Store,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { Banknote, BarChart3, FolderOpen, LayoutGrid, LogOut, Package, ShoppingBag, Store, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AdminShell.module.css";
@@ -34,6 +24,9 @@ const NAV: AdminNavItem[] = [
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { label: "Catalog", href: "/admin/catalog", icon: Package },
   { label: "Wallet", href: "/admin/wallet", icon: Wallet },
+  // M15 — until this existed, a HomeKrafter's payout request had nowhere
+  // to go: `pending` was terminal in practice.
+  { label: "Payouts", href: "/admin/payouts", icon: Banknote },
   { label: "Collections", href: "/admin/collections", icon: FolderOpen },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
 ];

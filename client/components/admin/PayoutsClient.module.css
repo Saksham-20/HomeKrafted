@@ -1,0 +1,154 @@
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s5) 0;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s5);
+}
+
+.filters {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s4);
+}
+
+.empty {
+  color: var(--hk-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.amountCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.amount {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--hk-ink);
+}
+
+.actions {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  border-top: 1px solid var(--hk-divider);
+  padding-top: var(--hk-s4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+}
+
+.input {
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface);
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--hk-pine);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.decision {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  align-items: baseline;
+  border-top: 1px solid var(--hk-divider);
+  padding-top: var(--hk-s3);
+}
+
+.reference {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-ink-2);
+}
+
+.note {
+  font-size: 13px;
+  color: var(--hk-ink-3);
+  flex: 1;
+  min-width: 12ch;
+}
+
+.decidedBy {
+  font-size: 12px;
+  color: var(--hk-muted);
+}

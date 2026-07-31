@@ -69,7 +69,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | Entity | Key fields | Relationships |
 |---|---|---|
 | `Seller` | userId, type (`maker`\|`laundry`\|`snack`), vendorId? (maker only), displayName, status (`pending`\|`approved`\|`suspended`), rating?/reviewCount? (M10b, laundry/snack only) | belongs to a `User` (role `"seller"`, a separate demo account per type — not a permission flag on the consumer `User`); a maker additionally owns a `Vendor` via `vendorId` — laundry/snack have no `Vendor`, so their rating lives directly on `Seller` instead |
-| `Payout` | sellerId, amount, periodStart/End, status (`pending`\|`paid`), paidAt? | belongs to a `Seller`, any type — `/seller/payouts` and `SellerPayoutsClient` are type-agnostic and reused as-is across all 3 |
+| `Payout` | sellerId, amount, periodStart/End, status (`pending`\|`paid`\|**`rejected`** — M15), paidAt?, **reference?/note?/decidedById?/decidedAt? (M15)** | belongs to a `Seller` — `/seller/payouts` and `SellerPayoutsClient` are specialty-agnostic. `reference` is the bank/UPI id the transfer actually moved under: settlement happens **outside this system**, so it is the only link between a row marked paid and a real transfer |
 
 ## Notes for the M8 Prisma pass
 

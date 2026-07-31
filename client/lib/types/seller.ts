@@ -45,7 +45,13 @@ export interface Seller {
  * type, reused the same way `Payout.sellerId` already does.
  */
 
-export type PayoutStatus = "pending" | "paid";
+/**
+ * `rejected` arrived with M15's admin payout queue. Before that a request
+ * could only ever sit at `pending` — nothing on the platform could settle
+ * or refuse one — so refusal had no way to be expressed without deleting
+ * the request and losing the record that it was made.
+ */
+export type PayoutStatus = "pending" | "paid" | "rejected";
 
 export interface Payout {
   id: ID;
@@ -55,4 +61,15 @@ export interface Payout {
   periodEnd: ISODateString;
   status: PayoutStatus;
   paidAt?: ISODateString;
+  /**
+   * The bank/UPI reference the transfer moved under. Settlement happens
+   * outside this system (no payout-provider integration), so this string
+   * is the only link between "marked paid" and a real transfer — and it's
+   * what a HomeKrafter quotes when it hasn't arrived.
+   */
+  reference?: string;
+  /** Why it was declined, or a note attached when settling. */
+  note?: string;
+  /** When an admin settled or declined it. */
+  decidedAt?: ISODateString;
 }

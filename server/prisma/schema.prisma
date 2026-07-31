@@ -327,6 +327,12 @@ enum SellerStatus {
 enum PayoutStatus {
   pending
   paid
+  /// M15. A HomeKrafter could request a payout since M8.3b, but nothing
+  /// could ever settle or refuse one — there was no admin surface at all,
+  /// so `pending` was a terminal state in practice. Rejection needs to be
+  /// expressible (wrong bank details, an account under review) without
+  /// deleting the request and losing the record that it was made.
+  rejected
 }
 
 // ---------------------------------------------------------------------------
@@ -380,6 +386,8 @@ model User {
   vendorFollows           VendorFollow[]
   razorpayOrders          RazorpayOrder[]
   adminAuditLogs          AdminAuditLog[]
+  /// Payouts this admin settled or refused — see `Payout.decidedById`.
+  payoutDecisions         Payout[]              @relation("PayoutDecidedBy")
 
   @@index([role])
 }
@@ -1351,8 +1359,25 @@ model Payout {
   periodEnd   DateTime
   status      PayoutStatus @default(pending)
   paidAt      DateTime?
+  /// The bank/UPI reference the money actually moved under (a UTR, a
+  /// transaction id). Recorded because settlement happens **outside this
+  /// system** — there is no payout-provider integration — so this string
+  /// is the only link between "we marked it paid" and a real transfer,
+  /// and it is what a HomeKrafter quotes when they say it never arrived.
+  reference   String?
+  /// Why it was rejected, or any note attached when settling. Shown to
+  /// the HomeKrafter: a payout refused with no explanation is worse than
+  /// one that never happened.
+  note        String?
+  /// Which admin settled or refused it, and when. Also written to
+  /// `AdminAuditLog`; kept on the row too so the payout itself can say
+  /// who touched it without a join across a loosely-typed log table.
+  decidedById String?
+  decidedBy   User?        @relation("PayoutDecidedBy", fields: [decidedById], references: [id])
+  decidedAt   DateTime?
 
   @@index([sellerId])
+  @@index([status])
 }
 
 // ---------------------------------------------------------------------------

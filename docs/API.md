@@ -919,6 +919,39 @@ save — reordering is just re-submitting `productIds` in the new order).
 | `PATCH /admin/collections/:id` | Same body shape — full replace, not a partial patch (mirrors `client/lib/api/admin.ts#upsertCollection`). Audited (`collection.update`). |
 | `DELETE /admin/collections/:id` | `204`. Audited (`collection.delete`). |
 
+
+### Payouts (M15) — `server/src/admin/payouts.controller.ts`
+
+The other end of `POST /seller/payouts/request`. Between M8.3b and M15 a
+HomeKrafter could request a payout and **nothing on the platform could
+act on it** — no endpoint, no screen, no transition out of `pending`.
+Earnings accrued from delivered orders and had no way to leave.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/payouts` | Optional `?status=pending\|paid\|rejected`. Returns `{ items, summary: { pendingCount, pendingTotal, paidTotal } }`. Pending sorts first regardless of the filter — this screen is a queue. Each item carries the HomeKrafter's display name, storefront name and contact. |
+| `GET /admin/payouts/:id` | One payout. |
+| `POST /admin/payouts/:id/pay` | Body: `{ reference?, note? }`. Sets `paid` + `paidAt` + `decidedById`/`decidedAt`. Audited (`payout.paid`) and notified to the HomeKrafter. |
+| `POST /admin/payouts/:id/reject` | Body: `{ note }` (5–500 chars, **required**). Sets `rejected`. Audited (`payout.rejected`) and notified. |
+
+**Marking paid records a settlement; it does not perform one.** There is
+no payout-provider integration (bank transfer / Razorpay Payouts). An
+admin transfers out of band and stores the bank/UPI `reference`, which is
+the only link between this row and a real transfer — and what a
+HomeKrafter quotes when the money hasn't arrived. Implying a transfer the
+system never made would be worse than the honest ledger.
+
+**Both decisions are one-way** (`409` on a second call). Re-deciding a
+settled payout would let an admin rewrite a row asserting that real money
+moved; the fix for a mistake is a new payout, which leaves both facts on
+record.
+
+`PayoutStatus` gains `rejected`. Refusal needs to be expressible — wrong
+bank details, an account under review — without deleting the request and
+losing the record that it was made. The reason is shown to the
+HomeKrafter on `/seller/payouts`: a refusal with no explanation is worse
+than one that never happened.
+
 ### Audit log (`server/src/admin/audit.controller.ts`)
 
 `AdminAuditLog` — one row per admin **mutation** across every controller
