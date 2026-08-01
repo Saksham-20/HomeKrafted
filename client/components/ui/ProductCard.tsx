@@ -57,7 +57,11 @@ export function ProductCard({
         <ImageSlot
           ratio={image?.ratio ?? "1/1"}
           label={image?.placeholder ?? product.name}
+          // The product's name, not the placeholder caption — a screen
+          // reader hearing "MANGO THOKKU — HERO" has been read a filename.
+          alt={product.name}
           src={image?.src}
+          sizes="(max-width: 640px) 45vw, (max-width: 1180px) 30vw, 260px"
           compact
         />
         {tag && <Tag label={tag} className={styles.tag} />}

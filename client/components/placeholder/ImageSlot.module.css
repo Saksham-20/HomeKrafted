@@ -24,9 +24,10 @@
 }
 
 .image {
-  display: block;
-  width: 100%;
-  height: 100%;
+  /* `next/image` with `fill` positions absolutely and sets its own
+     width/height; `object-fit` is what keeps the crop behaviour the raw
+     <img> had. `.slot` is already `position: relative`, which is what
+     `fill` needs. */
   object-fit: cover;
 }
 

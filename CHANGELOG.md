@@ -50,6 +50,24 @@ grid. Phase 2 starts there.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **`next/image` everywhere (H7).** `ImageSlot` rendered a raw `<img>`,
+  so a HomeKrafter's phone photo shipped at whatever resolution their
+  camera produced, in the original format, to every buyer's phone.
+  Now AVIF/WebP with a responsive srcset, per-call-site `sizes`, and
+  `priority` on the two images that are actually an LCP. Measured on the
+  home hero: **265 KB → 59 KB** at 640px, a 78% saving.
+- **Real alt text.** `ImageSlot` used to put `role="img"` on the wrapper
+  with the placeholder caption as its label and mark the real image
+  `aria-hidden`, so every product photo announced its filename
+  ("MANGO THOKKU — HERO"). The image now carries proper alt, and
+  genuinely decorative art (storefront banner, category tile, guide
+  cover) carries `alt=""` because the name is already the next thing in
+  the DOM.
+- **`/uploads/*` now works in local dev.** It is served by nginx in
+  production and by nothing on :3000 in dev, so an uploaded photo used to
+  404 locally and render in production — the worst way round for a bug to
+  behave. A dev-only rewrite proxies it to the API.
+
 ### Decisions worth keeping
 
 - **A HomeKrafter's revenue is their line-item share, never the order
@@ -65,6 +83,10 @@ grid. Phase 2 starts there.
   wearing a percent sign, and "0% repeat customers" reads as a verdict on
   a kitchen that has simply not had orders yet. The UI says "no earlier
   period" and "not enough orders yet" instead.
+- **`images.remotePatterns` is deliberately empty.** Uploads and bundled
+  assets are both same-origin, so nothing needs allowlisting. Widening it
+  to `**` to make a CDN work later would be deciding, silently, that we
+  trust any host to serve images into our own pages.
 - **Snack orders contribute nothing to the cancellation rate.**
   `SnackOrderStatus` has no `cancelled` member — a WhatsApp order that
   falls through is a conversation, not a state transition — so counting
@@ -210,6 +232,24 @@ that made the marketplace unusable and unfindable.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **`next/image` everywhere (H7).** `ImageSlot` rendered a raw `<img>`,
+  so a HomeKrafter's phone photo shipped at whatever resolution their
+  camera produced, in the original format, to every buyer's phone.
+  Now AVIF/WebP with a responsive srcset, per-call-site `sizes`, and
+  `priority` on the two images that are actually an LCP. Measured on the
+  home hero: **265 KB → 59 KB** at 640px, a 78% saving.
+- **Real alt text.** `ImageSlot` used to put `role="img"` on the wrapper
+  with the placeholder caption as its label and mark the real image
+  `aria-hidden`, so every product photo announced its filename
+  ("MANGO THOKKU — HERO"). The image now carries proper alt, and
+  genuinely decorative art (storefront banner, category tile, guide
+  cover) carries `alt=""` because the name is already the next thing in
+  the DOM.
+- **`/uploads/*` now works in local dev.** It is served by nginx in
+  production and by nothing on :3000 in dev, so an uploaded photo used to
+  404 locally and render in production — the worst way round for a bug to
+  behave. A dev-only rewrite proxies it to the API.
+
 ### Decisions worth keeping
 
 - **A HomeKrafter's revenue is their line-item share, never the order
@@ -225,6 +265,10 @@ that made the marketplace unusable and unfindable.
   wearing a percent sign, and "0% repeat customers" reads as a verdict on
   a kitchen that has simply not had orders yet. The UI says "no earlier
   period" and "not enough orders yet" instead.
+- **`images.remotePatterns` is deliberately empty.** Uploads and bundled
+  assets are both same-origin, so nothing needs allowlisting. Widening it
+  to `**` to make a CDN work later would be deciding, silently, that we
+  trust any host to serve images into our own pages.
 - **Snack orders contribute nothing to the cancellation rate.**
   `SnackOrderStatus` has no `cancelled` member — a WhatsApp order that
   falls through is a conversation, not a state transition — so counting

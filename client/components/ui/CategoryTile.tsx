@@ -21,7 +21,11 @@ export function CategoryTile({ category, onClick, className }: CategoryTileProps
         ratio="1/1"
         shape="circle"
         label={category.imagePlaceholder}
+        // The category name is rendered right below, so the tile art is
+        // decoration rather than something to announce twice.
+        alt=""
         src={category.imageSrc}
+        sizes="120px"
         compact
       />
       <span className={styles.label}>{category.name}</span>

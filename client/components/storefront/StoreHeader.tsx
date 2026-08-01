@@ -29,7 +29,16 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
   return (
     <div className={styles.wrap}>
       <div className={styles.banner}>
-        <ImageSlot ratio="16/5" label={vendor.bannerPlaceholder} src={vendor.bannerSrc} />
+        <ImageSlot
+          ratio="16/5"
+          label={vendor.bannerPlaceholder}
+          // Decorative: the shop's name is the <h1> right below it, so
+          // describing the banner again is noise in a screen reader.
+          alt=""
+          src={vendor.bannerSrc}
+          sizes="(max-width: 1180px) 100vw, 1180px"
+          priority
+        />
       </div>
       <div className={styles.row}>
         <div className={styles.avatar}>
@@ -37,7 +46,9 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
             ratio="1/1"
             shape="circle"
             label={vendor.avatarPlaceholder}
+            alt={`${vendor.name} shop photo`}
             src={vendor.avatarSrc}
+            sizes="88px"
             compact
           />
         </div>

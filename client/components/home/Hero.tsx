@@ -54,11 +54,16 @@ export function Hero({ trustStats }: HeroProps) {
             </div>
           </div>
           <div className={styles.imageWrap}>
+            {/* The home page's LCP element — `priority` so it isn't
+                lazy-loaded behind everything below the fold. */}
             <ImageSlot
               ratio="1/1"
               label="Festive homemade gift hamper"
+              alt="A festive gift hamper of homemade sweets, pickles and dry fruit"
               src="/images/site/hero-hamper.jpg"
               size="1200×1200"
+              sizes="(max-width: 900px) 100vw, 500px"
+              priority
             />
           </div>
         </div>

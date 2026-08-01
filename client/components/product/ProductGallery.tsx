@@ -13,7 +13,17 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
 
   return (
     <div className={styles.gallery}>
-      <ImageSlot ratio={main.ratio} label={main.placeholder} src={main.src} />
+      {/* The one image on this page worth `priority`: it is the LCP
+          element, and lazy-loading it delays the thing the visitor came
+          for. The thumbnails below stay lazy. */}
+      <ImageSlot
+        ratio={main.ratio}
+        label={main.placeholder}
+        alt={productName}
+        src={main.src}
+        sizes="(max-width: 900px) 100vw, 560px"
+        priority
+      />
       {thumbs.length > 0 && (
         <div className={styles.thumbRow}>
           {thumbs.slice(0, 4).map((thumb, index) => (
@@ -21,7 +31,9 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
               key={index}
               ratio="1/1"
               label={thumb.placeholder}
+              alt={`${productName} — photo ${index + 2}`}
               src={thumb.src}
+              sizes="96px"
               shape="square"
               compact
             />

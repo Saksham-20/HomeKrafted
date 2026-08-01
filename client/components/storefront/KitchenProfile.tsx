@@ -187,6 +187,8 @@ export function KitchenProfile({ profile, vendorName, className }: KitchenProfil
                   ratio="4/3"
                   src={photo.url}
                   label={photo.caption ?? `${vendorName} kitchen photo`}
+                  alt={photo.caption ?? `Inside ${vendorName}'s kitchen`}
+                  sizes="(max-width: 640px) 100vw, 300px"
                   compact
                 />
                 {photo.caption && <p className={styles.caption}>{photo.caption}</p>}

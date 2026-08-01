@@ -31,7 +31,14 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
   return (
     <Card padding="none" className={styles.row}>
       <div className={styles.thumb}>
-        <ImageSlot ratio="1/1" label={image?.placeholder ?? product.name} src={image?.src} compact />
+        <ImageSlot
+          ratio="1/1"
+          label={image?.placeholder ?? product.name}
+          alt={product.name}
+          src={image?.src}
+          sizes="64px"
+          compact
+        />
       </div>
       <div className={styles.body}>
         <span className={styles.name}>{product.name}</span>

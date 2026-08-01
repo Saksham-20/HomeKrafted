@@ -458,10 +458,27 @@ the two dashboard groups — never app-wide.
 />
 ```
 
-With a `src` it renders that image; without one it renders the
+With a `src` it renders that image through **`next/image`** (M16, `fill`
+over the wrapper's aspect ratio); without one it renders the
 diagonal-hatch placeholder from the prototype. The `src` may be a bundled
 asset (`/images/...`) or an upload (`/uploads/...`) — `ImageSlot` doesn't
 care, which is why upload wiring needed no changes here.
+
+Three props matter and are easy to forget:
+
+- **`alt`** — the real description. Defaults to `label`, which is a
+  *filename*, so any caller that knows the product/vendor name should
+  pass it. `alt=""` is correct only when the name is already the next
+  thing in the DOM (storefront banner, category tile, guide cover).
+- **`sizes`** — defaults to a grid card. A 88px avatar or a 64px
+  thumbnail must say so, or the browser downloads a viewport-wide image
+  to fill it.
+- **`priority`** — one or two per page, on the actual LCP element only.
+  Marking everything priority is the same as marking nothing.
+
+`images.remotePatterns` in `next.config.ts` is **empty on purpose**:
+uploads are same-origin (nginx serves `/uploads/` — see `docs/DEPLOY.md`),
+so nothing needs allowlisting. Don't widen it to `**` to make a CDN work.
 
 ## Fonts & tokens wiring (established in M0 — don't re-derive this)
 

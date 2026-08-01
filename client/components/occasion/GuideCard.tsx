@@ -19,7 +19,16 @@ export function GuideCard({ guide, className }: GuideCardProps) {
   return (
     <Link href={`/guides/${guide.slug}`} className={clsx(styles.card, className)}>
       <span className={styles.image}>
-        <ImageSlot ratio="3/2" src={guide.imageSrc} label={guide.title} compact />
+        <ImageSlot
+          ratio="3/2"
+          src={guide.imageSrc}
+          label={guide.title}
+          // The title is the next thing in the DOM, so the cover art adds
+          // nothing a screen reader needs to hear twice.
+          alt=""
+          sizes="(max-width: 640px) 100vw, 300px"
+          compact
+        />
       </span>
       <span className={styles.body}>
         <span className={styles.title}>{guide.title}</span>

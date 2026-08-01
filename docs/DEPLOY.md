@@ -81,6 +81,12 @@ needs the headroom.
 
 ## Uploaded images
 
+**M16:** uploaded photos are served through `next/image` now, so nginx
+serving `/uploads/` on the **same origin as the app** is what makes them
+optimisable without an `images.remotePatterns` allowlist. If uploads ever
+move to a CDN on another host, that config has to be widened
+deliberately — see `client/next.config.ts`.
+
 User-uploaded photos (`POST /uploads`, see `docs/API.md`) are written to
 `UPLOAD_DIR` and served by nginx straight from disk at `/uploads/` — they
 never touch Node on the read path.

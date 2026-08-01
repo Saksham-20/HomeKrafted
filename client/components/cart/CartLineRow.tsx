@@ -15,7 +15,14 @@ export function CartLineRow({ info, onQtyChange, onRemove }: CartLineRowProps) {
   return (
     <div className={styles.row}>
       <div className={styles.image}>
-        <ImageSlot ratio={info.imageRatio} label={info.imageLabel} src={info.imageSrc} compact />
+        <ImageSlot
+          ratio={info.imageRatio}
+          label={info.imageLabel}
+          alt={info.name}
+          src={info.imageSrc}
+          sizes="72px"
+          compact
+        />
       </div>
 
       <div className={styles.body}>
