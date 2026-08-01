@@ -286,6 +286,25 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   Untick it again and the badge should come straight off.
 - **Analytics** — dashboard charts
 
+### HomeKrafter analytics (M16)
+
+New **Analytics** tab in the HomeKrafter portal, right after Dashboard.
+It answers the two things the portal never did: which item earns, and
+which days are busy.
+
+- Range chips switch between 7 / 30 / 90 days. The chart stays on screen
+  while a new range loads rather than blanking.
+- **"You earned" is your share of each order, not the whole basket.** If a
+  shopper's order contained items from two kitchens, each of you sees only
+  your own lines. That is the figure payouts are worked out from, so it
+  should match what you are actually paid.
+- "no earlier period" instead of a percentage means there was nothing in
+  the previous window to compare against — not that nothing changed.
+- A dash on "Ordered again" means there aren't enough orders yet to
+  work out a rate.
+- With no orders in the window, you get a short explanation rather than
+  empty charts.
+
 ### Occasions and gift guides (M16)
 
 - **[Gifts by occasion](https://homekrafted.in/collections)** is new — the

@@ -73,3 +73,62 @@ export interface Payout {
   /** When an admin settled or declined it. */
   decidedAt?: ISODateString;
 }
+
+// ---------------------------------------------------------------------------
+// Analytics (M16, H6)
+//
+// Revenue is the HomeKrafter's **line-item share**, never the order total.
+// A marketplace order can span several kitchens; crediting each of them
+// with the whole order would overstate what a home cook earns and
+// disagree with what they are paid out. (The admin GMV figure does use
+// whole-order totals — deliberately, as a platform-wide proxy, and it
+// says so.)
+// ---------------------------------------------------------------------------
+
+export interface SellerDailyPoint {
+  date: ISODateString;
+  revenue: number;
+  orderCount: number;
+}
+
+export interface SellerTopItem {
+  productId: ID;
+  name: string;
+  unitsSold: number;
+  revenue: number;
+}
+
+/** Orders per weekday, 0 = Sunday — the "and when" a home cook plans cooking days around. */
+export interface SellerWeekdayPoint {
+  weekday: number;
+  orderCount: number;
+  revenue: number;
+}
+
+export interface SellerAnalyticsTotals {
+  revenue: number;
+  orderCount: number;
+  averageOrderValue: number;
+  unitsSold: number;
+  /**
+   * `null` when the comparison window had nothing in it. A percentage
+   * change from zero is a division by zero wearing a percent sign, and
+   * rendering "+100%" for a kitchen's first-ever order is worse than
+   * saying "no earlier period to compare".
+   */
+  revenueChangePct: number | null;
+  orderCountChangePct: number | null;
+  /** `null` until there is something to divide — "0% repeat" reads as a verdict on a kitchen that simply hasn't had orders yet. */
+  repeatRate: number | null;
+  cancellationRate: number | null;
+}
+
+export interface SellerAnalytics {
+  days: number;
+  from: ISODateString;
+  to: ISODateString;
+  totals: SellerAnalyticsTotals;
+  series: SellerDailyPoint[];
+  topItems: SellerTopItem[];
+  byWeekday: SellerWeekdayPoint[];
+}

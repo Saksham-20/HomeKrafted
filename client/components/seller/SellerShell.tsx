@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
+  BarChart3,
   LayoutGrid,
   LogOut,
   Package,
@@ -40,6 +41,9 @@ interface SellerNavItem {
  */
 const HOMEKRAFTER_NAV: SellerNavItem[] = [
   { label: "Dashboard", href: "/seller", icon: LayoutGrid },
+  // M16 (H6). Sits right after the dashboard: the dashboard answers
+  // "what is happening today", this answers "what is selling, and when".
+  { label: "Analytics", href: "/seller/analytics", icon: BarChart3 },
   { label: "Listings", href: "/seller/listings", icon: Package },
   { label: "Menu", href: "/seller/menu", icon: UtensilsCrossed },
   { label: "Orders", href: "/seller/orders", icon: ShoppingBag },

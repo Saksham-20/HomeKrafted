@@ -1,0 +1,202 @@
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+.ranges {
+  display: flex;
+  gap: 6px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  max-width: 60ch;
+}
+
+.emptyTitle {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s6);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.statLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.statValue {
+  font-family: var(--hk-font-display);
+  font-size: 25px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  line-height: 1.1;
+}
+
+.statDelta {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--hk-muted);
+}
+
+.up {
+  color: var(--hk-success);
+}
+
+/* Terracotta, not red — a down month for a home kitchen is information,
+   not an alarm, and the palette has no error colour by design. */
+.down {
+  color: var(--hk-terracotta);
+}
+
+.flat {
+  color: var(--hk-muted);
+}
+
+.sectionTitle {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  margin-bottom: var(--hk-s3);
+}
+
+.sparkCard {
+  margin-bottom: var(--hk-s6);
+}
+
+.sparkSvg {
+  width: 100%;
+  height: 72px;
+  display: block;
+}
+
+.sparkLine {
+  stroke: var(--hk-pine);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkAxis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+  margin-top: var(--hk-s2);
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--hk-s5);
+}
+
+.barChart {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.chartNote {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.barLabel,
+.barLabelWide {
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+}
+
+.barLabelWide {
+  grid-column: 1 / 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barTrack {
+  height: 9px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface-3);
+  overflow: hidden;
+}
+
+.barFill,
+.barFillGold {
+  display: block;
+  height: 100%;
+  border-radius: var(--hk-r-pill);
+}
+
+.barFill {
+  background: var(--hk-pine);
+}
+
+.barFillGold {
+  background: var(--hk-gold);
+}
+
+.barCount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
+  min-width: 62px;
+}
+
+.barSub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--hk-muted);
+}
+
+.footnote {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--hk-muted);
+  max-width: 70ch;
+  margin-top: var(--hk-s5);
+}
+
+@media (max-width: 560px) {
+  .barRow {
+    grid-template-columns: 48px 1fr auto;
+  }
+}

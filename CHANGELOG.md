@@ -45,8 +45,30 @@ grid. Phase 2 starts there.
   to the hub instead of dumping you on `/shop`.
 - **`/admin/collections/occasions`** — where festival dates get rolled
   forward, with taglines for the hub cards.
+- **Seller analytics (H6).** `/seller/analytics` — earnings over time,
+  busiest weekdays, what sells, repeat rate, and period-over-period
+  deltas, across 7/30/90-day windows. The portal had eight screens and
+  none of them answered "what is selling, and when".
 
 ### Decisions worth keeping
+
+- **A HomeKrafter's revenue is their line-item share, never the order
+  total.** A marketplace order can span several kitchens, so crediting
+  each with the whole basket would overstate what a home cook earns and
+  disagree with what they are paid. (The admin GMV figure does use whole
+  orders — deliberately, as a platform-wide proxy, and it says so.)
+  Measured on the seed data: three orders totalling ₹2,404 are ₹2,086 of
+  actual earnings for the kitchen involved, because one of them was
+  shared with another vendor.
+- **Ratios are `null`, not `0`, when there is nothing to divide by.** A
+  percentage change from an empty previous period is a division by zero
+  wearing a percent sign, and "0% repeat customers" reads as a verdict on
+  a kitchen that has simply not had orders yet. The UI says "no earlier
+  period" and "not enough orders yet" instead.
+- **Snack orders contribute nothing to the cancellation rate.**
+  `SnackOrderStatus` has no `cancelled` member — a WhatsApp order that
+  falls through is a conversation, not a state transition — so counting
+  them as successes would report a flattering rate we cannot observe.
 
 - **A seller cannot verify themselves.** The flags are absent from
   `UpdateSellerProfileDto` entirely, so `forbidNonWhitelisted` rejects an
@@ -183,8 +205,30 @@ that made the marketplace unusable and unfindable.
   to the hub instead of dumping you on `/shop`.
 - **`/admin/collections/occasions`** — where festival dates get rolled
   forward, with taglines for the hub cards.
+- **Seller analytics (H6).** `/seller/analytics` — earnings over time,
+  busiest weekdays, what sells, repeat rate, and period-over-period
+  deltas, across 7/30/90-day windows. The portal had eight screens and
+  none of them answered "what is selling, and when".
 
 ### Decisions worth keeping
+
+- **A HomeKrafter's revenue is their line-item share, never the order
+  total.** A marketplace order can span several kitchens, so crediting
+  each with the whole basket would overstate what a home cook earns and
+  disagree with what they are paid. (The admin GMV figure does use whole
+  orders — deliberately, as a platform-wide proxy, and it says so.)
+  Measured on the seed data: three orders totalling ₹2,404 are ₹2,086 of
+  actual earnings for the kitchen involved, because one of them was
+  shared with another vendor.
+- **Ratios are `null`, not `0`, when there is nothing to divide by.** A
+  percentage change from an empty previous period is a division by zero
+  wearing a percent sign, and "0% repeat customers" reads as a verdict on
+  a kitchen that has simply not had orders yet. The UI says "no earlier
+  period" and "not enough orders yet" instead.
+- **Snack orders contribute nothing to the cancellation rate.**
+  `SnackOrderStatus` has no `cancelled` member — a WhatsApp order that
+  falls through is a conversation, not a state transition — so counting
+  them as successes would report a flattering rate we cannot observe.
 
 - **A return request moves no money.** Whether a homemade jar that
   "tasted off" earns a refund is a judgement call, and auto-refunding

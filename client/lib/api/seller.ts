@@ -48,6 +48,7 @@ import type {
   SnackOrder,
   SnackOrderStatus,
   OwnVendorProfile,
+  SellerAnalytics,
   Vendor,
   VendorPhoto,
   VendorPhotoKind,
@@ -688,6 +689,69 @@ export async function removeSellerPhoto(photoId: string): Promise<VendorPhoto[] 
   } catch {
     return undefined;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Analytics (M16, H6) — `/seller/analytics`
+//
+// Revenue here is the HomeKrafter's **line-item share**, not the order
+// total: a marketplace order can span several kitchens, so crediting each
+// of them with the whole `Order.total` would overstate what a home cook
+// earns and disagree with what they are actually paid out. The server
+// computes it that way; this is only the transport.
+// ---------------------------------------------------------------------------
+
+export async function getSellerAnalytics(days = 30): Promise<SellerAnalytics | undefined> {
+  if (isMockMode()) return mockSellerAnalytics(days);
+  try {
+    return await http.get<SellerAnalytics>(`/seller/analytics?days=${encodeURIComponent(days)}`);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Offline shim. Shaped like real output but derived from the seed orders
+ * this module already holds, so the charts have something to draw without
+ * a backend — not a second implementation of the real attribution rules.
+ */
+function mockSellerAnalytics(days: number): SellerAnalytics {
+  const to = new Date();
+  const from = new Date(to.getTime() - (days - 1) * 86_400_000);
+  const series = Array.from({ length: days }, (_, i) => {
+    const date = new Date(from.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    const orderCount = i % 4 === 0 ? 2 : i % 3 === 0 ? 1 : 0;
+    return { date, orderCount, revenue: orderCount * 640 };
+  });
+  const revenue = series.reduce((sum, p) => sum + p.revenue, 0);
+  const orderCount = series.reduce((sum, p) => sum + p.orderCount, 0);
+  return {
+    days,
+    from: series[0]?.date ?? to.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+    totals: {
+      revenue,
+      orderCount,
+      averageOrderValue: orderCount === 0 ? 0 : Math.round(revenue / orderCount),
+      unitsSold: orderCount * 2,
+      revenueChangePct: 0.18,
+      orderCountChangePct: 0.1,
+      repeatRate: 0.34,
+      cancellationRate: 0.04,
+    },
+    series,
+    topItems: seedProducts.slice(0, 4).map((p, i) => ({
+      productId: p.id,
+      name: p.name,
+      unitsSold: 24 - i * 5,
+      revenue: (24 - i * 5) * 320,
+    })),
+    byWeekday: Array.from({ length: 7 }, (_, weekday) => ({
+      weekday,
+      orderCount: [1, 4, 3, 5, 6, 9, 7][weekday],
+      revenue: [1, 4, 3, 5, 6, 9, 7][weekday] * 640,
+    })),
+  };
 }
 
 function todayISODate(): string {

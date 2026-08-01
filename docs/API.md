@@ -717,6 +717,39 @@ filtered client-side).
 | `GET /seller/storefront` | `maker` only | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param) — `403` for laundry/snack. |
 | `PATCH /seller/storefront` | `maker` only | Body: `{ bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. |
 
+### Analytics (M16 — `server/src/seller/analytics.controller.ts`)
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/analytics?days=30` | `{ days, from, to, totals, series[], topItems[], byWeekday[] }`. `days` is clamped to 1–365 and echoed back, so the client renders the window it got rather than the one it asked for. Scoped through `resolveHomeKrafter`; the window is the only thing a caller chooses. |
+
+**Revenue is the seller's line-item share, not the order total.** A
+marketplace order can span several kitchens, so crediting each of them
+with the whole `Order.total` — which is what the admin GMV figure does,
+deliberately, as a platform-wide proxy — would overstate what a home cook
+earns and disagree with what they are actually paid out. Every
+marketplace figure sums `OrderItem.price * quantity` over that vendor's
+own products. Snack orders and laundry bookings belong to one seller
+outright, so those use their own totals.
+
+Measured on the seed data: one 30-day window contained three orders
+touching `vd1` with totals of ₹987, ₹518 and ₹899. One of them spans two
+vendors, so `vd1`'s real share is ₹938 + ₹249 + ₹899 = **₹2,086** — not
+the ₹2,404 an order-total sum would have reported.
+
+Ratios are `null`, never `0`, when there is nothing to divide by:
+`revenueChangePct`/`orderCountChangePct` when the previous window was
+empty (a percentage change from zero is a division by zero wearing a
+percent sign), `repeatRate` when there are no orders, `cancellationRate`
+when nothing has closed. Repeat buyers are resolved against the buyer's
+**whole** history with that kitchen, not just the window, so a customer
+of two years doesn't read as new because their first order predates the
+chart — keyed on `userId` for marketplace orders and on `customerPhone`
+for snack orders, which is all a WhatsApp order has.
+`SnackOrderStatus` has no `cancelled` member, so snack orders contribute
+nothing to the cancellation ratio rather than being reported as a
+flattering 0%.
+
 ### Profile (M16 — `server/src/seller/profile.controller.ts`)
 
 The story, hours, policies and licence behind the storefront. Separate

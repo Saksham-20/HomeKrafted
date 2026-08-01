@@ -20,6 +20,8 @@ import { SellerPayoutsService } from './payouts.service';
 import { SellerProfileController } from './profile.controller';
 import { SellerProfileService } from './profile.service';
 import { CatalogModule } from '../catalog/catalog.module';
+import { SellerAnalyticsController } from './analytics.controller';
+import { SellerAnalyticsService } from './analytics.service';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -47,6 +49,7 @@ import { CatalogModule } from '../catalog/catalog.module';
     SellerSnackOrdersController,
     SellerPayoutsController,
     SellerProfileController,
+    SellerAnalyticsController,
   ],
   providers: [
     SellerService,
@@ -58,6 +61,7 @@ import { CatalogModule } from '../catalog/catalog.module';
     SellerSnackOrdersService,
     SellerPayoutsService,
     SellerProfileService,
+    SellerAnalyticsService,
   ],
 })
 export class SellerModule {}
