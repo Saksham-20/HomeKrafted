@@ -1,0 +1,81 @@
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  padding: var(--hk-s4);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--hk-gold-border);
+  transform: translateY(-1px);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+/* Same gold-ring glyph as the home tile — the hub is a longer view of
+   the same thing, not a different visual language. */
+.ring {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: var(--hk-r-pill);
+  border: 2px solid var(--hk-gold-border);
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-weight: 600;
+  /* 19px display weight 600 clears the gold contrast floor (CLAUDE.md:
+     gold is decorative-only below ~16px bold). */
+  color: var(--hk-gold);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.countdown {
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+/* Two weeks out is when "I should order something" becomes "I have left
+   this too late" — the only point where the countdown earns emphasis. */
+.soon {
+  color: var(--hk-terracotta);
+  font-weight: 500;
+}
+
+.tagline {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-3);
+}

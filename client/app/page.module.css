@@ -2,6 +2,12 @@
   padding-block: var(--hk-s7) var(--hk-s2);
 }
 
+/* Tighter than `.section` — the seasonal band belongs to the hero, not to
+   the occasion grid it sits above (M16). */
+.seasonal {
+  padding-block: var(--hk-s5) 0;
+}
+
 .sectionHead {
   display: flex;
   align-items: baseline;

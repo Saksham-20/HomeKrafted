@@ -30,6 +30,10 @@ export class TaxonomyService {
 
   async listCollections() {
     const collections = await this.prisma.collection.findMany({
+      // M16: `sortOrder` is the merchandiser's running order, so it leads.
+      // Title is the tiebreak rather than `id`, so two guides at the same
+      // position don't swap places between requests.
+      orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
       include: { products: { orderBy: { sortOrder: 'asc' } } },
     });
     return collections.map((c) => mapCollection(c, c.products.map((p) => p.productId)));

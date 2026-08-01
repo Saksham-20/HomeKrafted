@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { mapCollection } from '../catalog/mappers/vendor.mapper';
+import { mapCollection, mapOccasion } from '../catalog/mappers/vendor.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { UpsertCollectionDto } from './dto/upsert-collection.dto';
+import { UpdateOccasionDto } from './dto/update-occasion.dto';
 
 function slugify(value: string): string {
   return value
@@ -31,7 +32,10 @@ export class AdminCollectionsService {
   ) {}
 
   async list() {
-    const collections = await this.prisma.collection.findMany({ include: COLLECTION_INCLUDE });
+    const collections = await this.prisma.collection.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
+      include: COLLECTION_INCLUDE,
+    });
     return collections.map((c) => mapCollection(c, c.products.map((p) => p.productId)));
   }
 
@@ -48,7 +52,15 @@ export class AdminCollectionsService {
     const slug = await this.uniqueSlug(dto.title);
     const collection = await this.prisma.$transaction(async (tx) => {
       const created = await tx.collection.create({
-        data: { slug, title: dto.title, description: dto.description, occasionId: dto.occasionId },
+        data: {
+          slug,
+          title: dto.title,
+          description: dto.description,
+          occasionId: dto.occasionId,
+          imageSrc: dto.imageSrc,
+          featured: dto.featured ?? false,
+          sortOrder: dto.sortOrder ?? 0,
+        },
       });
       await tx.collectionProduct.createMany({
         data: dto.productIds.map((productId, sortOrder) => ({ collectionId: created.id, productId, sortOrder })),
@@ -76,7 +88,14 @@ export class AdminCollectionsService {
     const collection = await this.prisma.$transaction(async (tx) => {
       await tx.collection.update({
         where: { id },
-        data: { title: dto.title, description: dto.description, occasionId: dto.occasionId ?? null },
+        data: {
+          title: dto.title,
+          description: dto.description,
+          occasionId: dto.occasionId ?? null,
+          imageSrc: dto.imageSrc,
+          featured: dto.featured,
+          sortOrder: dto.sortOrder,
+        },
       });
       await tx.collectionProduct.deleteMany({ where: { collectionId: id } });
       await tx.collectionProduct.createMany({
@@ -93,6 +112,50 @@ export class AdminCollectionsService {
     });
 
     return mapCollection(collection, collection.products.map((p) => p.productId));
+  }
+
+  // -------------------------------------------------------------------
+  // Occasions (M16, H8) — the seasonal side of merchandising. Sits here
+  // rather than in its own module because "what is coming up and what do
+  // we put in front of it" is one job: an occasion's date is what decides
+  // which guide the hub leads with.
+  // -------------------------------------------------------------------
+
+  async listOccasions() {
+    const occasions = await this.prisma.occasion.findMany({ orderBy: { name: 'asc' } });
+    return occasions.map(mapOccasion);
+  }
+
+  async updateOccasion(adminUserId: string, id: string, dto: UpdateOccasionDto) {
+    const existing = await this.prisma.occasion.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Occasion not found');
+
+    // `clearCelebratedOn` rather than a magic empty string: everywhere
+    // else here an omitted optional field means "leave it alone", and an
+    // occasion that has passed needs a route back to evergreen.
+    const celebratedOn = dto.clearCelebratedOn
+      ? null
+      : dto.celebratedOn
+        ? new Date(dto.celebratedOn)
+        : undefined;
+
+    const updated = await this.prisma.occasion.update({
+      where: { id },
+      data: { celebratedOn, tagline: dto.tagline, imageSrc: dto.imageSrc },
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'occasion.update',
+      targetType: 'Occasion',
+      targetId: id,
+      metadata: {
+        celebratedOn: updated.celebratedOn?.toISOString() ?? null,
+        previousCelebratedOn: existing.celebratedOn?.toISOString() ?? null,
+      },
+    });
+
+    return mapOccasion(updated);
   }
 
   async remove(adminUserId: string, id: string): Promise<void> {

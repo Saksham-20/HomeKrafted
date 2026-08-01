@@ -220,8 +220,30 @@ A stored trust score is a number with no owner that stops being true the
 first time a kitchen's behaviour changes — the same reasoning that made
 M15 recompute rating aggregates instead of incrementing them.
 | `GET /categories`, `GET /categories/:slug` | public | `Category[]` / `Category` |
-| `GET /occasions`, `GET /occasions/:slug` | public | `Occasion[]` / `Occasion` |
-| `GET /collections`, `GET /collections/:slug` | public | `Collection[]` / `Collection` — `productIds` ordered by `CollectionProduct.sortOrder` |
+| `GET /occasions`, `GET /occasions/:slug` | public | `Occasion[]` / `Occasion`. **M16** adds `celebratedOn?`, `tagline?`, `imageSrc?` — see the occasion-hub note below. |
+| `GET /collections`, `GET /collections/:slug` | public | `Collection[]` / `Collection` — `productIds` ordered by `CollectionProduct.sortOrder`. **M16** adds `imageSrc?`, `featured`, `sortOrder`; the list is ordered by `sortOrder` then `title` (title, not id, so two guides at the same position don't swap between requests). |
+
+**Occasion hub + gift guides (M16, H8).** `Occasion` and `Collection`
+both existed from M2, but the only way to reach either was to already
+know an occasion's slug — the home page's "View all" pointed at `/shop`,
+and a `Collection` with no occasion attached had no page at all. M16 adds
+`/collections` (the hub) and `/guides/[slug]` (a guide's own page).
+
+`Occasion.celebratedOn` is an **absolute date an admin sets, not a
+recurrence rule**. Diwali, Raksha Bandhan and Karwa Chauth are lunisolar
+and land on a different Gregorian date every year, so a stored `MM-DD` or
+a "repeats yearly" flag would be wrong for exactly the occasions this
+feature exists to sell into. Somebody rolls them forward annually via
+`PATCH /admin/collections/occasions/:id`. `null` means **evergreen** — a
+birthday has no season, and the hub lists those separately rather than
+sorting them into a countdown they don't have.
+
+The countdown itself is never computed by the API. `client/lib/occasions.ts`
+takes `now` as an argument and never reads `new Date()` internally, so a
+Server Component computes it once and ships text; nothing recomputes it
+during hydration (CLAUDE.md's React #418 rule). `/` and `/collections`
+carry `revalidate = 3600` so a static prerender can't freeze a countdown
+at build time.
 
 ### Reviews
 
@@ -970,6 +992,8 @@ save — reordering is just re-submitting `productIds` in the new order).
 | `GET /admin/collections` | Every collection. |
 | `GET /admin/collections/:id` | Single collection detail. |
 | `POST /admin/collections` | Body: `{ title, description?, occasionId?, productIds }`. `404` if any `productId`/`occasionId` doesn't exist. Server-generates `slug`. Audited (`collection.create`). |
+| `GET /admin/collections/occasions` | **M16.** Every `Occasion`. **Declared above `:id`** — the reverse would resolve it to a collection whose id is literally "occasions". |
+| `PATCH /admin/collections/occasions/:id` | **M16.** Body: `{ celebratedOn?, clearCelebratedOn?, tagline?, imageSrc? }`. `clearCelebratedOn: true` returns an occasion to evergreen — an omitted optional field means "leave it alone" everywhere else here, so a passed occasion needs an explicit way back rather than a sentinel date. Audited (`occasion.update`) with the previous date. |
 | `PATCH /admin/collections/:id` | Same body shape — full replace, not a partial patch (mirrors `client/lib/api/admin.ts#upsertCollection`). Audited (`collection.update`). |
 | `DELETE /admin/collections/:id` | `204`. Audited (`collection.delete`). |
 

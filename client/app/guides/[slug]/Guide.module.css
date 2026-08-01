@@ -1,0 +1,70 @@
+/* Same hero recipe as `/collections/[occasion]` — a guide and an occasion
+   edit are siblings, and looking like two different products would be
+   worse than the small duplication. */
+
+.heroWrap {
+  padding-block: var(--hk-s6) var(--hk-s5);
+  background: linear-gradient(180deg, var(--hk-gold-tint), transparent);
+}
+
+.breadcrumb {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--hk-muted);
+}
+
+.breadcrumbLink {
+  color: var(--hk-muted);
+  text-decoration: underline;
+}
+
+.breadcrumbLink:hover {
+  color: var(--hk-pine);
+}
+
+.breadcrumbCurrent {
+  color: var(--hk-ink-2);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(28px, 4vw, 40px);
+  color: var(--hk-pine);
+  margin: var(--hk-s3) 0 var(--hk-s2);
+  max-width: 22ch;
+}
+
+.description {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  max-width: 62ch;
+  margin-bottom: var(--hk-s2);
+}
+
+.count {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.occasionLink {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.section {
+  padding-block: var(--hk-s5) var(--hk-s8);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.empty {
+  font-size: 14.5px;
+  color: var(--hk-muted);
+}

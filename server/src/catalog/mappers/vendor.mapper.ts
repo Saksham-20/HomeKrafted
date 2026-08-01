@@ -48,12 +48,45 @@ export function mapCategory(category: {
   };
 }
 
-export function mapOccasion(occasion: { id: string; slug: string; name: string; initial: string }) {
-  return { id: occasion.id, slug: occasion.slug, name: occasion.name, initial: occasion.initial };
+/**
+ * M16 (H8). `celebratedOn` is an absolute date an admin sets, not a
+ * recurrence rule — Indian festivals are lunisolar and move against the
+ * Gregorian calendar every year, so "repeats on 12 Nov" would be wrong
+ * for exactly the occasions that matter most. `null` means evergreen
+ * (a birthday has no season), which the hub lists separately rather than
+ * sorting into a countdown it doesn't have.
+ */
+export function mapOccasion(occasion: {
+  id: string;
+  slug: string;
+  name: string;
+  initial: string;
+  celebratedOn?: Date | null;
+  tagline?: string | null;
+  imageSrc?: string | null;
+}) {
+  return {
+    id: occasion.id,
+    slug: occasion.slug,
+    name: occasion.name,
+    initial: occasion.initial,
+    celebratedOn: occasion.celebratedOn?.toISOString() ?? undefined,
+    tagline: occasion.tagline ?? undefined,
+    imageSrc: occasion.imageSrc ?? undefined,
+  };
 }
 
 export function mapCollection(
-  collection: { id: string; slug: string; title: string; description: string | null; occasionId: string | null },
+  collection: {
+    id: string;
+    slug: string;
+    title: string;
+    description: string | null;
+    occasionId: string | null;
+    imageSrc?: string | null;
+    featured?: boolean;
+    sortOrder?: number;
+  },
   productIds: string[],
 ) {
   return {
@@ -62,6 +95,11 @@ export function mapCollection(
     title: collection.title,
     description: collection.description ?? undefined,
     occasionId: collection.occasionId ?? undefined,
+    // M16 (H8) — a collection is a gift guide with its own page now, so
+    // it carries its own art and its own place in a running order.
+    imageSrc: collection.imageSrc ?? undefined,
+    featured: collection.featured ?? false,
+    sortOrder: collection.sortOrder ?? 0,
     productIds,
   };
 }

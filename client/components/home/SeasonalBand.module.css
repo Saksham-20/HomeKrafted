@@ -1,0 +1,75 @@
+/* Gold-tint band rather than a solid pine one: this sits between the hero
+   and the occasion grid, and a second dark block that high on the page
+   would fight the hero for attention. */
+.band {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  padding: var(--hk-s4) var(--hk-s5);
+  border-radius: var(--hk-r-xl);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.band:hover {
+  transform: translateY(-1px);
+}
+
+.band:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-pine);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.head {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.detail {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-3);
+}
+
+.cta {
+  font-size: 13.5px;
+  font-weight: 600;
+  /* Gold family below 16px, so the darker ramp (CLAUDE.md). */
+  color: var(--hk-gold-text-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .band {
+    flex-wrap: wrap;
+  }
+
+  .cta {
+    width: 100%;
+    padding-left: calc(38px + var(--hk-s4));
+  }
+}

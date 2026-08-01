@@ -1,4 +1,5 @@
-import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
+import { Type } from 'class-transformer';
 
 /**
  * `POST /admin/collections` (create) / `PATCH /admin/collections/:id`
@@ -24,4 +25,23 @@ export class UpsertCollectionDto {
   @IsArray()
   @IsString({ each: true })
   productIds!: string[];
+
+  // M16 (H8) — a collection is a browsable gift guide at
+  // `/guides/[slug]` now, not only the curated ordering behind an
+  // occasion page, so it needs its own art and its own running order.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== '')
+  @IsString()
+  imageSrc?: string;
+
+  /** What the occasion hub and the home rail promote. */
+  @IsOptional()
+  @IsBoolean()
+  featured?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sortOrder?: number;
 }

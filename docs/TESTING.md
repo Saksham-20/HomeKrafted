@@ -286,6 +286,34 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   Untick it again and the badge should come straight off.
 - **Analytics** — dashboard charts
 
+### Occasions and gift guides (M16)
+
+- **[Gifts by occasion](https://homekrafted.in/collections)** is new — the
+  home page's "Shop by occasion → View all" used to dump you on `/shop`.
+  It has three parts: **Coming up** (dated occasions, soonest first, with
+  a countdown), **Gift guides**, and **Any time of year** (birthdays,
+  thank-yous — no date, so no countdown).
+- Dated occasions on staging are Raksha Bandhan, Karwa Chauth and Diwali.
+  A countdown inside two weeks turns terracotta.
+- **Gift guides** now have their own pages, e.g.
+  [/guides/first-time-gifting](https://homekrafted.in/guides/first-time-gifting).
+  Guides do not have to belong to an occasion — that one deliberately
+  doesn't.
+- The **home page** shows a seasonal band above "Shop by occasion" when
+  the nearest dated occasion is within six weeks. If nothing is close, the
+  band is absent — that is correct, not a missing element.
+
+Admin: **Collections → Occasions** is where dates get set. Worth trying:
+
+- Set a date, save, and check the hub countdown moves.
+- Clear a date and the occasion drops out of "Coming up" into "Any time of
+  year".
+- Push a date more than six weeks out and the home band disappears.
+
+> Festival dates are set by hand, on purpose. Diwali and Raksha Bandhan
+> are lunisolar — they land on a different date every year — so there is
+> no "repeats yearly" setting to tick. Somebody rolls them forward.
+
 ### HomeKrafter profiles (M16)
 
 The storefront is now the page a buyer reads *before* deciding to trust
@@ -340,6 +368,8 @@ that is written. Worth checking:
 | Product photos show a **hatched placeholder** in some slots | Nobody has uploaded a photo for that item yet — add one and it replaces the placeholder. |
 | The **video reel rail** always shows the same clips | Reels aren't wired to the backend yet — they come from fixed sample data. |
 | Web addresses containing **`/seller`** | Internal naming; the visible wording is HomeKrafter. |
+| The home page has **no seasonal band** | Nothing dated is within six weeks. The band is not permanent furniture. |
+| An occasion with **no countdown** on the hub | It has no date set — birthdays and thank-yous have no season. |
 | A kitchen with **no story or photos** on its storefront | Nobody has filled that profile in yet. Sections with no content are hidden rather than shown empty. |
 | **"0 orders delivered"** on a well-rated kitchen | Ratings are seeded demo data; delivered-order counts are real. They will disagree on staging until orders are actually placed. |
 

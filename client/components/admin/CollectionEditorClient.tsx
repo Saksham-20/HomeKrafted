@@ -38,6 +38,11 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
   const [occasionId, setOccasionId] = useState("");
   const [productIds, setProductIds] = useState<string[]>([]);
   const [addProductId, setAddProductId] = useState("");
+  // M16 (H8) — a collection is a browsable gift guide at `/guides/[slug]`
+  // now, so it needs its own art and its own place in the running order.
+  const [imageSrc, setImageSrc] = useState("");
+  const [featured, setFeatured] = useState(false);
+  const [sortOrder, setSortOrder] = useState("0");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -62,6 +67,9 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
           setDescription(existing.description ?? "");
           setOccasionId(existing.occasionId ?? "");
           setProductIds(existing.productIds);
+          setImageSrc(existing.imageSrc ?? "");
+          setFeatured(Boolean(existing.featured));
+          setSortOrder(String(existing.sortOrder ?? 0));
         } else {
           setNotFound(true);
         }
@@ -110,6 +118,9 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
       description: description.trim() || undefined,
       occasionId: occasionId || undefined,
       productIds,
+      imageSrc: imageSrc.trim() || undefined,
+      featured,
+      sortOrder: Number.isNaN(Number(sortOrder)) ? 0 : Number(sortOrder),
     });
     setSaving(false);
     router.push("/admin/collections");
@@ -137,7 +148,7 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
         <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
         Back to collections
       </Link>
-      <AdminPageHeader title={isEdit ? "Edit collection" : "New collection"} subtitle={isEdit ? title : "Curate an occasion edit for /collections/[occasion]."} />
+      <AdminPageHeader title={isEdit ? "Edit collection" : "New collection"} subtitle={isEdit ? title : "A gift guide at /guides/[slug] — and the curated ordering behind its occasion page, if you attach one."} />
 
       <Card className={styles.card}>
         <div className={styles.grid}>
@@ -155,6 +166,29 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
                 </option>
               ))}
             </select>
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>Running order</span>
+            <input
+              className={styles.input}
+              inputMode="numeric"
+              value={sortOrder}
+              onChange={(event) => setSortOrder(event.target.value)}
+            />
+            <span className={styles.hint}>Lower shows first on the occasion hub. Ties break on title.</span>
+          </label>
+          <label className={styles.fieldWide}>
+            <span className={styles.label}>Cover image path</span>
+            <input
+              className={styles.input}
+              value={imageSrc}
+              placeholder="/images/products/…"
+              onChange={(event) => setImageSrc(event.target.value)}
+            />
+          </label>
+          <label className={styles.checkbox}>
+            <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
+            <span>Feature this guide on the occasion hub</span>
           </label>
           <div className={styles.fieldWide}>
             <Textarea

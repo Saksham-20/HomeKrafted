@@ -946,6 +946,18 @@ model Occasion {
   name    String
   initial String
 
+  /// M16 (H8). The next date this occasion actually falls on, as an
+  /// absolute date an admin sets — **not** a recurrence rule. Indian
+  /// festivals move against the Gregorian calendar every year (Diwali is
+  /// lunisolar), so a `MM-DD` field or a "repeats yearly" flag would be
+  /// wrong for exactly the occasions that matter most here. `null` means
+  /// evergreen: a birthday has no season, and the hub lists those
+  /// separately rather than sorting them into a countdown they don't have.
+  celebratedOn DateTime?
+  /// One line for the hub card ("Lamps, sweets and a lot of relatives").
+  tagline      String?
+  imageSrc     String?
+
   products    ProductOccasion[]
   collections Collection[]
 }
@@ -957,6 +969,14 @@ model Collection {
   description String?
   occasionId  String?
   occasion    Occasion? @relation(fields: [occasionId], references: [id])
+
+  /// M16 (H8). A `Collection` is a gift guide with its own page
+  /// (`/guides/[slug]`), not just the curated ordering behind an occasion
+  /// page — so it needs its own art and its own place in a running order.
+  /// `featured` is what the hub and the home rail promote.
+  imageSrc  String?
+  featured  Boolean  @default(false)
+  sortOrder Int      @default(0)
 
   products CollectionProduct[]
 }

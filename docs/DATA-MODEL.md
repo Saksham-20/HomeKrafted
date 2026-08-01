@@ -39,8 +39,8 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | `VendorProfile` (M16) | 1:1 with `Vendor`, PK is `vendorId`. tagline, story, knownFor[], languages[], prepTimeMins, responseTimeMins, capacityPerDay, minOrderValue, workingDays[] (0 = Sun), opensAt/closesAt (`HH:MM` strings), cancellationPolicy, returnPolicy, customOrderPolicy, acceptsCustomOrders, packagingNote, hygieneNote, **fssaiNumber, fssaiExpiry, fssaiVerified, identityVerified, addressVerified, verifiedAt, verificationNote**, four social URLs | belongs to `Vendor` (cascade delete) |
 | `VendorPhoto` (M16) | vendorId, url, caption?, kind (`kitchen`\|`process`\|`team`\|`award`), sortOrder | belongs to `Vendor` (cascade delete) |
 | `Category` | name, productCount | referenced by `Product.categoryId` |
-| `Occasion` | name, initial | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
-| `Collection` | title, productIds[] | many-to-many with `Product` (by id list, not a join table yet) |
+| `Occasion` | name, initial, **celebratedOn? / tagline? / imageSrc? (M16)** | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
+| `Collection` | title, productIds[], **imageSrc? / featured / sortOrder (M16)** | many-to-many with `Product` (by id list, not a join table yet) |
 | `Product` | vendorId, categoryId, occasionIds[], dietary[], images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[], isPackaged, cashbackPct, moderationStatus? (`active`\|`hidden`\|`flagged`, M11b), featured? (M11b) | belongs to `Vendor` |
 | `Cart` (+`CartItem`) | items[{productId?, sku?, hamperId?, quantity, giftWrap?, addressId?}] | belongs to `User`; a line is *either* a product (`productId`+`sku`) *or* an assembled hamper (`hamperId`), never both — see "Polymorphic cart/order lines" below; `CartItem.addressId` enables multi-address checkout |
 | `Wishlist` | items[{productId, addedAt}] | belongs to `User` |
@@ -457,6 +457,31 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   than incrementing them: a stored score has no owner and quietly stops
   being true. `stats.cancellationRate` is `null` until something has
   closed — an unknown rate, not a perfect one.
+### Notes for M16 — occasion hub and gift guides (H8)
+
+- **`Occasion.celebratedOn` is an absolute date, not a recurrence rule.**
+  Diwali, Raksha Bandhan and Karwa Chauth are lunisolar and land on a
+  different Gregorian date every year, so a `MM-DD` column or a "repeats
+  yearly" flag would be wrong for exactly the occasions this feature
+  exists for. A person rolls them forward each year
+  (`PATCH /admin/collections/occasions/:id`).
+- **`null` means evergreen, not missing.** A birthday has no season.
+  `/collections` lists dated occasions as a countdown and evergreen ones
+  separately; sorting a birthday into a countdown would invent an urgency
+  it does not have.
+- **A `Collection` is a gift guide in its own right now.** It has its own
+  page (`/guides/[slug]`), its own `imageSrc`, and its own `sortOrder`.
+  `occasionId` stays optional — a standalone guide is a normal case, not
+  an orphan — and the occasion page still uses a collection's hand-picked
+  ordering where one is attached. Keeping the two routes separate is what
+  lets an occasion eventually carry more than one guide.
+- **The countdown is never stored and never computed by the API.**
+  `client/lib/occasions.ts` takes `now` as a parameter, so a Server
+  Component computes it once and ships text — nothing recomputes "today"
+  during hydration (the M12 React #418 lesson). `/` and `/collections`
+  set `revalidate = 3600` so a static prerender cannot freeze a countdown
+  at build time.
+
 - **`VendorPhoto` is a list, not columns**, because the count is
   open-ended and ordering matters — the same reasoning as `ProductImage`.
   Capped at 12 server-side. Deleting a row does not delete the file (M14,

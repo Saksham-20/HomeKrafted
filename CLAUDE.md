@@ -396,6 +396,27 @@ undo by accident:
   normal case, and the completion meter — in the portal, aimed at the
   person who can fix it — is where gaps get named.
 
+## Occasions & guides (M16) — dates are set by a person
+
+- **`Occasion.celebratedOn` is an absolute date, not a recurrence rule.**
+  Diwali, Raksha Bandhan and Karwa Chauth are lunisolar and land on a
+  different Gregorian date every year. Never add a "repeats yearly" flag
+  or an `MM-DD` column — it would be wrong for exactly the occasions the
+  hub exists for. An admin rolls them forward on
+  `/admin/collections/occasions`.
+- **`null` is evergreen, not missing.** Birthdays and thank-yous have no
+  season; `/collections` lists them separately rather than giving them a
+  countdown.
+- **`lib/occasions.ts` never reads the clock** — every function takes
+  `now`. That is what lets a Server Component compute a countdown once
+  and ship it as text without re-deriving "today" during hydration
+  (the M12 React #418 lesson). Any page rendering a countdown needs
+  `revalidate` too, or a static prerender freezes it at build time.
+- **A `Collection` is a gift guide with its own page** (`/guides/[slug]`),
+  not only the curated ordering behind an occasion. `occasionId` stays
+  optional — a standalone guide is normal. Don't merge the two routes:
+  that would cap an occasion at one guide forever.
+
 ## SEO — every new public route owes three things (M15)
 
 `lib/seo.ts` is the seam: `pageMetadata()` for title/description/

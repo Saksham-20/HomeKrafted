@@ -172,3 +172,21 @@
     flex-direction: column;
   }
 }
+
+/* M16 — the "feature this guide" toggle. Spans the grid so the label sits
+   on its own line rather than colliding with a field beside it. */
+.checkbox {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--hk-pine);
+}

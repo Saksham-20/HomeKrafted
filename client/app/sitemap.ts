@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getCategories, getOccasions, getProducts, getVendors } from "@/lib/api";
+import { getCategories, getCollections, getOccasions, getProducts, getVendors } from "@/lib/api";
 import { absoluteUrl } from "@/lib/seo";
 
 /**
@@ -27,6 +27,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: absoluteUrl("/shop"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/snacks"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    // The occasion hub (M16) — the seasonal landing page, and the one
+    // that should rank for "diwali gift" rather than any single edit.
+    { url: absoluteUrl("/collections"), lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: absoluteUrl("/laundry"), lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { url: absoluteUrl("/about"), lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: absoluteUrl("/sell"), lastModified: now, changeFrequency: "monthly", priority: 0.7 },
@@ -36,11 +39,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const [products, vendors, occasions, categories] = await Promise.all([
+    const [products, vendors, occasions, categories, guides] = await Promise.all([
       getProducts(),
       getVendors(),
       getOccasions(),
       getCategories(),
+      getCollections(),
     ]);
 
     return [
@@ -59,6 +63,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })),
       ...occasions.map((occasion) => ({
         url: absoluteUrl(`/collections/${occasion.slug}`),
+        lastModified: now,
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      })),
+      ...guides.map((guide) => ({
+        url: absoluteUrl(`/guides/${guide.slug}`),
         lastModified: now,
         changeFrequency: "weekly" as const,
         priority: 0.7,

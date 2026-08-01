@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { PromoBand } from "@/components/ui/PromoBand";
 import { Hero } from "@/components/home/Hero";
 import { OccasionTileLink } from "@/components/home/OccasionTileLink";
+import { SeasonalBand } from "@/components/home/SeasonalBand";
 import { CategoryTileLink } from "@/components/home/CategoryTileLink";
 import { CraftCard } from "@/components/home/CraftCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
@@ -10,6 +11,7 @@ import { ReelsRailClient } from "@/components/home/ReelsRailClient";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import {
   getCategories,
+  getCollections,
   getFeatured,
   getHomePromoBands,
   getOccasions,
@@ -17,8 +19,18 @@ import {
   getTrustStats,
   getVendors,
 } from "@/lib/api";
+import { currentSeasonalOccasion } from "@/lib/occasions";
 import { absoluteUrl, jsonLdProps, SITE_NAME, SITE_URL } from "@/lib/seo";
 import styles from "./page.module.css";
+
+/**
+ * Rebuilt hourly rather than pinned at build time (M16). The seasonal
+ * countdown is the reason: a statically prerendered page would freeze
+ * "Raksha Bandhan in 27 days" at whatever the number was when the build
+ * ran, and keep saying it for a month. An hour is well inside the day
+ * granularity the countdown actually has.
+ */
+export const revalidate = 3600;
 
 /** Splits a `HomePromoBandContent.title` on its literal `"\n"` line break into React fragments joined by `<br />` — see that type's doc comment (`lib/data/site.ts`). */
 function renderPromoTitle(title: string) {
@@ -40,7 +52,7 @@ function renderPromoTitle(title: string) {
  * — see `getHomePromoBands`.
  */
 export default async function Home() {
-  const [trustStats, occasions, categories, featured, vendors, promoBands, reels] =
+  const [trustStats, occasions, categories, featured, vendors, promoBands, reels, collections] =
     await Promise.all([
       getTrustStats(),
       getOccasions(),
@@ -49,9 +61,24 @@ export default async function Home() {
       getVendors(),
       getHomePromoBands(),
       getReels(),
+      getCollections(),
     ]);
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+
+  // The seasonal hook (M16). Read once, on the server, and shipped as
+  // text — nothing recomputes "today" during hydration, which is the
+  // failure CLAUDE.md records from M12. Absent when nothing dated is
+  // close, so the band is never permanent furniture.
+  const seasonal = currentSeasonalOccasion(occasions, new Date());
+  const seasonalGuide = seasonal
+    ? collections.find((c) => c.occasionId === seasonal.occasion.id)
+    : undefined;
+
+  // The tile grid stays at eight — it is a glance, not an index. The hub
+  // (`/collections`, new in M16) is where every occasion lives, which is
+  // what "View all" now actually means.
+  const occasionTiles = occasions.slice(0, 8);
 
   // Organization + WebSite structured data, on the home page only —
   // stating it once site-wide is what the spec expects, and repeating it
@@ -94,15 +121,25 @@ export default async function Home() {
       <script {...jsonLdProps(siteJsonLd)} />
       <Hero trustStats={trustStats} />
 
+      {seasonal && (
+        <section className={clsx("container", styles.seasonal)}>
+          <SeasonalBand
+            occasion={seasonal.occasion}
+            days={seasonal.days}
+            guide={seasonalGuide}
+          />
+        </section>
+      )}
+
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>Shop by occasion</h2>
-          <Link href="/shop" className={styles.viewAll}>
+          <Link href="/collections" className={styles.viewAll}>
             View all →
           </Link>
         </div>
         <div className={styles.occasionGrid}>
-          {occasions.map((occasion) => (
+          {occasionTiles.map((occasion) => (
             <OccasionTileLink key={occasion.id} occasion={occasion} />
           ))}
         </div>

@@ -77,7 +77,7 @@ remains is Phase 2 onward — see §7.
 | H5 ✅ | **Fixed in M16.** **HomeKrafter profiles are a store page, not a profile.** `Vendor` carries slug, name, type, bio, avatar, banner, location, area, lat/lng, radius, rating, reviewCount, followerCount, joinedAt. Nothing of: shop story, kitchen photos, certifications (FSSAI), prep time, response time, policies, languages, achievements, trust score, profile completion, social links. The storefront renders header + product grid + reviews and stops. | `server/prisma/schema.prisma` (`Vendor`), `client/app/storefront/[vendor]/page.tsx` |
 | H6 | **Seller portal has no analytics.** Eight nav items — Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts, Reviews — none of which answer "what is selling, and when". No `/seller/analytics` route and no seller-scoped analytics endpoint. | `client/components/seller/SellerShell.tsx:41-48` |
 | H7 | **No image optimisation.** `next/image` is used nowhere; `ImageSlot` renders a raw `<img>`. Every uploaded product photo ships at whatever resolution the HomeKrafter's phone produced, to every buyer's phone. `next.config.ts` is empty. | `client/components/placeholder/ImageSlot.tsx:45`, `client/next.config.ts` |
-| H8 | **Occasion shopping is a filter, not a destination.** `Occasion` + `ProductOccasion` + `Collection` exist and `/collections/[occasion]` renders, but there is no occasion hub, no gift guide, no seasonal merchandising, and no way to browse "what's coming up". The gifting marketplace's strongest seasonal hook is unexploited. | `client/app/collections/[occasion]/page.tsx` |
+| H8 ✅ | **Fixed in M16.** **Occasion shopping is a filter, not a destination.** `Occasion` + `ProductOccasion` + `Collection` exist and `/collections/[occasion]` renders, but there is no occasion hub, no gift guide, no seasonal merchandising, and no way to browse "what's coming up". The gifting marketplace's strongest seasonal hook is unexploited. | `client/app/collections/[occasion]/page.tsx` |
 
 ### 2.3 Medium
 
@@ -300,7 +300,10 @@ left.
     `VendorPhoto`, storefront story/photos/facts/policies, seller
     editor with a completion meter, admin-only verification badge,
     computed trust signals and derived achievements. *(H5)*
-11. Occasion hub, curated gift guides, seasonal banners. *(H8)*
+11. ✅ **Shipped (M16).** Occasion hub (`/collections`) with dated
+    countdowns and evergreen occasions, gift guides as first-class pages
+    (`/guides/[slug]`), a home seasonal band, and admin screens for
+    rolling festival dates forward. *(H8)*
 12. Seller analytics. *(H6)*
 13. Pre-order calendar: custom dates, blocked dates, holidays, prep-time
     rules, slot suggestion. *(M2)*

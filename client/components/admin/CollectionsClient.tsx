@@ -13,7 +13,14 @@ import { getCollectionsAdmin, getOccasionsAdmin } from "@/lib/api";
 import type { Collection, Occasion } from "@/lib/types";
 import styles from "./CollectionsClient.module.css";
 
-/** `/admin/collections` (M11b) — every occasion `Collection` (what `/collections/[occasion]` renders), create/edit links. */
+/**
+ * `/admin/collections` (M11b) — every curated `Collection`, with
+ * create/edit links.
+ *
+ * Since M16 a collection is a browsable gift guide at `/guides/[slug]`
+ * in its own right, so one with no occasion attached is a standalone
+ * guide rather than an orphan.
+ */
 export function CollectionsClient() {
   const router = useRouter();
   const { ready, role } = useAuth();
@@ -55,7 +62,10 @@ export function CollectionsClient() {
       <CollectionsTabs active="collections" />
 
       {collections.length === 0 ? (
-        <Card className={styles.empty}>No collections yet — create one to feature on `/collections/[occasion]`.</Card>
+        <Card className={styles.empty}>
+          No collections yet — create one and it becomes a gift guide at `/guides/[slug]`, plus the
+          curated ordering behind its occasion page.
+        </Card>
       ) : (
         <div className={styles.list}>
           {collections.map((c) => {
@@ -66,8 +76,9 @@ export function CollectionsClient() {
                   <div className={styles.body}>
                     <span className={styles.title}>{c.title}</span>
                     <span className={styles.meta}>
-                      {occasion ? occasion.name : "No occasion"} · {c.productIds.length} product
+                      {occasion ? occasion.name : "Standalone guide"} · {c.productIds.length} product
                       {c.productIds.length === 1 ? "" : "s"}
+                      {c.featured ? " · Featured" : ""}
                     </span>
                   </div>
                 </Card>

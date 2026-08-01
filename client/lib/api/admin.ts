@@ -948,8 +948,13 @@ export interface UpsertCollectionInput {
   title: string;
   description?: string;
   occasionId?: string;
-  /** Order matters — this is display order on `/collections/[occasion]`, so reordering (move up/down in the admin editor) is just re-submitting this array in the new order. */
+  /** Order matters — this is display order on `/guides/[slug]` and `/collections/[occasion]`, so reordering (move up/down in the admin editor) is just re-submitting this array in the new order. */
   productIds: string[];
+  // M16 (H8) — a collection is a browsable gift guide now, so it carries
+  // its own art and its own place in the merchandiser's running order.
+  imageSrc?: string;
+  featured?: boolean;
+  sortOrder?: number;
 }
 
 export async function upsertCollection(input: UpsertCollectionInput): Promise<Collection> {
@@ -959,6 +964,9 @@ export async function upsertCollection(input: UpsertCollectionInput): Promise<Co
       description: input.description,
       occasionId: input.occasionId,
       productIds: input.productIds,
+      imageSrc: input.imageSrc,
+      featured: input.featured,
+      sortOrder: input.sortOrder,
     };
     if (input.id) {
       return http.patch<Collection>(`/admin/collections/${encodeURIComponent(input.id)}`, body);
@@ -973,6 +981,9 @@ export async function upsertCollection(input: UpsertCollectionInput): Promise<Co
       existing.description = input.description;
       existing.occasionId = input.occasionId;
       existing.productIds = input.productIds;
+      existing.imageSrc = input.imageSrc;
+      existing.featured = input.featured;
+      existing.sortOrder = input.sortOrder;
       return existing;
     }
   }
@@ -985,6 +996,9 @@ export async function upsertCollection(input: UpsertCollectionInput): Promise<Co
     description: input.description,
     occasionId: input.occasionId,
     productIds: input.productIds,
+    imageSrc: input.imageSrc,
+    featured: input.featured ?? false,
+    sortOrder: input.sortOrder ?? 0,
   };
   collections.push(collection);
   return collection;
@@ -1000,6 +1014,49 @@ export async function getCategoriesAdmin(): Promise<Category[]> {
 export async function getOccasionsAdmin(): Promise<Occasion[]> {
   if (!isMockMode()) return getOccasions();
   return occasions;
+}
+
+/**
+ * Seasonal metadata for the occasion hub (M16, H8).
+ *
+ * `celebratedOn` is an absolute date, not a recurrence rule — Diwali,
+ * Raksha Bandhan and Karwa Chauth are lunisolar and move against the
+ * Gregorian calendar every year, so somebody rolls these forward
+ * annually, and that somebody is an admin on this screen rather than a
+ * cron job guessing at a calendar it doesn't understand.
+ *
+ * `clearCelebratedOn` exists because an omitted optional field means
+ * "leave it alone" everywhere else here, and an occasion that has passed
+ * needs a route back to evergreen without inventing a sentinel date.
+ */
+export interface UpdateOccasionInput {
+  celebratedOn?: string;
+  clearCelebratedOn?: boolean;
+  tagline?: string;
+  imageSrc?: string;
+}
+
+export async function updateOccasion(
+  id: string,
+  input: UpdateOccasionInput,
+): Promise<Occasion | undefined> {
+  if (isMockMode()) {
+    const occasion = occasions.find((o) => o.id === id);
+    if (!occasion) return undefined;
+    if (input.clearCelebratedOn) occasion.celebratedOn = undefined;
+    else if (input.celebratedOn) occasion.celebratedOn = input.celebratedOn;
+    if (input.tagline !== undefined) occasion.tagline = input.tagline;
+    if (input.imageSrc !== undefined) occasion.imageSrc = input.imageSrc;
+    return occasion;
+  }
+  try {
+    return await http.patch<Occasion>(
+      `/admin/collections/occasions/${encodeURIComponent(id)}`,
+      input,
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 /** **Stays mock-only** — no server table/endpoint for home promo bands exists yet; see this file's header comment. */

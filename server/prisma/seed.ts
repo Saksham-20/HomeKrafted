@@ -459,23 +459,36 @@ async function main(): Promise<void> {
     ],
   });
 
+  // `celebratedOn` (M16) is an absolute date, not a recurrence rule —
+  // Diwali, Raksha Bandhan and Karwa Chauth are lunisolar and land on a
+  // different Gregorian date every year, so an admin rolls these forward
+  // (`PATCH /admin/collections/occasions/:id`). The dates below are the
+  // real 2026 ones. Birthdays, weddings and thank-yous have no season, so
+  // they stay `null` and the hub lists them as "any time" rather than
+  // sorting them into a countdown they don't have.
   await prisma.occasion.createMany({
     data: [
-      { id: 'oc1', slug: 'birthday', name: 'Birthday', initial: 'B' },
-      { id: 'oc2', slug: 'anniversary', name: 'Anniversary', initial: 'A' },
-      { id: 'oc3', slug: 'diwali', name: 'Diwali', initial: 'D' },
-      { id: 'oc4', slug: 'housewarming', name: 'Housewarming', initial: 'H' },
-      { id: 'oc5', slug: 'corporate', name: 'Corporate', initial: 'C' },
-      { id: 'oc6', slug: 'baby-shower', name: 'Baby Shower', initial: 'B' },
-      { id: 'oc7', slug: 'wedding', name: 'Wedding', initial: 'W' },
-      { id: 'oc8', slug: 'thank-you', name: 'Thank You', initial: 'T' },
+      { id: 'oc1', slug: 'birthday', name: 'Birthday', initial: 'B', tagline: 'Something better than a cake voucher.' },
+      { id: 'oc2', slug: 'anniversary', name: 'Anniversary', initial: 'A', tagline: 'For the couple who already own everything.' },
+      { id: 'oc3', slug: 'diwali', name: 'Diwali', initial: 'D', celebratedOn: new Date('2026-11-08'), tagline: 'Mithai, dry fruit and hampers that leave a tricity kitchen, not a warehouse.' },
+      { id: 'oc4', slug: 'housewarming', name: 'Housewarming', initial: 'H', tagline: 'Turn up with something they will finish.' },
+      { id: 'oc5', slug: 'corporate', name: 'Corporate', initial: 'C', tagline: 'Client and team gifting that does not taste like a courier box.' },
+      { id: 'oc6', slug: 'baby-shower', name: 'Baby Shower', initial: 'B', tagline: 'Gentle, home-made, nothing with a novelty slogan.' },
+      { id: 'oc7', slug: 'wedding', name: 'Wedding', initial: 'W', tagline: 'Favours and welcome hampers in real quantities.' },
+      { id: 'oc8', slug: 'thank-you', name: 'Thank You', initial: 'T', tagline: 'When "thanks" needs to arrive in a jar.' },
+      { id: 'oc9', slug: 'raksha-bandhan', name: 'Raksha Bandhan', initial: 'R', celebratedOn: new Date('2026-08-28'), tagline: 'Sweets worth posting across the country.' },
+      { id: 'oc10', slug: 'karwa-chauth', name: 'Karwa Chauth', initial: 'K', celebratedOn: new Date('2026-10-29'), tagline: 'Sargi and after-moonrise food, cooked that morning.' },
     ],
   });
 
   await prisma.collection.createMany({
     data: [
-      { id: 'cl1', slug: 'diwali-gifting-edit', title: 'Diwali Gifting Edit', description: 'Festive favourites — dry-fruit laddoos, curated hampers and spiced chai — ready to gift.', occasionId: 'oc3' },
-      { id: 'cl2', slug: 'corporate-gifting-picks', title: 'Corporate Gifting Picks', description: 'Bulk-friendly, shelf-stable picks that travel well for client and team gifting.', occasionId: 'oc5' },
+      { id: 'cl1', slug: 'diwali-gifting-edit', title: 'Diwali Gifting Edit', description: 'Festive favourites — dry-fruit laddoos, curated hampers and spiced chai — ready to gift.', occasionId: 'oc3', featured: true, sortOrder: 1, imageSrc: '/images/products/dry-fruit-laddoo-box.jpg' },
+      { id: 'cl2', slug: 'corporate-gifting-picks', title: 'Corporate Gifting Picks', description: 'Bulk-friendly, shelf-stable picks that travel well for client and team gifting.', occasionId: 'oc5', featured: false, sortOrder: 2, imageSrc: '/images/products/festive-assorted-hamper.jpg' },
+      // Not tied to an occasion — a guide is its own thing (`/guides/[slug]`),
+      // not only the curated ordering behind an occasion page. Seeded so
+      // that stays true on a fresh database.
+      { id: 'cl3', slug: 'first-time-gifting', title: 'If you have never ordered home-made before', description: 'Eight things that travel well, keep for weeks and are hard to get wrong — a decent place to start if you are not sure what a home kitchen can do.', occasionId: null, featured: true, sortOrder: 0, imageSrc: '/images/products/mango-thokku-pickle.jpg' },
     ],
   });
 
@@ -623,6 +636,10 @@ async function main(): Promise<void> {
       { collectionId: 'cl2', productId: 'pr6', sortOrder: 1 },
       { collectionId: 'cl2', productId: 'pr5', sortOrder: 2 },
       { collectionId: 'cl2', productId: 'pr4', sortOrder: 3 },
+      { collectionId: 'cl3', productId: 'pr1', sortOrder: 0 },
+      { collectionId: 'cl3', productId: 'pr3', sortOrder: 1 },
+      { collectionId: 'cl3', productId: 'pr7', sortOrder: 2 },
+      { collectionId: 'cl3', productId: 'pr5', sortOrder: 3 },
     ],
   });
 

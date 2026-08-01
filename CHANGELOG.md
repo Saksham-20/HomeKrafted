@@ -35,6 +35,17 @@ grid. Phase 2 starts there.
   missing in plain words ("Your story", "Kitchen photos") rather than
   showing a percentage and stopping.
 
+- **Occasion hub and gift guides (H8).** `/collections` is a real
+  destination now: what is coming up, with a countdown; gift guides; and
+  evergreen occasions listed separately. `Collection` became a first-class
+  gift guide with its own page at `/guides/[slug]`, so a guide that
+  belongs to no occasion ("If you have never ordered home-made before")
+  finally has somewhere to live and something to link to. The home page
+  gained a seasonal band, and its "Shop by occasion → View all" now goes
+  to the hub instead of dumping you on `/shop`.
+- **`/admin/collections/occasions`** — where festival dates get rolled
+  forward, with taglines for the hub cards.
+
 ### Decisions worth keeping
 
 - **A seller cannot verify themselves.** The flags are absent from
@@ -63,6 +74,20 @@ grid. Phase 2 starts there.
   section is conditional; a kitchen approved this morning is the normal
   case. The gaps are named in the portal, to the person who can fill
   them.
+- **Festival dates are absolute, not recurrence rules.** Diwali, Raksha
+  Bandhan and Karwa Chauth are lunisolar and land on a different
+  Gregorian date every year, so "repeats yearly on 8 Nov" would be wrong
+  for exactly the occasions the hub exists to sell into. A person rolls
+  them forward. `null` means evergreen — a birthday has no season, and
+  sorting one into a countdown invents an urgency it does not have.
+- **The seasonal band is temporary by design.** It appears only when the
+  nearest dated occasion is within six weeks. A band that is always on
+  screen is furniture, and nobody reads furniture.
+- **The countdown is computed once, on the server.** `lib/occasions.ts`
+  takes `now` as a parameter and never reads the clock itself, so nothing
+  recomputes "today" during hydration — the failure recorded from M12
+  (React #418). `/` and `/collections` carry `revalidate = 3600` so a
+  static prerender cannot freeze a countdown at build time.
 - **Seed verification is deliberately partial** — one kitchen fully
   verified, one with a licence submitted and unchecked, eight with no
   profile at all — so "verified" still means something on a seeded
@@ -72,6 +97,9 @@ grid. Phase 2 starts there.
 
 - `20260731130000_m16_vendor_profile` — `VendorProfile`, `VendorPhoto`,
   `VendorPhotoKind`.
+- `20260731140000_m16_occasion_season_and_guides` — `Occasion.celebratedOn`
+  / `tagline` / `imageSrc`, `Collection.imageSrc` / `featured` /
+  `sortOrder`.
 
 ## [M15] — Phase 1 production readiness — 2026-07-31
 
@@ -144,6 +172,17 @@ that made the marketplace unusable and unfindable.
   done.
 - `/cart` split into a server wrapper plus `CartPageClient`, since a
   `"use client"` route file can't export `metadata`.
+
+- **Occasion hub and gift guides (H8).** `/collections` is a real
+  destination now: what is coming up, with a countdown; gift guides; and
+  evergreen occasions listed separately. `Collection` became a first-class
+  gift guide with its own page at `/guides/[slug]`, so a guide that
+  belongs to no occasion ("If you have never ordered home-made before")
+  finally has somewhere to live and something to link to. The home page
+  gained a seasonal band, and its "Shop by occasion → View all" now goes
+  to the hub instead of dumping you on `/shop`.
+- **`/admin/collections/occasions`** — where festival dates get rolled
+  forward, with taglines for the hub cards.
 
 ### Decisions worth keeping
 

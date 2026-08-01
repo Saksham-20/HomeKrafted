@@ -181,8 +181,27 @@ export interface Occasion {
   name: string;
   /** Single-letter glyph shown in the gold ring tile (no image, per design system). */
   initial: string;
+  /**
+   * M16 (H8). The next date this occasion falls on, set by an admin —
+   * **not** a recurrence rule. Indian festivals are lunisolar and move
+   * against the Gregorian calendar every year, so a `MM-DD` field would
+   * be wrong for exactly the occasions that matter most.
+   *
+   * `undefined` means evergreen: a birthday has no season, and
+   * `/collections` lists those separately rather than sorting them into a
+   * countdown they don't have.
+   */
+  celebratedOn?: ISODateString;
+  tagline?: string;
+  imageSrc?: string;
 }
 
+/**
+ * A curated gift guide. Since M16 it has its own page (`/guides/[slug]`)
+ * rather than existing only as the hand-picked ordering behind an
+ * occasion — so a guide can stand alone (`occasionId` undefined), and an
+ * occasion can eventually carry more than one.
+ */
 export interface Collection {
   id: ID;
   slug: string;
@@ -190,6 +209,11 @@ export interface Collection {
   description?: string;
   occasionId?: ID;
   productIds: ID[];
+  imageSrc?: string;
+  /** What `/collections` and the home rail promote. */
+  featured?: boolean;
+  /** The merchandiser's running order; ties break on title. */
+  sortOrder?: number;
 }
 
 // ---------------------------------------------------------------------------

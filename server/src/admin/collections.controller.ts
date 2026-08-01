@@ -4,6 +4,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminCollectionsService } from './collections.service';
 import { UpsertCollectionDto } from './dto/upsert-collection.dto';
+import { UpdateOccasionDto } from './dto/update-occasion.dto';
 
 /** Occasion `Collection` CMS — title/description/occasion + ordered product membership. */
 @Controller('admin/collections')
@@ -14,6 +15,25 @@ export class AdminCollectionsController {
   @Get()
   list() {
     return this.collectionsService.list();
+  }
+
+  /**
+   * Declared above `:id` — Nest matches in declaration order, and the
+   * reverse would resolve `/admin/collections/occasions` to a collection
+   * whose id is literally "occasions".
+   */
+  @Get('occasions')
+  listOccasions() {
+    return this.collectionsService.listOccasions();
+  }
+
+  @Patch('occasions/:id')
+  updateOccasion(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateOccasionDto,
+  ) {
+    return this.collectionsService.updateOccasion(admin.userId, id, dto);
   }
 
   @Get(':id')
