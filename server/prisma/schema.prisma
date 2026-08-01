@@ -798,6 +798,33 @@ model Vendor {
   follows  VendorFollow[]
   profile  VendorProfile?
   photos   VendorPhoto[]
+  blackouts VendorBlackoutDate[]
+}
+
+/// M16 (M2). A day this kitchen is not taking orders — a festival they
+/// are cooking for their own family, travel, a sold-out batch.
+///
+/// Stored as a **list of specific dates**, not a recurring rule: the
+/// weekly pattern already exists as `VendorProfile.workingDays`, and what
+/// this covers is the exception to it. A recurrence here would collide
+/// with that and make "am I open on the 14th" answerable two ways.
+///
+/// Deliberately separate from `Product.isAvailable` (the HomeKrafter's
+/// per-item switch) and `moderationStatus` (the admin's) — this is about
+/// *when*, and merging any of the three would make one switch silently
+/// override another.
+model VendorBlackoutDate {
+  id       String   @id @default(cuid())
+  vendorId String
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  /// Date only, stored at UTC midnight. A blackout is a whole day —
+  /// nobody blocks out 14:00–16:00 on a Tuesday.
+  date     DateTime @db.Date
+  /// Shown to buyers on the picker ("Closed — Diwali"), so keep it short.
+  reason   String?
+
+  @@unique([vendorId, date])
+  @@index([vendorId, date])
 }
 
 /// M16 (H5). Everything a buyer wants to know before trusting a stranger's

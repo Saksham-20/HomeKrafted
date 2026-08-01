@@ -1,18 +1,34 @@
 import clsx from "clsx";
-import { Clock, Globe, Link2, MessageCircle, Package, Utensils } from "lucide-react";
+import { CalendarClock, Clock, Globe, Link2, MessageCircle, Package, Utensils } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCurrency } from "@/lib/format";
-import type { VendorProfile } from "@/lib/types";
+import type { VendorAvailability, VendorProfile } from "@/lib/types";
 import styles from "./KitchenProfile.module.css";
 
 export interface KitchenProfileProps {
   profile: VendorProfile;
   vendorName: string;
+  /**
+   * M16 (M2). When present, the facts strip gains a "next available"
+   * line and the page lists days the kitchen is closed. Computed by the
+   * page (a Server Component) and passed down as text — nothing here
+   * reads the clock, so nothing re-derives "today" during hydration.
+   */
+  nextAvailableLabel?: string;
+  availability?: VendorAvailability;
   className?: string;
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Sat 8 Aug" — parsed as a local date so a `YYYY-MM-DD` doesn't slide a day across a timezone. */
+function formatDayOff(iso: string): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return `${DAY_NAMES[date.getDay()]} ${day} ${MONTH_NAMES[month - 1]}`;
+}
 
 /** "3 hours", "2 days", "45 min" — a home cook's prep time spans all three. */
 function formatDuration(mins: number): string {
@@ -59,8 +75,20 @@ function formatDays(days: number[]): string {
  * meter is where the gaps get pointed out, to the person who can fill
  * them.
  */
-export function KitchenProfile({ profile, vendorName, className }: KitchenProfileProps) {
+export function KitchenProfile({
+  profile,
+  vendorName,
+  nextAvailableLabel,
+  availability,
+  className,
+}: KitchenProfileProps) {
   const facts = [
+    nextAvailableLabel && {
+      key: "next",
+      Icon: CalendarClock,
+      label: "Next available",
+      value: nextAvailableLabel,
+    },
     profile.prepTimeMins != null && {
       key: "prep",
       Icon: Clock,
@@ -117,7 +145,13 @@ export function KitchenProfile({ profile, vendorName, className }: KitchenProfil
     profile.websiteUrl && { key: "website", Icon: Globe, label: "Website", href: profile.websiteUrl },
   ].filter(Boolean) as { key: string; Icon: typeof Globe; label: string; href: string }[];
 
+  // Only days off still ahead, and only a handful — a buyer needs to know
+  // this kitchen is shut next Tuesday, not every date they have ever
+  // blocked out.
+  const upcomingDaysOff = (availability?.blackouts ?? []).slice(0, 6);
+
   const hasAnything =
+    upcomingDaysOff.length > 0 ||
     profile.story ||
     profile.photos.length > 0 ||
     facts.length > 0 ||
@@ -196,6 +230,20 @@ export function KitchenProfile({ profile, vendorName, className }: KitchenProfil
             ))}
           </ul>
         </section>
+      )}
+
+      {upcomingDaysOff.length > 0 && (
+        <Card className={styles.card} padding="lg">
+          <h2 className={styles.title}>Days {vendorName} is closed</h2>
+          <ul className={styles.daysOff}>
+            {upcomingDaysOff.map((day) => (
+              <li key={day.date} className={styles.dayOff}>
+                <span className={styles.dayOffDate}>{formatDayOff(day.date)}</span>
+                {day.reason && <span className={styles.dayOffReason}>{day.reason}</span>}
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       {policies.length > 0 && (

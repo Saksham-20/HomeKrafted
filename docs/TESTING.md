@@ -286,6 +286,34 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   Untick it again and the badge should come straight off.
 - **Analytics** — dashboard charts
 
+### Pre-order and days off (M16)
+
+The delivery-time picker used to offer every kitchen the same slots with
+the same 90 minutes' notice. Now it follows the kitchen.
+
+As a HomeKrafter, on **Profile → How you work**:
+
+- **Days you cook** sets the weekly pattern. Leave every day off and you
+  are treated as open every day — never as closed. A kitchen that has
+  filled in nothing must not silently stop taking orders.
+- **Preparation time** is how much notice you need. Set it to 2880
+  (48 hours) and the next two days should stop being offerable.
+- **Days off** takes specific dates with an optional reason. Adding the
+  same date twice updates the reason rather than erroring.
+
+Then look at that kitchen's storefront:
+
+- **"Next available"** in the facts strip skips days you are closed.
+- A **"Days … is closed"** panel lists the dates ahead, with your reasons.
+- On the delivery picker, a closed day is **struck through and cannot be
+  picked**, and its reason is in the tooltip and read out by a screen
+  reader. It is deliberately still shown — a date that simply isn't there
+  reads as a bug.
+
+> Past days off stay on your own list but are not published. The horizon
+> is 14 days, up from 7 — a kitchen needing 48 hours' notice and taking
+> Sundays off had barely three pickable days in a week.
+
 ### HomeKrafter analytics (M16)
 
 New **Analytics** tab in the HomeKrafter portal, right after Dashboard.

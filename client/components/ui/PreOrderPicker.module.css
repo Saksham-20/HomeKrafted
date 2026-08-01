@@ -225,3 +225,28 @@
     transform: none;
   }
 }
+
+/* ---- Closed days (M16) --------------------------------------------- */
+
+/* Struck through rather than merely faded: a greyed-out date reads as
+   "loading" as often as it reads as "unavailable", and the reason lives
+   in the button's accessible name and its tooltip. */
+.dayClosed {
+  background: var(--hk-surface-3);
+  border-color: var(--hk-border);
+  color: var(--hk-muted);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.dayClosed:hover {
+  background: var(--hk-surface-3);
+  border-color: var(--hk-border);
+}
+
+.closedNote {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--hk-terracotta);
+  margin-bottom: var(--hk-s2);
+}

@@ -50,6 +50,7 @@ import type {
   OwnVendorProfile,
   SellerAnalytics,
   Vendor,
+  VendorBlackout,
   VendorPhoto,
   VendorPhotoKind,
   WeightOption,
@@ -686,6 +687,42 @@ export async function removeSellerPhoto(photoId: string): Promise<VendorPhoto[] 
   if (isMockMode()) return [];
   try {
     return await http.delete<VendorPhoto[]>(`/seller/profile/photos/${encodeURIComponent(photoId)}`);
+  } catch {
+    return undefined;
+  }
+}
+
+// --- Days off (M16, M2) ----------------------------------------------
+// Specific dates, not a recurring rule: the weekly pattern is already
+// `workingDays` on the profile, and this is the exception to it.
+
+export async function getSellerBlackouts(): Promise<VendorBlackout[]> {
+  if (isMockMode()) return [];
+  try {
+    return await http.get<VendorBlackout[]>("/seller/profile/blackouts");
+  } catch {
+    return [];
+  }
+}
+
+export async function addSellerBlackout(
+  date: string,
+  reason?: string,
+): Promise<VendorBlackout[] | undefined> {
+  if (isMockMode()) return [{ id: `bo-${date}`, date, reason }];
+  try {
+    return await http.post<VendorBlackout[]>("/seller/profile/blackouts", { date, reason });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function removeSellerBlackout(id: string): Promise<VendorBlackout[] | undefined> {
+  if (isMockMode()) return [];
+  try {
+    return await http.delete<VendorBlackout[]>(
+      `/seller/profile/blackouts/${encodeURIComponent(id)}`,
+    );
   } catch {
     return undefined;
   }

@@ -136,6 +136,28 @@ export interface VendorProfile {
   stats: VendorStats;
 }
 
+/**
+ * When a kitchen can take an order (M16, M2). Three separate things,
+ * deliberately not merged: the weekly pattern (`workingDays`), the
+ * exceptions to it (`blackouts`), and how much notice is needed
+ * (`prepTimeMins`).
+ */
+export interface VendorAvailability {
+  vendorId: ID;
+  /** Minutes of notice. Defaults to the platform's 90 when the kitchen hasn't said — never to zero. */
+  prepTimeMins: number;
+  /** 0 = Sunday. Empty means "not stated", which the picker reads as every day — never as closed. */
+  workingDays: number[];
+  blackouts: { date: ISODateString; reason?: string }[];
+  capacityPerDay?: number;
+}
+
+export interface VendorBlackout {
+  id: ID;
+  date: ISODateString;
+  reason?: string;
+}
+
 /** The seller's own view — adds what only they (and an admin) should see. */
 export interface OwnVendorProfile extends VendorProfile {
   fssaiNumber?: string;

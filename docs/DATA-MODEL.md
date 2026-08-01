@@ -37,6 +37,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 |---|---|---|
 | `Vendor` | type (`maker`\|`baker`\|`artist`\|`homekrafted`), rating, followerCount | has many `Product`, has one `VendorProfile`, has many `VendorPhoto` |
 | `VendorProfile` (M16) | 1:1 with `Vendor`, PK is `vendorId`. tagline, story, knownFor[], languages[], prepTimeMins, responseTimeMins, capacityPerDay, minOrderValue, workingDays[] (0 = Sun), opensAt/closesAt (`HH:MM` strings), cancellationPolicy, returnPolicy, customOrderPolicy, acceptsCustomOrders, packagingNote, hygieneNote, **fssaiNumber, fssaiExpiry, fssaiVerified, identityVerified, addressVerified, verifiedAt, verificationNote**, four social URLs | belongs to `Vendor` (cascade delete) |
+| `VendorBlackoutDate` (M16) | vendorId, date (`@db.Date`, whole days only), reason?; `@@unique([vendorId, date])` | belongs to `Vendor` (cascade delete) |
 | `VendorPhoto` (M16) | vendorId, url, caption?, kind (`kitchen`\|`process`\|`team`\|`award`), sortOrder | belongs to `Vendor` (cascade delete) |
 | `Category` | name, productCount | referenced by `Product.categoryId` |
 | `Occasion` | name, initial, **celebratedOn? / tagline? / imageSrc? (M16)** | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
@@ -457,6 +458,29 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   than incrementing them: a stored score has no owner and quietly stops
   being true. `stats.cancellationRate` is `null` until something has
   closed — an unknown rate, not a perfect one.
+### Notes for M16 — pre-order availability (M2)
+
+- **`VendorBlackoutDate` is a list of specific dates, not a recurrence
+  rule.** The weekly pattern already exists as
+  `VendorProfile.workingDays`; this is the exception to it. A recurrence
+  here would collide with that and make "am I open on the 14th"
+  answerable two different ways.
+- **Three separate switches, none of them merged**: `workingDays` (the
+  pattern), `blackouts` (the exceptions), `prepTimeMins` (how much
+  notice). Same reasoning that keeps `Product.isAvailable` and
+  `moderationStatus` apart — merging any two means one silently overrides
+  the other.
+- **Absence is never a closure.** No `workingDays` means open every day,
+  not closed every day; no `prepTimeMins` means the platform's 90-minute
+  default, not zero. A HomeKrafter who has filled in nothing must not
+  silently stop taking orders — the same rule location filtering follows.
+- **Public availability returns only today-forward blackouts.** A past
+  one is history, and shipping them all would grow the payload for every
+  year a kitchen stays open. The seller's own list keeps them.
+- **Closed days render, struck through, with their reason** rather than
+  being dropped from the picker. A date that just isn't there reads as a
+  bug; "closed for Diwali" is information.
+
 ### Notes for M16 — occasion hub and gift guides (H8)
 
 - **`Occasion.celebratedOn` is an absolute date, not a recurrence rule.**

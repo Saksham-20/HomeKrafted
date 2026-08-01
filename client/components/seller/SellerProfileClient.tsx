@@ -12,14 +12,18 @@ import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
+  addSellerBlackout,
   addSellerPhoto,
+  getSellerBlackouts,
   getSellerProfile,
   getSellerVendor,
+  removeSellerBlackout,
   removeSellerPhoto,
   updateSellerProfile,
   type SellerProfileInput,
 } from "@/lib/api";
-import type { OwnVendorProfile, VendorPhoto } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import type { OwnVendorProfile, VendorBlackout, VendorPhoto } from "@/lib/types";
 import styles from "./SellerProfileClient.module.css";
 
 const DAYS = [
@@ -128,6 +132,10 @@ export function SellerProfileClient() {
   // fetch, so it's a single extra read rather than a new endpoint.
   const [vendorSlug, setVendorSlug] = useState<string | undefined>();
   const [photos, setPhotos] = useState<VendorPhoto[]>([]);
+  // Days off (M16, M2). Specific dates, not a recurring rule — the weekly
+  // pattern is `workingDays` above, and this is the exception to it.
+  const [blackouts, setBlackouts] = useState<VendorBlackout[]>([]);
+  const [newBlackout, setNewBlackout] = useState({ date: "", reason: "" });
   const [form, setForm] = useState<FormState | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -140,12 +148,14 @@ export function SellerProfileClient() {
     let cancelled = false;
     (async () => {
       try {
-        const [loaded, vendor] = await Promise.all([
+        const [loaded, vendor, daysOff] = await Promise.all([
           getSellerProfile(),
           getSellerVendor(seller.vendorId),
+          getSellerBlackouts(),
         ]);
         if (cancelled) return;
         setVendorSlug(vendor?.slug);
+        setBlackouts(daysOff);
         if (!loaded) {
           setUnavailable(true);
           return;
@@ -202,6 +212,20 @@ export function SellerProfileClient() {
       const created = await addSellerPhoto({ url });
       if (created) setPhotos((current) => [...current, created]);
     }
+  }
+
+  async function handleAddBlackout() {
+    if (!newBlackout.date) return;
+    const updated = await addSellerBlackout(newBlackout.date, newBlackout.reason.trim() || undefined);
+    if (updated) {
+      setBlackouts(updated);
+      setNewBlackout({ date: "", reason: "" });
+    }
+  }
+
+  async function handleRemoveBlackout(id: string) {
+    const updated = await removeSellerBlackout(id);
+    if (updated) setBlackouts(updated);
   }
 
   async function handleSave() {
@@ -458,6 +482,60 @@ export function SellerProfileClient() {
             />
           </label>
         </div>
+        <fieldset className={styles.fieldset}>
+          <legend className={styles.label}>Days off</legend>
+          <span className={styles.hint}>
+            Specific dates you are not cooking — a festival, travel, a batch already sold out.
+            Buyers see these struck out on the delivery picker with your reason, so nobody books a
+            day you cannot make.
+          </span>
+          {blackouts.length > 0 && (
+            <ul className={styles.blackouts}>
+              {blackouts.map((blackout) => (
+                <li key={blackout.id} className={styles.blackout}>
+                  <span>
+                    {formatDate(blackout.date)}
+                    {blackout.reason ? ` — ${blackout.reason}` : ""}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.removeBlackout}
+                    onClick={() => handleRemoveBlackout(blackout.id)}
+                    aria-label={`Remove day off on ${formatDate(blackout.date)}`}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className={styles.blackoutForm}>
+            <input
+              type="date"
+              className={styles.input}
+              value={newBlackout.date}
+              aria-label="Date you are closed"
+              onChange={(event) => setNewBlackout((c) => ({ ...c, date: event.target.value }))}
+            />
+            <input
+              className={styles.input}
+              value={newBlackout.reason}
+              maxLength={80}
+              placeholder="Reason (optional) — e.g. Closed for Diwali"
+              aria-label="Reason"
+              onChange={(event) => setNewBlackout((c) => ({ ...c, reason: event.target.value }))}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleAddBlackout}
+              disabled={!newBlackout.date}
+            >
+              Add day off
+            </Button>
+          </div>
+        </fieldset>
+
         <div className={styles.row}>
           <label className={styles.field}>
             <span className={styles.label}>Orders you can take in a day</span>

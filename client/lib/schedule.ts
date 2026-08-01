@@ -16,11 +16,21 @@
  *    "Tomorrow", then weekday. The labels follow that.
  */
 
-/** How much notice a kitchen needs before a window opens. */
-const LEAD_TIME_MINUTES = 90;
+/**
+ * How much notice a kitchen needs before a window opens, when it hasn't
+ * said otherwise. A HomeKrafter's own `prepTimeMins` overrides this
+ * (M16) — the platform default stays 90 minutes so a kitchen that has
+ * declared nothing behaves exactly as it did before.
+ */
+export const DEFAULT_LEAD_TIME_MINUTES = 90;
 
-/** How far ahead you can pre-order. */
-export const SCHEDULE_HORIZON_DAYS = 7;
+/**
+ * How far ahead you can pre-order. Two weeks rather than one since M16:
+ * a kitchen that needs 48 hours' notice and takes Sundays off had barely
+ * three pickable days inside a 7-day window, and festival orders are
+ * planned further out than that.
+ */
+export const SCHEDULE_HORIZON_DAYS = 14;
 
 export interface DeliveryWindow {
   id: string;
@@ -50,6 +60,30 @@ export interface ScheduleDay {
   isToday: boolean;
   /** Windows still bookable on this day — today's expired ones are dropped. */
   windows: DeliveryWindow[];
+  /**
+   * Why this day can't be booked, when it can't (M16). Closed days are
+   * **kept in the list and marked**, not silently dropped: "Sat is greyed
+   * out because they're closed for Diwali" is information, and a date
+   * that just isn't there reads as a bug.
+   */
+  unavailableReason?: string;
+}
+
+/**
+ * What a specific kitchen can actually cook, from
+ * `GET /vendors/:slug/availability` (M16, M2).
+ *
+ * Every field is optional and every default reproduces the pre-M16
+ * behaviour exactly — a caller with no availability to hand gets the same
+ * rolling week it always did.
+ */
+export interface ScheduleAvailability {
+  /** Minutes of notice. A baker needing 48 hours and a cook frying samosas in an hour were offered identical slots before this. */
+  prepTimeMins?: number;
+  /** 0 = Sunday. Empty or absent means "not stated", which is read as *every* day — never as "closed". */
+  workingDays?: number[];
+  /** `YYYY-MM-DD` days off, with the reason to show. */
+  blackouts?: { date: string; reason?: string }[];
 }
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -67,47 +101,103 @@ function isoDateOf(d: Date): string {
  *
  * `now` is injectable so this is testable and so a server render and the
  * client agree on "today" when it matters.
+ *
+ * **M16 adds `availability`, and nothing about the old behaviour moved.**
+ * With no availability passed, this returns exactly what it always did:
+ * a rolling week, a 90-minute lead time, today's expired windows dropped.
+ * With one, the lead time becomes that kitchen's declared prep time, days
+ * outside their working pattern are marked closed, and days they have
+ * blacked out are marked with their reason.
+ *
+ * Two rules worth not undoing:
+ *
+ * 1. **A closed day stays in the list, marked.** Dropping it makes the
+ *    strip skip dates for no visible reason. The one exception is a day
+ *    whose windows have *all expired* — that is today late in the
+ *    evening, and there is nothing to say about it.
+ * 2. **No working days stated means open every day**, never closed every
+ *    day. A HomeKrafter who has filled in nothing must not silently stop
+ *    taking orders — the same "absence is not a gate" rule location
+ *    filtering follows.
  */
-export function getScheduleDays(days = SCHEDULE_HORIZON_DAYS, now = new Date()): ScheduleDay[] {
+export function getScheduleDays(
+  days = SCHEDULE_HORIZON_DAYS,
+  now = new Date(),
+  availability?: ScheduleAvailability,
+): ScheduleDay[] {
   const out: ScheduleDay[] = [];
-  const cutoffMinutes = now.getHours() * 60 + now.getMinutes() + LEAD_TIME_MINUTES;
+  const leadMinutes = availability?.prepTimeMins ?? DEFAULT_LEAD_TIME_MINUTES;
+  const cutoffMinutes = now.getHours() * 60 + now.getMinutes() + leadMinutes;
+  const blackoutByDate = new Map(
+    (availability?.blackouts ?? []).map((b) => [b.date, b.reason]),
+  );
+  const worksEveryDay = !availability?.workingDays || availability.workingDays.length === 0;
 
   for (let offset = 0; offset < days; offset += 1) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
     const isToday = offset === 0;
+    const isoDate = isoDateOf(d);
 
-    const windows = isToday
-      ? DELIVERY_WINDOWS.filter((w) => w.startHour * 60 >= cutoffMinutes)
-      : DELIVERY_WINDOWS;
+    // One rule for every day: a window is bookable when it opens at least
+    // `leadMinutes` from now. Measuring both sides in minutes-since-
+    // midnight-today means a 48-hour prep time needs no special case — the
+    // near days simply run out of windows.
+    const dayStartMinutes = offset * 24 * 60;
+    const windows = DELIVERY_WINDOWS.filter(
+      (w) => dayStartMinutes + w.startHour * 60 >= cutoffMinutes,
+    );
 
-    // A day with every window already past is not offerable — drop it
-    // entirely rather than show a date that can't be picked. This is why
-    // the list can be shorter than `days` late in the evening.
+    // Every window past means nothing to offer and nothing to explain —
+    // this is what makes the list shorter than `days` late in the evening.
     if (windows.length === 0) continue;
 
+    const blackoutReason = blackoutByDate.get(isoDate);
+    const closedWeekly = !worksEveryDay && !availability!.workingDays!.includes(d.getDay());
+    const unavailableReason = blackoutReason
+      ? blackoutReason || "Closed"
+      : blackoutByDate.has(isoDate)
+        ? "Closed"
+        : closedWeekly
+          ? "Not a cooking day"
+          : undefined;
+
     out.push({
-      id: `sd-${isoDateOf(d)}`,
+      id: `sd-${isoDate}`,
       day: isToday ? "Today" : offset === 1 ? "Tomorrow" : DAY_NAMES[d.getDay()],
       date: `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`,
-      isoDate: isoDateOf(d),
+      isoDate,
       isToday,
       windows,
+      unavailableReason,
     });
   }
 
   return out;
 }
 
-/** The soonest bookable day+window — the sensible default selection. */
-export function firstAvailableSlot(now = new Date()): { dayId: string; windowId: string } | undefined {
-  const [first] = getScheduleDays(SCHEDULE_HORIZON_DAYS, now);
-  if (!first || first.windows.length === 0) return undefined;
+/** Days that can actually be picked — what a default selection should choose from. */
+export function bookableDays(days: ScheduleDay[]): ScheduleDay[] {
+  return days.filter((d) => !d.unavailableReason && d.windows.length > 0);
+}
+
+/** The soonest bookable day+window — the sensible default selection. Skips days the kitchen is closed. */
+export function firstAvailableSlot(
+  now = new Date(),
+  availability?: ScheduleAvailability,
+): { dayId: string; windowId: string } | undefined {
+  const [first] = bookableDays(getScheduleDays(SCHEDULE_HORIZON_DAYS, now, availability));
+  if (!first) return undefined;
   return { dayId: first.id, windowId: first.windows[0].id };
 }
 
 /** "Tomorrow, 6 – 8 PM" — for confirmations and the WhatsApp message. */
-export function describeSlot(dayId: string, windowId: string, now = new Date()): string {
-  const day = getScheduleDays(SCHEDULE_HORIZON_DAYS, now).find((d) => d.id === dayId);
+export function describeSlot(
+  dayId: string,
+  windowId: string,
+  now = new Date(),
+  availability?: ScheduleAvailability,
+): string {
+  const day = getScheduleDays(SCHEDULE_HORIZON_DAYS, now, availability).find((d) => d.id === dayId);
   const window = DELIVERY_WINDOWS.find((w) => w.id === windowId);
   if (!day || !window) return "As soon as possible";
   const when = day.isToday || day.day === "Tomorrow" ? day.day : `${day.day} ${day.date}`;

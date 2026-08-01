@@ -417,6 +417,27 @@ undo by accident:
   optional — a standalone guide is normal. Don't merge the two routes:
   that would cap an occasion at one guide forever.
 
+## Pre-order availability (M16) — absence is never a closure
+
+Three switches, kept apart on purpose: `VendorProfile.workingDays` (the
+weekly pattern), `VendorBlackoutDate` (specific exceptions),
+`VendorProfile.prepTimeMins` (how much notice). Merging any two makes one
+silently override another — the same reason `Product.isAvailable` and
+`moderationStatus` stay separate.
+
+- **No working days stated = open every day.** No prep time stated = the
+  platform's 90-minute default, never zero. A HomeKrafter who has filled
+  in nothing must not silently stop taking orders.
+- **`getScheduleDays` was extended, not replaced.** Passing no
+  `availability` reproduces the pre-M16 behaviour exactly. Keep it that
+  way — every caller that doesn't know a vendor still needs a working
+  scheduler.
+- **Closed days render struck through, not dropped**, with the reason in
+  the button's accessible name. A date that just isn't there reads as a
+  bug.
+- **Blackouts are specific dates, never a recurrence rule.** The weekly
+  pattern already exists; this is the exception to it.
+
 ## SEO — every new public route owes three things (M15)
 
 `lib/seo.ts` is the seam: `pageMetadata()` for title/description/

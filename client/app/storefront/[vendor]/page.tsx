@@ -6,7 +6,14 @@ import { TrustPanel } from "@/components/storefront/TrustPanel";
 import { KitchenProfile } from "@/components/storefront/KitchenProfile";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { ReviewList } from "@/components/review/ReviewList";
-import { getProductsByVendor, getVendor, getVendorProfile, getVendorReviews } from "@/lib/api";
+import {
+  getProductsByVendor,
+  getVendor,
+  getVendorAvailability,
+  getVendorProfile,
+  getVendorReviews,
+} from "@/lib/api";
+import { describeSlot, firstAvailableSlot } from "@/lib/schedule";
 import { absoluteUrl, jsonLdProps, pageMetadata } from "@/lib/seo";
 import styles from "./Storefront.module.css";
 
@@ -43,11 +50,21 @@ export default async function StorefrontPage({ params }: StorefrontPageProps) {
   const vendor = await getVendor(vendorSlug);
   if (!vendor) notFound();
 
-  const [products, reviews, profile] = await Promise.all([
+  const [products, reviews, profile, availability] = await Promise.all([
     getProductsByVendor(vendor.id),
     getVendorReviews(vendor.id),
     getVendorProfile(vendor.slug),
+    getVendorAvailability(vendor.slug),
   ]);
+
+  // The clock is read once, here, and shipped as a string (M16). A
+  // component recomputing "the next free slot" during hydration is the
+  // React #418 failure CLAUDE.md records from M12.
+  const now = new Date();
+  const nextSlot = firstAvailableSlot(now, availability);
+  const nextAvailableLabel = nextSlot
+    ? describeSlot(nextSlot.dayId, nextSlot.windowId, now, availability)
+    : undefined;
 
   // A home kitchen with a real address and a delivery radius is a
   // `LocalBusiness` in schema.org terms, which is what puts it in the
@@ -108,7 +125,12 @@ export default async function StorefrontPage({ params }: StorefrontPageProps) {
           the second question. */}
       {profile && (
         <section className={clsx("container", styles.section)}>
-          <KitchenProfile profile={profile} vendorName={vendor.name} />
+          <KitchenProfile
+            profile={profile}
+            vendorName={vendor.name}
+            nextAvailableLabel={nextAvailableLabel}
+            availability={availability}
+          />
         </section>
       )}
 

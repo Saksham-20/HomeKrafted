@@ -10,6 +10,8 @@ import {
   ReorderVendorPhotosDto,
   UpdateVendorPhotoDto,
 } from './dto/vendor-photo.dto';
+import { AddBlackoutDto } from './dto/blackout.dto';
+import { VendorAvailabilityService } from '../catalog/vendor-availability.service';
 
 /**
  * `/seller/profile` (M16) — the rich profile behind the storefront.
@@ -27,6 +29,7 @@ export class SellerProfileController {
   constructor(
     private readonly sellerService: SellerService,
     private readonly profileService: SellerProfileService,
+    private readonly availabilityService: VendorAvailabilityService,
   ) {}
 
   @Get()
@@ -74,5 +77,29 @@ export class SellerProfileController {
   async removePhoto(@CurrentUser() user: RequestUser, @Param('id') id: string) {
     const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.profileService.removePhoto(seller.vendorId, id);
+  }
+
+  // -------------------------------------------------------------------
+  // Days off (M16, M2). Every buyer-facing pre-order picker reads these
+  // through `GET /vendors/:slug/availability`, so a kitchen closing for a
+  // festival stops being offered slots it cannot cook.
+  // -------------------------------------------------------------------
+
+  @Get('blackouts')
+  async listBlackouts(@CurrentUser() user: RequestUser) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    return this.availabilityService.listBlackouts(seller.vendorId);
+  }
+
+  @Post('blackouts')
+  async addBlackout(@CurrentUser() user: RequestUser, @Body() dto: AddBlackoutDto) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    return this.availabilityService.addBlackout(seller.vendorId, dto.date, dto.reason);
+  }
+
+  @Delete('blackouts/:id')
+  async removeBlackout(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    return this.availabilityService.removeBlackout(seller.vendorId, id);
   }
 }

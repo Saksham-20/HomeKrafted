@@ -50,6 +50,12 @@ grid. Phase 2 starts there.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **Pre-order follows the kitchen (M2).** Per-HomeKrafter prep time,
+  weekly cooking days and specific days off with reasons, a 14-day
+  horizon (up from 7), a "next available" line on the storefront, and
+  closed days struck out on the picker instead of silently missing.
+  `GET /vendors/:slug/availability` is public, because the picker runs
+  before anyone signs in.
 - **`next/image` everywhere (H7).** `ImageSlot` rendered a raw `<img>`,
   so a HomeKrafter's phone photo shipped at whatever resolution their
   camera produced, in the original format, to every buyer's phone.
@@ -69,6 +75,24 @@ grid. Phase 2 starts there.
   behave. A dev-only rewrite proxies it to the API.
 
 ### Decisions worth keeping
+
+- **The rolling-day scheduler was extended, not replaced.**
+  `getScheduleDays` gained an optional `availability` argument and every
+  default reproduces the pre-M16 behaviour exactly — a caller with
+  nothing to pass gets the same rolling week, the same 90-minute lead,
+  the same expired-window handling.
+- **Availability is three separate things and stays that way**: the
+  weekly pattern, the exceptions to it, and how much notice is needed.
+  A recurring blackout rule would collide with the weekly pattern and
+  make "am I open on the 14th" answerable two ways.
+- **Absence is never a closure.** No working days means open every day;
+  no prep time means the platform's 90-minute default, not zero. A
+  HomeKrafter who has filled in nothing must not silently stop taking
+  orders — the rule location filtering has followed since M12.
+- **Closed days are shown, not dropped.** Struck through, unpickable,
+  with the reason in the accessible name rather than only a tooltip. A
+  date that just isn't there reads as a bug; "closed for Diwali" is
+  information.
 
 - **A HomeKrafter's revenue is their line-item share, never the order
   total.** A marketplace order can span several kitchens, so crediting
@@ -144,6 +168,7 @@ grid. Phase 2 starts there.
 - `20260731140000_m16_occasion_season_and_guides` — `Occasion.celebratedOn`
   / `tagline` / `imageSrc`, `Collection.imageSrc` / `featured` /
   `sortOrder`.
+- `20260801090000_m16_vendor_blackout_dates` — `VendorBlackoutDate`.
 
 ## [M15] — Phase 1 production readiness — 2026-07-31
 
@@ -232,6 +257,12 @@ that made the marketplace unusable and unfindable.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **Pre-order follows the kitchen (M2).** Per-HomeKrafter prep time,
+  weekly cooking days and specific days off with reasons, a 14-day
+  horizon (up from 7), a "next available" line on the storefront, and
+  closed days struck out on the picker instead of silently missing.
+  `GET /vendors/:slug/availability` is public, because the picker runs
+  before anyone signs in.
 - **`next/image` everywhere (H7).** `ImageSlot` rendered a raw `<img>`,
   so a HomeKrafter's phone photo shipped at whatever resolution their
   camera produced, in the original format, to every buyer's phone.
@@ -251,6 +282,24 @@ that made the marketplace unusable and unfindable.
   behave. A dev-only rewrite proxies it to the API.
 
 ### Decisions worth keeping
+
+- **The rolling-day scheduler was extended, not replaced.**
+  `getScheduleDays` gained an optional `availability` argument and every
+  default reproduces the pre-M16 behaviour exactly — a caller with
+  nothing to pass gets the same rolling week, the same 90-minute lead,
+  the same expired-window handling.
+- **Availability is three separate things and stays that way**: the
+  weekly pattern, the exceptions to it, and how much notice is needed.
+  A recurring blackout rule would collide with the weekly pattern and
+  make "am I open on the 14th" answerable two ways.
+- **Absence is never a closure.** No working days means open every day;
+  no prep time means the platform's 90-minute default, not zero. A
+  HomeKrafter who has filled in nothing must not silently stop taking
+  orders — the rule location filtering has followed since M12.
+- **Closed days are shown, not dropped.** Struck through, unpickable,
+  with the reason in the accessible name rather than only a tooltip. A
+  date that just isn't there reads as a bug; "closed for Diwali" is
+  information.
 
 - **A HomeKrafter's revenue is their line-item share, never the order
   total.** A marketplace order can span several kitchens, so crediting

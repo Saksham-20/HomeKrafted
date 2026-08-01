@@ -186,6 +186,7 @@ dropping it.
 | `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
 | `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` here — this route is `@Public()`, so the global guard attaches no session and there is nobody to answer "am *I* following this" for. Use `GET /vendors/:slug/follow`. |
 | `GET /vendors/:slug/products` | public | `Product[]`, excludes `hidden` — same rule `lib/api/products.ts#getProductsByVendor` applies |
+| `GET /vendors/:slug/availability` | public | **M16 (M2).** `{ vendorId, prepTimeMins, workingDays[], blackouts[{date, reason?}], capacityPerDay? }` — what the pre-order picker needs to stop offering slots a kitchen can't cook. Public, because the picker runs before anyone signs in. Only blackouts **from today forward**; a past one is history and shipping it would grow the payload every year the kitchen stays open. `prepTimeMins` falls back to the platform's 90 when undeclared — never to zero, which would read as "instant". |
 | `GET /vendors/:slug/profile` | public | **M16.** The rich HomeKrafter profile — story, kitchen photos, hours, prep time, policies, plus computed `trust`, `achievements` and `stats`. Split from `GET /vendors/:slug` because that route answers every product card and every follow check and none of them need a return policy. Returns a fully-shaped **empty** profile for a kitchen that has filled in nothing, so the storefront never branches on absence; `404` only when the vendor itself is gone. **Never includes `fssaiNumber`** — see below. |
 | `GET /vendors/following` | any authed role | Storefronts the caller follows, newest follow first, each with `isFollowing: true`. **Declared above `:slug`** — Nest matches in declaration order, and the reverse would read `following` as a vendor slug. |
 | `GET /vendors/:slug/follow` | any authed role | `{ following, followerCount }` for this caller. |
@@ -764,7 +765,16 @@ that ride on every product card.
 | `POST /seller/profile/photos` | `{ url, caption?, kind? }`. `url` is what `POST /uploads?purpose=storefront` returned — the URL, never the key (M14's rule). `409` past 12 photos. |
 | `PUT /seller/profile/photos/order` | `{ ids: string[] }` in display order. Scoped by `vendorId` in the update filter, so another kitchen's id matches nothing rather than reordering their gallery. Declared **above** `:id`. |
 | `PATCH /seller/profile/photos/:id` | `{ caption?, kind?, sortOrder? }`. `404` for a photo the caller doesn't own. |
+| `GET /seller/profile/blackouts` | **M16 (M2).** Days this kitchen is closed, including past ones — the seller's own record. |
+| `POST /seller/profile/blackouts` | `{ date: "YYYY-MM-DD", reason? }`. Idempotent — marking the same day off twice updates the reason rather than 409ing. |
+| `DELETE /seller/profile/blackouts/:id` | Scoped by `vendorId` in the filter, so another kitchen's id matches nothing rather than reopening their day. |
 | `DELETE /seller/profile/photos/:id` | Removes the row and returns the remaining list. The file stays on disk — nothing deletes uploads yet (M14, see `docs/DEPLOY.md`). |
+
+**Availability is three separate things, deliberately not merged**
+(M16, M2): the weekly pattern (`VendorProfile.workingDays`), the
+exceptions to it (`VendorBlackoutDate`), and how much notice is needed
+(`VendorProfile.prepTimeMins`). A recurring blackout rule would collide
+with `workingDays` and make "am I open on the 14th" answerable two ways.
 
 **`PATCH /seller/profile` cannot set a verification flag.**
 `fssaiVerified` / `identityVerified` / `addressVerified` are absent from

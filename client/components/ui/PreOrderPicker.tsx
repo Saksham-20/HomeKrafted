@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { getScheduleDays, describeSlot, type ScheduleDay } from "@/lib/schedule";
+import {
+  bookableDays,
+  describeSlot,
+  getScheduleDays,
+  type ScheduleAvailability,
+  type ScheduleDay,
+} from "@/lib/schedule";
 import styles from "./PreOrderPicker.module.css";
 
 export interface PreOrderSelection {
@@ -19,6 +25,12 @@ export interface PreOrderPickerProps {
   zoneLabel?: string;
   /** Pre-built days, when a caller needs to match a server render. */
   days?: ScheduleDay[];
+  /**
+   * What this specific kitchen can cook (M16) — prep time, working days,
+   * days off. Omitted, the picker behaves exactly as it did before:
+   * a rolling window with the platform's 90-minute lead time.
+   */
+  availability?: ScheduleAvailability;
   /** Rendered next to the confirm action. Omit for an inline picker with no footer action. */
   onConfirm?: () => void;
   confirmLabel?: string;
@@ -55,6 +67,7 @@ export function PreOrderPicker({
   title = "Delivery window",
   zoneLabel = "Chandigarh tricity (IST)",
   days,
+  availability,
   onConfirm,
   confirmLabel = "Schedule",
 }: PreOrderPickerProps) {
@@ -65,18 +78,19 @@ export function PreOrderPicker({
     if (days) return;
     let cancelled = false;
     void Promise.resolve().then(() => {
-      if (!cancelled) setScheduleDays(getScheduleDays());
+      if (!cancelled) setScheduleDays(getScheduleDays(undefined, undefined, availability));
     });
     return () => {
       cancelled = true;
     };
-  }, [days]);
+  }, [days, availability]);
 
   // Auto-select the soonest slot, so someone who wants food now never has
-  // to touch this.
+  // to touch this. Skips days the kitchen is closed — defaulting onto a
+  // blacked-out day would hand them an order they can't cook.
   useEffect(() => {
     if (value || scheduleDays.length === 0) return;
-    const first = scheduleDays[0];
+    const first = bookableDays(scheduleDays)[0];
     if (first?.windows[0]) onChange({ dayId: first.id, windowId: first.windows[0].id });
   }, [value, scheduleDays, onChange]);
 
@@ -89,7 +103,8 @@ export function PreOrderPicker({
     );
   }
 
-  const selectedDay = scheduleDays.find((d) => d.id === value?.dayId) ?? scheduleDays[0];
+  const openDays = bookableDays(scheduleDays);
+  const selectedDay = scheduleDays.find((d) => d.id === value?.dayId) ?? openDays[0] ?? scheduleDays[0];
   const visible = scheduleDays.slice(pageStart, pageStart + PAGE_SIZE);
 
   // Month label follows what's on screen, not `new Date()` — paging into
@@ -100,6 +115,10 @@ export function PreOrderPicker({
   );
 
   function pickDay(day: ScheduleDay) {
+    // Closed days render, so they can explain themselves — but they don't
+    // select. Silently dropping them from the strip would make the dates
+    // skip for no visible reason.
+    if (day.unavailableReason) return;
     // Keep the chosen time when the new day still offers it; otherwise take
     // that day's first window rather than leaving an impossible pairing.
     const stillValid = day.windows.some((w) => w.id === value?.windowId);
@@ -141,14 +160,28 @@ export function PreOrderPicker({
         <div className={styles.dayGrid} role="group" aria-label="Delivery day">
           {visible.map((day) => {
             const isSelected = day.id === selectedDay.id;
+            const closed = Boolean(day.unavailableReason);
             return (
               <div key={day.id} className={styles.dayCell}>
                 <span className={styles.dayName}>{day.day}</span>
                 <button
                   type="button"
-                  className={clsx(styles.dayButton, isSelected && styles.daySelected)}
-                  aria-pressed={isSelected}
-                  aria-label={`${day.day} ${day.date}`}
+                  className={clsx(
+                    styles.dayButton,
+                    isSelected && !closed && styles.daySelected,
+                    closed && styles.dayClosed,
+                  )}
+                  aria-pressed={isSelected && !closed}
+                  disabled={closed}
+                  // The reason goes in the accessible name, not only in a
+                  // tooltip — "unavailable" with no cause is the least
+                  // useful thing a disabled control can say.
+                  aria-label={
+                    closed
+                      ? `${day.day} ${day.date} — ${day.unavailableReason}`
+                      : `${day.day} ${day.date}`
+                  }
+                  title={day.unavailableReason}
                   onClick={() => pickDay(day)}
                 >
                   {day.date.split(" ")[0]}
@@ -160,8 +193,13 @@ export function PreOrderPicker({
 
         <div>
           <p className={styles.zone}>{zoneLabel}</p>
+          {selectedDay.unavailableReason && (
+            <p className={styles.closedNote} role="status">
+              {selectedDay.day} — {selectedDay.unavailableReason}. Pick another day.
+            </p>
+          )}
           <div className={styles.timeGrid} role="group" aria-label="Delivery time">
-            {selectedDay.windows.map((window) => {
+            {(selectedDay.unavailableReason ? [] : selectedDay.windows).map((window) => {
               const isSelected = window.id === value?.windowId;
               return (
                 <button
@@ -181,7 +219,7 @@ export function PreOrderPicker({
 
         <div className={styles.footer}>
           <span className={styles.chosen}>
-            {value ? describeSlot(value.dayId, value.windowId) : "Pick a time"}
+            {value ? describeSlot(value.dayId, value.windowId, undefined, availability) : "Pick a time"}
           </span>
           {onConfirm && (
             <button type="button" className={clsx(styles.timeButton, styles.timeSelected)} onClick={onConfirm}>

@@ -84,7 +84,7 @@ remains is Phase 2 onward — see §7.
 | # | Finding |
 |---|---|
 | M1 | **Subscriptions exist only for laundry.** `LaundrySubscription` + `POST/PATCH/DELETE /laundry/subscriptions` are real and wired into the booking flow, but there is no management surface (no `/account/subscriptions`), no pause/skip/resume, and nothing equivalent for snacks, meals or cleaning. No recurring-order generation job exists — a subscription records intent and produces nothing. |
-| M2 | **Pre-order is rolling days only.** `lib/schedule.ts` derives the next N days and suppresses today's expired windows. No custom date picker, no seller-blocked dates, no holiday/festival handling, no per-item preparation-time rule, no availability-driven slot suggestion. |
+| M2 ✅ | **Fixed in M16.** **Pre-order is rolling days only.** `lib/schedule.ts` derives the next N days and suppresses today's expired windows. No custom date picker, no seller-blocked dates, no holiday/festival handling, no per-item preparation-time rule, no availability-driven slot suggestion. |
 | M3 | **Accessibility is thin.** Two `aria-live` regions and a handful of `role="alert"` across the whole client. No skip-to-content link. `ImageSlot` sets `role="img"` + `aria-label` then renders the real image `aria-hidden` — workable, but every product photo's alt text is the placeholder caption, not the product. Focus management on drawers/modals unverified. |
 | M4 | **Razorpay runs on a placeholder key.** With the `.env.example` value the server degrades to `mock: true` and the checkout modal cannot take a test card. Launch requires real test → live keys and a webhook secret. |
 | M5 | **Admin has no reports, exports or platform settings.** Analytics is five stat cards plus a 14-day GMV chart. No CSV export, no date-range control, no cohort/retention view, no settings surface for commission, delivery radius defaults, or feature flags (`lib/features.ts` is edited by hand and requires a redeploy). |
@@ -307,8 +307,11 @@ left.
 12. ✅ **Shipped (M16).** Seller analytics — earnings series, busiest
     weekdays, top items, repeat rate, period-over-period deltas, all on
     the seller's line-item share rather than whole-order totals. *(H6)*
-13. Pre-order calendar: custom dates, blocked dates, holidays, prep-time
-    rules, slot suggestion. *(M2)*
+13. ✅ **Shipped (M16).** Pre-order calendar: per-kitchen prep time,
+    weekly working days, seller-set days off with reasons, a 14-day
+    horizon, and a "next available" line on the storefront. The existing
+    rolling-day generator was **extended, not replaced** — with no
+    availability passed it behaves exactly as before. *(M2)*
 14. ✅ **Shipped (M16).** `next/image` throughout `ImageSlot`, AVIF/WebP,
     per-call-site `sizes`, `priority` on LCP images, real alt text.
     Measured: the home hero went 265 KB → 59 KB at 640px. An image CDN

@@ -3,12 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from './mappers/product.mapper';
 import { mapVendor } from './mappers/vendor.mapper';
 import { VendorProfileService } from './vendor-profile.service';
+import { VendorAvailabilityService } from './vendor-availability.service';
 
 @Injectable()
 export class VendorsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly profiles: VendorProfileService,
+    private readonly availability: VendorAvailabilityService,
   ) {}
 
   /**
@@ -103,6 +105,12 @@ export class VendorsService {
   async profileBySlug(slug: string) {
     const vendor = await this.requireVendor(slug);
     return this.profiles.publicProfile(vendor.id);
+  }
+
+  /** M16 (M2) — what the pre-order picker needs to stop offering slots this kitchen can't cook. */
+  async availabilityBySlug(slug: string) {
+    const vendor = await this.requireVendor(slug);
+    return this.availability.forVendor(vendor.id);
   }
 
   private async requireVendor(slug: string) {

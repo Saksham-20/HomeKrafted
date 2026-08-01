@@ -1,4 +1,4 @@
-import type { Vendor, VendorProfile } from "@/lib/types";
+import type { Vendor, VendorAvailability, VendorProfile } from "@/lib/types";
 import {
   getVendorById as getVendorByIdData,
   getVendorBySlug,
@@ -40,6 +40,29 @@ export async function getVendorProfile(slug: string): Promise<VendorProfile | un
     });
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * When a kitchen can actually take an order (M16, M2) — prep time,
+ * working days, days marked off. Feeds `<PreOrderPicker availability>`.
+ *
+ * Falls back to an empty availability rather than `undefined` on failure:
+ * a picker with no availability behaves exactly as it did before M16
+ * (rolling days, 90-minute lead), which is a working scheduler. Failing
+ * closed here would mean a network blip stops a kitchen taking orders.
+ */
+export async function getVendorAvailability(slug: string): Promise<VendorAvailability> {
+  if (isMockMode()) {
+    return { vendorId: slug, prepTimeMins: 180, workingDays: [1, 2, 3, 4, 5, 6], blackouts: [] };
+  }
+  try {
+    return await http.get<VendorAvailability>(
+      `/vendors/${encodeURIComponent(slug)}/availability`,
+      { auth: false },
+    );
+  } catch {
+    return { vendorId: slug, prepTimeMins: 90, workingDays: [], blackouts: [] };
   }
 }
 

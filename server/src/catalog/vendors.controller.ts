@@ -48,6 +48,17 @@ export class VendorsController {
     return this.vendorsService.profileBySlug(slug);
   }
 
+  /**
+   * When this kitchen can actually take an order (M16, M2) — prep time,
+   * working days, days marked off. Public, because the pre-order picker
+   * on `/snacks` runs before anybody signs in.
+   */
+  @Public()
+  @Get(':slug/availability')
+  availabilityBySlug(@Param('slug') slug: string) {
+    return this.vendorsService.availabilityBySlug(slug);
+  }
+
   /** Authed, unlike the storefront read itself — see `VendorsService`'s follows section. */
   @Get(':slug/follow')
   followState(@CurrentUser() user: RequestUser, @Param('slug') slug: string) {
