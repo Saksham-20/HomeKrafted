@@ -286,6 +286,26 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   Untick it again and the badge should come straight off.
 - **Analytics** — dashboard charts
 
+### Admin reports, exports and settings (M16)
+
+- **Analytics** has range chips (14 / 30 / 90 days). Every figure and the
+  chart follow the range.
+- **Export CSV** gives you real file downloads for orders, HomeKrafters
+  and payouts, covering the selected range. Open one in Excel or Sheets —
+  names with commas, quotes and accents should come through intact, and a
+  phone number like `+91…` appears with a leading apostrophe. That is
+  deliberate: a cell starting with `+` or `=` is treated as a formula by
+  every spreadsheet, and the apostrophe is what stops one running.
+- **Settings** holds the commission rate and the default delivery radius.
+  Both used to be constants in source. Every change is written to the
+  audit log with its before and after.
+
+> The commission figure on Analytics is **modelling only** — payouts are
+> gross and settlement is manual, so nothing is being deducted. It is
+> there so "what would 12% have earned last quarter" is answerable.
+> Feature flags are deliberately *not* on the settings screen; the page
+> explains why.
+
 ### Pre-order and days off (M16)
 
 The delivery-time picker used to offer every kitchen the same slots with

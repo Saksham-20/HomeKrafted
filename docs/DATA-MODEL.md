@@ -458,6 +458,19 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   than incrementing them: a stored score has no owner and quietly stops
   being true. `stats.cancellationRate` is `null` until something has
   closed — an unknown rate, not a perfect one.
+### Notes for M16 — platform settings (M5)
+
+- **`PlatformSetting` is key/value, not a wide single row.** Each setting
+  is read by a different part of the system, and a wide row would mean
+  every reader pulling every column.
+- **A missing row falls back to a default**, so a database that has never
+  had a setting written behaves exactly like the constants this replaced.
+- **Nothing lives here that nothing reads.** `commissionPct` drives the
+  analytics commission line (modelling only — payouts are gross and
+  settlement is manual, and every surface says so);
+  `defaultDeliveryRadiusKm` is read at seller approval. Feature flags
+  deliberately stayed build-time — see the changelog for why.
+
 ### Notes for M16 — pre-order availability (M2)
 
 - **`VendorBlackoutDate` is a list of specific dates, not a recurrence

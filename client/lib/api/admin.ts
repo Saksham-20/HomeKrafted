@@ -1011,6 +1011,55 @@ export async function getCategoriesAdmin(): Promise<Category[]> {
 }
 
 /** Real mode: same public `GET /occasions` the consumer catalog already reads. */
+// ---------------------------------------------------------------------------
+// Platform settings + exports (M16, M5)
+// ---------------------------------------------------------------------------
+
+export interface PlatformSettings {
+  /**
+   * The take rate. **Modelling only today** — payouts are gross and
+   * settlement is manual, so nothing deducts this. It drives the
+   * commission line on analytics, which says as much.
+   */
+  commissionPct: number;
+  /** Given to a new HomeKrafter whose application didn't state one. */
+  defaultDeliveryRadiusKm: number;
+}
+
+export async function getPlatformSettings(): Promise<PlatformSettings | undefined> {
+  if (isMockMode()) return { commissionPct: 10, defaultDeliveryRadiusKm: 10 };
+  try {
+    return await http.get<PlatformSettings>("/admin/settings");
+  } catch {
+    return undefined;
+  }
+}
+
+export async function updatePlatformSettings(
+  patch: Partial<PlatformSettings>,
+): Promise<PlatformSettings | undefined> {
+  if (isMockMode()) return { commissionPct: 10, defaultDeliveryRadiusKm: 10, ...patch };
+  try {
+    return await http.patch<PlatformSettings>("/admin/settings", patch);
+  } catch {
+    return undefined;
+  }
+}
+
+export type AdminExportKind = "orders" | "sellers" | "payouts";
+
+/**
+ * The CSV is built and escaped **server-side** (`AdminExportsService`),
+ * so this is a plain authenticated download rather than a fetch the
+ * client turns into a Blob — one place owns the escaping and the
+ * spreadsheet-formula guard.
+ */
+export function adminExportUrl(kind: AdminExportKind, days?: number): string {
+  const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1").replace(/\/$/, "");
+  const query = days ? `?days=${encodeURIComponent(days)}` : "";
+  return `${base}/admin/exports/${kind}${query}`;
+}
+
 export async function getOccasionsAdmin(): Promise<Occasion[]> {
   if (!isMockMode()) return getOccasions();
   return occasions;
@@ -1113,7 +1162,18 @@ export interface AnalyticsWalletFlow {
 }
 
 export interface AdminAnalyticsSnapshot {
-  /** Last 14 days, oldest first. */
+  /** Days in the window, echoed back by the server (M16) so the client labels the range it got. */
+  days: number;
+  /**
+   * The configured take rate, and what it would have earned on this
+   * window's GMV. **Nothing deducts it** — payouts are gross and
+   * settlement is manual — so the screen rendering it says so. It exists
+   * because "what would 12% have earned" has to be answerable before the
+   * business can set a rate.
+   */
+  commissionPct: number;
+  modelledCommission: number;
+  /** Oldest first, `days` long. */
   gmvSeries: AnalyticsDailyPoint[];
   ordersByType: Record<AdminOrderType, number>;
   /** Top 6 sellers (makers by `Vendor` revenue, laundry/snack by `Seller` revenue) by revenue, descending. */
@@ -1253,9 +1313,9 @@ function computeWalletFlow(): AnalyticsWalletFlow {
   return { creditsTotal, debitsTotal, netFlow: creditsTotal - debitsTotal, byCategory };
 }
 
-export async function getAnalytics(): Promise<AdminAnalyticsSnapshot> {
+export async function getAnalytics(days = 14): Promise<AdminAnalyticsSnapshot> {
   if (!isMockMode()) {
-    return http.get<AdminAnalyticsSnapshot>("/admin/analytics");
+    return http.get<AdminAnalyticsSnapshot>(`/admin/analytics?days=${encodeURIComponent(days)}`);
   }
 
   const [gmvSeries, sellerLeaderboard, productLeaderboard, dashboard] = await Promise.all([
@@ -1266,6 +1326,10 @@ export async function getAnalytics(): Promise<AdminAnalyticsSnapshot> {
   ]);
 
   return {
+    days: 14,
+    commissionPct: 10,
+    modelledCommission:
+      Math.round(gmvSeries.reduce((sum, p) => sum + p.gmv, 0) * 0.1 * 100) / 100,
     gmvSeries,
     ordersByType: dashboard.ordersByType,
     topSellers: sellerLeaderboard.slice(0, 6),

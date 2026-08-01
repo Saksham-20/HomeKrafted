@@ -8,6 +8,7 @@ import { generateReferralCode } from '../auth/referral-code.util';
 import { AdminAuditLogService } from './audit-log.service';
 import { VendorProfileService } from '../catalog/vendor-profile.service';
 import { SetVerificationDto } from './dto/set-verification.dto';
+import { AdminSettingsService } from './settings.service';
 
 function slugify(value: string): string {
   return value
@@ -78,6 +79,7 @@ export class AdminSellersService {
     private readonly auditLog: AdminAuditLogService,
     private readonly notifications: NotificationsService,
     private readonly vendorProfiles: VendorProfileService,
+    private readonly settings: AdminSettingsService,
   ) {}
 
   async listSellers() {
@@ -261,6 +263,8 @@ export class AdminSellersService {
       throw new ConflictException(`Application is already ${application.status}`);
     }
 
+    const { defaultDeliveryRadiusKm: defaultRadiusKm } = await this.settings.get();
+
     const result = await this.prisma.$transaction(async (tx) => {
       // Reuse an existing account by email if one already exists (e.g. the
       // applicant already has a consumer account); otherwise mint a fresh
@@ -306,7 +310,9 @@ export class AdminSellersService {
           area: application.area,
           lat: area?.lat ?? TRICITY_CENTRE.lat,
           lng: area?.lng ?? TRICITY_CENTRE.lng,
-          deliveryRadiusKm: application.deliveryRadiusKm,
+          // M16 (M5): the platform default when an application didn't
+          // state one, rather than a constant nobody could change.
+          deliveryRadiusKm: application.deliveryRadiusKm || defaultRadiusKm,
         },
       });
 

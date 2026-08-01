@@ -144,3 +144,65 @@
     width: 64px;
   }
 }
+
+/* ---- Range + exports (M16) ------------------------------------------ */
+
+.controls {
+  display: flex;
+  gap: 6px;
+}
+
+.exportBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s5);
+}
+
+.exportLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.exportLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  color: var(--hk-pine);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.exportLink:hover {
+  border-color: var(--hk-pine);
+}
+
+.exportNote {
+  font-size: 12px;
+  color: var(--hk-muted);
+  margin-left: auto;
+}
+
+/* The commission number is modelled, not collected — this line is what
+   stops it being read as revenue. */
+.modelNote {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  max-width: 72ch;
+  margin-bottom: var(--hk-s5);
+}
+
+.modelNote a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}

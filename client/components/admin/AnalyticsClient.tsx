@@ -2,10 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getAnalytics, type AdminAnalyticsSnapshot, type AdminOrderType } from "@/lib/api";
+import {
+  adminExportUrl,
+  getAnalytics,
+  type AdminAnalyticsSnapshot,
+  type AdminExportKind,
+  type AdminOrderType,
+} from "@/lib/api";
 import { formatCurrency, formatShortDate } from "@/lib/format";
 import styles from "./AnalyticsClient.module.css";
 
@@ -30,26 +39,40 @@ const SELLER_TYPE_LABEL: Record<string, string> = {
  * the GMV sparkline. All figures are derived from the existing mock data
  * (`lib/api/admin.ts#getAnalytics`) — no new data model.
  */
+const RANGES = [
+  { days: 14, label: "14 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+];
+
+const EXPORTS: { kind: AdminExportKind; label: string }[] = [
+  { kind: "orders", label: "Orders" },
+  { kind: "sellers", label: "HomeKrafters" },
+  { kind: "payouts", label: "Payouts" },
+];
+
 export function AnalyticsClient() {
   const { ready, role } = useAuth();
+  const [days, setDays] = useState(14);
   const [snapshot, setSnapshot] = useState<AdminAnalyticsSnapshot | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const snap = await getAnalytics();
+      const snap = await getAnalytics(days);
       if (cancelled) return;
       setSnapshot(snap);
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, days]);
 
-  if (!ready || loading || !snapshot) {
+  // Derived, not a `loading` flag set inside the effect (which trips
+  // `react-hooks/set-state-in-effect`). Keeping the previous chart up
+  // while a new range loads also beats blanking the page on every press.
+  if (!ready || !snapshot) {
     return <div className={styles.loading}>Loading analytics…</div>;
   }
 
@@ -59,6 +82,7 @@ export function AnalyticsClient() {
   const maxProductRevenue = Math.max(1, ...snapshot.topProducts.map((p) => p.revenue));
   const maxNewUsers = Math.max(1, ...snapshot.newUsersByMonth.map((m) => m.count));
   const gmvTotal = snapshot.gmvSeries.reduce((sum, p) => sum + p.gmv, 0);
+  const rangeLabel = `last ${snapshot.days} days`;
   const orderTotal = snapshot.gmvSeries.reduce((sum, p) => sum + p.orderCount, 0);
 
   // Inline SVG polyline sparkline for the 14-day GMV series — no chart
@@ -76,11 +100,49 @@ export function AnalyticsClient() {
 
   return (
     <div>
-      <AdminPageHeader title="Analytics" subtitle="Reports across GMV, orders, HomeKrafters, products, users and wallet flow." />
+      <AdminPageHeader
+        title="Analytics"
+        subtitle="Reports across GMV, orders, HomeKrafters, products, users and wallet flow."
+        actions={
+          <div className={styles.controls}>
+            {RANGES.map((range) => (
+              <Chip
+                key={range.days}
+                label={range.label}
+                selected={days === range.days}
+                onClick={() => setDays(range.days)}
+              />
+            ))}
+          </div>
+        }
+      />
+
+      <Card className={styles.exportBar} padding="sm">
+        <span className={styles.exportLabel}>Export CSV</span>
+        {EXPORTS.map((item) => (
+          <a
+            key={item.kind}
+            className={styles.exportLink}
+            href={adminExportUrl(item.kind, days)}
+            // A real download rather than a fetch-to-Blob: the file is
+            // built and escaped server-side, so an accountant can be sent
+            // the URL instead of a screenshot.
+            download
+          >
+            <Download size={14} strokeWidth={1.8} aria-hidden="true" />
+            {item.label}
+          </a>
+        ))}
+        <span className={styles.exportNote}>Covers the selected range.</span>
+      </Card>
 
       <div className={styles.statGrid}>
-        <StatCard label="GMV (last 14 days)" value={formatCurrency(gmvTotal)} />
-        <StatCard label="Orders (last 14 days)" value={String(orderTotal)} />
+        <StatCard label={`GMV (${rangeLabel})`} value={formatCurrency(gmvTotal)} />
+        <StatCard label={`Orders (${rangeLabel})`} value={String(orderTotal)} />
+        <StatCard
+          label={`Commission at ${snapshot.commissionPct}% (modelled)`}
+          value={formatCurrency(snapshot.modelledCommission)}
+        />
         <StatCard label="Wallet credits" value={formatCurrency(snapshot.walletFlow.creditsTotal)} />
         <StatCard label="Wallet debits" value={formatCurrency(snapshot.walletFlow.debitsTotal)} />
         <StatCard
@@ -90,14 +152,20 @@ export function AnalyticsClient() {
         />
       </div>
 
-      <h2 className={styles.sectionTitle}>GMV — last 14 days</h2>
+      <p className={styles.modelNote}>
+        The commission figure is <strong>modelling only</strong>. Payouts are gross and settlement
+        happens by hand, so nothing deducts it — change the rate under{" "}
+        <Link href="/admin/settings">Settings</Link> to see what a different one would have earned.
+      </p>
+
+      <h2 className={styles.sectionTitle}>GMV — {rangeLabel}</h2>
       <Card className={styles.sparkCard}>
         <svg
           viewBox={`0 0 ${sparkWidth} ${sparkHeight}`}
           className={styles.sparkSvg}
           preserveAspectRatio="none"
           role="img"
-          aria-label="GMV over the last 14 days"
+          aria-label={`GMV over the ${rangeLabel}`}
         >
           <polyline points={points} className={styles.sparkLine} fill="none" />
         </svg>

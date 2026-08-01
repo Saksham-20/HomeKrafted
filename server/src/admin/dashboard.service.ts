@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminOrderSummary, AdminOrdersService, AdminOrderType } from './orders.service';
+import { AdminSettingsService } from './settings.service';
 
 export interface AdminDashboardSnapshot {
   /** Sum of every unified order/booking/snack-order total — a proxy for GMV; nets nothing out (vendor payout share is a `Payout`-ledger concern, not this KPI). */
@@ -55,6 +56,17 @@ export interface AnalyticsWalletFlow {
 }
 
 export interface AdminAnalyticsSnapshot {
+  /** Days in the window, echoed back so the client labels the range it got rather than the one it asked for. */
+  days: number;
+  /**
+   * Modelled platform take on the window's GMV at the configured
+   * `commissionPct`. **Nothing deducts this** — `Payout` amounts are
+   * gross and settlement is manual — so every surface that renders it
+   * says so. It exists because "what would a 12% take rate have earned"
+   * is a question the business needs answered before it can set one.
+   */
+  commissionPct: number;
+  modelledCommission: number;
   gmvSeries: AnalyticsDailyPoint[];
   ordersByType: Record<AdminOrderType, number>;
   topSellers: AnalyticsLeaderboardRow[];
@@ -63,10 +75,11 @@ export interface AdminAnalyticsSnapshot {
   walletFlow: AnalyticsWalletFlow;
 }
 
-function last14Days(): string[] {
+/** M16 (M5): the range is a parameter now — the chart was pinned at 14 days with no way to ask for a quarter. */
+function lastNDays(n: number): string[] {
   const days: string[] = [];
   const today = new Date();
-  for (let i = 13; i >= 0; i -= 1) {
+  for (let i = n - 1; i >= 0; i -= 1) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     days.push(d.toISOString().slice(0, 10));
@@ -90,6 +103,7 @@ export class AdminDashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ordersService: AdminOrdersService,
+    private readonly settings: AdminSettingsService,
   ) {}
 
   async getDashboard(): Promise<AdminDashboardSnapshot> {
@@ -137,21 +151,29 @@ export class AdminDashboardService {
     };
   }
 
-  async getAnalytics(): Promise<AdminAnalyticsSnapshot> {
+  async getAnalytics(requestedDays = 14): Promise<AdminAnalyticsSnapshot> {
+    const days = Math.min(Math.max(Math.trunc(requestedDays) || 14, 1), 365);
     const unified = await this.ordersService.listUnified();
 
     const ordersByType: Record<AdminOrderType, number> = { marketplace: 0, laundry: 0, snack: 0 };
     for (const order of unified) ordersByType[order.type] += 1;
 
-    const [topSellers, topProducts, newUsersByMonth, walletFlow] = await Promise.all([
+    const [topSellers, topProducts, newUsersByMonth, walletFlow, settings] = await Promise.all([
       this.computeSellerLeaderboard(),
       this.computeProductLeaderboard(),
       this.computeNewUsersByMonth(),
       this.computeWalletFlow(),
+      this.settings.get(),
     ]);
 
+    const gmvSeries = this.computeGmvSeries(unified, days);
+    const windowGmv = gmvSeries.reduce((sum, p) => sum + p.gmv, 0);
+
     return {
-      gmvSeries: this.computeGmvSeries(unified),
+      days,
+      commissionPct: settings.commissionPct,
+      modelledCommission: Math.round(windowGmv * (settings.commissionPct / 100) * 100) / 100,
+      gmvSeries,
       ordersByType,
       topSellers: topSellers.slice(0, 6),
       topProducts: topProducts.slice(0, 6),
@@ -160,8 +182,8 @@ export class AdminDashboardService {
     };
   }
 
-  private computeGmvSeries(unified: AdminOrderSummary[]): AnalyticsDailyPoint[] {
-    return last14Days().map((date) => {
+  private computeGmvSeries(unified: AdminOrderSummary[], days: number): AnalyticsDailyPoint[] {
+    return lastNDays(days).map((date) => {
       const dayOrders = unified.filter((o) => o.placedAt.slice(0, 10) === date);
       return { date, gmv: dayOrders.reduce((sum, o) => sum + o.total, 0), orderCount: dayOrders.length };
     });

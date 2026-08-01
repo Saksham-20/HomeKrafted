@@ -87,7 +87,7 @@ remains is Phase 2 onward — see §7.
 | M2 ✅ | **Fixed in M16.** **Pre-order is rolling days only.** `lib/schedule.ts` derives the next N days and suppresses today's expired windows. No custom date picker, no seller-blocked dates, no holiday/festival handling, no per-item preparation-time rule, no availability-driven slot suggestion. |
 | M3 | **Accessibility is thin.** Two `aria-live` regions and a handful of `role="alert"` across the whole client. No skip-to-content link. `ImageSlot` sets `role="img"` + `aria-label` then renders the real image `aria-hidden` — workable, but every product photo's alt text is the placeholder caption, not the product. Focus management on drawers/modals unverified. |
 | M4 | **Razorpay runs on a placeholder key.** With the `.env.example` value the server degrades to `mock: true` and the checkout modal cannot take a test card. Launch requires real test → live keys and a webhook secret. |
-| M5 | **Admin has no reports, exports or platform settings.** Analytics is five stat cards plus a 14-day GMV chart. No CSV export, no date-range control, no cohort/retention view, no settings surface for commission, delivery radius defaults, or feature flags (`lib/features.ts` is edited by hand and requires a redeploy). |
+| M5 ◐ | **Mostly fixed in M16** — date-range analytics, CSV exports (orders / HomeKrafters / payouts), and a platform-settings screen for the commission rate and default delivery radius. **Feature flags deliberately stayed build-time**: a database flag would open the server gate while four client components still said "coming soon" until the next deploy, so making them runtime-correct is its own change and remains open. Cohort/retention views also remain open. | **Admin has no reports, exports or platform settings.** Analytics is five stat cards plus a 14-day GMV chart. No CSV export, no date-range control, no cohort/retention view, no settings surface for commission, delivery radius defaults, or feature flags (`lib/features.ts` is edited by hand and requires a redeploy). |
 | M6 | **Support is a client-side auto-reply.** `SupportClient` runs `lib/support/autoReply.ts` with no backend conversation; ticket creation posts, but the chat the customer sees is scripted locally. |
 | M7 | **No notification delivery verification.** Providers are env-gated to logged stubs. Email/SMS/WhatsApp templates and the actual send path are untested against real providers. |
 | M8 | **Guest checkout undefined.** Cart is client state; checkout fetches owner-scoped addresses and wallet. What a signed-out buyer experiences at checkout is not explicitly designed. |
@@ -316,7 +316,12 @@ left.
     per-call-site `sizes`, `priority` on LCP images, real alt text.
     Measured: the home hero went 265 KB → 59 KB at 640px. An image CDN
     is still not wired — `remotePatterns` is deliberately empty. *(H7)*
-15. Admin reports, exports, platform settings. *(M5)*
+15. ◐ **Mostly shipped (M16).** Date-range analytics, CSV exports with a
+    spreadsheet-formula guard, and a settings screen for commission and
+    default delivery radius. Still open: runtime feature flags (needs the
+    flag threaded from the root layout through a context, so the four
+    client call sites can't disagree with the server gate) and
+    cohort/retention views. *(M5)*
 16. Accessibility pass + real alt text. *(M3)*
 
 ### Phase 3 — growth

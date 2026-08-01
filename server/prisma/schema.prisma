@@ -1512,6 +1512,31 @@ model Seller {
   @@index([status])
 }
 
+/// M16 (M5). Platform-wide settings an admin can change **without a
+/// redeploy**. Before this, the commission rate existed nowhere, the
+/// default delivery radius was a constant, and feature flags lived in
+/// `client/lib/features.ts` — a build-time constant, so holding or
+/// releasing a feature meant shipping a build.
+///
+/// A single-row table would have been simpler; a key/value one is used
+/// because each setting is read by a different part of the system and a
+/// wide row would mean every reader pulling every column. Values are
+/// stored as text and parsed by `AdminSettingsService`, which owns the
+/// schema — a `Json` column would move the same parsing problem without
+/// making it typed.
+///
+/// **Nothing is stored here that nothing reads.** A settings screen full
+/// of decorative knobs is worse than no settings screen: it implies
+/// changes take effect.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  /// Who last changed it. Every write is also an `AdminAuditLog` row —
+  /// this is the cheap "when was this last touched" read.
+  updatedBy String?
+}
+
 model Payout {
   id          String       @id @default(cuid())
   sellerId    String

@@ -6,6 +6,9 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { AdminAuditLogService } from './audit-log.service';
+import { AdminSettingsController } from './settings.controller';
+import { AdminSettingsService } from './settings.service';
+import { AdminExportsService } from './exports.service';
 import { AdminAuditController } from './audit.controller';
 import { AdminUsersController } from './users.controller';
 import { AdminUsersService } from './users.service';
@@ -62,6 +65,7 @@ import { AdminDashboardService } from './dashboard.service';
     AdminWalletController,
     AdminCollectionsController,
     AdminAuditController,
+    AdminSettingsController,
   ],
   providers: [
     AdminAuditLogService,
@@ -74,6 +78,12 @@ import { AdminDashboardService } from './dashboard.service';
     AdminWalletService,
     AdminCollectionsService,
     AdminDashboardService,
+    AdminSettingsService,
+    AdminExportsService,
   ],
+  // Exported so `AdminSellersService` can read the default delivery
+  // radius at approval, and so a future non-admin reader of the feature
+  // flags has one place to get them.
+  exports: [AdminSettingsService],
 })
 export class AdminModule {}

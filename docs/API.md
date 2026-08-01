@@ -970,6 +970,21 @@ than re-implementing it; `AdminWalletService.adjust`/`issueRefund` call
 | `GET /admin/users/:id` | Single user detail. |
 | `PATCH /admin/users/:id` | Body: `{ suspended: boolean }`. Sets `User.suspended` — the same flag `AuthService` already gates login/OTP/social/refresh on, so a suspended user's next auth attempt is rejected `401` immediately (an already-issued access token still expires naturally on its own short TTL). Audited (`user.suspend`/`user.reactivate`). |
 
+**CSV exports neutralise spreadsheet formulas (M16).** A field beginning
+`=`, `+`, `-`, `@`, tab or CR is executed as a formula by Excel, Sheets
+and LibreOffice — so a HomeKrafter naming their shop `=cmd|'/c calc'!A1`
+would get it run on the machine of whoever opens the export. Every value
+goes through `csvCell`, which quotes it, doubles interior quotes and
+prefixes a leading formula character with `'`. Applied at the single
+point every export passes through, so it cannot be forgotten per-column.
+(Visible on real data: a phone number exports as `'+919008033445`.)
+
+**`commissionPct` is modelling only.** `Payout` amounts are gross and
+settlement happens by hand, so nothing deducts it. It exists because
+"what would a 12% take rate have earned last quarter" has to be
+answerable before the business can set one — and every surface that
+renders it says so.
+
 ### Sellers + the onboarding approval queue (`server/src/admin/sellers.controller.ts`)
 
 Closes the `/sell` → admin → seller-access loop: a pending
@@ -986,6 +1001,10 @@ ever reads/decides on rows it didn't create.
 | `GET /admin/sellers` | Every seller (any type/status), newest first. |
 | `GET /admin/sellers/:id` | Single seller detail. |
 | `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
+| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, defaultDeliveryRadiusKm }`. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. |
+| `PATCH /admin/settings` | Partial. Commission 0–100%, radius 1–100 km, validated in the DTO **and** the service — a take rate over 100% is a typo, not a setting, and that boundary shouldn't depend on which door the value came through. Audited (`platform_settings.update`) with before/after. |
+| `GET /admin/exports/:kind` | **M16 (M5).** `orders` \| `sellers` \| `payouts`, optional `?days=`. Returns a real `text/csv` download with a UTF-8 BOM (so Excel on Windows reads a HomeKrafter's name rather than mangling it) — not JSON the client turns into a Blob, so an accountant can be sent a URL. |
+| `GET /admin/analytics?days=` | **M16 (M5)** adds the range (was pinned at 14 days), clamped 1–365 and echoed back, plus `commissionPct` and `modelledCommission`. |
 | `GET /admin/sellers/:id/profile` | **M16.** The seller's own profile view plus `sellerId`/`vendorId`/`vendorSlug`/`displayName` — including the submitted `fssaiNumber`, which an admin has to read in order to check it and which the public storefront never publishes. |
 | `PATCH /admin/sellers/:id/verification` | **M16.** Body: any of `{ identityVerified?, addressVerified?, fssaiVerified?, fssaiExpiry?, note? }`. **The only write path to the verification badge** — see the `/seller/profile` section for why. Every field optional, so identity can be verified today and the licence next week without clearing what was already checked. Stamps `verifiedAt` on any decision including a revocation ("when was this last looked at", not "when was it approved"), notifies the HomeKrafter with the granted/withdrawn list plus the note, and audits `seller.verification` with the full before/after flag state. |
 | `GET /admin/sellers/applications` | Every `SellerApplication`, any status (`?status=pending` narrows to the queue — every status short of the two terminal ones). |

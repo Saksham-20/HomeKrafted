@@ -50,6 +50,11 @@ grid. Phase 2 starts there.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **Admin reports, exports and settings (M5).** A date range on
+  analytics (was pinned at 14 days), CSV exports for orders,
+  HomeKrafters and payouts, and a settings screen for the commission
+  rate and default delivery radius — both previously constants in
+  source, changeable only by shipping a build.
 - **Pre-order follows the kitchen (M2).** Per-HomeKrafter prep time,
   weekly cooking days and specific days off with reasons, a 14-day
   horizon (up from 7), a "next available" line on the storefront, and
@@ -75,6 +80,26 @@ grid. Phase 2 starts there.
   behave. A dev-only rewrite proxies it to the API.
 
 ### Decisions worth keeping
+
+- **CSV exports neutralise spreadsheet formulas.** A cell beginning `=`,
+  `+`, `-`, `@`, tab or CR is executed by Excel, Sheets and LibreOffice,
+  so a HomeKrafter naming their shop `=cmd|'/c calc'!A1` would get it run
+  on the machine of whoever opened the export. Every value passes through
+  one escape function that quotes it and prefixes a leading formula
+  character — applied at the single choke point, so it can't be forgotten
+  per column.
+- **The settings screen only holds settings something reads.** A screen
+  full of knobs that change nothing is worse than no screen: it tells an
+  admin their change took effect. `commissionPct` drives the analytics
+  commission line and says on its face that it is modelling only;
+  `defaultDeliveryRadiusKm` is read at seller approval.
+- **Feature flags deliberately did not move into the database.** Four of
+  `lib/features.ts`'s call sites are client components deciding button
+  copy; only the route is the real gate. A DB flag would open the gate
+  immediately and leave those four saying "coming soon" until the next
+  deploy, and a half-open feature is worse than a closed one. Making them
+  runtime-correct needs the flag threaded from the root layout through a
+  context — its own change, logged as still open in the audit.
 
 - **The rolling-day scheduler was extended, not replaced.**
   `getScheduleDays` gained an optional `availability` argument and every
@@ -169,6 +194,7 @@ grid. Phase 2 starts there.
   / `tagline` / `imageSrc`, `Collection.imageSrc` / `featured` /
   `sortOrder`.
 - `20260801090000_m16_vendor_blackout_dates` — `VendorBlackoutDate`.
+- `20260801100000_m16_platform_settings` — `PlatformSetting`.
 
 ## [M15] — Phase 1 production readiness — 2026-07-31
 
@@ -257,6 +283,11 @@ that made the marketplace unusable and unfindable.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **Admin reports, exports and settings (M5).** A date range on
+  analytics (was pinned at 14 days), CSV exports for orders,
+  HomeKrafters and payouts, and a settings screen for the commission
+  rate and default delivery radius — both previously constants in
+  source, changeable only by shipping a build.
 - **Pre-order follows the kitchen (M2).** Per-HomeKrafter prep time,
   weekly cooking days and specific days off with reasons, a 14-day
   horizon (up from 7), a "next available" line on the storefront, and
@@ -282,6 +313,26 @@ that made the marketplace unusable and unfindable.
   behave. A dev-only rewrite proxies it to the API.
 
 ### Decisions worth keeping
+
+- **CSV exports neutralise spreadsheet formulas.** A cell beginning `=`,
+  `+`, `-`, `@`, tab or CR is executed by Excel, Sheets and LibreOffice,
+  so a HomeKrafter naming their shop `=cmd|'/c calc'!A1` would get it run
+  on the machine of whoever opened the export. Every value passes through
+  one escape function that quotes it and prefixes a leading formula
+  character — applied at the single choke point, so it can't be forgotten
+  per column.
+- **The settings screen only holds settings something reads.** A screen
+  full of knobs that change nothing is worse than no screen: it tells an
+  admin their change took effect. `commissionPct` drives the analytics
+  commission line and says on its face that it is modelling only;
+  `defaultDeliveryRadiusKm` is read at seller approval.
+- **Feature flags deliberately did not move into the database.** Four of
+  `lib/features.ts`'s call sites are client components deciding button
+  copy; only the route is the real gate. A DB flag would open the gate
+  immediately and leave those four saying "coming soon" until the next
+  deploy, and a half-open feature is worse than a closed one. Making them
+  runtime-correct needs the flag threaded from the root layout through a
+  context — its own change, logged as still open in the audit.
 
 - **The rolling-day scheduler was extended, not replaced.**
   `getScheduleDays` gained an optional `availability` argument and every
