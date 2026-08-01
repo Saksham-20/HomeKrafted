@@ -329,6 +329,12 @@ left.
     copy-pasted ones, and real alt text throughout (landed with H7).
     *(M3)*
 
+**Phase 2 shipped: 2026-08-01/02 (M16).** Trust now has something to
+attach to: a HomeKrafter has a profile a buyer can read, a badge only an
+admin can grant, numbers that tell them what sells, and a calendar that
+matches what their kitchen can actually cook. One item is partial — see
+M5, where runtime feature flags stayed out on purpose.
+
 ### Phase 3 — growth
 
 17. Subscription system across snacks, meals, laundry and cleaning —
@@ -336,15 +342,22 @@ left.
     fulfilment tools, admin churn/MRR analytics. *(M1)*
 18. Real support conversations. *(M6)*
 19. Lifecycle notifications against real providers. *(M7)*
-20. Commission/take-rate modelling, featured placement.
-21. Test suite. *(L4)*
+20. Commission/take-rate **collection** and featured placement. (M16
+    added the rate as a setting and models it against GMV; nothing
+    deducts it — payouts are gross and settlement is manual.)
+21. Test suite. *(L4)* — still the largest single gap. Every claim in
+    M15/M16 was verified by measurement against a live API, but none of
+    it is guarded against regression.
+22. Runtime feature flags — thread `lib/features.ts` from the root layout
+    through a context so a database flag can't leave client components
+    disagreeing with the server gate. *(the open half of M5)*
 
 ### Phase 4 — long-term
 
-22. Mobile apps: full food delivery, live tracking, delivery partners.
-23. Personalised recommendations from order history.
-24. Caching, read replicas, search infrastructure beyond Postgres.
-25. Multi-city expansion beyond the tricity.
+23. Mobile apps: full food delivery, live tracking, delivery partners.
+24. Personalised recommendations from order history.
+25. Caching, read replicas, search infrastructure beyond Postgres.
+26. Multi-city expansion beyond the tricity.
 
 ---
 
