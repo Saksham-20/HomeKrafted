@@ -85,7 +85,7 @@ remains is Phase 2 onward — see §7.
 |---|---|
 | M1 | **Subscriptions exist only for laundry.** `LaundrySubscription` + `POST/PATCH/DELETE /laundry/subscriptions` are real and wired into the booking flow, but there is no management surface (no `/account/subscriptions`), no pause/skip/resume, and nothing equivalent for snacks, meals or cleaning. No recurring-order generation job exists — a subscription records intent and produces nothing. |
 | M2 ✅ | **Fixed in M16.** **Pre-order is rolling days only.** `lib/schedule.ts` derives the next N days and suppresses today's expired windows. No custom date picker, no seller-blocked dates, no holiday/festival handling, no per-item preparation-time rule, no availability-driven slot suggestion. |
-| M3 | **Accessibility is thin.** Two `aria-live` regions and a handful of `role="alert"` across the whole client. No skip-to-content link. `ImageSlot` sets `role="img"` + `aria-label` then renders the real image `aria-hidden` — workable, but every product photo's alt text is the placeholder caption, not the product. Focus management on drawers/modals unverified. |
+| M3 ✅ | **Fixed in M16.** **Accessibility is thin.** Two `aria-live` regions and a handful of `role="alert"` across the whole client. No skip-to-content link. `ImageSlot` sets `role="img"` + `aria-label` then renders the real image `aria-hidden` — workable, but every product photo's alt text is the placeholder caption, not the product. Focus management on drawers/modals unverified. |
 | M4 | **Razorpay runs on a placeholder key.** With the `.env.example` value the server degrades to `mock: true` and the checkout modal cannot take a test card. Launch requires real test → live keys and a webhook secret. |
 | M5 ◐ | **Mostly fixed in M16** — date-range analytics, CSV exports (orders / HomeKrafters / payouts), and a platform-settings screen for the commission rate and default delivery radius. **Feature flags deliberately stayed build-time**: a database flag would open the server gate while four client components still said "coming soon" until the next deploy, so making them runtime-correct is its own change and remains open. Cohort/retention views also remain open. | **Admin has no reports, exports or platform settings.** Analytics is five stat cards plus a 14-day GMV chart. No CSV export, no date-range control, no cohort/retention view, no settings surface for commission, delivery radius defaults, or feature flags (`lib/features.ts` is edited by hand and requires a redeploy). |
 | M6 | **Support is a client-side auto-reply.** `SupportClient` runs `lib/support/autoReply.ts` with no backend conversation; ticket creation posts, but the chat the customer sees is scripted locally. |
@@ -322,7 +322,12 @@ left.
     flag threaded from the root layout through a context, so the four
     client call sites can't disagree with the server gate) and
     cohort/retention views. *(M5)*
-16. Accessibility pass + real alt text. *(M3)*
+16. ✅ **Shipped (M16).** Skip-to-content link, focusable `<main>`
+    landmark, focus trap + restore on both modals (the closed drawer was
+    also fully tabbable, which made its `aria-hidden` a violation in
+    itself), a shared screen-reader-only utility replacing three
+    copy-pasted ones, and real alt text throughout (landed with H7).
+    *(M3)*
 
 ### Phase 3 — growth
 

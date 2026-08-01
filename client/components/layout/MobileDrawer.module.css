@@ -22,7 +22,17 @@
   background: var(--hk-surface);
   box-shadow: var(--hk-shadow-stage);
   transform: translateX(100%);
-  transition: transform var(--hk-dur) var(--hk-ease);
+  /* M16 a11y fix: `translateX` alone leaves every link in here focusable
+     while the drawer is shut, so Tab on any page walked through the whole
+     closed menu — and `aria-hidden="true"` over focusable elements is
+     itself a violation (focus can land somewhere assistive tech has been
+     told doesn't exist). `visibility: hidden` takes it out of the tab
+     order; delaying that one property until the slide-out finishes keeps
+     the animation. */
+  visibility: hidden;
+  transition:
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s linear var(--hk-dur);
   z-index: 91;
   display: flex;
   flex-direction: column;
@@ -31,6 +41,12 @@
 
 .panel.open {
   transform: translateX(0);
+  visibility: visible;
+  /* Visible immediately on the way in — no delay, or the panel slides in
+     invisibly. */
+  transition:
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s;
 }
 
 .panelHeader {

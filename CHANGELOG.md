@@ -50,6 +50,12 @@ grid. Phase 2 starts there.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **Accessibility pass (M3).** A skip-to-content link (first in the tab
+  order — a keyboard user previously tabbed through the announcement bar,
+  the header and the whole nav on every page before reaching anything),
+  a focusable `<main>` landmark for it to target, focus management on
+  both modals, and one shared screen-reader-only utility replacing three
+  copy-pasted local ones. Real alt text landed with H7.
 - **Admin reports, exports and settings (M5).** A date range on
   analytics (was pinned at 14 days), CSV exports for orders,
   HomeKrafters and payouts, and a settings screen for the commission
@@ -78,6 +84,24 @@ grid. Phase 2 starts there.
   production and by nothing on :3000 in dev, so an uploaded photo used to
   404 locally and render in production — the worst way round for a bug to
   behave. A dev-only rewrite proxies it to the API.
+
+### Caught in review
+
+- **The closed mobile drawer was fully tabbable.** It slid off-screen
+  with `translateX(100%)` and stayed in the tab order, so Tab on any page
+  walked through the entire closed menu — and because the panel also
+  carried `aria-hidden="true"`, focus could land on elements assistive
+  tech had been told didn't exist, which is a violation in its own right.
+  Fixed with `visibility: hidden`, delayed by the animation duration so
+  the slide-out still plays.
+- **Both modals claimed `aria-modal="true"` and did none of what that
+  obliges.** Focus never moved in, Tab walked straight out into the page
+  behind, and the location prompt ignored Escape. Both now move focus in,
+  trap Tab at each end, and return focus to whatever opened them —
+  landing back at the top of the document after closing a menu is how a
+  keyboard user loses their place. Escape on the location prompt maps to
+  "skip" rather than a silent close, because dismissing is a real answer
+  there and it records that we asked.
 
 ### Decisions worth keeping
 
@@ -283,6 +307,12 @@ that made the marketplace unusable and unfindable.
   deltas, across 7/30/90-day windows. The portal had eight screens and
   none of them answered "what is selling, and when".
 
+- **Accessibility pass (M3).** A skip-to-content link (first in the tab
+  order — a keyboard user previously tabbed through the announcement bar,
+  the header and the whole nav on every page before reaching anything),
+  a focusable `<main>` landmark for it to target, focus management on
+  both modals, and one shared screen-reader-only utility replacing three
+  copy-pasted local ones. Real alt text landed with H7.
 - **Admin reports, exports and settings (M5).** A date range on
   analytics (was pinned at 14 days), CSV exports for orders,
   HomeKrafters and payouts, and a settings screen for the commission
@@ -311,6 +341,24 @@ that made the marketplace unusable and unfindable.
   production and by nothing on :3000 in dev, so an uploaded photo used to
   404 locally and render in production — the worst way round for a bug to
   behave. A dev-only rewrite proxies it to the API.
+
+### Caught in review
+
+- **The closed mobile drawer was fully tabbable.** It slid off-screen
+  with `translateX(100%)` and stayed in the tab order, so Tab on any page
+  walked through the entire closed menu — and because the panel also
+  carried `aria-hidden="true"`, focus could land on elements assistive
+  tech had been told didn't exist, which is a violation in its own right.
+  Fixed with `visibility: hidden`, delayed by the animation duration so
+  the slide-out still plays.
+- **Both modals claimed `aria-modal="true"` and did none of what that
+  obliges.** Focus never moved in, Tab walked straight out into the page
+  behind, and the location prompt ignored Escape. Both now move focus in,
+  trap Tab at each end, and return focus to whatever opened them —
+  landing back at the top of the document after closing a menu is how a
+  keyboard user loses their place. Escape on the location prompt maps to
+  "skip" rather than a silent close, because dismissing is a real answer
+  there and it records that we asked.
 
 ### Decisions worth keeping
 

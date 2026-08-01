@@ -61,7 +61,7 @@ export function TrustPanel({ trust, achievements, stats, vendorName, className }
               <span className={styles.signalLabel}>
                 {signal.label}
                 {/* The tick/dash is `aria-hidden`, so met/not-met has to reach a screen reader some other way. */}
-                <span className={styles.srOnly}>{signal.earned ? " — met" : " — not met"}</span>
+                <span className="hk-sr-only">{signal.earned ? " — met" : " — not met"}</span>
               </span>
               <span className={styles.signalDetail}>{signal.detail}</span>
             </span>

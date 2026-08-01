@@ -286,6 +286,21 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   Untick it again and the badge should come straight off.
 - **Analytics** — dashboard charts
 
+### Keyboard and screen readers (M16)
+
+- Press **Tab** on any page. The first thing to appear should be a
+  **"Skip to content"** link — press Enter and focus should jump past the
+  header into the page body.
+- Open the **mobile menu** (below ~840px) and press Tab repeatedly:
+  focus should stay inside the menu and wrap round. **Escape** closes it,
+  and focus should return to the hamburger button — not to the top of
+  the page.
+- The same applies to the **"Where should we deliver?"** prompt on a
+  first visit. Escape there counts as "skip", so you won't be asked
+  again.
+- With the menu **closed**, tabbing through a page should never walk
+  through the menu's links. (It used to.)
+
 ### Admin reports, exports and settings (M16)
 
 - **Analytics** has range chips (14 / 30 / 90 days). Every figure and the

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Heart, Store, User, Wallet, X } from "lucide-react";
@@ -26,14 +26,56 @@ export interface MobileDrawerProps {
  * wishlist/account icons below ~840px, so this is the only way to reach
  * them on small screens.
  */
+/** Everything focusable inside the panel, in DOM order. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchToSelling }: MobileDrawerProps) {
   const { count: wishlistCount } = useWishlist();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
+  /**
+   * Focus management (M16). The drawer already trapped scroll and closed
+   * on Escape, but focus stayed on the page behind it — so a keyboard or
+   * screen-reader user opened a modal and then tabbed straight through
+   * the content it was covering, which is `aria-modal="true"` telling
+   * them something that isn't true.
+   *
+   * Three things, all of which a real dialog owes: move focus in on open,
+   * keep Tab inside while it's there, and put focus back where it came
+   * from on close. The last one matters most — landing back at the top of
+   * the document after closing a menu is how a keyboard user loses their
+   * place.
+   */
   useEffect(() => {
     if (!open) return;
 
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    panel?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !panel) return;
+
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      // Wrap at both ends. Without this, Tab walks out of the dialog and
+      // into the page it is covering.
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKeyDown);
 
@@ -43,6 +85,8 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchT
     return () => {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
+      // Back to the hamburger that opened it, if it's still on the page.
+      returnFocusRef.current?.focus?.();
     };
   }, [open, onClose]);
 
@@ -54,6 +98,7 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchT
         aria-hidden="true"
       />
       <div
+        ref={panelRef}
         className={clsx(styles.panel, open && styles.open)}
         role="dialog"
         aria-modal="true"

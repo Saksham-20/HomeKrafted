@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useLocation } from "@/lib/location/LocationContext";
 import { areasByCity } from "@/lib/geo";
 import styles from "./LocationPrompt.module.css";
+
+/** Everything focusable inside the card, in DOM order — same list the mobile drawer traps against. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * The opening "where are you?" ask.
@@ -28,11 +32,63 @@ export function LocationPrompt() {
   // has round-tripped through storage.
   const [closed, setClosed] = useState(false);
   const [pending, setPending] = useState("");
+  const cardRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   // Derived at render rather than stored via an effect: `asked` comes from
   // localStorage, so gating on `ready` stops the prompt flashing at
   // returning visitors during hydration, with no cascading setState.
   const open = ready && !asked && !closed;
+
+  /**
+   * Focus management (M16). This announces itself as `aria-modal="true"`
+   * and did none of the three things that claim obliges: focus never
+   * moved in, Tab walked straight out into the page behind it, and
+   * Escape did nothing.
+   *
+   * Escape maps to "skip" rather than a silent close, because dismissing
+   * is a real answer here — `dismiss()` records that we asked, so a
+   * visitor who hits Escape isn't asked again on every page.
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    const card = cardRef.current;
+    card?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dismiss();
+        setClosed(true);
+        return;
+      }
+      if (event.key !== "Tab" || !card) return;
+
+      const focusable = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus?.();
+    };
+  }, [open, dismiss]);
+
   if (!open) return null;
 
   async function handleUseLocation() {
@@ -56,7 +112,7 @@ export function LocationPrompt() {
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-labelledby="hk-loc-title">
-      <div className={styles.card}>
+      <div className={styles.card} ref={cardRef}>
         <span className={styles.icon}>
           <MapPin size={20} strokeWidth={1.7} aria-hidden="true" />
         </span>

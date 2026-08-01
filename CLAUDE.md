@@ -438,6 +438,24 @@ silently override another — the same reason `Product.isAvailable` and
 - **Blackouts are specific dates, never a recurrence rule.** The weekly
   pattern already exists; this is the exception to it.
 
+## Accessibility floor (M16) — what every new surface owes
+
+- **`.hk-sr-only`** (`styles/globals.css`) is the screen-reader-only
+  class. Don't copy a local one into a module — three had already been
+  duplicated, and a recipe that gets one property wrong (`display: none`
+  hides it from assistive tech too) fails invisibly.
+- **A dialog owes three things**, not one: move focus in on open, trap
+  Tab at both ends, restore focus to whatever opened it. `aria-modal`
+  without them is a claim the page doesn't honour. `MobileDrawer` and
+  `LocationPrompt` are the reference implementations.
+- **Anything hidden off-screen must leave the tab order.** A
+  `transform: translateX(100%)` panel is still focusable; use
+  `visibility: hidden` (delay the transition so the animation survives).
+  `aria-hidden` over focusable elements is itself a violation.
+- **Icon-only buttons need `aria-label`.** `<Button variant="icon">`
+  exists precisely so this is not forgotten.
+- **`ImageSlot` needs a real `alt`** — see its section above.
+
 ## SEO — every new public route owes three things (M15)
 
 `lib/seo.ts` is the seam: `pageMetadata()` for title/description/

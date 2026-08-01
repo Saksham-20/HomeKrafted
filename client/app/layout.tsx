@@ -92,6 +92,13 @@ export default function RootLayout({
       className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable}`}
     >
       <body>
+        {/* First thing in the tab order (M16). A keyboard user landing on
+            any page otherwise has to tab through the announcement bar,
+            the whole header and the nav before reaching the content —
+            on every page, every time. */}
+        <a className="hk-skip-link" href="#main-content">
+          Skip to content
+        </a>
         <AuthProvider>
           {/* Outside the shopping providers: where the buyer is decides
               which kitchens can reach them, so cart/wishlist/wallet all
@@ -105,7 +112,12 @@ export default function RootLayout({
                     header={<Header />}
                     footer={<Footer />}
                   >
-                    <main>{children}</main>
+                    {/* `tabIndex={-1}` so the skip link can actually move
+                        focus here — a <main> isn't focusable otherwise, and
+                        the link would scroll without moving the caret. */}
+                    <main id="main-content" tabIndex={-1}>
+                      {children}
+                    </main>
                   </ConsumerChrome>
                   {/* Renders itself only on a first visit — see LocationPrompt. */}
                   <LocationPrompt />

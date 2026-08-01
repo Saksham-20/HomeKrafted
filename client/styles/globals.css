@@ -148,3 +148,72 @@ p {
     padding-inline: var(--hk-s4);
   }
 }
+
+/* ---- Accessibility utilities (M16) ----
+   Both of these existed as copy-pasted local classes in a handful of
+   component modules. Centralised here because a screen-reader-only
+   recipe getting one property wrong (a common one: `display: none`,
+   which hides it from assistive tech too) is the kind of bug that is
+   invisible until somebody who needs it hits it. */
+
+/* Visible to a screen reader, not to the eye. */
+.hk-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Same, until it takes focus — the skip link. Keyboard users get to see
+   it; nobody else does. */
+.hk-skip-link {
+  position: absolute;
+  top: 0;
+  left: var(--hk-s4);
+  z-index: 100;
+  /* translateY rather than display/visibility: the link has to stay
+     focusable to be reachable by Tab in the first place. */
+  transform: translateY(-120%);
+  padding: 10px 18px;
+  border-radius: 0 0 var(--hk-r-md) var(--hk-r-md);
+  background: var(--hk-pine);
+  color: var(--hk-on-pine);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.hk-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--hk-gold);
+  outline-offset: 2px;
+}
+
+/* A `<main>` isn't focusable by default, so sending focus to it with a
+   skip link does nothing without this. `tabindex="-1"` makes it a target
+   without adding it to the tab order; the outline is suppressed because
+   the visible result is the page scrolling, not a focus ring on the
+   whole document body. */
+main:focus {
+  outline: none;
+}
+
+/* Everything below assumes a visible focus ring exists. Components style
+   their own `:focus-visible`; this is the floor for anything that
+   doesn't. */
+:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hk-skip-link {
+    transition: none;
+  }
+}

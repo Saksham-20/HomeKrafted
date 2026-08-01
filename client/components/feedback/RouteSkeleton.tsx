@@ -32,7 +32,7 @@ export function RouteSkeleton({
 }: RouteSkeletonProps) {
   return (
     <div className={clsx("container", styles.wrap)}>
-      <span className={styles.srOnly} role="status" aria-live="polite">
+      <span className="hk-sr-only" role="status" aria-live="polite">
         {label}
       </span>
       <div className={styles.head} aria-hidden="true">
