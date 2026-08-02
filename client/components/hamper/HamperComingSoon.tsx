@@ -33,7 +33,7 @@ const STEPS = [
 ] as const;
 
 /**
- * `/hamper` while `FEATURES.hamperBuilder` is off (see `lib/features.ts`) —
+ * `/hamper` while the `hamperBuilder` flag is off (see `lib/features/`) —
  * the builder is finished but held, so this page sells what's coming
  * instead of 404ing or silently redirecting a nav link that still exists.
  *

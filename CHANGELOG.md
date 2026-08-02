@@ -3,6 +3,118 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M17] — Tests, CI and runtime feature flags — 2026-08-02
+
+Phase 2 left two items open. This closes both — and the first one
+immediately earned its keep by finding a real bug in code that had been
+shipped, reviewed and manually verified.
+
+### Added
+
+- **A test suite, in three layers (L4).** 365 tests. `client/lib/**` unit
+  tests for the pure modules that decide what the app may do (the
+  scheduler, the channel matrix, occasion grouping, geo, formatting,
+  SEO); `server/test/unit/` for CSV escaping, the trust model,
+  availability defaulting and settings parsing; and `server/test/e2e/` —
+  **a real Nest app against a real Postgres, no mocks** — for everything
+  expressed as a query. Prisma is never mocked in the e2e layer: a
+  mocked one would let a scoping test pass while the query said
+  something else entirely. See `docs/TESTS.md`.
+- **CI (`.github/workflows/ci.yml`).** Typecheck, lint, unit, e2e (with a
+  Postgres service) and both builds, on every push and PR. `migrate
+  deploy` against an empty database is part of it, so a broken migration
+  lineage fails here rather than during a deploy.
+- **Cross-package parity test (L1).** `client/lib/geo.ts` and
+  `server/src/common/geo.ts` each carry a copy of the tricity area table
+  because the packages have no shared build. CLAUDE.md has always said
+  they must stay identical and nothing checked. A drift of 0.0001° — 11
+  metres — now fails the build. Verified by mutation.
+- **Runtime feature flags (the open half of M5).** `GET /settings/public`
+  serves an allowlisted subset of platform settings, and `lib/features/`
+  threads it from the root layout to every reader — the `/hamper` route
+  gate and all four client components resolve one value, so a flip can
+  no longer open the route while the buttons still say "coming soon".
+  An admin flips it on `/admin/settings`.
+
+### Fixed
+
+- **An approved HomeKrafter could not log in at all.** Approving an
+  application mints an account with **no password** — deliberate, since
+  an admin should never set someone's — reachable by phone OTP
+  (`authProviders: ['phone']`). But the HomeKrafter sign-in tab offered
+  only email and password, so `POST /auth/login` answered "Incorrect
+  email or password" for a password that had never existed, and there was
+  no other door. Every kitchen onboarded through the real application
+  flow was locked out of the product it had just been approved for. The
+  tab now leads with Phone; the email path no longer falls through to
+  account creation, and a 401 there says to use the phone tab.
+- **Every real HomeKrafter was shown another kitchen's identity.** The
+  portal resolved the signed-in seller by looking the session user up in
+  the **mock** `lib/data/sellers.ts` list; a real kitchen is never in it,
+  so the miss fell through to a demo record. A genuine HomeKrafter saw a
+  seeded demo kitchen's name in the header and its `vendorId` behind
+  their storefront links. Added `GET /seller/me` — which had no
+  equivalent before — and the client now reads its own record from the
+  session, keyed by user id so it cannot survive into another account.
+- **`/admin/login` ignored the credentials it was given.** The handler
+  called `signInAsAdmin()` and discarded the typed email and password, so
+  any email plus any four characters authenticated as the seeded admin.
+  The page is publicly routable, so this was full administrative access —
+  settling payouts, granting verification badges, suspending users — to
+  anyone who found the URL. It now performs a real `POST /auth/login` and
+  verifies the returned role, signing a non-admin straight back out.
+- **The seeded admin's credentials shipped in the public JS bundle.**
+  `AuthContext` is a `"use client"` module and held the demo emails and
+  the shared seed password as constants, so `admin@homekrafted.example`
+  and its password were readable with view-source on the live site, where
+  that account exists. Removed, along with the `signInDemo` /
+  `signInAsSeller` / `signInAsAdmin` helpers and every "continue as
+  demo ___" button. The seeded accounts still exist and are still how the
+  site is tested — their credentials live in `docs/TESTING.md` and a
+  tester types them into the ordinary form.
+- **`"false"` evaluated as `true` on every boolean field in the API.**
+  The global `ValidationPipe` runs with `enableImplicitConversion`
+  (query DTOs need it so `?days=30` is a number); for a `Boolean` field
+  that conversion is `Boolean(value)`, and `Boolean('false')` is `true`.
+  Every non-empty string therefore set a flag to **true** and returned
+  200 — including `PATCH /admin/sellers/:id/verification`, where
+  `{"fssaiVerified": "false", "identityVerified": "no"}` **granted both
+  badges**. It reached 24 fields across 18 DTOs: wallet auto-top-up,
+  review moderation, user suspension, and a HomeKrafter's "am I making
+  this today" switch. In every one of them it failed in the *enabling*
+  direction, and `"false"` is exactly what an HTML form field or a
+  hand-written `curl` sends. Fixed with `@BooleanField()`, now the only
+  correct way to declare a boolean request field: it reads the raw value
+  before conversion, accepts the four unambiguous spellings, and 400s
+  anything else rather than guessing at `"yes"`.
+- **Site revalidation dropped from an hour to a minute.** A route's
+  `revalidate` caps how fresh it can be, whatever the underlying fetch
+  says — so `/` and `/collections` at 3600s would have kept saying
+  "coming soon" for up to an hour after the flag opened `/hamper`. The
+  interval now follows the fastest-moving thing on the page.
+
+### Changed
+
+- `lib/features.ts` became `lib/features/` — `index.ts` (types and the
+  held-by-default fallback), `server.ts` (`getFeatures()` for Server
+  Components), `FeaturesContext.tsx` (`useFeatures()` for client ones).
+  The flags are runtime values now, not build-time constants.
+- The admin settings screen's "not here on purpose" note is gone,
+  replaced by the toggle it was explaining.
+
+### Notes
+
+- **Every flag fails closed.** The default, the fallback when the
+  settings endpoint is unreachable, and the parse of any stored value
+  that isn't exactly `'true'` all resolve to *held*. A flag that fails
+  open is a flag that ships itself during an outage.
+- **`GET /settings/public` is an allowlist, not a denylist.** A new
+  setting is private until it is named in `PUBLIC_SETTING_KEYS`. The
+  setting sitting next to the flag is the commission rate.
+- **Still owed:** browser-level tests for the dialog focus traps
+  (`MobileDrawer`, `LocationPrompt`) — jsdom would assert that markup
+  looks like markup — and load testing.
+
 ## [M16] — Phase 2 — 2026-07-31
 
 Phase 1 made trust *mechanically* possible: a review can be written, a

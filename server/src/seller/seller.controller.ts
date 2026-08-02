@@ -24,6 +24,23 @@ export class SellerController {
     private readonly payoutsService: SellerPayoutsService,
   ) {}
 
+  /**
+   * The signed-in HomeKrafter's own `Seller` record (M17).
+   *
+   * The web client used to resolve this from the **mock** seller list in
+   * `lib/data/sellers.ts`, keyed on the session user's id. A real
+   * HomeKrafter is not in that list, so the lookup missed and fell
+   * through to a default demo record — every genuine kitchen saw another
+   * kitchen's name and `vendorId` in their own portal. There was no
+   * endpoint to read it from; this is that endpoint.
+   *
+   * Resolved from the caller's own session, never from a supplied id.
+   */
+  @Get('me')
+  async me(@CurrentUser() user: RequestUser) {
+    return this.sellerService.getOwnRecord(user);
+  }
+
   /** One shape for every HomeKrafter — see `SellerService.getDashboard`. */
   @Get('dashboard')
   async dashboard(@CurrentUser() user: RequestUser) {

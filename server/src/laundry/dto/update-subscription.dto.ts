@@ -1,8 +1,9 @@
-import { IsBoolean, IsIn, IsISO8601, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsString, MinLength } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export class UpdateSubscriptionDto {
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   active?: boolean;
 
   @IsOptional()

@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export type ProductSort = 'most-loved' | 'price-asc' | 'price-desc' | 'nearest';
 
@@ -53,7 +54,7 @@ export class ListProductsQueryDto {
 
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
-  @IsBoolean()
+  @BooleanField()
   featured?: boolean;
 
   /**
@@ -83,7 +84,7 @@ export class ListProductsQueryDto {
   /** Only items the HomeKrafter currently marks as available. Defaults to true for buyers. */
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
-  @IsBoolean()
+  @BooleanField()
   availableOnly?: boolean;
 
   @IsOptional()

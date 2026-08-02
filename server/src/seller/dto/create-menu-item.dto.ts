@@ -1,4 +1,5 @@
-import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /** Snack seller menu create/update — mirrors `client/lib/api/seller.ts`'s `SellerMenuInput`. No `sellerId`: always the resolved seller's own id. */
 export class CreateMenuItemDto {
@@ -25,6 +26,6 @@ export class CreateMenuItemDto {
   @IsString()
   imagePath?: string;
 
-  @IsBoolean()
+  @BooleanField()
   available!: boolean;
 }

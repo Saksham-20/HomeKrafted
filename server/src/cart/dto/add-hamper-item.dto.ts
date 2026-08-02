@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
-  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -11,6 +10,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export class HamperLineItemDto {
   @IsString()
@@ -55,6 +55,6 @@ export class AddHamperItemDto {
   recipientAddressId?: string;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   hidePrice?: boolean;
 }

@@ -35,9 +35,18 @@ All demo accounts share the same password:
 Passw0rd!123
 ```
 
-**Don't use "login with phone / OTP."** The SMS provider isn't connected on
-staging, so the code is never delivered — you'd be stuck. Email + password
-only.
+**There are no longer any "continue as demo ___" buttons.** They were
+removed in M17: those buttons carried the seeded emails *and the shared
+password* inside the public JavaScript bundle, so anyone could read the
+admin credentials with view-source. The accounts below are unchanged —
+type the email and password into the ordinary form like a real user
+would, which is also what makes this a real test of sign-in.
+
+**Don't use "login with phone / OTP" for these demo accounts.** The SMS
+provider isn't connected on staging, so the code is never delivered.
+Email + password only. (Phone OTP is genuinely the *only* way a
+newly-approved HomeKrafter signs in — see "A brand-new HomeKrafter"
+below — so testing that path needs the code from the server log.)
 
 You should arrive **logged out**. If you land already signed in as someone,
 that's a bug — report it.
@@ -68,6 +77,28 @@ bug worth reporting.
 A HomeKrafter account can also shop as a normal customer in the same
 session — look for "Switch to shopping" in the dashboard top bar. Worth
 testing both directions.
+
+**Check the dashboard greets you as the right kitchen.** Signing in as
+`meera@meerassnackbox.example` must say *Meera's Snack Box*, not
+Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
+seeded demo kitchen's name and storefront link, because the portal
+resolved the seller record from mock data.
+
+### A brand-new HomeKrafter
+
+The demo accounts above are seeded *with* passwords. A kitchen that comes
+through the real application flow is not:
+
+1. Apply at `/sell`.
+2. An admin approves it at `/admin/sellers`.
+3. The approved account has **no password at all** — the admin never sets
+   one. It signs in on the **Phone** tab of `/login?role=seller`, with the
+   mobile number from the application.
+
+Until M17 that tab offered only email and password, so an approved
+HomeKrafter was told "Incorrect email or password" for a password that had
+never existed, with no other way in. If a newly approved kitchen cannot
+reach `/seller`, that is the bug to report.
 
 ---
 

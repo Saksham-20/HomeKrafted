@@ -23,24 +23,48 @@ export interface PlatformSettings {
    * state one. Read by `AdminSellersService.approveApplication`.
    */
   defaultDeliveryRadiusKm: number;
+  /**
+   * The hamper builder (`/hamper`). **A feature flag, and the only one**
+   * — see `PUBLIC_SETTING_KEYS` for why it is shaped differently from
+   * the two numbers above.
+   *
+   * M5 deliberately left this in `client/lib/features.ts` as a
+   * build-time constant, because flipping a database flag would have
+   * opened the route immediately while four client components carried on
+   * saying "coming soon" until the next deploy — a half-open feature is
+   * worse than a closed one. What closes that gap is not the flag moving
+   * here, it is `GET /settings/public` plus a provider threading the
+   * value from the root layout to those components, so every reader
+   * changes at once.
+   */
+  hamperBuilderEnabled: boolean;
 }
 
 /**
- * **Feature flags deliberately did not move here.**
- * `client/lib/features.ts` stays a build-time constant. Four of its call
- * sites are client components deciding button copy and whether an "add to
- * hamper" control renders; only `app/hamper/page.tsx` is the real gate.
- * A database flag would flip the server gate immediately and leave those
- * four saying "coming soon" until the next deploy — a half-open feature
- * is worse than a closed one. Making them runtime-correct needs the flag
- * threaded from the root layout through a context, which is a change
- * worth making on its own, not as a side effect of adding a settings
- * screen. Logged in `docs/PRODUCTION-AUDIT.md` as still open.
+ * The subset that is safe to serve unauthenticated, via
+ * `GET /settings/public`.
+ *
+ * **An allowlist, never a denylist.** The commission rate is a
+ * commercial term and `defaultDeliveryRadiusKm` is operational trivia;
+ * neither belongs on a page anyone can read. A new setting is private
+ * until it is named here, which is the direction that fails safe when
+ * someone adds one and forgets this file.
  */
+export const PUBLIC_SETTING_KEYS = ['hamperBuilderEnabled'] as const;
+
+export type PublicPlatformSettings = Pick<
+  PlatformSettings,
+  (typeof PUBLIC_SETTING_KEYS)[number]
+>;
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionPct: 10,
   defaultDeliveryRadiusKm: 10,
+  // Held. The default is the *closed* value on purpose: if the settings
+  // table is empty, or the API is unreachable and the client falls back,
+  // the feature stays off. A flag that fails open is a flag that ships
+  // itself during an outage.
+  hamperBuilderEnabled: false,
 };
 
 @Injectable()
@@ -65,7 +89,17 @@ export class AdminSettingsService {
         byKey.get('defaultDeliveryRadiusKm'),
         DEFAULT_SETTINGS.defaultDeliveryRadiusKm,
       ),
+      hamperBuilderEnabled: booleanOr(
+        byKey.get('hamperBuilderEnabled'),
+        DEFAULT_SETTINGS.hamperBuilderEnabled,
+      ),
     };
+  }
+
+  /** Only the allowlisted keys — served unauthenticated, so it is built by picking, never by deleting. */
+  async getPublic(): Promise<PublicPlatformSettings> {
+    const all = await this.get();
+    return { hamperBuilderEnabled: all.hamperBuilderEnabled };
   }
 
   async update(adminUserId: string, patch: Partial<PlatformSettings>): Promise<PlatformSettings> {
@@ -117,4 +151,14 @@ function numberOr(raw: string | undefined, fallback: number): number {
   if (raw === undefined) return fallback;
   const parsed = Number(raw);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+/**
+ * Strict on the true side: only the literal `'true'` enables a feature.
+ * Anything else — a typo, a stray `'yes'`, a hand-edited row — leaves it
+ * held, which is the direction that fails safe.
+ */
+function booleanOr(raw: string | undefined, fallback: boolean): boolean {
+  if (raw === undefined) return fallback;
+  return raw === 'true';
 }

@@ -1,4 +1,5 @@
-import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export class CreateAddressDto {
   @IsString()
@@ -39,7 +40,7 @@ export class CreateAddressDto {
   country?: string;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   isDefault?: boolean;
 
   @IsOptional()

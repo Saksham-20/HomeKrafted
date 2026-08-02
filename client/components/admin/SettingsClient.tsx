@@ -11,17 +11,21 @@ import styles from "./SettingsClient.module.css";
 interface Draft {
   commissionPct: string;
   defaultDeliveryRadiusKm: string;
+  hamperBuilderEnabled: boolean;
 }
 
 /**
- * `/admin/settings` (M16, M5) — platform values that used to be constants
- * in source, changeable only by shipping a build.
+ * `/admin/settings` (M16, M5; feature flags added M17) — platform values
+ * that used to be constants in source, changeable only by shipping a
+ * build.
  *
  * **Only settings something reads.** A settings screen full of knobs that
  * change nothing is worse than no settings screen: it tells an admin
- * their change took effect. Feature flags deliberately aren't here — see
- * `AdminSettingsService`'s note on why a database flag would leave four
- * client call sites disagreeing with the server until the next deploy.
+ * their change took effect. The hamper flag only appeared here once
+ * `GET /settings/public` and `lib/features/` made every reader — the
+ * route gate and all four client components — resolve the same value, so
+ * flipping it can no longer leave a feature half-open until the next
+ * deploy.
  */
 export function SettingsClient() {
   const { ready, role } = useAuth();
@@ -40,6 +44,7 @@ export function SettingsClient() {
       setDraft({
         commissionPct: String(loaded.commissionPct),
         defaultDeliveryRadiusKm: String(loaded.defaultDeliveryRadiusKm),
+        hamperBuilderEnabled: loaded.hamperBuilderEnabled,
       });
     })();
     return () => {
@@ -63,6 +68,7 @@ export function SettingsClient() {
     const updated = await updatePlatformSettings({
       commissionPct: Number(draft.commissionPct),
       defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
+      hamperBuilderEnabled: draft.hamperBuilderEnabled,
     });
     setSaving(false);
     if (!updated) {
@@ -115,6 +121,24 @@ export function SettingsClient() {
           </p>
         </div>
 
+        <div className={styles.setting}>
+          <label className={styles.toggle}>
+            <input
+              type="checkbox"
+              checked={draft.hamperBuilderEnabled}
+              onChange={(event) => edit({ hamperBuilderEnabled: event.target.checked })}
+            />
+            <span className={styles.label}>Hamper builder is live</span>
+          </label>
+          <p className={styles.help}>
+            Turns <code>/hamper</code> from the coming-soon page into the wizard, and switches the
+            home hero, product detail and empty cart from &ldquo;coming soon&rdquo; to a real link.{" "}
+            <strong>All of them change together</strong> — the route and every button read the same
+            value, so this can&rsquo;t leave the feature half-open. Visitors see the change within a
+            minute.
+          </p>
+        </div>
+
         <div className={styles.actions}>
           <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save settings"}
@@ -123,17 +147,6 @@ export function SettingsClient() {
             {message ?? ""}
           </span>
         </div>
-      </Card>
-
-      <Card className={styles.note} padding="md">
-        <h2 className={styles.noteTitle}>Not here on purpose</h2>
-        <p>
-          <strong>Feature flags</strong> stay in <code>client/lib/features.ts</code>, a build-time
-          constant. Flipping one from the database would open the server-side gate immediately while
-          four client components carried on saying &ldquo;coming soon&rdquo; until the next deploy — a
-          half-open feature is worse than a closed one. Making those runtime-correct is its own
-          change, tracked in the production audit.
-        </p>
       </Card>
     </div>
   );

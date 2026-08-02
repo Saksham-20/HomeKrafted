@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsInt,
   IsNumber,
   IsOptional,
@@ -13,6 +12,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * What a HomeKrafter may write about themselves (M16).
@@ -70,7 +70,7 @@ export class UpdateSellerProfileDto {
   @IsOptional() @IsString() @MaxLength(1000) cancellationPolicy?: string;
   @IsOptional() @IsString() @MaxLength(1000) returnPolicy?: string;
   @IsOptional() @IsString() @MaxLength(1000) customOrderPolicy?: string;
-  @IsOptional() @IsBoolean() acceptsCustomOrders?: boolean;
+  @IsOptional() @BooleanField() acceptsCustomOrders?: boolean;
   @IsOptional() @IsString() @MaxLength(1000) packagingNote?: string;
   @IsOptional() @IsString() @MaxLength(1000) hygieneNote?: string;
 

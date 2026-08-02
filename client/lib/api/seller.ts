@@ -75,6 +75,25 @@ export async function getSeller(sellerId: string): Promise<Seller | undefined> {
   return sellers.find((s) => s.id === sellerId);
 }
 
+/**
+ * The signed-in HomeKrafter's own `Seller` record, from the server
+ * (`GET /seller/me`, M17).
+ *
+ * `AuthContext` used to resolve this by looking the session user's id up
+ * in the **mock** `lib/data/sellers.ts` list. A real HomeKrafter is not
+ * in that list, so the lookup missed and fell back to a demo record —
+ * meaning a genuine kitchen saw another kitchen's name and `vendorId`
+ * throughout their own portal.
+ */
+export async function getMySeller(): Promise<Seller | undefined> {
+  if (isMockMode()) return sellers[0];
+  try {
+    return await http.get<Seller>("/seller/me");
+  } catch {
+    return undefined;
+  }
+}
+
 export async function getSellerVendor(vendorId: string): Promise<Vendor | undefined> {
   if (isMockMode()) return getVendorByIdData(vendorId);
   try {

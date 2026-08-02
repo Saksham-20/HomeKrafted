@@ -87,7 +87,7 @@ remains is Phase 2 onward — see §7.
 | M2 ✅ | **Fixed in M16.** **Pre-order is rolling days only.** `lib/schedule.ts` derives the next N days and suppresses today's expired windows. No custom date picker, no seller-blocked dates, no holiday/festival handling, no per-item preparation-time rule, no availability-driven slot suggestion. |
 | M3 ✅ | **Fixed in M16.** **Accessibility is thin.** Two `aria-live` regions and a handful of `role="alert"` across the whole client. No skip-to-content link. `ImageSlot` sets `role="img"` + `aria-label` then renders the real image `aria-hidden` — workable, but every product photo's alt text is the placeholder caption, not the product. Focus management on drawers/modals unverified. |
 | M4 | **Razorpay runs on a placeholder key.** With the `.env.example` value the server degrades to `mock: true` and the checkout modal cannot take a test card. Launch requires real test → live keys and a webhook secret. |
-| M5 ◐ | **Mostly fixed in M16** — date-range analytics, CSV exports (orders / HomeKrafters / payouts), and a platform-settings screen for the commission rate and default delivery radius. **Feature flags deliberately stayed build-time**: a database flag would open the server gate while four client components still said "coming soon" until the next deploy, so making them runtime-correct is its own change and remains open. Cohort/retention views also remain open. | **Admin has no reports, exports or platform settings.** Analytics is five stat cards plus a 14-day GMV chart. No CSV export, no date-range control, no cohort/retention view, no settings surface for commission, delivery radius defaults, or feature flags (`lib/features.ts` is edited by hand and requires a redeploy). |
+| M5 ✅ | **Fixed across M16 + M17** — date-range analytics, CSV exports (orders / HomeKrafters / payouts) and a platform-settings screen landed in M16; **runtime feature flags** closed the open half in M17 (`GET /settings/public` + `lib/features/`, so the route gate and all four client call sites flip together). Cohort/retention views remain open, tracked in Phase 3. | **Admin has no reports, exports or platform settings.** Analytics is five stat cards plus a 14-day GMV chart. No CSV export, no date-range control, no cohort/retention view, no settings surface for commission, delivery radius defaults, or feature flags (`lib/features.ts` is edited by hand and requires a redeploy). |
 | M6 | **Support is a client-side auto-reply.** `SupportClient` runs `lib/support/autoReply.ts` with no backend conversation; ticket creation posts, but the chat the customer sees is scripted locally. |
 | M7 | **No notification delivery verification.** Providers are env-gated to logged stubs. Email/SMS/WhatsApp templates and the actual send path are untested against real providers. |
 | M8 | **Guest checkout undefined.** Cart is client state; checkout fetches owner-scoped addresses and wallet. What a signed-out buyer experiences at checkout is not explicitly designed. |
@@ -96,10 +96,10 @@ remains is Phase 2 onward — see §7.
 
 | # | Finding |
 |---|---|
-| L1 | Two copies of the tricity area table (`client/lib/geo.ts`, `server/src/common/geo.ts`) kept in sync by hand and by convention only — no test asserts they match. |
+| L1 | ✅ **M17.** `server/test/unit/geo-parity.spec.ts` now fails if the two copies drift by so much as a decimal place. |
 | L2 | `WalletContext` still holds client-side wallet state alongside the real wallet API in places; the balance shown is context-derived. |
 | L3 | The dev gallery (`/gallery`) is unlinked but publicly routable in production. |
-| L4 | No test suite of any kind in either package — no unit, integration or e2e. |
+| L4 | ✅ **M17.** 365 tests: 88 client unit, 88 server unit, 189 server e2e against a real Postgres, plus CI running all of it on every push. See `docs/TESTS.md`. |
 | L5 | No rate limiting visible on auth/OTP endpoints beyond what nginx provides. |
 | L6 | `handoff/prototype` ships in the repo (correctly excluded from lint, but still deployed source). |
 
@@ -258,7 +258,7 @@ platform settings.
 | **Refunds / returns** | ❌ Admin-initiated only (C5). |
 | **Notifications** | ⚠️ Modelled and stubbed; unverified against real providers (M7). |
 | **Delivery** | ✅ Correctly scoped — radius-based availability on web, logistics deferred to the apps. Consistent with the vision. |
-| **Scalability** | ⚠️ No caching layer, no image CDN (H7), no pagination on several admin lists, no tests (L4). Fine for launch volume, not for the second year. |
+| **Scalability** | ⚠️ No caching layer, no image CDN, no pagination on several admin lists. Tests and CI landed in M17 (L4). Fine for launch volume, not for the second year. |
 | **Retention** | ❌ No reorder (H4), no subscriptions in the modules that need them most (M1), no follow (H3), no lifecycle email. |
 | **Monetisation** | ⚠️ Payout machinery exists; commission/take-rate is not modelled anywhere. Featured placement, promoted listings and hamper upsell are all unbuilt. |
 
@@ -332,8 +332,14 @@ left.
 **Phase 2 shipped: 2026-08-01/02 (M16).** Trust now has something to
 attach to: a HomeKrafter has a profile a buyer can read, a badge only an
 admin can grant, numbers that tell them what sells, and a calendar that
-matches what their kitchen can actually cook. One item is partial — see
-M5, where runtime feature flags stayed out on purpose.
+matches what their kitchen can actually cook.
+
+**M17 (2026-08-02) closed the two items Phase 2 left open** — the test
+suite (L4, and L1 with it) and runtime feature flags (the open half of
+M5) — and, in doing so, found a real bug nobody had seen: `"false"`
+evaluated as `true` on every boolean request field in the API. That is
+the argument for the suite in one line. Phase 3's remaining items are
+below.
 
 ### Phase 3 — growth
 
@@ -345,12 +351,19 @@ M5, where runtime feature flags stayed out on purpose.
 20. Commission/take-rate **collection** and featured placement. (M16
     added the rate as a setting and models it against GMV; nothing
     deducts it — payouts are gross and settlement is manual.)
-21. Test suite. *(L4)* — still the largest single gap. Every claim in
-    M15/M16 was verified by measurement against a live API, but none of
-    it is guarded against regression.
-22. Runtime feature flags — thread `lib/features.ts` from the root layout
-    through a context so a database flag can't leave client components
-    disagreeing with the server gate. *(the open half of M5)*
+21. ✅ **Test suite — shipped M17.** *(L4)* Was the largest single gap:
+    every claim in M15/M16 had been verified by measurement against a
+    live API, and none of it was guarded. Now 365 tests across three
+    layers plus CI — see `docs/TESTS.md`. It found a real bug on its
+    first run: `"false"` evaluated as `true` on every boolean request
+    field, including the verification badge (see M17 in `CHANGELOG.md`).
+    **Still owed:** browser-level tests for the dialog focus traps, and
+    load testing.
+22. ✅ **Runtime feature flags — shipped M17.** *(the open half of M5)*
+    `GET /settings/public` plus `lib/features/` mean the `/hamper` route
+    gate and all four client call sites resolve the same value, so a flip
+    can no longer leave a feature half-open until the next deploy. Site
+    revalidation dropped from an hour to a minute to make that true.
 
 ### Phase 4 — long-term
 

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
-import { isHamperBuilderLive } from "@/lib/features";
+import { useFeatures } from "@/lib/features/FeaturesContext";
 import type { Product } from "@/lib/types";
 import styles from "./ProductPurchasePanel.module.css";
 
@@ -30,6 +30,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const router = useRouter();
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
+  const features = useFeatures();
   const wishlisted = has(product.id);
   const [selectedSku, setSelectedSku] = useState(product.defaultWeightSku);
   const [quantity, setQuantity] = useState(1);
@@ -107,10 +108,10 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         </p>
       )}
 
-      {/* Hidden while the builder is held (`FEATURES.hamperBuilder`) — the
+      {/* Hidden while the builder is held — the
           button promises an action that doesn't exist yet, and the coming-soon
           page is already reachable from the nav and Home. */}
-      {isHamperBuilderLive() && (
+      {features.hamperBuilder && (
         <Button
           variant="ghost-gold"
           className={styles.hamperCta}

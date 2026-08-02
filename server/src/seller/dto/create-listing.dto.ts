@@ -2,7 +2,6 @@ import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
-  IsBoolean,
   IsIn,
   IsNumber,
   IsOptional,
@@ -12,6 +11,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export class WeightOptionInputDto {
   @IsString()
@@ -66,7 +66,7 @@ export class CreateListingDto {
   @MinLength(1)
   description!: string;
 
-  @IsBoolean()
+  @BooleanField()
   isPackaged!: boolean;
 
   @IsNumber()

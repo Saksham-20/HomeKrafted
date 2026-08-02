@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsBoolean,
   IsIn,
   IsISO8601,
   IsOptional,
@@ -9,6 +8,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export class OrderShipmentInputDto {
   @IsString()
@@ -38,7 +38,7 @@ export class OrderGiftInputDto {
   recipientAddressId!: string;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   hidePrice?: boolean;
 
   @IsOptional()

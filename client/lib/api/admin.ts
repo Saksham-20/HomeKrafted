@@ -1024,10 +1024,18 @@ export interface PlatformSettings {
   commissionPct: number;
   /** Given to a new HomeKrafter whose application didn't state one. */
   defaultDeliveryRadiusKm: number;
+  /**
+   * The hamper builder. Runtime-safe since M17: the route gate and all
+   * four client call sites read the same value through
+   * `lib/features/`, so flipping this changes them together rather than
+   * opening the route and leaving the buttons saying "coming soon" until
+   * the next deploy.
+   */
+  hamperBuilderEnabled: boolean;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings | undefined> {
-  if (isMockMode()) return { commissionPct: 10, defaultDeliveryRadiusKm: 10 };
+  if (isMockMode()) return { commissionPct: 10, defaultDeliveryRadiusKm: 10, hamperBuilderEnabled: false };
   try {
     return await http.get<PlatformSettings>("/admin/settings");
   } catch {
@@ -1038,7 +1046,8 @@ export async function getPlatformSettings(): Promise<PlatformSettings | undefine
 export async function updatePlatformSettings(
   patch: Partial<PlatformSettings>,
 ): Promise<PlatformSettings | undefined> {
-  if (isMockMode()) return { commissionPct: 10, defaultDeliveryRadiusKm: 10, ...patch };
+  if (isMockMode())
+      return { commissionPct: 10, defaultDeliveryRadiusKm: 10, hamperBuilderEnabled: false, ...patch };
   try {
     return await http.patch<PlatformSettings>("/admin/settings", patch);
   } catch {

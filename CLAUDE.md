@@ -456,6 +456,53 @@ silently override another — the same reason `Product.isAvailable` and
   exists precisely so this is not forgotten.
 - **`ImageSlot` needs a real `alt`** — see its section above.
 
+## Auth & identity (M17) — three ways this broke at once
+
+All three shipped, were reviewed, and were manually tested. None of them
+had a test, and none was visible from reading the happy path.
+
+- **An approved HomeKrafter has no password.** Approval mints the account
+  (`authProviders: ['phone']`) and an admin never sets a credential, so
+  **phone OTP is the only first sign-in.** Any surface offering to sign a
+  HomeKrafter in must offer it. Removing the Phone tab from
+  `/login?role=seller` locks out every kitchen onboarded for real, and
+  the error they get says "Incorrect email or password" for a password
+  that never existed.
+- **Never resolve the signed-in seller from `lib/data`.** Use
+  `GET /seller/me` (`getMySeller()`). The mock list contains only seeded
+  kitchens, so a lookup for a real one misses — and falling back to a
+  demo record shows one HomeKrafter another's name and `vendorId`.
+  Anything derived from a session must fail empty, never fall back to a
+  fixture.
+- **A login form must use what was typed.** `/admin/login` called a
+  hardcoded-credential helper and threw its inputs away — full admin to
+  anyone who opened a publicly routable page. Check the role the *server*
+  returns; don't trust which form was used.
+- **No credential belongs in a client module.** `AuthContext` is
+  `"use client"`, so its constants ship in the public bundle: the seeded
+  admin's email and password were readable with view-source. Demo
+  accounts are documented in `docs/TESTING.md` and typed into the normal
+  form — there are no "continue as demo ___" buttons, and adding one back
+  reintroduces this.
+- **`@BooleanField()` is the only correct way to declare a boolean
+  request field.** The global pipe's `enableImplicitConversion` turns
+  every non-empty string into `true`, so a bare `@IsBoolean()` read
+  `"false"` as `true` — on the verification badge, wallet auto-top-up and
+  more. See `server/src/common/decorators/boolean-field.decorator.ts`.
+
+## Tests (M17) — `docs/TESTS.md`
+
+`cd client && npm test` · `cd server && npm test` · `cd server && npm run
+test:e2e` (needs `TEST_DATABASE_URL` — see `docs/TESTS.md`). CI runs all
+of it plus typecheck, lint and both builds.
+
+Three layers: pure functions in `client/lib/**/*.spec.ts`, services with a
+stub Prisma in `server/test/unit/`, and **a real Nest app against a real
+Postgres** in `server/test/e2e/`. Prisma is never mocked in the e2e layer
+— every rule worth guarding here is enforced by a query, and a mocked one
+would test the mock. Compute expected values by hand; a number recorded
+from a run locks in the bug.
+
 ## SEO — every new public route owes three things (M15)
 
 `lib/seo.ts` is the seam: `pageMetadata()` for title/description/

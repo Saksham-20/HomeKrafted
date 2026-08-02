@@ -53,6 +53,32 @@ export class SellerService {
     return seller as Seller & { vendorId: string };
   }
 
+  /**
+   * The caller's own seller record, shaped like the client's `Seller`
+   * type. `vendorName` rides along so the portal header can name the
+   * storefront without a second request.
+   */
+  async getOwnRecord(user: RequestUser) {
+    const seller = await this.resolveHomeKrafter(user);
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: seller.vendorId },
+      select: { name: true, slug: true },
+    });
+    return {
+      id: seller.id,
+      userId: seller.userId,
+      specialties: seller.specialties,
+      vendorId: seller.vendorId,
+      vendorName: vendor?.name,
+      vendorSlug: vendor?.slug,
+      displayName: seller.displayName,
+      status: seller.status,
+      createdAt: seller.createdAt.toISOString(),
+      rating: seller.rating !== null ? Number(seller.rating) : undefined,
+      reviewCount: seller.reviewCount ?? undefined,
+    };
+  }
+
   // -------------------------------------------------------------------
   // Storefront (maker only) — mutates the shared `Vendor` row this
   // seller manages. Ownership is implicit: `vendorId` always comes from

@@ -13,18 +13,17 @@ import styles from "./AdminLoginClient.module.css";
  * public sign-up affordance anywhere on this screen** (unlike
  * `/seller/login`'s "Apply to sell" link) — the admin surface is
  * staff-only, provisioned out-of-band, not something a visitor requests.
- * Both the email/password form and "continue as demo admin" now sign in
- * for real (`POST /auth/login`, `useAuth().signInAsAdmin`) against the one
- * seeded admin account (`server/prisma/seed.ts`) — the typed email/
- * password still isn't checked against a real per-staff credential (there's
- * only the one seeded account), same "continue as demo ___" framing
- * `SellerLoginClient` uses. `middleware.ts` is what actually redirects a
- * signed-out visitor here; this component never redirects *to* `/admin`
- * without the user acting.
+ * **The typed credentials are checked (M17).** Before that, this handler
+ * called `signInAsAdmin()` and threw the form values away, so any email
+ * and any four characters granted full admin on a publicly routable
+ * page. It now runs a real `POST /auth/login` and verifies the role the
+ * server returns. `middleware.ts` is what redirects a signed-out visitor
+ * here; this component never redirects *to* `/admin` without the user
+ * acting.
  */
 export function AdminLoginClient() {
   const router = useRouter();
-  const { isSignedIn, ready, busy, role, user, signInAsAdmin, signOut } = useAuth();
+  const { isSignedIn, ready, busy, role, user, signInWithPassword, signOut } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,29 +33,36 @@ export function AdminLoginClient() {
     router.push("/admin");
   }
 
+  /**
+   * A real credential check (M17).
+   *
+   * Until now this screen **ignored what was typed**: any email and any
+   * four characters signed the visitor in as the one seeded admin
+   * account, because the handler called `signInAsAdmin()` and discarded
+   * the form values. `/admin/login` is publicly routable, so that was
+   * full administrative access — settling payouts, granting verification
+   * badges, suspending users — to anyone who found the URL.
+   *
+   * It now signs in with the typed credentials and then checks the role
+   * the server came back with. A non-admin who signs in here is signed
+   * straight back out rather than being left holding a valid consumer
+   * session on the admin login screen.
+   */
   async function handleSignIn() {
-    if (!email.trim().includes("@") || password.trim().length < 4) return;
-    // Still no real credential check against the typed email/password —
-    // every "sign in" on this screen (form or demo button) signs in as the
-    // one seeded demo admin account, same as `SellerLoginClient`'s "demo
-    // ___" buttons. What changed in M8.4b: this is now a real `POST
-    // /auth/login` (see `signInAsAdmin`'s doc comment), not a local flip.
+    if (!email.trim().includes("@") || password.length < 8) return;
     setError(undefined);
     try {
-      await signInAsAdmin();
+      const resultRole = await signInWithPassword(email.trim(), password);
+      if (resultRole !== "admin") {
+        signOut();
+        setError("That account doesn't have admin access.");
+        return;
+      }
       goToDashboard();
     } catch {
-      setError("Couldn't sign in — check the demo admin account still exists.");
-    }
-  }
-
-  async function handleDemoSignIn() {
-    setError(undefined);
-    try {
-      await signInAsAdmin();
-      goToDashboard();
-    } catch {
-      setError("Couldn't sign in — check the demo admin account still exists.");
+      // One message for "no such account" and "wrong password" alike —
+      // a distinct answer would confirm which staff emails exist.
+      setError("Incorrect email or password.");
     }
   }
 
@@ -121,17 +127,12 @@ export function AdminLoginClient() {
             <Button
               variant="primary"
               onClick={handleSignIn}
-              disabled={!email.trim().includes("@") || password.trim().length < 4 || busy}
+              disabled={!email.trim().includes("@") || password.length < 8 || busy}
             >
               {busy ? "Signing in…" : "Sign in"}
             </Button>
           </div>
 
-          <div className={styles.divider}>or</div>
-
-          <button type="button" className={styles.demoButton} onClick={handleDemoSignIn} disabled={busy}>
-            Continue as demo admin →
-          </button>
           {error && (
             <p className={styles.error} role="alert">
               {error}
@@ -140,11 +141,8 @@ export function AdminLoginClient() {
         </Card>
 
         <p className={styles.footnote}>
-          Internal staff accounts are provisioned out-of-band (no public
-          sign-up) — the form above still doesn&rsquo;t check the typed
-          password against a real per-staff credential, so every sign-in
-          here (form or &ldquo;continue as&rdquo;) authenticates as the one
-          seeded demo admin account.
+          Internal staff accounts are provisioned out-of-band — there is no
+          public sign-up here, and no password reset. Ask another admin.
         </p>
       </div>
     </div>

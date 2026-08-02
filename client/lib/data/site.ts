@@ -112,7 +112,7 @@ export const homePromoBands: HomePromoBandContent[] = [
   {
     id: "hamper",
     variant: "dark",
-    // Copy reflects the held builder (`FEATURES.hamperBuilder`, lib/features.ts).
+    // Copy reflects the held builder (the `hamperBuilder` flag, lib/features/).
     // When it goes live, revert to "Customisable" / "Start building →".
     eyebrow: "Customisable · coming soon",
     title: "Build your own\ngift hamper",

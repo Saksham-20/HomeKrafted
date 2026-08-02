@@ -42,6 +42,17 @@ component in `client/` changes shape, only what the function body does.
   by `server/src/common/filters/all-exceptions.filter.ts`, applied
   globally. `code` is a stable machine-readable string (e.g.
   `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `RATE_LIMITED`).
+- **Boolean request fields accept only `true`, `false`, `"true"` and
+  `"false"`** — anything else is a `400`. The global `ValidationPipe`
+  runs with `enableImplicitConversion` (query DTOs need it, so `?days=30`
+  arrives as a number), and for a `Boolean` field that conversion is
+  `Boolean(value)` — under which `"false"` is `true`. Every non-empty
+  string therefore used to set a flag to **true** and return `200`,
+  including on the verification badge and wallet auto-top-up. Fixed in
+  M17 by `@BooleanField()`
+  (`server/src/common/decorators/boolean-field.decorator.ts`), which is
+  now the only correct way to declare one. `"yes"` and `"1"` are rejected
+  rather than guessed at.
 - Mutations (top-up, place order, create booking, send snack list) are
   `POST`; the wallet ledger is server-authoritative — the client never
   computes or sends `balanceAfter`.
@@ -714,6 +725,7 @@ filtered client-side).
 
 | Endpoint | Seller type | Notes |
 |---|---|---|
+| `GET /seller/me` | **M17.** The caller's own `Seller` record (`+ vendorName`, `vendorSlug`), resolved from their session — there is no id parameter. Added because the web client had no way to read it and was resolving the signed-in kitchen from **mock data**, falling back to a demo record for every real HomeKrafter. |
 | `GET /seller/dashboard` | any | Shape branches on `seller.type` — maker: `{ todayOrdersCount, todayRevenue, pendingPayoutAmount, lowStockCount, rating, reviewCount }` (mirrors `SellerDashboardSnapshot`); laundry: `{ todayPickupsCount, todayDeliveriesCount, weekEarnings, pendingPayoutAmount, rating, reviewCount }` (`PartnerDashboardSnapshot`); snack: `{ incomingOrdersCount, menuSize, earnings, pendingPayoutAmount }` (`SnackDashboardSnapshot`). `pendingPayoutAmount` is computed live (see Payouts below), not read off a stale field. |
 | `GET /seller/storefront` | `maker` only | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param) — `403` for laundry/snack. |
 | `PATCH /seller/storefront` | `maker` only | Body: `{ bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. |
@@ -1001,8 +1013,9 @@ ever reads/decides on rows it didn't create.
 | `GET /admin/sellers` | Every seller (any type/status), newest first. |
 | `GET /admin/sellers/:id` | Single seller detail. |
 | `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
-| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, defaultDeliveryRadiusKm }`. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. |
+| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, defaultDeliveryRadiusKm, hamperBuilderEnabled }`. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. |
 | `PATCH /admin/settings` | Partial. Commission 0–100%, radius 1–100 km, validated in the DTO **and** the service — a take rate over 100% is a typo, not a setting, and that boundary shouldn't depend on which door the value came through. Audited (`platform_settings.update`) with before/after. |
+| `GET /settings/public` | **M17. Public — no auth.** The allowlisted subset (`{ hamperBuilderEnabled }`), read by the web client's root layout on every render. Built by **picking** keys (`PUBLIC_SETTING_KEYS`), never by deleting them: a new setting is private until it is named there, which is the direction that fails safe. The commission rate is a commercial term and never appears here. `Cache-Control: public, max-age=60`. |
 | `GET /admin/exports/:kind` | **M16 (M5).** `orders` \| `sellers` \| `payouts`, optional `?days=`. Returns a real `text/csv` download with a UTF-8 BOM (so Excel on Windows reads a HomeKrafter's name rather than mangling it) — not JSON the client turns into a Blob, so an accountant can be sent a URL. |
 | `GET /admin/analytics?days=` | **M16 (M5)** adds the range (was pinned at 14 days), clamped 1–365 and echoed back, plus `commissionPct` and `modelledCommission`. |
 | `GET /admin/sellers/:id/profile` | **M16.** The seller's own profile view plus `sellerId`/`vendorId`/`vendorSlug`/`displayName` — including the submitted `fssaiNumber`, which an admin has to read in order to check it and which the public storefront never publishes. |

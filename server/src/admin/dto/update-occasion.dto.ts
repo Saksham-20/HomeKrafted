@@ -1,4 +1,5 @@
-import { IsBoolean, IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { IsISO8601, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * `PATCH /admin/occasions/:id` (M16, H8) — the seasonal metadata behind
@@ -23,7 +24,7 @@ export class UpdateOccasionDto {
   celebratedOn?: string;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   clearCelebratedOn?: boolean;
 
   @IsOptional()

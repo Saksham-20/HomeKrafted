@@ -51,12 +51,13 @@
  * pre-M8.4 `StoredAuth.signedIn: false` shape exactly), so a reload after
  * signing out stays signed out instead of silently logging back in.
  *
- * **Admin sign-in (M8.4b)** — `signInAsAdmin` now also goes through a real
- * `POST /auth/login` against the seeded admin account
- * (`admin@homekrafted.example`, `server/prisma/seed.ts`), the same
- * `completeRealSignIn` tail every other real sign-in method uses; admin
- * stays internal-only (not part of the public role chooser) but is no
- * longer a pure local state flip. Session restore on reload (`hydrate`
+ * **Admin sign-in** — `/admin/login` runs a real `POST /auth/login` with
+ * the credentials the visitor typed and then checks the role the server
+ * returns, through the same `completeRealSignIn` tail every other sign-in
+ * method uses. Before M17 that form discarded its inputs and signed in as
+ * a hardcoded seeded admin, which on a publicly routable page was full
+ * administrative access to anyone who found the URL. Admin stays
+ * internal-only — not part of the public role chooser. Session restore on reload (`hydrate`
  * below) no longer special-cases `role === "admin"` — a persisted admin
  * session restores through the exact same `loadStoredSession`/`getMe()`
  * path a consumer/seller session already does.
@@ -74,6 +75,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { getMySeller } from "@/lib/api/seller";
 import {
   adminUser,
   currentUser,
@@ -123,24 +125,28 @@ const STORAGE_KEY = "hk_auth_v1";
 const ROLE_COOKIE = "hk_role";
 const ROLE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
 
-/** Seeded demo consumer — `server/prisma/seed.ts`'s `DEMO_PASSWORD`, shared by every seeded account. Used by the explicit "Sign in as demo user" button only; a fresh browser stays signed out (see `hydrate()`). */
-const DEMO_EMAIL = "ananya.iyer@example.com";
-const DEMO_PASSWORD = "Passw0rd!123";
+/**
+ * **No demo credentials live in this file, and none may be added back.**
+ *
+ * Until M17 it held the seeded consumer, seller and admin emails plus the
+ * shared seed password, so the "continue as demo ___" buttons could sign
+ * in without typing anything. This is a `"use client"` module, so all of
+ * it was compiled into the public JavaScript bundle — on the live site,
+ * `admin@homekrafted.example` and its password were readable with
+ * view-source, and the seeded admin exists in production. That is full
+ * administrative access to anyone who looked.
+ *
+ * The seeded accounts still exist and are still how the site is tested;
+ * their credentials live in `docs/TESTING.md`, and a tester types them
+ * into the ordinary sign-in form like anybody else.
+ */
 
 const SOCIAL_ACCOUNT_ID_KEY = "hk_social_account_ids_v1";
 
 /** Client-side view preference for a signed-in seller — see the file header's "Seller dual-mode" section. Meaningless (`undefined`) for any other role. */
 export type SellerMode = "shopping" | "selling";
 
-/** The three seeded demo sellers' real emails (`server/prisma/seed.ts`) — every seeded account shares `DEMO_PASSWORD`, so "continue as demo maker/laundry/snack" is a real `POST /auth/login`, not a local state flip. */
-const SELLER_DEMO_EMAILS: Record<DemoHomeKrafter, string> = {
-  maker: "anjali@anjaliskitchen.example",
-  laundry: "ravi@freshfoldlaundry.example",
-  snack: "meera@meerassnackbox.example",
-};
 
-/** The seeded admin account (`server/prisma/seed.ts`) — shares `DEMO_PASSWORD` like every other seeded account. Used for "continue as demo admin" (M8.4b: a real `POST /auth/login`, not a local state flip). */
-const ADMIN_EMAIL = "admin@homekrafted.example";
 
 export interface AuthContextValue {
   user: User | undefined;
@@ -161,16 +167,19 @@ export interface AuthContextValue {
   verifyOtp: (phone: string, code: string, name?: string) => Promise<UserRole>;
   /** Email sign-in — role-agnostic, tries `POST /auth/login` first, falls back to `POST /auth/register` when no account exists yet for that email (see `LoginClient`'s added password field). Works for both the shopper and seller tabs; the resulting `role` comes from the account, not from which tab was used — resolves it so the caller can redirect accordingly. */
   signInWithEmail: (email: string, password: string, name?: string) => Promise<UserRole>;
+  /**
+   * Sign in only — **never** creates an account. Used by the HomeKrafter
+   * tab, where `signInWithEmail`'s sign-up fallback would turn a wrong
+   * password into an attempt to register an email that already exists.
+   */
+  signInWithPassword: (email: string, password: string) => Promise<UserRole>;
   /** Explicit account creation (`/signup`'s shopper tab) — always `POST /auth/register`, no login-first fallback, so a duplicate email surfaces as a real error instead of silently signing the visitor into the existing account. */
   register: (name: string, email: string, password: string) => Promise<UserRole>;
   /** Consumer social sign-in (stub — see `lib/api/auth.ts#socialLogin`'s doc comment). Resolves the account's `role`. */
   signInSocial: (provider: "google" | "apple") => Promise<UserRole>;
-  /** "Sign in as demo user" — real login against the seeded demo consumer account. */
-  signInDemo: () => Promise<UserRole>;
-  /** "Continue as demo maker/laundry/snack" — real `POST /auth/login` against the matching seeded seller account (mock-mode: local state flip only). Resolves `"seller"`. */
-  signInAsSeller: (type?: DemoHomeKrafter) => Promise<UserRole>;
-  /** "Continue as demo admin" — real `POST /auth/login` against the seeded admin account (mock-mode: local state flip only), internal-only. Resolves `"admin"`. */
-  signInAsAdmin: () => Promise<UserRole>;
+
+
+
   /** Flips a signed-in seller's active view to consumer shopping — persisted, does not navigate (callers `router.push` themselves). No-op for non-sellers. */
   switchToShopping: () => void;
   /** Flips a signed-in seller's active view to their dashboard — persisted, does not navigate. No-op for non-sellers. */
@@ -270,6 +279,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | undefined>(undefined);
   const [sellerType, setDemoHomeKrafter] = useState<DemoHomeKrafter | undefined>(undefined);
   const [sellerMode, setSellerModeState] = useState<SellerMode | undefined>(undefined);
+  /**
+   * The signed-in HomeKrafter's real `Seller` row (`GET /seller/me`).
+   *
+   * Fetched rather than looked up in `lib/data/sellers.ts`: a real
+   * kitchen is not in the mock list, and the old lookup fell through to a
+   * demo record, so every genuine HomeKrafter saw another kitchen's name
+   * and `vendorId` in their own portal.
+   */
+  const [realSeller, setRealSeller] = useState<{ userId: string; seller?: Seller } | undefined>(
+    undefined,
+  );
   const [sessionUser, setSessionUserState] = useState<SessionUser | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -338,7 +358,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Flagged seller but no real session survived (stale pre-M8.5
         // localStorage, or a session that failed to restore above) —
         // fall back to the local flags, no network. A real
-        // `signInAsSeller`/seller sign-in always persists a real session
+        // Seller sign-in always persists a real session
         // (see below), so this is a defensive fallback, not the common
         // path.
         setSignedIn(true);
@@ -450,6 +470,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /**
+   * Sign in, or fail. No account is ever created here.
+   *
+   * The HomeKrafter tab needs this because an account provisioned by
+   * approving an application has **no password at all** (`authProviders:
+   * ['phone']`), so `POST /auth/login` returns 401 for every password
+   * they could type — and `signInWithEmail` would answer that 401 by
+   * trying to register their existing email, producing a 409 that
+   * explains nothing. The caller turns the 401 into a sentence pointing
+   * at the phone tab instead.
+   */
+  async function signInWithPassword(email: string, password: string): Promise<UserRole> {
+    if (mock) {
+      setSignedIn(true);
+      setRole("consumer");
+      setDemoHomeKrafter(undefined);
+      return "consumer";
+    }
+    setBusy(true);
+    try {
+      return completeRealSignIn(await loginWithEmail(email, password));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function signInWithEmail(email: string, password: string, name?: string): Promise<UserRole> {
     if (mock) {
       setSignedIn(true);
@@ -510,68 +556,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signInDemo(): Promise<UserRole> {
-    if (mock) {
-      setSignedIn(true);
-      setRole("consumer");
-      setDemoHomeKrafter(undefined);
-      return "consumer";
-    }
-    setBusy(true);
-    try {
-      const result = await loginWithEmail(DEMO_EMAIL, DEMO_PASSWORD);
-      return completeRealSignIn(result);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /**
-   * "Continue as demo maker/laundry/snack" — a real `POST /auth/login`
-   * against the matching seeded seller account (M8.5; previously a local
-   * state flip only). Mock mode keeps the pre-M8.5 local-only behavior,
-   * same as every other sign-in method above.
-   */
-  async function signInAsSeller(type: DemoHomeKrafter = "maker"): Promise<UserRole> {
-    if (mock) {
-      setSignedIn(true);
-      setRole("seller");
-      setDemoHomeKrafter(type);
-      setSellerModeState((prev) => prev ?? "selling");
-      return "seller";
-    }
-    setBusy(true);
-    try {
-      const result = await loginWithEmail(SELLER_DEMO_EMAILS[type], DEMO_PASSWORD);
-      return completeRealSignIn(result);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  /**
-   * "Continue as demo admin" — a real `POST /auth/login` against the
-   * seeded admin account (M8.4b; previously a local state flip only).
-   * Mock mode keeps the pre-M8.4b local-only behavior, same as every
-   * other sign-in method above.
-   */
-  async function signInAsAdmin(): Promise<UserRole> {
-    if (mock) {
-      setSignedIn(true);
-      setRole("admin");
-      setDemoHomeKrafter(undefined);
-      setSellerModeState(undefined);
-      return "admin";
-    }
-    setBusy(true);
-    try {
-      const result = await loginWithEmail(ADMIN_EMAIL, DEMO_PASSWORD);
-      return completeRealSignIn(result);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /** No-op unless a seller is signed in — see `AuthContextValue.switchToShopping`'s doc comment. */
   function switchToShopping() {
     if (role !== "seller") return;
@@ -620,11 +604,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // fallback only for a legacy local-only flip (mock mode, or the
   // defensive no-real-session-survived hydrate branch).
   const activeSessionUser = mock ? undefined : (sessionUser ?? getSession()?.user);
+  const activeSessionUserId = activeSessionUser?.id;
+
+  // Load the real seller record whenever a HomeKrafter session appears
+  // (sign-in, or a reload that rehydrated one). Cleared for every other
+  // role so a seller's kitchen can't linger after switching accounts.
+  useEffect(() => {
+    if (mock || !signedIn || role !== "seller" || !activeSessionUserId) return;
+    let cancelled = false;
+    void getMySeller().then((record) => {
+      if (!cancelled) setRealSeller({ userId: activeSessionUserId, seller: record });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mock, signedIn, role, activeSessionUserId]);
+
+  // Keyed by the user it was fetched for, and read only when that still
+  // matches — so a record can never survive into the next account's
+  // session, which clearing it in the effect would have risked doing a
+  // render late.
+  const ownSeller =
+    realSeller && realSeller.userId === activeSessionUserId ? realSeller.seller : undefined;
 
   const seller: Seller | undefined =
     signedIn && role === "seller"
-      ? (activeSessionUser ? getSellerByUserId(activeSessionUser.id) : undefined) ??
-        resolveDemoSeller(sellerType)
+      ? // The real record first. `getSellerByUserId` (mock) is kept only
+        // for mock mode and the legacy local-only flip — never as a
+        // fallback for a real session, because falling back there is what
+        // showed one HomeKrafter another's kitchen.
+        ownSeller ??
+        (mock && activeSessionUser ? getSellerByUserId(activeSessionUser.id) : undefined) ??
+        (mock ? resolveDemoSeller(sellerType) : undefined)
       : undefined;
 
   const user: User | undefined = !signedIn
@@ -650,11 +661,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     requestOtp,
     verifyOtp,
     signInWithEmail,
+    signInWithPassword,
     register,
     signInSocial,
-    signInDemo,
-    signInAsSeller,
-    signInAsAdmin,
     switchToShopping,
     switchToSelling,
     refreshUser,

@@ -1,4 +1,4 @@
-import { IsBoolean } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * `PATCH /seller/listings/:id/availability` and
@@ -10,6 +10,6 @@ import { IsBoolean } from 'class-validator';
  * product payload (and its validation) along with it.
  */
 export class SetAvailabilityDto {
-  @IsBoolean()
+  @BooleanField()
   isAvailable!: boolean;
 }

@@ -1,5 +1,6 @@
-import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * `POST /admin/collections` (create) / `PATCH /admin/collections/:id`
@@ -36,7 +37,7 @@ export class UpsertCollectionDto {
 
   /** What the occasion hub and the home rail promote. */
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   featured?: boolean;
 
   @IsOptional()

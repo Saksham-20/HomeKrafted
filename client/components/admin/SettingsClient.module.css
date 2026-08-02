@@ -74,25 +74,32 @@
   color: var(--hk-ink-3);
 }
 
-/* Written down where the next admin will look for it, not only in a
-   source comment they will never open. */
-.note {
-  margin-top: var(--hk-s5);
-  max-width: 720px;
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--hk-ink-3);
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
 }
 
-.noteTitle {
-  font-family: var(--hk-font-display);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--hk-pine);
-  margin-bottom: var(--hk-s2);
+/* Enough of a target to hit on a phone — the default checkbox is 13px. */
+.toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--hk-pine);
+  cursor: pointer;
 }
 
-.note code {
+/* The label sits beside the box here rather than above a field, so it
+   drops the uppercase-mono treatment `.label` gives form captions. */
+.toggle .label {
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--hk-ink);
+}
+
+.help code {
   font-family: var(--hk-font-mono);
   font-size: 12px;
   background: var(--hk-surface-3);

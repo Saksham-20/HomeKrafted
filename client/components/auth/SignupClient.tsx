@@ -71,7 +71,7 @@ const SELLER_SIGNUP_STEPS = [
  */
 export function SignupClient() {
   const router = useRouter();
-  const { isSignedIn, ready, role: currentRole, busy, requestOtp, verifyOtp, register, signInSocial, signInDemo, signOut } =
+  const { isSignedIn, ready, role: currentRole, busy, requestOtp, verifyOtp, register, signInSocial, signOut } =
     useAuth();
 
   const [authRole, setAuthRole] = useState<AuthRole>("shopper");
@@ -136,16 +136,6 @@ export function SignupClient() {
     setError(null);
     try {
       const resultRole = await signInSocial(provider);
-      redirectForRole(resultRole);
-    } catch (err) {
-      setError(friendlyError(err));
-    }
-  }
-
-  async function handleDemoSignIn() {
-    setError(null);
-    try {
-      const resultRole = await signInDemo();
       redirectForRole(resultRole);
     } catch (err) {
       setError(friendlyError(err));
@@ -379,9 +369,6 @@ export function SignupClient() {
             )}
           </Card>
 
-          <button type="button" className={styles.demoButton} onClick={handleDemoSignIn} disabled={busy}>
-            Sign in as demo shopper →
-          </button>
 
           {error && (
             <p className={styles.hint} role="alert">

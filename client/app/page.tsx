@@ -24,13 +24,22 @@ import { absoluteUrl, jsonLdProps, SITE_NAME, SITE_URL } from "@/lib/seo";
 import styles from "./page.module.css";
 
 /**
- * Rebuilt hourly rather than pinned at build time (M16). The seasonal
- * countdown is the reason: a statically prerendered page would freeze
- * "Raksha Bandhan in 27 days" at whatever the number was when the build
- * ran, and keep saying it for a month. An hour is well inside the day
- * granularity the countdown actually has.
+ * Rebuilt every minute rather than pinned at build time.
+ *
+ * Two reasons, and the shorter one wins. The seasonal countdown (M16) is
+ * why this isn't static at all: a prerendered page would freeze "Raksha
+ * Bandhan in 27 days" at whatever the number was when the build ran, and
+ * an hour was well inside the day granularity it works at.
+ *
+ * A minute, though, because the hero's hamper CTA reads a **runtime
+ * feature flag** (M17). A route's `revalidate` caps how fresh it can be,
+ * whatever the underlying fetch says — so leaving this at an hour meant
+ * flipping the flag opened `/hamper` within a minute while this page
+ * carried on saying "coming soon" for up to an hour. That is the exact
+ * half-open state the runtime flags exist to prevent, so the interval
+ * follows the fastest-moving thing on the page, not the slowest.
  */
-export const revalidate = 3600;
+export const revalidate = 60;
 
 /** Splits a `HomePromoBandContent.title` on its literal `"\n"` line break into React fragments joined by `<br />` — see that type's doc comment (`lib/data/site.ts`). */
 function renderPromoTitle(title: string) {

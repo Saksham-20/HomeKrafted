@@ -1,0 +1,95 @@
+name: CI
+
+# A test suite nobody runs is documentation with a build step. This is what
+# makes the M15/M16 rules — a review needs a delivered order, a seller
+# cannot verify themselves, revenue is a line-item share — actually guard
+# anything.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    name: client — typecheck, lint, unit, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      # The build type-checks the app the way Next does it, and is the only
+      # place a broken route file or a bad `metadata` export shows up.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://homekrafted.in
+
+  server:
+    name: server — typecheck, lint, unit, e2e, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    # A real Postgres, because every rule worth guarding on this server is
+    # enforced by a query. A mocked Prisma would let these tests pass while
+    # the query said something else entirely.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: homekrafted
+          POSTGRES_PASSWORD: homekrafted
+          POSTGRES_DB: homekrafted_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgresql://homekrafted:homekrafted@localhost:5432/homekrafted_test?schema=public
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint:check
+
+      # No database needed: pure functions and services built with a stub.
+      - name: Unit tests
+        run: npm test
+
+      # `migrate deploy`, not `db push` — this also proves the migration
+      # lineage still applies cleanly to an empty database, which is the
+      # thing that breaks on a deploy and nowhere earlier.
+      - name: Apply migrations to the test database
+        run: npm run test:e2e:setup
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - run: npm run build

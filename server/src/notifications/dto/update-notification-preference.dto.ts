@@ -1,19 +1,20 @@
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsOptional } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export class UpdateNotificationPreferenceDto {
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   sms?: boolean;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   whatsapp?: boolean;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   email?: boolean;
 
   @IsOptional()
-  @IsBoolean()
+  @BooleanField()
   inapp?: boolean;
 }

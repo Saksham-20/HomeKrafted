@@ -1,4 +1,5 @@
-import { IsBoolean, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * The badge, and the only place it can be set (M16). A HomeKrafter can
@@ -8,9 +9,9 @@ import { IsBoolean, IsISO8601, IsOptional, IsString, MaxLength } from 'class-val
  * what they already checked.
  */
 export class SetVerificationDto {
-  @IsOptional() @IsBoolean() identityVerified?: boolean;
-  @IsOptional() @IsBoolean() addressVerified?: boolean;
-  @IsOptional() @IsBoolean() fssaiVerified?: boolean;
+  @IsOptional() @BooleanField() identityVerified?: boolean;
+  @IsOptional() @BooleanField() addressVerified?: boolean;
+  @IsOptional() @BooleanField() fssaiVerified?: boolean;
 
   /** When the licence lapses. Recorded so a lapsed licence is a thing someone can find, not a badge that stays up forever. */
   @IsOptional() @IsISO8601() fssaiExpiry?: string;

@@ -11,7 +11,6 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import { RoleChoice, type AuthRole } from "./RoleChoice";
 import type { UserRole } from "@/lib/types";
-import type { DemoHomeKrafter } from "@/lib/auth/AuthContext";
 import styles from "./LoginClient.module.css";
 
 type Method = "phone" | "email" | "social";
@@ -51,13 +50,6 @@ function AppleGlyph() {
   );
 }
 
-/** The three seeded demo HomeKrafters — same role, different kitchens and specialties. */
-const DEMO_SELLER_OPTIONS: { type: DemoHomeKrafter; label: string }[] = [
-  { type: "maker", label: "Continue as demo home cook →" },
-  { type: "laundry", label: "Continue as demo laundry HomeKrafter →" },
-  { type: "snack", label: "Continue as demo snack HomeKrafter →" },
-];
-
 /**
  * Sign in (M8.4a real auth, reworked M8.5 to lead with a role choice).
  *
@@ -66,11 +58,11 @@ const DEMO_SELLER_OPTIONS: { type: DemoHomeKrafter; label: string }[] = [
  * separate internal-only `/admin/login`. The **shopper** tab is unchanged
  * from M8.4a: phone-OTP, email, and social sign-in against the live
  * `server/` (`useAuth()`'s `requestOtp`/`verifyOtp`/`signInWithEmail`/
- * `signInSocial`/`signInDemo`, `lib/api/auth.ts`). The **seller** tab is
+ * `signInSocial`, `lib/api/auth.ts`). The **HomeKrafter** tab is
  * new: email/password only (real accounts are approval-provisioned, not
  * self-serve — no phone-OTP/social account creation for sellers) plus
  * "continue as demo maker/laundry/snack", all now real `POST /auth/login`
- * calls (`signInAsSeller`, M8.5) rather than a local state flip, and a
+ * calls rather than a local state flip, and a
  * link into the `/sell` application flow for anyone without a seller
  * account yet. `/seller/login` (M10a) now just redirects to
  * `/login?role=seller` — this screen is the single entry point for both
@@ -89,8 +81,7 @@ export function LoginClient() {
     verifyOtp,
     signInWithEmail,
     signInSocial,
-    signInDemo,
-    signInAsSeller,
+    signInWithPassword,
     signOut,
   } = useAuth();
 
@@ -156,6 +147,33 @@ export function LoginClient() {
     }
   }
 
+  /**
+   * The HomeKrafter tab's email path.
+   *
+   * Deliberately **not** `signInWithEmail`, which falls back to creating
+   * a consumer account when the login fails — on this tab that turns
+   * "wrong password" into an attempt to register an email that already
+   * exists, and the 409 that comes back explains nothing. A HomeKrafter
+   * who has never set a password gets told to use the phone tab instead,
+   * which is the path their account was actually provisioned with.
+   */
+  async function handleSellerEmailSignIn() {
+    if (!email.trim().includes("@") || password.length < 8) return;
+    setError(null);
+    try {
+      const resultRole = await signInWithPassword(email.trim(), password);
+      redirectForRole(resultRole);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError(
+          "We couldn't sign you in with that email and password. If your account was created when your application was approved, you don't have a password yet — sign in with your phone number instead.",
+        );
+        return;
+      }
+      setError(friendlyError(err));
+    }
+  }
+
   async function handleEmailContinue() {
     if (!email.trim().includes("@") || password.length < 8) return;
     setError(null);
@@ -171,26 +189,6 @@ export function LoginClient() {
     setError(null);
     try {
       const resultRole = await signInSocial(provider);
-      redirectForRole(resultRole);
-    } catch (err) {
-      setError(friendlyError(err));
-    }
-  }
-
-  async function handleDemoSignIn() {
-    setError(null);
-    try {
-      const resultRole = await signInDemo();
-      redirectForRole(resultRole);
-    } catch (err) {
-      setError(friendlyError(err));
-    }
-  }
-
-  async function handleDemoSeller(type: DemoHomeKrafter) {
-    setError(null);
-    try {
-      const resultRole = await signInAsSeller(type);
       redirectForRole(resultRole);
     } catch (err) {
       setError(friendlyError(err));
@@ -410,9 +408,6 @@ export function LoginClient() {
             )}
           </Card>
 
-          <button type="button" className={styles.demoButton} onClick={handleDemoSignIn} disabled={busy}>
-            Sign in as demo shopper →
-          </button>
           {error && (
             <p className={styles.hint} role="alert">
               {error}
@@ -430,53 +425,135 @@ export function LoginClient() {
       ) : (
         <>
           <Card className={styles.card}>
-            <p className={styles.hint}>
-              Sign in with the email your HomeKrafter account was approved with.
-            </p>
-            <div className={styles.form}>
-              <label className={styles.field}>
-                <span className={styles.label}>Email address</span>
-                <input
-                  type="email"
-                  className={styles.input}
-                  placeholder="you@yourbusiness.example"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Password</span>
-                <input
-                  type="password"
-                  className={styles.input}
-                  placeholder="At least 8 characters"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
-              </label>
-              <Button
-                variant="primary"
-                onClick={handleEmailContinue}
-                disabled={!email.trim().includes("@") || password.length < 8 || busy}
-              >
-                {busy ? "Signing in…" : "Sign in to sell"}
-              </Button>
-            </div>
-          </Card>
-
-          <div className={styles.form}>
-            {DEMO_SELLER_OPTIONS.map((option) => (
+            <div className={styles.methodTabs} role="tablist" aria-label="Sign-in method">
               <button
-                key={option.type}
                 type="button"
-                className={styles.demoButton}
-                onClick={() => handleDemoSeller(option.type)}
-                disabled={busy}
+                role="tab"
+                aria-selected={method === "phone"}
+                className={clsx(styles.methodTab, method === "phone" && styles.methodTabActive)}
+                onClick={() => {
+                  setMethod("phone");
+                  setError(null);
+                }}
               >
-                {option.label}
+                <Phone size={15} strokeWidth={1.7} /> Phone
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={method === "email"}
+                className={clsx(styles.methodTab, method === "email" && styles.methodTabActive)}
+                onClick={() => {
+                  setMethod("email");
+                  setError(null);
+                }}
+              >
+                <Mail size={15} strokeWidth={1.7} /> Email
+              </button>
+            </div>
+
+            {method === "phone" ? (
+              <div className={styles.form}>
+                <p className={styles.hint}>
+                  Use the mobile number on your application. This is how an
+                  approved HomeKrafter signs in for the first time.
+                </p>
+                {!otpSent ? (
+                  <>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Mobile number</span>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        className={styles.input}
+                        placeholder="+91 98450 12345"
+                        value={phone}
+                        onChange={(event) => setPhone(event.target.value)}
+                      />
+                    </label>
+                    <Button
+                      variant="primary"
+                      onClick={handleSendOtp}
+                      disabled={phone.trim().length < 10 || busy}
+                    >
+                      {busy ? "Sending…" : "Send OTP"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className={styles.hint}>
+                      We&rsquo;ve sent a code to <strong>{phone}</strong>.
+                    </p>
+                    <label className={styles.field}>
+                      <span className={styles.label}>Enter OTP</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={6}
+                        className={clsx(styles.input, styles.otpInput)}
+                        placeholder="••••"
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
+                      />
+                    </label>
+                    <Button
+                      variant="primary"
+                      onClick={handleVerifyOtp}
+                      disabled={otp.trim().length < 4 || busy}
+                    >
+                      {busy ? "Verifying…" : "Verify & sign in"}
+                    </Button>
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={() => {
+                        setOtpSent(false);
+                        setOtp("");
+                        setError(null);
+                      }}
+                    >
+                      Use a different number
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className={styles.form}>
+                <p className={styles.hint}>
+                  Only if you&rsquo;ve set a password. An account created by
+                  approving your application doesn&rsquo;t have one yet — sign
+                  in with your phone above.
+                </p>
+                <label className={styles.field}>
+                  <span className={styles.label}>Email address</span>
+                  <input
+                    type="email"
+                    className={styles.input}
+                    placeholder="you@yourbusiness.example"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>Password</span>
+                  <input
+                    type="password"
+                    className={styles.input}
+                    placeholder="At least 8 characters"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                </label>
+                <Button
+                  variant="primary"
+                  onClick={handleSellerEmailSignIn}
+                  disabled={!email.trim().includes("@") || password.length < 8 || busy}
+                >
+                  {busy ? "Signing in…" : "Sign in to sell"}
+                </Button>
+              </div>
+            )}
+          </Card>
 
           {error && (
             <p className={styles.hint} role="alert">

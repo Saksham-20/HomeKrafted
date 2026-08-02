@@ -7,12 +7,16 @@ import { pageMetadata } from "@/lib/seo";
 import styles from "./Hub.module.css";
 
 /**
- * Rebuilt hourly, not pinned at build time — the countdowns on this page
- * are its whole point, and a static prerender would freeze them at
- * whatever the numbers were when the build ran. An hour is well inside
- * the day granularity `groupOccasions` works at.
+ * Rebuilt every minute, not pinned at build time — the countdowns on this
+ * page are its whole point, and a static prerender would freeze them at
+ * whatever the numbers were when the build ran.
+ *
+ * An hour would be well inside the day granularity `groupOccasions` works
+ * at; a minute keeps it in step with the rest of the site, which now
+ * revalidates on that interval so a runtime feature flag can't leave one
+ * page disagreeing with another (see `app/page.tsx`).
  */
-export const revalidate = 3600;
+export const revalidate = 60;
 
 export const metadata = pageMetadata({
   title: "Gifts by occasion",

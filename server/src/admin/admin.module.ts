@@ -7,6 +7,7 @@ import { ReviewsModule } from '../reviews/reviews.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { AdminAuditLogService } from './audit-log.service';
 import { AdminSettingsController } from './settings.controller';
+import { PublicSettingsController } from './public-settings.controller';
 import { AdminSettingsService } from './settings.service';
 import { AdminExportsService } from './exports.service';
 import { AdminAuditController } from './audit.controller';
@@ -55,6 +56,9 @@ import { AdminDashboardService } from './dashboard.service';
     CatalogModule,
   ],
   controllers: [
+    // Unauthenticated, unlike everything else here — see the controller's
+    // own doc comment for why it lives in this module.
+    PublicSettingsController,
     AdminDashboardController,
     AdminUsersController,
     AdminSellersController,
