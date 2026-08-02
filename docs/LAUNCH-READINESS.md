@@ -21,18 +21,18 @@ email **and that password** were compiled into the public JavaScript
 bundle (`AuthContext` is a client module), so anyone who viewed source on
 homekrafted.in could read them. The account is a full admin.
 
-Assume it is compromised. On the box:
+Assume it is compromised. The bundle was fixed by the M17 deploy
+(2026-08-02); the account itself has not been. On the box:
 
-```sql
--- Either delete the seeded admin outright…
-DELETE FROM "User" WHERE email = 'admin@homekrafted.example';
--- …or, if it is the only admin, change the email and set a fresh
--- password hash first, then create a real staff account and delete it.
+```bash
+ssh -i ~/.ssh/homekrafted_vps root@187.127.171.48
+bash /var/www/homekrafted/HomeKrafted/scripts/rotate-admin.sh
 ```
 
-Then redeploy so the bundle without the credentials is what is being
-served, and check the audit log (`AdminAuditLog`) for anything you did
-not do.
+It prompts for a new password, hashes it with the same argon2 settings
+the API uses, and refuses the leaked one. Then check `AdminAuditLog` for
+anything you did not do — as of 2026-08-02 it held a single legitimate
+entry (a seller-application approval on 2026-07-30).
 
 ### 0.2 Decide whether demo accounts belong on production at all
 
