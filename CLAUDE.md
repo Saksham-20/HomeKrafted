@@ -26,6 +26,10 @@ accounts).
 - **Design system (visual contract):** `handoff/design-system/` + the reference
   prototype `handoff/prototype/Homekrafted.dc.html`
 - **Docs:** `docs/` (PRD, API, architecture, data model, design system, ADRs)
+- **Launch readiness (keys, ops, legal):** `docs/LAUNCH-READINESS.md` —
+  what stands between this build and real customers. Mostly *not* code:
+  provider keys, database backups, monitoring, and the paperwork
+  Razorpay needs. Read it before claiming anything is production-ready.
 - **Production audit + launch roadmap:** `docs/PRODUCTION-AUDIT.md` —
   every gap between this build and a public launch, ranked, with a
   four-phase roadmap. **Phase 1 shipped (M15); phases 2–4 are the

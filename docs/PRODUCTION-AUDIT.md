@@ -374,6 +374,16 @@ below.
 
 ---
 
+## 7b. Not in this document
+
+This audit ranks **product** gaps. The things that actually stand between
+the current build and a paying customer are mostly not product at all —
+provider keys (Twilio, Razorpay live, WhatsApp, SendGrid), database
+backups, error monitoring, and Razorpay's legal prerequisites. Those live
+in `docs/LAUNCH-READINESS.md`, which also carries one item to action
+immediately: the seeded admin credentials shipped in the public JS bundle
+until M17 and should be treated as compromised.
+
 ## 8. Guardrails for anyone acting on this
 
 - The channel matrix in `CLAUDE.md` and `lib/channel.ts` is a product
