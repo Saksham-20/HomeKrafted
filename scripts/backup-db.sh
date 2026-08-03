@@ -113,7 +113,20 @@ case "${1:-}" in
     log "Restoring ${latest} into ${drill}"
     sudo -u postgres dropdb --if-exists "$drill"
     sudo -u postgres createdb "$drill"
-    sudo -u postgres pg_restore -d "$drill" "$latest" 2>&1 | tail -5 || true
+
+    # Piped on stdin rather than passed as a path. `sudo -u postgres` drops
+    # to a user that cannot read this directory — it is 700 and root-owned,
+    # deliberately, because these dumps contain every customer's address and
+    # order history. Redirecting means root opens the file and postgres just
+    # reads the descriptor. The first run of this drill failed exactly here
+    # ("could not open input file: Permission denied"), which is the whole
+    # argument for having a drill rather than trusting the dump.
+    if ! sudo -u postgres pg_restore -d "$drill" < "$latest"; then
+      log "FAILED: ${latest} did not restore cleanly"
+      sudo -u postgres dropdb --if-exists "$drill"
+      exit 1
+    fi
+
     log "Row counts in the restored copy:"
     sudo -u postgres psql -d "$drill" -c \
       'SELECT (SELECT count(*) FROM "User") AS users, (SELECT count(*) FROM "Order") AS orders, (SELECT count(*) FROM "Product") AS products;'
