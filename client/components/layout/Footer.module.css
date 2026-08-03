@@ -94,3 +94,21 @@
     gap: var(--hk-s5);
   }
 }
+
+/* The policy links in the mono legal row. Wraps on a phone rather than
+   overflowing — four items don't fit 360px on one line. */
+.legalLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s1) var(--hk-s3);
+}
+
+.legalLinks a {
+  color: var(--hk-footer-mono);
+  text-decoration: none;
+}
+
+.legalLinks a:hover {
+  color: var(--hk-footer-ink);
+  text-decoration: underline;
+}

@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+#
+# Uptime watch for Homekrafted.
+#
+# `/health` and `/health/db` have existed since M8 and nothing has ever
+# looked at them, so the site being down and somebody noticing were
+# unrelated events. This closes that: a cron checks the two endpoints and
+# the public site, and restarts a process that has actually stopped
+# answering.
+#
+#   Install:  sudo bash scripts/healthcheck.sh --install
+#   Run now:  sudo bash scripts/healthcheck.sh
+#
+# Two deliberate limits, so nobody mistakes this for real monitoring:
+#
+# * **It runs on the box it watches.** If the box is off, nothing reports
+#   it. An external check (UptimeRobot, Better Stack — both have free
+#   tiers) is the actual answer and takes five minutes to point at
+#   https://homekrafted.in/health. This is the half that can be done in
+#   code, not a replacement for that.
+# * **It restarts, but only after repeated failure.** A single failed
+#   request is a blip; restarting on one would turn a hiccup into an
+#   outage and hide the cause. Three consecutive failures is a process
+#   that is genuinely stuck.
+set -euo pipefail
+
+LOG_FILE="${LOG_FILE:-/var/log/homekrafted-health.log}"
+STATE_DIR="${STATE_DIR:-/var/lib/homekrafted-health}"
+API_URL="${API_URL:-http://127.0.0.1:4000/health}"
+DB_URL="${DB_URL:-http://127.0.0.1:4000/health/db}"
+WEB_URL="${WEB_URL:-http://127.0.0.1:3000/}"
+PUBLIC_URL="${PUBLIC_URL:-https://homekrafted.in/health}"
+FAIL_THRESHOLD="${FAIL_THRESHOLD:-3}"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
+
+install_cron() {
+  local script_path
+  script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  mkdir -p "$STATE_DIR"
+  touch "$LOG_FILE"
+
+  cat > /etc/cron.d/homekrafted-health <<CRON
+# Homekrafted uptime check. Installed by scripts/healthcheck.sh.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/5 * * * * root /usr/bin/flock -n /tmp/homekrafted-health.lock ${script_path} >> ${LOG_FILE} 2>&1
+CRON
+  chmod 644 /etc/cron.d/homekrafted-health
+  log "Installed /etc/cron.d/homekrafted-health (every 5 minutes). Logs: ${LOG_FILE}"
+}
+
+# Returns 0 when the URL answers 200 within the timeout.
+check() {
+  local url="$1"
+  curl -fsS --max-time 10 -o /dev/null "$url" 2>/dev/null
+}
+
+# Counts consecutive failures per service, so a blip and a stuck process
+# are told apart.
+record() {
+  local name="$1" ok="$2" file="${STATE_DIR}/${name}.fails"
+  mkdir -p "$STATE_DIR"
+  if [ "$ok" = "yes" ]; then
+    if [ -f "$file" ] && [ "$(cat "$file")" != "0" ]; then
+      log "RECOVERED: ${name} is answering again after $(cat "$file") failed check(s)"
+    fi
+    echo 0 > "$file"
+    return 0
+  fi
+
+  local fails=$(( $( [ -f "$file" ] && cat "$file" || echo 0 ) + 1 ))
+  echo "$fails" > "$file"
+  log "DOWN: ${name} failed check ${fails}/${FAIL_THRESHOLD}"
+  [ "$fails" -ge "$FAIL_THRESHOLD" ]
+}
+
+restart() {
+  local process="$1"
+  log "ACTION: restarting ${process} after ${FAIL_THRESHOLD} consecutive failures"
+  pm2 restart "$process" >/dev/null 2>&1 || log "ERROR: pm2 restart ${process} failed"
+  # Reset so a restart that works doesn't immediately restart again, and
+  # a restart that doesn't gets another full threshold before the next.
+  echo 0 > "${STATE_DIR}/${process}.fails"
+}
+
+run_checks() {
+  mkdir -p "$STATE_DIR"
+
+  if check "$API_URL"; then record api yes || true; else
+    record api no && restart homekrafted-api
+  fi
+
+  # The database check is reported but never triggers a restart: if
+  # Postgres is down, bouncing the API changes nothing and destroys the
+  # evidence.
+  if check "$DB_URL"; then record db yes || true; else
+    record db no || true
+    log "NOTE: /health/db is failing — check Postgres, not the API"
+  fi
+
+  if check "$WEB_URL"; then record web yes || true; else
+    record web no && restart homekrafted-web
+  fi
+
+  # The only check that exercises nginx, TLS and DNS together — i.e. what
+  # a visitor actually experiences.
+  if check "$PUBLIC_URL"; then record public yes || true; else
+    record public no || true
+    log "NOTE: the public URL is failing while local checks may pass — suspect nginx, TLS or DNS"
+  fi
+}
+
+case "${1:-}" in
+  --install) install_cron; run_checks; log "First run complete." ;;
+  "") run_checks ;;
+  *) echo "usage: $0 [--install]" >&2; exit 2 ;;
+esac

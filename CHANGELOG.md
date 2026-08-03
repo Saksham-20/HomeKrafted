@@ -75,6 +75,35 @@ opening the portal.
   than a testing shortcut — the scoping *is* the feature. Proven by
   mutation: deleting the allowlist check fails exactly one test.
 
+### Operations and policy
+
+- **Database backups (`scripts/backup-db.sh --install`).** There were
+  none. Nightly `pg_dump -Fc`, 14 kept, each one verified with
+  `pg_restore -l` immediately after writing and deleted if it doesn't
+  read back — a backup nobody has read is a guess. `--restore-drill`
+  restores the newest dump into a throwaway database and prints row
+  counts. Still local-disk only: this covers a bad migration and a
+  dropped table, not losing the box.
+- **Uptime checks (`scripts/healthcheck.sh --install`).** `/health` and
+  `/health/db` had existed since M8 with nothing looking at them. Every
+  five minutes, plus the web process and the public HTTPS URL; three
+  consecutive failures restarts the affected pm2 process, because one
+  failure is a blip and restarting on it turns a hiccup into an outage. A
+  failing `/health/db` is reported but never restarts anything — if
+  Postgres is down, bouncing the API destroys the evidence.
+- **Log rotation** documented (`pm2-logrotate`). pm2 logs filling the
+  disk looks exactly like an application failure.
+- **Policy pages** — `/terms`, `/privacy`, `/refunds`, `/contact`, in the
+  footer of every page and in the sitemap. Razorpay won't activate a live
+  account without a published refund policy and a reachable contact.
+  Written from what the code enforces, not from a template: the
+  cancellation cut-off, the seven-day return window and the wallet-first
+  refund on those pages are the rules the server actually applies. While
+  `lib/legal.ts` holds placeholders for the registered name and address,
+  every page carries a banner saying so — a policy with an invented
+  address looks compliant while being false. **They have not been
+  reviewed by a lawyer.**
+
 ### Tests
 
 - 240 e2e tests (was 189), 88 + 88 unit. New specs: `otp-bypass`,

@@ -255,15 +255,15 @@ primitives rather than only composing them:
   default to off/undefined — every M1/M2 call site renders unchanged.
   Any page using `stickyOnMobile` must reserve bottom padding on its own
   root container at the same breakpoint so the fixed bar doesn't cover
-  its last content (see `Cart.module.css`/`CheckoutClient.module.css`/
-  `HamperBuilderClient.module.css`).
+  its last content (see `Cart.module.css`/`CheckoutClient.module.css`).
 
 | Component | Directory | Composes | Used by |
 |---|---|---|---|
-| `CartProvider` / `useCart` | `lib/cart/CartContext.tsx` | — (React context, not a visual component) | Root layout; `ProductPurchasePanel`, `ProductGridCard`, `HeaderClient`, `/cart`, `/checkout`, `HamperBuilderClient` |
-| `HamperBuilderClient` | `components/hamper/` | `StepPills`, `Chip`, `Textarea`, `HamperFillTile`, `HamperBasket` | `/hamper` — the Box→Fill→Message wizard |
-| `HamperFillTile` | `components/hamper/` | `ImageSlot` | Hamper builder's "fill it up" grid |
-| `HamperBasket` | `components/hamper/` | `StickySummary` (`beforeLines`+`stickyOnMobile`), `CapacityMeter`, `Button` | Hamper builder's sticky basket |
+| `CartProvider` / `useCart` | `lib/cart/CartContext.tsx` | — (React context, not a visual component) | Root layout; `ProductPurchasePanel`, `ProductGridCard`, `HeaderClient`, `/cart`, `/checkout` |
+| ~~`HamperBuilderClient`~~ | *removed M18* | — | `/hamper` is now a `ProductGridCard` grid of `isHamper` listings; the wizard and `HamperFillTile`/`HamperBasket` went with it |
+| ~~`HamperFillTile`~~ | *removed M18* | — | went with the builder |
+| ~~`HamperBasket`~~ | *removed M18* | — | went with the builder |
+| `LegalPage` | `components/legal/` | — | `/terms`, `/privacy`, `/refunds`, `/contact` — shared shell for the policy pages, incl. the "details not filled in yet" banner |
 | `CartLineRow` | `components/cart/` | `ImageSlot`, `QuantityStepper` | `/cart` line items |
 | `CheckoutClient` | `components/checkout/` | `StickySummary`, `SlotPicker`, `Textarea`, `AddressForm`, `OrderConfirmation` | `/checkout` |
 | `AddressForm` | `components/checkout/` | — (plain labeled inputs, no shared Input primitive exists yet) | Checkout's inline "add address" and gift-recipient forms |

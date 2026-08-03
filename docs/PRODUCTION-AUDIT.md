@@ -189,7 +189,7 @@ hypothetical maximum.
 | `/checkout` | Checkout | 90% | Guest path | Medium |
 | `/laundry` | Booking | 90% | Subscription management | Medium |
 | `/snacks` | WhatsApp menu | 95% | — | — |
-| `/hamper` | Hamper builder | held behind `FEATURES.hamperBuilder` | Deliberate | — |
+| `/hamper` | Gift hampers | **M18** — the builder was removed; the route lists `isHamper` products | Shipped | — |
 | `/wallet` | Wallet | 90% | — | — |
 | `/account` + 6 children | Account | 85% | Reviews written, subscriptions, following, returns | Critical |
 | `/account/orders/[id]` | Order detail | 70% | Reorder, review, cancel, return, invoice | Critical |

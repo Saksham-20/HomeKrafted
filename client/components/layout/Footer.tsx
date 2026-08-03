@@ -32,9 +32,18 @@ export async function Footer() {
         ))}
       </div>
 
+      {/* The policy row. These are the links a customer looks for when
+          something has gone wrong, and the ones Razorpay requires to be
+          published before a live account is activated — so they live in
+          the footer of every page rather than behind Support. */}
       <div className={clsx("container", styles.legal)}>
         <span>© {year} Homekrafted · Made with love in real homes</span>
-        <span>Login · Address book · Wallet · Support</span>
+        <span className={styles.legalLinks}>
+          <Link href="/terms">Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/refunds">Cancellation &amp; refunds</Link>
+          <Link href="/contact">Contact</Link>
+        </span>
       </div>
     </footer>
   );

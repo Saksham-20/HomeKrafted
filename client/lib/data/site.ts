@@ -29,7 +29,7 @@ export interface AnnouncementItem {
 /** Header primary nav — collapses into <MobileDrawer> under ~840px. */
 export const primaryNav: NavLink[] = [
   { label: "Shop", href: "/shop" },
-  { label: "Build a Hamper", href: "/hamper" },
+  { label: "Gift Hampers", href: "/hamper" },
   { label: "Laundry", href: "/laundry" },
   { label: "Snacks", href: "/snacks" },
   { label: "About", href: "/about" },
@@ -64,6 +64,8 @@ export const footerColumns: FooterColumn[] = [
       { label: "Shipping & returns", href: "/support" },
       { label: "FAQ", href: "/support" },
       { label: "Support", href: "/support" },
+      { label: "Contact us", href: "/contact" },
+      { label: "Cancellation & refunds", href: "/refunds" },
     ],
   },
   {

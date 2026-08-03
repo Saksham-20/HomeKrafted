@@ -125,16 +125,23 @@ Ranked by how soon someone hits it.
 None of this is code, and all of it is what "production ready" mostly
 means.
 
-- **No database backups.** `docs/DEPLOY.md` has no backup step, no
-  `pg_dump` cron, no restore drill. A single bad migration or a dropped
-  table loses every order, wallet balance and review. **This is the
-  highest-severity item in this document after §0.** A nightly dump to
-  off-box storage plus one tested restore is a day's work.
+- ~~**No database backups.**~~ ✅ **M18** — `scripts/backup-db.sh`.
+  Nightly verified `pg_dump`, 14 kept, plus a `--restore-drill` that
+  actually restores into a throwaway database and prints row counts.
+  **Still owed: getting the dumps off the box.** Local backups cover a
+  bad migration and a dropped table; they do not cover losing the VPS.
+- ~~**No uptime monitoring.**~~ ✅ **M18** — `scripts/healthcheck.sh`
+  watches both health endpoints, the web process and the public HTTPS
+  URL every five minutes, restarting a pm2 process after three
+  consecutive failures. **Still owed: an external check**, since this one
+  runs on the box it watches. UptimeRobot pointed at
+  `https://homekrafted.in/health` closes it in five minutes.
+- ~~**No log rotation policy.**~~ ✅ **M18** — `pm2-logrotate` setup
+  documented in `docs/DEPLOY.md`. pm2 logs growing until the disk fills
+  looks exactly like an application failure.
 - **No error monitoring.** No Sentry or equivalent. A 500 on checkout is
-  invisible unless someone reads pm2 logs.
-- **No uptime monitoring or alerting.** `/health` and `/health/db` exist
-  and nothing watches them.
-- **No log rotation policy** documented for pm2/nginx.
+  still invisible unless someone reads pm2 logs. This is the largest
+  remaining ops gap.
 - **No staging environment.** Deploys go from a laptop to production.
 - **CI does not deploy.** `.github/workflows/ci.yml` tests; `deploy.sh` is
   run by hand. Reasonable for now, but nothing prevents deploying a red
@@ -147,9 +154,22 @@ means.
 Not code, and genuinely blocking for a marketplace handling food and
 money in India.
 
-- **Terms of service, privacy policy, refund/cancellation policy** —
-  Razorpay requires published refund and contact policies before
-  activating a live account.
+- ~~**Terms of service, privacy policy, refund/cancellation policy**~~
+  ✅ **Drafted M18** and live at `/terms`, `/privacy`, `/refunds`,
+  `/contact`, linked from every page's footer and in the sitemap. They
+  are written from what the code actually enforces rather than from a
+  template — the cancellation cut-off, the seven-day return window and
+  the wallet-first refund on those pages are the rules the server really
+  applies.
+
+  **Two things still block using them.** (1) `client/lib/legal.ts` holds
+  placeholders for the registered legal name, address and phone; until
+  those are filled in, every policy page shows a banner saying it is
+  incomplete, which is deliberate — a policy carrying an invented address
+  looks compliant while being false. (2) **Nobody qualified has reviewed
+  them.** They are an accurate description of the product written by its
+  builders, not legal advice, and they should be read by someone who
+  does this for a living before real money moves.
 - **FSSAI**: the platform verifies HomeKrafters' licences, and the
   platform's own obligations as an aggregator need checking.
 - **GST**: registration, invoicing, and whether the platform collects TCS

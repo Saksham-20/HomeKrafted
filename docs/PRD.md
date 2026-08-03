@@ -43,7 +43,7 @@ Every bullet below is mandatory and in-scope; nothing is phased out.
 | Artist & maker storefronts | `/storefront/[vendor]` — banner, avatar, rating, follow |
 | Home bakers / edible sellers | Vendor `type` (artist/baker/maker) |
 | Packaged food listings | Product `isPackaged` + filter |
-| Hamper builder (note/wrap/ribbon/card) | `/hamper` — box→fill→message→checkout |
+| Gift hampers (listed by the kitchen) | `/hamper` — the catalogue filtered to `isHamper` listings |
 | Gift-to-recipient (hide price) | Checkout variant — recipient + hide-price toggle |
 | Occasion-based collections | `/collections/[occasion]` + home band |
 | Corporate/bulk gifting inquiry | `/corporate` form |
@@ -146,7 +146,12 @@ when one exists — Diwali/Corporate — else a plain occasion filter, product
 grid). Add-to-cart on these screens is real as of M3 (see below) — it
 was an inert local no-op only during M2.
 
-**Hamper builder (M3, shipped).** `/hamper` → choose box size (Petite/
+**Hamper builder (M3) — REMOVED in M18.** A hamper is now a listing a
+HomeKrafter assembles and prices (`Product.isHamper`), and `/hamper` is
+the catalogue filtered on it. The description below is kept for history
+only; nothing in the product works this way any more.
+
+~~`/hamper` → choose box size (Petite/
 Signature/Grand) → fill with products up to the box's item cap (capacity
 meter) → add gift note / wrap style / ribbon / name card → hands off to
 `/checkout` as one cart line. Recipient address + hide-price live on

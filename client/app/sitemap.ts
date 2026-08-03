@@ -36,6 +36,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/corporate"), lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: absoluteUrl("/app-promo"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: absoluteUrl("/support"), lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    // Policy pages (M18). Indexable on purpose: "homekrafted refund
+    // policy" is a real query from somebody with a problem, and a payment
+    // provider checks these are publicly reachable.
+    { url: absoluteUrl("/terms"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: absoluteUrl("/privacy"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: absoluteUrl("/refunds"), lastModified: now, changeFrequency: "yearly", priority: 0.4 },
+    { url: absoluteUrl("/contact"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
 
   try {

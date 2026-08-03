@@ -230,6 +230,71 @@ certbot --nginx -d homekrafted.in -d www.homekrafted.in \
 `docs/TESTING.md`. Re-running it on a live database will duplicate records.
 `scripts/deploy.sh` deliberately runs `migrate deploy` and never seeds.
 
+## Backups, monitoring and log rotation
+
+Three cron-installed pieces. Each is one command, and each replaces
+something that was previously absent entirely.
+
+### Database backups (do this first)
+
+```bash
+sudo bash /var/www/homekrafted/HomeKrafted/scripts/backup-db.sh --install
+```
+
+Nightly `pg_dump -Fc` at 03:15 into `/var/backups/homekrafted`, keeping
+the last 14. Every dump is verified with `pg_restore -l` immediately after
+writing and deleted if it doesn't read back — a backup nobody has read is
+a guess. Logs to `/var/log/homekrafted-backup.log`.
+
+**Prove it restores, then prove it again after any schema change:**
+
+```bash
+sudo bash scripts/backup-db.sh --restore-drill
+```
+
+That restores the newest dump into a throwaway database, prints row
+counts for `User`/`Order`/`Product`, and drops it. The day you find out a
+backup doesn't restore should never be the day you need it.
+
+> **This writes to local disk.** It protects against a bad migration, a
+> dropped table and a bad deploy — not against losing the box. Copying
+> the dumps off-box (S3, Backblaze, even another VPS via `rsync`) is the
+> remaining half, and is still owed.
+
+### Uptime checks
+
+```bash
+sudo bash /var/www/homekrafted/HomeKrafted/scripts/healthcheck.sh --install
+```
+
+Every five minutes: `/health`, `/health/db`, the web process, and the
+public HTTPS URL. Three consecutive failures restarts the affected pm2
+process — one failure is a blip, and restarting on it would turn a hiccup
+into an outage and destroy the evidence. A failing `/health/db` is
+reported but never triggers a restart: if Postgres is down, bouncing the
+API changes nothing. Logs to `/var/log/homekrafted-health.log`.
+
+> **It runs on the box it watches**, so if the box is off, nothing reports
+> it. Point an external monitor (UptimeRobot, Better Stack — both free at
+> this size) at `https://homekrafted.in/health`. That takes five minutes
+> and is the half this cannot do.
+
+### Log rotation
+
+pm2's logs grow without bound and will eventually fill the disk, which
+looks exactly like an application failure:
+
+```bash
+pm2 install pm2-logrotate
+pm2 set pm2-logrotate:max_size 20M
+pm2 set pm2-logrotate:retain 14
+pm2 set pm2-logrotate:compress true
+```
+
+nginx's own logs are already rotated by Ubuntu's default logrotate config.
+The two cron scripts above append to `/var/log/homekrafted-*.log`; add
+them to logrotate if they ever get large (they are a few lines a day).
+
 ## Troubleshooting
 
 | Symptom | Check |

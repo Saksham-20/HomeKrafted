@@ -172,7 +172,7 @@ export function GalleryClient({
             <Button variant="primary">Shop homemade foods</Button>
           </Swatch>
           <Swatch label="secondary">
-            <Button variant="secondary">Build a hamper →</Button>
+            <Button variant="secondary">Shop gift hampers →</Button>
           </Swatch>
           <Swatch label="ghost-gold">
             <Button variant="ghost-gold">+ Add to a gift hamper</Button>

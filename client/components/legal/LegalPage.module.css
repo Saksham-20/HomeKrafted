@@ -1,0 +1,157 @@
+/* Policy pages (M18). Long-form reading, so the measure is narrow and the
+   line height is generous — closer to an article than to the rest of the
+   marketplace chrome. */
+
+.page {
+  padding-block: var(--hk-s6) var(--hk-s8);
+  max-width: 760px;
+}
+
+.header {
+  padding-bottom: var(--hk-s4);
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(28px, 4vw, 38px);
+  color: var(--hk-pine);
+}
+
+.intro {
+  margin-top: var(--hk-s2);
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+}
+
+.updated {
+  margin-top: var(--hk-s3);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+/* Shown while `lib/legal.ts` still holds placeholders. Terracotta rather
+   than gold: this is a warning about accuracy, not a decorative accent,
+   and it has to read as one. */
+.banner {
+  display: flex;
+  gap: var(--hk-s3);
+  align-items: flex-start;
+  margin-top: var(--hk-s5);
+  padding: var(--hk-s4);
+  border: 1px solid var(--hk-terracotta);
+  border-radius: var(--hk-r-md);
+  background: #fdf6f2;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+}
+
+.banner svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--hk-terracotta);
+}
+
+.banner a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.body {
+  margin-top: var(--hk-s6);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--hk-ink-2);
+}
+
+.body h2 {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 21px;
+  color: var(--hk-pine);
+  margin-top: var(--hk-s6);
+  margin-bottom: var(--hk-s2);
+}
+
+.body h3 {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--hk-ink);
+  margin-top: var(--hk-s4);
+  margin-bottom: var(--hk-s1);
+}
+
+.body p {
+  margin-bottom: var(--hk-s3);
+}
+
+.body ul,
+.body ol {
+  margin: 0 0 var(--hk-s3) 1.25em;
+}
+
+.body li {
+  margin-bottom: var(--hk-s2);
+}
+
+.body strong {
+  color: var(--hk-ink);
+  font-weight: 600;
+}
+
+.body a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.body a:hover {
+  color: var(--hk-gold);
+}
+
+/* A definition-style block for the contact page and the "who we are" rows
+   — a label above a value, not a table, so it reflows on a phone. */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--hk-s3) 0;
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.detailLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.detailValue {
+  font-size: 15px;
+  color: var(--hk-ink);
+}
+
+/* A value still standing in for a real one. Named rather than styled
+   inline so the "unfilled" state is impossible to miss in review. */
+.pending {
+  color: var(--hk-terracotta);
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+}
+
+.callout {
+  margin: var(--hk-s4) 0;
+  padding: var(--hk-s4);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-left: 3px solid var(--hk-gold);
+  border-radius: var(--hk-r-sm);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
