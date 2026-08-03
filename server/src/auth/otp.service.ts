@@ -60,7 +60,49 @@ export class OtpService {
     }
   }
 
-  async verifyOtp(phone: string, code: string, purpose = 'login'): Promise<void> {
+  /**
+   * True when `code` is the configured test code **and** `phone` is on the
+   * allowlist that code is scoped to.
+   *
+   * Both halves are required, and the allowlist is never implicitly "all":
+   * `OTP_TEST_CODE` alone does nothing. That asymmetry is the whole safety
+   * property — `verifyOtp` creates an account for an unrecognised number,
+   * so an unscoped fixed code would let anyone sign in as anyone.
+   */
+  private isTestBypass(phone: string, code: string): boolean {
+    const testCode = this.configService.get('otp.testCode', { infer: true });
+    const testPhones = this.configService.get('otp.testPhones', { infer: true });
+    if (!testCode || testPhones.length === 0) return false;
+    // Timing-safe: this compares an attacker-supplied string against a
+    // secret-ish constant, and the allowlist is public-ish by comparison.
+    const supplied = Buffer.from(code);
+    const expected = Buffer.from(testCode);
+    const matches =
+      supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+    return matches && testPhones.includes(phone);
+  }
+
+  /**
+   * @returns `bypassed` — whether the fixed test code was used rather than
+   * a real one. The caller needs to know: `AuthService` refuses to issue an
+   * admin session from a bypassed verification, so that adding a phone to
+   * the test allowlist can never escalate to the admin panel.
+   */
+  async verifyOtp(phone: string, code: string, purpose = 'login'): Promise<{ bypassed: boolean }> {
+    if (this.isTestBypass(phone, code)) {
+      this.logger.warn(
+        `[OTP TEST BYPASS] ${phone} verified with the fixed OTP_TEST_CODE (purpose=${purpose}). ` +
+          'This is only possible for numbers listed in OTP_TEST_PHONES.',
+      );
+      // Consume any pending row so a real code issued moments earlier is
+      // not left usable afterwards.
+      await this.prisma.phoneOtp.updateMany({
+        where: { phone, purpose, consumedAt: null },
+        data: { consumedAt: new Date() },
+      });
+      return { bypassed: true };
+    }
+
     const otp = await this.prisma.phoneOtp.findFirst({
       where: { phone, purpose, consumedAt: null },
       orderBy: { createdAt: 'desc' },
@@ -89,6 +131,8 @@ export class OtpService {
       where: { id: otp.id },
       data: { consumedAt: new Date() },
     });
+
+    return { bypassed: false };
   }
 
   private generateCode(length: number): string {

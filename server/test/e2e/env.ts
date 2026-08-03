@@ -29,6 +29,13 @@ process.env.CLIENT_ORIGIN = 'http://localhost:3000';
 process.env.THROTTLE_LIMIT = '100000';
 process.env.THROTTLE_AUTH_LIMIT = '100000';
 
+// The fixed test OTP code, scoped to two numbers — the shape production
+// runs. Set here rather than in the spec because `otp-bypass.e2e-spec.ts`
+// asserts on the *scoping*, and a spec that set its own allowlist would be
+// asserting against its own fixture rather than against configuration.
+process.env.OTP_TEST_CODE = '123456';
+process.env.OTP_TEST_PHONES = '+919845000001,+919845000002';
+
 // Every outbound provider stays a logged stub. An e2e run must never be
 // able to send a real WhatsApp message or charge a real card.
 process.env.RAZORPAY_KEY_ID = 'rzp_test_placeholder';

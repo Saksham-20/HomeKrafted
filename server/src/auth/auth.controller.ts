@@ -9,6 +9,8 @@ import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 /**
  * Brute-force budget for the auth routes, from `THROTTLE_AUTH_LIMIT` /
@@ -54,6 +56,35 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto): Promise<AuthResult> {
     return this.authService.login(dto);
+  }
+
+  /**
+   * Always 200 with the same body, hit or miss.
+   *
+   * A different answer for a known and an unknown address makes this an
+   * account-existence oracle — "is this person a Homekrafted customer" for
+   * anyone who can POST. The cost is that a typo looks like a success;
+   * that is the right trade, and the copy says "if an account exists"
+   * rather than "sent" for exactly that reason.
+   */
+  @Public()
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  @Post('password/forgot')
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
+    await this.authService.forgotPassword(dto.email);
+    return {
+      message: 'If an account exists for that email, a reset link is on its way.',
+    };
+  }
+
+  @Public()
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  @Post('password/reset')
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    await this.authService.resetPassword(dto.token, dto.password);
+    return { message: 'Password updated. Sign in with your new password.' };
   }
 
   @Public()

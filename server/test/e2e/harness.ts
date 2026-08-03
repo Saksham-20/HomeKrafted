@@ -76,7 +76,30 @@ export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   `;
   if (tables.length === 0) return;
   const list = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`);
+
+  // Retried on deadlock, because some writes deliberately outlive the
+  // request that triggered them.
+  //
+  // Order notifications (M18) are fire-and-forget — a paid order must not
+  // roll back because a WhatsApp message failed — so an `INSERT` into
+  // `Notification` can still be in flight when the *next* test's reset
+  // starts. `TRUNCATE ... CASCADE` takes an ACCESS EXCLUSIVE lock on every
+  // table at once and deadlocks against it (Postgres `40P01`).
+  //
+  // Retrying is the right fix rather than making delivery synchronous:
+  // the asynchrony is a product decision worth keeping, and the loser of a
+  // deadlock is always safe to repeat. Three attempts with a short backoff
+  // — a genuinely stuck reset still fails rather than hanging the suite.
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`);
+      return;
+    } catch (err) {
+      const isDeadlock = String(err).includes('40P01');
+      if (!isDeadlock || attempt >= 2) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+    }
+  }
 }
 
 export interface Actor {

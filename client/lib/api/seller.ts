@@ -167,6 +167,8 @@ export interface SellerListingInput {
   dietary: DietaryTag[];
   description: string;
   isPackaged: boolean;
+  /** Lists it on `/hamper` as a ready-made gift hamper (M18). */
+  isHamper: boolean;
   cashbackPct: number;
   tags: ProductTag[];
   /** Real project asset path (e.g. "/images/products/mango-thokku-pickle.jpg") — no upload backend, so this is a typed-in path; blank keeps the `<ImageSlot>` placeholder. */
@@ -203,6 +205,7 @@ export async function createSellerListing(
       reviewCount: 0,
       tags: input.tags,
       isPackaged: input.isPackaged,
+      isHamper: input.isHamper,
       cashbackPct: input.cashbackPct,
       description: input.description,
     };
@@ -229,6 +232,7 @@ export async function updateSellerListing(
     product.dietary = input.dietary;
     product.description = input.description;
     product.isPackaged = input.isPackaged;
+    product.isHamper = input.isHamper;
     product.cashbackPct = input.cashbackPct;
     product.tags = input.tags;
     product.weightOptions = input.weightOptions;

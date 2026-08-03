@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import type { TrustStat } from "@/lib/data";
-import { getFeatures } from "@/lib/features/server";
 import styles from "./Hero.module.css";
 
 export interface HeroProps {
@@ -18,9 +17,7 @@ export interface HeroProps {
  * home-cooked food is the main event or that everything is local to the
  * tricity.
  */
-export async function Hero({ trustStats }: HeroProps) {
-  const features = await getFeatures();
-
+export function Hero({ trustStats }: HeroProps) {
   return (
     <section className={styles.hero}>
       <div className="container">
@@ -40,10 +37,11 @@ export async function Hero({ trustStats }: HeroProps) {
               <Link href="/shop" className={styles.ctaPrimary}>
                 Order home food near you
               </Link>
-              {/* Still links to /hamper while the builder is held — that route
-                  serves <HamperComingSoon>, so the CTA lands somewhere real. */}
+              {/* "Shop", not "Build" (M18): hampers are listed by the
+                  kitchens that assemble them, so this is a catalogue link
+                  like the one beside it. */}
               <Link href="/hamper" className={styles.ctaOutline}>
-                {features.hamperBuilder ? "Build a hamper →" : "Build a hamper · coming soon →"}
+                Shop gift hampers →
               </Link>
             </div>
             <div className={styles.trustRow}>

@@ -7,6 +7,7 @@ import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { WalletService } from '../wallet/wallet.service';
 import { LaundryService } from '../laundry/laundry.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OrderNotificationsService } from './order-notifications.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders.query.dto';
 import { mapOrder, orderStatusToFrontend } from './order.mapper';
@@ -24,6 +25,7 @@ export class OrdersService {
     private readonly idempotency: IdempotencyService,
     private readonly laundryService: LaundryService,
     private readonly notifications: NotificationsService,
+    private readonly orderNotifications: OrderNotificationsService,
   ) {}
 
   /**
@@ -180,52 +182,13 @@ export class OrdersService {
       return order;
     });
 
-    // Tell each HomeKrafter whose food is in this order that it came in.
-    // Outside the transaction and never awaited into the failure path: a
-    // paid order must not roll back because an inbox write failed.
-    void this.notifyHomeKraftersOfOrder(created.id);
+    // Both sides hear about it. Outside the transaction and never awaited
+    // into the failure path: a paid order must not roll back because a
+    // message failed to send.
+    void this.orderNotifications.notifyHomeKraftersOfNewOrder(created.id);
+    void this.orderNotifications.notifyBuyerOfStatus(created.id, created.status);
 
     return mapOrder(created);
-  }
-
-  /**
-   * One notification per HomeKrafter in the order, not per line — an order
-   * with three of Anjali's jars should ping Anjali once.
-   */
-  private async notifyHomeKraftersOfOrder(orderId: string): Promise<void> {
-    try {
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-        include: {
-          items: { include: { product: { include: { vendor: { include: { seller: true } } } } } },
-        },
-      });
-      if (!order) return;
-
-      const byUser = new Map<string, { count: number; name: string }>();
-      for (const item of order.items) {
-        const seller = item.product?.vendor?.seller;
-        if (!seller) continue;
-        const entry = byUser.get(seller.userId) ?? { count: 0, name: seller.displayName };
-        entry.count += item.quantity;
-        byUser.set(seller.userId, entry);
-      }
-
-      await Promise.all(
-        [...byUser.entries()].map(([userId, { count }]) =>
-          this.notifications.notify({
-            userId,
-            category: 'order',
-            title: `New order ${order.orderNumber}`,
-            body: `${count} item${count === 1 ? '' : 's'} of yours were ordered. Open Orders to confirm and start packing.`,
-            refType: 'order',
-            refId: order.id,
-          }),
-        ),
-      );
-    } catch (err) {
-      this.logger.warn(`Could not notify HomeKrafters for order ${orderId}: ${String(err)}`);
-    }
   }
 
   async list(userId: string, query: ListOrdersQueryDto) {
@@ -372,12 +335,14 @@ export class OrdersService {
    * a separate integration, not something to half-introduce here.
    */
   async cancelOrder(userId: string, orderId: string, reason?: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
       if (!order || order.userId !== userId) throw new NotFoundException('Order not found');
 
       if (order.status === 'cancelled') {
-        return mapOrder(order); // Idempotent — a double-tap isn't an error.
+        // Idempotent — a double-tap isn't an error, and must not send a
+        // second round of "your order was cancelled" messages.
+        return { order: mapOrder(order), cancelledNow: false };
       }
       if (!OrdersService.CANCELLABLE.has(order.status)) {
         throw new ConflictException(
@@ -426,8 +391,17 @@ export class OrdersService {
         },
         include: ORDER_INCLUDE,
       });
-      return mapOrder(updated);
+      return { order: mapOrder(updated), cancelledNow: true };
     });
+
+    // Outside the transaction: a HomeKrafter may be halfway through
+    // cooking this, and telling them is worth more than the message being
+    // transactional with the refund.
+    if (result.cancelledNow) {
+      void this.orderNotifications.notifyBuyerOfStatus(orderId, 'cancelled');
+      void this.orderNotifications.notifyHomeKraftersOfCancellation(orderId);
+    }
+    return result.order;
   }
 
   /**
@@ -571,6 +545,12 @@ export class OrdersService {
         data: { status: 'placed' },
         include: ORDER_INCLUDE,
       });
+
+      // Payment captured — the buyer's "we've got it" becomes a real
+      // confirmation. Fired inside the transaction callback but never
+      // awaited, so a failed message cannot roll back a captured payment.
+      void this.orderNotifications.notifyBuyerOfStatus(orderId, 'placed');
+
       return mapOrder(updated);
     });
   }
@@ -631,6 +611,10 @@ export class OrdersService {
     if (!order || order.status !== 'pending_payment') return;
 
     await tx.order.update({ where: { id: orderId }, data: { status: 'placed' } });
+
+    // Same as the wallet path: the webhook is where a card order actually
+    // becomes confirmed, so it is where the buyer hears so.
+    void this.orderNotifications.notifyBuyerOfStatus(orderId, 'placed');
 
     const cashback = Number(order.cashbackEarned);
     if (cashback > 0) {

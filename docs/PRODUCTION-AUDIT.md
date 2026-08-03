@@ -99,7 +99,7 @@ remains is Phase 2 onward — see §7.
 | L1 | ✅ **M17.** `server/test/unit/geo-parity.spec.ts` now fails if the two copies drift by so much as a decimal place. |
 | L2 | `WalletContext` still holds client-side wallet state alongside the real wallet API in places; the balance shown is context-derived. |
 | L3 | The dev gallery (`/gallery`) is unlinked but publicly routable in production. |
-| L4 | ✅ **M17.** 365 tests: 88 client unit, 88 server unit, 189 server e2e against a real Postgres, plus CI running all of it on every push. See `docs/TESTS.md`. |
+| L4 | ✅ **M17**, extended M18. 416 tests: 88 client unit, 88 server unit, 240 server e2e against a real Postgres, plus CI running all of it on every push. See `docs/TESTS.md`. |
 | L5 | No rate limiting visible on auth/OTP endpoints beyond what nginx provides. |
 | L6 | `handoff/prototype` ships in the repo (correctly excluded from lint, but still deployed source). |
 
@@ -353,7 +353,7 @@ below.
     deducts it — payouts are gross and settlement is manual.)
 21. ✅ **Test suite — shipped M17.** *(L4)* Was the largest single gap:
     every claim in M15/M16 had been verified by measurement against a
-    live API, and none of it was guarded. Now 365 tests across three
+    live API, and none of it was guarded. Now 416 tests across three
     layers plus CI — see `docs/TESTS.md`. It found a real bug on its
     first run: `"false"` evaluated as `true` on every boolean request
     field, including the verification badge (see M17 in `CHANGELOG.md`).

@@ -64,6 +64,7 @@ export class SellerListingsService {
         defaultWeightSku: dto.defaultWeightSku,
         tags: (dto.tags ?? []) as ProductTag[],
         isPackaged: dto.isPackaged,
+        isHamper: dto.isHamper ?? false,
         cashbackPct: dto.cashbackPct,
         description: dto.description,
         images: {
@@ -130,6 +131,7 @@ export class SellerListingsService {
           defaultWeightSku: dto.defaultWeightSku,
           tags: dto.tags as ProductTag[] | undefined,
           isPackaged: dto.isPackaged,
+          isHamper: dto.isHamper,
           cashbackPct: dto.cashbackPct,
           description: dto.description,
         },

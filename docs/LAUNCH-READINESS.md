@@ -34,14 +34,28 @@ the API uses, and refuses the leaked one. Then check `AdminAuditLog` for
 anything you did not do — as of 2026-08-02 it held a single legitimate
 entry (a seller-application approval on 2026-07-30).
 
-### 0.2 Decide whether demo accounts belong on production at all
+### 0.2 Demo accounts: kept, deliberately, for now
 
-The seed also creates demo shoppers and three demo HomeKrafters, all
-sharing one password, all still live. They are useful for testing and
-indefensible on a site taking payments. Either give production its own
-seed without them, or delete them once real data exists.
+The seed creates demo shoppers and three demo HomeKrafters sharing one
+password. **Decision (2026-08-03): they stay** while the site is being
+tested, and their phone numbers are the `OTP_TEST_PHONES` allowlist.
+
+That is a real exposure, so it is worth being exact about its size: anyone
+who reads `docs/TESTING.md` can sign in as a demo shopper or a demo
+kitchen and act as them. They cannot reach the admin panel — the test OTP
+code is refused for admin accounts, and the admin password is not in the
+bundle any more (§0.1).
+
+**Delete them the day real customers arrive**, along with `OTP_TEST_CODE`.
+Both are one action: they are the same accounts.
 
 ### 0.3 SMS, or approved HomeKrafters still cannot log in
+
+> **Partly mitigated in M18.** `OTP_TEST_CODE`/`OTP_TEST_PHONES` make the
+> phone-login flow testable without Twilio — but only for the listed demo
+> numbers, so this is a testing affordance, not a fix. A *real* HomeKrafter
+> you approve still cannot sign in. Delete `OTP_TEST_CODE` once Twilio is
+> live.
 
 M17 fixed the lockout in the product: a newly approved HomeKrafter signs
 in with **phone OTP**, because approval never sets a password. That path
@@ -78,11 +92,12 @@ the WhatsApp webhook and `WHATSAPP_VERIFY_TOKEN`.
 
 Ranked by how soon someone hits it.
 
-1. **No password reset, anywhere.** There is no "forgot password" endpoint
-   and no UI. A shopper who forgets theirs has no route back in unless
-   they happen to have a phone on the account. This is week-one support
-   volume, and it is not a small build: token issue, expiry, single-use,
-   email delivery.
+1. ~~**No password reset, anywhere.**~~ ✅ **Shipped M18.**
+   `/forgot-password` + `/reset-password`, single-use one-hour tokens,
+   every session revoked on reset, and no account-existence oracle. The
+   *link* still needs `SENDGRID_API_KEY` to actually leave the box —
+   until then it lands in the server log, so the flow is testable but not
+   yet usable by a real customer.
 2. **No refund execution.** A buyer can request a return and an admin can
    resolve it, but settlement is a wallet credit — money never returns to
    the card it came from. Razorpay refunds are not wired.
@@ -91,11 +106,17 @@ Ranked by how soon someone hits it.
    HomeKrafters, not at a hundred.
 4. **Commission is modelled, never collected.** Payouts are gross. The
    rate on `/admin/settings` drives a projection and deducts nothing.
-5. **No order-confirmation email or SMS.** Depends on §1.
+5. ~~**No order-confirmation email or SMS.**~~ ✅ **Wired M18**, still
+   gated on §1. Every order status change now messages the buyer, and a
+   new order or cancellation messages each HomeKrafter — WhatsApp, email
+   and in-app by default. All of it degrades to a logged stub until
+   `WHATSAPP_*` and `SENDGRID_API_KEY` are real, so the work is done and
+   the delivery is not.
 6. **No live delivery tracking** — deliberate (it is app-only, per the
    channel matrix), but buyers will ask.
 7. **Support tickets are one-way-ish.** A customer can reply and it
    reopens, but there is no notification to either side that it happened.
+   M18 wired orders, not tickets — this one is still owed.
 
 ---
 
@@ -158,7 +179,7 @@ money in India.
 
 Worth stating, because the list above is long and the build is not thin:
 
-- Auth, RBAC and row scoping, now with 189 end-to-end tests against a
+- Auth, RBAC and row scoping, now with 240 end-to-end tests against a
   real database including the refusals.
 - The wallet ledger is server-authoritative and idempotent.
 - The trust model: verification only an admin can grant, reviews only a
@@ -170,7 +191,7 @@ Worth stating, because the list above is long and the build is not thin:
 - SEO: metadata, sitemap, robots, structured data, no soft 404s.
 - Accessibility floor: skip link, focus management, real alt text.
 - Images through `next/image` — 78% smaller on the home hero.
-- CI running typecheck, lint, 365 tests and both builds on every push.
+- CI running typecheck, lint, 416 tests and both builds on every push.
 
 The gap is not the product. It is keys, backups, monitoring, and the
 paperwork that lets you take money.

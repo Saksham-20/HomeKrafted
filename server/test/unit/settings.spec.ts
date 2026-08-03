@@ -57,11 +57,19 @@ describe('get', () => {
   it('ignores an unknown key rather than surfacing it', async () => {
     // Every key returned here is read by something. A stale row from a
     // removed setting must not reappear in the API.
-    const { service } = serviceWith([{ key: 'removedLongAgo', value: 'true' }]);
+    //
+    // `hamperBuilderEnabled` is the real example, not a hypothetical: it
+    // was removed in M18 with the hamper builder it gated, and every
+    // production database that ever had it flipped still holds the row.
+    // Nothing drops those rows, so this is what stops them coming back as
+    // dead config an admin might act on.
+    const { service } = serviceWith([
+      { key: 'removedLongAgo', value: 'true' },
+      { key: 'hamperBuilderEnabled', value: 'true' },
+    ]);
     expect(Object.keys(await service.get()).sort()).toEqual([
       'commissionPct',
       'defaultDeliveryRadiusKm',
-      'hamperBuilderEnabled',
     ]);
   });
 });

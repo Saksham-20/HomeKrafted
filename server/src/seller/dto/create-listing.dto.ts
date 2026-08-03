@@ -69,6 +69,19 @@ export class CreateListingDto {
   @BooleanField()
   isPackaged!: boolean;
 
+  /**
+   * "This listing is a ready-made gift hamper."
+   *
+   * Optional so every existing caller keeps working and an unset field
+   * means "an ordinary listing" rather than a validation error.
+   * `@BooleanField()` rather than `@IsBoolean()` — the global pipe's
+   * `enableImplicitConversion` reads the string `"false"` as `true`, which
+   * would put every listing on the hamper page.
+   */
+  @IsOptional()
+  @BooleanField()
+  isHamper?: boolean;
+
   @IsNumber()
   @Min(0)
   @Max(100)

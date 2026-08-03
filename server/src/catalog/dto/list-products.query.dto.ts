@@ -58,6 +58,21 @@ export class ListProductsQueryDto {
   featured?: boolean;
 
   /**
+   * `true` for ready-made gift hampers only, `false` for everything else,
+   * omitted for both.
+   *
+   * Three states rather than two: `/hamper` asks for `true`, and a caller
+   * that wants an ordinary catalogue without hampers in it can ask for
+   * `false`. Leaving it out returns everything, which is what `/shop`
+   * wants — a hamper is a listing like any other and hiding it from the
+   * main catalogue would cost a HomeKrafter sales.
+   */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @BooleanField()
+  isHamper?: boolean;
+
+  /**
    * Buyer coordinates. When both are supplied, only listings from kitchens
    * whose `deliveryRadiusKm` reaches the buyer are returned, and each item
    * carries the distance so the UI can say "4.6 km away".

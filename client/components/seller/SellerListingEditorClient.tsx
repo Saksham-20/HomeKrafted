@@ -33,6 +33,7 @@ function productToFormValues(product: Product): ListingFormValues {
     dietary: product.dietary,
     description: product.description,
     isPackaged: product.isPackaged,
+    isHamper: product.isHamper ?? false,
     cashbackPct: String(product.cashbackPct),
     tags: product.tags,
     imagePath: product.images[0]?.src ?? "",

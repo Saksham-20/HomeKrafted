@@ -112,13 +112,14 @@ export const homePromoBands: HomePromoBandContent[] = [
   {
     id: "hamper",
     variant: "dark",
-    // Copy reflects the held builder (the `hamperBuilder` flag, lib/features/).
-    // When it goes live, revert to "Customisable" / "Start building →".
-    eyebrow: "Customisable · coming soon",
-    title: "Build your own\ngift hamper",
+    // M18: the buyer-assembled builder is gone. A hamper is now put
+    // together by the kitchen that makes what's inside it, so the copy
+    // sells that rather than a configurator.
+    eyebrow: "Ready to send",
+    title: "Gift hampers,\nmade by the maker",
     description:
-      "Pick a box, fill it with favourites, add a handwritten message card and gift wrap. We pack it beautifully — launching with the festive season.",
-    ctaLabel: "See what's coming →",
+      "Festive boxes, sweet-and-savoury mixes and gifting sets — each one assembled, wrapped and priced by the home kitchen that cooks what's inside.",
+    ctaLabel: "Shop hampers →",
     ctaHref: "/hamper",
   },
   {

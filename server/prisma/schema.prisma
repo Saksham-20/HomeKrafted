@@ -382,12 +382,13 @@ model User {
   snackLists              SnackList[]
   seller                  Seller?
   refreshTokens           RefreshToken[]
+  passwordResetTokens     PasswordResetToken[]
   socialAccounts          SocialAccount[]
   vendorFollows           VendorFollow[]
   razorpayOrders          RazorpayOrder[]
   adminAuditLogs          AdminAuditLog[]
   /// Payouts this admin settled or refused — see `Payout.decidedById`.
-  payoutDecisions         Payout[]              @relation("PayoutDecidedBy")
+  payoutDecisions         Payout[]                 @relation("PayoutDecidedBy")
 
   @@index([role])
 }
@@ -453,6 +454,31 @@ model RefreshToken {
 /// `attempts` counter for basic brute-force resistance on top of the global
 /// throttler. The OTP "sender" is a stub in M8.0 (logs to console) — see
 /// `src/auth/otp.service.ts`.
+/// M18 — one row per "forgot password" request.
+///
+/// Stored as a SHA-256 of the token, not the token itself: the emailed
+/// value is a bearer credential for the account, so a leaked database dump
+/// must not be a pile of working reset links. SHA-256 rather than argon2
+/// for the same reason `RefreshToken` uses it — this is an exact-equality
+/// index lookup, not a password verification, and the token is 32 random
+/// bytes rather than something guessable.
+///
+/// Single-use (`consumedAt`) and short-lived (`expiresAt`). Rows are kept
+/// after consumption rather than deleted so a support question about a
+/// reset has an answer.
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model PhoneOtp {
   id         String    @id @default(cuid())
   phone      String
@@ -793,11 +819,11 @@ model Vendor {
   followerCount     Int        @default(0)
   joinedAt          DateTime   @default(now())
 
-  products Product[]
-  seller   Seller?
-  follows  VendorFollow[]
-  profile  VendorProfile?
-  photos   VendorPhoto[]
+  products  Product[]
+  seller    Seller?
+  follows   VendorFollow[]
+  profile   VendorProfile?
+  photos    VendorPhoto[]
   blackouts VendorBlackoutDate[]
 }
 
@@ -896,14 +922,14 @@ model VendorProfile {
   // --- Verification: admin writes only ----------------------------------
   /// As submitted by the HomeKrafter. Present + `fssaiVerified` false means
   /// "claimed, not checked" — the UI must never render that as a badge.
-  fssaiNumber       String?
-  fssaiExpiry       DateTime?
-  fssaiVerified     Boolean   @default(false)
-  identityVerified  Boolean   @default(false)
-  addressVerified   Boolean   @default(false)
+  fssaiNumber      String?
+  fssaiExpiry      DateTime?
+  fssaiVerified    Boolean   @default(false)
+  identityVerified Boolean   @default(false)
+  addressVerified  Boolean   @default(false)
   /// When an admin last touched any of the three flags above, and why.
-  verifiedAt        DateTime?
-  verificationNote  String?
+  verifiedAt       DateTime?
+  verificationNote String?
 
   // --- Social ------------------------------------------------------------
   instagramUrl String?
@@ -1002,8 +1028,8 @@ model Collection {
   /// page — so it needs its own art and its own place in a running order.
   /// `featured` is what the hub and the home rail promote.
   imageSrc  String?
-  featured  Boolean  @default(false)
-  sortOrder Int      @default(0)
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
 
   products CollectionProduct[]
 }
@@ -1055,6 +1081,22 @@ model Product {
   /// out of search.
   isAvailable         Boolean                 @default(true)
   featured            Boolean                 @default(false)
+  /// M18 — "this listing is a ready-made gift hamper", set by the
+  /// HomeKrafter who lists it.
+  ///
+  /// A hamper is a `Product`, not a new entity, and this flag is the whole
+  /// of the difference. It already needed a vendor, photos, price tiers,
+  /// availability, moderation, reviews, cart, checkout and search; a
+  /// parallel model would have re-derived every one of those and then
+  /// drifted from them. The flag is a *listing* attribute rather than a
+  /// `Category`, because a hamper is still a sweets or pickles hamper —
+  /// overloading the browse taxonomy would force a false choice between
+  /// the two.
+  ///
+  /// Unrelated to the `Hamper` model below, which is the retired
+  /// buyer-assembled gift box (M3) kept only so historical orders still
+  /// resolve.
+  isHamper            Boolean                 @default(false)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -1069,6 +1111,7 @@ model Product {
 
   @@index([vendorId])
   @@index([categoryId])
+  @@index([isHamper])
 }
 
 model ProductOccasion {

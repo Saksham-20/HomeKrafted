@@ -7,7 +7,7 @@ running API, and none of it was guarded against being undone.
 ```
 cd client && npm test          # 88 tests, no setup
 cd server && npm test          # 88 tests, no setup
-cd server && npm run test:e2e  # 189 tests, needs a database (below)
+cd server && npm run test:e2e  # 240 tests, needs a database (below)
 ```
 
 CI runs all three plus typecheck, lint and both builds — see
@@ -78,6 +78,10 @@ Grouped by the rule, not by the file, because the rules are the point.
 
 | Rule | Where |
 |---|---|
+| The OTP test code only works for allowlisted numbers, and never for an admin | `e2e/otp-bypass.e2e-spec.ts` |
+| A reset link is single-use, expiring, session-revoking, and not an account-existence oracle | `e2e/password-reset.e2e-spec.ts` |
+| `isHamper` is a filter and nothing else — a hamper still obeys availability, moderation and ownership | `e2e/hamper-listings.e2e-spec.ts` |
+| Every path that writes `Order.status` messages the buyer; a new order messages each kitchen once | `e2e/order-notifications.e2e-spec.ts` |
 | A review needs a **delivered** order; aggregates are recomputed from rows, never incremented | `reviews.e2e-spec.ts` |
 | A seller **cannot verify themselves** (400, not a silent strip); a changed FSSAI number clears the badge; the licence number is never published | `verification.e2e-spec.ts` |
 | Cancellation closes at `packed`; returns close 7 days after `deliveredAt`; a return request **moves no money** | `orders-lifecycle.e2e-spec.ts` |

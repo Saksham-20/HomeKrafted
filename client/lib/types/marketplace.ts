@@ -293,6 +293,14 @@ export interface Product {
   tags: ProductTag[];
   /** Ready-to-ship packaged food vs. made-to-order. */
   isPackaged: boolean;
+  /**
+   * A ready-made gift hamper, listed by the HomeKrafter who assembles it
+   * (M18). `/hamper` is exactly the catalogue filtered on this.
+   *
+   * Optional so every mock and fixture predating M18 still type-checks;
+   * absent reads as `false`.
+   */
+  isHamper?: boolean;
   /** Wallet cashback percentage earned on this product. */
   cashbackPct: number;
   description: string;

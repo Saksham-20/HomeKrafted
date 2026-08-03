@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
-import { useFeatures } from "@/lib/features/FeaturesContext";
 import type { Product } from "@/lib/types";
 import styles from "./ProductPurchasePanel.module.css";
 
@@ -20,7 +19,7 @@ export interface ProductPurchasePanelProps {
 
 /**
  * Product detail's purchase controls: weight-option chips, quantity
- * stepper, add-to-cart and wishlist toggle, "add to a gift hamper" CTA.
+ * stepper, add-to-cart and wishlist toggle.
  * Add-to-cart wires into the real cart store (M3, `useCart().addItem`);
  * the wishlist heart wires into the real wishlist store (M7a,
  * `useWishlist()`). Weight selection state lives here so the cart wiring
@@ -30,7 +29,6 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const router = useRouter();
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
-  const features = useFeatures();
   const wishlisted = has(product.id);
   const [selectedSku, setSelectedSku] = useState(product.defaultWeightSku);
   const [quantity, setQuantity] = useState(1);
@@ -108,18 +106,9 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         </p>
       )}
 
-      {/* Hidden while the builder is held — the
-          button promises an action that doesn't exist yet, and the coming-soon
-          page is already reachable from the nav and Home. */}
-      {features.hamperBuilder && (
-        <Button
-          variant="ghost-gold"
-          className={styles.hamperCta}
-          onClick={() => router.push("/hamper")}
-        >
-          + Add to a gift hamper
-        </Button>
-      )}
+      {/* No "add to a gift hamper" (M18): a hamper is a listing its
+          HomeKrafter assembles and prices, not a basket a buyer fills, so
+          there is nothing on this page to add anything to. */}
 
       <div className={styles.giftBlock}>
         <div className={styles.giftLabel}>Make it a gift</div>

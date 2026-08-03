@@ -22,6 +22,7 @@ import { SellerProfileService } from './profile.service';
 import { CatalogModule } from '../catalog/catalog.module';
 import { SellerAnalyticsController } from './analytics.controller';
 import { SellerAnalyticsService } from './analytics.service';
+import { OrdersModule } from '../orders/orders.module';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -38,7 +39,9 @@ import { SellerAnalyticsService } from './analytics.service';
   // `CatalogModule` for `VendorProfileService` — the seller editor shows the
   // same trust/completion computation the public storefront renders, so it
   // reuses that service rather than keeping a second copy of the rules.
-  imports: [IdempotencyModule, WhatsAppModule, CatalogModule],
+  // `OrdersModule` for `OrderNotificationsService` — advancing an order
+  // here has to tell the buyer, and that copy lives in one place.
+  imports: [IdempotencyModule, WhatsAppModule, CatalogModule, OrdersModule],
   controllers: [
     SellerController,
     SellerListingsController,

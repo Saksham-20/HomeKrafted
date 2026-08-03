@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapOrder } from '../orders/order.mapper';
+import { OrderNotificationsService } from '../orders/order-notifications.service';
 
 const SELLER_ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
 
@@ -30,7 +31,10 @@ export function nextFulfillmentStatus(status: OrderStatus): OrderStatus | undefi
  */
 @Injectable()
 export class SellerOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly orderNotifications: OrderNotificationsService,
+  ) {}
 
   async list(vendorId: string) {
     const productIds = await this.vendorProductIds(vendorId);
@@ -65,6 +69,12 @@ export class SellerOrdersService {
       },
       include: SELLER_ORDER_INCLUDE,
     });
+
+    // The buyer hears about every advance. This is the path that fires
+    // most often — a HomeKrafter tapping through packed, shipped,
+    // delivered — and before M18 it was completely silent.
+    void this.orderNotifications.notifyBuyerOfStatus(orderId, next);
+
     return mapOrder(updated);
   }
 

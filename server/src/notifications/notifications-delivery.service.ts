@@ -134,6 +134,42 @@ export class NotificationsDeliveryService {
   private async getOrCreatePreference(userId: string, category: NotificationCategory) {
     const existing = await this.prisma.notificationPreference.findUnique({ where: { userId_category: { userId, category } } });
     if (existing) return existing;
-    return this.prisma.notificationPreference.create({ data: { userId, category } });
+    return this.prisma.notificationPreference.create({
+      data: { userId, category, ...defaultChannelsFor(category) },
+    });
   }
+}
+
+/**
+ * What a category is switched on to before anyone touches the toggles
+ * (M18).
+ *
+ * The schema's column defaults are a single set — `inapp` only — which was
+ * right while nothing could actually send. It is wrong now: an order
+ * confirmation nobody sees until they next open the site is not a
+ * confirmation, and in India the message people actually read is WhatsApp.
+ *
+ * The split is **transactional versus marketing**, not "important versus
+ * unimportant". Anything the person is waiting for — an order, a laundry
+ * pickup, a snack list, money moving, a security event — reaches them
+ * where they are. `promo` stays in-app only, because opting somebody into
+ * marketing on a channel as personal as WhatsApp is how a brand gets
+ * blocked, and blocking is per-sender rather than per-message: one promo
+ * costs every future order update to that person.
+ *
+ * Every one of these is a *default*, changeable per category at
+ * `/account/notifications`.
+ */
+export function defaultChannelsFor(category: NotificationCategory): {
+  sms: boolean;
+  whatsapp: boolean;
+  email: boolean;
+  inapp: boolean;
+} {
+  if (category === 'promo') {
+    return { sms: false, whatsapp: false, email: false, inapp: true };
+  }
+  // SMS stays off: it duplicates WhatsApp at a per-message cost, and the
+  // OTP path is the only place a text is genuinely the right channel.
+  return { sms: false, whatsapp: true, email: true, inapp: true };
 }

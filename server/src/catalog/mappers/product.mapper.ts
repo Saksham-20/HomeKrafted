@@ -48,6 +48,7 @@ export function mapProduct(product: ProductWithRelations) {
     reviewCount: product.reviewCount,
     tags: product.tags,
     isPackaged: product.isPackaged,
+    isHamper: product.isHamper,
     cashbackPct: Number(product.cashbackPct),
     description: product.description,
     ingredients: product.ingredients ?? undefined,

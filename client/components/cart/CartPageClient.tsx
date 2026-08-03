@@ -10,7 +10,6 @@ import { CartLineRow } from "@/components/cart/CartLineRow";
 import { useCart } from "@/lib/cart/CartContext";
 import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
 import { formatCurrency } from "@/lib/format";
-import { useFeatures } from "@/lib/features/FeaturesContext";
 import styles from "@/app/cart/Cart.module.css";
 
 /**
@@ -26,7 +25,6 @@ import styles from "@/app/cart/Cart.module.css";
 export function CartPageClient() {
   const router = useRouter();
   const { items, ready, updateQty, removeItem, lineInfo, subtotal, count } = useCart();
-  const features = useFeatures();
 
   const shipping = computeShipping(subtotal);
   const cashback = computeCashback(subtotal);
@@ -48,21 +46,16 @@ export function CartPageClient() {
           <ShoppingBag size={40} strokeWidth={1.4} />
           <p className={styles.emptyTitle}>Your cart is empty</p>
           <p className={styles.emptyCopy}>
-            {features.hamperBuilder
-              ? "Browse the shop or build a gift hamper to get started."
-              : "Browse the shop to get started — small-batch pickles, bakes and ready-made hampers."}
+            Browse the shop to get started — small-batch pickles, bakes and
+            ready-made gift hampers.
           </p>
           <div className={styles.emptyActions}>
             <Button variant="primary" onClick={() => router.push("/shop")}>
               Continue shopping
             </Button>
-            {/* Held with the builder — an empty cart is
-                the wrong place to send someone to a coming-soon page. */}
-            {features.hamperBuilder && (
-              <Button variant="secondary" onClick={() => router.push("/hamper")}>
-                Build a hamper
-              </Button>
-            )}
+            <Button variant="secondary" onClick={() => router.push("/hamper")}>
+              Gift hampers
+            </Button>
           </div>
         </div>
       ) : (

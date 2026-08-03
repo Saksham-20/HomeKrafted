@@ -8,6 +8,7 @@ import { mapOrder } from '../orders/order.mapper';
 import { mapLaundryBooking } from '../laundry/laundry.mapper';
 import { mapSnackOrder } from '../seller/mappers/snack-order.mapper';
 import { AdminAuditLogService } from './audit-log.service';
+import { OrderNotificationsService } from '../orders/order-notifications.service';
 
 export type AdminOrderType = 'marketplace' | 'laundry' | 'snack';
 
@@ -76,6 +77,7 @@ export class AdminOrdersService {
     private readonly ordersService: OrdersService,
     private readonly idempotency: IdempotencyService,
     private readonly auditLog: AdminAuditLogService,
+    private readonly orderNotifications: OrderNotificationsService,
   ) {}
 
   async listUnified(type?: AdminOrderType): Promise<AdminOrderSummary[]> {
@@ -176,6 +178,16 @@ export class AdminOrdersService {
         include: ORDER_INCLUDE,
       });
       await this.logStatusOverride(adminUserId, 'Order', id, status);
+
+      // An admin override is a real status change, so it owes the buyer
+      // the same message the HomeKrafter's own advance would have sent.
+      // A support agent fixing a stuck order should not leave the customer
+      // less informed than the normal path would have.
+      void this.orderNotifications.notifyBuyerOfStatus(id, dbStatus);
+      if (dbStatus === 'cancelled') {
+        void this.orderNotifications.notifyHomeKraftersOfCancellation(id);
+      }
+
       return mapOrder(updated);
     }
 

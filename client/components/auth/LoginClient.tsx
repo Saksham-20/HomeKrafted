@@ -381,6 +381,9 @@ export function LoginClient() {
                 >
                   {busy ? "Signing in…" : "Continue with email"}
                 </Button>
+                <p className={styles.forgotRow}>
+                  <Link href="/forgot-password">Forgot your password?</Link>
+                </p>
               </div>
             )}
 
@@ -551,6 +554,9 @@ export function LoginClient() {
                 >
                   {busy ? "Signing in…" : "Sign in to sell"}
                 </Button>
+                <p className={styles.forgotRow}>
+                  <Link href="/forgot-password">Forgot your password?</Link>
+                </p>
               </div>
             )}
           </Card>

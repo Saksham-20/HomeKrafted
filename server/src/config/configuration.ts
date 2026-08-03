@@ -7,6 +7,14 @@ export interface AppConfig {
   nodeEnv: string;
   port: number;
   clientOrigin: string[];
+  /**
+   * Public origin of the web app, for links the server *sends* (password
+   * reset today). Distinct from `clientOrigin`, which is a CORS allowlist
+   * and may hold several entries — a link needs exactly one, and it must
+   * be the canonical one, so it gets its own key rather than
+   * `clientOrigin[0]`.
+   */
+  siteUrl: string;
   database: {
     url: string;
   };
@@ -22,6 +30,21 @@ export interface AppConfig {
      * named `length` breaks `@nestjs/config`'s typed dotted-path inference
      * (it collides with `Array`/`String`'s built-in `.length`). */
     codeLength: number;
+    /**
+     * A fixed code that verifies without a real SMS, for testing the OTP
+     * flow while `TWILIO_*` is still a placeholder.
+     *
+     * **Only ever accepted for a number in `testPhones`.** A bypass that
+     * worked for any number would be a total authentication bypass: phone
+     * OTP creates the account if none exists, so one guessed code would
+     * sign the guesser in as *anybody*, including a HomeKrafter whose
+     * payouts they could then redirect. Both halves must be set or the
+     * bypass stays off. `OtpService` additionally refuses to apply it to
+     * an admin account.
+     */
+    testCode: string;
+    /** E.164-ish phone numbers the `testCode` is accepted for. Empty = bypass disabled. */
+    testPhones: string[];
   };
   razorpay: {
     keyId: string;
@@ -72,6 +95,9 @@ export default (): AppConfig => ({
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
+  siteUrl: (process.env.SITE_URL ?? process.env.CLIENT_ORIGIN?.split(',')[0] ?? 'http://localhost:3000')
+    .trim()
+    .replace(/\/$/, ''),
   database: {
     url: process.env.DATABASE_URL ?? '',
   },
@@ -84,6 +110,11 @@ export default (): AppConfig => ({
   otp: {
     ttlSeconds: parseInt(process.env.OTP_TTL_SECONDS ?? '300', 10),
     codeLength: parseInt(process.env.OTP_LENGTH ?? '6', 10),
+    testCode: process.env.OTP_TEST_CODE ?? '',
+    testPhones: (process.env.OTP_TEST_PHONES ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
   },
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',

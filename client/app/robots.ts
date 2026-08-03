@@ -27,6 +27,12 @@ export default function robots(): MetadataRoute.Robots {
         "/wallet",
         // Dev-only primitives gallery. Unlinked, but publicly routable.
         "/gallery",
+        // Password reset (M18). `/reset-password` carries a single-use
+        // token in the query string — a crawler following one from a
+        // leaked email would burn it, and neither page has content worth
+        // indexing.
+        "/forgot-password",
+        "/reset-password",
       ],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,

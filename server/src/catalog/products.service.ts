@@ -72,6 +72,9 @@ export class ProductsService {
     if (query.featured !== undefined) {
       where.featured = query.featured;
     }
+    if (query.isHamper !== undefined) {
+      where.isHamper = query.isHamper;
+    }
 
     const products = await this.prisma.product.findMany({
       where,

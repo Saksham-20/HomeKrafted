@@ -24,6 +24,7 @@ export interface ListingFormValues {
   dietary: DietaryTag[];
   description: string;
   isPackaged: boolean;
+  isHamper: boolean;
   cashbackPct: string;
   tags: ProductTag[];
   imagePath: string;
@@ -38,6 +39,7 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   dietary: [],
   description: "",
   isPackaged: true,
+  isHamper: false,
   cashbackPct: "5",
   tags: [],
   imagePath: "",
@@ -80,6 +82,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     dietary: values.dietary,
     description: values.description,
     isPackaged: values.isPackaged,
+    isHamper: values.isHamper,
     cashbackPct: Number(values.cashbackPct) || 0,
     tags: values.tags,
     imagePath: values.imagePath,
@@ -240,6 +243,21 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
           />
           <span className={styles.checkboxLabel}>Ready-to-ship packaged food (vs. made-to-order)</span>
         </label>
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={values.isHamper}
+            onChange={(event) => set("isHamper", event.target.checked)}
+          />
+          <span className={styles.checkboxLabel}>
+            This is a ready-made gift hamper
+          </span>
+        </label>
+        <p className={styles.checkboxHelp}>
+          Ticking this also lists it on the Gift hampers page. It stays in the
+          main shop either way — a hamper is a listing like any other, priced
+          and packed by you.
+        </p>
       </div>
 
       <div className={styles.section}>

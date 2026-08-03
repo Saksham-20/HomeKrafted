@@ -256,6 +256,10 @@ export const products: Product[] = [
     reviewCount: 57,
     tags: ["Curated"],
     isPackaged: true,
+    // The one mock hamper (M18), so `/hamper` has something to render in
+    // `NEXT_PUBLIC_USE_MOCK` mode rather than showing its empty state and
+    // looking broken offline.
+    isHamper: true,
     cashbackPct: 5,
     description:
       "Our own curated edit of best-selling pickles, bakes and sweets from across the maker community, packed into one gift-ready box.",

@@ -12,8 +12,6 @@ import { WalletProvider } from "@/lib/wallet/WalletContext";
 import { WishlistProvider } from "@/lib/wishlist/WishlistContext";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { LocationProvider } from "@/lib/location/LocationContext";
-import { FeaturesProvider } from "@/lib/features/FeaturesContext";
-import { getFeatures } from "@/lib/features/server";
 import { LocationPrompt } from "@/components/location/LocationPrompt";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
@@ -83,16 +81,11 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read once per render and handed to every Client Component below, so a
-  // flag flip changes the route gate and the button copy at the same
-  // moment rather than one deploy apart (M17).
-  const features = await getFeatures();
-
   return (
     <html
       lang="en"
@@ -106,35 +99,33 @@ export default async function RootLayout({
         <a className="hk-skip-link" href="#main-content">
           Skip to content
         </a>
-        <FeaturesProvider features={features}>
-          <AuthProvider>
-            {/* Outside the shopping providers: where the buyer is decides
-              which kitchens can reach them, so cart/wishlist/wallet all
-              read from it rather than the other way round. */}
-            <LocationProvider>
-              <WalletProvider>
-                <CartProvider>
-                  <WishlistProvider>
-                    <ConsumerChrome
-                      announcementBar={<AnnouncementBar />}
-                      header={<Header />}
-                      footer={<Footer />}
-                    >
-                      {/* `tabIndex={-1}` so the skip link can actually move
-                        focus here — a <main> isn't focusable otherwise, and
-                        the link would scroll without moving the caret. */}
-                      <main id="main-content" tabIndex={-1}>
-                        {children}
-                      </main>
-                    </ConsumerChrome>
-                    {/* Renders itself only on a first visit — see LocationPrompt. */}
-                    <LocationPrompt />
-                  </WishlistProvider>
-                </CartProvider>
-              </WalletProvider>
-            </LocationProvider>
-          </AuthProvider>
-        </FeaturesProvider>
+        <AuthProvider>
+          {/* Outside the shopping providers: where the buyer is decides
+            which kitchens can reach them, so cart/wishlist/wallet all
+            read from it rather than the other way round. */}
+          <LocationProvider>
+            <WalletProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <ConsumerChrome
+                    announcementBar={<AnnouncementBar />}
+                    header={<Header />}
+                    footer={<Footer />}
+                  >
+                    {/* `tabIndex={-1}` so the skip link can actually move
+                      focus here — a <main> isn't focusable otherwise, and
+                      the link would scroll without moving the caret. */}
+                    <main id="main-content" tabIndex={-1}>
+                      {children}
+                    </main>
+                  </ConsumerChrome>
+                  {/* Renders itself only on a first visit — see LocationPrompt. */}
+                  <LocationPrompt />
+                </WishlistProvider>
+              </CartProvider>
+            </WalletProvider>
+          </LocationProvider>
+        </AuthProvider>
       </body>
     </html>
   );

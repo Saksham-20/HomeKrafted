@@ -129,6 +129,25 @@ CLIENT_ORIGIN=https://homekrafted.in
 DATABASE_URL="postgresql://homekrafted:<password>@localhost:5432/homekrafted?schema=public"
 JWT_ACCESS_SECRET=<openssl rand -base64 48>
 JWT_REFRESH_SECRET=<a different openssl rand -base64 48>
+
+# M18 — the canonical public origin, used for links the server *sends*
+# (the password-reset email, the "confirm and start packing" link a
+# HomeKrafter gets). Distinct from CLIENT_ORIGIN, which is a CORS
+# allowlist and may hold several entries; a link needs exactly one.
+SITE_URL=https://homekrafted.in
+
+# M18 — the fixed OTP code that verifies without an SMS, so the phone
+# sign-in flow is testable while TWILIO_* is a placeholder.
+#
+# READ BEFORE CHANGING. Phone OTP *creates* an account for a number it
+# does not recognise, so a fixed code accepted for any number would be a
+# complete authentication bypass. It is therefore scoped: only the
+# numbers in OTP_TEST_PHONES, never an admin account, and both variables
+# must be set or the bypass does not exist at all. These are the seeded
+# demo accounts and nothing else. Unset OTP_TEST_CODE the day real SMS
+# starts working.
+OTP_TEST_CODE=123456
+OTP_TEST_PHONES=+919845012345,+919876543210,+919822011223,+919008033445
 ```
 
 The API validates its own env at boot and refuses to start on a missing or
@@ -154,6 +173,14 @@ rebuild, not just a restart.
 Razorpay, WhatsApp, Twilio and SendGrid keys are still placeholders. The
 server degrades gracefully around each (mock Razorpay order ids, logged-only
 sends), so the flows stay exercisable without real accounts.
+
+**What that costs, concretely, as of M18.** Order events now fan out to
+WhatsApp and email by default for both the buyer and the HomeKrafter
+(`defaultChannelsFor`), and password reset emails a link. All of it is
+wired and tested; none of it leaves the box until `WHATSAPP_*` and
+`SENDGRID_API_KEY` are real. Until then the messages land in
+`pm2 logs homekrafted-api` as `[WHATSAPP STUB]` / `[EMAIL STUB]` lines —
+which is also where to look to confirm the fan-out is firing.
 
 ## Gotcha: the API must be up before the client builds
 

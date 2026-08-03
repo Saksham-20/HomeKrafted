@@ -124,7 +124,7 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
       layout/                 AnnouncementBar, Header (+HeaderClient), MobileDrawer, Footer
       placeholder/            ImageSlot — labelled placeholder, see below
       ui/                      ~26 primitives from handoff/design-system/components.md (M1)
-      product/ hamper/ laundry/ snacks/ wallet/ account/   (M2+)
+      product/ laundry/ snacks/ wallet/ account/   (M2+)
     lib/
       types/                  THE SCHEMA CONTRACT — domain types → Prisma in M8
         shared.ts wallet.ts marketplace.ts laundry.ts food.ts index.ts
@@ -335,6 +335,34 @@ to `POST /uploads?purpose=…`, and hand back a URL to store.
   inert when served from our own origin (this is why SVG is excluded).
 - **Nothing deletes old files yet.** Replacing a photo orphans the previous
   one. See `docs/DEPLOY.md`.
+
+## Hampers, auth and notifications (M18) — three rules that bite
+
+- **A hamper is a `Product`, marked `isHamper`. There is no builder.**
+  The buyer-assembled wizard (box tier → fill from the catalogue) is gone;
+  a HomeKrafter lists a hamper they assemble and price themselves, and
+  `/hamper` is the catalogue filtered on the flag. The flag must stay
+  *only* a filter — the moment it decides visibility, pricing or
+  eligibility, "a hamper is an ordinary listing" stops being true and the
+  duplication comes back. A hamper still appears in `/shop`, search and its
+  category; hiding it there would cost the kitchen sales for ticking a box.
+  The `Hamper`/`HamperItem`/`HamperBox` tables and `POST /cart/hamper-items`
+  survive **only** so pre-M18 orders still render — don't build on them.
+- **`OTP_TEST_CODE` is scoped to `OTP_TEST_PHONES` and never applies to an
+  admin.** `otp/verify` creates an account for a number it doesn't
+  recognise, so a fixed code that worked for any number would be a
+  complete authentication bypass — sign in as anyone, including a
+  HomeKrafter whose payout details you could then change. Both env vars
+  must be set or the bypass doesn't exist. Delete `OTP_TEST_CODE` the day
+  real SMS works.
+- **Every path that writes `Order.status` owes the buyer a message.**
+  Three modules do (`OrdersService`, `SellerOrdersService`,
+  `AdminOrdersService`) and all three go through
+  `OrderNotificationsService`, never a bare `notify()`. Use `void` — a
+  paid order must not roll back because a message failed. Transactional
+  notification categories default to **WhatsApp on**; `promo` never does,
+  because a WhatsApp block is per-sender and one promo would cost every
+  future order update to that person.
 
 ## Trust & money loops (M15) — don't quietly reopen these
 

@@ -67,6 +67,30 @@ export async function getProductById(id: string): Promise<Product | undefined> {
   return all.find((p) => p.id === id);
 }
 
+/**
+ * Ready-made gift hampers (M18) — the catalogue filtered to listings a
+ * HomeKrafter marked as a hamper.
+ *
+ * Filtered server-side (`?isHamper=true`) rather than by fetching
+ * everything and filtering here, because this is a whole page's worth of
+ * content and the alternative downloads the entire catalogue to throw
+ * most of it away. `getProductsByCategory` and friends above do filter
+ * client-side; they are rails on a page that has already paid for the
+ * fetch.
+ */
+export async function getHamperProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
+  if (isMockMode()) return products.filter((p) => p.isHamper && isBrowsable(p));
+  const page = await http.get<ProductsPage>("/products", {
+    auth: false,
+    query: {
+      pageSize: 100,
+      isHamper: true,
+      ...(near ? { lat: near.lat, lng: near.lng } : {}),
+    },
+  });
+  return page.items;
+}
+
 /** "This week's small batches" home rail — every `featured` product. */
 export async function getFeatured(): Promise<Product[]> {
   if (isMockMode()) return products.filter((p) => p.featured && isBrowsable(p));

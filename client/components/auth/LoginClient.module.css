@@ -232,3 +232,21 @@
     width: 100%;
   }
 }
+
+/* The way back in when the password is gone. Sits under the sign-in button
+   in both password forms (shopper and HomeKrafter), left-aligned with the
+   fields rather than centred like `.applyRow`, because it belongs to the
+   form above it and not to the page. */
+.forgotRow {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.forgotRow a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.forgotRow a:hover {
+  color: var(--hk-gold);
+}

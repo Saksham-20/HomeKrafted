@@ -198,3 +198,13 @@
     flex: 1 1 100px;
   }
 }
+
+/* Sits under a checkbox to explain what ticking it actually does — used by
+   the hamper toggle, where "does this leave the main shop?" is the first
+   question a HomeKrafter asks. */
+.checkboxHelp {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+  padding-left: 26px;
+}

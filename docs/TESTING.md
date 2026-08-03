@@ -42,11 +42,45 @@ admin credentials with view-source. The accounts below are unchanged —
 type the email and password into the ordinary form like a real user
 would, which is also what makes this a real test of sign-in.
 
-**Don't use "login with phone / OTP" for these demo accounts.** The SMS
-provider isn't connected on staging, so the code is never delivered.
-Email + password only. (Phone OTP is genuinely the *only* way a
-newly-approved HomeKrafter signs in — see "A brand-new HomeKrafter"
-below — so testing that path needs the code from the server log.)
+### Testing phone OTP
+
+The SMS provider isn't connected, so a real code is written to the server
+log and nowhere else. To make that path testable there is a **fixed test
+code**:
+
+| Field | Value |
+|---|---|
+| Code | `123456` |
+| Works for | only the demo phone numbers below |
+
+| Account | Phone |
+|---|---|
+| Shopper (Ananya) | `+919845012345` |
+| HomeKrafter (Anjali) | `+919876543210` |
+| HomeKrafter (Ravi) | `+919822011223` |
+| HomeKrafter (Meera) | `+919008033445` |
+
+Type the number, tap **Send OTP**, then enter `123456`.
+
+Two things it deliberately will **not** do, and both are worth trying:
+
+- **Any other number is refused.** `123456` on a number not in that list
+  gets "Incorrect OTP code" — it is not a master key, because phone
+  sign-in creates an account for a number it doesn't recognise.
+- **It never signs in an admin.** The admin account uses email and
+  password only.
+
+This matters beyond convenience: phone OTP is genuinely the *only* way a
+newly-approved HomeKrafter signs in (see "A brand-new HomeKrafter" below),
+because approval never sets a password.
+
+### Forgot password
+
+`/forgot-password` is live. Email delivery isn't connected, so the reset
+link is written to the server log rather than sent — the flow itself
+(single-use token, one-hour expiry, all sessions signed out afterwards) is
+real and testable from there. The page says "if an account exists" for
+every address, including ones that don't: that's deliberate, not a bug.
 
 You should arrive **logged out**. If you land already signed in as someone,
 that's a bug — report it.
@@ -471,7 +505,7 @@ that is written. Worth checking:
 
 | Thing | Why |
 |---|---|
-| **Gift hamper builder** shows a "coming soon" page | Held before launch on purpose. Every link into it points at the coming-soon page. |
+| **No "build your own hamper"** anywhere | Removed in M18. A hamper is now a listing a HomeKrafter assembles and prices; `/hamper` lists those. If you see a wizard, you're on an old build. |
 | **Full meals** has no menu — promo page only | By design on web. Meals are app-only. |
 | **Snacks** has no cart/checkout | By design — WhatsApp ordering only. |
 | **Payments** don't really charge | Test mode. Orders complete without a real transaction. |

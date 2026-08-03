@@ -516,6 +516,8 @@ async function main(): Promise<void> {
     reviewCount: number;
     tags: ('Bestseller' | 'New' | 'Festive' | 'Curated')[];
     isPackaged: boolean;
+    /** M18 — lists it on `/hamper`. Absent means an ordinary listing. */
+    isHamper?: boolean;
     cashbackPct: number;
     description: string;
     ingredients?: string;
@@ -594,7 +596,7 @@ async function main(): Promise<void> {
       occasionIds: ['oc3', 'oc5', 'oc7'], dietary: ['vegetarian'],
       images: [{ placeholder: 'Festive Assorted Hamper product photo', src: '/images/products/festive-assorted-hamper.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'festive-assorted-hamper-curated', label: 'Curated', price: 1499, mrp: 1750, stock: 15 }],
-      defaultWeightSku: 'festive-assorted-hamper-curated', rating: 4.9, reviewCount: 57, tags: ['Curated'], isPackaged: true, cashbackPct: 5,
+      defaultWeightSku: 'festive-assorted-hamper-curated', rating: 4.9, reviewCount: 57, tags: ['Curated'], isPackaged: true, isHamper: true, cashbackPct: 5,
       description: 'Our own curated edit of best-selling pickles, bakes and sweets from across the maker community, packed into one gift-ready box.',
     },
   ];
@@ -614,6 +616,9 @@ async function main(): Promise<void> {
         reviewCount: p.reviewCount,
         tags: p.tags,
         isPackaged: p.isPackaged,
+        // M18 — a ready-made gift hamper. Absent on every other seed
+        // product, which is the `false` default.
+        isHamper: p.isHamper ?? false,
         cashbackPct: p.cashbackPct,
         description: p.description,
         ingredients: p.ingredients,

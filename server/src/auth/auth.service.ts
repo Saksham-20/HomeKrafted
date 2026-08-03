@@ -14,6 +14,16 @@ import { generateReferralCode } from './referral-code.util';
 import { parseDurationToMs } from './duration.util';
 import { JwtPayload } from '../common/types/jwt-payload.type';
 import { SocialProvider, User } from '@prisma/client';
+import { EmailProviderService } from '../notifications/providers/email.provider';
+
+/**
+ * How long an emailed reset link stays usable.
+ *
+ * Short on purpose: the token sits in an inbox, and inboxes are the thing
+ * that gets breached months later. Long enough that someone can read the
+ * mail on their phone and finish on a laptop.
+ */
+const PASSWORD_RESET_TTL_MINUTES = 60;
 
 export interface TokenPair {
   accessToken: string;
@@ -37,6 +47,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<AppConfig, true>,
     private readonly otpService: OtpService,
+    private readonly emailProvider: EmailProviderService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -87,6 +98,111 @@ export class AuthService {
   }
 
   // ---------------------------------------------------------------------
+  // Password reset
+  // ---------------------------------------------------------------------
+
+  /**
+   * Issues a single-use reset token and emails the link.
+   *
+   * **Always resolves, whatever the email was.** Reporting "no such
+   * account" would turn this endpoint into an account-existence oracle
+   * anyone can query — on a marketplace, that leaks which of your
+   * customers shop here. The caller gets one fixed message either way, so
+   * the only difference between a hit and a miss is invisible from
+   * outside.
+   *
+   * Any earlier unconsumed token is invalidated first: requesting a second
+   * link must not leave the first one working, or forwarding an old email
+   * still opens the account.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    // Suspended accounts get nothing — a reset must not be a way back in
+    // for an account an admin has closed.
+    if (!user || user.suspended) return;
+
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const ttlMs = PASSWORD_RESET_TTL_MINUTES * 60 * 1000;
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: this.hashToken(token),
+        expiresAt: new Date(Date.now() + ttlMs),
+      },
+    });
+
+    const siteUrl = this.configService.get('siteUrl', { infer: true });
+    const link = `${siteUrl}/reset-password?token=${token}`;
+
+    await this.emailProvider.send(
+      email,
+      'Reset your Homekrafted password',
+      `Hi ${user.name},\n\n` +
+        `Someone asked to reset the password for your Homekrafted account. ` +
+        `If that was you, open this link within ${PASSWORD_RESET_TTL_MINUTES} minutes:\n\n` +
+        `${link}\n\n` +
+        `The link can only be used once. If it wasn't you, you can ignore this ` +
+        `email — nothing has changed and your current password still works.\n\n` +
+        `— Homekrafted`,
+    );
+  }
+
+  /**
+   * Consumes the token and sets the new password.
+   *
+   * Three things happen together, and all three matter:
+   * 1. the token is marked consumed, so the emailed link is dead afterwards;
+   * 2. `email` joins `authProviders` — a HomeKrafter approved without a
+   *    password is exactly who needs this, and their account would
+   *    otherwise still claim to be phone-only;
+   * 3. **every refresh token is revoked.** Resetting a password is what
+   *    someone does when they think the account is compromised, so leaving
+   *    the attacker's existing session alive would defeat the point.
+   */
+  async resetPassword(token: string, password: string): Promise<void> {
+    const stored = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash: this.hashToken(token) },
+      include: { user: true },
+    });
+
+    // One message for every failure mode — expired, already used, never
+    // existed. Telling them apart tells an attacker holding a stale link
+    // whether it was ever real.
+    const invalid = new UnauthorizedException(
+      'This reset link is no longer valid. Request a new one.',
+    );
+    if (!stored || stored.consumedAt || stored.expiresAt < new Date()) throw invalid;
+    if (stored.user.suspended) throw invalid;
+
+    const passwordHash = await argon2.hash(password);
+    const authProviders = stored.user.authProviders.includes('email')
+      ? stored.user.authProviders
+      : [...stored.user.authProviders, 'email' as const];
+
+    await this.prisma.$transaction([
+      this.prisma.passwordResetToken.update({
+        where: { id: stored.id },
+        data: { consumedAt: new Date() },
+      }),
+      this.prisma.user.update({
+        where: { id: stored.userId },
+        data: { passwordHash, authProviders },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId: stored.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+  }
+
+  // ---------------------------------------------------------------------
   // Phone OTP
   // ---------------------------------------------------------------------
 
@@ -95,9 +211,21 @@ export class AuthService {
   }
 
   async verifyOtp(dto: VerifyOtpDto): Promise<AuthResult> {
-    await this.otpService.verifyOtp(dto.phone, dto.code);
+    const { bypassed } = await this.otpService.verifyOtp(dto.phone, dto.code);
 
     let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+
+    // The fixed test code exists so the OTP flow can be exercised without a
+    // live SMS account. It must never become a route into the admin panel:
+    // an operator adding their own number to `OTP_TEST_PHONES` for a
+    // five-minute test would otherwise hand full admin to anyone who knows
+    // a six-digit constant. Refused here rather than in `OtpService` because
+    // only this layer has resolved the account behind the number.
+    if (bypassed && user?.role === 'admin') {
+      throw new UnauthorizedException(
+        'Admin accounts cannot sign in with the test OTP code — use email and password',
+      );
+    }
     if (!user) {
       const referralCode = await this.uniqueReferralCode(dto.name ?? dto.phone);
       user = await this.prisma.$transaction(async (tx) => {

@@ -37,6 +37,31 @@ export async function loginWithEmail(email: string, password: string): Promise<A
   return http.post<AuthResultDto>("/auth/login", { email, password }, { auth: false });
 }
 
+/**
+ * `POST /auth/password/forgot` — emails a single-use reset link.
+ *
+ * Resolves whether or not the address is registered, and the returned
+ * message says "if an account exists" rather than "sent". That is
+ * deliberate on the server side (an endpoint that answered differently
+ * would tell anyone who asks whether a given person shops here), so the UI
+ * must not try to be more helpful than the API and infer a result.
+ */
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  return http.post<{ message: string }>("/auth/password/forgot", { email }, { auth: false });
+}
+
+/** `POST /auth/password/reset` — consumes the token from the emailed link. */
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<{ message: string }> {
+  return http.post<{ message: string }>(
+    "/auth/password/reset",
+    { token, password },
+    { auth: false },
+  );
+}
+
 /** `POST /auth/register` — email + password sign-up. */
 export async function registerWithEmail(
   name: string,

@@ -76,6 +76,25 @@ Three sign-in flows, all converging on the same JWT session shape:
   login keeps working), `POST /auth/otp/verify` (creates the account on
   first verify if none exists for that phone). Codes are argon2-hashed at
   rest, short-TTL (`OTP_TTL_SECONDS`), with a per-attempt counter.
+
+  **Test bypass (M18).** `OTP_TEST_CODE` verifies without an SMS, but
+  *only* for a number listed in `OTP_TEST_PHONES`, and never for an admin
+  account. Both env vars must be set or the bypass does not exist. The
+  scoping is the whole safety property: `otp/verify` creates an account
+  for an unrecognised number, so an unscoped fixed code would be a
+  complete authentication bypass. Guarded by
+  `test/e2e/otp-bypass.e2e-spec.ts`.
+- **Password reset (M18)** — `POST /auth/password/forgot` (body
+  `{ email }`) and `POST /auth/password/reset` (body `{ token, password }`).
+  Forgot **always returns 200 with the same body**, hit or miss: a
+  different answer would make it an account-existence oracle. The emailed
+  token is 32 random bytes, stored SHA-256-hashed, single-use, and valid
+  for 60 minutes; requesting a second link consumes the first. A
+  successful reset adds `email` to `authProviders` (the path a
+  password-less approved HomeKrafter uses to gain one) and **revokes every
+  refresh token** for the account. Suspended accounts get neither a link
+  nor a reset. `SITE_URL` builds the link. Guarded by
+  `test/e2e/password-reset.e2e-spec.ts`.
 - **Social (stub)** — `POST /auth/social/:provider` (`provider` =
   `google`\|`apple`). **Stub**: trusts a client-submitted
   `{providerAccountId, email?, name?}` payload instead of verifying a
@@ -192,7 +211,7 @@ dropping it.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
+| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `isHamper` (`true`/`false`, **M18** — ready-made gift hampers; three states, since omitting it returns both and a hamper is an ordinary listing that still appears in `/shop`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
 | `GET /products/:slug` | public | No `hidden` filter — a direct-link/cart/order/wishlist resolve must still work, matching `lib/api/products.ts#getProduct`'s doc comment. `404` if no product has that slug. |
 | `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
 | `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` here — this route is `@Public()`, so the global guard attaches no session and there is nobody to answer "am *I* following this" for. Use `GET /vendors/:slug/follow`. |
@@ -577,7 +596,7 @@ seam every event-producing module (currently `AdminWalletService.adjust`/
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /notifications/preferences` | any authed role | `NotificationPreference[]`, one per `NotificationCategory` (6) — lazily backfills any missing category row with the schema's column defaults. |
+| `GET /notifications/preferences` | any authed role | `NotificationPreference[]`, one per `NotificationCategory` (6) — lazily backfills any missing category row. **M18**: the backfill uses `defaultChannelsFor(category)`, not the schema's column defaults. Transactional categories (order, laundry, snacks, wallet, account) default to **WhatsApp + email + in-app**; `promo` stays in-app only, because opting somebody into marketing on WhatsApp is how a sender gets blocked — and a block is per-sender, so one promo costs every future order update to that person. SMS stays off everywhere but OTP. |
 | `PATCH /notifications/preferences/:category` | any authed role | Partial patch: `{ sms?, whatsapp?, email?, inapp? }`. Upserts. |
 | `GET /notifications` | any authed role | Inbox, newest first. One row per channel actually delivered for a given event (M9) — e.g. a wallet event with both `sms` and `email` enabled produces two rows. |
 | `PATCH /notifications/:id/read` | any authed role | Body: `{ read?: boolean }` (defaults `true`). Owner-scoped — `404` if it exists but isn't mine. |
@@ -818,7 +837,7 @@ they pay, which doesn't apply to a seller pricing their own listing.
 |---|---|
 | `GET /seller/listings` | Mine, newest first. |
 | `GET /seller/listings/:id` | Owner-scoped — `404` if it exists but isn't mine. |
-| `POST /seller/listings` | Body mirrors `client/lib/api/seller.ts`'s `SellerListingInput`: `{ name, categoryId, occasionIds?, dietary?, description, isPackaged, cashbackPct, tags?, imagePath?, weightOptions: [{sku,label,price,mrp,stock}], defaultWeightSku }`. Validates `categoryId`/`occasionIds` exist and every `weightOptions[].sku` is globally unique (`409` on clash — `WeightOption.sku` is a unique column) before inserting. `slug` is server-generated from `name` (+ a random suffix on collision). |
+| `POST /seller/listings` | Body mirrors `client/lib/api/seller.ts`'s `SellerListingInput`: `{ name, categoryId, occasionIds?, dietary?, description, isPackaged, isHamper?, cashbackPct, tags?, imagePath?, weightOptions: [{sku,label,price,mrp,stock}], defaultWeightSku }`. Validates `categoryId`/`occasionIds` exist and every `weightOptions[].sku` is globally unique (`409` on clash — `WeightOption.sku` is a unique column) before inserting. `slug` is server-generated from `name` (+ a random suffix on collision). |
 | `PATCH /seller/listings/:id` | Partial patch of the same shape. Supplying `weightOptions` replaces the full set (delete+recreate, inside a transaction) rather than merging. |
 | `DELETE /seller/listings/:id` | `204`. `409` if the product is still referenced by an existing order/cart/wishlist/hamper line (FK-protected — mark unavailable instead of deleting a listing with order history). |
 
@@ -1013,9 +1032,9 @@ ever reads/decides on rows it didn't create.
 | `GET /admin/sellers` | Every seller (any type/status), newest first. |
 | `GET /admin/sellers/:id` | Single seller detail. |
 | `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
-| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, defaultDeliveryRadiusKm, hamperBuilderEnabled }`. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. |
+| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, defaultDeliveryRadiusKm }`. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. `hamperBuilderEnabled` was removed in M18 with the builder it gated; a stale row is ignored rather than surfaced. |
 | `PATCH /admin/settings` | Partial. Commission 0–100%, radius 1–100 km, validated in the DTO **and** the service — a take rate over 100% is a typo, not a setting, and that boundary shouldn't depend on which door the value came through. Audited (`platform_settings.update`) with before/after. |
-| `GET /settings/public` | **M17. Public — no auth.** The allowlisted subset (`{ hamperBuilderEnabled }`), read by the web client's root layout on every render. Built by **picking** keys (`PUBLIC_SETTING_KEYS`), never by deleting them: a new setting is private until it is named there, which is the direction that fails safe. The commission rate is a commercial term and never appears here. `Cache-Control: public, max-age=60`. |
+| `GET /settings/public` | **M17. Public — no auth.** The allowlisted subset, built by **picking** keys (`PUBLIC_SETTING_KEYS`), never by deleting them: a new setting is private until it is named there, which is the direction that fails safe. The commission rate is a commercial term and never appears here. **Empty since M18** — its only entry was `hamperBuilderEnabled` — so the endpoint and its allowlist stand as the seam a future public setting goes through. `Cache-Control: public, max-age=60`. |
 | `GET /admin/exports/:kind` | **M16 (M5).** `orders` \| `sellers` \| `payouts`, optional `?days=`. Returns a real `text/csv` download with a UTF-8 BOM (so Excel on Windows reads a HomeKrafter's name rather than mangling it) — not JSON the client turns into a Blob, so an accountant can be sent a URL. |
 | `GET /admin/analytics?days=` | **M16 (M5)** adds the range (was pinned at 14 days), clamped 1–365 and echoed back, plus `commissionPct` and `modelledCommission`. |
 | `GET /admin/sellers/:id/profile` | **M16.** The seller's own profile view plus `sellerId`/`vendorId`/`vendorSlug`/`displayName` — including the submitted `fssaiNumber`, which an admin has to read in order to check it and which the public storefront never publishes. |

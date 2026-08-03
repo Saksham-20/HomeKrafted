@@ -3,6 +3,87 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M18] — Hampers as listings, order notifications, password reset — 2026-08-03
+
+Two product changes and one long-standing gap. The gap is the one that
+had been "done" the longest: the notification fan-out has existed since
+M9 and the order lifecycle never called it, so a buyer heard nothing
+after checkout and a HomeKrafter got an in-app row they'd only see by
+opening the portal.
+
+### Changed
+
+- **A gift hamper is now a listing, not something a buyer assembles.**
+  The three-step builder (pick a box tier, fill it from the whole
+  catalogue) is gone. `Product.isHamper` marks a listing a HomeKrafter
+  assembles and prices themselves, and `/hamper` is the catalogue
+  filtered on it. Two reasons: the person who knows what travels well
+  together and what's in season is the one making it, not the buyer
+  guessing; and a hamper is now an ordinary `Product`, so it inherits
+  reviews, availability, distance filtering, cart, checkout and search
+  instead of needing its own version of each.
+
+  The flag is a *listing attribute*, deliberately not a `Category` — a
+  hamper is still a sweets or pickles hamper, and overloading the browse
+  taxonomy would force a false choice. It stays visible in `/shop` and
+  search: hiding it there would cost the kitchen sales for ticking a box.
+  Existing listings in the "Hampers" category are backfilled, so the page
+  isn't empty on deploy and nobody re-ticks anything.
+
+  `Hamper`, `HamperItem`, `HamperBox` and `POST /cart/hamper-items` are
+  **not** dropped — pre-M18 orders reference them and a customer's order
+  history has to keep rendering. Nothing new should build on them.
+- **Transactional notifications default to WhatsApp on.** In-app-only was
+  honest while nothing could send; it is wrong now. Order, laundry,
+  snacks, wallet and account default to WhatsApp + email + in-app;
+  `promo` stays in-app only, because opting somebody into marketing on
+  WhatsApp is how a sender gets blocked — and a block is per-sender, so
+  one promo would cost every future order update to that person. SMS
+  stays off outside OTP: it duplicates WhatsApp at a per-message cost.
+  The migration only touches rows still at the exact old default, so
+  nobody who muted themselves gets un-muted.
+- **The runtime feature-flag mechanism (M17) went with its only flag.**
+  `hamperBuilderEnabled` gated the builder; with the builder gone it was
+  dead config in the DB, the admin panel and the client. `lib/features/`,
+  `FeaturesProvider` and the root layout's per-render settings fetch are
+  removed with it. `GET /settings/public` and `PUBLIC_SETTING_KEYS` stay
+  — an empty allowlist is still the seam a future public setting goes
+  through, and its tests were rewritten rather than deleted.
+
+### Added
+
+- **Order notifications, both directions (`OrderNotificationsService`).**
+  Every path that writes `Order.status` — buyer checkout, HomeKrafter
+  advance, admin override, wallet capture, Razorpay webhook, cancellation
+  — now messages the buyer, and a new order or a cancellation messages
+  each HomeKrafter in it (once per kitchen, not per line, with the items
+  named so they can start without opening anything). Fire-and-forget
+  throughout: a paid order must never roll back because a message failed.
+- **Password reset (L2 of `docs/LAUNCH-READINESS.md` §2).** There was no
+  way back into an account whose password was lost. `POST
+  /auth/password/forgot` and `/auth/password/reset`, plus
+  `/forgot-password` and `/reset-password`. The token is 32 random bytes
+  stored SHA-256-hashed, single-use, one-hour expiry; requesting a second
+  link kills the first; a reset revokes every session and adds `email` to
+  `authProviders` — which is how an approved HomeKrafter with no password
+  gains one. Forgot **always answers the same**, so the endpoint can't be
+  used as an account-existence oracle.
+- **A scoped OTP test code.** `OTP_TEST_CODE` verifies without an SMS,
+  but only for a number in `OTP_TEST_PHONES` and never for an admin.
+  Phone OTP creates an account for an unrecognised number, so an
+  unscoped fixed code would be a complete authentication bypass rather
+  than a testing shortcut — the scoping *is* the feature. Proven by
+  mutation: deleting the allowlist check fails exactly one test.
+
+### Tests
+
+- 240 e2e tests (was 189), 88 + 88 unit. New specs: `otp-bypass`,
+  `password-reset`, `hamper-listings`, `order-notifications`.
+- `resetDatabase` now retries on deadlock. Fire-and-forget notification
+  writes outlive the request that triggered them, and `TRUNCATE CASCADE`
+  in the next test's setup deadlocked against them. Retrying is right;
+  making delivery synchronous to suit the tests would not be.
+
 ## [M17] — Tests, CI and runtime feature flags — 2026-08-02
 
 Phase 2 left two items open. This closes both — and the first one
