@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { ApiError } from "@/lib/api/http";
 import styles from "./AdminLoginClient.module.css";
 
 /**
@@ -59,10 +60,29 @@ export function AdminLoginClient() {
         return;
       }
       goToDashboard();
-    } catch {
-      // One message for "no such account" and "wrong password" alike —
-      // a distinct answer would confirm which staff emails exist.
-      setError("Incorrect email or password.");
+    } catch (err) {
+      // Only a **401** is actually a credential problem, and only that
+      // gets the deliberately vague message — one answer for "no such
+      // account" and "wrong password" alike, since a distinct one would
+      // confirm which staff emails exist.
+      //
+      // Everything else used to be reported as "Incorrect email or
+      // password" too, which is a lie that costs real time: a session the
+      // API had already accepted (HTTP 200, verified in the access log)
+      // presented as a rejected password, and the obvious next move —
+      // retyping the password — could never have worked. Rate limiting
+      // and a failed browser-storage write both land here.
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Incorrect email or password.");
+      } else if (err instanceof ApiError && err.status === 429) {
+        setError("Too many attempts. Wait a minute and try again.");
+      } else {
+        setError(
+          `Signed in, but this browser couldn't start the session${
+            err instanceof Error && err.message ? ` (${err.message})` : ""
+          }. Try a private window, or clear this site's data.`,
+        );
+      }
     }
   }
 
