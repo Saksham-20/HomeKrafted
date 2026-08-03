@@ -59,7 +59,13 @@ check() {
 # Counts consecutive failures per service, so a blip and a stuck process
 # are told apart.
 record() {
-  local name="$1" ok="$2" file="${STATE_DIR}/${name}.fails"
+  # Assigned on separate lines on purpose: `local a="$1" b="${a}.x"` does
+  # not reliably see `a` within the same `local` builtin, and under
+  # `set -u` that surfaces as "name: unbound variable" at runtime rather
+  # than as anything visible while reading the code.
+  local name="$1"
+  local ok="$2"
+  local file="${STATE_DIR}/${name}.fails"
   mkdir -p "$STATE_DIR"
   if [ "$ok" = "yes" ]; then
     if [ -f "$file" ] && [ "$(cat "$file")" != "0" ]; then
