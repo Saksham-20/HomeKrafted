@@ -99,7 +99,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
         </span>
         <h1 className={styles.title}>Homekrafted Wallet</h1>
         <p className={styles.subtitle}>
-          One balance across the store &amp; laundry. Pay in a tap, earn cashback on every order.
+          One balance across everything you order. Pay in a tap, earn cashback on every order.
         </p>
       </div>
 

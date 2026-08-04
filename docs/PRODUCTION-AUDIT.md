@@ -83,7 +83,7 @@ remains is Phase 2 onward — see §7.
 
 | # | Finding |
 |---|---|
-| M1 | **Subscriptions exist only for laundry.** `LaundrySubscription` + `POST/PATCH/DELETE /laundry/subscriptions` are real and wired into the booking flow, but there is no management surface (no `/account/subscriptions`), no pause/skip/resume, and nothing equivalent for snacks, meals or cleaning. No recurring-order generation job exists — a subscription records intent and produces nothing. |
+| M1 | **Subscriptions exist only for laundry — and laundry is gone.** `LaundrySubscription` was real and wired into the booking flow, but had no management surface, no pause/skip/resume and no recurring-order generation: it recorded intent and produced nothing. M19 withdrew laundry and 410'd the endpoint, so the gap is now total. Meal subscriptions are the replacement — see the M19+ entry in `CHANGELOG.md`. |
 | M2 ✅ | **Fixed in M16.** **Pre-order is rolling days only.** `lib/schedule.ts` derives the next N days and suppresses today's expired windows. No custom date picker, no seller-blocked dates, no holiday/festival handling, no per-item preparation-time rule, no availability-driven slot suggestion. |
 | M3 ✅ | **Fixed in M16.** **Accessibility is thin.** Two `aria-live` regions and a handful of `role="alert"` across the whole client. No skip-to-content link. `ImageSlot` sets `role="img"` + `aria-label` then renders the real image `aria-hidden` — workable, but every product photo's alt text is the placeholder caption, not the product. Focus management on drawers/modals unverified. |
 | M4 | **Razorpay runs on a placeholder key.** With the `.env.example` value the server degrades to `mock: true` and the checkout modal cannot take a test card. Launch requires real test → live keys and a webhook secret. |
@@ -187,7 +187,7 @@ hypothetical maximum.
 | `/collections/[occasion]` | Occasion collection | 70% | Hub page, gift guides, seasonal banner | High |
 | `/cart` | Cart | 95% | — | — |
 | `/checkout` | Checkout | 90% | Guest path | Medium |
-| `/laundry` | Booking | 90% | Subscription management | Medium |
+| ~~`/laundry`~~ | **Withdrawn in M19** — route 404s, create endpoints 410. History still renders. | — | — |
 | `/snacks` | WhatsApp menu | 95% | — | — |
 | `/hamper` | Gift hampers | **M18** — the builder was removed; the route lists `isHamper` products | Shipped | — |
 | `/wallet` | Wallet | 90% | — | — |
@@ -254,7 +254,7 @@ platform settings.
 | **Categories / filters** | ✅ Multi-select, OR-within/AND-across, price, dietary, distance sort. Solid. |
 | **Discovery** | ⚠️ Filters yes, merchandising no (H8). Reels rail exists and is a genuine differentiator — underused. |
 | **Reviews / ratings** | ❌ Read-only (C2). |
-| **Checkout / payments** | ✅ Wallet, Razorpay, COD for laundry, idempotent. Needs real keys (M4). |
+| **Checkout / payments** | ✅ Wallet, Razorpay, idempotent. Needs real keys (M4). COD existed only for laundry, which is withdrawn (M19). |
 | **Refunds / returns** | ❌ Admin-initiated only (C5). |
 | **Notifications** | ⚠️ Modelled and stubbed; unverified against real providers (M7). |
 | **Delivery** | ✅ Correctly scoped — radius-based availability on web, logistics deferred to the apps. Consistent with the vision. |

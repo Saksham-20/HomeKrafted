@@ -237,7 +237,7 @@ export function LoginClient() {
         <h1 className={styles.title}>Sign in</h1>
         <p className={styles.subtitle}>
           {authRole === "shopper"
-            ? "One account for the Marketplace, Laundry and Wallet."
+            ? "One account for the shop, snacks and your wallet."
             : "Manage your listings, orders, storefront and payouts."}
         </p>
       </div>

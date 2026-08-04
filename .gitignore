@@ -48,3 +48,6 @@ next-env.d.ts
 .gstack/
 .claude/
 .playwright-mcp/
+
+# Deploy verification screenshots — evidence for a specific release, not source.
+deploy-*.png

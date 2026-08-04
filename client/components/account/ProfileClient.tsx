@@ -108,7 +108,7 @@ function ProfileDetails({
       <div className={styles.header}>
         <span className={styles.eyebrow}>Account</span>
         <h1 className={styles.title}>Profile</h1>
-        <p className={styles.subtitle}>Your details across Marketplace, Laundry and Wallet.</p>
+        <p className={styles.subtitle}>Your details across the shop, snacks and your wallet.</p>
       </div>
 
       <Card className={styles.card}>

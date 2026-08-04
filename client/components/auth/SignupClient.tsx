@@ -178,7 +178,7 @@ export function SignupClient() {
         <h1 className={styles.title}>Create your account</h1>
         <p className={styles.subtitle}>
           {authRole === "shopper"
-            ? "One account for the Marketplace, Laundry and Wallet."
+            ? "One account for the shop, snacks and your wallet."
             : "Selling on Homekrafted starts with a quick application."}
         </p>
       </div>

@@ -115,6 +115,78 @@ money bug, and the silent-failure class the review kept finding next to it.
   `docs/DESIGN-SYSTEM.md`, which all still described auto-top-up as a
   working feature.
 
+### Removed
+
+- **Laundry, Cleaning & Ironing is withdrawn from the web.** Nav, footer,
+  home page, sitemap, OG copy, the reels rail, the admin type filter and
+  the seller nav no longer reach it; `/laundry` returns a real 404 and
+  `POST /laundry/bookings` and `/laundry/subscriptions` return **410
+  Gone**. Doing only one half would have been the worst option available:
+  404ing the seller's pickup screen while bookings stayed creatable would
+  produce orders no HomeKrafter could ever see.
+
+  The models, `LaundryModule` and the order-history merge all stay, so a
+  customer who booked a pickup last month still finds it in
+  `/account/orders`. Hiding a service must not erase what people already
+  paid for, and bringing it back is a revert rather than a rebuild.
+  `ChannelRule` gains `enabled`, read through `isChannelEnabled`.
+
+  The home page's "One home, three crafts" band was **two** `1fr 1fr`
+  grids, not one, so deleting the laundry card would have left a single
+  card beside a hole for every visitor. Rebuilt as one grid of the two
+  remaining crafts with the app panel spanning underneath.
+
+### Added
+
+- **Meal subscriptions — the recurring product the platform did not
+  have.** `MealPlan` → `MealSubscription` → `MealDelivery`, with
+  30-minute delivery brackets, pause, resume, per-day skip and cancel.
+  This replaces `LaundrySubscription`, which had no management surface,
+  no pause/skip/resume and no generation job: it recorded intent and
+  produced nothing.
+
+  **A cycle is prepaid, in one wallet debit, and nothing charges in the
+  background.** That is not a simplification — there is no saved card and
+  no recurring mandate, and this is the same milestone that opened by
+  deleting a path which credited wallet balance nobody paid for. A daily
+  auto-charge on that footing would be the identical mistake pointed the
+  other way. It also avoids the worst failure a daily-food product can
+  have: "lunch didn't arrive because you were ₹20 short." When UPI
+  AutoPay is wired, `amountPaid` + `mealsRemaining` is the seam.
+
+  The rules that carry the design, each with a test:
+
+  - The debit is posted **last, inside the same transaction** as the
+    subscription and its deliveries, so an insufficient balance rolls all
+    of it back. Nobody ever holds a schedule they did not pay for.
+  - `pricePerMeal` is **snapshotted at subscribe time**. A kitchen raising
+    its price cannot change what somebody already agreed to pay.
+  - **A skipped meal is owed, not lost** — the cycle grows a day at the
+    far end. Paid for 24 meals, get 24 meals.
+  - **Cancelling moves no money.** Same rule M15 set for returns: an
+    automatic refund makes the most abusable path the most frictionless,
+    and the loss lands on a home cook who already bought the ingredients.
+  - `MealPlan.maxSubscribers` is the **first capacity ceiling the platform
+    actually enforces**. `VendorProfile.capacityPerDay` has existed since
+    M16 and is read in sixteen places, none of them the order path. This
+    one is counted inside the subscribe transaction, so two simultaneous
+    buyers cannot both take the last seat.
+  - A **paused** subscription keeps its seat; a **cancelled** one gives it
+    back. Somebody away for a week has not given up their tiffin.
+  - `meal-brackets.ts` never reads the clock, so a Server Component can
+    compute a window once and ship it as text — the M12 React #418 lesson.
+
+### Fixed
+
+- **The notification e2e was flaky, and got flakier.** Delivery is
+  fire-and-forget by design, so a test could end with an `INSERT` into
+  `Notification` still in flight; `resetDatabase` then truncated
+  underneath it and the *next* test polled forever for a row that had been
+  written and destroyed. Raising the poll deadline cannot fix that case —
+  the row is gone, not late — so the spec now drains before each reset.
+  Adding one more spec file was enough to expose it, on a different test
+  each run.
+
 ## [M18] — Hampers as listings, order notifications, password reset — 2026-08-03
 
 Two product changes and one long-standing gap. The gap is the one that

@@ -93,7 +93,7 @@ that's a bug — report it.
 |---|---|---|
 | **Shopper** | The normal customer site — browse, cart, checkout, wallet, orders | `ananya.iyer@example.com` |
 | **HomeKrafter — maker** | Seller dashboard for a food/craft maker | `anjali@anjaliskitchen.example` |
-| **HomeKrafter — laundry** | Seller dashboard for a laundry partner | `ravi@freshfoldlaundry.example` |
+| **HomeKrafter — ex-laundry** | Same seller dashboard. Kept because this account has historical pickups, and its past orders must still render now that laundry is withdrawn | `ravi@freshfoldlaundry.example` |
 | **HomeKrafter — snacks** | Seller dashboard for a snack seller | `meera@meerassnackbox.example` |
 | **Admin** | Full admin panel — all users, HomeKrafters, orders, wallets | `admin@homekrafted.example` |
 
@@ -227,12 +227,17 @@ Sign in as **Ananya**.
     with a message telling you to wait for delivery — that refusal is
     correct behaviour, not a bug
 
-### 5. Laundry
-- **Laundry** page — services and pricing
-- Book a service: pick a slot, pick a date, confirm
-- Check the booking shows in your orders
-- Live tracking is **app-only** — on the web you should only see a status
-  line, not a map. Confirm that's what you get.
+### 5. Laundry — withdrawn, and worth checking it stayed withdrawn
+Laundry, Cleaning & Ironing is **no longer offered** (M19). There is
+nothing to book. What to confirm instead:
+
+- There is no **Laundry** link in the header, the mobile drawer or the
+  footer
+- Typing `/laundry` straight into the address bar gives a **404 page**,
+  not a blank screen and not a redirect to home
+- A demo account with an **old booking still sees it** in
+  `/account/orders`. Hiding a service must never erase what somebody
+  already paid for — if a past booking has vanished, report it.
 
 ### 6. Snacks — including pre-order
 - **Snacks** page — browse the menu
@@ -262,8 +267,9 @@ Sign in as any of the three HomeKrafter accounts.
 Every HomeKrafter now sees **one dashboard with the same full menu**:
 Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts, Reviews.
 
-**All three accounts now have all eight modules working.** There is one
-role, so a laundry HomeKrafter can add food, and a cook can take pickups.
+**All three accounts have the same modules working.** There is one role,
+so any HomeKrafter can add food. Pickups is the exception now: laundry is
+withdrawn, so that screen only ever shows history.
 The "isn't set up" card should no longer appear for any of the three demo
 accounts — if you see it, report it.
 

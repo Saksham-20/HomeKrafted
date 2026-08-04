@@ -47,6 +47,24 @@ describe('order notifications', () => {
     await h.close();
   });
 
+  /**
+   * Let in-flight delivery finish before the next test truncates.
+   *
+   * Notification delivery is fire-and-forget by design, so a test can end
+   * with an `INSERT` into `Notification` still in flight. `resetDatabase`
+   * then `TRUNCATE`s underneath it, and the row either deadlocks the reset
+   * (the harness already retries that) or lands and is wiped — which is the
+   * nastier one, because the *next* test then polls forever for a row that
+   * was written and destroyed. Raising the poll deadline cannot fix that
+   * case: the row is gone, not late.
+   *
+   * A short drain here is the cheap correct fix. It runs once per test in
+   * one spec file rather than slowing the suite everywhere.
+   */
+  afterEach(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  });
+
   beforeEach(async () => {
     await resetDatabase(h.prisma);
     buyer = await createActor(h);
@@ -92,13 +110,22 @@ describe('order notifications', () => {
    *
    * `predicate` receives every row for the user, so a caller can wait for
    * "the delivered one" rather than merely "any".
+   *
+   * The deadline is generous on purpose. It is an upper bound on a poll, not
+   * a sleep, so a fast machine still returns the moment the rows land and
+   * pays nothing for the headroom — while a slow one stops reporting a
+   * scheduling delay as a product bug. At five seconds this went flaky the
+   * moment the suite grew by one more spec file: `NotificationsDeliveryService`
+   * fans out sms → whatsapp → email → inapp sequentially per user, and under
+   * a loaded Postgres that outran the window perhaps half the time, on a
+   * different test each run. A flaky suite is a broken signal.
    */
   async function waitForNotifications(
     userId: string,
     predicate: (rows: Row[]) => boolean,
     what = 'notifications',
   ): Promise<Row[]> {
-    const deadline = Date.now() + 5000;
+    const deadline = Date.now() + 20000;
     let rows: Row[] = [];
     while (Date.now() < deadline) {
       rows = await notificationsFor(userId);

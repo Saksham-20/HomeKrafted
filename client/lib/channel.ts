@@ -3,14 +3,20 @@
  *
  *   Module        Browse web   Checkout web        Live tracking
  *   Marketplace   yes          web                  status only
- *   Laundry       yes          web or COD            app only
  *   Snacks        yes          WhatsApp (no cart)     WhatsApp text
  *   Full meals    promo only   app only               app only
+ *   Laundry       WITHDRAWN (M19) — see `enabled` below
  *
  * Screens should read these flags rather than re-encoding the rules:
  * e.g. the Snacks screen (M5) must check `hasCheckoutOnWeb === false` and
  * never render a checkout button; the full-meals promo page must check
  * `hasMenuOnWeb === false` and never render a menu/cart.
+ *
+ * Laundry's rule stays in the table on purpose even though the module is
+ * gone. `ChannelKey` is part of the order-history types, and a customer
+ * who booked a pickup before M19 still has to be able to read that order
+ * — deleting the entry would break rendering their own past. Check
+ * `isChannelEnabled` before offering anything new.
  */
 
 export type ChannelKey = "marketplace" | "laundry" | "snacks" | "full-meals";

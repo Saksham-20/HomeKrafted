@@ -5,11 +5,13 @@ Read this first, then the plan and docs it points to.
 
 ## What this is
 
-Homekrafted is a multi-service home-craft platform: a **Gifting Marketplace**
-(multi-vendor, hampers, occasions), **Laundry, Cleaning & Ironing**
-(bookable, two-slot), **Snacks + Food Delivery** (Snacks browsable +
-WhatsApp order; full meals promo-only), unified by one **Wallet** and one
-shared account layer. It ships as a **monorepo**: `client/` (the Next.js
+Homekrafted is a home-craft platform: a **Gifting Marketplace**
+(multi-vendor, hampers, occasions) and **Snacks + Food Delivery** (Snacks
+browsable + WhatsApp order; full meals promo-only), unified by one
+**Wallet** and one shared account layer. **Laundry, Cleaning & Ironing**
+was a third module and is **withdrawn as of M19** — the route 404s, the
+create endpoints return 410, and the models stay so existing bookings
+still render. Don't build on it; see the channel table below. It ships as a **monorepo**: `client/` (the Next.js
 web app — all web source lives here), `server/` (a standalone backend API
 **shared by the web + the native apps**, arriving in M8), and `app/` (the
 native mobile apps — React Native/Expo, future). The web is built
@@ -194,9 +196,9 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 | Module | Browse web | Checkout web | Pre-order web | Live tracking |
 |---|---|---|---|---|
 | Marketplace | yes | full web checkout | yes | status only (no map/rider) |
-| Laundry | yes | web checkout **or COD** | yes | app-only (web shows status line + "track on the app") |
 | Snacks | yes (menu) | **no** — WhatsApp only (`wa.me`), no cart/checkout on site | yes | WhatsApp status text |
 | Full meals | **no** — promo only, no menu/cart | app-only | yes (interest only) | app-only |
+| ~~Laundry~~ | **withdrawn (M19)** — `enabled: false`, `/laundry` 404s, `POST /laundry/bookings` and `/subscriptions` return 410 | | | |
 
 `hasPreOrderOnWeb` is deliberately separate from `hasCheckoutOnWeb`:
 scheduling is information, not a transaction. Snacks/meals carry the
@@ -204,9 +206,62 @@ chosen slot into the **WhatsApp message**, never an order record on the
 site — so pre-order never reopens the cart question.
 
 `CHANNEL_RULES` in `lib/channel.ts` is the enforceable form of this table —
-check `hasMenuOnWeb` / `hasCartOnWeb` / `hasCheckoutOnWeb` before rendering
-anything in a Snacks or full-meals screen. If a component would need a flag
-that isn't there, add it to `ChannelRule`, don't route around the module.
+check `isChannelEnabled` first, then `hasMenuOnWeb` / `hasCartOnWeb` /
+`hasCheckoutOnWeb` before rendering anything in a Snacks or full-meals
+screen. If a component would need a flag that isn't there, add it to
+`ChannelRule`, don't route around the module.
+
+`enabled` (M19) is the odd one out: every other flag describes *how* a
+live module behaves, this one says whether it is offered at all. A
+withdrawn module keeps its rule so the types and the order history that
+reference it still resolve — read it through `isChannelEnabled`, never by
+reaching into `CHANNEL_RULES`, or the flag becomes decoration.
+
+## Meal subscriptions (M19) — the recurring product, and its money rules
+
+`MealPlan` (what a kitchen offers) → `MealSubscription` (one buyer's
+prepaid run) → `MealDelivery` (one row per meal owed). Rules that are easy
+to undo by accident:
+
+- **A cycle is prepaid, in one wallet debit. Nothing charges in the
+  background.** There is no saved card and no mandate; `creditTopupTx` is
+  reachable only from the verified Razorpay webhook. Adding a daily
+  auto-charge without a real UPI AutoPay/e-mandate would recreate the exact
+  bug M19 opened by deleting. The prepaid model also avoids the worst
+  failure on a daily-food product: "lunch didn't arrive because you were
+  ₹20 short."
+- **The money is posted last, inside the same transaction as the
+  subscription and its deliveries.** An insufficient balance throws and
+  takes all of it with it. There is no state where somebody holds a
+  schedule they did not pay for — the e2e asserts exactly that.
+- **`MealSubscription.pricePerMeal` is a snapshot, never re-read from the
+  plan.** Reading the plan fresh would protect the kitchen and silently
+  change what the buyer pays mid-cycle. A rise applies at renewal, where
+  they can see it.
+- **Every meal is a row.** Skip, pause and a kitchen blackout are recorded
+  facts, not arithmetic on a counter — which is what makes "why do I have
+  11 meals left when I paid for 14" answerable.
+- **A skipped meal is owed, not lost.** The cycle grows a day at the far
+  end. A buyer who paid for 24 meals gets 24 meals.
+- **Cancel moves no money.** Same rule as M15 returns: auto-refund would
+  make the most abusable path the most frictionless, and the loss lands on
+  a home cook. An admin resolves it through `POST /wallet/adjust`.
+- **A paused subscription keeps its seat** against `MealPlan.maxSubscribers`;
+  a cancelled one gives it back. Somebody away for a week has not given up
+  their tiffin. `maxSubscribers` is also the first place a home cook's
+  stated ceiling is actually *enforced* — `VendorProfile.capacityPerDay`
+  has existed since M16 and is checked nowhere.
+- **`isActive` (the kitchen's switch) and `moderationStatus` (the admin's)
+  stay separate**, same as `Product`. Both must pass. A hidden plan 404s
+  rather than 403s, on read *and* on subscribe — hiding it in the list
+  while leaving the write path open is the usual half-fix.
+- **`meal-brackets.ts` never reads the clock.** Every function takes `now`
+  or a start date, so a Server Component can compute a window once and ship
+  it as text (the M12 React #418 lesson). `bracketStart` is a label
+  (`"12:30"` = 12:30–13:00), not an instant.
+- **Absence is not closure**, carried over from M16: no stated
+  `workingDays` means open every day, and no `prepTimeMins` means the
+  90-minute default, never zero.
 
 ## Location & availability (M12) — read before touching catalog or portal
 

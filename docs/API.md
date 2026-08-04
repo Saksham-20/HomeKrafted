@@ -569,6 +569,46 @@ WhatsApp messages actually create these rows — see "WhatsApp Cloud API
 | `GET /snacks` | `@Public()` | Available snacks, optional `?category=savoury\|sweet\|baked\|namkeen` and `?q=` (name + description, same term semantics as `GET /products?q=`). |
 | `GET /snacks/:slug` | `@Public()` | Single snack. |
 
+### Meal subscriptions (M19 — real, `server/src/meals/`)
+
+The platform's first recurring product, and the replacement for
+`LaundrySubscription`, which recorded intent and produced nothing before
+laundry was withdrawn.
+
+**A cycle is prepaid, in one wallet debit, and nothing charges anybody in
+the background.** There is no saved card and no recurring mandate — the
+milestone this shipped in opened by deleting a code path that credited
+wallet balance with no payment behind it, and a daily auto-charge on that
+footing would be the same mistake pointed the other way. A buyer pays for N
+meals up front; the subscription spends that down. When UPI AutoPay is
+wired, `amountPaid` + `mealsRemaining` is the seam to convert against.
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `GET /meal-plans` | `@Public()` | Active, unmoderated plans. `?mealType=breakfast\|lunch\|dinner`, `?diet=veg\|non-veg`, `?q=`, and `?lat=&lng=` for radius filtering. No coordinates → the full list; browsing is never behind a location grant. |
+| `GET /meal-plans/:slug` | `@Public()` | Single plan. A hidden or inactive plan is **404, not 403** — telling an anonymous caller that a plan exists but is hidden leaks a moderation decision. |
+| `GET /meal-subscriptions` | consumer | The caller's own, newest first. |
+| `GET /meal-subscriptions/:id` | consumer | With every delivery. Somebody else's id returns **404**, not 403. |
+| `POST /meal-subscriptions` | consumer | **Money.** Debits `pricePerMeal × mealCount` in one go. Honours `Idempotency-Key`. `402` when the wallet cannot cover it, and the subscription *and* its deliveries roll back with it. |
+| `PATCH /meal-subscriptions/:id/pause` | consumer | Cancels everything still scheduled. A paused subscription **keeps its seat** against the plan's capacity. |
+| `PATCH /meal-subscriptions/:id/resume` | consumer | Rebuilds the remaining schedule from today forward — the old dates are in the past by then, and reinstating them would hand a kitchen meals that were due last week. |
+| `PATCH /meal-subscriptions/:id/deliveries/:deliveryId/skip` | consumer | The meal is **owed, not lost**: the cycle grows a day at the far end. |
+| `DELETE /meal-subscriptions/:id` | consumer | Terminal, and **moves no money**. A refund is an admin decision through `POST /wallet/adjust`, for the same reason M15 refuses to auto-refund a return: the loss lands on a home cook who already bought the ingredients. |
+
+Response notes worth branching on:
+
+- `MealPlan.brackets` carries the 30-minute windows the kitchen actually
+  offers, so no client re-derives them and disagrees with the server.
+  `bracketStart` is a label (`"12:30"` = 12:30–13:00), never an instant.
+- `seatsLeft` is `null` when a plan is uncapped, which is **not** the same
+  as zero.
+- `moderationStatus` and `isActive` are both returned. They are separate
+  switches — the admin's and the kitchen's — and a buyer needs both to pass.
+  Collapsing them into one `available` boolean is how a moderator's action
+  gets silently undone by a cook toggling their own availability.
+- `pricePerMeal` on a subscription is the **snapshot** taken at subscribe
+  time, not the plan's price today.
+
 ### Referrals & loyalty (`server/src/referrals/`)
 
 Owner-scoped. Unlike the client mock's argument-less

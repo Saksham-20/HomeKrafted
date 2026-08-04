@@ -225,6 +225,7 @@ enum WalletTransactionRefType {
   referral
   loyalty
   support
+  mealSubscription
 }
 
 enum AutoTopupTrigger {
@@ -282,6 +283,39 @@ enum SnackCategory {
 enum DietType {
   veg
   non_veg @map("non-veg")
+}
+
+/// Which meal of the day a `MealPlan` covers. Deliberately not a free
+/// string: the delivery bracket a buyer may pick is derived per meal, and
+/// a kitchen offering "lunch" and "Lunch" would split its own capacity.
+enum MealType {
+  breakfast
+  lunch
+  dinner
+}
+
+/// `paused` is the buyer's own hold and is reversible; `cancelled` is
+/// terminal and `expired` is what a cycle running out of meals becomes.
+/// Kept apart because only `paused` should still occupy a kitchen's
+/// capacity — somebody away for a week has not given up their seat.
+enum MealSubscriptionStatus {
+  active
+  paused
+  cancelled
+  expired
+}
+
+/// One row per meal a subscription owes. `skipped` is the buyer saying
+/// "not tomorrow"; `unavailable` is the kitchen being closed that day.
+/// Both return the meal to the cycle, but only one is the buyer's doing,
+/// and a kitchen's reliability cannot be read off a column that conflates
+/// them.
+enum MealDeliveryStatus {
+  scheduled
+  skipped
+  unavailable
+  delivered
+  cancelled
 }
 
 enum SnackListStatus {
@@ -385,6 +419,7 @@ model User {
   laundryBookings         LaundryBooking[]
   laundrySubscriptions    LaundrySubscription[]
   snackLists              SnackList[]
+  mealSubscriptions       MealSubscription[]
   seller                  Seller?
   refreshTokens           RefreshToken[]
   passwordResetTokens     PasswordResetToken[]
@@ -425,6 +460,7 @@ model Address {
   orderItemsShippedTo   OrderItem[]
   shipments             OrderShipment[]  @relation("ShipmentAddress")
   hampersAsRecipient    Hamper[]         @relation("HamperRecipientAddress")
+  mealSubscriptions     MealSubscription[]
   ordersAsGiftRecipient Order[]          @relation("OrderGiftRecipientAddress")
   laundryBookings       LaundryBooking[]
 
@@ -838,6 +874,7 @@ model Vendor {
 
   products  Product[]
   seller    Seller?
+  mealPlans MealPlan[]
   follows   VendorFollow[]
   profile   VendorProfile?
   photos    VendorPhoto[]
@@ -1568,6 +1605,7 @@ model Seller {
   laundryBookings LaundryBooking[]
   snacks          Snack[]
   snackOrders     SnackOrder[]
+  mealPlans       MealPlan[]
 
   @@index([status])
 }
@@ -1657,4 +1695,169 @@ model AdminAuditLog {
   @@index([actorId])
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Meal subscriptions (M19)
+//
+// The recurring product the platform did not have. Two things about the
+// shape are load-bearing and easy to undo:
+//
+// 1. **A cycle is PREPAID.** There is no payment mandate — `creditTopupTx`
+//    is reachable only from the verified Razorpay webhook, and the
+//    auto-top-up path that pretended otherwise is exactly the bug M19
+//    opened with. So a buyer pays for N meals up front out of wallet
+//    balance, in one debit, and the subscription spends that down. Nothing
+//    charges anybody in the background. When UPI AutoPay lands, `amountPaid`
+//    plus `mealsRemaining` is the seam to convert against.
+//
+// 2. **Every meal is a row.** `MealDelivery` exists so that skip, pause and
+//    a kitchen's blackout day are all recorded facts rather than arithmetic
+//    on a counter. A counter would make "why do I have 11 meals left when I
+//    paid for 14" unanswerable, which on a daily-food product is the
+//    question that gets asked.
+// ---------------------------------------------------------------------------
+
+/// What a kitchen offers on a recurring basis. Distinct from `Product` and
+/// `Snack`: those are bought once, this is subscribed to, and the fields
+/// that matter here (how many subscribers a home cook can carry, what a
+/// week's rotation looks like) have no meaning on a one-off listing.
+model MealPlan {
+  id       String @id @default(cuid())
+  slug     String @unique
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  /// Required, unlike `Snack.sellerId`. A subscription commits a kitchen to
+  /// cooking on a schedule, so a plan whose fulfilment owner is unknown
+  /// cannot be honoured — and a nullable column here would let one be
+  /// created and only fail on the first delivery.
+  sellerId String
+  seller   Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String
+  mealType    MealType
+  diet        DietType
+
+  /// Per meal, not per cycle. The cycle price is this times the meal count,
+  /// computed at subscribe time and snapshotted onto the subscription.
+  pricePerMeal Decimal @db.Decimal(10, 2)
+
+  /// "2 rotis, dal, sabzi, rice, salad". The single most asked question
+  /// about a tiffin, and the reason a photo alone does not sell one.
+  servingSize String?
+  /// A week's rotation as free text, one line per day. Display only — a
+  /// structured menu would need a per-date entity nobody has asked for, and
+  /// home kitchens cook to what the market had.
+  weeklyMenu  String[]
+
+  imagePlaceholder String
+  imageSrc         String?
+
+  /// The kitchen's own switch, same split as `Product.isAvailable` vs
+  /// `moderationStatus`: this is "am I taking subscribers", that is the
+  /// admin's. A buyer needs both to pass. Merging them would let a
+  /// moderator's action be silently undone by a cook toggling availability.
+  isActive         Boolean                 @default(true)
+  moderationStatus ProductModerationStatus @default(active)
+
+  /// The ceiling a home cook can actually cook to. `VendorProfile.capacityPerDay`
+  /// has existed since M16 and is enforced nowhere; this one is checked on
+  /// every subscribe. Null means unlimited, which is a deliberate choice a
+  /// kitchen makes rather than a default they never saw.
+  maxSubscribers Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions MealSubscription[]
+
+  @@index([vendorId])
+  @@index([sellerId])
+  @@index([mealType, isActive])
+}
+
+/// One buyer's prepaid run of meals from one plan.
+model MealSubscription {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId String
+  plan   MealPlan @relation(fields: [planId], references: [id])
+
+  /// Required. A meal has to go somewhere, and the review of the held plan
+  /// found the original spec never set an address at all — the same defect
+  /// that makes `OrderItem.addressId` required.
+  addressId String
+  address   Address @relation(fields: [addressId], references: [id])
+
+  /// Start of the 30-minute window, "HH:MM" local, e.g. "12:30" meaning
+  /// 12:30–13:00. A string for the same reason `LaundrySlot` windows are:
+  /// it is a label the kitchen and the buyer agree on, not an instant, and
+  /// storing it as a timestamp would silently move it across a DST-free
+  /// timezone change nobody asked for.
+  bracketStart String
+
+  /// 0 = Sunday. Which days of the week this subscription runs.
+  daysOfWeek Int[]
+
+  status MealSubscriptionStatus @default(active)
+
+  /// **Snapshot at subscribe time**, never re-read from the plan. Reading
+  /// `MealPlan.pricePerMeal` fresh each cycle would protect the kitchen and
+  /// silently change what the buyer pays — for a daily-food product that is
+  /// the worst possible surprise. A price rise applies at renewal, where
+  /// the buyer sees it before agreeing.
+  pricePerMeal Decimal @db.Decimal(10, 2)
+  /// What was actually debited from the wallet for this cycle.
+  amountPaid   Decimal @db.Decimal(10, 2)
+
+  mealsTotal     Int
+  /// Decremented only on `delivered`. A skipped or unavailable meal stays
+  /// owed, which is what makes the count answerable.
+  mealsRemaining Int
+
+  startDate DateTime @db.Date
+  /// Moves outward every time a meal is skipped or the kitchen is closed —
+  /// the buyer paid for a number of meals, not a number of days.
+  endDate   DateTime @db.Date
+
+  pausedAt    DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  deliveries MealDelivery[]
+
+  @@index([userId, status])
+  @@index([planId, status])
+}
+
+/// One scheduled meal. The kitchen's work queue and the buyer's receipt.
+model MealDelivery {
+  id             String           @id @default(cuid())
+  subscriptionId String
+  subscription   MealSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  /// Date only, UTC midnight — the window lives in `bracketStart`.
+  scheduledFor DateTime           @db.Date
+  bracketStart String
+  status       MealDeliveryStatus @default(scheduled)
+
+  /// Why it isn't happening. A blackout's reason is copied here at the time
+  /// so the buyer's history still explains itself after the kitchen clears
+  /// its calendar.
+  reason String?
+
+  skippedAt   DateTime?
+  deliveredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One meal per subscription per day. The uniqueness is what makes the
+  /// scheduler safe to re-run.
+  @@unique([subscriptionId, scheduledFor])
+  @@index([scheduledFor, status])
 }

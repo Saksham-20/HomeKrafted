@@ -18,6 +18,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { PaymentsModule } from './payments/payments.module';
 import { LaundryModule } from './laundry/laundry.module';
 import { SnacksModule } from './snacks/snacks.module';
+import { MealsModule } from './meals/meals.module';
 import { ReferralsModule } from './referrals/referrals.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SupportModule } from './support/support.module';
@@ -81,6 +82,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     // `LaundryModule` to merge bookings into `GET /orders/history`.
     LaundryModule,
     SnacksModule,
+    MealsModule,
     ReferralsModule,
     NotificationsModule,
     SupportModule,

@@ -523,3 +523,46 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   open-ended and ordering matters — the same reasoning as `ProductImage`.
   Capped at 12 server-side. Deleting a row does not delete the file (M14,
   see `docs/DEPLOY.md`).
+
+### Notes for M19 — meal subscriptions
+
+Three models, `MealPlan` → `MealSubscription` → `MealDelivery`. They
+replace `LaundrySubscription`, which recorded intent and generated
+nothing before laundry was withdrawn.
+
+- **A cycle is prepaid.** `amountPaid` is debited from the wallet in one
+  entry (`refType: 'mealSubscription'`) inside the same transaction that
+  writes the subscription and its deliveries. There is no saved card and
+  no recurring mandate, so nothing charges in the background — and the
+  milestone this shipped in opened by removing a path that credited
+  balance nobody paid for. `amountPaid` + `mealsRemaining` is the seam to
+  convert against when UPI AutoPay lands.
+- **`MealSubscription.pricePerMeal` is denormalised on purpose**, and it
+  is the opposite case to M15's rating aggregates: those are recomputed
+  from rows precisely so they cannot drift, this one is *frozen* so it
+  cannot. Re-reading `MealPlan.pricePerMeal` each cycle would protect the
+  kitchen and silently change what the buyer pays for tomorrow's lunch.
+- **`MealDelivery` is a row per meal, not a counter.** Skip, pause and a
+  kitchen blackout all become facts with dates and reasons. A counter
+  cannot answer "why do I have 11 meals left when I paid for 14", which
+  on a daily-food product is the question that gets asked.
+  `@@unique([subscriptionId, scheduledFor])` is what makes the scheduler
+  safe to re-run — a paused-then-resumed subscription can land on a date
+  it already has a cancelled row for.
+- **`endDate` moves.** It is derived from the last scheduled delivery, not
+  from `startDate + n days`, because a skipped meal is owed rather than
+  lost. The buyer paid for a number of meals, not a number of days.
+- **`MealPlan.sellerId` is required**, unlike `Snack.sellerId`. A
+  subscription commits a kitchen to cooking on a schedule, so a plan whose
+  fulfilment owner is unknown cannot be honoured — and a nullable column
+  would let one be created and only fail on the first delivery.
+- **`MealSubscription.addressId` is required.** A meal has to go
+  somewhere; the same reason `OrderItem.addressId` is.
+- **`MealPlan.maxSubscribers` is the first capacity ceiling the platform
+  actually enforces.** `VendorProfile.capacityPerDay` has existed since
+  M16 and is read in sixteen places, none of them the order path. This one
+  is counted inside the subscribe transaction, so two simultaneous
+  subscribers cannot both take the last seat. `null` means uncapped — a
+  choice a kitchen makes, not a default they never saw.
+- **`status` splits `paused` from `cancelled` because only one gives the
+  seat back.** Somebody away for a week has not given up their tiffin.
