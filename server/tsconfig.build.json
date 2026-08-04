@@ -1,4 +1,14 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma/seed.ts"]
+  "comment": [
+    "`prisma/**` is excluded by pattern, not by filename.",
+    "It used to list `prisma/seed.ts` exactly. Adding a second script there",
+    "(`seed-meal-plans.ts`) pulled it into the build, which widened the",
+    "inferred rootDir from `src` to the package root — so the output moved",
+    "from `dist/main.js` to `dist/src/main.js` and the deploy script's",
+    "`[ -f dist/main.js ]` guard stopped the release. Nothing errored; the",
+    "build just quietly emitted somewhere else. A pattern means the next",
+    "seed script cannot do this again."
+  ],
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts", "prisma/**"]
 }
