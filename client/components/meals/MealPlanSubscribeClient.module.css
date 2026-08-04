@@ -1,0 +1,159 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+  max-width: 560px;
+}
+
+.field {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.legend {
+  font-family: var(--hk-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-ink-3);
+  padding: 0;
+}
+
+.dayRow,
+.bracketRow,
+.countRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.day,
+.bracket,
+.count {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 8px 14px;
+  border-radius: var(--hk-r-pill, 999px);
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.day:hover,
+.bracket:hover,
+.count:hover {
+  border-color: var(--hk-pine);
+}
+
+.dayOn,
+.bracketOn,
+.countOn {
+  background: var(--hk-pine);
+  border-color: var(--hk-pine);
+  color: var(--hk-on-pine);
+}
+
+.select {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 10px 12px;
+  border-radius: var(--hk-r-md);
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  width: 100%;
+}
+
+.hint {
+  font-size: 0.82rem;
+  color: var(--hk-ink-3);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.total {
+  border: 1px solid var(--hk-gold-border);
+  background: var(--hk-gold-tint);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s4) var(--hk-s5);
+}
+
+.totalLabel {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+/* Gold-adjacent surface, but the number itself is ink: a total is the most
+   important text on this form and must not sit at 3.6:1. */
+.totalValue {
+  display: block;
+  font-family: var(--hk-font-display);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+  margin-top: 2px;
+}
+
+.totalNote {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--hk-ink-2);
+  margin: var(--hk-s2) 0 0;
+}
+
+/* Reserves no space when empty, so the layout does not jump when an error
+   arrives — but stays in the DOM so `aria-live` has something to announce
+   into. */
+.errorRegion:empty {
+  display: none;
+}
+
+.error {
+  margin: 0;
+  padding: var(--hk-s3) var(--hk-s4);
+  border-radius: var(--hk-r-md);
+  background: #fbeceb;
+  border: 1px solid #e9c9c4;
+  color: #8a2f23;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.signedOut {
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  padding: var(--hk-s5);
+  max-width: 560px;
+}
+
+.signedOut p {
+  margin: 0 0 var(--hk-s3);
+  color: var(--hk-ink-2);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.signInCta {
+  font-weight: 500;
+  color: var(--hk-pine);
+  text-decoration: none;
+}
+
+.signInCta:hover {
+  text-decoration: underline;
+}
+
+.loading {
+  color: var(--hk-ink-3);
+  font-size: 0.9rem;
+}

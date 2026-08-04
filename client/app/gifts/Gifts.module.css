@@ -1,0 +1,99 @@
+/* Gift hampers (M18) — the catalogue view that replaced the builder.
+   Deliberately the same hero + grid rhythm as `/collections/[occasion]`,
+   since both are "a curated slice of the catalogue" and looking different
+   would imply they behave differently. */
+
+.heroWrap {
+  padding-block: var(--hk-s6) var(--hk-s5);
+  background: linear-gradient(180deg, var(--hk-gold-tint), transparent);
+}
+
+.breadcrumb {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--hk-muted);
+}
+
+.breadcrumbCurrent {
+  color: var(--hk-ink-2);
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(28px, 4vw, 40px);
+  color: var(--hk-pine);
+  margin: var(--hk-s3) 0 var(--hk-s2);
+}
+
+.description {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+  max-width: 560px;
+  margin-bottom: var(--hk-s2);
+}
+
+.count {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.section {
+  padding-block: var(--hk-s5) var(--hk-s8);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--hk-s4);
+}
+
+/* Hampers are seasonal — an empty week is a normal week, so this is a
+   card with somewhere to go next rather than a one-line apology. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  max-width: 520px;
+  padding: var(--hk-s5);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+}
+
+.emptyLead {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.emptyBody {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+}
+
+.emptyLink {
+  margin-top: var(--hk-s1);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+.emptyLink:hover {
+  color: var(--hk-gold);
+}
+
+/* M20 — the one thing a buyer must not learn at checkout: this vertical
+   posts nationally, food does not. */
+.shipping {
+  font-size: 0.9rem;
+  color: var(--hk-ink-2);
+  margin: var(--hk-s3) 0 0;
+  line-height: 1.55;
+}

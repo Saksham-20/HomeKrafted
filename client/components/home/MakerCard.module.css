@@ -1,0 +1,94 @@
+.card {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s6);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  height: 100%;
+}
+
+.avatarWrap {
+  width: 88px;
+  margin-bottom: var(--hk-s2);
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+  margin: 0;
+}
+
+.location {
+  font-family: var(--hk-font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-ink-3);
+  margin: 0;
+}
+
+.story {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+  margin: var(--hk-s1) 0 0;
+}
+
+.bestseller {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--hk-s3) 0 0;
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-border);
+  width: 100%;
+}
+
+.bestsellerLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* Gold at this size must be the darkened text ramp, never `--hk-gold`
+     itself — 3.6:1 on white fails AA below ~16px bold. */
+  color: var(--hk-gold-text-sm);
+}
+
+.bestsellerName {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.bestsellerPrice {
+  font-family: var(--hk-font-mono);
+  font-size: 0.9rem;
+  color: var(--hk-terracotta);
+}
+
+.bestsellerEmpty {
+  margin: var(--hk-s3) 0 0;
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-border);
+  width: 100%;
+  font-size: 0.85rem;
+  color: var(--hk-ink-3);
+}
+
+.cta {
+  margin-top: auto;
+  padding-top: var(--hk-s4);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--hk-pine);
+  text-decoration: none;
+}
+
+.cta:hover {
+  text-decoration: underline;
+}

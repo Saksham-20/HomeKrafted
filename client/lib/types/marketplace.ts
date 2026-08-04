@@ -188,6 +188,26 @@ export interface VerificationInput {
 // Catalog: category, occasion, collection
 // ---------------------------------------------------------------------------
 
+/**
+ * What sort of thing a listing is (M20).
+ *
+ * `Product` was food-shaped throughout — `dietary`, `ingredients`,
+ * `shelfLife` — because until now everything sold here was food.
+ * "Handcrafted Gifts" is not. One field rather than a second type, for the
+ * same reason M18 made a hamper a `Product`: a craft still needs a vendor,
+ * photos, price tiers, reviews, cart and search, and a parallel type
+ * re-derives all of it and then drifts.
+ */
+export type ProductKind = "food" | "craft";
+
+/**
+ * How far a listing travels (M20). `local` is gated on the kitchen's
+ * delivery radius; `national` goes in the post and skips that gate
+ * entirely — a candle's reach has nothing to do with how far somebody will
+ * drive a hot meal.
+ */
+export type ProductShippingScope = "local" | "national";
+
 export interface Category {
   id: ID;
   slug: string;
@@ -195,6 +215,9 @@ export interface Category {
   imagePlaceholder: string;
   imageSrc?: string;
   productCount: number;
+  /** Which side of the catalogue this belongs to. Absent reads as `"food"`. */
+  group?: ProductKind;
+  sortOrder?: number;
 }
 
 export interface Occasion {
@@ -301,6 +324,17 @@ export interface Product {
    * absent reads as `false`.
    */
   isHamper?: boolean;
+  /**
+   * Food or craft (M20). Optional so every fixture predating M20 still
+   * type-checks; absent reads as `"food"`, which is what they all were.
+   * Branch on this before rendering a shelf life or a dietary tag.
+   */
+  kind?: ProductKind;
+  /**
+   * Local delivery or posted nationally (M20). Absent reads as `"local"`.
+   * Decides whether "delivers to your area" is a true thing to say.
+   */
+  shippingScope?: ProductShippingScope;
   /** Wallet cashback percentage earned on this product. */
   cashbackPct: number;
   description: string;

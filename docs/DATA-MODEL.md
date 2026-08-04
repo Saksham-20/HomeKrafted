@@ -566,3 +566,32 @@ nothing before laundry was withdrawn.
   choice a kitchen makes, not a default they never saw.
 - **`status` splits `paused` from `cancelled` because only one gives the
   seat back.** Somebody away for a week has not given up their tiffin.
+
+### Notes for M20 — the gifts vertical
+
+`Product.kind` (`food | craft`) and `Product.shippingScope`
+(`local | national`), plus `Category.group` and `Category.sortOrder`. All
+four are additive with defaults, so every pre-M20 row keeps its meaning
+without a backfill.
+
+- **One column, not a second model.** `Product` was food-shaped throughout
+  — `dietary`, `ingredients`, `shelfLife`, `storageInstructions`,
+  `isPackaged`, `defaultWeightSku` — because everything sold here was
+  food. A candle is not. But a craft still needs a vendor, photos, price
+  tiers, availability, moderation, reviews, cart, checkout and search, and
+  a parallel `CraftProduct` would re-derive every one of those and then
+  drift from them. This is the same call M18 made for hampers, for the
+  same reason. The food-only fields simply go unused and the UI branches.
+- **`shippingScope` is explicit, not derived from `kind`.** A kitchen
+  shipping pickles across India is a real case; deriving the scope would
+  forbid it. It is also the only field that changes what a *query* does:
+  `ProductsService.list` skips the radius gate entirely for `national`
+  rows, so they appear with or without buyer coordinates. Distance is
+  still computed for display where it means something, but it never
+  excludes.
+- **This extends the M12 location rule rather than breaking it.** Location
+  was never a gate; now some listings are not even radius-eligible.
+- **`Category.group` exists because the header splits the catalogue.**
+  Twelve tiles ordered by `sortOrder`, two nav columns grouped by
+  `group`. Ties fall back to name so an unset `sortOrder` is stable
+  rather than random.

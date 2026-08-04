@@ -73,6 +73,17 @@ export class ListProductsQueryDto {
   isHamper?: boolean;
 
   /**
+   * `food` or `craft` (M20). Omitted returns both, which is what `/shop`
+   * and search want — the split is a browse convenience, not a partition,
+   * and a buyer searching "candle" should find one wherever they are.
+   *
+   * `/gifts` asks for `craft`.
+   */
+  @IsOptional()
+  @IsIn(['food', 'craft'])
+  kind?: 'food' | 'craft';
+
+  /**
    * Buyer coordinates. When both are supplied, only listings from kitchens
    * whose `deliveryRadiusKm` reaches the buyer are returned, and each item
    * carries the distance so the UI can say "4.6 km away".

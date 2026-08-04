@@ -211,7 +211,18 @@ dropping it.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `isHamper` (`true`/`false`, **M18** — ready-made gift hampers; three states, since omitting it returns both and a hamper is an ordinary listing that still appears in `/shop`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
+| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `isHamper` (`true`/`false`, **M18** — ready-made gift hampers; three states, since omitting it returns both and a hamper is an ordinary listing that still appears in `/shop`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `kind` (`food` \| `craft`, **M20** — omitted returns both, since the split is a browse convenience and a search for "candle" should find one either way), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
+**M20 — `lat`/`lng` no longer filter every listing.** A `Product` now
+carries `shippingScope`: `local` rows are gated on
+`distanceKm <= Vendor.deliveryRadiusKm` exactly as before, and `national`
+rows **skip the radius gate entirely** and are returned with or without
+buyer coordinates. Distance still rides along for display where it means
+something, but for a nationally-posted item it never excludes. A client
+that assumed "coords supplied ⇒ everything returned is within the radius"
+must stop assuming it. Every response also carries `kind`
+(`food | craft`), which decides whether food-only fields like `shelfLife`
+and `dietary` are meaningful at all.
+
 | `GET /products/:slug` | public | No `hidden` filter — a direct-link/cart/order/wishlist resolve must still work, matching `lib/api/products.ts#getProduct`'s doc comment. `404` if no product has that slug. |
 | `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
 | `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` here — this route is `@Public()`, so the global guard attaches no session and there is nobody to answer "am *I* following this" for. Use `GET /vendors/:slug/follow`. |

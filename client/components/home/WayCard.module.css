@@ -1,0 +1,97 @@
+.card {
+  border-radius: var(--hk-r-xl);
+  padding: var(--hk-s6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  height: 100%;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+}
+
+/* Two of the four are a different *channel*, not a different page, so
+   they carry their own colour rather than reading as peers of the
+   catalogue links beside them. */
+.whatsapp {
+  background: var(--hk-whatsapp-tint);
+  border-color: var(--hk-whatsapp-border);
+}
+
+.app {
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+}
+
+.iconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--hk-r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.whatsapp .iconWrap {
+  background: var(--hk-whatsapp);
+  color: var(--hk-surface);
+}
+
+.app .iconWrap {
+  background: var(--hk-pine);
+  color: var(--hk-gold-bright);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--hk-ink-3);
+}
+
+.index {
+  color: var(--hk-gold-text-sm);
+  font-weight: 500;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--hk-ink);
+  margin: var(--hk-s2) 0 0;
+  line-height: 1.25;
+}
+
+.description {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+  margin: 0;
+}
+
+.cta {
+  margin-top: auto;
+  padding-top: var(--hk-s4);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--hk-pine);
+  text-decoration: none;
+}
+
+.whatsapp .cta {
+  color: var(--hk-whatsapp-deep);
+}
+
+.cta:hover {
+  text-decoration: underline;
+}

@@ -149,6 +149,39 @@ enum ProductTag {
   Curated
 }
 
+/// M20. What sort of thing a listing is.
+///
+/// `Product` was food-shaped throughout — `dietary`, `ingredients`,
+/// `shelfLife`, `storageInstructions`, `isPackaged`, `defaultWeightSku` —
+/// because until now everything on the platform was food. "Handcrafted
+/// Gifts" (décor, candles, jewellery, art) is not.
+///
+/// One column rather than a second model, for exactly the reason M18 made a
+/// hamper a `Product` instead of its own table: a craft still needs a
+/// vendor, photos, price tiers, availability, moderation, reviews, cart,
+/// checkout and search. A parallel `CraftProduct` re-derives every one of
+/// those and then drifts from them. The food-only fields simply go unused,
+/// and the UI branches on this.
+enum ProductKind {
+  food
+  craft
+}
+
+/// M20. How far a listing can travel.
+///
+/// Food is `local`: it is cooked this morning and driven to you, so it is
+/// gated on `distanceKm <= Vendor.deliveryRadiusKm` like everything before
+/// it. A candle goes in the post, so `national` listings skip the radius
+/// filter entirely and show with or without buyer coordinates.
+///
+/// Explicit rather than derived from `ProductKind`, because a kitchen
+/// shipping pickles across India is a real case and deriving it would
+/// forbid one.
+enum ProductShippingScope {
+  local
+  national
+}
+
 enum ProductModerationStatus {
   active
   hidden
@@ -1043,8 +1076,18 @@ model Category {
   imagePlaceholder String
   imageSrc         String?
   productCount     Int     @default(0)
+  /// M20. Which side of the catalogue this belongs to — the header splits
+  /// "Homemade Food" from "Handcrafted Gifts", and a category has to say
+  /// which one it is. Defaults to `food`: everything that existed before
+  /// this column was food.
+  group            ProductKind @default(food)
+  /// M20. Display order on the home page's category tiles. Ties fall back
+  /// to name, so an unset value is stable rather than random.
+  sortOrder        Int         @default(0)
 
   products Product[]
+
+  @@index([group, sortOrder])
 }
 
 model Occasion {
@@ -1115,6 +1158,13 @@ model Product {
   name                String
   categoryId          String
   category            Category                @relation(fields: [categoryId], references: [id])
+  /// M20. Food or craft — see `ProductKind`. Defaults to `food` so every
+  /// row that existed before this column keeps its meaning without a
+  /// backfill.
+  kind                ProductKind             @default(food)
+  /// M20. Local delivery or posted nationally — see `ProductShippingScope`.
+  /// Defaults to `local`, which is what every pre-M20 listing was.
+  shippingScope       ProductShippingScope    @default(local)
   dietary             DietaryTag[]
   defaultWeightSku    String
   rating              Decimal                 @default(0) @db.Decimal(2, 1)

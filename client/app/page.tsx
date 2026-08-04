@@ -5,16 +5,18 @@ import { Hero } from "@/components/home/Hero";
 import { OccasionTileLink } from "@/components/home/OccasionTileLink";
 import { SeasonalBand } from "@/components/home/SeasonalBand";
 import { CategoryTileLink } from "@/components/home/CategoryTileLink";
-import { CraftCard } from "@/components/home/CraftCard";
+import { MakerCard } from "@/components/home/MakerCard";
+import { WayCard } from "@/components/home/WayCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
-import { ProductGridCard } from "@/components/product/ProductGridCard";
+import { backedBy, waysToOrder } from "@/lib/data";
+import type { Product } from "@/lib/types";
 import {
   getCategories,
   getCollections,
-  getFeatured,
   getHomePromoBands,
   getOccasions,
+  getProducts,
   getReels,
   getTrustStats,
   getVendors,
@@ -61,19 +63,58 @@ function renderPromoTitle(title: string) {
  * — see `getHomePromoBands`.
  */
 export default async function Home() {
-  const [trustStats, occasions, categories, featured, vendors, promoBands, reels, collections] =
+  const [trustStats, occasions, categories, allProducts, vendors, promoBands, reels, collections] =
     await Promise.all([
       getTrustStats(),
       getOccasions(),
       getCategories(),
-      getFeatured(),
+      getProducts(),
       getVendors(),
       getHomePromoBands(),
       getReels(),
       getCollections(),
     ]);
 
-  const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+  const ways = waysToOrder;
+  const backers = backedBy;
+
+  /**
+   * The four kitchens behind "Meet the Hands Behind the Flavours", each
+   * with their best-rated listing.
+   *
+   * Derived from the products already fetched rather than a per-vendor API
+   * call: four extra round trips to render four cards is not a trade worth
+   * making, and the catalogue is loaded here anyway.
+   *
+   * Kitchens with something listed come first. A vendor with nothing live
+   * still renders — `MakerCard` says so in words — but it should not
+   * displace one that has a bestseller to show.
+   */
+  const bestsellerByVendor = new Map<string, Product>();
+  for (const product of allProducts) {
+    const held = bestsellerByVendor.get(product.vendorId);
+    if (!held || product.rating > held.rating) bestsellerByVendor.set(product.vendorId, product);
+  }
+
+  const makers = vendors
+    .slice()
+    .sort((a, b) => {
+      const aHas = bestsellerByVendor.has(a.id) ? 1 : 0;
+      const bHas = bestsellerByVendor.has(b.id) ? 1 : 0;
+      if (aHas !== bHas) return bHas - aHas;
+      return b.rating - a.rating;
+    })
+    .slice(0, 4)
+    .map((vendor) => {
+      const bestseller = bestsellerByVendor.get(vendor.id);
+      // The price shown is the default weight option's, matching what a
+      // product card shows — not the cheapest, which would undercut the
+      // number the buyer sees one click later.
+      const option =
+        bestseller?.weightOptions.find((w) => w.sku === bestseller.defaultWeightSku) ??
+        bestseller?.weightOptions[0];
+      return { vendor, bestseller, bestsellerPrice: option?.price };
+    });
 
   // The seasonal hook (M16). Read once, on the server, and shipped as
   // text — nothing recomputes "today" during hydration, which is the
@@ -142,7 +183,9 @@ export default async function Home() {
 
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Shop by occasion</h2>
+          <h2 className={styles.sectionTitle}>
+            Thoughtful Handkrafted Gifts for Every Occasion
+          </h2>
           <Link href="/collections" className={styles.viewAll}>
             View all →
           </Link>
@@ -156,7 +199,10 @@ export default async function Home() {
 
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Shop by category</h2>
+          <h2 className={styles.sectionTitle}>Explore Homemade Favourites</h2>
+          <Link href="/shop" className={styles.viewAll}>
+            View all →
+          </Link>
         </div>
         <div className={styles.categoryGrid}>
           {categories.map((category) => (
@@ -165,30 +211,41 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className={clsx("container", styles.section)}>
-        <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>This week&rsquo;s small batches</h2>
-          <Link href="/shop" className={styles.viewAll}>
-            All products →
-          </Link>
-        </div>
-        <div className={styles.featuredGrid}>
-          {featured.map((product) => (
-            <ProductGridCard
-              key={product.id}
-              product={product}
-              makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
-              href={`/product/${product.slug}`}
-            />
-          ))}
-        </div>
-      </section>
+      {/*
+        M20: this slot was "This week's small batches", a rail of products.
+        It is now a rail of *people*.
+
+        That is the point of the change rather than a re-skin: the platform's
+        whole thesis is trusting a stranger's kitchen, and the home page
+        never showed a cook. `getFeatured` still exists and still feeds
+        `/shop` — nothing was deleted to make room.
+      */}
+      {makers.length > 0 && (
+        <section className={clsx("container", styles.section)}>
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>Meet the Hands Behind the Flavours</h2>
+            <Link href="/shop" className={styles.viewAll}>
+              All products →
+            </Link>
+          </div>
+          <div className={styles.makersGrid}>
+            {makers.map(({ vendor, bestseller, bestsellerPrice }) => (
+              <MakerCard
+                key={vendor.id}
+                vendor={vendor}
+                bestseller={bestseller}
+                bestsellerPrice={bestsellerPrice}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
           <div>
             <span className={styles.reelsEyebrow}>Reels</span>
-            <h2 className={styles.sectionTitle}>Straight from the kitchen</h2>
+            <h2 className={styles.sectionTitle}>Homemade on Your Feed</h2>
           </div>
           <Link href="/shop" className={styles.viewAll}>
             Shop what you see →
@@ -214,43 +271,39 @@ export default async function Home() {
       </section>
 
       {/*
-        M19: laundry removed. This section used to be TWO `.servicesGrid`
-        rows (laundry + food, then snacks + app panel), each `1fr 1fr` —
-        so deleting the laundry card would have left a single card beside a
-        hole. Rebuilt as one grid of the two remaining crafts with the app
-        panel spanning underneath, rather than a column-count tweak.
-
-        The heading no longer counts things. "One home, three crafts" is
-        the kind of copy that needs editing every time the product changes,
-        and it was already wrong the moment laundry went.
+        M20 — "Homemade, Your Way", replacing the M19 two-card services
+        grid. That grid was itself a repair after laundry was pulled out of
+        a hard-coded three-card row and left a hole, which is exactly why
+        this one renders from `waysToOrder` in `lib/data/site.ts`: the next
+        thing that goes away should be a deleted array entry, not a layout
+        bug someone has to notice.
       */}
       <section className={clsx("container", styles.section)}>
         <div className={styles.servicesIntro}>
           <span className={styles.servicesEyebrow}>More from Homekrafted</span>
-          <h2 className={styles.servicesTitle}>Snacks tonight, meals on the app</h2>
+          <h2 className={styles.servicesTitle}>Homemade, Your Way</h2>
         </div>
-        <div className={styles.servicesGrid}>
-          <CraftCard
-            variant="snacks"
-            channel="snacks"
-            title="Browse snacks, order on chat"
-            description="Pick from today's home-snack menu and send your list on WhatsApp — no checkout needed."
-          />
-          <CraftCard
-            variant="food"
-            channel="full-meals"
-            title={
-              <>
-                Food
-                <br />
-                Delivery
-              </>
-            }
-            description="Hot home-cooked meals from local kitchens with real-time order & rider tracking — available only on the Homekrafted app."
-          />
+        <div className={styles.waysGrid}>
+          {ways.map((way) => (
+            <WayCard key={way.id} way={way} />
+          ))}
         </div>
         <div className={styles.servicesPanel}>
           <AppInstallPanel />
+        </div>
+
+        {/*
+          Institutional claims, rendered as text rather than logos: showing
+          a mark is a separate permission from stating a relationship, and
+          we hold neither in writing. See `backedBy` in `lib/data/site.ts`.
+        */}
+        <div className={styles.backedBy}>
+          <span className={styles.backedByLabel}>Backed by</span>
+          {backers.map((backer) => (
+            <span key={backer.label} className={styles.backer}>
+              {backer.detail}
+            </span>
+          ))}
         </div>
       </section>
     </>

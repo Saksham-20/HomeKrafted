@@ -122,3 +122,74 @@
 .servicesPanel {
   margin-top: var(--hk-s5);
 }
+
+/*
+  M20 — "Meet the Hands Behind the Flavours".
+
+  Four kitchens, so the grid is explicitly four-up rather than auto-fill:
+  the client asked for four, and auto-fill would silently render five on a
+  wide screen and break the symmetry the section is built on.
+*/
+.makersGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--hk-s4);
+}
+
+@media (max-width: 1000px) {
+  .makersGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .makersGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* "Homemade, Your Way" — four ways to order, 2x2 then stacked. */
+.waysGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s5);
+}
+
+@media (max-width: 780px) {
+  .waysGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+  "Backed by" — deliberately quiet. These are institutional claims, not
+  selling points, so they sit as a low-contrast row above the footer
+  rather than as cards competing with the catalogue.
+*/
+.backedBy {
+  border-top: 1px solid var(--hk-border);
+  padding-top: var(--hk-s6);
+  margin-top: var(--hk-s8, 48px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s5);
+  align-items: baseline;
+  justify-content: center;
+}
+
+.backedByLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hk-ink-3);
+  width: 100%;
+  text-align: center;
+  margin-bottom: var(--hk-s2);
+}
+
+.backer {
+  font-size: 0.85rem;
+  color: var(--hk-ink-2);
+  text-align: center;
+}

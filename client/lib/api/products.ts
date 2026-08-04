@@ -78,6 +78,28 @@ export async function getProductById(id: string): Promise<Product | undefined> {
  * client-side; they are rails on a page that has already paid for the
  * fetch.
  */
+/**
+ * Handcrafted gifts (M20) — `kind: craft`.
+ *
+ * `near` is still passed even though most craft listings ship nationally:
+ * the server decides per listing whether the radius applies
+ * (`shippingScope`), and a locally-delivered craft should still be filtered
+ * like anything else. Sending coords and letting the server judge is the
+ * only version that stays correct when a maker changes their mind.
+ */
+export async function getCraftProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
+  if (isMockMode()) return products.filter((p) => p.kind === "craft" && isBrowsable(p));
+  const page = await http.get<ProductsPage>("/products", {
+    auth: false,
+    query: {
+      pageSize: 100,
+      kind: "craft",
+      ...(near ? { lat: near.lat, lng: near.lng } : {}),
+    },
+  });
+  return page.items;
+}
+
 export async function getHamperProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
   if (isMockMode()) return products.filter((p) => p.isHamper && isBrowsable(p));
   const page = await http.get<ProductsPage>("/products", {

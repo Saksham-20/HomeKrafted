@@ -27,6 +27,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: absoluteUrl("/shop"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/snacks"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: absoluteUrl("/gifts"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { url: absoluteUrl("/meal-plans"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
     // The occasion hub (M16) — the seasonal landing page, and the one
     // that should rank for "diwali gift" rather than any single edit.
     { url: absoluteUrl("/collections"), lastModified: now, changeFrequency: "weekly", priority: 0.9 },

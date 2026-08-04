@@ -10,12 +10,15 @@ export interface HeroProps {
 /**
  * Home hero.
  *
- * Rewritten to say plainly what this is: **real home kitchens near you,
- * cooking real food.** The previous copy ("Made with love, gifted from the
- * heart", "pickles, bakes and curated hampers") read as a gifting site, and
- * a visitor could get all the way down the page without learning that daily
- * home-cooked food is the main event or that everything is local to the
- * tricity.
+ * **"Everything homemade"** (M20, client copy). The line does the work the
+ * previous one couldn't: the site now sells two different things — food
+ * cooked near you, and craft posted anywhere — and any headline naming only
+ * one of them misdescribes half the catalogue.
+ *
+ * The two CTAs are the two verticals, side by side and equally weighted,
+ * because the split is the point. The eyebrow still says tricity, since
+ * that is true of the food and is the thing a first-time visitor most needs
+ * to know before browsing.
  */
 export function Hero({ trustStats }: HeroProps) {
   return (
@@ -25,23 +28,22 @@ export function Hero({ trustStats }: HeroProps) {
           <div className={styles.copy}>
             <span className={styles.eyebrow}>Home kitchens · Chandigarh, Mohali &amp; Panchkula</span>
             <h1 className={styles.heading}>
-              Real <em className={styles.emphasis}>home food</em>,
+              Everything
               <br />
-              cooked near you.
+              <em className={styles.emphasis}>homemade</em>.
             </h1>
             <p className={styles.lede}>
-              Daily meals, fresh bakes, snacks, sweets and small-batch pickles — made this morning
-              in home kitchens around the tricity, by people who cook for their own families too.
+              Daily meals, fresh bakes, snacks, sweets and small-batch pickles from home kitchens
+              around the tricity — and handcrafted gifts, posted anywhere in India.
             </p>
             <div className={styles.ctaRow}>
               <Link href="/shop" className={styles.ctaPrimary}>
-                Order home food near you
+                Order homemade food
               </Link>
-              {/* "Shop", not "Build" (M18): hampers are listed by the
-                  kitchens that assemble them, so this is a catalogue link
-                  like the one beside it. */}
-              <Link href="/hamper" className={styles.ctaOutline}>
-                Shop gift hampers →
+              {/* Two verticals, two buttons, equal weight — the split is
+                  the whole message. */}
+              <Link href="/gifts" className={styles.ctaOutline}>
+                Order handkrafted gifts →
               </Link>
             </div>
             <div className={styles.trustRow}>

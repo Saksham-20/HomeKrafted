@@ -26,13 +26,25 @@ export interface AnnouncementItem {
   emphasis?: boolean;
 }
 
-/** Header primary nav — collapses into <MobileDrawer> under ~840px. */
+/**
+ * Header primary nav — collapses into <MobileDrawer> under ~840px.
+ *
+ * M20 renames rather than re-routes. "Shop" became **Homemade Food**
+ * because the site now sells two different things and "Shop" no longer
+ * says which; `/shop` itself is unchanged, so every existing link, every
+ * indexed URL and every `sitemap.ts` entry still resolves. Renaming the
+ * route as well would have cost the SEO for nothing a visitor notices.
+ *
+ * "Snacks" is gone from the top level — it is a *category* of homemade
+ * food in the client's structure, not a peer of it. `/snacks` still
+ * exists and is still linked from the footer and the home page, because
+ * it is a genuinely different ordering flow (WhatsApp, no cart).
+ */
 export const primaryNav: NavLink[] = [
-  { label: "Shop", href: "/shop" },
+  { label: "Homemade Food", href: "/shop" },
+  { label: "Handcrafted Gifts", href: "/gifts" },
   { label: "Gift Hampers", href: "/hamper" },
-  // Laundry removed in M19 — the platform narrowed to snacks and hampers.
-  // Existing bookings stay readable in order history; see docs/API.md.
-  { label: "Snacks", href: "/snacks" },
+  { label: "Occasions", href: "/collections" },
   { label: "About", href: "/about" },
 ];
 
@@ -49,10 +61,12 @@ export const footerColumns: FooterColumn[] = [
   {
     title: "Services",
     links: [
-      { label: "Homemade Foods", href: "/shop" },
+      { label: "Homemade Food", href: "/shop" },
+      { label: "Handcrafted Gifts", href: "/gifts" },
       { label: "Gift Hampers", href: "/hamper" },
-      { label: "Food Delivery (app)", href: "/app-promo" },
-      { label: "Corporate gifting", href: "/corporate" },
+      { label: "Meal plans", href: "/meal-plans" },
+      { label: "Snacks on WhatsApp", href: "/snacks" },
+      { label: "Corporate & bulk", href: "/corporate" },
       { label: "Sell on Homekrafted", href: "/sell" },
     ],
   },
@@ -117,21 +131,120 @@ export const homePromoBands: HomePromoBandContent[] = [
     // M18: the buyer-assembled builder is gone. A hamper is now put
     // together by the kitchen that makes what's inside it, so the copy
     // sells that rather than a configurator.
-    eyebrow: "Ready to send",
-    title: "Gift hampers,\nmade by the maker",
+    eyebrow: "Made for gifting",
+    title: "Gifts that\nfeel personal",
     description:
-      "Festive boxes, sweet-and-savoury mixes and gifting sets — each one assembled, wrapped and priced by the home kitchen that cooks what's inside.",
-    ctaLabel: "Shop hampers →",
+      "Thoughtfully curated hampers filled with homemade goodness, handcrafted treats and a whole lot of love.",
+    ctaLabel: "Explore hampers →",
     ctaHref: "/hamper",
   },
   {
+    // M20: this slot used to sell the wallet's 5% cashback. It now sells
+    // meal subscriptions, which is the thing a visitor can newly do —
+    // and the cashback line was the weaker of the two anyway, since it
+    // advertised a reward rather than a reason to come back.
+    //
+    // The CTA points at a route that must exist before this ships. A
+    // promo band linking into nothing is worse than no band.
     id: "wallet",
     variant: "tint",
-    eyebrow: "Homekrafted Wallet",
-    title: "Earn 5% cashback\non every order",
+    eyebrow: "Everyday homemade meals",
+    title: "Ghar Ka Khana,\nEvery Day",
     description:
-      "Top up once, pay in a tap, and watch rewards add up on every order.",
-    ctaLabel: "Open wallet →",
-    ctaHref: "/wallet",
+      "Homemade meal subscriptions for students, PGs, bachelors and working professionals. Fresh, comforting meals delivered to you, every day.",
+    ctaLabel: "Explore meal plans →",
+    ctaHref: "/meal-plans",
+  },
+];
+
+/**
+ * "Backed by" — the institutional strip under the home page.
+ *
+ * **These are claims about real organisations.** They are rendered as
+ * plain text rather than logos on purpose: reproducing a mark is a
+ * separate permission from stating a relationship, and we hold neither
+ * in writing yet. Confirm each one before this goes in front of the
+ * public — an unverified affiliation on a live site is a legal exposure,
+ * not a copy nit.
+ */
+export interface BackerClaim {
+  label: string;
+  detail: string;
+}
+
+export const backedBy: BackerClaim[] = [
+  {
+    label: "Chandigarh United Nations Association",
+    detail: "Social initiative supported by CUNA",
+  },
+  { label: "ISB AIC", detail: "Incubated at ISB Atal Incubation Centre" },
+  { label: "CGC", detail: "Supported by CGC" },
+];
+
+/**
+ * "Homemade, Your Way" — the four ways to order, replacing the M19
+ * two-card services grid.
+ *
+ * Data-driven rather than four hardcoded JSX blocks because the set
+ * changes with what the platform actually offers: laundry was removed
+ * from the old grid in M19 and left a hole that had to be rebuilt by
+ * hand. A list makes the next removal a deletion.
+ */
+export interface WayToOrder {
+  id: string;
+  index: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  ctaHref: string;
+  /** WhatsApp gets its own treatment — it is a different channel, not a page. */
+  variant: "default" | "whatsapp" | "app";
+}
+
+export const waysToOrder: WayToOrder[] = [
+  {
+    id: "bulk",
+    index: "01",
+    eyebrow: "Celebrations & events",
+    title: "Hosting? Food's sorted.",
+    description:
+      "Homemade food for birthdays, get-togethers, office events and celebrations, prepared fresh for your occasion.",
+    ctaLabel: "Explore bulk orders →",
+    ctaHref: "/corporate",
+    variant: "default",
+  },
+  {
+    id: "food",
+    index: "02",
+    eyebrow: "Order homemade food",
+    title: "Craving something homemade?",
+    description:
+      "Discover fresh meals, snacks and regional favourites made by home chefs near you.",
+    ctaLabel: "Order food →",
+    ctaHref: "/shop",
+    variant: "default",
+  },
+  {
+    id: "whatsapp",
+    index: "03",
+    eyebrow: "Quick order",
+    title: "Order directly on WhatsApp",
+    description:
+      "Know what you want? Browse today's menu and place your order directly with us on WhatsApp.",
+    ctaLabel: "Order on WhatsApp →",
+    ctaHref: "/snacks",
+    variant: "whatsapp",
+  },
+  {
+    id: "app",
+    index: "04",
+    eyebrow: "Homekrafted app",
+    title: "Homemade, now in your pocket",
+    description:
+      "Discover home chefs, order your favourites and track your food, all from the Homekrafted app.",
+    ctaLabel: "Get the app →",
+    ctaHref: "/app-promo",
+    variant: "app",
   },
 ];

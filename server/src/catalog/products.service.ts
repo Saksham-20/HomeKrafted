@@ -75,6 +75,9 @@ export class ProductsService {
     if (query.isHamper !== undefined) {
       where.isHamper = query.isHamper;
     }
+    if (query.kind !== undefined) {
+      where.kind = query.kind;
+    }
 
     const products = await this.prisma.product.findMany({
       where,
@@ -98,7 +101,17 @@ export class ProductsService {
       inRange = products.filter((p) => {
         const v = p.vendor;
         if (!v) return false;
+        // M20: a nationally-shipped listing is not radius-eligible at all.
+        // A candle goes in the post, so the kitchen's delivery radius —
+        // which describes how far somebody will *drive* a hot meal — says
+        // nothing about whether it can reach this buyer. Distance is still
+        // computed for display where it is meaningful, but it never
+        // excludes.
         const km = distanceKm(buyer, { lat: v.lat, lng: v.lng });
+        if (p.shippingScope === 'national') {
+          distanceByProduct.set(p.id, km);
+          return true;
+        }
         if (km > v.deliveryRadiusKm) return false;
         distanceByProduct.set(p.id, km);
         return true;

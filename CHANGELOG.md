@@ -3,6 +3,82 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M20] — Two verticals, a home page that says so, and meal plans you can buy — 2026-08-04
+
+The client's change document, read end to end. Most of it was copy. Two
+items were not, and those decided the schema. See `docs/M20-PLAN.md`.
+
+### Added
+
+- **Handcrafted Gifts is a second vertical.** `Product.kind`
+  (`food | craft`) and `Product.shippingScope` (`local | national`), plus
+  `Category.group` and `Category.sortOrder`. All additive with defaults, so
+  every existing row keeps its meaning without a backfill.
+
+  **One column, not a second model** — the same call M18 made for hampers.
+  `Product` was food-shaped throughout (`dietary`, `ingredients`,
+  `shelfLife`, `isPackaged`, `defaultWeightSku`) and a candle is none of
+  those, but a craft still needs a vendor, photos, price tiers,
+  availability, moderation, reviews, cart, checkout and search. A parallel
+  `CraftProduct` re-derives all of it and then drifts.
+
+  `shippingScope` is the one that changes a query: **`national` listings
+  skip the delivery-radius gate entirely** and are returned with or without
+  buyer coordinates. A candle goes in the post, so how far a kitchen will
+  drive a hot meal says nothing about whether it can reach you. It is an
+  explicit column rather than derived from `kind`, because a kitchen
+  shipping pickles across India is a real case and deriving it would forbid
+  one. This extends the M12 rule rather than breaking it: location was
+  never a gate, and now some listings are not even radius-eligible.
+
+- **`/meal-plans` and `/meal-plans/[slug]`.** The subscription API shipped
+  in M19 and nothing on the site linked to it. Now a buyer can pick their
+  days, a 30-minute window and a cycle length, see the total **before** the
+  button, and pay once from their wallet. Every refusal — a short balance,
+  a full plan, a window the kitchen doesn't offer — is surfaced in an
+  `aria-live` region rather than swallowed, and an idempotency key is
+  minted per attempt so a double-tap cannot charge twice.
+
+- **`/gifts`**, the handcrafted-gifts catalogue, saying plainly on the page
+  that these post nationally while food does not. That is not a detail to
+  discover at checkout.
+
+- **"Homemade, Your Way"** — four ways to order, rendered from
+  `waysToOrder` in `lib/data/site.ts`. The section it replaces was itself a
+  repair after laundry was cut from a hard-coded row and left a hole; a
+  list makes the next removal a deleted array entry.
+
+- **"Backed by"** — CUNA, ISB AIC and CGC, as text rather than logos.
+  Reproducing a mark is a separate permission from stating a relationship
+  and we hold neither in writing. **Confirm each before this is public.**
+
+### Changed
+
+- **The home page's product rail became a people rail.** "This week's small
+  batches" is now **"Meet the Hands Behind the Flavours"** — four kitchens
+  with their story and their bestseller. On a platform whose whole thesis
+  is trusting a stranger's kitchen, the home page never showed a cook.
+  `getFeatured` is untouched and still feeds `/shop`.
+- **The wallet cashback band is now the meal-plan band** — "Ghar Ka Khana,
+  Every Day". Edited in `homePromoBands`, not hardcoded in JSX, so the
+  `/admin/collections` editor still reaches it.
+- Hero is **"Everything homemade"** with two equally weighted CTAs, one per
+  vertical. Nav is Homemade Food · Handcrafted Gifts · Gift Hampers ·
+  Occasions · About — a rename, not a re-route: `/shop` is unchanged, so
+  every indexed URL still resolves.
+- Headings per the client: "Thoughtful Handkrafted Gifts for Every
+  Occasion", "Explore Homemade Favourites", "Homemade on Your Feed",
+  "Gifts that feel personal".
+
+### Fixed
+
+- `/meal-plans` reproduced the prerender landmine `/hamper` documents:
+  `getBuyerCoords` swallows the error `cookies()` throws during a
+  prerender, which hides the per-visitor signal from Next and leaves the
+  route statically eligible — so the build fetched the catalogue at build
+  time and failed when the API wasn't up. `force-dynamic`, like its
+  siblings.
+
 ## [M19] — The wallet stops minting money, and the apply form gets honest — 2026-08-04
 
 Planned as "trim the apply form, hide laundry, add corporate ordering,

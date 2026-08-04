@@ -49,6 +49,11 @@ export function mapProduct(product: ProductWithRelations) {
     tags: product.tags,
     isPackaged: product.isPackaged,
     isHamper: product.isHamper,
+    // M20. A client needs both: `kind` decides which detail fields are
+    // even meaningful (a candle has no shelf life), and `shippingScope`
+    // decides whether "delivers to your area" is the right thing to say.
+    kind: product.kind,
+    shippingScope: product.shippingScope,
     cashbackPct: Number(product.cashbackPct),
     description: product.description,
     ingredients: product.ingredients ?? undefined,
