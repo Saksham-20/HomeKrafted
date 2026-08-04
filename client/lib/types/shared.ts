@@ -225,7 +225,13 @@ export interface CorporateInquiry {
 // an account).
 // ---------------------------------------------------------------------------
 
-export type SellerApplicationCategory = "maker" | "baker" | "artist" | "other";
+/**
+ * Mirrors the Prisma enum. `home_chef` (M19) is listed first because the
+ * platform is food-first now — and `SellerApplicationClient` initialises
+ * its selection from `sellerCategories[0]`, so the order here and there is
+ * load-bearing, not cosmetic.
+ */
+export type SellerApplicationCategory = "home_chef" | "maker" | "baker" | "artist" | "other";
 /**
  * `new`/`reviewing`/`waitlisted` are `/sell`'s own pre-decision framing
  * (a submitted application defaults to `waitlisted` today, see
@@ -285,11 +291,18 @@ export interface SellerApplication {
   specialties?: SellerSpecialty[];
   city: string;
   /**
-   * Tricity area id from `lib/geo.ts#TRICITY_AREAS`. Decides the
-   * coordinates the new kitchen is created at, which is what every buyer's
-   * distance filter measures against — so the apply form requires it.
+   * Tricity area id from `lib/geo.ts#TRICITY_AREAS`, or the literal
+   * `"other"`. Decides the coordinates the new kitchen is created at,
+   * which is what every buyer's distance filter measures against.
+   *
+   * `"other"` makes the application a **waitlist entry**: the server
+   * refuses to approve any area it can't resolve, until an admin assigns a
+   * real one. Never let it fall back to a city centroid — that placed
+   * out-of-area kitchens ~0 km from every buyer.
    */
   area: string;
+  /** The locality they typed, present only when `area` is `"other"`. */
+  areaLabel?: string;
   /** How far they'll deliver, km. Editable later from storefront settings. */
   deliveryRadiusKm?: number;
   description: string;

@@ -34,6 +34,18 @@ export interface ChannelBadgeConfig {
 export interface ChannelRule {
   key: ChannelKey;
   label: string;
+  /**
+   * Is this module offered at all right now?
+   *
+   * Distinct from every other flag here, which describe *how* a live
+   * module behaves. `enabled: false` means the module is withdrawn: no nav
+   * entry, no route, and on the server the create endpoints return `410`.
+   * Laundry is the first (M19).
+   *
+   * Read it via `isChannelEnabled`, not by reaching into `CHANNEL_RULES` —
+   * a flag nothing consults is decoration.
+   */
+  enabled: boolean;
   /** Can the customer browse a catalog/menu on the website at all? */
   hasMenuOnWeb: boolean;
   /** Does the website carry a cart for this module? */
@@ -60,6 +72,7 @@ export interface ChannelRule {
 export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
   marketplace: {
     key: "marketplace",
+    enabled: true,
     label: "Gifting Marketplace",
     hasMenuOnWeb: true,
     hasCartOnWeb: true,
@@ -72,6 +85,7 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
   },
   laundry: {
     key: "laundry",
+    enabled: false,
     label: "Laundry, Cleaning & Ironing",
     hasMenuOnWeb: true,
     hasCartOnWeb: true,
@@ -85,6 +99,7 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
   },
   snacks: {
     key: "snacks",
+    enabled: true,
     label: "Snacks",
     hasMenuOnWeb: true,
     hasCartOnWeb: false,
@@ -100,6 +115,7 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
   },
   "full-meals": {
     key: "full-meals",
+    enabled: true,
     label: "Food Delivery — Full Meals",
     hasMenuOnWeb: false,
     hasCartOnWeb: false,
@@ -114,6 +130,14 @@ export const CHANNEL_RULES: Record<ChannelKey, ChannelRule> = {
       "Web is promotional only — no menu, no cart, no checkout. Ordering and live tracking are entirely in the Homekrafted app.",
   },
 };
+
+/**
+ * Whether a module is offered at all. The one thing that should gate a nav
+ * entry, a route, or a create endpoint.
+ */
+export function isChannelEnabled(key: ChannelKey): boolean {
+  return CHANNEL_RULES[key].enabled;
+}
 
 export function getChannelRule(key: ChannelKey): ChannelRule {
   return CHANNEL_RULES[key];

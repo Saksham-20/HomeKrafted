@@ -1,7 +1,8 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Seller, SellerApplication, SellerApplicationCategory, VendorType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { areaById, TRICITY_CENTRE } from '../common/geo';
+import { areaById } from '../common/geo';
+import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { generateReferralCode } from '../auth/referral-code.util';
@@ -18,9 +19,33 @@ function slugify(value: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-/** `SellerApplicationCategory` maps 1:1 onto `VendorType` except `"other"`, which becomes a plain `"maker"` storefront — the closest fit among the 3 real marketplace `VendorType`s an application can become (mirrors `client/lib/api/admin.ts#approveSellerApplication`'s doc comment). */
+/**
+ * Which storefront an application becomes.
+ *
+ * **An exhaustive `Record`, not a cast.** This used to be
+ * `category === 'other' ? 'maker' : (category as unknown as VendorType)`,
+ * which only worked because the two enums happened to be member-identical
+ * apart from `other`. Adding `home_chef` to `SellerApplicationCategory`
+ * compiled fine under that cast and would have thrown a Prisma
+ * invalid-enum error at `tx.vendor.create` — **inside the approval
+ * transaction**, so an admin clicking approve got a 500.
+ *
+ * Written this way, the next category added fails to compile here, which
+ * is the moment you want to find out.
+ */
+const VENDOR_TYPE_BY_CATEGORY: Record<SellerApplicationCategory, VendorType> = {
+  maker: 'maker',
+  baker: 'baker',
+  artist: 'artist',
+  // Renders identically to a maker storefront. Deliberately not its own
+  // `VendorType` — a new type would churn every discovery surface for
+  // nothing a buyer sees.
+  home_chef: 'maker',
+  other: 'maker',
+};
+
 function vendorTypeForCategory(category: SellerApplicationCategory): VendorType {
-  return category === 'other' ? 'maker' : (category as unknown as VendorType);
+  return VENDOR_TYPE_BY_CATEGORY[category];
 }
 
 function mapSeller(seller: Seller, vendorName?: string) {
@@ -49,7 +74,10 @@ function mapApplication(app: SellerApplication) {
     specialties: app.specialties,
     city: app.city,
     area: app.area,
-    deliveryRadiusKm: app.deliveryRadiusKm,
+    // Surfaced so an admin can see an out-of-area applicant *before*
+    // clicking approve, rather than discovering it from the refusal.
+    areaLabel: app.areaLabel ?? undefined,
+    deliveryRadiusKm: app.deliveryRadiusKm ?? undefined,
     description: app.description,
     status: app.status,
     decisionNote: app.decisionNote ?? undefined,
@@ -247,6 +275,60 @@ export class AdminSellersService {
     return applications.map(mapApplication);
   }
 
+  /**
+   * Assigns a real tricity area to a waitlisted application (M19).
+   *
+   * This is the way out of the `'other'` waitlist. Without it the waitlist
+   * is a dead end: the public form accepts an out-of-area applicant,
+   * `approveApplication` refuses any area that doesn't resolve, and a real
+   * kitchen would sit unapprovable forever with nothing anywhere able to
+   * change it.
+   *
+   * Moves the row back to `reviewing` so it re-enters the approval queue —
+   * leaving it `waitlisted` would fix the data and still hide the row from
+   * the admin who just fixed it.
+   */
+  async assignApplicationArea(adminUserId: string, applicationId: string, dto: AssignApplicationAreaDto) {
+    const application = await this.prisma.sellerApplication.findUnique({ where: { id: applicationId } });
+    if (!application) throw new NotFoundException('Seller application not found');
+    if (application.status === 'approved' || application.status === 'rejected') {
+      throw new ConflictException(`Application is already ${application.status}`);
+    }
+
+    const area = areaById(dto.area);
+    if (!area) {
+      // Belt and braces: the DTO already restricts this to TRICITY_AREAS,
+      // but the two lists must not be able to drift apart silently.
+      throw new ConflictException(`"${dto.area}" is not a serviced area`);
+    }
+
+    const updated = await this.prisma.sellerApplication.update({
+      where: { id: applicationId },
+      data: {
+        area: dto.area,
+        // The typed locality is kept, not cleared: it is what the applicant
+        // actually said about where they are, and an admin overriding it
+        // with a nearby sector shouldn't erase the original claim.
+        status: 'reviewing',
+        decisionNote: dto.note ?? application.decisionNote,
+      },
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'seller_application.assign_area',
+      targetType: 'SellerApplication',
+      targetId: applicationId,
+      metadata: {
+        from: application.area,
+        fromLabel: application.areaLabel ?? undefined,
+        to: dto.area,
+      },
+    });
+
+    return mapApplication(updated);
+  }
+
   /** Applications still awaiting a decision — every status short of the two terminal ones. */
   async listPendingApplications() {
     const applications = await this.prisma.sellerApplication.findMany({
@@ -261,6 +343,28 @@ export class AdminSellersService {
     if (!application) throw new NotFoundException('Seller application not found');
     if (application.status === 'approved' || application.status === 'rejected') {
       throw new ConflictException(`Application is already ${application.status}`);
+    }
+
+    // An application whose area doesn't resolve cannot be approved (M19).
+    //
+    // The guard is on **resolvability**, not on the literal string
+    // `'other'`, on purpose: `areaById` also returns undefined for legacy
+    // rows written before the area field existed, for typos, and for any
+    // id later removed from `TRICITY_AREAS`. Checking `area === 'other'`
+    // would leave all of those falling through to the old
+    // `?? TRICITY_CENTRE` fallback — which planted the kitchen at
+    // Chandigarh's exact centre, so it sorted ~0 km from every buyer and
+    // passed every radius filter. That fallback is now gone entirely, so
+    // there is no second path to be tempted by.
+    //
+    // Placed before the transaction opens: cheaper than a rollback, and it
+    // matches the status checks above.
+    const resolvedArea = areaById(application.area);
+    if (!resolvedArea) {
+      const where = application.areaLabel ?? application.area;
+      throw new ConflictException(
+        `Cannot approve: "${where}" is not a serviced area. Assign a tricity area to this application before approving.`,
+      );
     }
 
     const { defaultDeliveryRadiusKm: defaultRadiusKm } = await this.settings.get();
@@ -294,9 +398,9 @@ export class AdminSellersService {
 
       // The applicant's chosen tricity area decides where their kitchen sits
       // on the map, which is what every buyer's distance filter measures
-      // against. Falls back to the tricity centre only if an application
-      // predates the area field.
-      const area = areaById(application.area);
+      // against. Guaranteed to resolve — the guard above refuses anything
+      // that doesn't, so there is no centroid fallback here any more.
+      const area = resolvedArea;
       const vendorSlug = await this.uniqueVendorSlug(tx, application.businessName);
       const vendor = await tx.vendor.create({
         data: {
@@ -306,10 +410,10 @@ export class AdminSellersService {
           bio: application.description,
           avatarPlaceholder: `${application.businessName} — AVATAR`,
           bannerPlaceholder: `${application.businessName} — BANNER`,
-          location: area ? `${area.label}, ${area.city}` : application.city,
+          location: `${area.label}, ${area.city}`,
           area: application.area,
-          lat: area?.lat ?? TRICITY_CENTRE.lat,
-          lng: area?.lng ?? TRICITY_CENTRE.lng,
+          lat: area.lat,
+          lng: area.lng,
           // M16 (M5): the platform default when an application didn't
           // state one, rather than a constant nobody could change.
           deliveryRadiusKm: application.deliveryRadiusKm || defaultRadiusKm,

@@ -383,7 +383,7 @@ the second real cross-page client store after `CartContext`:
 | Component | Directory | Composes | Used by |
 |---|---|---|---|
 | `WalletProvider` / `useWallet` | `lib/wallet/WalletContext.tsx` | — (React context, not a visual component) | Root layout (alongside `CartProvider`); `HeaderClient`/`MobileDrawer`, `/wallet`, `CheckoutClient`, `LaundryBookingClient` |
-| `WalletClient` | `components/wallet/` | `WalletBalanceCard`, `AmountPicker`, `TransactionRow`, `Card`, `Button` | `/wallet` — balance, add-money, auto-top-up editor, pay-with-wallet info card, transaction history |
+| `WalletClient` | `components/wallet/` | `WalletBalanceCard`, `AmountPicker`, `TransactionRow`, `Card`, `Button` | `/wallet` — balance, add-money, auto-top-up **paused status card** (M19 — not an editor; a disabled toggle under a now-false promise is a dark pattern), pay-with-wallet info card, transaction history |
 
 Notes on how `WalletClient` composes the M1 primitives, and where M6
 deviates from the prototype:

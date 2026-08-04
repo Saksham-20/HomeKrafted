@@ -65,4 +65,15 @@ export interface AutoTopupRule {
   topupAmount: number;
   /** Saved instrument reference (Razorpay token id, once M8 lands). */
   paymentMethodRef?: string;
+  /**
+   * Whether the rule can actually fire, as opposed to whether the shopper
+   * switched it on. Auto-top-up is paused platform-wide — the credit it
+   * posted had no captured payment behind it — so `enabled` may be `true`
+   * on a legacy row while `active` is `false`. Any client rendering this
+   * feature must read `active`, not `enabled`; a native app that only
+   * checked `enabled` would tell people it works.
+   */
+  active?: boolean;
+  /** Why `active` is false, ready to show the user. */
+  unavailableReason?: string;
 }

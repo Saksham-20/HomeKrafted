@@ -13,7 +13,6 @@ import styles from "./OrdersClient.module.css";
 const TYPE_FILTERS: { value: AdminOrderType | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "marketplace", label: "Marketplace" },
-  { value: "laundry", label: "Laundry" },
   { value: "snack", label: "Snacks" },
 ];
 

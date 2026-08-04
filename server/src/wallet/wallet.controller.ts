@@ -19,6 +19,16 @@ import { WalletService } from './wallet.service';
  * from the DB order), `POST /orders/:id/refund` (admin-gated, amount read
  * from the DB order). `adjust` below is the one intentional exception,
  * gated `@Roles('admin')`.
+ *
+ * **This comment used to be wrong, and the wrongness is why a bug lived
+ * here.** `WalletService#maybeFireAutoTopupTx` was a second, ungated credit
+ * path: any shopper could `PUT /wallet/auto-topup` with a large
+ * `topupAmount` and mint real spendable balance on their next debit, with
+ * no Razorpay charge behind it. Everyone reading this file was told the
+ * invariant already held, so nobody checked it. Auto-top-up now credits
+ * nothing and `setAutoTopup` refuses `enabled: true`. If you add a credit
+ * path, update this comment in the same change or delete it — a comment
+ * asserting an invariant the code does not hold is worse than none.
  */
 @Controller('wallet')
 export class WalletController {

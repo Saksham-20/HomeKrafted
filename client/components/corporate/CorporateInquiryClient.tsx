@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { createCorporateInquiry, type CreateCorporateInquiryInput } from "@/lib/api";
+import { ApiError } from "@/lib/api/http";
 import type { CorporateInquiry } from "@/lib/types";
 import styles from "./CorporateInquiryClient.module.css";
 
@@ -36,6 +37,7 @@ const EMPTY_FORM = {
 export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInquiryClientProps) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [inquiry, setInquiry] = useState<CorporateInquiry | null>(null);
 
   function set<K extends keyof typeof EMPTY_FORM>(key: K, value: string) {
@@ -51,9 +53,17 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
     form.message.trim().length > 0 &&
     quantity > 0;
 
+  /**
+   * The `catch` matters more here than anywhere else on the site: this is
+   * the corporate lead form, where a single inquiry is worth thousands of
+   * rupees. It used to be `try { … } finally { setBusy(false) }` with no
+   * `catch`, so a failed submit re-enabled the button, said nothing, and
+   * the lead was simply gone.
+   */
   async function handleSubmit() {
     if (!valid || busy) return;
     setBusy(true);
+    setError(null);
     try {
       const input: CreateCorporateInquiryInput = {
         companyName: form.companyName.trim(),
@@ -67,6 +77,14 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
       };
       const created = await createCorporateInquiry(input);
       setInquiry(created);
+    } catch (err) {
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? "That was a lot of attempts in a row. Wait a minute and try again."
+          : err instanceof ApiError && err.message
+            ? err.message
+            : "We couldn’t send your enquiry just now. Check your connection and try again — or call us and we’ll take the details over the phone.",
+      );
     } finally {
       setBusy(false);
     }
@@ -192,6 +210,14 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
             value={form.message}
             onChange={(event) => set("message", event.target.value)}
           />
+
+          <div aria-live="polite">
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
+          </div>
 
           <Button variant="primary" onClick={handleSubmit} disabled={!valid || busy} className={styles.submitButton}>
             Send inquiry

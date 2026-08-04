@@ -1,10 +1,16 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, Wallet, WalletTransactionCategory, WalletTransactionDirection, WalletTransactionRefType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { AdjustWalletDto } from './dto/adjust-wallet.dto';
 import { SetAutoTopupDto } from './dto/set-auto-topup.dto';
-import { autoTopupTriggerToDb, mapAutoTopupRule, mapWallet, mapWalletTransaction } from './wallet.mapper';
+import {
+  AUTO_TOPUP_UNAVAILABLE_REASON,
+  autoTopupTriggerToDb,
+  mapAutoTopupRule,
+  mapWallet,
+  mapWalletTransaction,
+} from './wallet.mapper';
 
 /** Top-ups above this amount earn a 3% bonus credit — exact port of `client/lib/wallet/WalletContext.tsx`'s `TOPUP_BONUS_THRESHOLD`/`TOPUP_BONUS_RATE`. */
 export const TOPUP_BONUS_THRESHOLD = 2000;
@@ -52,6 +58,8 @@ function round2(n: number): number {
  */
 @Injectable()
 export class WalletService {
+  private readonly logger = new Logger(WalletService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly idempotency: IdempotencyService,
@@ -90,10 +98,21 @@ export class WalletService {
       trigger: 'below-threshold' as const,
       thresholdAmount: undefined,
       topupAmount: 0,
+      active: false as const,
+      unavailableReason: AUTO_TOPUP_UNAVAILABLE_REASON,
     };
   }
 
   async setAutoTopup(userId: string, dto: SetAutoTopupDto) {
+    // Auto-top-up credits nothing (see `maybeFireAutoTopupTx`). Accepting
+    // `enabled: true` and returning 200 would tell every client the feature
+    // works and leave a rule that only ever produces a warning log. The
+    // `enabled: false` write path stays open so anyone with a stored rule
+    // can still turn theirs off.
+    if (dto.enabled === true) {
+      throw new BadRequestException(AUTO_TOPUP_UNAVAILABLE_REASON);
+    }
+
     const wallet = await this.getOrCreateWallet(userId);
     const existing = await this.prisma.autoTopupRule.findUnique({ where: { walletId: wallet.id } });
 
@@ -219,11 +238,26 @@ export class WalletService {
   }
 
   /**
-   * Fires the wallet's `below-threshold` auto-top-up rule (if enabled)
-   * when a debit just dropped the balance under the configured floor —
-   * exact mirror of the mock's reactive-only firing (`WalletContext.pay`):
-   * never rescues an insufficient debit (that already threw above this
-   * ever runs), only tops back up *after* a successful one.
+   * Auto-top-up is **disabled**, and this method deliberately credits
+   * nothing.
+   *
+   * It used to post a `credit`/`topup` ledger entry for `rule.topupAmount`
+   * whenever a debit dropped the balance under the rule's threshold — with
+   * **no Razorpay charge and no captured payment behind it**. Since
+   * `PUT /wallet/auto-topup` is owner-scoped and its DTO capped nothing,
+   * any signed-in shopper could set a large `topupAmount`, make one debit,
+   * and mint real spendable balance that buys real food from real home
+   * kitchens who then draw real payouts.
+   *
+   * The honest fix is not to charge harder, it is to stop crediting: there
+   * is no saved card and no mandate to charge against. `creditTopupTx`
+   * (the only legitimate credit path) runs solely from
+   * `PaymentsService.handleWebhook` after HMAC verification.
+   *
+   * Kept as a logging stub rather than deleted so we can see whether anyone
+   * actually has a rule that would have fired. Re-enabling this means
+   * wiring a real recurring mandate (UPI AutoPay / e-mandate) first —
+   * see `docs/LAUNCH-READINESS.md`.
    */
   private async maybeFireAutoTopupTx(
     tx: Prisma.TransactionClient,
@@ -236,20 +270,13 @@ export class WalletService {
     }
     const threshold = Number(rule.thresholdAmount);
     if (balanceAfterDebit >= threshold) return balanceAfterDebit;
+    if (!(Number(rule.topupAmount) > 0)) return balanceAfterDebit;
 
-    const topupAmount = Number(rule.topupAmount);
-    if (!(topupAmount > 0)) return balanceAfterDebit;
-
-    const { balanceAfter } = await this.postLedgerEntryTx(tx, {
-      walletId,
-      direction: 'credit',
-      category: 'topup',
-      amount: topupAmount,
-      title: 'Auto top-up',
-      refType: 'topup',
-      skipAutoTopupCheck: true,
-    });
-    return balanceAfter;
+    // Rule id and wallet id only — never the balance or the amount.
+    this.logger.warn(
+      `Auto-top-up suppressed (feature disabled): rule=${rule.id} wallet=${walletId}`,
+    );
+    return balanceAfterDebit;
   }
 
   /** Credits a verified Razorpay top-up + its 3% bonus (if the amount clears the threshold) — called only from `PaymentsService.handleWebhook` after HMAC verification, never from a client-trusted "I paid" claim. */

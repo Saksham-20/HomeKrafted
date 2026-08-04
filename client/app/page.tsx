@@ -213,23 +213,28 @@ export default async function Home() {
         </div>
       </section>
 
+      {/*
+        M19: laundry removed. This section used to be TWO `.servicesGrid`
+        rows (laundry + food, then snacks + app panel), each `1fr 1fr` —
+        so deleting the laundry card would have left a single card beside a
+        hole. Rebuilt as one grid of the two remaining crafts with the app
+        panel spanning underneath, rather than a column-count tweak.
+
+        The heading no longer counts things. "One home, three crafts" is
+        the kind of copy that needs editing every time the product changes,
+        and it was already wrong the moment laundry went.
+      */}
       <section className={clsx("container", styles.section)}>
         <div className={styles.servicesIntro}>
           <span className={styles.servicesEyebrow}>More from Homekrafted</span>
-          <h2 className={styles.servicesTitle}>One home, three crafts</h2>
+          <h2 className={styles.servicesTitle}>Snacks tonight, meals on the app</h2>
         </div>
         <div className={styles.servicesGrid}>
           <CraftCard
-            variant="laundry"
-            channel="laundry"
-            title={
-              <>
-                Laundry &amp;
-                <br />
-                Cleaning
-              </>
-            }
-            description="Wash, dry-clean, ironing and home deep-cleaning with free doorstep pickup & delivery. Schedule a slot and pay online — wallet accepted."
+            variant="snacks"
+            channel="snacks"
+            title="Browse snacks, order on chat"
+            description="Pick from today's home-snack menu and send your list on WhatsApp — no checkout needed."
           />
           <CraftCard
             variant="food"
@@ -244,13 +249,7 @@ export default async function Home() {
             description="Hot home-cooked meals from local kitchens with real-time order & rider tracking — available only on the Homekrafted app."
           />
         </div>
-        <div className={styles.servicesGrid}>
-          <CraftCard
-            variant="snacks"
-            channel="snacks"
-            title="Browse snacks, order on chat"
-            description="Pick from today's home-snack menu and send your list on WhatsApp — no checkout needed."
-          />
+        <div className={styles.servicesPanel}>
           <AppInstallPanel />
         </div>
       </section>

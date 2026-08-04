@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     template: "%s — Homekrafted",
   },
   description:
-    "Handmade gifts, homemade foods, laundry & cleaning, and home snacks — from real home kitchens and makers, delivered with care.",
+    "Handmade gifts, homemade foods and home snacks — from real home kitchens and makers, delivered with care.",
   applicationName: SITE_NAME,
   keywords: [
     "homemade gifts",
@@ -75,7 +75,7 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: "Homekrafted — Homemade, Handpicked",
     description:
-      "Handmade gifts, homemade foods, laundry & cleaning, and home snacks — from real home kitchens across the Chandigarh tricity.",
+      "Handmade gifts, homemade foods and home snacks — from real home kitchens across the Chandigarh tricity.",
     images: [{ url: "/images/site/hero-hamper.jpg" }],
   },
   twitter: { card: "summary_large_image" },

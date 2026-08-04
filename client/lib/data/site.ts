@@ -30,7 +30,8 @@ export interface AnnouncementItem {
 export const primaryNav: NavLink[] = [
   { label: "Shop", href: "/shop" },
   { label: "Gift Hampers", href: "/hamper" },
-  { label: "Laundry", href: "/laundry" },
+  // Laundry removed in M19 — the platform narrowed to snacks and hampers.
+  // Existing bookings stay readable in order history; see docs/API.md.
   { label: "Snacks", href: "/snacks" },
   { label: "About", href: "/about" },
 ];
@@ -50,7 +51,6 @@ export const footerColumns: FooterColumn[] = [
     links: [
       { label: "Homemade Foods", href: "/shop" },
       { label: "Gift Hampers", href: "/hamper" },
-      { label: "Laundry & Cleaning", href: "/laundry" },
       { label: "Food Delivery (app)", href: "/app-promo" },
       { label: "Corporate gifting", href: "/corporate" },
       { label: "Sell on Homekrafted", href: "/sell" },
@@ -130,7 +130,7 @@ export const homePromoBands: HomePromoBandContent[] = [
     eyebrow: "Homekrafted Wallet",
     title: "Earn 5% cashback\non every order",
     description:
-      "Top up once, pay in a tap, and watch rewards add up across the store and laundry.",
+      "Top up once, pay in a tap, and watch rewards add up on every order.",
     ctaLabel: "Open wallet →",
     ctaHref: "/wallet",
   },

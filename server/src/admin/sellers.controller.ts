@@ -5,6 +5,7 @@ import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminSellersService } from './sellers.service';
 import { SetSellerStatusDto } from './dto/set-seller-status.dto';
 import { SetVerificationDto } from './dto/set-verification.dto';
+import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
 
 /**
  * Unscoped seller directory + the onboarding approval queue — closes the
@@ -22,6 +23,20 @@ export class AdminSellersController {
   listApplications(@Query('status') status?: string) {
     if (status === 'pending') return this.sellersService.listPendingApplications();
     return this.sellersService.listApplications(status);
+  }
+
+  /**
+   * The way out of the `'other'` waitlist. Without it an out-of-area
+   * applicant is accepted by the public form and then unapprovable
+   * forever, because `approveApplication` refuses any unresolvable area.
+   */
+  @Patch('applications/:id/area')
+  assignApplicationArea(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: AssignApplicationAreaDto,
+  ) {
+    return this.sellersService.assignApplicationArea(admin.userId, id, dto);
   }
 
   @Post('applications/:id/approve')

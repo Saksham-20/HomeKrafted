@@ -45,7 +45,22 @@ import {
   users,
   vendors,
 } from "@/lib/data";
-import { areaById, TRICITY_CENTRE } from "@/lib/geo";
+import { areaById } from "@/lib/geo";
+
+/**
+ * Mirror of `server/src/admin/sellers.service.ts#VENDOR_TYPE_BY_CATEGORY`.
+ * Exhaustive on purpose: the server's version used to be a
+ * `as unknown as VendorType` cast, and adding a category to the enum
+ * compiled fine while throwing at vendor creation. Typed this way, the
+ * next category added fails to compile in both places.
+ */
+const VENDOR_TYPE_BY_CATEGORY: Record<SellerApplicationCategory, VendorType> = {
+  home_chef: "maker",
+  maker: "maker",
+  baker: "baker",
+  artist: "artist",
+  other: "maker",
+};
 import type { HomePromoBandContent } from "@/lib/data";
 import { toAppUser, type SessionUser } from "@/lib/auth/session";
 import { http, isMockMode } from "./http";
@@ -72,6 +87,7 @@ import type {
   Review,
   Seller,
   SellerApplication,
+  SellerApplicationCategory,
   SellerSpecialty,
   SellerStatus,
   SnackOrder,
@@ -79,6 +95,7 @@ import type {
   SupportTicketStatus,
   User,
   Vendor,
+  VendorType,
   VerificationInput,
   Wallet,
   WalletTransaction,
@@ -230,21 +247,27 @@ export async function approveSellerApplication(
   const application = await getSellerApplicationById(applicationId);
   if (!application) return undefined;
 
+  // Same guard the server enforces (M19): an area that doesn't resolve
+  // cannot become a kitchen. The mock used to fall back to
+  // `TRICITY_CENTRE`, which planted an out-of-area vendor at Chandigarh's
+  // exact centre — ~0 km from every buyer, passing every radius filter.
+  // Mock and real must agree here, or mock mode teaches the wrong thing.
+  const resolvedArea = areaById(application.area);
+  if (!resolvedArea) return undefined;
+
   const vendorId = nextVendorId();
   const vendor: Vendor = {
     id: vendorId,
     slug: `${slugify(application.businessName)}-${vendorId.slice(-5)}`,
     name: application.businessName,
-    type: application.category === "other" ? "maker" : application.category,
+    type: VENDOR_TYPE_BY_CATEGORY[application.category],
     bio: application.description,
     avatarPlaceholder: `${application.businessName} — AVATAR`,
     bannerPlaceholder: `${application.businessName} — BANNER`,
-    location: areaById(application.area)
-      ? `${areaById(application.area)!.label}, ${areaById(application.area)!.city}`
-      : application.city,
+    location: `${resolvedArea.label}, ${resolvedArea.city}`,
     area: application.area,
-    lat: areaById(application.area)?.lat ?? TRICITY_CENTRE.lat,
-    lng: areaById(application.area)?.lng ?? TRICITY_CENTRE.lng,
+    lat: resolvedArea.lat,
+    lng: resolvedArea.lng,
     deliveryRadiusKm: application.deliveryRadiusKm ?? 10,
     rating: 0,
     reviewCount: 0,

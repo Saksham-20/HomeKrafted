@@ -13,6 +13,35 @@ Ordered by what blocks what.
 
 ## 0. Do this first — the site is live and these are open now
 
+### 0.0 Audit production for uncollected auto-top-up credits ⛔
+
+**Fixed in code (M19), but the existing rows are still out there.**
+
+`WalletService#maybeFireAutoTopupTx` used to post a `credit`/`topup` ledger
+entry for `AutoTopupRule.topupAmount` whenever a debit dropped a wallet
+below its threshold — with **no Razorpay charge and no captured payment
+behind it**. `PUT /wallet/auto-topup` is owner-scoped and its DTO capped
+nothing, so any signed-in shopper could set a large `topupAmount`, spend
+once, and mint real spendable balance. That balance buys real food from
+real home kitchens, who then draw real payouts against it.
+
+The credit is disabled now and `setAutoTopup` refuses `enabled: true`.
+What remains is finding what it already created:
+
+```
+psql "$DATABASE_URL" -f scripts/audit-uncollected-topups.sql
+```
+
+The query is exact: the legitimate path (`creditTopupTx`, reachable only
+from the HMAC-verified Razorpay webhook) always sets `refId`, and the
+auto-top-up path never did — so `category = 'topup' AND refId IS NULL` is
+precisely the uncollected set.
+
+Decide **per row**. Writing off a legitimate top-up would be its own trust
+incident. To claw one back, post a compensating debit through
+`POST /wallet/adjust` with a reason — never delete the ledger row, which
+would make the balance unauditable.
+
 ### 0.1 Rotate the seeded admin password on production ⛔
 
 `docs/DEPLOY.md` seeds production on first deploy, which creates
@@ -148,6 +177,25 @@ means.
   build.
 
 ---
+
+## 3b. Take rate — the platform currently collects nothing ⛔
+
+`commissionPct` (default 10) exists **only** as a modelled number on the
+admin analytics screen. `admin/dashboard.service.ts` says it outright:
+"**Nothing deducts this** — `Payout` amounts are gross and settlement is
+manual." Combined with 5% cashback credited on every order and the ₹49
+flat shipping fee below the ₹999 threshold, the unit economics on a
+low-value item are not thin, they are inverted.
+
+This is a commercial decision, not a bug, so no code here changes it. But
+it is a hard gate on anything recurring: a subscription that runs daily
+multiplies a per-order loss by the number of cycles. Two things follow.
+
+1. **Decide the take rate before recurring revenue ships.** Either deduct
+   commission when a payout is computed, or decide deliberately not to and
+   write down why.
+2. **Nobody should settle a payout believing a cut was taken.**
+   `Payout.amount` is gross. See `docs/DATA-MODEL.md`'s `Payout` row.
 
 ## 4. Legal and commercial
 

@@ -46,9 +46,21 @@ export interface CreateSellerApplicationInput {
   /** What they'll offer — becomes `Seller.specialties` once approved. */
   specialties: SellerSpecialty[];
   city: string;
-  /** Tricity area id — sets where their kitchen sits for the buyer distance filter. */
+  /**
+   * Tricity area id, or the literal `"other"` — sets where their kitchen
+   * sits for the buyer distance filter. `"other"` files the application as
+   * a **waitlist** entry that cannot be approved until an admin assigns a
+   * real area.
+   */
   area: string;
-  /** How far they'll deliver, km. Defaults to 10 server-side when omitted. */
+  /** Required when `area` is `"other"`: the locality they typed. */
+  areaLabel?: string;
+  /**
+   * How far they'll deliver, km. **Omit it and it stays null**, which is
+   * what lets `PlatformSetting.defaultDeliveryRadiusKm` apply at approval —
+   * before M19 the column defaulted to 10 and the platform value was
+   * unreachable.
+   */
   deliveryRadiusKm?: number;
   description: string;
 }
@@ -78,6 +90,7 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
         specialties: input.specialties,
         city: input.city,
         area: input.area,
+        areaLabel: input.areaLabel,
         deliveryRadiusKm: input.deliveryRadiusKm,
         description: input.description,
       },
@@ -94,10 +107,11 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
     category: input.category,
     specialties: input.specialties,
     area: input.area,
+    areaLabel: input.areaLabel,
     deliveryRadiusKm: input.deliveryRadiusKm,
     city: input.city,
     description: input.description,
-    status: "waitlisted",
+    status: input.area === "other" ? "waitlisted" : "new",
     createdAt: new Date().toISOString(),
   };
   sellerApplications.push(application);

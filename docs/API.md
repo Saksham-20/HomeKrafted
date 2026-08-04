@@ -488,8 +488,8 @@ individually race-safe via the wallet row lock either way (see below).
 |---|---|---|
 | `GET /wallet` | any authed role | `{ id, userId, balance, pendingCashback, lifetimeSaved, payWithWalletDefault, updatedAt }` — lazily creates a zero-balance wallet if none exists yet (shouldn't happen for a real account; `auth.service.ts` creates one at registration). |
 | `GET /wallet/transactions` | any authed role | Full ledger, newest first — `WalletTransaction[]` matching `client/lib/types/wallet.ts` exactly. |
-| `GET /wallet/auto-topup` | any authed role | Current `AutoTopupRule`, or an off/`below-threshold` default shape if never configured. |
-| `PUT /wallet/auto-topup` | any authed role | Partial patch: `{ enabled?, trigger?, thresholdAmount?, topupAmount?, paymentMethodRef? }`. Upserts. |
+| `GET /wallet/auto-topup` | any authed role | Current `AutoTopupRule`, or an off/`below-threshold` default shape if never configured. **Always carries `active: false` + `unavailableReason`** — auto-top-up is paused platform-wide, so a stored rule may read `enabled: true` and still never fire. Clients must branch on `active`, never on `enabled`. |
+| `PUT /wallet/auto-topup` | any authed role | Partial patch: `{ enabled?, trigger?, thresholdAmount?, topupAmount?, paymentMethodRef? }`. Upserts. **Rejects `enabled: true` with `400`** (M19) — the credit it used to perform had no captured payment behind it. `thresholdAmount`/`topupAmount` are capped at ₹25,000. Turning an existing rule *off* still works. |
 | `POST /wallet/adjust` | `@Roles('admin')` | Manual credit/debit: `{ userId, direction: "credit"\|"debit", amount, reason }`. The one endpoint where a caller-supplied `amount` is intentional — gated to admins, `reason` required (becomes the ledger row's `title` for audit), `category: "adjustment"`. |
 
 There is deliberately **no** `POST /wallet/topup`, `/wallet/pay`,
@@ -704,7 +704,28 @@ below) — no longer future-flagged.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `POST /seller-applications` | `@Public()`, throttled `{ limit: 5, ttl: 60_000 }` | Body: `{ businessName, contactName, email, phone, category: "maker"\|"baker"\|"artist"\|"other", city, description }`. `SellerApplication` has no `userId` FK (an application may predate an account, same as `CorporateInquiry`) — starts at the schema's default status `"new"`, a genuine pending-review row (not the old frontend mock's synthetic `"waitlisted"`). `AdminSellersService.approveApplication` (existing, M8.3c) is the other half of the loop — see below. |
+| `POST /seller-applications` | `@Public()`, throttled `{ limit: 5, ttl: 60_000 }` | Body: `{ businessName, contactName, email, phone, category, specialties, city, area, areaLabel?, deliveryRadiusKm?, description }`. `category` is `"home_chef"\|"maker"\|"baker"\|"artist"\|"other"`. `area` is a `TRICITY_AREAS` id **or the literal `"other"`**; when it is `"other"`, `areaLabel` is required and the row is filed `"waitlisted"` rather than `"new"` — it cannot be approved until an admin assigns a real area (see `PATCH .../area` below). `deliveryRadiusKm` is genuinely optional: **omit it and it stays `null`**, which is what lets `PlatformSetting.defaultDeliveryRadiusKm` apply at approval. `SellerApplication` has no `userId` FK (an application may predate an account, same as `CorporateInquiry`). |
+
+### Admin — resolving a waitlisted application (M19)
+
+| Endpoint | Auth | Notes |
+|---|---|---|
+| `PATCH /admin/sellers/applications/:id/area` | `@Roles('admin')` | Body: `{ area, note? }` where `area` must be a real `TRICITY_AREAS` id (`"other"` is rejected — it is the value this endpoint exists to resolve). Moves the row to `"reviewing"` so it re-enters the approval queue, keeps the applicant's original `areaLabel`, and writes an audit entry. **Without this the `"other"` waitlist is a dead end** — the public form accepts the applicant and approval refuses them, forever. |
+| `POST /admin/sellers/applications/:id/approve` | `@Roles('admin')` | `409` if the application's `area` does not resolve, naming the place so the admin knows what to fix. Nothing is created on refusal — no `User`, no `Vendor`, no `Seller`. |
+
+## Compatibility
+
+There is no `/api/v2` and no deprecation mechanism, and `server/` is shared
+with the native apps. Two rules follow.
+
+1. **Treat every enum as open.** Clients must ignore members they do not
+   recognise rather than failing. `SellerApplicationCategory` gained
+   `home_chef` in M19; more will follow.
+2. **Removing an accepted request value is breaking**, and needs a note
+   here. M19 removed the `laundry` and `cleaning` chips from the `/sell`
+   form but **deliberately left the API accepting them**, precisely so a
+   shipped client does not start getting a `400` for a value it was told
+   was valid.
 
 ## Seller portal (M8.3b — real, `server/src/seller/`)
 
@@ -909,9 +930,17 @@ paused items).
 the location prompt or hasn't picked an area, and the full catalogue is
 returned rather than an empty page.
 
-`POST /seller-applications` now requires `area` (a `TRICITY_AREAS` id —
-anything else `400`s) and `specialties`, and accepts `deliveryRadiusKm`.
-Approval creates the Vendor at that area's coordinates.
+`POST /seller-applications` requires `area` and `specialties`, and accepts
+`deliveryRadiusKm`. The full current body is documented in the Seller
+onboarding table above — **that table is the source of truth**; this
+paragraph is a pointer, not a second spec.
+
+**M19:** `area` also accepts `"other"` (with a required `areaLabel`) so
+someone outside the tricity can register interest. Approval refuses any
+area that does not resolve through `TRICITY_AREAS` — there is no longer a
+`TRICITY_CENTRE` fallback, because it placed out-of-area kitchens at
+Chandigarh's exact centre, ~0 km from every buyer and inside every
+delivery radius.
 
 ### Bookings — any HomeKrafter (`server/src/seller/bookings.controller.ts`)
 

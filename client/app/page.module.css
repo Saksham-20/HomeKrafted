@@ -112,3 +112,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+/*
+  The app-install panel sits full width beneath the two craft cards rather
+  than as a third peer in the grid: it is a different component class from
+  `CraftCard` and will never match its height, which is what made the old
+  two-row layout look accidental.
+*/
+.servicesPanel {
+  margin-top: var(--hk-s5);
+}

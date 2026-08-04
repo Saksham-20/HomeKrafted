@@ -1,52 +1,29 @@
-import type { Metadata } from "next";
-import {
-  getLaundryDays,
-  getLaundryHowItWorks,
-  getLaundryServices,
-  getLaundrySlots,
-  getLaundrySubscriptionPlanOptions,
-} from "@/lib/api";
-import { LaundryBookingClient } from "@/components/laundry/LaundryBookingClient";
-import { pageMetadata } from "@/lib/seo";
+import { notFound } from "next/navigation";
 
 /**
- * Laundry, Cleaning & Ironing (M4; M8.4a swap) — server wrapper: fetches
- * the `@Public()` services/availability/"how it works"/subscription-plan
- * reads. Ported from the prototype's Laundry screen
- * (`handoff/prototype/Homekrafted.dc.html`, `isLaundry` block), extended
- * with the spec'd pieces the prototype doesn't have yet (delivery slot,
- * dry-clean item count + photos, special instructions, subscription,
- * payment, confirmation) — see `CHANGELOG.md`'s M4 entry.
+ * Laundry, Cleaning & Ironing — **withdrawn from the web in M19** when the
+ * platform narrowed to snacks and hampers.
  *
- * M8.4a: the wallet (pay-with-wallet default) and default address used to
- * be fetched here too — both are owner-scoped real reads now, so
- * `LaundryBookingClient` fetches them itself on mount instead (same
- * reasoning as every other owner-scoped `lib/api` read post-M8.4a — see
- * `lib/auth/session.ts`'s file header).
+ * Gone, not deleted. This route 404s and every entry point (nav, footer,
+ * home page, sitemap) is removed, but:
+ *
+ * - `LaundryBookingClient`, `lib/api/laundry.ts` and the Prisma tables all
+ *   stay, so bringing the module back is reverting a commit rather than
+ *   rebuilding a vertical.
+ * - `LaundryModule` stays registered on the server. `OrdersService`
+ *   constructor-injects `LaundryService` through `OrdersModule`'s own
+ *   import, so unpicking it is a four-step change ending at
+ *   `app.module.ts`, not a deletion.
+ * - Order history still merges existing bookings, so someone who booked a
+ *   pickup last month can still find it in `/account/orders`. Hiding a
+ *   product must not erase what people already paid for.
+ *
+ * **Nothing may add a `loading.tsx` above this route.** A Suspense
+ * boundary starts streaming the 200 before the body runs, so `notFound()`
+ * can no longer set the status and the visitor gets a soft 404 — a right
+ * page under a 200, which search engines keep indexing. Measured in M15;
+ * see CLAUDE.md's SEO section.
  */
-export const metadata: Metadata = pageMetadata({
-  title: "Laundry, cleaning & ironing",
-  description:
-    "Wash & fold, dry cleaning, steam ironing and home cleaning across the Chandigarh tricity. Pick a pickup and a delivery slot, pay online or on delivery.",
-  path: "/laundry",
-});
-
-export default async function LaundryPage() {
-  const [services, days, slots, steps, subscriptionPlans] = await Promise.all([
-    getLaundryServices(),
-    getLaundryDays(),
-    getLaundrySlots(),
-    getLaundryHowItWorks(),
-    getLaundrySubscriptionPlanOptions(),
-  ]);
-
-  return (
-    <LaundryBookingClient
-      services={services}
-      days={days}
-      slots={slots}
-      steps={steps}
-      subscriptionPlans={subscriptionPlans}
-    />
-  );
+export default function LaundryPage() {
+  notFound();
 }

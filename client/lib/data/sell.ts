@@ -44,7 +44,13 @@ export const sellerSteps: SellerStep[] = [
   { title: "Go live", description: "Your storefront opens once HomeKrafter onboarding launches." },
 ];
 
+/**
+ * Order matters: `SellerApplicationClient` initialises `category` from
+ * `categories[0]?.value`, so whatever sits first here is the default
+ * selection. Home chef leads because the platform is food-first now.
+ */
 export const sellerCategories: { value: SellerApplicationCategory; label: string }[] = [
+  { value: "home_chef", label: "Home chef (food)" },
   { value: "maker", label: "Maker (handmade goods, crafts)" },
   { value: "baker", label: "Baker (cakes, breads, bakes)" },
   { value: "artist", label: "Artist (art, decor, custom pieces)" },

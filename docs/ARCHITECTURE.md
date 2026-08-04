@@ -207,9 +207,15 @@ refund credit, an admin adjustment — funnels through
   running total anywhere in the request/response contract.
 - Rejects a debit that would take the balance negative with `402` before
   writing anything — no partial/negative balance is representable.
-- Fires the wallet's `below-threshold` auto-top-up rule (if enabled)
-  immediately after a debit that drops the balance under the configured
-  floor, inside the same transaction — mirrors
+- **Auto-top-up is disabled and credits nothing** (M19). It used to fire
+  the wallet's `below-threshold` rule immediately after a debit that
+  dropped the balance under the configured floor — posting a `topup`
+  credit with **no Razorpay charge behind it**, which meant any shopper
+  could set a large `topupAmount` and mint real spendable balance.
+  `maybeFireAutoTopupTx` is now a logging stub and `setAutoTopup` refuses
+  `enabled: true`; re-enabling means wiring a real recurring mandate
+  first. The description below is retained only to explain what the code
+  used to do — it mirrored
   `client/lib/wallet/WalletContext.tsx#pay`'s reactive-only firing (never
   rescues an insufficient debit, only tops back up after a successful
   one).

@@ -29,7 +29,7 @@ Every bullet below is mandatory and in-scope; nothing is phased out.
 
 | Feature | Web surface |
 |---|---|
-| Add money / auto top-up | `/wallet` — amount picker + auto-top-up rule |
+| Add money / auto top-up | `/wallet` — amount picker. Auto-top-up is **paused** (M19): the credit had no captured payment behind it, so the editor is replaced by a status card until it sits behind a real payment mandate. |
 | Cashback & loyalty credits | Ledger entries; cashback line on product/checkout |
 | One balance (Marketplace+Laundry+Snacks) | Header wallet chip + pay-with-wallet |
 | Instant refunds to wallet | Ledger `refund` entries; order refund state |

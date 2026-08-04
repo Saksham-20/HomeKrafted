@@ -6,6 +6,7 @@ import type { SellerApplication } from "@/lib/types";
 import styles from "./ApplicationRow.module.css";
 
 const CATEGORY_LABEL: Record<SellerApplication["category"], string> = {
+  home_chef: "Home chef",
   maker: "Maker",
   baker: "Baker",
   artist: "Artist",
@@ -28,6 +29,19 @@ export function ApplicationRow({ application, onApprove, onReject }: Application
           {CATEGORY_LABEL[application.category]} · {application.city} · {application.contactName} ·{" "}
           {formatDate(application.createdAt)}
         </span>
+        {/*
+          An out-of-area applicant is visible BEFORE the approve button,
+          not discovered from its refusal. The server won't approve an area
+          it can't resolve, so an admin needs to know that here.
+          Rendered as plain text — `areaLabel` is free text from a public
+          endpoint.
+        */}
+        {application.areaLabel && (
+          <span className={styles.outOfArea}>
+            Outside the tricity — applicant typed &ldquo;{application.areaLabel}&rdquo;. Assign a
+            serviced area before approving.
+          </span>
+        )}
         <span className={styles.description}>{application.description}</span>
       </div>
       <span className={styles.badges}>

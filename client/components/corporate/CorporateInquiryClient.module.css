@@ -142,3 +142,18 @@
     align-self: stretch;
   }
 }
+
+/*
+  Submit failure. These forms previously had no error path at all — a
+  failed POST just re-enabled the button — so this is the only thing that
+  tells an applicant their submission did not land.
+*/
+.error {
+  margin: 0 0 var(--hk-s3);
+  padding: var(--hk-s3);
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  background: var(--hk-surface-3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+}

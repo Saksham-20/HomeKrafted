@@ -1,14 +1,39 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  GoneException,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { LaundryService } from './laundry.service';
-import { CreateBookingDto } from './dto/create-booking.dto';
-import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 
-/** Browse is anonymous per `lib/channel.ts` ("Browse web: yes") — service/availability reads are `@Public()`. Bookings + subscriptions are owner-scoped. */
+/**
+ * Browse is anonymous per `lib/channel.ts` — service/availability reads are
+ * `@Public()`. Bookings + subscriptions are owner-scoped.
+ *
+ * **M19: laundry is withdrawn, and the two CREATE routes are gone (410).**
+ *
+ * Removing the web entry points alone would have been the worst of both
+ * worlds: `POST /laundry/bookings` was reachable by any signed-in consumer
+ * and `/seller/pickups` was going to 404, so a booking could still be
+ * created that **no HomeKrafter could ever see**. Both halves move
+ * together — no new work arrives, and the fulfilment screen stays
+ * reachable so work already in flight can be finished.
+ *
+ * Reads stay live so existing bookings keep rendering in order history,
+ * and `PATCH`/`DELETE` on a subscription stay so anyone with one can still
+ * change or cancel it. Cancelling something you are no longer allowed to
+ * create must never be the thing that breaks.
+ */
 @Controller('laundry')
 export class LaundryController {
   constructor(private readonly laundryService: LaundryService) {}
@@ -48,19 +73,17 @@ export class LaundryController {
   }
 
   /**
-   * Server-priced booking creation — `paymentMethod: "wallet"` debits +
-   * credits cashback atomically with the insert (see
-   * `LaundryService.createBooking`'s doc comment). Supports
-   * `Idempotency-Key` so a retried/double-submitted click can't double-book
-   * or double-debit.
+   * Withdrawn (M19). `410 Gone` rather than `404`: the route existed, the
+   * product was retired, and a native client built against `docs/API.md`
+   * deserves to be told which of those happened.
+   *
+   * `LaundryService.createBooking` is deliberately left intact — it is the
+   * server-priced, wallet-debiting, idempotent path, and rebuilding it
+   * later is a worse outcome than leaving it unreferenced here.
    */
   @Post('bookings')
-  createBooking(
-    @CurrentUser() user: RequestUser,
-    @Body() dto: CreateBookingDto,
-    @IdempotencyKey() key?: string,
-  ) {
-    return this.laundryService.createBooking(user.userId, dto, key);
+  createBooking(): never {
+    throw new GoneException('Laundry bookings are no longer available on Homekrafted.');
   }
 
   @Get('subscriptions')
@@ -73,9 +96,10 @@ export class LaundryController {
     return this.laundryService.getSubscriptionById(user.userId, id);
   }
 
+  /** Withdrawn (M19), same reasoning as `POST bookings` above. */
   @Post('subscriptions')
-  createSubscription(@CurrentUser() user: RequestUser, @Body() dto: CreateSubscriptionDto) {
-    return this.laundryService.createSubscription(user.userId, dto);
+  createSubscription(): never {
+    throw new GoneException('Laundry subscriptions are no longer available on Homekrafted.');
   }
 
   @Patch('subscriptions/:id')

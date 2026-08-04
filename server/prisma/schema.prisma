@@ -111,6 +111,11 @@ enum SellerApplicationCategory {
   maker
   baker
   artist
+  /// M19 — the common case now that the platform is food-first. Maps to
+  /// `VendorType.maker` in `vendorTypeForCategory`; deliberately NOT a new
+  /// `VendorType`, since the storefront renders identically and a new type
+  /// would churn every discovery surface.
+  home_chef
   other
 }
 
@@ -667,13 +672,25 @@ model SellerApplication {
   /// What they intend to offer. Carried onto `Seller.specialties` on approval.
   specialties      SellerSpecialty[]
   city             String
-  /// Tricity area id from `server/src/common/geo.ts#TRICITY_AREAS`. Decides
-  /// the coordinates the new Vendor is created with, which is what buyers'
-  /// distance filter measures against — so it's required, not free text.
+  /// Tricity area id from `server/src/common/geo.ts#TRICITY_AREAS`, or the
+  /// literal `"other"`. Decides the coordinates the new Vendor is created
+  /// with, which is what buyers' distance filter measures against.
+  ///
+  /// **An area that does not resolve makes the application unapprovable**
+  /// (M19). `approveApplication` refuses it rather than falling back to the
+  /// tricity centroid — that fallback planted every out-of-area kitchen at
+  /// Chandigarh's exact centre, so it sorted as ~0 km from every buyer and
+  /// passed every radius filter. An admin assigns a real area first.
   area             String
-  /// How far they're willing to deliver, in km. Editable later from their
-  /// storefront settings.
-  deliveryRadiusKm Int                       @default(10)
+  /// Free text, required when `area` is `"other"`: the locality they typed.
+  /// Captures expansion demand without promising delivery there.
+  areaLabel        String?
+  /// How far they're willing to deliver, in km. **Nullable on purpose**
+  /// (M19): with a non-null default of 10, `approveApplication`'s
+  /// `deliveryRadiusKm || defaultRadiusKm` always saw a truthy 10 and the
+  /// platform default was unreachable. Null means "they didn't say", which
+  /// is the only thing that lets the platform setting apply.
+  deliveryRadiusKm Int?
   description      String
   status           SellerApplicationStatus   @default(new)
   /// Set when an admin rejects or waitlists, shown back to the applicant.

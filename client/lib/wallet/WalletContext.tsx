@@ -320,29 +320,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             ...current.transactions,
           ];
 
-          let nextBalance = afterPay;
-          const rule = current.autoTopup;
-          if (
-            rule.enabled &&
-            rule.trigger === "below-threshold" &&
-            rule.thresholdAmount !== undefined &&
-            nextBalance < rule.thresholdAmount
-          ) {
-            nextBalance += rule.topupAmount;
-            transactions.unshift({
-              id: genId("wt"),
-              walletId: rule.walletId,
-              direction: "credit",
-              category: "topup",
-              amount: rule.topupAmount,
-              balanceAfter: nextBalance,
-              title: "Auto top-up",
-              refType: "topup",
-              createdAt: now,
-            });
-          }
-
-          return { ...current, balance: nextBalance, transactions };
+          // Auto-top-up deliberately does NOT fire here. The server stopped
+          // crediting it (`WalletService#maybeFireAutoTopupTx`) because the
+          // credit had no payment behind it; a mock that still mints balance
+          // would show a different wallet in `NEXT_PUBLIC_USE_MOCK=true` than
+          // the one real users get, which is exactly how the original bug
+          // stayed invisible.
+          return { ...current, balance: afterPay, transactions };
         });
         return { ok: true };
       }
@@ -460,14 +444,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [mock, refreshFromServer],
   );
 
+  /**
+   * The optimistic merge here now **reverts on failure**. It used to
+   * swallow the error, which was harmless while the server accepted every
+   * rule — but the server refuses `enabled: true` outright now
+   * (auto-top-up credits nothing until it sits behind a real payment
+   * mandate), so an un-reverted optimistic update would leave the UI
+   * claiming a rule is on that the server rejected.
+   */
   const setAutoTopup = useCallback(
     (patch: Partial<AutoTopupRule>) => {
-      setState((current) => ({ ...current, autoTopup: { ...current.autoTopup, ...patch } }));
+      let previous: AutoTopupRule | undefined;
+      setState((current) => {
+        previous = current.autoTopup;
+        return { ...current, autoTopup: { ...current.autoTopup, ...patch } };
+      });
       if (!mock) {
         updateAutoTopupRule(patch)
           .then((updated) => setState((current) => ({ ...current, autoTopup: updated })))
           .catch(() => {
-            // best-effort — the optimistic local merge above already reflects the intent
+            if (previous) {
+              const reverted = previous;
+              setState((current) => ({ ...current, autoTopup: reverted }));
+            }
           });
       }
     },

@@ -97,9 +97,18 @@ export function SellerDashboardClient() {
         <Link href="/seller/orders" className={styles.quickLink}>
           <ShoppingBag size={16} strokeWidth={1.7} aria-hidden="true" /> Orders
         </Link>
-        <Link href="/seller/pickups" className={styles.quickLink}>
-          <Truck size={16} strokeWidth={1.7} aria-hidden="true" /> Pickups
-        </Link>
+        {/*
+          M19: laundry is withdrawn, so Pickups is off the shared nav
+          (`SellerShell`). This link survives, **conditionally**, because a
+          HomeKrafter with bookings still in flight has to be able to
+          finish them — and with the nav entry gone this is the only way
+          they'd find the screen. No outstanding pickups, no link.
+        */}
+        {((s?.todayPickupsCount ?? 0) > 0 || (s?.todayDeliveriesCount ?? 0) > 0) && (
+          <Link href="/seller/pickups" className={styles.quickLink}>
+            <Truck size={16} strokeWidth={1.7} aria-hidden="true" /> Pickups
+          </Link>
+        )}
         <Link href="/seller/payouts" className={styles.quickLink}>
           <Wallet size={16} strokeWidth={1.7} aria-hidden="true" /> Payouts
         </Link>

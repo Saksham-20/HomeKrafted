@@ -13,7 +13,6 @@ import {
   Star,
   Store,
   UserRound,
-  Truck,
   UtensilsCrossed,
   Wallet,
 } from "lucide-react";
@@ -47,7 +46,11 @@ const HOMEKRAFTER_NAV: SellerNavItem[] = [
   { label: "Listings", href: "/seller/listings", icon: Package },
   { label: "Menu", href: "/seller/menu", icon: UtensilsCrossed },
   { label: "Orders", href: "/seller/orders", icon: ShoppingBag },
-  { label: "Pickups", href: "/seller/pickups", icon: Truck },
+  // Pickups removed in M19 with the rest of laundry. The ROUTE still
+  // resolves on purpose: `POST /laundry/bookings` is now gone (410), so no
+  // new bookings arrive, but anyone with one already in flight must still
+  // be able to fulfil it. `SellerDashboardClient` shows a link to it when
+  // they have outstanding pickups.
   { label: "Storefront", href: "/seller/storefront", icon: Store },
   // M16. Separate from Storefront on purpose: that page is the four
   // catalogue fields on every product card; this one is the story,

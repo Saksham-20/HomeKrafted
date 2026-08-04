@@ -50,7 +50,6 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
     autoTopup,
     ready,
     topUp,
-    setAutoTopup,
   } = useWallet();
 
   const [selectedAmount, setSelectedAmount] = useState(topupOptions[0] ?? 500);
@@ -156,57 +155,34 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
               )}
             </Card>
 
+            {/*
+              Auto top-up is paused platform-wide: the credit it used to post
+              had no captured payment behind it, so the server no longer fires
+              it and refuses `enabled: true`.
+
+              Three things this deliberately does NOT do. It does not render a
+              disabled toggle — a dead control under a promise that is now
+              false is a dark pattern. It does not hide the card, because the
+              people who most need the notice are exactly those who configured
+              a rule. And it does not use a danger tone: this is paused, not
+              broken.
+            */}
             <Card className={styles.autoTopupCard}>
               <div className={styles.autoTopupHeader}>
                 <span className={styles.sectionLabel}>Auto top-up</span>
-                <label className={styles.toggleRow}>
-                  <input
-                    type="checkbox"
-                    className={styles.checkbox}
-                    checked={autoTopup.enabled}
-                    onChange={(event) => setAutoTopup({ enabled: event.target.checked })}
-                  />
-                  {autoTopup.enabled ? "On" : "Off"}
-                </label>
+                <span className={styles.pausedPill}>Paused</span>
               </div>
               <p className={styles.autoTopupHint}>
-                Automatically top up when your balance drops below a threshold — never get caught
-                short at checkout.
+                Auto top-up is paused while we move it onto a proper payment mandate. Top up
+                manually above — it takes a few seconds.
               </p>
-              <div className={styles.autoTopupFields}>
-                <label className={styles.fieldLabel}>
-                  When balance drops below
-                  <div className={styles.fieldInputRow}>
-                    <span className={styles.fieldPrefix}>₹</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className={styles.fieldInput}
-                      disabled={!autoTopup.enabled}
-                      value={autoTopup.thresholdAmount ?? 0}
-                      onChange={(event) =>
-                        setAutoTopup({ thresholdAmount: Number(event.target.value) })
-                      }
-                    />
-                  </div>
-                </label>
-                <label className={styles.fieldLabel}>
-                  Top up by
-                  <div className={styles.fieldInputRow}>
-                    <span className={styles.fieldPrefix}>₹</span>
-                    <input
-                      type="number"
-                      min={0}
-                      className={styles.fieldInput}
-                      disabled={!autoTopup.enabled}
-                      value={autoTopup.topupAmount}
-                      onChange={(event) =>
-                        setAutoTopup({ topupAmount: Number(event.target.value) })
-                      }
-                    />
-                  </div>
-                </label>
-              </div>
+              {autoTopup.enabled && autoTopup.topupAmount > 0 && (
+                <p className={styles.autoTopupSavedRule}>
+                  Your saved rule: add {formatCurrency(autoTopup.topupAmount)} when the balance
+                  drops below {formatCurrency(autoTopup.thresholdAmount ?? 0)}.{" "}
+                  <b>It is not running.</b>
+                </p>
+              )}
             </Card>
 
             <Card className={styles.payInfoCard}>

@@ -310,11 +310,38 @@ can see another HomeKrafter's orders, listings, or payouts, **stop and
 report it immediately** — that's the most serious kind of bug on this list.
 
 ### 7b. Becoming a HomeKrafter
-- Open **/sell** and fill in the application — it now asks which **area**
-  your kitchen is in, **what you'll offer**, and **how far you'll deliver**
+- Open **/sell** and fill in the application. It asks which **area** your
+  kitchen is in and **what you'll offer**. Delivery distance is now
+  **optional** — behind "Set a delivery distance"
+- The category list now starts with **Home chef (food)**, and there are no
+  laundry or cleaning options
 - Submit it, then sign in as **admin** → **HomeKrafters** → review queue
 - Approve it, and check a new kitchen appears with the right area
 - The new HomeKrafter should get a welcome notification
+
+**Leave the delivery distance alone on one application.** After approving
+it, the kitchen should still have a sensible delivery radius — the platform
+fills one in. If it ends up with no radius, or everyone gets exactly 10 km
+regardless of the setting in **Admin → Settings**, report it.
+
+**Then try an out-of-area application.** Pick **"Somewhere else"** as the
+area and type a city we don't serve (e.g. "Model Town, Ludhiana"):
+
+- The confirmation should say **you're on the list**, not "we'll email you
+  once a decision is made". Being told to expect a decision that cannot
+  come is the bug here
+- In the admin review queue the row should be flagged as outside the
+  tricity, showing what they typed
+- **Pressing Approve should refuse**, with a message naming the place. If
+  it approves, report it immediately: that kitchen would then show up as
+  being right in the middle of Chandigarh for every buyer
+- An admin should be able to assign a real area to it, after which
+  approving works normally
+
+**Break the forms on purpose.** Turn off your wifi and submit **/sell** and
+**/corporate**. Both should tell you the submission failed. Previously they
+said nothing at all and the button just became clickable again — if you see
+that, report it.
 
 ### 8. Admin panel
 Sign in as **admin** at https://homekrafted.in/admin/login

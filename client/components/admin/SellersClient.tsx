@@ -7,6 +7,7 @@ import { AdminPageHeader } from "./AdminPageHeader";
 import { SellerRow } from "./SellerRow";
 import { ApplicationRow } from "./ApplicationRow";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { ApiError } from "@/lib/api/http";
 import {
   approveSellerApplication,
   getAllSellers,
@@ -45,6 +46,7 @@ export function SellersClient() {
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [applications, setApplications] = useState<SellerApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<SellerSpecialty | "all">("all");
 
   async function refetch() {
@@ -69,19 +71,46 @@ export function SellersClient() {
     };
   }, [ready, role]);
 
+  /**
+   * All three actions used to be a bare `await` + `refetch()` with no
+   * `catch`. A rejected mutation threw an unhandled `ApiError`, the refetch
+   * never ran, and the row simply didn't change — so a refusal looked
+   * exactly like a success that hadn't rendered yet.
+   *
+   * That is survivable while every mutation succeeds. It stops being
+   * survivable the moment the server starts refusing approvals on purpose
+   * (an application whose area can't be resolved to a real place), because
+   * the refusal is the whole point and the admin would never see it.
+   */
+  async function run(action: () => Promise<unknown>, fallback: string) {
+    setActionError(null);
+    try {
+      await action();
+      await refetch();
+    } catch (err) {
+      setActionError(err instanceof ApiError && err.message ? err.message : fallback);
+    }
+  }
+
   async function handleToggleSellerStatus(sellerId: string, nextStatus: "approved" | "suspended") {
-    await setSellerStatus(sellerId, nextStatus);
-    await refetch();
+    await run(
+      () => setSellerStatus(sellerId, nextStatus),
+      "Couldn't change that HomeKrafter's status. Try again.",
+    );
   }
 
   async function handleApprove(applicationId: string) {
-    await approveSellerApplication(applicationId);
-    await refetch();
+    await run(
+      () => approveSellerApplication(applicationId),
+      "Couldn't approve that application. Try again.",
+    );
   }
 
   async function handleReject(applicationId: string) {
-    await rejectSellerApplication(applicationId);
-    await refetch();
+    await run(
+      () => rejectSellerApplication(applicationId),
+      "Couldn't reject that application. Try again.",
+    );
   }
 
   const filteredSellers = useMemo(
@@ -105,6 +134,14 @@ export function SellersClient() {
       <div className={styles.tabRow} role="tablist" aria-label="Sellers view">
         <Chip label="All HomeKrafters" selected={tab === "sellers"} onClick={() => setTab("sellers")} />
         <Chip label={`Approval queue (${applications.length})`} selected={tab === "queue"} onClick={() => setTab("queue")} />
+      </div>
+
+      <div aria-live="polite">
+        {actionError && (
+          <p className={styles.actionError} role="alert">
+            {actionError}
+          </p>
+        )}
       </div>
 
       {tab === "sellers" ? (

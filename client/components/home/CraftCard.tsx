@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { MessageCircle, Shirt, UtensilsCrossed } from "lucide-react";
+import { MessageCircle, UtensilsCrossed } from "lucide-react";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { StoreBadges } from "@/components/ui/StoreBadges";
 import type { ChannelKey } from "@/lib/channel";
 import styles from "./CraftCard.module.css";
 
 export interface CraftCardProps {
-  variant: "laundry" | "food" | "snacks";
+  variant: "food" | "snacks";
   channel: ChannelKey;
   title: ReactNode;
   description: string;
@@ -16,13 +16,11 @@ export interface CraftCardProps {
 }
 
 const ICONS = {
-  laundry: Shirt,
   food: UtensilsCrossed,
   snacks: MessageCircle,
 } as const;
 
 const CTA = {
-  laundry: { label: "Schedule a pickup →", href: "/laundry" },
   snacks: { label: "Browse snacks →", href: "/snacks" },
 } as const;
 

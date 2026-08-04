@@ -3,6 +3,118 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M19] — The wallet stops minting money, and the apply form gets honest — 2026-08-04
+
+Planned as "trim the apply form, hide laundry, add corporate ordering,
+build food subscriptions." A full plan review (two independent reviewers
+per phase, run without sight of each other) rejected the subscription
+premise on every dimension it measured, and found two money problems
+underneath it. Subscriptions are **held**, not cancelled — the plan and
+its unhold conditions are recorded. This entry is the first slice: the
+money bug, and the silent-failure class the review kept finding next to it.
+
+### Fixed
+
+- **Auto top-up credited real spendable balance that nobody paid for.**
+  `WalletService#maybeFireAutoTopupTx` posted a `credit`/`topup` ledger
+  entry for `AutoTopupRule.topupAmount` after any debit that dropped a
+  wallet below its threshold — with **no Razorpay charge and no captured
+  payment behind it**. `PUT /wallet/auto-topup` is owner-scoped and its
+  DTO capped nothing, so any signed-in shopper could set a large
+  `topupAmount`, spend once, and mint balance that buys real food from
+  real home kitchens who then draw real payouts against it.
+
+  Auto-top-up now credits nothing and logs when a rule would have fired;
+  `setAutoTopup` refuses `enabled: true` with a 400 (turning an existing
+  rule *off* still works); both amounts are capped at ₹25,000 so a
+  re-enabled rule can never be unbounded. Re-enabling means wiring a real
+  recurring mandate first.
+
+  The bug survived review because `wallet.controller.ts`'s own doc comment
+  asserted that admin `adjust` was the only ungated credit path. It wasn't.
+  That comment now says so, at length — a comment asserting an invariant
+  the code does not hold is worse than no comment.
+
+  `scripts/audit-uncollected-topups.sql` finds what already exists.
+  The legitimate path always sets `refId`; this one never did, so
+  `category = 'topup' AND refId IS NULL` is exactly the uncollected set.
+
+- **Three forms swallowed every failure.** `SellerApplicationClient`,
+  `CorporateInquiryClient` and admin `SellersClient` all ran their submit
+  or approve through `try/finally` (or a bare `await`) with no `catch`.
+  A failed request re-enabled the button and told the user nothing.
+  `POST /seller-applications` is throttled at 5/60s, so the real sequence
+  was: submit fails silently, click again, hit the throttle, still
+  nothing, leave. On `/corporate` that is a five-figure lead disappearing.
+  All three now catch, and render the message in an `aria-live` region.
+
+### Added
+
+- **The apply form matches what Homekrafted actually sells.** "Home chef
+  (food)" is now the first category and the default selection; the laundry
+  and cleaning chips are gone. The delivery-distance question moved behind
+  an optional disclosure — a cook who wants to serve two sectors is the
+  only person who knows that, and the old mandatory dropdown quietly
+  committed everyone to 10 km.
+
+- **Somebody outside the tricity can finally apply.** The area picker gains
+  "Somewhere else" plus a free-text locality, and the application is filed
+  as a **waitlist** entry that says so on the confirmation screen — rather
+  than promising a decision the system has already decided not to make.
+  `PATCH /admin/sellers/applications/:id/area` is how an admin resolves one;
+  without it the waitlist would be a dead end.
+
+### Fixed
+
+- **Approval planted every unresolvable area at Chandigarh's centre.**
+  `approveApplication` fell back to `TRICITY_CENTRE` whenever `areaById()`
+  missed, so an out-of-area kitchen sorted ~0 km from every buyer and passed
+  every delivery-radius filter. The fallback is gone; approval now refuses,
+  naming the place. The guard is on **resolvability**, not on the literal
+  `"other"` — legacy rows and typos went down the same path. The mock in
+  `client/lib/api/admin.ts` carried an identical fallback and got the same
+  guard, because a mock that behaves differently teaches the wrong thing.
+
+- **Making the radius optional was a no-op without a migration.**
+  `deliveryRadiusKm` was `Int NOT NULL DEFAULT 10`, so
+  `deliveryRadiusKm || defaultRadiusKm` always saw a truthy 10 and
+  `PlatformSetting.defaultDeliveryRadiusKm` was unreachable. The column is
+  now nullable with no default; existing rows keep their stored answer.
+
+- **`vendorTypeForCategory` was a cast, not a map.**
+  `category as unknown as VendorType` compiled fine with `home_chef` added
+  and would have thrown a Prisma invalid-enum error at `vendor.create`
+  **inside the approval transaction** — an admin clicking approve gets a
+  500. It is now an exhaustive `Record`, so the next category added fails
+  to compile instead.
+
+### Changed
+
+- `GET`/`PUT /wallet/auto-topup` return `active: false` and
+  `unavailableReason`. `server/` is shared with the native apps, so a
+  client that only read `enabled` would tell people the feature works.
+  Branch on `active`.
+- The `/wallet` auto-top-up editor is now a **paused status card** showing
+  any saved rule read-only. Not a disabled toggle under a promise that is
+  now false, and not hidden — the people who most need the notice are
+  exactly those who configured a rule.
+- The mock wallet (`NEXT_PUBLIC_USE_MOCK=true`) no longer credits
+  auto-top-up either. A mock that still minted balance would show a
+  different wallet than real users get, which is how this stayed invisible.
+
+### Documented
+
+- `docs/LAUNCH-READINESS.md` §0.0 — the production audit, with the query
+  and the rule that clawbacks go through `POST /wallet/adjust`, never a
+  ledger deletion.
+- `docs/LAUNCH-READINESS.md` §3b — **the platform collects no
+  commission.** `commissionPct` is modelled on the admin dashboard and
+  never deducted; `Payout.amount` is gross. A hard gate on anything
+  recurring, since a daily subscription multiplies a per-order loss.
+- Corrected `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/PRD.md` and
+  `docs/DESIGN-SYSTEM.md`, which all still described auto-top-up as a
+  working feature.
+
 ## [M18] — Hampers as listings, order notifications, password reset — 2026-08-03
 
 Two product changes and one long-standing gap. The gap is the one that

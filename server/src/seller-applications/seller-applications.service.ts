@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateSellerApplicationDto } from './dto/create-seller-application.dto';
+import { CreateSellerApplicationDto, OTHER_AREA } from './dto/create-seller-application.dto';
 import { mapSellerApplication } from './seller-applications.mapper';
 
 /**
@@ -29,8 +29,20 @@ export class SellerApplicationsService {
         specialties: dto.specialties,
         city: dto.city,
         area: dto.area,
-        deliveryRadiusKm: dto.deliveryRadiusKm ?? 10,
+        areaLabel: dto.area === OTHER_AREA ? dto.areaLabel : null,
+        // No `?? 10` (M19). It used to be here, and combined with the
+        // column's own `@default(10)` it meant `approveApplication`'s
+        // `deliveryRadiusKm || defaultRadiusKm` always saw a truthy 10 —
+        // so `PlatformSetting.defaultDeliveryRadiusKm` could never apply.
+        // Undefined stays NULL, which is how "they didn't say" reaches
+        // approval intact.
+        deliveryRadiusKm: dto.deliveryRadiusKm,
         description: dto.description,
+        // An area nobody can deliver to is a waitlist entry, not a queue
+        // entry. Setting it here rather than leaving it `new` keeps the
+        // approval queue honest: an admin filtering for pending work
+        // shouldn't see rows that cannot be approved as-is.
+        ...(dto.area === OTHER_AREA ? { status: 'waitlisted' as const } : {}),
       },
     });
     return mapSellerApplication(application);

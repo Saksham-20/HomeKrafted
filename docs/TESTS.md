@@ -93,6 +93,8 @@ Grouped by the rule, not by the file, because the rules are the point.
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |
 | `"false"` never means `true` on any boolean field | `boolean-coercion.e2e-spec.ts` |
 | An approved HomeKrafter can actually sign in, and `GET /seller/me` returns **their** kitchen | `seller-onboarding.e2e-spec.ts` |
+| An area that cannot be resolved is **unapprovable** — including legacy rows and typos, not just the literal `"other"`; nothing is created on refusal | `seller-application-area.e2e-spec.ts` |
+| Auto top-up **credits nothing** — an enabled rule plus a qualifying debit produces no `topup` row; the API refuses `enabled: true` and caps both amounts | `wallet-auto-topup.e2e-spec.ts` |
 | The two copies of the tricity area table are **identical** | `test/unit/geo-parity.spec.ts` |
 | The channel matrix — snacks have no cart, full meals have no menu | `client/lib/channel.spec.ts` |
 | The scheduler's lead time, closed days and blackouts | `client/lib/schedule.spec.ts` |

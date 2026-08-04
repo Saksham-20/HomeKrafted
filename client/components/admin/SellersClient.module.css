@@ -30,3 +30,18 @@
   padding: var(--hk-s6);
   text-align: center;
 }
+
+/*
+  Failed approve/reject/suspend. Load-bearing once the server starts
+  refusing approvals on purpose: without it a refusal is indistinguishable
+  from a success that hasn't rendered.
+*/
+.actionError {
+  margin: 0 0 var(--hk-s4);
+  padding: var(--hk-s3);
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  background: var(--hk-surface-3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+}

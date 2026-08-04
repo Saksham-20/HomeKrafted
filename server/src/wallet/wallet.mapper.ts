@@ -43,6 +43,17 @@ export function mapWalletTransaction(t: WalletTransaction) {
   };
 }
 
+/**
+ * Why `active` is separate from `enabled`: auto-top-up is switched off
+ * platform-wide (see `WalletService#maybeFireAutoTopupTx`), so a stored
+ * rule can be `enabled: true` on a legacy row and still never fire.
+ * Returning only `enabled` would tell every non-web client the feature
+ * works. `active` is the truth; `enabled` stays the stored value so a
+ * shopper can still see and clear what they configured.
+ */
+export const AUTO_TOPUP_UNAVAILABLE_REASON =
+  'Auto top-up is paused while we move it onto a proper payment mandate. Top up manually instead.';
+
 export function mapAutoTopupRule(rule: AutoTopupRule) {
   return {
     id: rule.id,
@@ -52,5 +63,7 @@ export function mapAutoTopupRule(rule: AutoTopupRule) {
     thresholdAmount: rule.thresholdAmount !== null ? Number(rule.thresholdAmount) : undefined,
     topupAmount: Number(rule.topupAmount),
     paymentMethodRef: rule.paymentMethodRef ?? undefined,
+    active: false as const,
+    unavailableReason: AUTO_TOPUP_UNAVAILABLE_REASON,
   };
 }

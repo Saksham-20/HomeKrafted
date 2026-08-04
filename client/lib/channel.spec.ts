@@ -1,4 +1,4 @@
-import { CHANNEL_RULES, getChannelBadge, getChannelRule, type ChannelKey } from "@/lib/channel";
+import { CHANNEL_RULES, getChannelBadge, getChannelRule, isChannelEnabled, type ChannelKey } from "@/lib/channel";
 
 /**
  * The channel matrix is a **product decision**, not an oversight — snacks
@@ -19,6 +19,16 @@ describe("CHANNEL_RULES", () => {
     expect(Object.keys(CHANNEL_RULES).sort()).toEqual([...ALL].sort());
     for (const key of ALL) {
       expect(CHANNEL_RULES[key].key).toBe(key);
+    }
+  });
+
+  it("marks laundry withdrawn and every other module live", () => {
+    // M19. Asserted rather than assumed: `enabled` gates nav entries,
+    // routes and the server's create endpoints, so a silent flip here
+    // would quietly restore or withdraw a whole module.
+    expect(isChannelEnabled("laundry")).toBe(false);
+    for (const key of ALL.filter((k) => k !== "laundry")) {
+      expect(isChannelEnabled(key)).toBe(true);
     }
   });
 
