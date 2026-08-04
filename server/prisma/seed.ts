@@ -50,6 +50,13 @@ async function clearTables(): Promise<void> {
   await prisma.category.deleteMany();
   await prisma.payout.deleteMany();
   await prisma.vendorFollow.deleteMany();
+  // Meal subscriptions (M19), children first. Cascades from `Vendor` and
+  // `User` would cover most of this, but the delete order below is explicit
+  // everywhere else and relying on a cascade here would be the one place a
+  // reader has to go and check the schema to know it is safe.
+  await prisma.mealDelivery.deleteMany();
+  await prisma.mealSubscription.deleteMany();
+  await prisma.mealPlan.deleteMany();
   await prisma.seller.deleteMany();
   await prisma.vendor.deleteMany();
   await prisma.autoTopupRule.deleteMany();
