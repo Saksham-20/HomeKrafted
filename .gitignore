@@ -49,5 +49,6 @@ next-env.d.ts
 .claude/
 .playwright-mcp/
 
-# Deploy verification screenshots — evidence for a specific release, not source.
+# Verification screenshots — evidence for a specific release, not source.
 deploy-*.png
+live-*.png
