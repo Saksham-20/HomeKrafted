@@ -65,6 +65,11 @@ export class SellerListingsService {
         tags: (dto.tags ?? []) as ProductTag[],
         isPackaged: dto.isPackaged,
         isHamper: dto.isHamper ?? false,
+        // M20 section flags. All three default the way a pre-M20 listing
+        // behaved, so an old client that sends none of them is unchanged.
+        kind: dto.kind ?? 'food',
+        shippingScope: dto.shippingScope ?? 'local',
+        isSnack: dto.isSnack ?? false,
         cashbackPct: dto.cashbackPct,
         description: dto.description,
         images: {
@@ -132,6 +137,9 @@ export class SellerListingsService {
           tags: dto.tags as ProductTag[] | undefined,
           isPackaged: dto.isPackaged,
           isHamper: dto.isHamper,
+          kind: dto.kind,
+          shippingScope: dto.shippingScope,
+          isSnack: dto.isSnack,
           cashbackPct: dto.cashbackPct,
           description: dto.description,
         },

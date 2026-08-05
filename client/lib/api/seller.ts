@@ -40,6 +40,8 @@ import type {
   OrderStatus,
   Payout,
   Product,
+  ProductKind,
+  ProductShippingScope,
   ProductTag,
   Review,
   Seller,
@@ -169,6 +171,16 @@ export interface SellerListingInput {
   isPackaged: boolean;
   /** Lists it on `/hamper` as a ready-made gift hamper (M18). */
   isHamper: boolean;
+  /** Which vertical it belongs to (M20). `/gifts` is the catalogue filtered on `craft`. */
+  kind: ProductKind;
+  /**
+   * Posted nationally, or driven over locally (M20). Deliberately separate
+   * from `kind` — a kitchen posting pickles across India is a real case,
+   * and `national` skips the delivery-radius filter entirely.
+   */
+  shippingScope: ProductShippingScope;
+  /** Puts it on the WhatsApp snacks menu (M20). */
+  isSnack: boolean;
   cashbackPct: number;
   tags: ProductTag[];
   /** Real project asset path (e.g. "/images/products/mango-thokku-pickle.jpg") — no upload backend, so this is a typed-in path; blank keeps the `<ImageSlot>` placeholder. */
@@ -206,6 +218,8 @@ export async function createSellerListing(
       tags: input.tags,
       isPackaged: input.isPackaged,
       isHamper: input.isHamper,
+      kind: input.kind,
+      shippingScope: input.shippingScope,
       cashbackPct: input.cashbackPct,
       description: input.description,
     };
@@ -233,6 +247,8 @@ export async function updateSellerListing(
     product.description = input.description;
     product.isPackaged = input.isPackaged;
     product.isHamper = input.isHamper;
+    product.kind = input.kind;
+    product.shippingScope = input.shippingScope;
     product.cashbackPct = input.cashbackPct;
     product.tags = input.tags;
     product.weightOptions = input.weightOptions;

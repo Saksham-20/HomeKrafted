@@ -34,6 +34,10 @@ function productToFormValues(product: Product): ListingFormValues {
     description: product.description,
     isPackaged: product.isPackaged,
     isHamper: product.isHamper ?? false,
+    // All three absent read as what a pre-M20 listing was.
+    kind: product.kind ?? "food",
+    shippingScope: product.shippingScope ?? "local",
+    isSnack: product.isSnack ?? false,
     cashbackPct: String(product.cashbackPct),
     tags: product.tags,
     imagePath: product.images[0]?.src ?? "",

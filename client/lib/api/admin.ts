@@ -676,6 +676,9 @@ export async function updateProductAdmin(
   product.dietary = input.dietary;
   product.description = input.description;
   product.isPackaged = input.isPackaged;
+  product.kind = input.kind;
+  product.shippingScope = input.shippingScope;
+  product.isSnack = input.isSnack;
   product.cashbackPct = input.cashbackPct;
   product.tags = input.tags;
   product.weightOptions = input.weightOptions;

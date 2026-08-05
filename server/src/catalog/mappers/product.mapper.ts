@@ -54,6 +54,10 @@ export function mapProduct(product: ProductWithRelations) {
     // decides whether "delivers to your area" is the right thing to say.
     kind: product.kind,
     shippingScope: product.shippingScope,
+    // Round-trips with the seller's edit form. Without it the "also list
+    // this on my snacks menu" checkbox reads as unticked on a listing that
+    // is already on the menu, and saving would quietly take it off.
+    isSnack: product.isSnack,
     cashbackPct: Number(product.cashbackPct),
     description: product.description,
     ingredients: product.ingredients ?? undefined,

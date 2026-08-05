@@ -1201,21 +1201,24 @@ model Product {
   /// buyer-assembled gift box (M3) kept only so historical orders still
   /// resolve.
   isHamper            Boolean                 @default(false)
-  /// M20 — capability flags, the same idea `isHamper` established: one
+  /// M20 — a capability flag, the same idea `isHamper` established: one
   /// catalogue entity, and each section of the site is a *filter* over it
   /// rather than its own table with its own copy of pricing, availability,
   /// moderation, reviews and search.
   ///
-  /// `isSubscribable` says a HomeKrafter is willing to sell this on a
-  /// recurring basis; `isSnack` puts it on the WhatsApp snacks menu. Both
-  /// are the kitchen's own decision, and an admin can override either
-  /// through `moderationStatus` exactly as for any other listing.
+  /// `isSnack` puts a listing on the WhatsApp snacks menu. It is the
+  /// kitchen's own decision, and an admin overrides it through
+  /// `moderationStatus` exactly as for any other listing.
   ///
   /// The alternative — a table per section — is what produced `Snack` as a
   /// separate model, and that table now needs its own availability,
   /// its own seller resolution and its own moderation, none of which it
   /// fully has. Don't add a third.
-  isSubscribable      Boolean                 @default(false)
+  ///
+  /// There was briefly an `isSubscribable` beside this. It was dropped:
+  /// `MealPlan.productId` already says a listing is sold on subscription
+  /// and says *which plan*, so the flag was a second, weaker source of
+  /// truth for one fact — and nothing ever read it.
   isSnack             Boolean                 @default(false)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
@@ -1233,11 +1236,13 @@ model Product {
   @@index([vendorId])
   @@index([categoryId])
   @@index([isHamper])
-  /// The two M20 section filters. Both are queried with `moderationStatus`
-  /// and `isAvailable` alongside them, so the index earns its keep on the
-  /// listing pages rather than only on an admin screen.
-  @@index([isSubscribable])
+  /// The M20 section filter. Queried with `moderationStatus` and
+  /// `isAvailable` alongside it, so the index earns its keep on the snacks
+  /// menu rather than only on an admin screen.
   @@index([isSnack])
+  /// M20. `/gifts` filters on `kind`, and `shippingScope` decides whether a
+  /// listing is subject to the delivery-radius gate at all.
+  @@index([kind])
 }
 
 model ProductOccasion {

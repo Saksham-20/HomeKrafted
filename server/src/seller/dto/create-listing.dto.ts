@@ -82,6 +82,42 @@ export class CreateListingDto {
   @BooleanField()
   isHamper?: boolean;
 
+  /**
+   * Food or craft (M20). Optional, defaulting to `food` — every listing
+   * that existed before the gifts vertical was food, and an unset field has
+   * to keep meaning that rather than becoming a validation error.
+   *
+   * This decides which vertical the listing appears in, so it is the
+   * maker's to set. Without it here `/gifts` could only ever be filled by
+   * a script, which is what it was.
+   */
+  @IsOptional()
+  @IsIn(['food', 'craft'])
+  kind?: 'food' | 'craft';
+
+  /**
+   * Whether the listing goes in the post or is driven over (M20).
+   *
+   * Deliberately **not** derived from `kind`: a kitchen posting pickles
+   * across India is a real case, and deriving would forbid it. A `national`
+   * listing skips the delivery-radius gate entirely
+   * (`ProductsService.list`), so this is the field that decides whether a
+   * buyer 300km away can see it at all.
+   */
+  @IsOptional()
+  @IsIn(['local', 'national'])
+  shippingScope?: 'local' | 'national';
+
+  /**
+   * Put this listing on the WhatsApp snacks menu (M20).
+   *
+   * `@BooleanField()` for the same reason as `isHamper`: the global pipe's
+   * `enableImplicitConversion` reads the string `"false"` as `true`.
+   */
+  @IsOptional()
+  @BooleanField()
+  isSnack?: boolean;
+
   @IsNumber()
   @Min(0)
   @Max(100)

@@ -603,13 +603,23 @@ new kind of subscription or a new snack meant a migration:
 `MealPlan.mealType` was a required `breakfast|lunch|dinner` enum, and
 `Snack` was an entirely separate table from `Product`.
 
-- **`Product.isSubscribable` and `Product.isSnack`** follow the pattern
-  `isHamper` established in M18: one catalogue entity, capability flags,
-  and each section of the site is a *filter* over it. The alternative — a
-  table per section — is exactly what produced `Snack`, which now needs
-  its own availability, its own seller resolution and its own moderation
-  and only partly has them. A HomeKrafter sets the flags; an admin
+- **`Product.isSnack`** follows the pattern `isHamper` established in M18:
+  one catalogue entity, capability flags, and each section of the site is
+  a *filter* over it. The alternative — a table per section — is exactly
+  what produced `Snack`, which now needs its own availability, its own
+  seller resolution and its own moderation and only partly has them. A
+  HomeKrafter sets the flag on `POST/PATCH /seller/listings`; an admin
   overrides through `moderationStatus`, same as any listing.
+
+  There was briefly an `isSubscribable` beside it. **It was dropped**:
+  `MealPlan.productId` already records that a listing is sold on
+  subscription *and which plan*, so the flag was a second and weaker
+  source of truth for one fact — and nothing ever read it.
+
+  **A flag with no write path is decoration.** `kind`, `shippingScope` and
+  `isSnack` all shipped with readers and nothing that could set them, so
+  `/gifts` was live and permanently empty for two commits. When adding a
+  section flag, ship the DTO field in the same change as the column.
 - **`MealPlan.mealType` is nullable, with `slotLabel` beside it.** A
   kitchen wanting to sell a monthly pickle box should not wait for us to
   ship an enum value. When `mealType` is set, the plan still gets that

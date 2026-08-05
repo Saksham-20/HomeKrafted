@@ -95,6 +95,8 @@ that's a bug — report it.
 | **HomeKrafter — maker** | Seller dashboard for a food/craft maker | `anjali@anjaliskitchen.example` |
 | **HomeKrafter — ex-laundry** | Same seller dashboard. Kept because this account has historical pickups, and its past orders must still render now that laundry is withdrawn | `ravi@freshfoldlaundry.example` |
 | **HomeKrafter — snacks** | Seller dashboard for a snack seller | `meera@meerassnackbox.example` |
+| **HomeKrafter — crafts** | A gift maker rather than a kitchen. Their listings are on `/gifts`, and most post nationally | `studio@theslowstudio.example` |
+| **HomeKrafter — crafts** | The second gift maker — jewellery, art and personalised pieces | `hello@maatiandthread.example` |
 | **Admin** | Full admin panel — all users, HomeKrafters, orders, wallets | `admin@homekrafted.example` |
 
 Password for every one of them: `Passw0rd!123`
@@ -331,6 +333,22 @@ Worth trying to break:
 - Upload, save, then open the item as a shopper — the photo should be there
 - **Dry-clean booking** takes several photos at once — try dropping 3-4
   together
+
+**Listing a handcrafted gift (M20).** Open **Listings → Add listing**.
+
+- The first question is now **"What are you listing?"** — Homemade food or
+  Handcrafted gift
+- Pick **Handcrafted gift**. The dietary chips and the snacks-menu tick
+  should **disappear** — a candle has no dietary tags. If you're still
+  asked whether your earrings are gluten-free, report it
+- The **category** dropdown should now only offer gift categories (Candles
+  & Home, Handmade Jewellery, Art & Prints, Personalised Gifts). Switch
+  back to food and it should offer the food ones instead
+- **"How does it reach the buyer?"** — pick *I post it anywhere in India*.
+  That listing should then be visible to shoppers **outside** your delivery
+  distance, unlike your food. This is the difference the Gifts page is
+  built on, so it's worth confirming
+- Save → it should appear on **/gifts**, not in the food shop
 
 **Meal plans — the other big one (M20).** Open **Meal plans**.
 
@@ -615,6 +633,8 @@ that is written. Worth checking:
 | An occasion with **no countdown** on the hub | It has no date set — birthdays and thank-yous have no season. |
 | A kitchen with **no story or photos** on its storefront | Nobody has filled that profile in yet. Sections with no content are hidden rather than shown empty. |
 | **"0 orders delivered"** on a well-rated kitchen | Ratings are seeded demo data; delivered-order counts are real. They will disagree on staging until orders are actually placed. |
+| **Every gift on `/gifts` shows a hatched placeholder** | We hold no photography for the craft makers and won't generate any — the rule is real photos, real uploads, or the placeholder. They'll fill in as makers upload their own. |
+| A gift showing **"delivers to your area"** rather than posting | Not every craft posts. Shipping is set per listing, not per maker — the heavy stoneware is deliberately local while the prints and jewellery post nationally. |
 
 ---
 

@@ -335,6 +335,14 @@ export interface Product {
    * Decides whether "delivers to your area" is a true thing to say.
    */
   shippingScope?: ProductShippingScope;
+  /**
+   * On the WhatsApp snacks menu (M20). Absent reads as `false`.
+   *
+   * A capability flag like `isHamper`, not a category: the listing stays in
+   * the main shop either way, and `/snacks` is the catalogue filtered on
+   * this merged with the seeded `Snack` rows.
+   */
+  isSnack?: boolean;
   /** Wallet cashback percentage earned on this product. */
   cashbackPct: number;
   description: string;

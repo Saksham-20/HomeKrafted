@@ -4,7 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import type { DietaryTag, ProductTag } from "@/lib/types";
+import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
 import styles from "./ListingForm.module.css";
 
@@ -25,6 +25,10 @@ export interface ListingFormValues {
   description: string;
   isPackaged: boolean;
   isHamper: boolean;
+  /** M20 — which vertical this belongs to. Decides what the rest of the form asks. */
+  kind: ProductKind;
+  shippingScope: ProductShippingScope;
+  isSnack: boolean;
   cashbackPct: string;
   tags: ProductTag[];
   imagePath: string;
@@ -40,6 +44,9 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   description: "",
   isPackaged: true,
   isHamper: false,
+  kind: "food",
+  shippingScope: "local",
+  isSnack: false,
   cashbackPct: "5",
   tags: [],
   imagePath: "",
@@ -79,10 +86,16 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     name: values.name,
     categoryId: values.categoryId,
     occasionIds: values.occasionIds,
-    dietary: values.dietary,
+    // A craft has no dietary tags and is never a snack, whatever was ticked
+    // before the kind was switched. Sending stale food fields on a candle
+    // would put it on the snacks menu and label it vegan.
+    dietary: values.kind === "craft" ? [] : values.dietary,
     description: values.description,
     isPackaged: values.isPackaged,
     isHamper: values.isHamper,
+    kind: values.kind,
+    shippingScope: values.shippingScope,
+    isSnack: values.kind === "craft" ? false : values.isSnack,
     cashbackPct: Number(values.cashbackPct) || 0,
     tags: values.tags,
     imagePath: values.imagePath,
@@ -94,7 +107,8 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
 export interface ListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
-  categories: { id: string; name: string }[];
+  /** `group` absent reads as `"food"` — every category predating M20 was. */
+  categories: { id: string; name: string; group?: ProductKind }[];
   occasions: { id: string; name: string }[];
 }
 
@@ -149,8 +163,78 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
     onChange({ ...values, weightRows: rows.length > 0 ? rows : values.weightRows, defaultRowIndex });
   }
 
+  const isCraft = values.kind === "craft";
+  const categoriesForKind = categories.filter((c) => (c.group ?? "food") === values.kind);
+
+  /**
+   * Switching kind can strand the chosen category on the other side of the
+   * catalogue, where the `<select>` no longer lists it — leaving a value
+   * set that nothing displays. Clearing it makes the empty select honest.
+   */
+  function setKind(kind: ProductKind) {
+    const stillValid = categories.some(
+      (c) => c.id === values.categoryId && (c.group ?? "food") === kind,
+    );
+    onChange({ ...values, kind, categoryId: stillValid ? values.categoryId : "" });
+  }
+
   return (
     <div className={styles.form}>
+      {/*
+        First, because it decides what the rest of the form asks. A jeweller
+        must not be asked whether their earrings are gluten-free, and the
+        M20 note in the plan is explicit that the FSSAI badge is
+        food-specific.
+      */}
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>What are you listing?</h2>
+        <div className={styles.chipGroup}>
+          <Chip
+            label="Homemade food"
+            selected={!isCraft}
+            onClick={() => setKind("food")}
+          />
+          <Chip
+            label="Handcrafted gift"
+            selected={isCraft}
+            onClick={() => setKind("craft")}
+          />
+        </div>
+        <p className={styles.checkboxHelp}>
+          {isCraft
+            ? "Handcrafted gifts appear on the Gifts page. You won't be asked about ingredients or dietary tags."
+            : "Homemade food appears in the main shop, and can also go on your snacks menu."}
+        </p>
+      </div>
+
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>How does it reach the buyer?</h2>
+        <div className={styles.chipGroup}>
+          <Chip
+            label="I deliver locally"
+            selected={values.shippingScope === "local"}
+            onClick={() => set("shippingScope", "local")}
+          />
+          <Chip
+            label="I post it anywhere in India"
+            selected={values.shippingScope === "national"}
+            onClick={() => set("shippingScope", "national")}
+          />
+        </div>
+        {/*
+          This is the field that decides whether a buyer 300km away can see
+          the listing at all — `national` skips the delivery-radius filter
+          entirely. It is asked separately from the kind on purpose: a
+          kitchen posting pickles across India is a real case, and deriving
+          this from "is it food" would forbid it.
+        */}
+        <p className={styles.checkboxHelp}>
+          {values.shippingScope === "national"
+            ? "Shoppers across India will see this, not only people inside your delivery distance. Only choose this if you can genuinely pack and post it."
+            : "Only shoppers inside your delivery distance will see this. Choose the other option if you can post it — a jar of pickle travels further than a hot meal."}
+        </p>
+      </div>
+
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Basics</h2>
         <div className={styles.grid}>
@@ -171,7 +255,12 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
               onChange={(event) => set("categoryId", event.target.value)}
             >
               <option value="">Select category</option>
-              {categories.map((c) => (
+              {/*
+                Only the categories on this side of the catalogue. Pickles
+                is not a category a candle can be in, and offering it is how
+                a listing ends up filed somewhere no buyer will look.
+              */}
+              {categoriesForKind.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
@@ -214,19 +303,23 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
         </div>
       </div>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Dietary</h2>
-        <div className={styles.chipGroup}>
-          {DIETARY_OPTIONS.map((option) => (
-            <Chip
-              key={option.value}
-              label={option.label}
-              selected={values.dietary.includes(option.value)}
-              onClick={() => toggleDietary(option.value)}
-            />
-          ))}
+      {/* Food only. A candle has no dietary tags, and asking reads as a
+          form that doesn't know what it's selling. */}
+      {!isCraft && (
+        <div className={styles.section}>
+          <h2 className={styles.sectionTitle}>Dietary</h2>
+          <div className={styles.chipGroup}>
+            {DIETARY_OPTIONS.map((option) => (
+              <Chip
+                key={option.value}
+                label={option.label}
+                selected={values.dietary.includes(option.value)}
+                onClick={() => toggleDietary(option.value)}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Tags</h2>
@@ -241,8 +334,29 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
             checked={values.isPackaged}
             onChange={(event) => set("isPackaged", event.target.checked)}
           />
-          <span className={styles.checkboxLabel}>Ready-to-ship packaged food (vs. made-to-order)</span>
+          <span className={styles.checkboxLabel}>
+            {isCraft
+              ? "Ready to ship (vs. made to order)"
+              : "Ready-to-ship packaged food (vs. made-to-order)"}
+          </span>
         </label>
+        {!isCraft && (
+          <>
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                checked={values.isSnack}
+                onChange={(event) => set("isSnack", event.target.checked)}
+              />
+              <span className={styles.checkboxLabel}>Also list this on my snacks menu</span>
+            </label>
+            <p className={styles.checkboxHelp}>
+              Snacks are ordered over WhatsApp rather than checked out on the
+              site. Ticking this adds it to that menu; it stays in the main
+              shop either way.
+            </p>
+          </>
+        )}
         <label className={styles.checkboxRow}>
           <input
             type="checkbox"

@@ -182,6 +182,32 @@ wired and tested; none of it leaves the box until `WHATSAPP_*` and
 `pm2 logs homekrafted-api` as `[WHATSAPP STUB]` / `[EMAIL STUB]` lines —
 which is also where to look to confirm the fan-out is firing.
 
+## Demo-content seeders — the two that are safe on production
+
+`server/prisma/seed.ts` **clears every table it owns** before re-inserting.
+That is right for a dev reset and catastrophic anywhere real. **Never run it
+against production.**
+
+These two are different, and are safe to run there:
+
+```
+cd server
+npx ts-node prisma/seed-meal-plans.ts   # demo meal plans on existing kitchens
+npx ts-node prisma/seed-crafts.ts       # 4 craft categories, 2 craft makers, 8 listings
+```
+
+Both only ever insert, match on slug, and never delete — so a second run is
+a no-op and no existing row is touched. `seed-crafts.ts` also recomputes
+`Category.productCount` from the rows rather than incrementing it, the same
+rule M15 set for ratings.
+
+`seed-crafts.ts` creates two HomeKrafter logins
+(`studio@theslowstudio.example`, `hello@maatiandthread.example`) on the
+documented demo password — same as the kitchens in `docs/TESTING.md`. If
+that is not wanted on a production box, delete those two users after running
+it; the vendors and listings survive without them, they just become
+unmanageable from the portal.
+
 ## Gotcha: the API must be up before the client builds
 
 `client`'s build prerenders pages that call the API — `/` fetches reels,

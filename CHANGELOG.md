@@ -61,6 +61,28 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   visible: a monthly pickle box is an ordinary thing for a home kitchen to
   sell.
 
+- **A HomeKrafter can list a handcrafted gift.** `kind`, `shippingScope`
+  and `isSnack` shipped on `Product` with readers and **no write path** —
+  nothing but a direct database edit could set them, so `/gifts` was live
+  and permanently empty and the snacks flag was decoration. All three are
+  now on `POST/PATCH /seller/listings`, optional and defaulting to what a
+  pre-M20 listing was.
+
+  **The listing form branches on kind.** A jeweller is not asked whether
+  their earrings are gluten-free, the category picker only offers the
+  categories on that side of the catalogue, and switching kind clears a
+  category that no longer applies rather than leaving a value nothing
+  displays.
+
+- **Craft catalogue seeded** — four categories (twelve in total, matching
+  the client's tile list), two craft makers with real storefronts and
+  logins, eight listings. `prisma/seed-crafts.ts`, additive and safe to run
+  against production like `seed-meal-plans.ts`.
+
+  **No photography on any of them.** We hold no craft images and CLAUDE.md
+  forbids fabricating product imagery, so these render through
+  `ImageSlot`'s labelled placeholder until a maker uploads their own.
+
 - **`/gifts`**, the handcrafted-gifts catalogue, saying plainly on the page
   that these post nationally while food does not. That is not a detail to
   discover at checkout.
@@ -100,6 +122,14 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   route statically eligible — so the build fetched the catalogue at build
   time and failed when the API wasn't up. `force-dynamic`, like its
   siblings.
+- `mapProduct` never returned `isSnack`, so the seller's edit form read the
+  "also list this on my snacks menu" checkbox as unticked on a listing that
+  was already on the menu — and saving would quietly have taken it off.
+  Caught by the new e2e, not by reading the code.
+- Dropped `Product.isSubscribable`, added two commits earlier. Nothing read
+  or wrote it, and `MealPlan.productId` already records that a listing is
+  sold on subscription **and which plan** — so it was a second, weaker
+  source of truth for one fact.
 - `mapMealPlan` sent `mealType: null` while every sibling optional field on
   it sent `undefined`, so the field arrived as an explicit `null` the
   client type didn't declare. `?? undefined`, and it drops out of the JSON
