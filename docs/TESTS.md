@@ -107,6 +107,7 @@ Grouped by the rule, not by the file, because the rules are the point.
 | Two deliveries racing for one recipient both arrive — neither is lost to the preference row's unique constraint | `e2e/order-notifications.e2e-spec.ts` |
 | A quote token is a bearer credential: stored only as a hash, never logged, rotated on re-send, and not-found is indistinguishable from revoked | `e2e/corporate-quotes.e2e-spec.ts` |
 | Acceptance is single-use under concurrent requests, records who accepted by name, and **creates no orders** | `e2e/corporate-quotes.e2e-spec.ts` |
+| Withdrawing an accepted quote's link kills the link but never rewrites the deal back to a re-pricable draft | `e2e/corporate-quotes.e2e-spec.ts` |
 | A quote line must name a kitchen that exists and owns it; the token payload never exposes which kitchen supplies which line | `e2e/corporate-quotes.e2e-spec.ts` |
 | A cycle is prepaid in one debit, rolled back whole if the wallet cannot cover it; the price is a snapshot; a skipped meal is owed, not lost; cancelling moves no money | `e2e/meal-subscriptions.e2e-spec.ts` |
 | A capability flag is only a filter — a craft reaches `/gifts` without leaving the shop, a snack joins the menu without leaving it, and absence defaults rather than hides | `e2e/section-flags.e2e-spec.ts` |

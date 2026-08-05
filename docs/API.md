@@ -713,7 +713,7 @@ being quoted.
 | `POST /admin/corporate-inquiries/:id/quotes` | Builds a draft. **Every line carries a required `vendorId`, even a custom one** — seller order visibility, seller notifications and payouts all resolve a kitchen through the vendor, so a line naming none is work nobody can see and money nobody can be paid (**400**). A catalogue line whose `productId` belongs to a different kitchen is also a **400**. |
 | `PATCH /admin/corporate-inquiries/quotes/:quoteId` | Drafts only. Repricing a **sent** quote is a **409** — somebody is looking at the old number; withdraw and re-raise. |
 | `POST /admin/corporate-inquiries/quotes/:quoteId/send` | Mints the accept token, emails the link, sets the inquiry to `quoted`. **The raw token exists only in that email** — it is stored as a SHA-256 hash and never returned by any read. Re-sending rotates it, killing the previous link. |
-| `DELETE /admin/corporate-inquiries/quotes/:quoteId/link` | Withdraws the link. The quote survives as the record of what was offered. |
+| `DELETE /admin/corporate-inquiries/quotes/:quoteId/link` | Withdraws the link. The quote survives as the record of what was offered. **Only a `sent` quote drops back to `draft`** — that is what makes it re-pricable. An `accepted` or `declined` quote keeps its status, so withdrawing a forwarded link after the deal closed cannot rewrite what happened or reopen the 409 above. |
 
 **Public** — `@Public()`, no account, because procurement will not make one:
 

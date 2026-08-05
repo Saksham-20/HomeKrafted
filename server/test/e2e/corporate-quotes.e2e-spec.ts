@@ -469,6 +469,51 @@ describe('corporate quotes', () => {
         .expect(409);
     });
 
+    it('does not reopen repricing on a quote somebody already accepted', async () => {
+      /*
+        Withdrawing the link of a `sent` quote drops it back to `draft` on
+        purpose — nobody should be reading that number any more, so it
+        becomes re-pricable and can be raised again.
+
+        Doing the same to an **accepted** quote undid three things at once:
+        the admin queue showed a closed deal as never sent,
+        `acceptedAt`/`acceptedName` sat on a row calling itself a draft,
+        and this 409 — which exists so nobody edits a number a customer is
+        reading — quietly reopened on a number a customer had already
+        agreed to.
+
+        Found by revoking an accepted quote on production, not by reading
+        the code.
+      */
+      const { quoteId, token } = await sentQuote();
+      await h
+        .api()
+        .post(`${API_PREFIX}/corporate/quotes/${token}/accept`)
+        .send({ acceptedName: 'Priya Raman' })
+        .expect(200);
+
+      await h
+        .api()
+        .delete(`${API_PREFIX}/admin/corporate-inquiries/quotes/${quoteId}/link`)
+        .set(auth(admin))
+        .expect(200);
+
+      const after = await h.prisma.corporateQuote.findUniqueOrThrow({ where: { id: quoteId } });
+      // The link is dead — a forwarded email must stop working once the
+      // deal is closed — but what happened is untouched.
+      expect(after.tokenHash).toBeNull();
+      expect(after.revokedAt).not.toBeNull();
+      expect(after.status).toBe('accepted');
+      expect(after.acceptedName).toBe('Priya Raman');
+
+      await h
+        .api()
+        .patch(`${API_PREFIX}/admin/corporate-inquiries/quotes/${quoteId}`)
+        .set(auth(admin))
+        .send({ lines: [{ vendorId, description: 'Cheaper after the fact', quantity: 50, unitPrice: 1 }] })
+        .expect(409);
+    });
+
     it('reprices a draft', async () => {
       const quote = await buildQuote().expect(201);
       const res = await h

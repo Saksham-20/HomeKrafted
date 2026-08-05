@@ -202,12 +202,37 @@ export class CorporateQuotesService {
     return { quote: mapQuote(updated), token };
   }
 
-  /** Kills the link without deleting the quote — the record of what was offered survives. */
+  /**
+   * Kills the link without deleting the quote — the record of what was
+   * offered survives.
+   *
+   * **Only a `sent` quote falls back to `draft`.** That is the whole point
+   * of the fallback: withdrawing a live link means "nobody should be
+   * looking at this number any more", and the quote becomes re-pricable so
+   * it can be raised again.
+   *
+   * A quote somebody has already **accepted** or **declined** is a closed
+   * commercial fact, and resetting it would undo three things at once: the
+   * admin queue would show it as never sent, `acceptedAt`/`acceptedName`
+   * would sit on a row calling itself a draft, and `reprice` — which is
+   * drafts-only and answers 409 for a `sent` quote precisely so nobody
+   * edits a number a customer is reading — would quietly reopen on a
+   * number a customer already agreed to.
+   *
+   * Killing the link after acceptance is still legitimate: a forwarded
+   * email should stop working once the deal is closed. It just must not
+   * rewrite what happened.
+   */
   async revoke(quoteId: string) {
-    await this.require(quoteId);
+    const existing = await this.require(quoteId);
+
     const quote = await this.prisma.corporateQuote.update({
       where: { id: quoteId },
-      data: { revokedAt: new Date(), status: 'draft', tokenHash: null },
+      data: {
+        revokedAt: new Date(),
+        tokenHash: null,
+        ...(existing.status === 'sent' ? { status: 'draft' as const } : {}),
+      },
       include: QUOTE_INCLUDE,
     });
     return mapQuote(quote);

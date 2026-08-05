@@ -178,6 +178,21 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   owes the buyer a message was true of the call sites and untrue of the
   delivery underneath them.
 
+- **Withdrawing the link of an *accepted* quote rewrote the deal as a
+  draft.** `revoke` set `status: 'draft'` unconditionally. For a `sent`
+  quote that is the point — nobody should be reading that number any more,
+  so it becomes re-pricable. Applied to an accepted one it undid three
+  things at once: the admin queue showed a closed deal as never sent,
+  `acceptedAt`/`acceptedName` sat on a row calling itself a draft, and
+  `PATCH .../quotes/:id` — drafts-only, 409 on a sent quote precisely so
+  nobody edits a number a customer is reading — quietly reopened on a
+  number a customer had already agreed to.
+
+  Only a `sent` quote falls back now. Killing the link after acceptance is
+  still allowed, because a forwarded email should stop working once the
+  deal closes; it just no longer rewrites what happened. Found by revoking
+  an accepted quote against production.
+
 - **The e2e suite could be answered by a completely different server.**
   `request(server)` opens an ephemeral listener when `server.address()` is
   null and closes it again as soon as that one response lands. So request A
