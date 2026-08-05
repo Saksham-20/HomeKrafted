@@ -17,10 +17,10 @@ Shipped and live on homekrafted.in:
 | **WS5a–c** `78c7d5d` | Meal subscriptions: model, API, 30-minute brackets, 30 tests. Verified live end to end. |
 | **Seeder** `7588c25` | Three demo meal plans on production. |
 
-**The one thing not to lose:** `scripts/audit-uncollected-topups.sql` has
-still not run against production. It measures how much phantom balance the
-old auto-top-up minted before WS0 stopped it. The script is already on the
-box at `/tmp/`.
+**Closed 2026-08-05:** `scripts/audit-uncollected-topups.sql` ran against
+production and came back empty on all three result sets — no uncollected
+credits, no affected wallets, no `AutoTopupRule` still enabled. WS0 stopped
+the mint before anybody used it. See `docs/LAUNCH-READINESS.md` §0.0.
 
 ---
 

@@ -13,9 +13,16 @@ Ordered by what blocks what.
 
 ## 0. Do this first — the site is live and these are open now
 
-### 0.0 Audit production for uncollected auto-top-up credits ⛔
+### 0.0 Audit production for uncollected auto-top-up credits ✅
 
-**Fixed in code (M19), but the existing rows are still out there.**
+**Fixed in code (M19); production audited 2026-08-05 and clean.** All
+three result sets were empty: no uncollected credits, no affected wallets,
+and no `AutoTopupRule` left enabled. Nothing to claw back — the bug was
+found before anybody exercised it.
+
+Re-run the query if the credit path is ever re-enabled. The rest of this
+section is kept because it is the reasoning behind the query, and a future
+reader needs it to trust the result.
 
 `WalletService#maybeFireAutoTopupTx` used to post a `credit`/`topup` ledger
 entry for `AutoTopupRule.topupAmount` whenever a debit dropped a wallet
