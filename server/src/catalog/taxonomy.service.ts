@@ -7,7 +7,13 @@ export class TaxonomyService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listCategories() {
-    const categories = await this.prisma.category.findMany({ orderBy: { name: 'asc' } });
+    // `sortOrder` first, then name. The schema documents `sortOrder` as
+    // what drives the home page's tile order, and ordering by name alone
+    // silently ignored it — ties still fall back to name, so an unset
+    // value stays stable rather than random.
+    const categories = await this.prisma.category.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
     return categories.map(mapCategory);
   }
 

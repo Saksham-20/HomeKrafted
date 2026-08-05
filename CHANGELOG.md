@@ -167,6 +167,16 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   route statically eligible — so the build fetched the catalogue at build
   time and failed when the API wasn't up. `force-dynamic`, like its
   siblings.
+- **`GET /categories` never returned `group` or `sortOrder`**, so the
+  seller listing form's craft category picker was permanently **empty** —
+  a HomeKrafter could pick "Handcrafted gift" and then had nothing to file
+  it under. The client resolves an absent `group` to `food`, which made
+  every category look like a food one. Found by exercising the write path
+  on production, not by reading the code: a column with no reader is the
+  same bug as a column with no writer, and this milestone shipped one of
+  each. Category listing now also honours `sortOrder`, which the schema
+  already documented as driving the home page tiles and which nothing
+  ordered by.
 - `StatusPill` knew none of the corporate or quote statuses, so a sent
   quote and an expired one rendered identically. Added, plus a `tone`
   override for the one real collision: an accepted *snack order* is still

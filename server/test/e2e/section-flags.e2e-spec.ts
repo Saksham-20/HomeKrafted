@@ -165,6 +165,38 @@ describe('M20 section flags', () => {
     });
   });
 
+  describe('the category taxonomy', () => {
+    it('tells a client which side of the catalogue each category is on', async () => {
+      /*
+        `group` and `sortOrder` were columns from the day the gifts
+        vertical shipped and were never returned by the API. The client
+        resolves an absent `group` to `food`, so the seller form's craft
+        category picker was permanently **empty** — a HomeKrafter could
+        choose "Handcrafted gift" and then had nothing to file it under.
+        Found on production, not by reading the code.
+      */
+      const res = await h.api().get(`${API_PREFIX}/categories`).expect(200);
+      const rows: { id: string; group: string; sortOrder: number }[] = res.body;
+
+      const craft = rows.find((c) => c.id === craftCategoryId);
+      const food = rows.find((c) => c.id === foodCategoryId);
+      expect(craft?.group).toBe('craft');
+      expect(food?.group).toBe('food');
+      expect(typeof craft?.sortOrder).toBe('number');
+    });
+
+    it('orders by sortOrder before name', async () => {
+      // The schema documents `sortOrder` as what drives the home page
+      // tiles; ordering by name alone silently ignored it.
+      await h.prisma.category.update({
+        where: { id: craftCategoryId },
+        data: { sortOrder: -5, name: 'Zzz last alphabetically' },
+      });
+      const res = await h.api().get(`${API_PREFIX}/categories`).expect(200);
+      expect(res.body[0].id).toBe(craftCategoryId);
+    });
+  });
+
   describe('what a seller still cannot set', () => {
     it('refuses an attempt to set its own moderation status', async () => {
       // `forbidNonWhitelisted`. The admin's switch stays the admin's — the

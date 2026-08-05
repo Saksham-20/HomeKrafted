@@ -37,6 +37,8 @@ export function mapCategory(category: {
   imagePlaceholder: string;
   imageSrc: string | null;
   productCount: number;
+  group?: 'food' | 'craft';
+  sortOrder?: number;
 }) {
   return {
     id: category.id,
@@ -45,6 +47,18 @@ export function mapCategory(category: {
     imagePlaceholder: category.imagePlaceholder,
     imageSrc: category.imageSrc ?? undefined,
     productCount: category.productCount,
+    /**
+     * M20. Both of these existed as columns from the day the gifts
+     * vertical shipped and neither was ever returned, so every consumer
+     * read `group` as absent — which the client resolves to `food`.
+     *
+     * That made the seller listing form's craft category picker
+     * permanently **empty**: a HomeKrafter could choose "Handcrafted
+     * gift" and then had nothing to file it under. A column with no
+     * reader is the same bug as a column with no writer.
+     */
+    group: category.group ?? 'food',
+    sortOrder: category.sortOrder ?? 0,
   };
 }
 
