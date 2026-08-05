@@ -681,7 +681,8 @@ automatically.
 
 ## Standing decisions (carried from M0)
 
-- **`About` nav** points at `/` — no dedicated `/about` route exists yet.
+- ~~**`About` nav** points at `/`~~ — superseded: `/about` is a real route
+  and the nav points at it.
 - **Wishlist is in `<MobileDrawer>`** — otherwise unreachable below 840px.
 - **`LoyaltyTier`** = `bronze|silver|gold|platinum` (naming pending brand input).
 - **Laundry `pricingModel`** uses all three union values: Wash & Fold

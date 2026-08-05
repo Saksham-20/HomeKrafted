@@ -45,6 +45,12 @@ export const primaryNav: NavLink[] = [
   { label: "Handcrafted Gifts", href: "/gifts" },
   { label: "Gift Hampers", href: "/hamper" },
   { label: "Occasions", href: "/collections" },
+  // M19 (WS3a). One corporate order is ₹5k–₹50k against ₹120 for a thali,
+  // and it was reachable only from the footer — the least-read part of the
+  // page — while the enquiry form and the whole quote funnel behind it sat
+  // finished. A buyer sourcing fifty Diwali hampers is not scrolling to
+  // the bottom to find out whether we do that.
+  { label: "Corporate & bulk", href: "/corporate" },
   { label: "About", href: "/about" },
 ];
 
