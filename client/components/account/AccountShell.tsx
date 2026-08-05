@@ -4,7 +4,18 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Bell, Gift, Heart, LayoutGrid, MapPin, Package, Star, Store, User } from "lucide-react";
+import {
+  Bell,
+  CalendarClock,
+  Gift,
+  Heart,
+  LayoutGrid,
+  MapPin,
+  Package,
+  Star,
+  Store,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AccountShell.module.css";
@@ -24,6 +35,9 @@ export interface AccountNavItem {
 export const ACCOUNT_NAV_ITEMS: AccountNavItem[] = [
   { label: "Overview", href: "/account", icon: LayoutGrid },
   { label: "Orders", href: "/account/orders", icon: Package },
+  // M20 — a meal plan is a standing commitment, not an order, and it is
+  // the only thing here somebody manages rather than just reads.
+  { label: "Meal plans", href: "/account/subscriptions", icon: CalendarClock },
   { label: "Addresses", href: "/account/addresses", icon: MapPin },
   { label: "Wishlist", href: "/account/wishlist", icon: Heart },
   // M15 — the buyer's half of the review loop: what's waiting to be
