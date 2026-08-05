@@ -261,11 +261,45 @@ evening, today may disappear entirely and it should start at Tomorrow.
   **pre-order**: pick a time and send it on WhatsApp
 - Check the message carries your preferred time
 
+### 6c. Meal plans — the subscription (M19/M20)
+
+This is the one that moves real money, so be thorough. Open **/meal-plans**
+(also linked from the home page band, "Ghar Ka Khana, Every Day").
+
+- Pick a plan → check the price says **per meal** for a breakfast/lunch/
+  dinner plan and **per delivery** for anything else (a monthly box)
+- Choose your meals, your days and a 30-minute window
+- **The total must be visible before you press the button.** If you can
+  commit money without seeing what it costs, that's a bug — report it
+- Pay → you should land on **/account/subscriptions** with the new plan on it
+
+Then, from **/account/subscriptions**:
+
+- **Skip a meal.** The meal should come back at the far end — your end date
+  moves out by a day. You paid for N meals, you get N meals. If skipping
+  loses you a meal, **that's a bug**
+- **Pause**, then **resume**. Your wallet balance must not move either way
+- **Cancel.** This also moves no money — a refund is something we do by
+  hand, on purpose. The screen should say so rather than implying a refund
+  is coming
+
+Worth trying to break:
+
+- Subscribe with **not enough balance** — it should refuse cleanly and you
+  should end up with **no** half-made subscription sitting in your account
+- **Double-tap the subscribe button** — you must not be charged twice
+- Pick a **window the kitchen doesn't offer** (if you can get the app to
+  send one) — it should refuse
+- Subscribe to a plan that is **full** — it should say so, not fail oddly
+
 ### 7. HomeKrafter dashboard
 Sign in as any of the three HomeKrafter accounts.
 
 Every HomeKrafter now sees **one dashboard with the same full menu**:
-Dashboard, Listings, Menu, Orders, Pickups, Storefront, Payouts, Reviews.
+Dashboard, Analytics, Listings, Menu, Meal plans, Orders, Storefront,
+Profile, Payouts, Reviews. (Pickups is off the nav — laundry is withdrawn —
+but the screen still exists and the dashboard links to it if you have a
+booking still in flight.)
 
 **All three accounts have the same modules working.** There is one role,
 so any HomeKrafter can add food. Pickups is the exception now: laundry is
@@ -297,6 +331,35 @@ Worth trying to break:
 - Upload, save, then open the item as a shopper — the photo should be there
 - **Dry-clean booking** takes several photos at once — try dropping 3-4
   together
+
+**Meal plans — the other big one (M20).** Open **Meal plans**.
+
+- **Add plan** → note the "What kind of plan is this?" row. Breakfast,
+  lunch and dinner are three of the four choices; the fourth is
+  **Something else**, and it's a peer, not a footnote. A monthly pickle box
+  is an ordinary thing for a kitchen to sell
+- Pick **Something else**, name it ("Monthly pickle box"), set a price →
+  save. On **/meal-plans** it should read **₹N / delivery**, not "/ meal"
+- Now edit it. The page should tell you **how many delivery windows** the
+  plan offers. A meal plan gets its mealtime window (about 6); a
+  "something else" plan gets your whole opening hours (about 24)
+- **If it says no delivery windows, that's the thing to check.** It means
+  your opening hours (on **Profile**) don't overlap the meal — and nobody
+  can subscribe until they do. It should say that in as many words
+- Set a **subscriber limit**, then have somebody subscribe up to it — the
+  plan should show as full and stop taking people
+- Press the **power icon** on a plan. It should tell you plainly that the
+  people already on it keep their meals — closing stops *new* subscribers
+  and nothing else. If it reads like "delete", report the wording
+
+**Coming up** is the queue of meals you owe, newest day first, with the
+customer, their address and a call button.
+
+- **Mark one delivered.** That is the only thing that spends a meal from
+  somebody's cycle — a skipped meal is still owed
+- Mark the same one twice (two tabs) — the second should say it's already
+  done, not silently double-count
+- **All N meals →** opens the full fortnight
 
 **A module must never sit on "Loading…" forever.** A permanent spinner is a
 bug — report it with the account and module name.

@@ -2,6 +2,9 @@ import type {
   CreateMealSubscriptionInput,
   MealPlan,
   MealSubscription,
+  SellerMealDelivery,
+  SellerMealPlan,
+  SellerMealPlanInput,
 } from "@/lib/types";
 import { http, isMockMode } from "./http";
 
@@ -107,4 +110,57 @@ export async function skipMealDelivery(
 /** Terminal, and moves no money — a refund is an admin decision. */
 export async function cancelMealSubscription(id: string): Promise<MealSubscription> {
   return http.delete<MealSubscription>(`/meal-subscriptions/${encodeURIComponent(id)}`);
+}
+
+/* --------------------------------------------------------------------------
+ * The HomeKrafter's side — `/seller/meal-plans` (`server/src/seller/*`).
+ *
+ * These live here rather than in `lib/api/seller.ts` so the `MealPlan` wire
+ * contract stays in one file. Every route resolves the acting seller from
+ * the caller's own JWT server-side; none of these takes a `sellerId`, which
+ * is what stops a client-supplied id from ever selecting whose plans get
+ * returned.
+ * ------------------------------------------------------------------------ */
+
+export async function getMyMealPlans(): Promise<SellerMealPlan[]> {
+  if (isMockMode()) return [];
+  return http.get<SellerMealPlan[]>("/seller/meal-plans");
+}
+
+/**
+ * The cook's work queue — every meal owed in the next `days`, soonest
+ * first. The server caps `days` at 60 and falls back to 14.
+ */
+export async function getMyMealDeliveries(days = 14): Promise<SellerMealDelivery[]> {
+  if (isMockMode()) return [];
+  return http.get<SellerMealDelivery[]>("/seller/meal-plans/deliveries", { query: { days } });
+}
+
+export async function createMyMealPlan(input: SellerMealPlanInput): Promise<MealPlan> {
+  return http.post<MealPlan>("/seller/meal-plans", input);
+}
+
+export async function updateMyMealPlan(
+  id: string,
+  input: Partial<SellerMealPlanInput>,
+): Promise<MealPlan> {
+  return http.patch<MealPlan>(`/seller/meal-plans/${encodeURIComponent(id)}`, input);
+}
+
+/**
+ * Closes a plan to new subscribers. It does **not** cancel the people
+ * already on it — they prepaid for a run of meals and those cycles finish.
+ * The button that calls this has to say so, or a cook will read it as
+ * "delete" and think they have stopped cooking.
+ */
+export async function closeMyMealPlan(id: string): Promise<MealPlan> {
+  return http.delete<MealPlan>(`/seller/meal-plans/${encodeURIComponent(id)}`);
+}
+
+/** Marks one meal delivered. The only thing that spends a meal from a cycle. */
+export async function markMealDelivered(deliveryId: string): Promise<{ ok: true }> {
+  return http.patch<{ ok: true }>(
+    `/seller/meal-plans/deliveries/${encodeURIComponent(deliveryId)}/delivered`,
+    {},
+  );
 }

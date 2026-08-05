@@ -34,7 +34,10 @@ export function mapMealPlan(plan: MealPlan, options: MapPlanOptions = {}) {
     sellerId: plan.sellerId,
     name: plan.name,
     description: plan.description,
-    mealType: plan.mealType,
+    // `?? undefined` like every other optional field here, so it drops out
+    // of the JSON rather than arriving as an explicit `null` the client
+    // type does not declare.
+    mealType: plan.mealType ?? undefined,
     slotLabel: plan.slotLabel ?? undefined,
     productId: plan.productId ?? undefined,
     /**

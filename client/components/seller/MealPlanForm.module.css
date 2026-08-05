@@ -1,0 +1,116 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.sectionTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s4);
+}
+
+.field,
+.fieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.input,
+.select {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.input:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.hint {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+}
+
+.inlineLink {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+/* The windows a saved plan actually offers. Worth its own treatment because
+   an empty set silently means nobody can subscribe. */
+.brackets {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+  background: var(--hk-canvas);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s3);
+}
+
+.warn {
+  color: var(--hk-terracotta);
+}
+
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.checkboxRow input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hk-pine);
+}
+
+.checkboxLabel {
+  font-size: 14px;
+  color: var(--hk-ink-2);
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

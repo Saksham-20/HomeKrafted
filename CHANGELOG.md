@@ -39,6 +39,28 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   `aria-live` region rather than swallowed, and an idempotency key is
   minted per attempt so a double-tap cannot charge twice.
 
+- **`/seller/meal-plans`** — the screen behind the API. Create, edit and
+  close a plan; a work queue of every meal owed, grouped by day, with the
+  customer, their address and a call button.
+
+  Two things it must keep saying out loud. **Closing a plan is not
+  deleting it**: the confirm names how many people are already on it and
+  that they keep the meals they paid for, because a cook reading "close"
+  as "stop cooking" would walk away from a prepaid commitment. And
+  **"Delivered" is the only thing that spends a meal** from somebody's
+  cycle — a skipped meal is still owed, so nothing else may decrement it.
+
+  The plan editor shows **how many delivery windows the plan actually
+  offers**, and says so in red when the answer is zero. That happens when
+  a kitchen's opening hours don't overlap the meal — a real configuration
+  error that otherwise presents as "nobody ever subscribes", with nothing
+  on screen connecting the two.
+
+  "Something else" sits as the **fourth peer** of breakfast/lunch/dinner
+  rather than an advanced option, which is the M20 generalisation made
+  visible: a monthly pickle box is an ordinary thing for a home kitchen to
+  sell.
+
 - **`/gifts`**, the handcrafted-gifts catalogue, saying plainly on the page
   that these post nationally while food does not. That is not a detail to
   discover at checkout.
@@ -78,6 +100,10 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   route statically eligible — so the build fetched the catalogue at build
   time and failed when the API wasn't up. `force-dynamic`, like its
   siblings.
+- `mapMealPlan` sent `mealType: null` while every sibling optional field on
+  it sent `undefined`, so the field arrived as an explicit `null` the
+  client type didn't declare. `?? undefined`, and it drops out of the JSON
+  like the rest.
 
 ## [M19] — The wallet stops minting money, and the apply form gets honest — 2026-08-04
 

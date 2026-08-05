@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Star, Truck, UtensilsCrossed, Wallet } from "lucide-react";
+import {
+  CalendarClock,
+  Package,
+  ShoppingBag,
+  Star,
+  Truck,
+  UtensilsCrossed,
+  Wallet,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerDashboard, type SellerDashboardSnapshot } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -93,6 +101,9 @@ export function SellerDashboardClient() {
         </Link>
         <Link href="/seller/menu" className={styles.quickLink}>
           <UtensilsCrossed size={16} strokeWidth={1.7} aria-hidden="true" /> Menu
+        </Link>
+        <Link href="/seller/meal-plans" className={styles.quickLink}>
+          <CalendarClock size={16} strokeWidth={1.7} aria-hidden="true" /> Meal plans
         </Link>
         <Link href="/seller/orders" className={styles.quickLink}>
           <ShoppingBag size={16} strokeWidth={1.7} aria-hidden="true" /> Orders

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
   BarChart3,
+  CalendarClock,
   LayoutGrid,
   LogOut,
   Package,
@@ -45,6 +46,12 @@ const HOMEKRAFTER_NAV: SellerNavItem[] = [
   { label: "Analytics", href: "/seller/analytics", icon: BarChart3 },
   { label: "Listings", href: "/seller/listings", icon: Package },
   { label: "Menu", href: "/seller/menu", icon: UtensilsCrossed },
+  // M20. Sits with the other catalogue screens rather than under Orders:
+  // a plan is something a kitchen offers, and the meals it owes hang off
+  // it. Every HomeKrafter gets it, like every other module here — a plan
+  // is no longer tied to being a meal, so "do you cook?" is not a
+  // question this nav needs to answer.
+  { label: "Meal plans", href: "/seller/meal-plans", icon: CalendarClock },
   { label: "Orders", href: "/seller/orders", icon: ShoppingBag },
   // Pickups removed in M19 with the rest of laundry. The ROUTE still
   // resolves on purpose: `POST /laundry/bookings` is now gone (410), so no

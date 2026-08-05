@@ -39,14 +39,21 @@ export class SellerMealPlansService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return plans.map((plan) =>
-      mapMealPlan(plan, {
+    return plans.map((plan) => ({
+      ...mapMealPlan(plan, {
         vendor: plan.vendor,
         opensAt: plan.vendor.profile?.opensAt,
         closesAt: plan.vendor.profile?.closesAt,
         subscriberCount: plan._count.subscriptions,
       }),
-    );
+      /**
+       * Only on the kitchen's own list, never on the public payload.
+       * `seatsLeft` is `null` for an uncapped plan, so adding the raw count
+       * to `mapMealPlan` would publish how many subscribers every kitchen
+       * has to anyone who can read `GET /meal-plans`.
+       */
+      subscriberCount: plan._count.subscriptions,
+    }));
   }
 
   async create(sellerId: string, vendorId: string, dto: CreateMealPlanDto) {

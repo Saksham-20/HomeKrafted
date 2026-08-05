@@ -622,7 +622,7 @@ software.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /seller/meal-plans` | The kitchen's own plans, with live subscriber counts. |
+| `GET /seller/meal-plans` | The kitchen's own plans. Carries one field the public payload does not: **`subscriberCount`**. `seatsLeft` is `null` on an uncapped plan, so putting the raw count on `mapMealPlan` would publish every kitchen's subscriber numbers to anyone who can read `GET /meal-plans`. |
 | `POST /seller/meal-plans` | `mealType` optional; supply `slotLabel` for anything that is not breakfast/lunch/dinner. `productId` optionally backs the plan with one of their existing listings — a listing belonging to someone else is a **400**. |
 | `PATCH /seller/meal-plans/:id` | A price change applies to **new** subscribers only; existing `MealSubscription` rows snapshotted their price and are never re-read. |
 | `DELETE /seller/meal-plans/:id` | Closes to new subscribers. Does **not** touch people already on it — they paid for a run of meals and a kitchen changing its mind cannot cancel a prepaid commitment. |

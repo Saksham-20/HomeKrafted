@@ -119,6 +119,61 @@ export interface MealSubscription {
   deliveries?: MealDelivery[];
 }
 
+/**
+ * A plan as its own kitchen sees it. The extra field is deliberately not on
+ * `MealPlan`: `seatsLeft` is `null` on an uncapped plan, so putting the raw
+ * count on the public payload would publish every kitchen's subscriber
+ * numbers to anyone who can read `GET /meal-plans`.
+ */
+export interface SellerMealPlan extends MealPlan {
+  subscriberCount: number;
+}
+
+/**
+ * One meal a kitchen owes, as the *cook* sees it — mirror of
+ * `SellerMealPlansService.deliveries`.
+ *
+ * Deliberately not `MealDelivery`: that is the buyer's view of their own
+ * schedule and carries no customer identity. This one carries a name, a
+ * phone and an address because somebody has to actually take food to a
+ * door, and it carries no `status` because the queue only ever contains
+ * `scheduled` rows.
+ */
+export interface SellerMealDelivery {
+  id: ID;
+  /** `YYYY-MM-DD`. */
+  scheduledFor: string;
+  bracketStart: string;
+  planName: string;
+  customerName: string;
+  customerPhone?: string;
+  address: {
+    line1: string;
+    line2?: string;
+    city: string;
+    pincode: string;
+  };
+}
+
+/** What a HomeKrafter fills in — mirror of `CreateMealPlanDto`. */
+export interface SellerMealPlanInput {
+  name: string;
+  description: string;
+  /** Omitted for any cadence that is not one of the three meals. */
+  mealType?: MealType;
+  /** "Monthly pickle box" — names the plan when `mealType` is absent. */
+  slotLabel?: string;
+  productId?: string;
+  diet: MealDiet;
+  pricePerMeal: number;
+  servingSize?: string;
+  weeklyMenu?: string[];
+  imageSrc?: string;
+  /** Omitted means uncapped — a choice, not a default nobody saw. */
+  maxSubscribers?: number;
+  isActive?: boolean;
+}
+
 /** The cycle lengths the server accepts — mirror of `MEAL_COUNTS`. */
 export const MEAL_COUNTS = [6, 12, 24, 30] as const;
 

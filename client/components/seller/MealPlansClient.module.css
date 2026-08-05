@@ -1,0 +1,49 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  margin-bottom: var(--hk-s7);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.sectionLink {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-gold-text-sm);
+}
+
+.sectionLink:hover {
+  text-decoration: underline;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.empty {
+  color: var(--hk-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: var(--hk-s5);
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
