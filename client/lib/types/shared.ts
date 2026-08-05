@@ -211,7 +211,108 @@ export interface CorporateInquiry {
   budgetRange?: string;
   message: string;
   status: CorporateInquiryStatus;
+  /** M20. Absent reads as `"corporate"` — the form only asked about client gifting before. */
+  orderType?: CorporateOrderType;
   createdAt: ISODateString;
+}
+
+/**
+ * "50 hampers for Diwali clients" and "20 kg of namkeen for a wedding" are
+ * different conversations — different lead time, different person,
+ * different margin.
+ */
+export type CorporateOrderType = "corporate" | "bulk";
+
+/** The admin view. Adds what only they see. */
+export interface AdminCorporateInquiry extends CorporateInquiry {
+  /** Never shown to the customer — the one place an admin can write freely. */
+  internalNotes?: string;
+  updatedAt: ISODateString;
+  quoteCount: number;
+}
+
+export interface AdminCorporateInquiryDetail extends AdminCorporateInquiry {
+  quotes: CorporateQuote[];
+}
+
+export type CorporateQuoteStatus = "draft" | "sent" | "accepted" | "declined" | "expired";
+
+export interface CorporateQuoteLine {
+  id: ID;
+  productId?: string;
+  productName?: string;
+  vendorId: ID;
+  vendorName: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface CorporateQuote {
+  id: ID;
+  inquiryId: ID;
+  status: CorporateQuoteStatus;
+  validUntil: ISODateString;
+  notes?: string;
+  subtotal: number;
+  taxAmount: number;
+  deliveryFee: number;
+  /** What they will actually be invoiced. `subtotal` alone is not a total. */
+  total: number;
+  /**
+   * Whether an accept link is live. **Never the token** — that is returned
+   * exactly once, into the email, and never stored in a readable form.
+   */
+  hasLiveLink: boolean;
+  sentAt?: ISODateString;
+  revokedAt?: ISODateString;
+  acceptedAt?: ISODateString;
+  acceptedName?: string;
+  declinedAt?: ISODateString;
+  createdAt: ISODateString;
+  lines: CorporateQuoteLine[];
+}
+
+export interface CorporateQuoteLineInput {
+  productId?: string;
+  /** Required even on a custom line — a line naming no kitchen is unfulfillable. */
+  vendorId: ID;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CorporateQuoteInput {
+  validUntil: string;
+  notes?: string;
+  taxAmount?: number;
+  deliveryFee?: number;
+  lines: CorporateQuoteLineInput[];
+}
+
+/**
+ * What a logged-out procurement manager sees.
+ *
+ * Deliberately narrower than `CorporateQuote`: no internal notes, no
+ * inquiry id, and **no vendor names** — which kitchen supplies which line
+ * is our commercial arrangement, not theirs.
+ */
+export interface PublicCorporateQuote {
+  /** Derived from the clock server-side, so `expired` is always current. */
+  status: "valid" | "accepted" | "declined" | "expired";
+  companyName: string;
+  contactName: string;
+  occasion?: string;
+  validUntil: ISODateString;
+  notes?: string;
+  subtotal: number;
+  taxAmount: number;
+  deliveryFee: number;
+  total: number;
+  acceptedAt?: ISODateString;
+  acceptedName?: string;
+  lines: { description: string; quantity: number; unitPrice: number; lineTotal: number }[];
 }
 
 // ---------------------------------------------------------------------------

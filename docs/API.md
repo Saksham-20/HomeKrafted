@@ -694,7 +694,43 @@ Owner-scoped.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `POST /corporate-inquiries` | `@Public()` | Body: `{ companyName, contactName, email, phone, occasion?, estimatedQuantity, budgetRange?, message }`. `CorporateInquiry` has no `userId` FK (an inquiry may predate an account, same as `SellerApplication`) — no list/review endpoint yet, seamed for **M11** (admin panel). |
+| `POST /corporate-inquiries` | `@Public()` | Body: `{ companyName, contactName, email, phone, occasion?, orderType?, estimatedQuantity, budgetRange?, message }`. `CorporateInquiry` has no `userId` FK (an inquiry may predate an account, same as `SellerApplication`). **Throttled 5/60s** (M20) — the same budget as `POST /seller-applications`, its sibling public intake; it had been on the app-wide 120/min while fanning out a notification per admin per channel. `orderType` is `corporate\|bulk`, defaulting to `corporate`. Every admin is notified on inbound, `void`-called outside the write and capped at 10 recipients. |
+
+### Corporate quotes (M20, `server/src/corporate/`, `server/src/admin/corporate.controller.ts`)
+
+`CorporateInquiryStatus` had `quoted` in it since M7b with nothing being
+quoted, and nothing anywhere read a row. These are the reader and the thing
+being quoted.
+
+**Admin** — `@Roles('admin')`, every mutation audited:
+
+| Endpoint | Notes |
+|---|---|
+| `GET /admin/corporate-inquiries?status=` | The queue, with a `summary` counting `unworked`/`contacted`/`quoted`. |
+| `GET /admin/corporate-inquiries/:id` | One enquiry plus its quotes. |
+| `PATCH /admin/corporate-inquiries/:id/status` | `new\|contacted\|quoted\|closed`. |
+| `PATCH /admin/corporate-inquiries/:id/notes` | `internalNotes` — never shown to the customer. |
+| `POST /admin/corporate-inquiries/:id/quotes` | Builds a draft. **Every line carries a required `vendorId`, even a custom one** — seller order visibility, seller notifications and payouts all resolve a kitchen through the vendor, so a line naming none is work nobody can see and money nobody can be paid (**400**). A catalogue line whose `productId` belongs to a different kitchen is also a **400**. |
+| `PATCH /admin/corporate-inquiries/quotes/:quoteId` | Drafts only. Repricing a **sent** quote is a **409** — somebody is looking at the old number; withdraw and re-raise. |
+| `POST /admin/corporate-inquiries/quotes/:quoteId/send` | Mints the accept token, emails the link, sets the inquiry to `quoted`. **The raw token exists only in that email** — it is stored as a SHA-256 hash and never returned by any read. Re-sending rotates it, killing the previous link. |
+| `DELETE /admin/corporate-inquiries/quotes/:quoteId/link` | Withdraws the link. The quote survives as the record of what was offered. |
+
+**Public** — `@Public()`, no account, because procurement will not make one:
+
+| Endpoint | Notes |
+|---|---|
+| `GET /corporate/quotes/:token` | **200** for a resolvable token with the state in the body — `valid \| accepted \| expired \| declined`. `expired` is derived from the clock, never stored. Only not-found and revoked **404**, and they are byte-identical, so a token cannot be probed. "Already accepted" is a normal state, not an error. Carries no vendor names — which kitchen supplies which line is our commercial arrangement. |
+| `POST /corporate/quotes/:token/accept` | Body `{ acceptedName }`. **A POST, never a GET** — a link prefetcher or email scanner must not accept a ₹50,000 order by following a link. Claimed with a conditional `updateMany`, so concurrent requests on a forwarded link accept exactly once and the losers get the receipt rather than a 409. **Creates no `Order`s** — see below. |
+| `POST /corporate/quotes/:token/decline` | So a row does not sit at `sent` forever. |
+
+**Acceptance deliberately creates no orders.** `Order.userId`,
+`OrderItem.addressId` and `OrderShipment.addressId` are all required and a
+`CorporateInquiry` has no user and no address — the schema cannot express a
+corporate order. Writing one anyway would push an uncollected five-figure
+amount into GMV, into the payouts queue as a real debt to a home cook, and
+through `computeCashback` as ~5% credited to an account auto-created for a
+stranger. An admin places the orders once an address and payment terms
+exist.
 
 ### Unified order history — laundry joins the merge
 

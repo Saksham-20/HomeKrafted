@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Banknote, BarChart3, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ShoppingBag, SlidersHorizontal, Store, Users, Wallet } from "lucide-react";
+import { Banknote, BarChart3, Building2, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ShoppingBag, SlidersHorizontal, Store, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AdminShell.module.css";
@@ -30,6 +30,10 @@ const NAV: AdminNavItem[] = [
   // M15 — customers had been filing tickets since M7b with nothing on the
   // platform able to read them.
   { label: "Support", href: "/admin/support", icon: LifeBuoy },
+  // M20. Sits after Support because both are queues of people waiting on
+  // a reply. Until now `CorporateInquiry` had a live public form writing
+  // rows that nothing anywhere read.
+  { label: "Corporate", href: "/admin/corporate", icon: Building2 },
   { label: "Collections", href: "/admin/collections", icon: FolderOpen },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   // M16 (M5). Last on purpose — a platform-wide value changes rarely and

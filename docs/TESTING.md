@@ -430,6 +430,58 @@ area and type a city we don't serve (e.g. "Model Town, Ludhiana"):
 said nothing at all and the button just became clickable again — if you see
 that, report it.
 
+### 7c. Corporate &amp; bulk enquiries (M20)
+
+Two sides. Start on **/corporate** as a shopper (no login needed).
+
+- Note the new **"What kind of order is this?"** row — Corporate gifting or
+  Bulk order. They're different conversations, and the admin queue shows
+  which is which
+- Submit it. Then sign in as **admin** — you should have a **notification**
+  about it. Until M20 the form wrote a row and told nobody, and nothing
+  read the table
+- **/admin/corporate** should list it, with a count of how many nobody has
+  worked yet
+- Submit the form six times quickly. It should start **refusing** — that's
+  a deliberate rate limit on an unauthenticated form
+
+Then open the enquiry as an admin and **build a quote**:
+
+- Add a line. Every line needs a **HomeKrafter**, even a fully custom one
+  ("Custom Diwali hamper"). Try saving without one — it should refuse, and
+  say why
+- Set a delivery fee and tax. The **total updates before you save** — you
+  shouldn't have to create a quote to find out what it says
+- Create the draft, then **Send**. That emails the customer a link
+- Try to **edit a sent quote** — it should refuse. Somebody is looking at
+  the old number; withdraw and raise a new one
+
+Now the customer's side — **open the link in a logged-out browser** (or a
+private window). This is the highest-stakes screen in the build:
+
+- There should be **no login wall and no sign-up prompt**. Procurement will
+  not make an account to accept a quote
+- It should say who it's from, who it's for, the lines, and a **Total
+  payable** — not a subtotal dressed up as a total
+- **Accept** takes two steps: a typed name and an "I'm authorised" tick.
+  One tap on a phone is too easy to do by accident for five figures
+- Open the same link again. It should show **"Accepted by …"** as a normal
+  state, not an error
+- **Read it on a phone.** The line table should stack, not scroll the page
+  sideways
+
+Worth trying to break:
+
+- **Change one character of the token** in the URL — it should 404, and
+  look exactly like a link that was withdrawn
+- Have an admin **Withdraw link**, then reload the customer's page — same
+  404, identical wording
+- **Re-send** a quote, then try the *old* link — it should be dead
+- Accept, then check **/admin/orders**. There should be **no new orders**.
+  That's deliberate: accepting agrees a price, it doesn't start
+  fulfilment. An admin places the orders once there's an address and
+  payment terms, and the admin screen says so
+
 ### 8. Admin panel
 Sign in as **admin** at https://homekrafted.in/admin/login
 
@@ -635,6 +687,8 @@ that is written. Worth checking:
 | **"0 orders delivered"** on a well-rated kitchen | Ratings are seeded demo data; delivered-order counts are real. They will disagree on staging until orders are actually placed. |
 | **Every gift on `/gifts` shows a hatched placeholder** | We hold no photography for the craft makers and won't generate any — the rule is real photos, real uploads, or the placeholder. They'll fill in as makers upload their own. |
 | A gift showing **"delivers to your area"** rather than posting | Not every craft posts. Shipping is set per listing, not per maker — the heavy stoneware is deliberately local while the prints and jewellery post nationally. |
+| Accepting a corporate quote creates **no order** | By design. Acceptance agrees a price; an admin places the orders once there's a delivery address and payment terms. The schema has no way to express a corporate order today, and faking one would put uncollected money into a home cook's payout queue. |
+| The quote email **doesn't arrive** | Email provider isn't connected on staging. The link is in the server log — ask whoever's running the box. |
 
 ---
 

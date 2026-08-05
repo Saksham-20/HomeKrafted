@@ -107,6 +107,25 @@ enum CorporateInquiryStatus {
   closed
 }
 
+/// M20. "50 hampers for Diwali clients" and "20 kg of namkeen for a
+/// wedding" are different conversations — different lead time, different
+/// person, different margin. One field so the queue can be worked in the
+/// right order.
+enum CorporateOrderType {
+  corporate
+  bulk
+}
+
+/// M20. `draft` is ours; `sent` is the only state a customer can act on.
+/// `accepted` and `declined` are theirs, `expired` is the clock's.
+enum CorporateQuoteStatus {
+  draft
+  sent
+  accepted
+  declined
+  expired
+}
+
 enum SellerApplicationCategory {
   maker
   baker
@@ -459,6 +478,7 @@ model User {
   socialAccounts          SocialAccount[]
   vendorFollows           VendorFollow[]
   razorpayOrders          RazorpayOrder[]
+  corporateQuotes         CorporateQuote[]         @relation("CorporateQuoteCreatedBy")
   adminAuditLogs          AdminAuditLog[]
   /// Payouts this admin settled or refused — see `Payout.decidedById`.
   payoutDecisions         Payout[]                 @relation("PayoutDecidedBy")
@@ -491,10 +511,10 @@ model Address {
 
   cartItems             CartItem[]
   orderItemsShippedTo   OrderItem[]
-  shipments             OrderShipment[]  @relation("ShipmentAddress")
-  hampersAsRecipient    Hamper[]         @relation("HamperRecipientAddress")
+  shipments             OrderShipment[]    @relation("ShipmentAddress")
+  hampersAsRecipient    Hamper[]           @relation("HamperRecipientAddress")
   mealSubscriptions     MealSubscription[]
-  ordersAsGiftRecipient Order[]          @relation("OrderGiftRecipientAddress")
+  ordersAsGiftRecipient Order[]            @relation("OrderGiftRecipientAddress")
   laundryBookings       LaundryBooking[]
 
   @@index([userId])
@@ -725,7 +745,101 @@ model CorporateInquiry {
   budgetRange       String?
   message           String
   status            CorporateInquiryStatus @default(new)
+  /// M20. Defaults to `corporate` — every row that existed before this
+  /// column came through a form that only asked about client gifting.
+  orderType         CorporateOrderType     @default(corporate)
+  /// M20. Free-text admin notes. Not a message thread: nothing here is
+  /// ever shown to the customer, so it is the one place an admin can
+  /// write "called, they want it before the 14th" without publishing it.
+  internalNotes     String?
   createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  quotes CorporateQuote[]
+
+  @@index([status, createdAt])
+}
+
+/// M20. What is actually being offered, at what price, until when.
+///
+/// The status enum on `CorporateInquiry` already had `quoted` in it and
+/// there was nothing being quoted — a dropdown is not a B2B motion.
+model CorporateQuote {
+  id         String               @id @default(cuid())
+  inquiryId  String
+  inquiry    CorporateInquiry     @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  status     CorporateQuoteStatus @default(draft)
+  /// After this, `GET /corporate/quotes/:token` reports `expired` and
+  /// accept refuses. Checked server-side on every read, never trusted
+  /// from a client clock.
+  validUntil DateTime
+  notes      String?
+
+  /// Money. `total` is stored rather than summed on read because it is
+  /// what somebody agreed to pay: recomputing it later from lines that
+  /// have since been edited would change a number after acceptance.
+  ///
+  /// `subtotal` alone is not a total, and nobody can accept a figure that
+  /// is not the figure they will be invoiced — so tax and delivery are
+  /// their own columns rather than a footnote.
+  subtotal    Decimal @db.Decimal(12, 2)
+  taxAmount   Decimal @default(0) @db.Decimal(12, 2)
+  deliveryFee Decimal @default(0) @db.Decimal(12, 2)
+  total       Decimal @db.Decimal(12, 2)
+
+  /// **Only the SHA-256 hash of the accept token is ever stored**, never
+  /// the token — same rule as `PasswordResetToken`. A database leak must
+  /// not hand somebody the ability to accept every outstanding quote.
+  tokenHash String?   @unique
+  sentAt    DateTime?
+  /// Set when the token is rotated or the quote withdrawn. A revoked
+  /// token is indistinguishable from a nonexistent one to a prober.
+  revokedAt DateTime?
+
+  /// Who accepted, typed by them. For a five-figure commitment reached
+  /// through a forwardable link, a timestamp alone is not evidence.
+  acceptedAt   DateTime?
+  acceptedName String?
+  declinedAt   DateTime?
+
+  createdById String
+  createdBy   User     @relation("CorporateQuoteCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines CorporateQuoteLine[]
+
+  @@index([inquiryId])
+  @@index([status])
+}
+
+model CorporateQuoteLine {
+  id      String         @id @default(cuid())
+  quoteId String
+  quote   CorporateQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  /// Optional: half of corporate gifting is "custom hamper, 50 units, our
+  /// branding", and forcing that into a catalogue reference loses the
+  /// deal. `description` carries it instead.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  /// **Required, even on a custom line.** Every downstream path — seller
+  /// order visibility, seller notifications, payouts — resolves a kitchen
+  /// through the listing. A line naming no kitchen is work nobody can see
+  /// and money nobody can be paid, which is the silent-failure class this
+  /// whole milestone keeps closing.
+  vendorId String
+  vendor   Vendor @relation(fields: [vendorId], references: [id])
+
+  description String
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2)
+  lineTotal   Decimal @db.Decimal(12, 2)
+  sortOrder   Int     @default(0)
+
+  @@index([quoteId])
+  @@index([vendorId])
 }
 
 /// The one way in. Everyone who wants to sell fills this in at `/sell`; an
@@ -905,13 +1019,14 @@ model Vendor {
   followerCount     Int        @default(0)
   joinedAt          DateTime   @default(now())
 
-  products  Product[]
-  seller    Seller?
-  mealPlans MealPlan[]
-  follows   VendorFollow[]
-  profile   VendorProfile?
-  photos    VendorPhoto[]
-  blackouts VendorBlackoutDate[]
+  products   Product[]
+  seller     Seller?
+  mealPlans  MealPlan[]
+  follows    VendorFollow[]
+  profile    VendorProfile?
+  photos     VendorPhoto[]
+  blackouts  VendorBlackoutDate[]
+  quoteLines CorporateQuoteLine[]
 }
 
 /// M16 (M2). A day this kitchen is not taking orders — a festival they
@@ -1070,12 +1185,12 @@ model VendorFollow {
 }
 
 model Category {
-  id               String  @id @default(cuid())
-  slug             String  @unique
+  id               String      @id @default(cuid())
+  slug             String      @unique
   name             String
   imagePlaceholder String
   imageSrc         String?
-  productCount     Int     @default(0)
+  productCount     Int         @default(0)
   /// M20. Which side of the catalogue this belongs to — the header splits
   /// "Homemade Food" from "Handcrafted Gifts", and a category has to say
   /// which one it is. Defaults to `food`: everything that existed before
@@ -1232,6 +1347,7 @@ model Product {
   wishlistItems WishlistItem[]
   hamperItems   HamperItem[]
   mealPlans     MealPlan[]
+  quoteLines    CorporateQuoteLine[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -1823,12 +1939,12 @@ model MealPlan {
   /// meal (nobody wants dinner at 15:00). When `null`, the plan is some
   /// other cadence and its windows come from the kitchen's own hours —
   /// see `bracketsFor`.
-  mealType    MealType?
+  mealType  MealType?
   /// What the kitchen calls this when it is not one of the three meals:
   /// "Monthly pickle box", "Weekly sourdough". Free text on purpose — the
   /// whole point is that a HomeKrafter does not need us to ship an enum
   /// value before they can sell something.
-  slotLabel   String?
+  slotLabel String?
 
   /// A plan can be backed by a listing the kitchen already has, rather than
   /// re-typing its name, description and photo. Optional because a tiffin
@@ -1836,10 +1952,10 @@ model MealPlan {
   ///
   /// `onDelete: SetNull` — deleting a listing must not silently delete the
   /// subscriptions people have paid for.
-  productId   String?
-  product     Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
-  diet        DietType
+  diet DietType
 
   /// Per meal, not per cycle. The cycle price is this times the meal count,
   /// computed at subscribe time and snapshotted onto the subscription.
@@ -1881,9 +1997,9 @@ model MealPlan {
 
 /// One buyer's prepaid run of meals from one plan.
 model MealSubscription {
-  id     String @id @default(cuid())
+  id     String   @id @default(cuid())
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   planId String
   plan   MealPlan @relation(fields: [planId], references: [id])
 

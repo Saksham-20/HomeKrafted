@@ -1,0 +1,341 @@
+.page {
+  min-height: 100vh;
+  background: var(--hk-canvas);
+  padding: var(--hk-s5) var(--hk-s4) var(--hk-s8);
+}
+
+.brandBar {
+  max-width: 720px;
+  margin: 0 auto var(--hk-s5);
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-family: var(--hk-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--hk-pine-deep);
+}
+
+.brandNote {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+.sheet {
+  max-width: 720px;
+  margin: 0 auto;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+}
+
+.headline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.company {
+  font-family: var(--hk-font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--hk-ink);
+  line-height: 1.2;
+}
+
+.occasion {
+  font-size: 14px;
+  color: var(--hk-muted);
+}
+
+/* ---- State banners ---- */
+
+.banner {
+  display: flex;
+  gap: var(--hk-s3);
+  padding: var(--hk-s4);
+  border-radius: var(--hk-r-md);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.bannerBody {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.bannerAccepted {
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+}
+
+.bannerExpired {
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+}
+
+.bannerDeclined {
+  background: var(--hk-canvas);
+  border: 1px solid var(--hk-border);
+  color: var(--hk-ink-2);
+}
+
+/* ---- Lines ---- */
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  overflow: hidden;
+}
+
+.lineHead,
+.line {
+  display: grid;
+  grid-template-columns: 1fr 60px 100px 110px;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  align-items: baseline;
+}
+
+.lineHead {
+  background: var(--hk-canvas);
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.line + .line {
+  border-top: 1px solid var(--hk-border);
+}
+
+.lineDesc {
+  font-size: 14px;
+  color: var(--hk-ink);
+}
+
+.num {
+  text-align: right;
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  color: var(--hk-ink-2);
+}
+
+.lineTotal {
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.mobileLabel {
+  display: none;
+}
+
+/* ---- Totals ---- */
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  color: var(--hk-ink-2);
+}
+
+/* The number they will be invoiced. 18px bold, so if the gold family is
+   ever used here it clears the token contract's ≥16px-bold rule. */
+.grandTotal {
+  margin-top: var(--hk-s2);
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-border);
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hk-ink);
+}
+
+.grandTotal .num {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hk-ink);
+}
+
+.taxNote {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.notes {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--hk-ink-2);
+}
+
+.notesTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+  margin-bottom: 6px;
+}
+
+.validity {
+  font-size: 14px;
+  color: var(--hk-ink-2);
+}
+
+.error {
+  color: var(--hk-terracotta);
+  font-size: 13.5px;
+}
+
+/* ---- Confirm ---- */
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s4);
+  background: var(--hk-canvas);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+}
+
+.confirmTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.confirmBody {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.input {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 44px;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-2);
+}
+
+.checkboxRow input {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  flex-shrink: 0;
+  accent-color: var(--hk-pine);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.help {
+  border-top: 1px solid var(--hk-border);
+  padding-top: var(--hk-s4);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-muted);
+}
+
+.help a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
+/* A four-column table at 360px would scroll the page sideways. Below the
+   breakpoint each line becomes a small card instead. */
+@media (max-width: 620px) {
+  .sheet {
+    padding: var(--hk-s4);
+  }
+
+  .lineHead {
+    display: none;
+  }
+
+  .line {
+    grid-template-columns: 1fr auto;
+    row-gap: 4px;
+  }
+
+  .lineDesc {
+    grid-column: 1 / -1;
+    font-weight: 500;
+  }
+
+  .lineCell,
+  .lineTotal {
+    text-align: left;
+  }
+
+  .lineTotal {
+    text-align: right;
+  }
+
+  .mobileLabel {
+    display: inline;
+    color: var(--hk-muted-2);
+  }
+}

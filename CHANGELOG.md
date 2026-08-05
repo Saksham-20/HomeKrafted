@@ -61,6 +61,51 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   visible: a monthly pickle box is an ordinary thing for a home kitchen to
   sell.
 
+- **The corporate funnel — a queue, a notification, and a quote somebody
+  can actually accept.** `CorporateInquiry` had a live public POST, a
+  203-line form behind it, and **nothing anywhere that read a row**. One
+  Diwali corporate order is ₹5k–₹50k against ₹120/day for a meal plan, so
+  the leads sitting unread were the most valuable thing being discarded.
+
+  `/admin/corporate` is the missing reader. Every admin is now notified on
+  inbound, `void`-called outside the write, capped at ten recipients, and
+  the public POST is throttled to 5/60s like its sibling intake — it had
+  been on the app-wide 120/min while fanning out a message per admin per
+  channel.
+
+  **`CorporateQuote` + `CorporateQuoteLine`**, and a tokenised public page
+  at `/corporate/quote/[token]` — no login, because procurement will not
+  make an account to accept a quote. Rules worth not undoing:
+
+  - **The token is a bearer credential.** Only its SHA-256 hash is stored,
+    like `PasswordResetToken`. Not-found and revoked are byte-identical
+    responses, so a stale link cannot be probed for whether it was ever
+    real. Re-sending rotates it, killing the previous link.
+  - **Accepting is a POST, never a GET.** An email-security scanner
+    following the link must not accept a ₹50,000 order.
+  - **The claim is a conditional `updateMany`.** A link forwarded to
+    finance and opened twice at once accepts exactly once —
+    `IdempotencyService` cannot help, it is user-scoped and this caller is
+    anonymous. The losers get the receipt, not a 409.
+  - **Every line names a kitchen, even a fully custom one.** Seller order
+    visibility, notifications and payouts all resolve ownership through
+    the vendor, so a line naming none is work nobody can see and money
+    nobody can be paid.
+  - **`total` is stored, and tax and delivery are their own columns.**
+    Nobody can accept a number that is not the number they will be
+    invoiced.
+  - **Acceptance creates no `Order`s.** `Order.userId`,
+    `OrderItem.addressId` and `OrderShipment.addressId` are all required
+    and a `CorporateInquiry` has no user and no address — the schema
+    cannot express a corporate order. Writing one anyway would push an
+    uncollected five-figure amount into GMV, into the payouts queue as a
+    real debt to a home cook, and through `computeCashback` as ~5%
+    credited to an account auto-created for a stranger. The screen says so
+    where an admin will read it.
+
+  28 e2e cases, including the concurrent-accept race and the four token
+  states.
+
 - **A HomeKrafter can list a handcrafted gift.** `kind`, `shippingScope`
   and `isSnack` shipped on `Product` with readers and **no write path** —
   nothing but a direct database edit could set them, so `/gifts` was live
@@ -122,6 +167,14 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
   route statically eligible — so the build fetched the catalogue at build
   time and failed when the API wasn't up. `force-dynamic`, like its
   siblings.
+- `StatusPill` knew none of the corporate or quote statuses, so a sent
+  quote and an expired one rendered identically. Added, plus a `tone`
+  override for the one real collision: an accepted *snack order* is still
+  in progress (gold), while an accepted *quote* is the outcome the whole
+  funnel exists for (success).
+- The generated corporate migration would have failed on production —
+  `ADD COLUMN "updatedAt" NOT NULL` with no default against a table that
+  already holds rows. Backfilled from `createdAt`.
 - `mapProduct` never returned `isSnack`, so the seller's edit form read the
   "also list this on my snacks menu" checkbox as unticked on a listing that
   was already on the menu — and saving would quietly have taken it off.

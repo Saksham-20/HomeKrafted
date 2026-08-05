@@ -1,4 +1,12 @@
-import type { CorporateInquiry } from "@/lib/types";
+import type {
+  AdminCorporateInquiry,
+  AdminCorporateInquiryDetail,
+  CorporateInquiry,
+  CorporateInquiryStatus,
+  CorporateQuote,
+  CorporateQuoteInput,
+  PublicCorporateQuote,
+} from "@/lib/types";
 import { corporateBudgetRanges, corporateOccasions } from "@/lib/data";
 import { http, isMockMode } from "./http";
 
@@ -10,7 +18,7 @@ export async function getCorporateBudgetRanges(): Promise<string[]> {
   return corporateBudgetRanges;
 }
 
-/** Mock-mode-only in-memory inquiry "table" — also the *only* store of inquiries in real mode, since there's still no list/review endpoint (`docs/API.md`: "seamed for M11" admin panel) — `getCorporateInquiries` below stays mock-only either way. */
+/** Mock-mode-only in-memory inquiry "table". Real mode reads `GET /admin/corporate-inquiries` (M20). */
 const corporateInquiries: CorporateInquiry[] = [];
 
 export interface CreateCorporateInquiryInput {
@@ -22,6 +30,8 @@ export interface CreateCorporateInquiryInput {
   estimatedQuantity: number;
   budgetRange?: string;
   message: string;
+  /** "50 hampers for clients" and "20kg of namkeen for a wedding" are different conversations. */
+  orderType?: "corporate" | "bulk";
 }
 
 /** Real mode: `POST /corporate-inquiries` (`@Public()` — no account needed to submit a bulk-gifting inquiry). */
@@ -38,6 +48,7 @@ export async function createCorporateInquiry(input: CreateCorporateInquiryInput)
       budgetRange: input.budgetRange || undefined,
       message: input.message,
       status: "new",
+      orderType: input.orderType ?? "corporate",
       createdAt: new Date().toISOString(),
     };
     corporateInquiries.push(inquiry);
@@ -55,12 +66,147 @@ export async function createCorporateInquiry(input: CreateCorporateInquiryInput)
       estimatedQuantity: input.estimatedQuantity,
       budgetRange: input.budgetRange,
       message: input.message,
+      orderType: input.orderType,
     },
     { auth: false },
   );
 }
 
-/** Still mock-only — no list endpoint yet (seamed for M11 admin panel), so this can never reflect a real submission either way. */
+/** Mock-only. The real admin reader is `getAdminCorporateInquiries` below. */
 export async function getCorporateInquiries(): Promise<CorporateInquiry[]> {
   return corporateInquiries;
+}
+
+/* --------------------------------------------------------------------------
+ * The admin queue (M20).
+ *
+ * `CorporateInquiry` had a live public POST, a form behind it, and nothing
+ * anywhere that read a row. This is the missing reader.
+ * ------------------------------------------------------------------------ */
+
+export interface AdminCorporateList {
+  items: AdminCorporateInquiry[];
+  summary: { unworked: number; contacted: number; quoted: number };
+}
+
+export async function getAdminCorporateInquiries(
+  status?: CorporateInquiryStatus,
+): Promise<AdminCorporateList> {
+  if (isMockMode()) {
+    return { items: [], summary: { unworked: 0, contacted: 0, quoted: 0 } };
+  }
+  return http.get<AdminCorporateList>("/admin/corporate-inquiries", {
+    query: status ? { status } : undefined,
+  });
+}
+
+export async function getAdminCorporateInquiry(
+  id: string,
+): Promise<AdminCorporateInquiryDetail | undefined> {
+  if (isMockMode()) return undefined;
+  try {
+    return await http.get<AdminCorporateInquiryDetail>(
+      `/admin/corporate-inquiries/${encodeURIComponent(id)}`,
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+export async function setCorporateInquiryStatus(
+  id: string,
+  status: CorporateInquiryStatus,
+): Promise<AdminCorporateInquiry> {
+  return http.patch<AdminCorporateInquiry>(
+    `/admin/corporate-inquiries/${encodeURIComponent(id)}/status`,
+    { status },
+  );
+}
+
+export async function setCorporateInquiryNotes(
+  id: string,
+  internalNotes: string,
+): Promise<AdminCorporateInquiry> {
+  return http.patch<AdminCorporateInquiry>(
+    `/admin/corporate-inquiries/${encodeURIComponent(id)}/notes`,
+    { internalNotes },
+  );
+}
+
+export async function createCorporateQuote(
+  inquiryId: string,
+  input: CorporateQuoteInput,
+): Promise<CorporateQuote> {
+  return http.post<CorporateQuote>(
+    `/admin/corporate-inquiries/${encodeURIComponent(inquiryId)}/quotes`,
+    input,
+  );
+}
+
+export async function updateCorporateQuote(
+  quoteId: string,
+  input: Partial<CorporateQuoteInput>,
+): Promise<CorporateQuote> {
+  return http.patch<CorporateQuote>(
+    `/admin/corporate-inquiries/quotes/${encodeURIComponent(quoteId)}`,
+    input,
+  );
+}
+
+/** Mints the accept link and emails it. Re-sending rotates the token, killing the old link. */
+export async function sendCorporateQuote(quoteId: string): Promise<CorporateQuote> {
+  return http.post<CorporateQuote>(
+    `/admin/corporate-inquiries/quotes/${encodeURIComponent(quoteId)}/send`,
+    {},
+  );
+}
+
+export async function revokeCorporateQuoteLink(quoteId: string): Promise<CorporateQuote> {
+  return http.delete<CorporateQuote>(
+    `/admin/corporate-inquiries/quotes/${encodeURIComponent(quoteId)}/link`,
+  );
+}
+
+/* --------------------------------------------------------------------------
+ * The public quote — what a logged-out procurement manager opens.
+ * ------------------------------------------------------------------------ */
+
+/**
+ * `undefined` means the token resolves to nothing: never found, or
+ * revoked. The server makes those two indistinguishable on purpose, and
+ * this must not try to tell them apart either.
+ */
+export async function getPublicQuote(token: string): Promise<PublicCorporateQuote | undefined> {
+  try {
+    return await http.get<PublicCorporateQuote>(
+      `/corporate/quotes/${encodeURIComponent(token)}`,
+      { auth: false },
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Accepting. **Errors are deliberately not swallowed** — a 409 on an
+ * expired quote carries a message the customer needs to read, and this is
+ * the one action on the page.
+ */
+export async function acceptPublicQuote(
+  token: string,
+  acceptedName: string,
+): Promise<PublicCorporateQuote> {
+  return http.post<PublicCorporateQuote>(
+    `/corporate/quotes/${encodeURIComponent(token)}/accept`,
+    { acceptedName },
+    { auth: false },
+  );
+}
+
+export async function declinePublicQuote(token: string): Promise<PublicCorporateQuote> {
+  return http.post<PublicCorporateQuote>(
+    `/corporate/quotes/${encodeURIComponent(token)}/decline`,
+    {},
+    { auth: false },
+  );
 }

@@ -50,6 +50,20 @@ const TONE_BY_STATUS: Record<string, StatusPillTone> = {
   hidden: "danger",
   flagged: "gold",
   visible: "success",
+  // CorporateInquiryStatus + CorporateQuoteStatus (M20 `/admin/corporate`).
+  // `new`, `flagged` and `accepted` already resolve above; `accepted`
+  // resolves to gold because a *snack order* that has been accepted is
+  // still in progress. On a quote it is the success event, so that caller
+  // passes an explicit `tone` — see the prop below. Without these the
+  // whole funnel rendered neutral, making a sent quote and an expired one
+  // look identical.
+  contacted: "pine",
+  quoted: "solid",
+  closed: "neutral",
+  draft: "neutral",
+  sent: "solid",
+  declined: "danger",
+  expired: "gold",
 };
 
 export function statusTone(status: string): StatusPillTone {
@@ -67,12 +81,21 @@ export interface StatusPillProps {
   status: string;
   /** Override the auto-derived (title-cased) label — e.g. a role string that should read differently than its raw value. */
   label?: string;
+  /**
+   * Override the tone for a status whose meaning differs by domain.
+   *
+   * The one real collision is `accepted`: an accepted *snack order* is
+   * still in progress (gold), while an accepted *quote* is the outcome the
+   * whole funnel exists for (success). One map cannot serve both, and
+   * renaming either value would change a stored enum to fix a colour.
+   */
+  tone?: StatusPillTone;
   className?: string;
 }
 
-export function StatusPill({ status, label, className }: StatusPillProps) {
+export function StatusPill({ status, label, tone, className }: StatusPillProps) {
   return (
-    <span className={clsx(styles.pill, styles[statusTone(status)], className)}>
+    <span className={clsx(styles.pill, styles[tone ?? statusTone(status)], className)}>
       {label ?? titleCase(status)}
     </span>
   );

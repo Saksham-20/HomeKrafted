@@ -18,6 +18,7 @@ export interface CorporateInquiryClientProps {
 }
 
 const EMPTY_FORM = {
+  orderType: "corporate" as "corporate" | "bulk",
   companyName: "",
   contactName: "",
   email: "",
@@ -71,6 +72,7 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
         email: form.email.trim(),
         phone: form.phone.trim(),
         occasion: form.occasion || undefined,
+        orderType: form.orderType,
         estimatedQuantity: quantity,
         budgetRange: form.budgetRange || undefined,
         message: form.message.trim(),
@@ -163,6 +165,27 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
                 onChange={(event) => set("phone", event.target.value)}
               />
             </label>
+            <div className={styles.fieldWide}>
+              {/*
+                "50 hampers for Diwali clients" and "20 kg of namkeen for a
+                wedding" are different conversations — different lead time,
+                different person, different margin. Asking here is what
+                lets the queue be worked in the right order.
+              */}
+              <span className={styles.fieldLabel}>What kind of order is this?</span>
+              <div className={styles.chipRow}>
+                <Chip
+                  label="Corporate gifting"
+                  selected={form.orderType === "corporate"}
+                  onClick={() => set("orderType", "corporate")}
+                />
+                <Chip
+                  label="Bulk order"
+                  selected={form.orderType === "bulk"}
+                  onClick={() => set("orderType", "bulk")}
+                />
+              </div>
+            </div>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Estimated quantity</span>
               <input

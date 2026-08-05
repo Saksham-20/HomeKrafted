@@ -5,6 +5,8 @@ import { OrdersModule } from '../orders/orders.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { CatalogModule } from '../catalog/catalog.module';
+import { CorporateModule } from '../corporate/corporate.module';
+import { NotificationProvidersModule } from '../notifications/providers/providers.module';
 import { AdminAuditLogService } from './audit-log.service';
 import { AdminSettingsController } from './settings.controller';
 import { PublicSettingsController } from './public-settings.controller';
@@ -29,6 +31,8 @@ import { AdminCollectionsController } from './collections.controller';
 import { AdminCollectionsService } from './collections.service';
 import { AdminDashboardController } from './dashboard.controller';
 import { AdminDashboardService } from './dashboard.service';
+import { AdminCorporateController } from './corporate.controller';
+import { AdminCorporateService } from './corporate.service';
 
 /**
  * M8.3c — the unscoped admin-panel API surface, the inverse of
@@ -54,6 +58,14 @@ import { AdminDashboardService } from './dashboard.service';
     NotificationsModule,
     ReviewsModule,
     CatalogModule,
+    // M20 — for `CorporateQuotesService`. Quote *rules* live in the
+    // corporate module beside the public accept path; only the admin
+    // actions that drive them live here.
+    CorporateModule,
+    // M20 — `EmailProviderService`, so sending a quote actually emails the
+    // link. Without it `sentAt` would be a claim nothing backed up, and
+    // the token — returned exactly once and never stored — would be lost.
+    NotificationProvidersModule,
   ],
   controllers: [
     // Unauthenticated, unlike everything else here — see the controller's
@@ -68,6 +80,7 @@ import { AdminDashboardService } from './dashboard.service';
     AdminSupportController,
     AdminWalletController,
     AdminCollectionsController,
+    AdminCorporateController,
     AdminAuditController,
     AdminSettingsController,
   ],
@@ -81,6 +94,7 @@ import { AdminDashboardService } from './dashboard.service';
     AdminSupportService,
     AdminWalletService,
     AdminCollectionsService,
+    AdminCorporateService,
     AdminDashboardService,
     AdminSettingsService,
     AdminExportsService,
