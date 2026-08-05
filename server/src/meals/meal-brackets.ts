@@ -30,6 +30,18 @@ export const DEFAULT_MEAL_WINDOWS: Record<MealTypeKey, { from: string; to: strin
   dinner: { from: '19:00', to: '22:00' },
 };
 
+/**
+ * The window for a plan that is **not** one of the three meals — a monthly
+ * pickle box, a weekly loaf.
+ *
+ * Deliberately wide. A meal window is narrow because eating times are a
+ * real constraint nobody argues with; a delivery of something shelf-stable
+ * has no such constraint, so the only sensible limit is the kitchen's own
+ * hours. Where the kitchen has stated none, this is the fallback, and it is
+ * a normal working day rather than 24 hours — a home cook is not up at 3am.
+ */
+export const DEFAULT_DELIVERY_WINDOW = { from: '09:00', to: '21:00' };
+
 /** `"12:30"` → `750`. Returns `null` for anything that isn't `HH:MM`. */
 export function parseTimeLabel(label: string): number | null {
   const match = /^(\d{2}):(\d{2})$/.exec(label);
@@ -77,8 +89,14 @@ export interface BracketOptions {
  * noon). That is a real configuration error, and an empty picker with an
  * explanation beats a picker offering a time nobody will cook.
  */
-export function bracketsFor(mealType: MealTypeKey, options: BracketOptions = {}): string[] {
-  const window = DEFAULT_MEAL_WINDOWS[mealType];
+export function bracketsFor(
+  mealType: MealTypeKey | null | undefined,
+  options: BracketOptions = {},
+): string[] {
+  // `null` is a plan that is not a meal — a monthly box, a weekly loaf.
+  // It gets the general delivery window rather than being forced into
+  // somebody's idea of lunchtime.
+  const window = mealType ? DEFAULT_MEAL_WINDOWS[mealType] : DEFAULT_DELIVERY_WINDOW;
   let from = parseTimeLabel(window.from)!;
   let to = parseTimeLabel(window.to)!;
 
@@ -106,7 +124,7 @@ function roundUpToBracket(minutesOfDay: number): number {
 /** Is `bracketStart` one this kitchen actually offers for this meal? */
 export function isBracketAllowed(
   bracketStart: string,
-  mealType: MealTypeKey,
+  mealType: MealTypeKey | null | undefined,
   options: BracketOptions = {},
 ): boolean {
   return bracketsFor(mealType, options).includes(bracketStart);

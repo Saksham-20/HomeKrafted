@@ -595,3 +595,36 @@ without a backfill.
   Twelve tiles ordered by `sortOrder`, two nav columns grouped by
   `group`. Ties fall back to name so an unset `sortOrder` is stable
   rather than random.
+
+### Notes for M20 — generalising the sections
+
+The sections of the site stopped being closed sets. Before this, adding a
+new kind of subscription or a new snack meant a migration:
+`MealPlan.mealType` was a required `breakfast|lunch|dinner` enum, and
+`Snack` was an entirely separate table from `Product`.
+
+- **`Product.isSubscribable` and `Product.isSnack`** follow the pattern
+  `isHamper` established in M18: one catalogue entity, capability flags,
+  and each section of the site is a *filter* over it. The alternative — a
+  table per section — is exactly what produced `Snack`, which now needs
+  its own availability, its own seller resolution and its own moderation
+  and only partly has them. A HomeKrafter sets the flags; an admin
+  overrides through `moderationStatus`, same as any listing.
+- **`MealPlan.mealType` is nullable, with `slotLabel` beside it.** A
+  kitchen wanting to sell a monthly pickle box should not wait for us to
+  ship an enum value. When `mealType` is set, the plan still gets that
+  meal's sensible delivery window; when it is `null`, windows come from
+  the kitchen's own hours and fall back to a normal working day.
+  `bracketsFor(null)` is the generalised path.
+- **`MealPlan.productId` is optional, `onDelete: SetNull`.** A plan can be
+  backed by an existing listing instead of retyping it — and deleting that
+  listing must never delete subscriptions people have already paid for.
+- **The seeded `Snack` rows keep working.** `SnacksService.list` merges
+  them with flagged products rather than replacing them, so nothing a
+  kitchen already listed disappears. New items should go through
+  `Product`; don't add a third table.
+- **An untagged product reads as non-veg on the snacks menu**, not veg.
+  `DietaryTag` has no "non-veg" member, so absence is genuinely unknown —
+  and the two guesses are not symmetric. A vegetarian buyer relies on that
+  label, so the wrong "veg" is harmful and the wrong "non-veg" is only
+  unhelpful.

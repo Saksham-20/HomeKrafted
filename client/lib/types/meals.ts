@@ -42,7 +42,20 @@ export interface MealPlan {
   sellerId: ID;
   name: string;
   description: string;
-  mealType: MealType;
+  /**
+   * Optional as of M20 — a plan no longer has to be one of three meals.
+   * When absent the plan is some other cadence and `slotLabel` names it.
+   * **Render `slotName`, not this**: the server already resolved which of
+   * the two applies, and re-deriving it client-side is how the two
+   * disagree.
+   */
+  mealType?: MealType;
+  /** "Monthly pickle box" — free text, used when `mealType` is absent. */
+  slotLabel?: string;
+  /** What to call this plan on a card. Always present. */
+  slotName: string;
+  /** Set when the plan is backed by one of the kitchen's existing listings. */
+  productId?: string;
   diet: MealDiet;
   pricePerMeal: number;
   servingSize?: string;

@@ -606,6 +606,33 @@ wired, `amountPaid` + `mealsRemaining` is the seam to convert against.
 | `PATCH /meal-subscriptions/:id/deliveries/:deliveryId/skip` | consumer | The meal is **owed, not lost**: the cycle grows a day at the far end. |
 | `DELETE /meal-subscriptions/:id` | consumer | Terminal, and **moves no money**. A refund is an admin decision through `POST /wallet/adjust`, for the same reason M15 refuses to auto-refund a return: the loss lands on a home cook who already bought the ingredients. |
 
+**M20 — a plan is no longer necessarily a meal.** `mealType` is optional;
+when it is absent the plan is some other cadence (a monthly box, a weekly
+loaf) and `slotLabel` names it. **Render `slotName`**, which the server
+resolves from whichever applies — re-deriving it client-side is how the two
+disagree. Delivery windows for a plan with no `mealType` come from the
+kitchen's own hours rather than a mealtime.
+
+### Seller — subscription plans (M20, `server/src/seller/meal-plans.controller.ts`)
+
+`@Roles('seller')`, scoped to the caller's own `sellerId`. Until these
+existed a kitchen could not create a plan at all, so "HomeKrafters decide
+what they sell on subscription" was true of the intention and not of the
+software.
+
+| Endpoint | Notes |
+|---|---|
+| `GET /seller/meal-plans` | The kitchen's own plans, with live subscriber counts. |
+| `POST /seller/meal-plans` | `mealType` optional; supply `slotLabel` for anything that is not breakfast/lunch/dinner. `productId` optionally backs the plan with one of their existing listings — a listing belonging to someone else is a **400**. |
+| `PATCH /seller/meal-plans/:id` | A price change applies to **new** subscribers only; existing `MealSubscription` rows snapshotted their price and are never re-read. |
+| `DELETE /seller/meal-plans/:id` | Closes to new subscribers. Does **not** touch people already on it — they paid for a run of meals and a kitchen changing its mind cannot cancel a prepaid commitment. |
+| `GET /seller/meal-plans/deliveries?days=14` | The cook's work queue: every meal owed, soonest first, with the customer and address. |
+| `PATCH /seller/meal-plans/deliveries/:id/delivered` | Marks one meal delivered. **The only path that decrements `mealsRemaining`** — a skipped meal is still owed, so only an actual delivery spends one. Hitting zero expires the subscription. |
+
+`moderationStatus` is absent from both seller DTOs, so `forbidNonWhitelisted`
+turns an attempt to set it into a 400 — the same rule that stops a seller
+awarding themselves a verification badge.
+
 Response notes worth branching on:
 
 - `MealPlan.brackets` carries the 30-minute windows the kitchen actually

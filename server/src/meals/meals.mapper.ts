@@ -17,7 +17,7 @@ export interface MapPlanOptions {
 }
 
 export function mapMealPlan(plan: MealPlan, options: MapPlanOptions = {}) {
-  const brackets = bracketsFor(plan.mealType as MealTypeKey, {
+  const brackets = bracketsFor(plan.mealType as MealTypeKey | null, {
     opensAt: options.opensAt,
     closesAt: options.closesAt,
   });
@@ -35,6 +35,16 @@ export function mapMealPlan(plan: MealPlan, options: MapPlanOptions = {}) {
     name: plan.name,
     description: plan.description,
     mealType: plan.mealType,
+    slotLabel: plan.slotLabel ?? undefined,
+    productId: plan.productId ?? undefined,
+    /**
+     * What to call this on a card, resolved server-side so no client has to
+     * re-derive it and disagree. A plan is a meal, or it is whatever the
+     * kitchen named it, or — failing both — just a plan.
+     */
+    slotName: plan.mealType
+      ? plan.mealType.charAt(0).toUpperCase() + plan.mealType.slice(1)
+      : (plan.slotLabel ?? 'Subscription'),
     diet: mapDiet(plan.diet),
     pricePerMeal: Number(plan.pricePerMeal),
     servingSize: plan.servingSize ?? undefined,

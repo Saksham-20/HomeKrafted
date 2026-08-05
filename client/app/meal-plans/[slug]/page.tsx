@@ -11,12 +11,6 @@ import styles from "./MealPlanDetail.module.css";
 
 export const revalidate = 60;
 
-const MEAL_LABEL = {
-  breakfast: "Breakfast",
-  lunch: "Lunch",
-  dinner: "Dinner",
-} as const;
-
 export async function generateMetadata({
   params,
 }: {
@@ -91,7 +85,7 @@ export default async function MealPlanPage({
 
         <div className={styles.summary}>
           <span className={styles.mealType}>
-            {MEAL_LABEL[plan.mealType]} · {plan.diet === "veg" ? "Veg" : "Non-veg"}
+            {plan.slotName} · {plan.diet === "veg" ? "Veg" : "Non-veg"}
           </span>
           <h1 className={styles.title}>{plan.name}</h1>
 
@@ -112,7 +106,9 @@ export default async function MealPlanPage({
 
           <p className={styles.price}>
             {formatCurrency(plan.pricePerMeal)}
-            <span className={styles.perMeal}> per meal</span>
+            <span className={styles.perMeal}>
+              {plan.mealType ? " per meal" : " per delivery"}
+            </span>
           </p>
 
           {plan.seatsLeft !== null && (
@@ -149,7 +145,7 @@ export default async function MealPlanPage({
           </p>
         ) : !hasBrackets ? (
           <p className={styles.blocked}>
-            {plan.vendor?.name ?? "This kitchen"} has not opened any {plan.mealType} delivery
+            {plan.vendor?.name ?? "This kitchen"} has not opened any {plan.slotName.toLowerCase()} delivery
             windows yet. Nothing can be scheduled until they do.
           </p>
         ) : (

@@ -13,6 +13,8 @@ import { SellerBookingsController } from './bookings.controller';
 import { SellerBookingsService } from './bookings.service';
 import { SellerMenuController } from './menu.controller';
 import { SellerMenuService } from './menu.service';
+import { SellerMealPlansController } from './meal-plans.controller';
+import { SellerMealPlansService } from './meal-plans.service';
 import { SellerSnackOrdersController } from './snack-orders.controller';
 import { SellerSnackOrdersService } from './snack-orders.service';
 import { SellerPayoutsController } from './payouts.controller';
@@ -49,6 +51,7 @@ import { OrdersModule } from '../orders/orders.module';
     SellerReviewsController,
     SellerBookingsController,
     SellerMenuController,
+    SellerMealPlansController,
     SellerSnackOrdersController,
     SellerPayoutsController,
     SellerProfileController,
@@ -61,6 +64,7 @@ import { OrdersModule } from '../orders/orders.module';
     SellerReviewsService,
     SellerBookingsService,
     SellerMenuService,
+    SellerMealPlansService,
     SellerSnackOrdersService,
     SellerPayoutsService,
     SellerProfileService,

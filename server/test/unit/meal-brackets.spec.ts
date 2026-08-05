@@ -89,6 +89,27 @@ describe('meal brackets', () => {
       expect(bracketsFor('breakfast')[0]).toBe('07:00');
       expect(bracketsFor('dinner')[0]).toBe('19:00');
     });
+
+    // M20: a plan no longer has to be one of the three meals. A monthly
+    // pickle box has no mealtime, so it gets the general delivery window
+    // rather than being forced into somebody's idea of lunch.
+    it('gives a non-meal plan the general delivery window', () => {
+      const brackets = bracketsFor(null);
+      // 09:00–21:00 = 12 hours = 24 half-hour brackets, last starting 20:30.
+      expect(brackets[0]).toBe('09:00');
+      expect(brackets[brackets.length - 1]).toBe('20:30');
+      expect(brackets).toHaveLength(24);
+    });
+
+    it('still narrows a non-meal plan to the kitchen hours', () => {
+      // A kitchen open 10:00–12:00 offers four windows, not twenty-four.
+      expect(bracketsFor(undefined, { opensAt: '10:00', closesAt: '12:00' })).toEqual([
+        '10:00',
+        '10:30',
+        '11:00',
+        '11:30',
+      ]);
+    });
   });
 
   describe('isBracketAllowed', () => {

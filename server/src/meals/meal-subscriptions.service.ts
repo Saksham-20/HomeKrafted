@@ -77,13 +77,16 @@ export class MealSubscriptionsService {
       const profile = plan.vendor.profile;
 
       if (
-        !isBracketAllowed(dto.bracketStart, plan.mealType as MealTypeKey, {
+        !isBracketAllowed(dto.bracketStart, plan.mealType as MealTypeKey | null, {
           opensAt: profile?.opensAt,
           closesAt: profile?.closesAt,
         })
       ) {
         throw new BadRequestException(
-          `${plan.vendor.name} does not deliver ${plan.mealType} at ${dto.bracketStart}. Pick one of the offered windows.`,
+          // `mealType` is optional now, so the message cannot assume one.
+          // "does not deliver null at 20:00" is the kind of copy that ships
+          // when a field quietly becomes nullable.
+          `${plan.vendor.name} does not deliver ${plan.mealType ?? plan.slotLabel ?? 'this plan'} at ${dto.bracketStart}. Pick one of the offered windows.`,
         );
       }
 

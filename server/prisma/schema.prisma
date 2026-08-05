@@ -1201,6 +1201,22 @@ model Product {
   /// buyer-assembled gift box (M3) kept only so historical orders still
   /// resolve.
   isHamper            Boolean                 @default(false)
+  /// M20 — capability flags, the same idea `isHamper` established: one
+  /// catalogue entity, and each section of the site is a *filter* over it
+  /// rather than its own table with its own copy of pricing, availability,
+  /// moderation, reviews and search.
+  ///
+  /// `isSubscribable` says a HomeKrafter is willing to sell this on a
+  /// recurring basis; `isSnack` puts it on the WhatsApp snacks menu. Both
+  /// are the kitchen's own decision, and an admin can override either
+  /// through `moderationStatus` exactly as for any other listing.
+  ///
+  /// The alternative — a table per section — is what produced `Snack` as a
+  /// separate model, and that table now needs its own availability,
+  /// its own seller resolution and its own moderation, none of which it
+  /// fully has. Don't add a third.
+  isSubscribable      Boolean                 @default(false)
+  isSnack             Boolean                 @default(false)
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -1212,10 +1228,16 @@ model Product {
   orderItems    OrderItem[]
   wishlistItems WishlistItem[]
   hamperItems   HamperItem[]
+  mealPlans     MealPlan[]
 
   @@index([vendorId])
   @@index([categoryId])
   @@index([isHamper])
+  /// The two M20 section filters. Both are queried with `moderationStatus`
+  /// and `isAvailable` alongside them, so the index earns its keep on the
+  /// listing pages rather than only on an admin screen.
+  @@index([isSubscribable])
+  @@index([isSnack])
 }
 
 model ProductOccasion {
@@ -1787,7 +1809,31 @@ model MealPlan {
 
   name        String
   description String
-  mealType    MealType
+
+  /// **Optional as of M20.** A plan used to have to be breakfast, lunch or
+  /// dinner, which made "monthly pickle box" or "weekly bread" impossible
+  /// to express without a migration for every new idea.
+  ///
+  /// When set, it still picks the sensible default delivery window for that
+  /// meal (nobody wants dinner at 15:00). When `null`, the plan is some
+  /// other cadence and its windows come from the kitchen's own hours —
+  /// see `bracketsFor`.
+  mealType    MealType?
+  /// What the kitchen calls this when it is not one of the three meals:
+  /// "Monthly pickle box", "Weekly sourdough". Free text on purpose — the
+  /// whole point is that a HomeKrafter does not need us to ship an enum
+  /// value before they can sell something.
+  slotLabel   String?
+
+  /// A plan can be backed by a listing the kitchen already has, rather than
+  /// re-typing its name, description and photo. Optional because a tiffin
+  /// service is a real plan with no single product behind it.
+  ///
+  /// `onDelete: SetNull` — deleting a listing must not silently delete the
+  /// subscriptions people have paid for.
+  productId   String?
+  product     Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+
   diet        DietType
 
   /// Per meal, not per cycle. The cycle price is this times the meal count,

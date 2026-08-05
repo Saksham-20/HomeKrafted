@@ -31,12 +31,6 @@ export const metadata: Metadata = pageMetadata({
  */
 export const dynamic = "force-dynamic";
 
-const MEAL_LABEL = {
-  breakfast: "Breakfast",
-  lunch: "Lunch",
-  dinner: "Dinner",
-} as const;
-
 /**
  * `/meal-plans` — the catalogue of meal subscriptions.
  *
@@ -104,7 +98,7 @@ export default async function MealPlansPage() {
 
               <div className={styles.cardBody}>
                 <span className={styles.mealType}>
-                  {MEAL_LABEL[plan.mealType]} · {plan.diet === "veg" ? "Veg" : "Non-veg"}
+                  {plan.slotName} · {plan.diet === "veg" ? "Veg" : "Non-veg"}
                 </span>
                 <h2 className={styles.cardTitle}>
                   <Link href={`/meal-plans/${plan.slug}`}>{plan.name}</Link>
@@ -120,7 +114,11 @@ export default async function MealPlansPage() {
                 <div className={styles.cardFoot}>
                   <span className={styles.price}>
                     {formatCurrency(plan.pricePerMeal)}
-                    <span className={styles.perMeal}> / meal</span>
+                    {/* "per meal" is wrong on a monthly box. The unit
+                        follows what the plan actually is. */}
+                    <span className={styles.perMeal}>
+                      {plan.mealType ? " / meal" : " / delivery"}
+                    </span>
                   </span>
                   {/*
                     `seatsLeft === null` means the kitchen set no ceiling,

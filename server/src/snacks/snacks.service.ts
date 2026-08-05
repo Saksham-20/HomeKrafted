@@ -20,6 +20,78 @@ import { mapSnack } from './snacks.mapper';
 export class SnacksService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Listings a HomeKrafter has put on the snacks menu (M20, `isSnack`).
+   *
+   * The menu is no longer only the `Snack` table. That table is a second
+   * catalogue with its own availability, its own nullable seller and its
+   * own missing moderation — the exact duplication M18 avoided by making a
+   * hamper a `Product` flag. New items go through `Product`; the seeded
+   * `Snack` rows keep working and keep being served alongside them, so
+   * nothing anybody already listed disappears.
+   */
+  private async listFlaggedProducts(query: ListSnacksQueryDto) {
+    const terms = query.q ? query.q.split(/\s+/).filter(Boolean).slice(0, 6) : [];
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        isSnack: true,
+        isAvailable: true,
+        moderationStatus: 'active',
+        ...(terms.length > 0
+          ? {
+              AND: terms.map((term) => ({
+                OR: [
+                  { name: { contains: term, mode: 'insensitive' as const } },
+                  { description: { contains: term, mode: 'insensitive' as const } },
+                ],
+              })),
+            }
+          : {}),
+      },
+      // A `Product` has no direct `seller` — ownership runs through the
+      // vendor, which is also where the coordinates for the radius filter
+      // live.
+      include: { vendor: { include: { seller: true } }, weightOptions: true },
+      orderBy: { name: 'asc' },
+    });
+
+    return products.map((product) => {
+      const option =
+        product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ??
+        product.weightOptions[0];
+      return {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        description: product.description,
+        price: option ? Number(option.price) : 0,
+        // The `Snack` table's own category enum does not apply to a
+        // `Product`; the taxonomy that does is `Category`. Reported as the
+        // generic bucket rather than guessing a wrong one.
+        category: 'savoury' as const,
+        /**
+         * Veg **only** when the kitchen said so explicitly.
+         *
+         * `DietaryTag` has no "non-veg" member, so an untagged listing is
+         * genuinely unknown. The two ways of guessing are not symmetric: a
+         * vegetarian buyer relies on this label, so calling an untagged item
+         * veg is a claim that can be wrong in a way that matters. Calling a
+         * veg item non-veg is only unhelpful. Fail towards the harmless one.
+         */
+        diet:
+          product.dietary.includes('vegetarian') || product.dietary.includes('vegan')
+            ? ('veg' as const)
+            : ('non_veg' as const),
+        imagePlaceholder: product.name,
+        imageSrc: undefined,
+        available: product.isAvailable,
+        sellerId: product.vendor.seller?.id,
+        vendor: product.vendor,
+      };
+    });
+  }
+
   async list(query: ListSnacksQueryDto) {
     // AND across terms, OR across fields — see `ProductsService.list`.
     const terms = query.q ? query.q.split(/\s+/).filter(Boolean).slice(0, 6) : [];
@@ -43,13 +115,24 @@ export class SnacksService {
       orderBy: { name: 'asc' },
     });
 
+    // Listings a kitchen flagged onto the menu (M20) sit alongside the
+    // seeded `Snack` rows. `category` filters only apply to the legacy
+    // table, which is the only one that carries that enum.
+    const flagged = query.category ? [] : await this.listFlaggedProducts(query);
+
     const buyer =
       query.lat !== undefined && query.lng !== undefined
         ? { lat: query.lat, lng: query.lng }
         : undefined;
-    if (!buyer) return snacks.map((s) => mapSnack(s));
 
-    return snacks
+    if (!buyer) {
+      return [
+        ...snacks.map((s) => mapSnack(s)),
+        ...flagged.map(({ vendor: _vendor, ...rest }) => rest),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    const nearbySnacks = snacks
       .map((snack) => {
         const vendor = snack.seller?.vendor;
         // A snack with no kitchen attached can't be placed on the map, so
@@ -64,8 +147,21 @@ export class SnacksService {
           distanceLabel: formatDistanceKm(km),
         };
       })
-      .filter((s): s is NonNullable<typeof s> => s !== null)
-      .sort((a, b) => a.distanceKm - b.distanceKm);
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+
+    const nearbyFlagged = flagged
+      .map(({ vendor, ...rest }) => {
+        const km = distanceKm(buyer, { lat: vendor.lat, lng: vendor.lng });
+        if (km > vendor.deliveryRadiusKm) return null;
+        return {
+          ...rest,
+          distanceKm: Math.round(km * 10) / 10,
+          distanceLabel: formatDistanceKm(km),
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+
+    return [...nearbySnacks, ...nearbyFlagged].sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
   async getBySlug(slug: string) {
