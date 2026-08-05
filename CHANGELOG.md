@@ -161,6 +161,38 @@ items were not, and those decided the schema. See `docs/M20-PLAN.md`.
 
 ### Fixed
 
+- **Two notifications racing for the same recipient silently dropped one
+  of them — in production, not only in tests.** The first time a user is
+  messaged in a category, `NotificationsDeliveryService` writes their
+  `NotificationPreference` row as a read followed by a create on a unique
+  key. `deliver()` is called concurrently by design: `OrdersService.create`
+  fires two `void` deliveries back to back and `OrderNotificationsService`
+  fans out over `Promise.all`. Two landing on the same `(userId, category)`
+  before either commits means both miss the read and both insert, and
+  Postgres rejects the loser with P2002.
+
+  Because every caller `void`s the result, that exception was invisible and
+  took the **whole** notification with it — not one channel of it. Losing
+  the race is now the ordinary case it always was: the loser adopts the row
+  the winner just wrote. M18's rule that every path writing `Order.status`
+  owes the buyer a message was true of the call sites and untrue of the
+  delivery underneath them.
+
+- **The e2e suite could be answered by a completely different server.**
+  `request(server)` opens an ephemeral listener when `server.address()` is
+  null and closes it again as soon as that one response lands. So request A
+  bound a port, request B reused it without adopting the listener, and A
+  then closed it out from under B — releasing the port back to an OS that
+  hands ephemeral ports to whatever asks next. Observed: an intermittent
+  `405 {"code":"MethodNotAllowed"}`, an envelope this API cannot produce.
+
+  This is what the "notification timing flake" actually was. The dangerous
+  half is the half that does not fail — a foreign server can also return a
+  status a test accepts. The harness now binds once per spec file, and
+  `createActor` reports the response body instead of a bare
+  `expected 201, got 404`, which is the diagnostic whose absence kept this
+  misfiled.
+
 - `/meal-plans` reproduced the prerender landmine `/hamper` documents:
   `getBuyerCoords` swallows the error `cookies()` throws during a
   prerender, which hides the per-visitor signal from Next and leaves the

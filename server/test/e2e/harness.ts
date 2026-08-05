@@ -47,6 +47,35 @@ export async function createHarness(): Promise<Harness> {
   );
   await app.init();
 
+  /**
+   * Listen once, for the whole spec file, instead of letting supertest
+   * open and close a port per request.
+   *
+   * `request(server)` checks `server.address()`; when it is null it calls
+   * `server.listen(0)`, remembers that listener, and **closes it again as
+   * soon as that one response lands** (`supertest/lib/test.js` —
+   * `serverAddress()` and `end()`). So with an un-listened server, request
+   * A binds an ephemeral port, request B is constructed while A's port is
+   * still up, sees a non-null address, reuses the port and adopts no
+   * listener of its own — and then A finishes and closes it out from under
+   * B.
+   *
+   * B does not simply fail. The port is released back to the OS, which on
+   * a normal developer machine hands ephemeral ports to whatever asks next
+   * — so B's request can reach an entirely unrelated local server. That is
+   * not hypothetical: this suite was intermittently failing with
+   * `405 {"code":"MethodNotAllowed"}`, an envelope this API cannot produce,
+   * and before that a bare 404. It read as a timing flake in notification
+   * delivery for exactly as long as nobody printed the response body.
+   *
+   * The dangerous half is the one that does not fail: a request answered
+   * by a foreign server could also return a status a test happens to
+   * accept. Binding once removes the whole class — `address()` is never
+   * null, so supertest never opens or closes anything, and every request
+   * in the file goes to this app.
+   */
+  await app.listen(0);
+
   const prisma = new PrismaClient();
 
   return {
@@ -90,12 +119,54 @@ export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   // the asynchrony is a product decision worth keeping, and the loser of a
   // deadlock is always safe to repeat. Three attempts with a short backoff
   // — a genuinely stuck reset still fails rather than hanging the suite.
+  /**
+   * Wait a bounded time for the lock, then say why we could not get it.
+   *
+   * Without this the reset simply blocks. `TRUNCATE` needs ACCESS
+   * EXCLUSIVE on every table at once, so *any* other session reading any
+   * of them holds it off — and the only symptom is Jest's
+   * `Exceeded timeout of 30000 ms for a hook`, attributed to whichever
+   * test happened to be next. Measured here: a stray `ts-node src/main.ts`
+   * left pointing at the test database stalled one reset for 151 seconds
+   * and was reported as a failure in an unrelated RBAC assertion.
+   *
+   * Five seconds is far longer than a reset between two of our own tests
+   * ever needs, so exceeding it means something outside the suite is
+   * holding the database — which is exactly what the error should say.
+   */
+  await prisma.$executeRawUnsafe(`SET lock_timeout = '5s';`);
+
+  // Retried on deadlock, because some writes deliberately outlive the
+  // request that triggered them.
+  //
+  // Order notifications (M18) are fire-and-forget — a paid order must not
+  // roll back because a WhatsApp message failed — so an `INSERT` into
+  // `Notification` can still be in flight when the *next* test's reset
+  // starts. `TRUNCATE ... CASCADE` takes an ACCESS EXCLUSIVE lock on every
+  // table at once and deadlocks against it (Postgres `40P01`).
+  //
+  // Retrying is the right fix rather than making delivery synchronous:
+  // the asynchrony is a product decision worth keeping, and the loser of a
+  // deadlock is always safe to repeat. Three attempts with a short backoff
+  // — a genuinely stuck reset still fails rather than hanging the suite.
   for (let attempt = 0; ; attempt += 1) {
     try {
       await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`);
       return;
     } catch (err) {
-      const isDeadlock = String(err).includes('40P01');
+      const text = String(err);
+
+      // `55P03 lock_not_available` — the `lock_timeout` above fired.
+      if (text.includes('55P03')) {
+        throw new Error(
+          'Could not reset the test database: TRUNCATE waited 5s for a lock and gave up.\n' +
+            'Something outside the suite is connected to it — most often a dev server ' +
+            'still pointing at TEST_DATABASE_URL. Check with:\n' +
+            "  SELECT pid, state, query FROM pg_stat_activity WHERE datname = current_database();",
+        );
+      }
+
+      const isDeadlock = text.includes('40P01');
       if (!isDeadlock || attempt >= 2) throw err;
       await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
     }
@@ -133,8 +204,22 @@ export async function createActor(
   const registered = await h
     .api()
     .post(`${API_PREFIX}/auth/register`)
-    .send({ name: `Test ${role}`, email, password })
-    .expect(201);
+    .send({ name: `Test ${role}`, email, password });
+
+  // Assert with the body in hand, not `.expect(201)`.
+  //
+  // Every spec builds its actors here, so a failure in this one call
+  // surfaces as an unexplained status on whichever test happened to run
+  // first — `expected 201 "Created", got 404 "Not Found"` and nothing
+  // else. The API's error envelope is exactly the diagnostic that was
+  // missing, and throwing it away is what kept a flake here misfiled as
+  // a timing problem elsewhere.
+  if (registered.status !== 201) {
+    throw new Error(
+      `Registering ${email} failed: ${registered.status} ` +
+        `${JSON.stringify(registered.body)}`,
+    );
+  }
 
   const userId: string = registered.body.user.id;
 

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { NotificationCategory } from '@prisma/client';
+import { NotificationCategory, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { SmsProviderService } from './providers/sms.provider';
@@ -131,12 +131,42 @@ export class NotificationsDeliveryService {
     return false;
   }
 
+  /**
+   * Read-then-create on a unique key, made safe for the concurrency this
+   * service is actually called with.
+   *
+   * `deliver()` runs concurrently by design — `OrderNotificationsService`
+   * fans out over `Promise.all`, and `OrdersService.create` fires two
+   * `void` deliveries back to back. Two of those landing on the same
+   * `(userId, category)` before either has written the row means both miss
+   * the `findUnique` and both `create`; Postgres rejects the loser with
+   * P2002.
+   *
+   * That threw out of `deliver()` and, because every caller `void`s it, the
+   * failure was invisible and the **whole** notification was dropped — not
+   * one channel of it. It was showing up as an e2e flake on a different
+   * test each run, which is the same bug wearing a different hat: the
+   * message a buyer or a kitchen was owed simply never arrived.
+   *
+   * Losing the race is the ordinary case, not an error: the row the other
+   * caller just wrote is exactly the one this call wanted.
+   */
   private async getOrCreatePreference(userId: string, category: NotificationCategory) {
-    const existing = await this.prisma.notificationPreference.findUnique({ where: { userId_category: { userId, category } } });
+    const where = { userId_category: { userId, category } };
+
+    const existing = await this.prisma.notificationPreference.findUnique({ where });
     if (existing) return existing;
-    return this.prisma.notificationPreference.create({
-      data: { userId, category, ...defaultChannelsFor(category) },
-    });
+
+    try {
+      return await this.prisma.notificationPreference.create({
+        data: { userId, category, ...defaultChannelsFor(category) },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return this.prisma.notificationPreference.findUniqueOrThrow({ where });
+      }
+      throw err;
+    }
   }
 }
 

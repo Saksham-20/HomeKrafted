@@ -407,4 +407,67 @@ describe('order notifications', () => {
       expect(await channelsFor(buyer.userId)).toContain('inapp');
     });
   });
+
+  describe('two deliveries racing for one recipient', () => {
+    /**
+     * The first time a user is notified in a category, `deliver()` writes
+     * their `NotificationPreference` row — a read, then a create, on a
+     * unique key.
+     *
+     * `deliver()` is called concurrently on purpose: `OrdersService.create`
+     * fires two `void` deliveries back to back and
+     * `OrderNotificationsService` fans out over `Promise.all`. Two landing
+     * on the same `(userId, category)` before either commits means both
+     * miss the read and both insert, and Postgres rejects the loser with
+     * P2002. Because every caller `void`s the result, that exception was
+     * invisible and took the **entire** notification with it — not one
+     * channel of it.
+     *
+     * This is asserted against real Postgres rather than a stubbed client
+     * for the obvious reason: a stub has no unique constraint to violate,
+     * so it would pass against the bug.
+     */
+    it('both arrive, rather than one being lost to a unique-constraint race', async () => {
+      const { NotificationsDeliveryService } = await import(
+        '../../src/notifications/notifications-delivery.service'
+      );
+      const delivery = h.app.get(NotificationsDeliveryService);
+
+      // No preference row yet — the create path is the racing one.
+      expect(
+        await h.prisma.notificationPreference.findUnique({
+          where: { userId_category: { userId: buyer.userId, category: 'order' } },
+        }),
+      ).toBeNull();
+
+      const message = (n: number) => ({
+        userId: buyer.userId,
+        category: 'order' as const,
+        title: `Racing message ${n}`,
+        body: 'Both of these are owed to the buyer.',
+      });
+
+      const [first, second] = await Promise.all([
+        delivery.deliver(message(1)),
+        delivery.deliver(message(2)),
+      ]);
+
+      // Neither call may come back empty: an empty array is what a dropped
+      // delivery looked like from the caller's side.
+      expect(first.length).toBeGreaterThan(0);
+      expect(second.length).toBeGreaterThan(0);
+
+      const titles = (await notificationsFor(buyer.userId)).map((n) => n.title);
+      expect(titles).toContain('Racing message 1');
+      expect(titles).toContain('Racing message 2');
+
+      // And exactly one preference row exists for the pair, so the loser
+      // adopted the winner's row rather than writing a second.
+      expect(
+        await h.prisma.notificationPreference.count({
+          where: { userId: buyer.userId, category: 'order' },
+        }),
+      ).toBe(1);
+    });
+  });
 });

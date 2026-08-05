@@ -70,6 +70,28 @@ can never send a real WhatsApp message or charge a real card.
 still applies cleanly to an empty database, which is otherwise something
 that only breaks during a deploy.
 
+### Nothing else may be connected to the test database
+
+`resetDatabase` truncates every table in one statement, which needs an
+ACCESS EXCLUSIVE lock on all of them at once. Any other session reading
+any table holds that off — so a dev server left pointing at
+`TEST_DATABASE_URL` does not merely slow the suite down, it blocks the
+reset and the failure surfaces as `Exceeded timeout of 30000 ms for a
+hook` on whichever test ran next.
+
+That is a real diagnosis, not a hypothetical: a stray
+`ts-node src/main.ts` left running for two days against the test database
+stalled one reset for 151 seconds and was reported as a failure in an
+unrelated RBAC assertion. The reset now sets `lock_timeout = '5s'` and
+names the cause instead of hanging, but the fix is still to stop the other
+process. Find it with:
+
+```sql
+SELECT pid, state, query FROM pg_stat_activity WHERE datname = current_database();
+```
+
+Match a `pid` back to its owner with `lsof -nP -p <node-pid> -iTCP | grep 5432`.
+
 ---
 
 ## What the suite actually guards
@@ -82,6 +104,13 @@ Grouped by the rule, not by the file, because the rules are the point.
 | A reset link is single-use, expiring, session-revoking, and not an account-existence oracle | `e2e/password-reset.e2e-spec.ts` |
 | `isHamper` is a filter and nothing else — a hamper still obeys availability, moderation and ownership | `e2e/hamper-listings.e2e-spec.ts` |
 | Every path that writes `Order.status` messages the buyer; a new order messages each kitchen once | `e2e/order-notifications.e2e-spec.ts` |
+| Two deliveries racing for one recipient both arrive — neither is lost to the preference row's unique constraint | `e2e/order-notifications.e2e-spec.ts` |
+| A quote token is a bearer credential: stored only as a hash, never logged, rotated on re-send, and not-found is indistinguishable from revoked | `e2e/corporate-quotes.e2e-spec.ts` |
+| Acceptance is single-use under concurrent requests, records who accepted by name, and **creates no orders** | `e2e/corporate-quotes.e2e-spec.ts` |
+| A quote line must name a kitchen that exists and owns it; the token payload never exposes which kitchen supplies which line | `e2e/corporate-quotes.e2e-spec.ts` |
+| A cycle is prepaid in one debit, rolled back whole if the wallet cannot cover it; the price is a snapshot; a skipped meal is owed, not lost; cancelling moves no money | `e2e/meal-subscriptions.e2e-spec.ts` |
+| A capability flag is only a filter — a craft reaches `/gifts` without leaving the shop, a snack joins the menu without leaving it, and absence defaults rather than hides | `e2e/section-flags.e2e-spec.ts` |
+| `GET /categories` tells a client which vertical each category is on, ordered by `sortOrder` before name | `e2e/section-flags.e2e-spec.ts` |
 | A review needs a **delivered** order; aggregates are recomputed from rows, never incremented | `reviews.e2e-spec.ts` |
 | A seller **cannot verify themselves** (400, not a silent strip); a changed FSSAI number clears the badge; the licence number is never published | `verification.e2e-spec.ts` |
 | Cancellation closes at `packed`; returns close 7 days after `deliveredAt`; a return request **moves no money** | `orders-lifecycle.e2e-spec.ts` |
