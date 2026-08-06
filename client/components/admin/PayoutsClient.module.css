@@ -4,6 +4,33 @@
   padding: var(--hk-s5) 0;
 }
 
+/*
+  The take-rate notice above the queue.
+
+  Gold-tinted rather than a danger red: nothing here is broken, and an
+  admin settling payouts sees this on every visit — a red banner they learn
+  to ignore is worse than no banner. `--hk-gold` is used as a left rule and
+  in bold at 14px for the lead clause only; body copy stays `--hk-ink`,
+  because gold at regular weight is 3.6:1 on white.
+*/
+.grossNotice {
+  border-left: 3px solid var(--hk-gold);
+  background: var(--hk-gold-tint);
+  color: var(--hk-ink);
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: var(--hk-s4);
+}
+
+.grossNotice strong {
+  font-weight: 600;
+}
+
+.grossNotice code {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+}
+
 .statGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));

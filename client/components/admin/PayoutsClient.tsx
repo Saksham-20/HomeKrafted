@@ -123,6 +123,26 @@ export function PayoutsClient() {
         subtitle="HomeKrafter earnings requests. Marking one paid records a transfer you've already made — it doesn't send money."
       />
 
+      {/*
+        WS0b. `commissionPct` (default 10) exists only as a modelled number
+        on the admin analytics screen — **nothing deducts it**. Every figure
+        below is the full order value, so an admin transferring "the payout
+        amount" hands over the platform's cut too.
+
+        This sits above the queue rather than in `LAUNCH-READINESS.md` alone
+        because that file is read once and this decision is made every time
+        somebody settles a row. The plan deliberately does not implement a
+        take rate — that is a business call, not a bug fix — so until one
+        exists the honest thing is to say so where the money moves.
+      */}
+      <Card padding="md" className={styles.grossNotice}>
+        <strong>These amounts are gross.</strong> No commission is deducted
+        anywhere on the platform yet, so each figure is the full order value
+        owed to the HomeKrafter. If a cut is meant to be taken, take it
+        before transferring — see{" "}
+        <code>docs/LAUNCH-READINESS.md</code> §3b.
+      </Card>
+
       <div className={styles.statGrid}>
         <StatCard
           label="Awaiting settlement"
