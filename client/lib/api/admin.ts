@@ -216,10 +216,33 @@ function slugify(value: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+/** Per-channel outcome of the approval invite — mirrors `server/src/admin/seller-invite.service.ts`. */
+export interface InviteChannelResult {
+  attempted: boolean;
+  delivered: boolean;
+  stubbed: boolean;
+  error?: string;
+}
+
+export interface InviteDeliveryReport {
+  email: InviteChannelResult;
+  sms: InviteChannelResult;
+  /** `false` when nothing actually left the building. */
+  reached: boolean;
+  /** Present only when nothing was delivered — the link, so an admin can pass it on by hand. */
+  fallbackLink?: string;
+}
+
 export interface ApproveSellerApplicationResult {
   application: SellerApplication;
   seller: Seller;
   vendor: Vendor;
+  /**
+   * Whether the new HomeKrafter was actually reached. **Optional** because
+   * mock mode does not send anything — an absent report means "not
+   * applicable", not "delivered".
+   */
+  invite?: InviteDeliveryReport;
 }
 
 /**

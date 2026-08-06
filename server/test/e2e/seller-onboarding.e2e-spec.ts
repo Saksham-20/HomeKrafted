@@ -20,9 +20,18 @@ import {
  * no other door. Every kitchen onboarded through the real application
  * flow was locked out of the product it had just been approved for.
  *
- * The fix is in the client (the phone tab), so what is pinned here is the
- * server-side contract the client depends on: an approved application
- * produces an account reachable by phone OTP, carrying the seller role.
+ * The M17 fix was in the client (the phone tab), so what is pinned here is
+ * the server-side contract it depends on: an approved application produces
+ * an account reachable by phone OTP, carrying the seller role.
+ *
+ * **That was never the whole answer, and M21 finished it.** Phone OTP
+ * needs an SMS provider; with Twilio unset a real OTP reaches the server
+ * log and nowhere else, so the door this spec pins was open only in
+ * theory. Approval now also sends a single-use set-password link by email
+ * and SMS — see `seller-invite.e2e-spec.ts`. The assertions below still
+ * hold and still matter (the account genuinely has no password *at the
+ * moment of approval*), but read them as one door of two, not as the
+ * design being complete.
  */
 describe('an approved HomeKrafter can sign in', () => {
   let h: Harness;

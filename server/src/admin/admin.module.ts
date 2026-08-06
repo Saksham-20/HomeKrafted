@@ -17,6 +17,7 @@ import { AdminUsersController } from './users.controller';
 import { AdminUsersService } from './users.service';
 import { AdminSellersController } from './sellers.controller';
 import { AdminSellersService } from './sellers.service';
+import { SellerInviteService } from './seller-invite.service';
 import { AdminCatalogController } from './catalog.controller';
 import { AdminCatalogService } from './catalog.service';
 import { AdminOrdersController } from './orders.controller';
@@ -88,6 +89,7 @@ import { AdminCorporateService } from './corporate.service';
     AdminAuditLogService,
     AdminUsersService,
     AdminSellersService,
+    SellerInviteService,
     AdminCatalogService,
     AdminOrdersService,
     AdminPayoutsService,

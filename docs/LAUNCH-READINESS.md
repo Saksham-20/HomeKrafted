@@ -137,8 +137,22 @@ in with **phone OTP**, because approval never sets a password. That path
 only works if OTP codes are actually delivered. `TWILIO_*` is still a
 placeholder, so the code is written to the server log and nowhere else.
 
-**On production today, a real HomeKrafter you approve cannot sign in.**
-This is the single hard blocker on onboarding anybody.
+**M21 added a second door, and it needs a different key.** Approval now
+also sends a single-use, 7-day set-password link by **email and SMS**
+(`SellerInviteService`), so onboarding no longer depends on OTP alone —
+`SENDGRID_API_KEY` on its own is now enough to get a real HomeKrafter in.
+Two things follow:
+
+- The admin screen **tells you when nobody was reached** ("Approved — but
+  we could not reach them") and shows the link so it can be passed on by
+  hand. Approving somebody no longer looks successful when it wasn't.
+- `POST /admin/sellers/:id/resend-invite` re-sends and burns the older
+  link, which is what you will want the first time an email bounces.
+
+**On production today, both channels are stubs, so a real HomeKrafter you
+approve is still not contacted.** This remains the single hard blocker on
+onboarding anybody — but it is now satisfied by *either* SendGrid or
+Twilio, not only Twilio.
 
 ---
 

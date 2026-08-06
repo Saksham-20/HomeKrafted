@@ -44,6 +44,17 @@ export class AdminSellersController {
     return this.sellersService.approveApplication(admin.userId, id);
   }
 
+  /**
+   * Re-send an approved HomeKrafter's sign-in link. Burns the previous
+   * one. The remedy for "the approval email never arrived", which is
+   * otherwise unfixable now that a duplicate application is correctly
+   * refused.
+   */
+  @Post(':id/resend-invite')
+  resendInvite(@CurrentUser() admin: RequestUser, @Param('id') id: string) {
+    return this.sellersService.resendInvite(admin.userId, id);
+  }
+
   @Post('applications/:id/reject')
   rejectApplication(@CurrentUser() admin: RequestUser, @Param('id') id: string) {
     return this.sellersService.rejectApplication(admin.userId, id);

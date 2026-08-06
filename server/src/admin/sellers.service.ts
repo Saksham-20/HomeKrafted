@@ -10,6 +10,7 @@ import { AdminAuditLogService } from './audit-log.service';
 import { VendorProfileService } from '../catalog/vendor-profile.service';
 import { SetVerificationDto } from './dto/set-verification.dto';
 import { AdminSettingsService } from './settings.service';
+import { SellerInviteService, type InviteDeliveryReport } from './seller-invite.service';
 
 function slugify(value: string): string {
   return value
@@ -89,6 +90,15 @@ export interface ApproveSellerApplicationResult {
   application: ReturnType<typeof mapApplication>;
   seller: ReturnType<typeof mapSeller>;
   vendor: ReturnType<typeof mapVendor>;
+  /**
+   * Whether the new HomeKrafter was actually reached, and on which
+   * channel. Part of the response rather than a log line because the
+   * admin who clicked approve is the only person positioned to do
+   * something about a failure — and until M21 the screen showed a
+   * confident success for someone who had been sent nothing they could
+   * open. Carries `fallbackLink` **only** when nothing was delivered.
+   */
+  invite: InviteDeliveryReport;
 }
 
 /**
@@ -105,6 +115,7 @@ export class AdminSellersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
+    private readonly sellerInvite: SellerInviteService,
     private readonly notifications: NotificationsService,
     private readonly vendorProfiles: VendorProfileService,
     private readonly settings: AdminSettingsService,
@@ -367,6 +378,24 @@ export class AdminSellersService {
       );
     }
 
+    // Somebody who already has a HomeKrafter account cannot be given a
+    // second one — `Seller.userId` is unique, so the `seller.create` below
+    // threw a raw unique violation and the admin got a 500 with nothing
+    // actionable in it. Reachable without doing anything strange: an
+    // applicant who does not hear back and applies again leaves two rows
+    // in the queue, and approving the second one hits this. Refused here,
+    // by name, before the transaction opens.
+    const existingSeller = await this.prisma.seller.findFirst({
+      where: { user: { email: application.email } },
+      include: { vendor: { select: { name: true } } },
+    });
+    if (existingSeller) {
+      throw new ConflictException(
+        `${application.email} already has a HomeKrafter account (${existingSeller.vendor.name}). ` +
+          `Reject this duplicate application, or re-send their sign-in link from that account.`,
+      );
+    }
+
     const { defaultDeliveryRadiusKm: defaultRadiusKm } = await this.settings.get();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -441,8 +470,23 @@ export class AdminSellersService {
       return { application: decidedApplication, seller, vendor };
     });
 
-    // Welcome the new HomeKrafter. Their account exists now, so this lands
-    // in an inbox they can actually open.
+    // Get them a way in, **out of band**, before anything else.
+    //
+    // The in-app welcome below used to be the only thing approval sent,
+    // and it is delivered to an inbox behind the login this account cannot
+    // pass: it is minted with `authProviders: ['phone']` and no
+    // credential, and phone OTP needs an SMS provider. An approved
+    // HomeKrafter therefore could not sign in at all — the standing
+    // blocker in `CLAUDE.md` that capped supply growth.
+    const invite = await this.sellerInvite.sendApprovalInvite({
+      userId: result.seller.userId,
+      displayName: result.seller.displayName,
+      email: application.email,
+      phone: application.phone,
+    });
+
+    // Kept, but it is now the second copy rather than the only one. It is
+    // what they find waiting once the invite has got them inside.
     await this.notifications.notify({
       userId: result.seller.userId,
       category: 'account',
@@ -457,13 +501,28 @@ export class AdminSellersService {
       action: 'seller_application.approve',
       targetType: 'SellerApplication',
       targetId: applicationId,
-      metadata: { sellerId: result.seller.id, vendorId: result.vendor.id },
+      metadata: {
+        sellerId: result.seller.id,
+        vendorId: result.vendor.id,
+        // Whether the person was actually contacted is part of the record
+        // of approving them. **Never the link itself** — that is a live
+        // single-use credential, and the audit log is read by more people
+        // than the one it belongs to.
+        inviteReached: invite.reached,
+        inviteEmail: { attempted: invite.email.attempted, delivered: invite.email.delivered },
+        inviteSms: { attempted: invite.sms.attempted, delivered: invite.sms.delivered },
+      },
     });
 
     return {
       application: mapApplication(result.application),
       seller: mapSeller(result.seller, result.vendor.name),
       vendor: mapVendor(result.vendor),
+      // Surfaced so the admin screen can say "approved, but we could not
+      // reach them" instead of a confident success. `fallbackLink` is
+      // present only when nothing was delivered, and is what an admin
+      // passes on by hand.
+      invite,
     };
   }
 
@@ -510,6 +569,52 @@ export class AdminSellersService {
       if (!clash) return code;
     }
     throw new ConflictException('Could not allocate a unique referral code — please retry');
+  }
+
+  /**
+   * Re-sends the sign-in invite for an already-approved HomeKrafter.
+   *
+   * Needed the moment approval started sending one: the message goes to an
+   * email address somebody typed into a form, it expires in a week, and
+   * the most common support request on any invite flow is "it never
+   * arrived". Without this the only remedy is a second application, which
+   * the duplicate guard above now correctly refuses.
+   *
+   * Issuing a new invite **burns the previous one** (see
+   * `SellerInviteService.createInviteLink`) — a re-send must not leave the
+   * older link alive, or a forwarded message still opens the account.
+   */
+  async resendInvite(adminUserId: string, sellerId: string) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: sellerId },
+      include: { user: { select: { id: true, email: true, phone: true, suspended: true } } },
+    });
+    if (!seller) throw new NotFoundException('HomeKrafter not found');
+    if (seller.status !== 'approved') {
+      throw new ConflictException('Only an approved HomeKrafter has an account to sign in to.');
+    }
+    // A suspended account must not be handed a fresh way in — same rule
+    // `forgotPassword` already applies.
+    if (seller.user.suspended) {
+      throw new ConflictException('This account is suspended. Un-suspend it before re-sending a sign-in link.');
+    }
+
+    const invite = await this.sellerInvite.sendApprovalInvite({
+      userId: seller.userId,
+      displayName: seller.displayName,
+      email: seller.user.email,
+      phone: seller.user.phone,
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'seller.invite_resent',
+      targetType: 'Seller',
+      targetId: sellerId,
+      metadata: { inviteReached: invite.reached },
+    });
+
+    return { invite };
   }
 
   private async uniqueVendorSlug(tx: Prisma.TransactionClient, name: string): Promise<string> {

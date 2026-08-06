@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import {
   approveSellerApplication,
+  type InviteDeliveryReport,
   getAllSellers,
   getPendingSellerApplications,
   rejectSellerApplication,
@@ -47,6 +48,15 @@ export function SellersClient() {
   const [applications, setApplications] = useState<SellerApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
+  /**
+   * Set when an approval succeeded but the new HomeKrafter could not be
+   * reached on any channel. It is not an error — the account exists and
+   * the storefront is live — but it is the one outcome an admin has to
+   * act on, because that person cannot sign in until somebody hands them
+   * the link. Before M21 this state was invisible: approval sent only an
+   * in-app notification, to an inbox behind the login they could not pass.
+   */
+  const [inviteWarning, setInviteWarning] = useState<InviteDeliveryReport | null>(null);
   const [typeFilter, setTypeFilter] = useState<SellerSpecialty | "all">("all");
 
   async function refetch() {
@@ -100,10 +110,14 @@ export function SellersClient() {
   }
 
   async function handleApprove(applicationId: string) {
-    await run(
-      () => approveSellerApplication(applicationId),
-      "Couldn't approve that application. Try again.",
-    );
+    setInviteWarning(null);
+    let report: InviteDeliveryReport | undefined;
+    await run(async () => {
+      const result = await approveSellerApplication(applicationId);
+      report = result?.invite;
+    }, "Couldn't approve that application. Try again.");
+    // Absent in mock mode, where nothing is sent — that is not a failure.
+    if (report && !report.reached) setInviteWarning(report);
   }
 
   async function handleReject(applicationId: string) {
@@ -141,6 +155,30 @@ export function SellersClient() {
           <p className={styles.actionError} role="alert">
             {actionError}
           </p>
+        )}
+        {inviteWarning && (
+          <div className={styles.inviteWarning} role="status">
+            <p className={styles.inviteWarningLead}>
+              Approved — but we could not reach them.
+            </p>
+            <p className={styles.inviteWarningBody}>
+              {inviteWarning.email.stubbed || inviteWarning.sms.stubbed
+                ? "Email and SMS are not configured on this server, so nothing was sent."
+                : "Every delivery attempt failed."}{" "}
+              They cannot sign in until someone gives them this link. It works once and
+              expires in 7 days.
+            </p>
+            {inviteWarning.fallbackLink && (
+              <code className={styles.inviteLink}>{inviteWarning.fallbackLink}</code>
+            )}
+            <button
+              type="button"
+              className={styles.inviteDismiss}
+              onClick={() => setInviteWarning(null)}
+            >
+              Dismiss
+            </button>
+          </div>
         )}
       </div>
 

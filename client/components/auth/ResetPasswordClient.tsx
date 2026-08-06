@@ -24,7 +24,13 @@ const MIN_LENGTH = 8;
  */
 export function ResetPasswordClient() {
   const router = useRouter();
-  const token = useSearchParams().get("token") ?? "";
+  const params = useSearchParams();
+  const token = params.get("token") ?? "";
+  // Set by the approval invite (`SellerInviteService`). A HomeKrafter
+  // approved five minutes ago has never had a password, so "reset yours"
+  // describes something that did not happen — and copy referring to a
+  // credential you do not recognise is what a phishing email looks like.
+  const welcome = params.get("welcome") === "1";
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -76,13 +82,16 @@ export function ResetPasswordClient() {
 
   return (
     <section className={styles.wrap}>
-      <h1 className={styles.title}>Set a new password</h1>
+      <h1 className={styles.title}>
+        {welcome ? "Set your password" : "Set a new password"}
+      </h1>
 
       {done ? (
         <Card className={styles.card}>
           <p className={styles.lead}>
-            Your password has been updated. For safety, we signed out every
-            device that was using the old one.
+            {welcome
+              ? "Your password is set. Sign in and add your first items from the Listings tab — they go to us for approval before they appear in the shop."
+              : "Your password has been updated. For safety, we signed out every device that was using the old one."}
           </p>
           <Button variant="primary" onClick={() => router.push("/login")}>
             Sign in

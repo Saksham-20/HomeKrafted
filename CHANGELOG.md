@@ -99,6 +99,55 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Added — an approved HomeKrafter can actually sign in
+
+The standing blocker `CLAUDE.md` has carried since M17, closed on the
+software side. Approval used to mint the account with
+`authProviders: ['phone']` and **no credential**, then post a welcome
+notification reading "add your first items from the Listings tab" — into
+the in-app inbox, **which sits behind the login that account cannot
+pass**. Phone OTP was the only route in, and with Twilio unset a real OTP
+reaches the server log and nowhere else. Every kitchen approved for real
+was locked out of the product it had just been approved for.
+
+- **Approval now sends a single-use, 7-day set-password link by email and
+  SMS** (`SellerInviteService`). Seven days rather than the reset flow's
+  hour, because an invite is sent when an *admin* clicks approve, not when
+  the recipient is sitting at a form.
+
+- **A link, not a mailed password.** The ask was "send login credentials";
+  this sends something that becomes one on first use. It reuses the
+  existing `PasswordResetToken` machinery — already single-use, expiring
+  and session-revoking — so it adds no new security surface. A mailed
+  password would sit readable in that inbox forever, could not be rotated,
+  and on this platform is the credential that can change payout details.
+
+- **Failure is reported, not swallowed.** Both providers degrade to a
+  logged stub when unconfigured and say so. The admin screen now shows
+  "Approved — but we could not reach them", with the link to hand over.
+  The old behaviour showed a confident success for someone who had been
+  sent nothing they could open. The invite link is **never** written to
+  the audit log — only whether they were reached.
+
+- **`POST /admin/sellers/:id/resend-invite`** — burns the previous link
+  and issues a new one. The remedy for "it never arrived", and it refuses
+  a suspended account, same rule `forgotPassword` already applies.
+
+- **A duplicate application returned a 500.** `Seller.userId` is unique,
+  so approving a second application from an address that already had an
+  account hit a raw unique violation *inside the approval transaction*.
+  Reachable by doing nothing strange: an applicant who does not hear back
+  applies again. Now a `409` naming the existing storefront. Found by
+  writing the spec above, not by reading the code.
+
+- `/reset-password?welcome=1` says "Set your password", not "Set a **new**
+  password" — nobody approved five minutes ago is resetting anything, and
+  copy referring to a credential you do not recognise reads as phishing.
+
+**Still config, not code:** with `SENDGRID_API_KEY` and Twilio unset,
+every channel is a stub and nobody is reached. `docs/LAUNCH-READINESS.md`
+§1.
+
 ### Fixed — a dead session that presented as a live one
 
 - **A failed session restore left the browser claiming to be signed in,

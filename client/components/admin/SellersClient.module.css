@@ -45,3 +45,63 @@
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-sm);
 }
+
+/* Approval succeeded but the HomeKrafter was not reached (M21).
+   Deliberately not `.actionError`'s terracotta: nothing failed — the
+   account exists and the storefront is live — but somebody has to hand
+   over the link before that person can sign in. A warning tone, not a
+   danger one, on the gold-tint surface the wallet chip already uses. */
+.inviteWarning {
+  margin: 0 0 var(--hk-s4);
+  padding: var(--hk-s3);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  border-radius: var(--hk-r-sm);
+}
+
+.inviteWarningLead {
+  margin: 0 0 var(--hk-s1);
+  font-size: 13.5px;
+  font-weight: 600;
+  /* `--hk-gold-text-sm`, not `--hk-gold` — 13.5px is well below the
+     ≥16px-bold threshold base gold is AA-safe at. See CLAUDE.md. */
+  color: var(--hk-gold-text-sm);
+}
+
+.inviteWarningBody {
+  margin: 0 0 var(--hk-s2);
+  font-size: 13px;
+  color: var(--hk-ink-2);
+}
+
+/* The link is a live single-use credential — it needs to be selectable
+   and unambiguous, so it is monospace and wraps rather than truncating. */
+.inviteLink {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  word-break: break-all;
+  padding: var(--hk-s2);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-sm);
+  color: var(--hk-ink);
+}
+
+.inviteDismiss {
+  margin-top: var(--hk-s2);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.inviteDismiss:hover {
+  color: var(--hk-pine);
+}

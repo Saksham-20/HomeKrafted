@@ -57,13 +57,16 @@ every approved plan and deployed; these are what still stand between it
 and real customers, and each is the kind of thing a session will otherwise
 assume is already handled.
 
-- **An approved HomeKrafter still cannot sign in.** Twilio is unset, so a
-  real OTP reaches the server log and nowhere else, and phone OTP is the
-  *only* first sign-in an approved kitchen has (approval never sets a
-  password — see the M17 section). `OTP_TEST_CODE` is scoped to four demo
-  numbers, so it does not help a real one. **This, not the software, is
-  what caps supply growth** — don't plan around onboarding kitchens until
-  it is fixed. One afternoon of config.
+- **An approved HomeKrafter cannot sign in until a provider key exists —
+  but the software half is done (M21).** Approval now mints a single-use,
+  7-day set-password link and sends it by **email and SMS**
+  (`SellerInviteService`), so phone OTP is no longer the only door. What
+  remains is purely config: with SendGrid and Twilio unset both channels
+  degrade to a logged stub, and **the admin screen says so** — "Approved,
+  but we could not reach them", with the link shown so it can be handed
+  over by hand. `POST /admin/sellers/:id/resend-invite` re-sends and burns
+  the previous link. Until the keys are set, **this still caps supply
+  growth**; it is now one afternoon of config and nothing else.
 - **The platform collects nothing.** `commissionPct` (default 10) exists
   only as a modelled number on the admin analytics screen; nothing deducts
   it, and `Payout.amount` is gross. Deliberate — a take rate is a business
@@ -592,13 +595,23 @@ silently override another — the same reason `Product.isAvailable` and
 All three shipped, were reviewed, and were manually tested. None of them
 had a test, and none was visible from reading the happy path.
 
-- **An approved HomeKrafter has no password.** Approval mints the account
-  (`authProviders: ['phone']`) and an admin never sets a credential, so
-  **phone OTP is the only first sign-in.** Any surface offering to sign a
-  HomeKrafter in must offer it. Removing the Phone tab from
-  `/login?role=seller` locks out every kitchen onboarded for real, and
-  the error they get says "Incorrect email or password" for a password
-  that never existed.
+- **An approved HomeKrafter has no password *at the moment of approval*.**
+  Approval mints the account (`authProviders: ['phone']`) and an admin
+  never sets a credential — that rule stands, and an admin must never be
+  able to. Phone OTP therefore remains a first-class sign-in and **any
+  surface offering to sign a HomeKrafter in must offer it**: removing the
+  Phone tab from `/login?role=seller` gives every real kitchen "Incorrect
+  email or password" for a password that never existed.
+
+  **M21 added the second door.** Approval sends a single-use, 7-day
+  set-password link by email and SMS (`SellerInviteService`), which is
+  why `resetPassword` adds `email` to `authProviders` — the account stops
+  being phone-only the moment they use it. The link is minted through the
+  same `PasswordResetToken` machinery as a reset, deliberately: it is
+  single-use, expiring and session-revoking, and **a plaintext password
+  must never be emailed**. That credential would sit readable in an inbox
+  forever, could not be rotated, and on this platform is the one that can
+  change payout details.
 - **Never resolve the signed-in seller from `lib/data`.** Use
   `GET /seller/me` (`getMySeller()`). The mock list contains only seeded
   kitchens, so a lookup for a real one misses — and falling back to a
