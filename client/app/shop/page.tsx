@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import clsx from "clsx";
 import { getBuyerCoords } from "@/lib/location/server";
 import { getCategories, getFoodProducts, getOccasions, getVendors } from "@/lib/api";
+import { LocationBar } from "@/components/location/LocationBar";
 import { ShopClient } from "./ShopClient";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
@@ -60,6 +61,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         <p className={styles.subtitle}>
           {products.length} small-batch products from home kitchens across India
         </p>
+        {/* Says whether this count is the whole catalogue or a filtered
+            one, and gives the only route back to the prompt — see
+            `LocationBar`. */}
+        <LocationBar />
       </div>
       <ShopClient
         products={products}

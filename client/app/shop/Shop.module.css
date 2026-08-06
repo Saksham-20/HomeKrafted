@@ -1,5 +1,9 @@
 .breadcrumbWrap {
   padding-block: var(--hk-s5) var(--hk-s2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
 }
 
 .breadcrumb {

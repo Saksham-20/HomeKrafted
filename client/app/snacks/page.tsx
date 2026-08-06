@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import clsx from "clsx";
 import { getBuyerCoords } from "@/lib/location/server";
+import { LocationBar } from "@/components/location/LocationBar";
 import { getSnackCategoryFilters, getSnacks } from "@/lib/api";
 import { getChannelRule } from "@/lib/channel";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
@@ -57,6 +58,9 @@ export default async function SnacksPage() {
         </div>
       </section>
       <div className="container">
+        {/* Same reason as `/shop`: this menu is filtered by the `hk_loc`
+            cookie during the server render, and nothing said so. */}
+        <LocationBar />
         <SnacksClient snacks={snacks} categories={categories} />
       </div>
     </>

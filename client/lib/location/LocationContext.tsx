@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { areaById, nearestArea, TRICITY_AREAS, type Coords, type TricityArea } from "@/lib/geo";
 
 const STORAGE_KEY = "hk_location_v1";
@@ -116,6 +117,7 @@ function writeLocationCookie(value: StoredLocation) {
  * Persisted to `localStorage` so a returning visitor isn't asked again.
  */
 export function LocationProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [stored, setStored] = useState<StoredLocation | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [locating, setLocating] = useState(false);
@@ -136,10 +138,27 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const persist = useCallback((next: StoredLocation) => {
-    setStored(next);
-    writeStored(next);
-  }, []);
+  const persist = useCallback(
+    (next: StoredLocation) => {
+      const moved = stored?.lat !== next.lat || stored?.lng !== next.lng;
+      setStored(next);
+      writeStored(next);
+
+      // Re-render the server components with the cookie that was just
+      // written. `/shop` and `/snacks` read `hk_loc` during their *server*
+      // render (`getBuyerCoords`), so changing the area updated this
+      // context and the header copy while the grid below kept showing the
+      // previous area's listings — the page then claimed a filter it had
+      // not applied. `writeStored` sets the cookie synchronously above, so
+      // the refresh request carries it.
+      //
+      // Only when the coordinates actually change: `dismiss()` persists
+      // through here too, and refetching a page because somebody closed a
+      // prompt without answering it is a request for nothing.
+      if (moved) router.refresh();
+    },
+    [router, stored],
+  );
 
   const requestBrowserLocation = useCallback(async (): Promise<boolean> => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {

@@ -148,6 +148,33 @@ is now covered by a spec that races real in-flight requests.
   `cancellationRate`, which is `null` rather than `0` before anything has
   closed: absence gets said as absence.
 
+### Added — the listing says where it is delivering to
+
+`components/location/LocationBar.tsx`, on `/shop` and `/snacks`.
+
+- **Nothing said what was being shown.** CLAUDE.md's location rule is "no
+  coords → the API returns the *full* catalogue, **and the UI says so**".
+  The first half shipped in M12; the second half never did. Measured
+  during the sweep: `/shop` read "8 small-batch products from home
+  kitchens across India" when unfiltered, "5 small-batch products from
+  home kitchens across India" when filtered to Mohali Phase 7, and gave
+  the buyer no way to tell those apart or to know a filter was on at all.
+
+- **Answering the prompt was a one-way door.** `LocationPrompt` sets
+  `asked: true` and never reappears, and nothing called `clear()` — whose
+  own doc comment already called it "the change area affordance". Someone
+  who skipped the prompt, or picked an area and then moved, had no route
+  back short of clearing `localStorage`. The function existed; only the
+  button was missing.
+
+- **Changing the area did not change the listing.** `/shop` and `/snacks`
+  read `hk_loc` during their *server* render, so setting an area updated
+  the context and the header copy while the grid below kept showing the
+  previous area's products — the page claimed a filter it had not
+  applied. `LocationProvider.persist` now calls `router.refresh()`, and
+  only when the coordinates actually move, so dismissing a prompt without
+  answering it does not refetch the page.
+
 ### Fixed — SEO
 
 - **Three routes shipped the brand twice in their title** — `/about`,

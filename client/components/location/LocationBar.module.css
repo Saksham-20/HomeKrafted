@@ -1,0 +1,52 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  padding: var(--hk-s2) var(--hk-s3);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.icon {
+  color: var(--hk-muted-2);
+  flex-shrink: 0;
+}
+
+.text {
+  min-width: 0;
+}
+
+.area {
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+/* `--hk-gold-text-sm`, not `--hk-gold`: this is 13.5px regular-weight
+   copy, where base gold is only 3.6:1 on white. See CLAUDE.md's token
+   rules and `tokens.extend.css`. */
+.change {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 500;
+  color: var(--hk-gold-text-sm);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.change:hover {
+  color: var(--hk-pine);
+}
+
+@media (max-width: 480px) {
+  .change {
+    margin-left: 0;
+  }
+}
