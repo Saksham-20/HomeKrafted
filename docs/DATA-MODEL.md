@@ -161,7 +161,15 @@ place the Prisma model deviates from the literal TS shape). All ids are
   `vendorId` (storefront). **`Seller.type` was removed in M12**; it gated
   module access and is replaced by `Seller.specialties: SellerSpecialty[]`,
   which is discovery/display only and must never decide access. No portal
-  screen branches on it. Related additions are id-reference
+  screen branches on it for *access*. **M22 widened the enum** past its
+  five food values and lone `crafts` bucket to cover the craft half —
+  candles, ceramics, textiles, jewellery, art & prints, bath & body,
+  stationery, home decor, personalised, plus `beverages`. Existing
+  `crafts` rows were deliberately left alone (relabelled "Other
+  handmade"): nothing records whether a given one pours candles or throws
+  pots, and a guess would mislabel a real storefront. The one legitimate
+  branch on a specialty is what a form *asks* — an FSSAI licence is only
+  requested of a HomeKrafter who sells food. Related additions are id-reference
   fields on *existing* domain types rather than new join tables:
   `LaundryBooking.partnerId` and `Snack.sellerId`/`SnackOrder.sellerId`
   all point at `Seller.id` directly — no separate "laundry partner

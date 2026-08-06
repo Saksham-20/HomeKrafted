@@ -65,7 +65,7 @@ export function SellerDashboardClient() {
     <div>
       <SellerPageHeader
         title={`Hi, ${seller.displayName}`}
-        subtitle="Here's how your kitchen is doing today."
+        subtitle="Here's how things are going today."
       />
 
       <div className={styles.stats}>

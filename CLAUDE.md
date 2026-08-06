@@ -117,6 +117,27 @@ and every portal module. All `/seller/*` controllers resolve through the
 single `SellerService.resolveHomeKrafter` — no per-type 403s. Dashboards
 stay scoped to the caller's own `vendorId`/`sellerId`; admin unscoped.
 
+**The taxonomy is not food-first any more (M22).** `SellerSpecialty` had
+five food values and one `crafts` bucket for the entire non-food half;
+`SellerApplicationCategory` said "the platform is food-first" in its own
+schema comment and sent a candle maker to `other`. Now: one question on
+`/sell` — *what do you make* — over a set that covers both halves evenly,
+and `category` + `Vendor.type` are **derived** from it
+(`server/src/seller-applications/specialty-taxonomy.ts`). The `/sell`
+form no longer sends `category`; the DTO still accepts it, because
+narrowing a request value breaks native clients.
+
+- **Existing `crafts` rows stay `crafts`** (relabelled "Other handmade").
+  Nothing records whether one pours candles or throws pots, and a guess
+  mislabels a real storefront.
+- **`Vendor.type` is rendered on no screen.** Don't add a question to
+  collect it. If a surface ever needs to tell a baker from a potter,
+  read `specialties` — that's the field with resolution.
+- **A specialty may decide what a form *asks*, never what a HomeKrafter
+  can *reach*.** `makesFood()` gates the FSSAI question, because asking a
+  candle maker for a food licence reads as a requirement they can't meet.
+  That is the only legitimate branch.
+
 **Naming:** user-facing copy says **HomeKrafter(s)**. Code keeps `seller`
 — `role: "seller"`, `/seller/*` routes, `Seller` type, DB columns —
 because renaming those churns middleware, the `hk_role` cookie, JWT claims

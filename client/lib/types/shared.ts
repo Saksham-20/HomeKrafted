@@ -327,10 +327,16 @@ export interface PublicCorporateQuote {
 // ---------------------------------------------------------------------------
 
 /**
- * Mirrors the Prisma enum. `home_chef` (M19) is listed first because the
- * platform is food-first now — and `SellerApplicationClient` initialises
- * its selection from `sellerCategories[0]`, so the order here and there is
- * load-bearing, not cosmetic.
+ * Mirrors the Prisma enum.
+ *
+ * **Nothing asks for this any more (M22).** The `/sell` form used to make
+ * every applicant pick one before saying what they made — a food-shaped
+ * taxonomy that sent a candle maker to `other` — and its only consumer
+ * was a `VendorType` no screen renders. The server now derives it from
+ * `specialties`; see `categoryForSpecialties` below and
+ * `server/src/seller-applications/specialty-taxonomy.ts`. The type stays
+ * because existing rows carry it and the endpoint still accepts it from
+ * an older native client.
  */
 export type SellerApplicationCategory = "home_chef" | "maker" | "baker" | "artist" | "other";
 /**
@@ -360,12 +366,28 @@ export type SellerApplicationStatus =
  * schema.
  */
 export type SellerSpecialty =
+  // Food
   | "homemade_food"
   | "bakery"
   | "pickles_preserves"
   | "snacks"
   | "sweets"
+  | "beverages"
+  // Everything else homemade (M22). Before this, `crafts` was the single
+  // non-food value on a marketplace that sells everything homemade — so a
+  // candle maker, a potter and a jeweller were indistinguishable, to
+  // buyers filtering and to the applicant trying to describe themselves.
+  | "candles"
+  | "ceramics"
+  | "textiles"
+  | "jewellery"
+  | "art_prints"
+  | "bath_body"
+  | "stationery"
+  | "home_decor"
+  | "personalised"
   | "crafts"
+  // Withdrawn module (M19). Kept so existing rows still render.
   | "laundry"
   | "cleaning";
 
@@ -376,10 +398,84 @@ export const SPECIALTY_LABELS: Record<SellerSpecialty, string> = {
   pickles_preserves: "Pickles & preserves",
   snacks: "Snacks",
   sweets: "Sweets",
-  crafts: "Crafts",
+  beverages: "Drinks & beverages",
+  candles: "Candles & fragrance",
+  ceramics: "Pottery & ceramics",
+  textiles: "Textiles & apparel",
+  jewellery: "Jewellery",
+  art_prints: "Art & prints",
+  bath_body: "Bath & body",
+  stationery: "Paper & stationery",
+  home_decor: "Home decor",
+  personalised: "Personalised & custom",
+  // Relabelled, not remapped. Existing rows keep this value because there
+  // is no way to tell whether a given one pours candles or throws pots,
+  // and a guess would print the wrong thing on a real storefront.
+  crafts: "Other handmade",
   laundry: "Laundry",
   cleaning: "Cleaning",
 };
+
+/**
+ * The two halves of the marketplace, for grouping the apply form's chips.
+ *
+ * A flat list of eighteen is a wall; grouped, an applicant finds their own
+ * side immediately. `laundry`/`cleaning` are in neither — the module is
+ * withdrawn, so they are never offered, only rendered on legacy rows.
+ */
+export const SPECIALTY_GROUPS: { label: string; values: SellerSpecialty[] }[] = [
+  {
+    label: "Food",
+    values: ["homemade_food", "bakery", "pickles_preserves", "snacks", "sweets", "beverages"],
+  },
+  {
+    label: "Handmade & craft",
+    values: [
+      "candles",
+      "ceramics",
+      "textiles",
+      "jewellery",
+      "art_prints",
+      "bath_body",
+      "stationery",
+      "home_decor",
+      "personalised",
+      "crafts",
+    ],
+  },
+];
+
+/**
+ * The coarse bucket, derived from what they make rather than asked.
+ *
+ * Mirrors `server/src/seller-applications/specialty-taxonomy.ts` — that is
+ * the authority, and this exists so mock mode produces the same shape.
+ * Derived from `SPECIALTY_GROUPS` rather than a second hardcoded list, so
+ * adding a specialty to a group is the only edit needed.
+ */
+export function categoryForSpecialties(
+  specialties: SellerSpecialty[],
+): SellerApplicationCategory {
+  if (makesFood(specialties)) return "home_chef";
+  if (specialties.some((s) => SPECIALTY_GROUPS[1].values.includes(s))) return "artist";
+  return "other";
+}
+
+/**
+ * Does this HomeKrafter sell food?
+ *
+ * Used to decide whether a **food-specific** question is worth asking —
+ * an FSSAI licence number above all. Asking a candle maker for a food
+ * licence is not a cosmetic wrong: it reads as a requirement they cannot
+ * meet, on the screen that decides whether they finish setting up.
+ *
+ * This is the **only** legitimate thing to branch on a specialty for.
+ * It decides what a form *asks*, never what a HomeKrafter may *access* —
+ * one supply role, every portal module, for everyone (`CLAUDE.md`, M12).
+ */
+export function makesFood(specialties: SellerSpecialty[]): boolean {
+  return specialties.some((s) => SPECIALTY_GROUPS[0].values.includes(s));
+}
 
 export interface SellerApplication {
   id: ID;

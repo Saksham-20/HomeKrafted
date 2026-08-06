@@ -45,9 +45,11 @@ export const sellerSteps: SellerStep[] = [
 ];
 
 /**
- * Order matters: `SellerApplicationClient` initialises `category` from
- * `categories[0]?.value`, so whatever sits first here is the default
- * selection. Home chef leads because the platform is food-first now.
+ * **No longer rendered anywhere (M22)** — the `/sell` form stopped asking
+ * applicants to classify themselves, so the "order matters, index 0 is the
+ * default selection" rule that used to live here no longer applies. Kept
+ * so `getSellerCategories()` still resolves and so an admin screen reading
+ * a legacy application's `category` has labels for it.
  */
 export const sellerCategories: { value: SellerApplicationCategory; label: string }[] = [
   { value: "home_chef", label: "Home chef (food)" },

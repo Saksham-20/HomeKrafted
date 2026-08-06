@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSellerApplicationDto, OTHER_AREA } from './dto/create-seller-application.dto';
 import { mapSellerApplication } from './seller-applications.mapper';
+import { categoryForSpecialties } from './specialty-taxonomy';
 
 /**
  * Public seller-onboarding intake (M9, closing the M8.4b-flagged gap) —
@@ -25,7 +26,9 @@ export class SellerApplicationsService {
         contactName: dto.contactName,
         email: dto.email,
         phone: dto.phone,
-        category: dto.category,
+        // Derived when the client doesn't send it (M22 — the form stopped
+        // asking). An older native app that still sends one is honoured.
+        category: dto.category ?? categoryForSpecialties(dto.specialties),
         specialties: dto.specialties,
         city: dto.city,
         area: dto.area,

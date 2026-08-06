@@ -24,6 +24,7 @@ import {
 } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { OwnVendorProfile, VendorBlackout, VendorPhoto } from "@/lib/types";
+import { makesFood } from "@/lib/types";
 import styles from "./SellerProfileClient.module.css";
 
 const DAYS = [
@@ -275,17 +276,29 @@ export function SellerProfileClient() {
     return <div className={styles.loading}>Loading your profile…</div>;
   }
 
+  /**
+   * M22 — an FSSAI licence is a **food** licence, so it is only asked of a
+   * HomeKrafter who sells food. Before this, a candle maker's profile
+   * showed an unmet "FSSAI licence" badge and a licence-number field on
+   * the screen that decides whether they finish setting up: a requirement
+   * they cannot meet, for a product it does not apply to.
+   *
+   * `specialties` decides what the form *asks*, never what they can
+   * *reach* — every portal module stays available to everyone.
+   */
+  const sellsFood = makesFood(seller?.specialties ?? []);
+
   const verifications = [
     { key: "identity", label: "Identity", done: profile.identityVerified },
-    { key: "address", label: "Kitchen address", done: profile.addressVerified },
-    { key: "fssai", label: "FSSAI licence", done: profile.fssaiVerified },
+    { key: "address", label: "Address", done: profile.addressVerified },
+    ...(sellsFood ? [{ key: "fssai", label: "FSSAI licence", done: profile.fssaiVerified }] : []),
   ];
 
   return (
     <div className={styles.page}>
       <SellerPageHeader
         title="Profile"
-        subtitle="The story, hours and policies a buyer reads before deciding to order from your kitchen."
+        subtitle="The story, hours and policies a buyer reads before deciding to order from you."
         actions={
           vendorSlug ? (
             <Link href={`/storefront/${vendorSlug}`} className={styles.previewLink} target="_blank">
@@ -304,7 +317,7 @@ export function SellerProfileClient() {
         />
         {profile.completion.missing.length === 0 ? (
           <p className={styles.completionNote}>
-            Nothing left to fill in. Keep it current as your kitchen changes.
+            Nothing left to fill in. Keep it current as things change.
           </p>
         ) : (
           <>
@@ -345,19 +358,21 @@ export function SellerProfileClient() {
             <strong>Note from Homekrafted:</strong> {profile.verificationNote}
           </p>
         )}
-        <label className={styles.field}>
-          <span className={styles.label}>FSSAI licence number</span>
-          <input
-            className={styles.input}
-            value={form.fssaiNumber}
-            inputMode="numeric"
-            placeholder="14 digits"
-            onChange={(event) => set("fssaiNumber", event.target.value)}
-          />
-          <span className={styles.hint}>
-            Changing this clears an existing verification — a new number has to be checked again.
-          </span>
-        </label>
+        {sellsFood && (
+          <label className={styles.field}>
+            <span className={styles.label}>FSSAI licence number</span>
+            <input
+              className={styles.input}
+              value={form.fssaiNumber}
+              inputMode="numeric"
+              placeholder="14 digits"
+              onChange={(event) => set("fssaiNumber", event.target.value)}
+            />
+            <span className={styles.hint}>
+              Changing this clears an existing verification — a new number has to be checked again.
+            </span>
+          </label>
+        )}
       </Card>
 
       <Card className={styles.section} padding="lg">
@@ -404,9 +419,9 @@ export function SellerProfileClient() {
       </Card>
 
       <Card className={styles.section} padding="lg">
-        <h2 className={styles.sectionTitle}>Inside your kitchen</h2>
+        <h2 className={styles.sectionTitle}>{sellsFood ? "Inside your kitchen" : "Inside your workshop"}</h2>
         <p className={styles.hint}>
-          Photos of the place the food is actually made. This is the single thing buyers ask for most
+          Photos of the place it is actually made. This is the single thing buyers ask for most
           and the hardest for a competitor to fake.
         </p>
         <PhotoUpload
@@ -414,7 +429,7 @@ export function SellerProfileClient() {
           onChange={handlePhotos}
           purpose="storefront"
           maxPhotos={12}
-          label="Kitchen photos"
+          label={sellsFood ? "Kitchen photos" : "Workshop photos"}
         />
       </Card>
 

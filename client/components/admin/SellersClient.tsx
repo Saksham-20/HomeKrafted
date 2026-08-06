@@ -17,17 +17,27 @@ import {
   setSellerStatus,
 } from "@/lib/api";
 import type { Seller, SellerApplication, SellerSpecialty } from "@/lib/types";
+import { SPECIALTY_GROUPS, SPECIALTY_LABELS } from "@/lib/types";
 import styles from "./SellersClient.module.css";
 
 type Tab = "sellers" | "queue";
 
-/** Filters map to `SellerSpecialty`, which is a list per HomeKrafter — so these overlap by design. */
+/**
+ * Filters map to `SellerSpecialty`, which is a list per HomeKrafter — so
+ * these overlap by design.
+ *
+ * M22: the craft side got filters for the first time. Four of the five
+ * used to be food and the fifth was `laundry`, a module withdrawn in M19 —
+ * so on a marketplace selling everything homemade, an admin could not
+ * filter to a single non-food HomeKrafter. Built from `SPECIALTY_GROUPS`
+ * so a new specialty appears here automatically instead of being
+ * remembered.
+ */
 const TYPE_FILTERS: { value: SellerSpecialty | "all"; label: string }[] = [
   { value: "all", label: "All HomeKrafters" },
-  { value: "homemade_food", label: "Homemade food" },
-  { value: "bakery", label: "Bakery" },
-  { value: "snacks", label: "Snacks" },
-  { value: "laundry", label: "Laundry" },
+  ...SPECIALTY_GROUPS.flatMap((group) =>
+    group.values.map((value) => ({ value, label: SPECIALTY_LABELS[value] })),
+  ),
 ];
 
 /**

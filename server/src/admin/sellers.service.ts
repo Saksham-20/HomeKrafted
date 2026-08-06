@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Seller, SellerApplication, SellerApplicationCategory, VendorType } from '@prisma/client';
+import { Prisma, Seller, SellerApplication, SellerApplicationCategory, SellerSpecialty, VendorType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { areaById } from '../common/geo';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
@@ -11,6 +11,7 @@ import { VendorProfileService } from '../catalog/vendor-profile.service';
 import { SetVerificationDto } from './dto/set-verification.dto';
 import { AdminSettingsService } from './settings.service';
 import { SellerInviteService, type InviteDeliveryReport } from './seller-invite.service';
+import { vendorTypeForSpecialties } from '../seller-applications/specialty-taxonomy';
 
 function slugify(value: string): string {
   return value
@@ -45,8 +46,23 @@ const VENDOR_TYPE_BY_CATEGORY: Record<SellerApplicationCategory, VendorType> = {
   other: 'maker',
 };
 
-function vendorTypeForCategory(category: SellerApplicationCategory): VendorType {
-  return VENDOR_TYPE_BY_CATEGORY[category];
+/**
+ * M22: prefer what they said they **make** over the coarse category.
+ *
+ * `specialties` is the field with real resolution now that it covers both
+ * halves of the marketplace, and it is the only one the apply form still
+ * collects. The category map stays as the fallback for legacy rows and for
+ * a native app still sending one, so no existing application changes the
+ * storefront it would have produced.
+ */
+function vendorTypeForApplication(application: {
+  category: SellerApplicationCategory;
+  specialties: SellerSpecialty[];
+}): VendorType {
+  if (application.specialties.length > 0) {
+    return vendorTypeForSpecialties(application.specialties);
+  }
+  return VENDOR_TYPE_BY_CATEGORY[application.category];
 }
 
 function mapSeller(seller: Seller, vendorName?: string) {
@@ -435,7 +451,7 @@ export class AdminSellersService {
         data: {
           slug: vendorSlug,
           name: application.businessName,
-          type: vendorTypeForCategory(application.category),
+          type: vendorTypeForApplication(application),
           bio: application.description,
           avatarPlaceholder: `${application.businessName} — AVATAR`,
           bannerPlaceholder: `${application.businessName} — BANNER`,

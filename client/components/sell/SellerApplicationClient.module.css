@@ -262,3 +262,22 @@
   font-size: 12px;
   color: var(--hk-muted);
 }
+
+/* ---- Grouped specialty chips (M22) ----
+   Eighteen chips in one row is a wall an applicant has to read all of.
+   Grouped into the two halves of the marketplace, somebody making candles
+   finds their side without reading the food half at all. */
+.specialtyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  margin-top: var(--hk-s3);
+}
+
+.specialtyGroupLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}

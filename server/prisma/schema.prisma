@@ -422,13 +422,50 @@ enum SnackOrderChannel {
 /// full set of portal modules. Nothing in `server/src/seller/*` may branch
 /// on this to decide access; it exists so buyers can filter ("show me
 /// bakers near me") and so a kitchen can say what it does.
+/// What a HomeKrafter makes — a **discovery/display tag that must never
+/// decide access** (see `CLAUDE.md`, M12). One supply role, every portal
+/// module, for everyone.
+///
+/// **M22 widened it, because the taxonomy was food-first and the
+/// marketplace is not.** Five of the eight original members were food and
+/// exactly one — `crafts` — carried the entire non-food half of a
+/// platform that sells everything homemade. A candle maker, a potter, a
+/// jeweller and an illustrator were the same tag, which meant no buyer
+/// could filter between them and no applicant could say what they made.
+///
+/// **Existing `crafts` rows were deliberately not remapped.** There is no
+/// way to know whether a given one pours candles or throws pots, and a
+/// guess would print the wrong thing on a real person's storefront.
+/// `crafts` stays valid, relabelled "Other handmade", and those sellers
+/// can re-pick.
+///
+/// `laundry`/`cleaning` belong to the module withdrawn in M19. They stay
+/// for the same reason the models do: seeded rows carry them, and the DTO
+/// still accepts them because narrowing an accepted request value breaks
+/// the native apps, which have no versioning policy behind them.
 enum SellerSpecialty {
+  // --- food ---
   homemade_food
   bakery
   pickles_preserves
   snacks
   sweets
+  beverages
+
+  // --- everything else homemade (M22) ---
+  candles
+  ceramics
+  textiles
+  jewellery
+  art_prints
+  bath_body
+  stationery
+  home_decor
+  personalised
+  /// Pre-M22 catch-all, kept readable. Now means "other handmade".
   crafts
+
+  // --- withdrawn module (M19), kept so existing rows resolve ---
   laundry
   cleaning
 }

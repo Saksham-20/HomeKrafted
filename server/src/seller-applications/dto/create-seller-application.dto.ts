@@ -32,12 +32,27 @@ const CATEGORIES: SellerApplicationCategory[] = ['home_chef', 'maker', 'baker', 
  * nothing a user sees.
  */
 const SPECIALTIES: SellerSpecialty[] = [
+  // Food
   'homemade_food',
   'bakery',
   'pickles_preserves',
   'snacks',
   'sweets',
+  'beverages',
+  // Everything else homemade (M22). Before this, `crafts` was the only
+  // non-food value on a marketplace that sells everything homemade — so a
+  // candle maker, a potter and a jeweller all submitted the same tag.
+  'candles',
+  'ceramics',
+  'textiles',
+  'jewellery',
+  'art_prints',
+  'bath_body',
+  'stationery',
+  'home_decor',
+  'personalised',
   'crafts',
+  // Withdrawn module, still accepted — see the comment above.
   'laundry',
   'cleaning',
 ];
@@ -71,10 +86,25 @@ export class CreateSellerApplicationDto {
   @MinLength(1)
   phone!: string;
 
+  /**
+   * **Optional since M22 — the form no longer asks.**
+   *
+   * It only ever existed to pick a `VendorType`, and `VendorType` is
+   * rendered nowhere: a question put to every applicant to fill a column
+   * that feeds another column nobody reads. Both taxonomies were also
+   * food-shaped — this enum's own schema comment said "the platform is
+   * food-first", and a candle maker had to answer `other`.
+   *
+   * When absent it is derived from `specialties`
+   * (`specialty-taxonomy.ts#categoryForSpecialties`). Still **accepted**,
+   * because narrowing a request value a shipped native app may send is a
+   * breaking change and this API has no versioning policy behind it.
+   */
+  @IsOptional()
   @IsIn(CATEGORIES)
-  category!: SellerApplicationCategory;
+  category?: SellerApplicationCategory;
 
-  /** What they'll offer. Becomes `Seller.specialties` on approval — discovery only, never access. */
+  /** What they make. Becomes `Seller.specialties` on approval — discovery only, never access. Now also the source of `category` and `Vendor.type`. */
   @ArrayNotEmpty()
   @IsIn(SPECIALTIES, { each: true })
   specialties!: SellerSpecialty[];

@@ -131,7 +131,7 @@ export function SellerStorefrontClient() {
               purpose="storefront"
               ratio="16/5"
               placeholderLabel={vendor.bannerPlaceholder}
-              hint="A wide shot of your kitchen or your food, roughly 3:1."
+              hint="A wide shot of your workspace or what you make, roughly 3:1."
               value={form.bannerSrc}
               onChange={(url) => setForm((f) => ({ ...f, bannerSrc: url }))}
             />

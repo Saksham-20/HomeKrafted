@@ -99,6 +99,53 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Changed — the marketplace stopped being food-first in its own type system
+
+Owner request: *this marketplace is for everything that is homemade.* It
+was not, and the problem was in the enums rather than the copy, so it
+reached the apply form, the admin filters, discovery and the storefront.
+
+- **`SellerSpecialty` had five food values and one `crafts` bucket** for
+  the entire non-food half. A candle maker, a potter, a jeweller and an
+  illustrator all submitted the same tag — no buyer could filter between
+  them and no applicant could say what they made. Added `beverages`,
+  `candles`, `ceramics`, `textiles`, `jewellery`, `art_prints`,
+  `bath_body`, `stationery`, `home_decor`, `personalised`.
+
+- **Existing `crafts` rows were deliberately not remapped.** Nothing
+  records whether a given one pours candles or throws pots, and a guess
+  would print the wrong thing on a real person's storefront. The value
+  stays valid, relabelled "Other handmade", and those sellers can re-pick.
+
+- **The apply form stopped asking applicants to classify themselves.**
+  `SellerApplicationCategory` (`maker | baker | artist | home_chef |
+  other` — its own schema comment said "the platform is food-first") was
+  a second, coarser taxonomy overlapping the first, and its only consumer
+  was `Vendor.type`, which is **rendered on no screen**: a question put to
+  every applicant to fill a column that feeds another column nobody reads.
+  Both are now derived from what they make. The field stays accepted so a
+  shipped native client keeps working.
+
+- **`/admin/sellers` could not filter to a single non-food HomeKrafter.**
+  Four of its five filters were food and the fifth was `laundry`, a module
+  withdrawn in M19. The list is now built from the specialty groups, so a
+  new value appears without anyone remembering to add it.
+
+- **A candle maker is no longer asked for a food licence.** The FSSAI
+  number field and its unmet verification badge showed on every
+  HomeKrafter's profile — on the screen that decides whether they finish
+  setting up, a requirement they cannot meet for a product it does not
+  apply to. Gated on `makesFood()`, which is the one legitimate thing to
+  branch on a specialty for: it decides what a form *asks*, never what
+  anyone can *reach*.
+
+- **Copy swept**: `/sell`'s title was "Sell your homemade **food**", the
+  seller dashboard said "how your **kitchen** is doing", the storefront
+  banner asked for "a wide shot of your kitchen or your food", and the
+  profile's photo section was "Inside your kitchen" (now workshop, for
+  someone who doesn't cook). The eighteen specialty chips are grouped
+  into the two halves rather than presented as one wall.
+
 ### Added — a listing is reviewed before it is public, and a refusal says why
 
 Owner request, on priority. Before this, `Product.moderationStatus`

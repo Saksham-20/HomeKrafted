@@ -8,17 +8,16 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { areasByCity } from "@/lib/geo";
-import { SPECIALTY_LABELS, type SellerSpecialty } from "@/lib/types";
+import { SPECIALTY_GROUPS, SPECIALTY_LABELS, type SellerSpecialty } from "@/lib/types";
 import { createSellerApplication, type CreateSellerApplicationInput } from "@/lib/api";
 import { ApiError } from "@/lib/api/http";
-import type { SellerApplication, SellerApplicationCategory } from "@/lib/types";
+import type { SellerApplication } from "@/lib/types";
 import type { SellerBenefit, SellerStep } from "@/lib/data";
 import styles from "./SellerApplicationClient.module.css";
 
 export interface SellerApplicationClientProps {
   benefits: SellerBenefit[];
   steps: SellerStep[];
-  categories: { value: SellerApplicationCategory; label: string }[];
 }
 
 const EMPTY_FORM = {
@@ -43,25 +42,6 @@ const EMPTY_FORM = {
 /** The value that turns the area picker into a free-text waitlist entry. */
 const OTHER_AREA = "other";
 
-/**
- * Every HomeKrafter can offer any of these; picking some just helps buyers
- * find you.
- *
- * `laundry` and `cleaning` were removed here in M19 when the platform
- * narrowed to snacks and hampers. **Only from this list** — the API still
- * accepts them, because `server/` is shared with the native apps and has
- * no deprecation policy, so narrowing an accepted request value would
- * start 400ing a shipped client for a value it was told was valid.
- */
-const SPECIALTY_OPTIONS: SellerSpecialty[] = [
-  "homemade_food",
-  "bakery",
-  "sweets",
-  "snacks",
-  "pickles_preserves",
-  "crafts",
-];
-
 const RADIUS_OPTIONS = [3, 5, 8, 10, 15, 20, 30];
 
 /**
@@ -73,8 +53,7 @@ const RADIUS_OPTIONS = [3, 5, 8, 10, 15, 20, 30];
  * longer future-flagged (see `docs/PRD.md`'s M7b-era "future" note, now
  * superseded).
  */
-export function SellerApplicationClient({ benefits, steps, categories }: SellerApplicationClientProps) {
-  const [category, setCategory] = useState<SellerApplicationCategory>(categories[0]?.value ?? "maker");
+export function SellerApplicationClient({ benefits, steps }: SellerApplicationClientProps) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [specialties, setSpecialties] = useState<SellerSpecialty[]>(["homemade_food"]);
   const [radiusOpen, setRadiusOpen] = useState(false);
@@ -121,7 +100,9 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
         contactName: form.contactName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
-        category,
+        // No `category` (M22). The server derives it from `specialties`,
+        // so the form no longer asks a taxonomy question whose only
+        // consumer was a column nothing renders.
         specialties,
         city: form.city.trim(),
         area: form.area,
@@ -267,7 +248,7 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
               />
             </label>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Which area is your kitchen in?</span>
+              <span className={styles.fieldLabel}>Which area do you work from?</span>
               <select
                 className={styles.input}
                 value={form.area}
@@ -350,42 +331,49 @@ export function SellerApplicationClient({ benefits, steps, categories }: SellerA
                 </span>
               </div>
             </div>
+            {/* One question about what they make, grouped rather than a
+                flat wall of eighteen chips, and even-handed across the two
+                halves of the marketplace.
+
+                The separate "Category" question that used to sit below
+                this is gone (M22). It asked every applicant to file
+                themselves as a maker/baker/artist/home chef before they
+                could say what they actually made — a food-shaped taxonomy
+                that sent a candle maker to "other" — and its only purpose
+                was to pick a `VendorType` that is rendered on no screen.
+                The server derives both from these chips now. */}
             <div className={styles.field}>
-              <span className={styles.fieldLabel}>What will you offer?</span>
-              <div className={styles.chipRow}>
-                {SPECIALTY_OPTIONS.map((option) => (
-                  <Chip
-                    key={option}
-                    label={SPECIALTY_LABELS[option]}
-                    selected={specialties.includes(option)}
-                    onClick={() =>
-                      setSpecialties((current) =>
-                        current.includes(option)
-                          ? current.filter((x) => x !== option)
-                          : [...current, option],
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Category</span>
-              <div className={styles.chipRow}>
-                {categories.map((option) => (
-                  <Chip
-                    key={option.value}
-                    label={option.label}
-                    selected={category === option.value}
-                    onClick={() => setCategory(option.value)}
-                  />
-                ))}
-              </div>
+              <span className={styles.fieldLabel}>What do you make?</span>
+              <span className={styles.fieldHelp}>
+                Pick everything that applies — it&rsquo;s how buyers find you. You can sell
+                anything homemade here, and you can change this later.
+              </span>
+              {SPECIALTY_GROUPS.map((group) => (
+                <div key={group.label} className={styles.specialtyGroup}>
+                  <span className={styles.specialtyGroupLabel}>{group.label}</span>
+                  <div className={styles.chipRow}>
+                    {group.values.map((option) => (
+                      <Chip
+                        key={option}
+                        label={SPECIALTY_LABELS[option]}
+                        selected={specialties.includes(option)}
+                        onClick={() =>
+                          setSpecialties((current) =>
+                            current.includes(option)
+                              ? current.filter((x) => x !== option)
+                              : [...current, option],
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
           <Textarea
-            label="What do you make?"
+            label="Tell us a bit about it"
             rows={4}
             placeholder="Tell us about your products, how long you've been making them, and where you sell today…"
             value={form.description}

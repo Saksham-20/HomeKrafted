@@ -4,6 +4,7 @@ import type {
   SellerApplicationStatus,
   SellerSpecialty,
 } from "@/lib/types";
+import { categoryForSpecialties } from "@/lib/types";
 import {
   sellerBenefits,
   sellerCategories,
@@ -42,8 +43,15 @@ export interface CreateSellerApplicationInput {
   contactName: string;
   email: string;
   phone: string;
-  category: SellerApplicationCategory;
-  /** What they'll offer — becomes `Seller.specialties` once approved. */
+  /**
+   * **Optional since M22 — the `/sell` form no longer collects it.** The
+   * server derives it from `specialties`; see
+   * `server/src/seller-applications/specialty-taxonomy.ts` for why it
+   * stopped being worth asking. Kept on the type because the endpoint
+   * still accepts it from an older native client.
+   */
+  category?: SellerApplicationCategory;
+  /** What they make — becomes `Seller.specialties` once approved, and the source of the derived category. */
   specialties: SellerSpecialty[];
   city: string;
   /**
@@ -86,7 +94,9 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
         contactName: input.contactName,
         email: input.email,
         phone: input.phone,
-        category: input.category,
+        // Only sent when a caller actually supplied one — the server
+        // derives it otherwise.
+        ...(input.category ? { category: input.category } : {}),
         specialties: input.specialties,
         city: input.city,
         area: input.area,
@@ -104,7 +114,7 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
     contactName: input.contactName,
     email: input.email,
     phone: input.phone,
-    category: input.category,
+    category: input.category ?? categoryForSpecialties(input.specialties),
     specialties: input.specialties,
     area: input.area,
     areaLabel: input.areaLabel,
