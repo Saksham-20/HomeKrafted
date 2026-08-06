@@ -13,7 +13,7 @@ import { SocialLoginDto } from './dto/social-login.dto';
 import { generateReferralCode } from './referral-code.util';
 import { parseDurationToMs } from './duration.util';
 import { JwtPayload } from '../common/types/jwt-payload.type';
-import { SocialProvider, User } from '@prisma/client';
+import { Prisma, SocialProvider, User } from '@prisma/client';
 import { EmailProviderService } from '../notifications/providers/email.provider';
 
 /**
@@ -24,6 +24,23 @@ import { EmailProviderService } from '../notifications/providers/email.provider'
  * mail on their phone and finish on a laptop.
  */
 const PASSWORD_RESET_TTL_MINUTES = 60;
+
+/** Candidate referral codes tried before giving up — `NAME250`, `NAME251`, … */
+const REFERRAL_CODE_ATTEMPTS = 10;
+
+/**
+ * A unique violation specifically on `User.referralCode`.
+ *
+ * Narrowed to that one field on purpose: `User` is also unique on `email`
+ * and `phone`, and retrying either of those would loop until it exhausted
+ * its attempts and then report a referral-code problem for what is really
+ * "this email is taken".
+ */
+function isReferralCodeCollision(err: unknown): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return false;
+  const target = err.meta?.target;
+  return Array.isArray(target) ? target.includes('referralCode') : target === 'referralCode';
+}
 
 export interface TokenPair {
   accessToken: string;
@@ -61,23 +78,15 @@ export class AuthService {
     }
 
     const passwordHash = await argon2.hash(dto.password);
-    const referralCode = await this.uniqueReferralCode(dto.name);
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          name: dto.name,
-          email: dto.email,
-          passwordHash,
-          authProviders: ['email'],
-          referralCode,
-          referredByCode: dto.referredByCode,
-        },
-      });
-      await tx.wallet.create({ data: { userId: created.id } });
-      await tx.loyaltyAccount.create({ data: { userId: created.id } });
-      return created;
-    });
+    const user = await this.createUserWithAccounts(dto.name, (referralCode) => ({
+      name: dto.name,
+      email: dto.email,
+      passwordHash,
+      authProviders: ['email'],
+      referralCode,
+      referredByCode: dto.referredByCode,
+    }));
 
     return this.issueSession(user);
   }
@@ -227,20 +236,12 @@ export class AuthService {
       );
     }
     if (!user) {
-      const referralCode = await this.uniqueReferralCode(dto.name ?? dto.phone);
-      user = await this.prisma.$transaction(async (tx) => {
-        const created = await tx.user.create({
-          data: {
-            name: dto.name ?? 'Homekrafted user',
-            phone: dto.phone,
-            authProviders: ['phone'],
-            referralCode,
-          },
-        });
-        await tx.wallet.create({ data: { userId: created.id } });
-        await tx.loyaltyAccount.create({ data: { userId: created.id } });
-        return created;
-      });
+      user = await this.createUserWithAccounts(dto.name ?? dto.phone, (referralCode) => ({
+        name: dto.name ?? 'Homekrafted user',
+        phone: dto.phone,
+        authProviders: ['phone'],
+        referralCode,
+      }));
     } else {
       this.assertNotSuspended(user);
       if (!user.authProviders.includes('phone')) {
@@ -433,8 +434,52 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
+  /**
+   * Creates a user plus the two rows every user must have, retrying the
+   * whole transaction when the referral code collides.
+   *
+   * **The check-then-insert this replaces did not survive two people
+   * signing up at once.** `generateReferralCode` is deterministic on the
+   * first name — every "Priya" gets `PRIYA250` on attempt 0 — so two
+   * concurrent registrations both queried, both saw the code free, and
+   * both inserted. One got a 500 out of a raw Prisma unique violation on
+   * `referralCode`, on the signup form, with nothing they could do about
+   * it but try again. Found by the audit's concurrency specs, which
+   * register their actors in parallel; it is not reachable by clicking
+   * the form yourself, and it fires constantly under load.
+   *
+   * A pre-check cannot fix this — there is no gap-free way to reserve a
+   * value you have not inserted yet. So the insert *is* the reservation,
+   * and a lost race just tries the next candidate. The pre-check is kept
+   * as a fast path so the common case still allocates in one round trip.
+   */
+  private async createUserWithAccounts(
+    nameSeed: string,
+    build: (referralCode: string) => Prisma.UserCreateInput,
+  ): Promise<User> {
+    for (let attempt = 0; attempt < REFERRAL_CODE_ATTEMPTS; attempt += 1) {
+      const code =
+        attempt === 0
+          ? await this.uniqueReferralCode(nameSeed)
+          : generateReferralCode(nameSeed, attempt);
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({ data: build(code) });
+          await tx.wallet.create({ data: { userId: created.id } });
+          await tx.loyaltyAccount.create({ data: { userId: created.id } });
+          return created;
+        });
+      } catch (err) {
+        if (isReferralCodeCollision(err)) continue;
+        throw err;
+      }
+    }
+    throw new ConflictException('Could not allocate a unique referral code — please retry');
+  }
+
+  /** Fast path only — see `createUserWithAccounts` for why the insert, not this, is what guarantees uniqueness. */
   private async uniqueReferralCode(nameSeed: string): Promise<string> {
-    for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (let attempt = 0; attempt < REFERRAL_CODE_ATTEMPTS; attempt += 1) {
       const code = generateReferralCode(nameSeed, attempt);
       const clash = await this.prisma.user.findUnique({ where: { referralCode: code } });
       if (!clash) return code;

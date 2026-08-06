@@ -40,6 +40,65 @@ had both named these as owed and neither had ever been scoped.
   reading "Cannot destructure property 'filename' of '(intermediate
   value)' as it is undefined", which is both bugs in one response.
 
+### Fixed — money paths under concurrency
+
+Five writes that were correct when walked once and wrong when walked twice
+at the same time. All five are the same mistake — a read that establishes
+a fact, then a write that assumes it still holds — and none is reachable
+by clicking through the UI yourself, which is why all five shipped. Each
+is now covered by a spec that races real in-flight requests.
+
+- **A HomeKrafter could request the same earnings twice.** Two concurrent
+  `POST /seller/payouts/request` calls both read "nothing pending" and
+  both created a `pending` payout for the full balance. The
+  `Idempotency-Key` header does not cover it: it de-duplicates a repeat of
+  *one* request, and a double-click sends two. The request now takes a
+  `FOR UPDATE` lock on the `Seller` row before reading — a lock rather
+  than a partial unique index because Prisma's schema language cannot
+  express `WHERE status = 'pending'`, so that index would live only in raw
+  migration SQL and read as drift on every `migrate dev`.
+
+- **Two admins could both decide one payout**, the second silently
+  overwriting the first's `reference`, `decidedById` and `decidedAt` — so
+  a payout settled under a real UTR could end up on record as rejected, or
+  as paid under a reference nobody sent. `Payout.reference` is the only
+  link to a transfer that happened outside this system, so losing that
+  write loses the paper trail for real money. Both decisions now go
+  through a conditional `updateMany` that puts `status: 'pending'` in the
+  WHERE clause; the loser gets a 409 naming the outcome that won.
+
+- **One order could open two payable Razorpay orders.** Every call to
+  `POST /payments/razorpay/order` minted a fresh one, so a reload or a
+  second tab left two live payment pages against the same `Order`. A buyer
+  who paid both was charged twice and credited once — the webhook
+  transitions the order on the first capture, and the second finds nothing
+  to apply itself to. Now: an unlocked read catches the ordinary duplicate,
+  and a genuine race is settled under a `FOR UPDATE` lock on the `Order`
+  row. Minting happens *before* the transaction on purpose — the
+  alternative holds a row lock across an HTTP call to Razorpay. Top-ups
+  are deliberately not de-duplicated: two ₹500 top-ups are two legitimate
+  top-ups and both credit.
+
+- **A redelivered WhatsApp message created a second `SnackOrder`.** Meta's
+  Cloud API retries any delivery it does not get a timely 200 for, and the
+  handler had no dedup at all, so one customer list became two orders and
+  a HomeKrafter cooked it twice. Inbound messages now claim
+  `WebhookEvent(provider: 'whatsapp', eventId: 'message:<wamid>')` inside
+  the same transaction as the orders — the shape the Razorpay webhook
+  already used. Outbound confirmations moved after the commit, so a send
+  to Meta no longer holds the transaction open for a network round trip.
+
+- **Two people with the same first name could not sign up at the same
+  time.** `generateReferralCode` is deterministic on the first name, so
+  every "Priya" computes `PRIYA250`; the check-then-insert told both
+  callers it was free and the loser died on a unique violation — a 500 on
+  the signup form. Found because the payout spec registers its two admins
+  in parallel. There is no gap-free way to reserve a value you have not
+  inserted, so the insert is now the reservation and a lost race tries the
+  next candidate; the pre-check stays as a fast path. The retry is
+  narrowed to `referralCode`, so a duplicate *email* still reports itself
+  as one.
+
 ### Changed — auth UI
 
 - **Social sign-in moved out of a third method tab** and now sits under
@@ -68,6 +127,13 @@ had both named these as owed and neither had ever been scoped.
 - `server/test/e2e/auth-hardening.e2e-spec.ts` — 10 specs covering all
   four fixes above, including that the new guard lookup still
   short-circuits on `@Public()` routes.
+
+- `server/test/e2e/money-races.e2e-spec.ts` — 15 specs racing real
+  in-flight requests against one Postgres, not a simulated interleaving.
+  Each fix is paired with a spec asserting the legitimate case still
+  works: a second payout after the first settles, a fresh Razorpay order
+  once the total changes, a second top-up, a genuinely new WhatsApp
+  message.
 
 ## [M20] — Two verticals, a home page that says so, and meal plans you can buy — 2026-08-04
 

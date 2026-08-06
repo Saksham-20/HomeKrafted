@@ -103,6 +103,7 @@ Grouped by the rule, not by the file, because the rules are the point.
 | The OTP test code only works for allowlisted numbers, and never for an admin | `e2e/otp-bypass.e2e-spec.ts` |
 | Suspension bites on the next request, not the next login; the OTP guess budget is per phone, not per issued code; an unexpected error doesn't describe itself to the client | `e2e/auth-hardening.e2e-spec.ts` |
 | A reset link is single-use, expiring, session-revoking, and not an account-existence oracle | `e2e/password-reset.e2e-spec.ts` |
+| Money writes survive being made twice at once: one payout per request, one admin decision per payout, one payable Razorpay order per order, one `SnackOrder` per WhatsApp message, and two same-named signups both succeed | `e2e/money-races.e2e-spec.ts` |
 | `isHamper` is a filter and nothing else — a hamper still obeys availability, moderation and ownership | `e2e/hamper-listings.e2e-spec.ts` |
 | Every path that writes `Order.status` messages the buyer; a new order messages each kitchen once | `e2e/order-notifications.e2e-spec.ts` |
 | Two deliveries racing for one recipient both arrive — neither is lost to the preference row's unique constraint | `e2e/order-notifications.e2e-spec.ts` |

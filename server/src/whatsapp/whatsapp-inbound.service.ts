@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from './whatsapp.service';
 
@@ -78,13 +79,18 @@ export class WhatsAppInboundService {
         const senderName = value.contacts?.[0]?.profile?.name;
         for (const message of value.messages ?? []) {
           if (message.type !== 'text' || !message.text?.body || !message.from) continue;
-          await this.handleTextMessage(message.from, senderName, message.text.body);
+          await this.handleTextMessage(message.from, senderName, message.text.body, message.id);
         }
       }
     }
   }
 
-  private async handleTextMessage(fromPhone: string, senderName: string | undefined, text: string): Promise<void> {
+  private async handleTextMessage(
+    fromPhone: string,
+    senderName: string | undefined,
+    text: string,
+    messageId: string | undefined,
+  ): Promise<void> {
     const lines = text
       .split('\n')
       .map((line) => line.trim())
@@ -120,25 +126,67 @@ export class WhatsAppInboundService {
       bySeller.set(item.sellerId, list);
     }
 
-    for (const [sellerId, items] of bySeller) {
-      const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const order = await this.prisma.snackOrder.create({
-        data: {
-          sellerId,
-          customerName: senderName ?? fromPhone,
-          customerPhone: fromPhone,
-          total,
-          channel: 'whatsapp',
-          status: 'received',
-          items: {
-            create: items.map((item) => ({ snackId: item.snackId, name: item.name, quantity: item.quantity, price: item.price })),
-          },
-        },
-      });
-      this.logger.log(
-        `[WHATSAPP INBOUND] created SnackOrder ${order.id} for seller ${sellerId} from ${fromPhone} (${items.length} item(s), total ₹${total})`,
-      );
+    // Everything below is one transaction, claiming the message id first —
+    // the same shape `PaymentsService.handleWebhook` uses for Razorpay, and
+    // for the same reason. **Meta redelivers.** Its Cloud API retries any
+    // webhook it does not get a timely 200 for, and a retry replayed this
+    // whole method: a customer who sent one snack list got two `SnackOrder`
+    // rows, a HomeKrafter cooked the order twice, and nothing on the row
+    // said which one was real. The `WebhookEvent` unique index on
+    // `(provider, eventId)` is what makes the second delivery a no-op, and
+    // it must be claimed *inside* the transaction so a crash mid-write
+    // rolls the claim back with the orders rather than swallowing them.
+    let created: { id: string; sellerId: string; itemCount: number; total: number }[];
+    try {
+      created = await this.prisma.$transaction(async (tx) => {
+        if (messageId) {
+          await tx.webhookEvent.create({
+            data: { provider: 'whatsapp', eventId: `message:${messageId}` },
+          });
+        }
 
+        const rows: { id: string; sellerId: string; itemCount: number; total: number }[] = [];
+        for (const [sellerId, items] of bySeller) {
+          const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          const order = await tx.snackOrder.create({
+            data: {
+              sellerId,
+              customerName: senderName ?? fromPhone,
+              customerPhone: fromPhone,
+              total,
+              channel: 'whatsapp',
+              status: 'received',
+              items: {
+                create: items.map((item) => ({ snackId: item.snackId, name: item.name, quantity: item.quantity, price: item.price })),
+              },
+            },
+          });
+          rows.push({ id: order.id, sellerId, itemCount: items.length, total });
+        }
+        return rows;
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        this.logger.log(`[WHATSAPP INBOUND] duplicate delivery of message ${messageId} — already processed`);
+        return;
+      }
+      throw err;
+    }
+
+    if (!messageId) {
+      this.logger.warn(
+        `[WHATSAPP INBOUND] message from ${fromPhone} carried no id — processed without redelivery protection`,
+      );
+    }
+
+    // Outbound confirmations happen after the commit, never inside it: an
+    // HTTP call to Meta holds the transaction (and its row locks) open for
+    // the length of a network round trip, and a send that fails must not
+    // roll back an order the kitchen has already been given.
+    for (const order of created) {
+      this.logger.log(
+        `[WHATSAPP INBOUND] created SnackOrder ${order.id} for seller ${order.sellerId} from ${fromPhone} (${order.itemCount} item(s), total ₹${order.total})`,
+      );
       await this.whatsapp.sendStatus({ phone: fromPhone, name: senderName }, order.id, 'received');
     }
   }

@@ -81,39 +81,98 @@ export class PaymentsService {
     }
 
     const amountPaise = Math.round(amount * 100);
+
+    // One Homekrafted order opens at most one *live* Razorpay order.
+    //
+    // Without this, every call minted a fresh one: a double-click, a
+    // back-button, or a reload of the checkout page left two payable
+    // Razorpay orders against the same `Order`. Both are real payment
+    // pages. A buyer who paid both was charged twice and credited once —
+    // the webhook transitions the `Order` on the first capture, and the
+    // second finds it no longer `pending_payment`, so the money lands with
+    // nothing to apply it to and no automated way back.
+    //
+    // Only `purpose: "order"` is de-duplicated. A top-up has no such
+    // invariant — two ₹500 top-ups are two legitimate top-ups, and both
+    // credit — so collapsing them would silently swallow the second.
+    const respond = (razorpayOrderId: string) => ({
+      razorpayOrderId,
+      amount,
+      amountPaise,
+      currency: 'INR',
+      keyId: this.config.get('razorpay.keyId', { infer: true }),
+      mock: razorpayOrderId.startsWith('order_mock_'),
+    });
+
+    // Cheap unlocked read first — the ordinary duplicate (a reload, a
+    // back-button, a second tab) hits a row that committed seconds ago, so
+    // there is nothing to mint and nothing to lock. Only a genuine
+    // simultaneous race falls through to the locked path below.
+    if (orderRecordId) {
+      const open = await this.findOpenOrder(this.prisma, orderRecordId, amount);
+      if (open) return respond(open);
+    }
+
     const receipt = `hk_${dto.purpose}_${Date.now()}_${randomUUID().slice(0, 8)}`;
 
     let razorpayOrderId: string;
-    let mock = false;
     if (this.isMockMode()) {
       razorpayOrderId = `order_mock_${randomUUID()}`;
-      mock = true;
       this.logger.debug(`Razorpay keys are placeholders — minted mock order ${razorpayOrderId} (₹${amount})`);
     } else {
       const rpOrder = await this.razorpayClient.createOrder({ amountPaise, currency: 'INR', receipt });
       razorpayOrderId = rpOrder.id;
     }
 
-    await this.prisma.razorpayOrder.create({
-      data: {
-        razorpayOrderId,
-        purpose: dto.purpose,
-        amount,
-        userId,
-        orderId: orderRecordId,
-        walletId,
-        status: 'created',
-      },
-    });
+    // Mint *before* the transaction, deliberately. The alternative holds a
+    // row lock across an HTTP call to Razorpay, which under load is how a
+    // slow third party becomes a database pile-up. The cost is that a lost
+    // race abandons one freshly minted Razorpay order — never handed to a
+    // client, so never payable, and it expires on Razorpay's side.
+    if (orderRecordId) {
+      const settled = await this.prisma.$transaction(async (tx) => {
+        // `FOR UPDATE` on `Order`, not on `RazorpayOrder`: on the first
+        // call there is no `RazorpayOrder` row yet, and a lock has to be
+        // taken on something that already exists. Serializing here means
+        // the loser blocks until the winner's row is committed, then sees
+        // it — which a bare "look, then create if absent" does not, and
+        // that first version of this fix is exactly what the concurrency
+        // spec below caught still minting two payable orders.
+        await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderRecordId} FOR UPDATE`;
+        const open = await this.findOpenOrder(tx, orderRecordId, amount);
+        if (open) return open;
 
-    return {
-      razorpayOrderId,
-      amount,
-      amountPaise,
-      currency: 'INR',
-      keyId: this.config.get('razorpay.keyId', { infer: true }),
-      mock,
-    };
+        await tx.razorpayOrder.create({
+          data: { razorpayOrderId, purpose: dto.purpose, amount, userId, orderId: orderRecordId, status: 'created' },
+        });
+        return razorpayOrderId;
+      });
+      return respond(settled);
+    }
+
+    await this.prisma.razorpayOrder.create({
+      data: { razorpayOrderId, purpose: dto.purpose, amount, userId, walletId, status: 'created' },
+    });
+    return respond(razorpayOrderId);
+  }
+
+  /**
+   * This order's still-payable Razorpay order, if any.
+   *
+   * `amount` is re-read from `Order.total` by the caller, so a mismatch
+   * means the order changed after the first attempt; that stale Razorpay
+   * order is for the wrong money and must never be handed back.
+   */
+  private async findOpenOrder(
+    db: Prisma.TransactionClient | PrismaService,
+    orderId: string,
+    amount: number,
+  ): Promise<string | null> {
+    const open = await db.razorpayOrder.findFirst({
+      where: { orderId, status: 'created' },
+      orderBy: { createdAt: 'desc' },
+    });
+    return open && Number(open.amount) === amount ? open.razorpayOrderId : null;
   }
 
   /**

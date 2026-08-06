@@ -40,6 +40,26 @@ export class SellerPayoutsService {
 
   async requestPayout(seller: Seller, idempotencyKey?: string) {
     return this.idempotency.run(seller.userId, 'seller.requestPayout', idempotencyKey, async (tx) => {
+      // Serialize every payout request for this HomeKrafter against each
+      // other, before reading whether one is already pending.
+      //
+      // The idempotency key above only de-duplicates a *repeat of the same
+      // request*. Two genuinely separate requests — a double-click, or two
+      // tabs, which send different keys or none — both ran the read below,
+      // both saw no pending row, and both created one. `pendingBalance`
+      // subtracts the sum of existing payouts, so the second row was
+      // ₹0-correct only if the first had already committed; racing, they
+      // each claimed the full balance and the HomeKrafter's earnings were
+      // requested twice.
+      //
+      // A lock rather than a partial unique index (`WHERE status='pending'`)
+      // because Prisma's schema language cannot express one, so it would
+      // live only in raw migration SQL and read as drift on every
+      // `migrate dev`. Under READ COMMITTED the loser blocks here until the
+      // winner commits, and its next statement takes a fresh snapshot — so
+      // the `findFirst` below sees the row the winner just wrote.
+      await tx.$queryRaw`SELECT id FROM "Seller" WHERE id = ${seller.id} FOR UPDATE`;
+
       const alreadyPending = await tx.payout.findFirst({ where: { sellerId: seller.id, status: 'pending' } });
       if (alreadyPending) {
         throw new ConflictException('A payout request is already pending for this account');

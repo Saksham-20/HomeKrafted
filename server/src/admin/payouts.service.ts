@@ -85,17 +85,13 @@ export class AdminPayoutsService {
   async markPaid(adminUserId: string, id: string, reference?: string, note?: string) {
     const payout = await this.requirePending(id);
 
-    const updated = await this.prisma.payout.update({
-      where: { id },
-      data: {
-        status: 'paid',
-        paidAt: new Date(),
-        reference,
-        note,
-        decidedById: adminUserId,
-        decidedAt: new Date(),
-      },
-      include: PAYOUT_INCLUDE,
+    const updated = await this.claimPending(id, {
+      status: 'paid',
+      paidAt: new Date(),
+      reference,
+      note,
+      decidedById: adminUserId,
+      decidedAt: new Date(),
     });
 
     await this.auditLog.log({
@@ -121,10 +117,11 @@ export class AdminPayoutsService {
   async reject(adminUserId: string, id: string, note: string) {
     const payout = await this.requirePending(id);
 
-    const updated = await this.prisma.payout.update({
-      where: { id },
-      data: { status: 'rejected', note, decidedById: adminUserId, decidedAt: new Date() },
-      include: PAYOUT_INCLUDE,
+    const updated = await this.claimPending(id, {
+      status: 'rejected',
+      note,
+      decidedById: adminUserId,
+      decidedAt: new Date(),
     });
 
     await this.auditLog.log({
@@ -141,9 +138,48 @@ export class AdminPayoutsService {
   }
 
   /**
+   * Applies a decision **only if the payout is still `pending`**, and
+   * reports a conflict when it is not.
+   *
+   * `requirePending` reads, then this writes — and between those two
+   * statements another admin can decide the same payout. Both then passed
+   * the check and both updated unconditionally: the second overwrote the
+   * first's `reference`, `decidedById` and `decidedAt`, so a payout paid by
+   * one admin under one UTR could end up on record as rejected by another,
+   * or as paid under a reference nobody sent. The row is the only link to a
+   * transfer that happened outside this system (see `Payout.reference`), so
+   * losing that write is losing the money's paper trail.
+   *
+   * `updateMany` puts the status into the WHERE clause, which Postgres
+   * evaluates against the row it locks — so exactly one of two racing
+   * admins matches a row, and the loser gets a 409 naming the outcome that
+   * won rather than silently clobbering it.
+   */
+  private async claimPending(id: string, data: Prisma.PayoutUncheckedUpdateManyInput & { status: PayoutStatus }) {
+    const { count } = await this.prisma.payout.updateMany({
+      where: { id, status: 'pending' },
+      data,
+    });
+    if (count === 0) {
+      // Lost the race — re-read to say what it actually became.
+      const current = await this.prisma.payout.findUnique({ where: { id } });
+      throw new ConflictException(
+        current
+          ? `This payout has already been ${current.status}`
+          : 'Payout not found',
+      );
+    }
+    return this.prisma.payout.findUniqueOrThrow({ where: { id }, include: PAYOUT_INCLUDE });
+  }
+
+  /**
    * Both decisions are one-way. Re-deciding a settled payout would let an
    * admin quietly rewrite a row that says real money moved; the correct
    * fix for a mistake is a new payout, which leaves both facts on record.
+   *
+   * This is the *fast* check — it produces the friendly 409 for the common
+   * case and loads the seller for the notification. `claimPending` is what
+   * actually makes the decision safe under concurrency.
    */
   private async requirePending(id: string) {
     const payout = await this.prisma.payout.findUnique({ where: { id }, include: PAYOUT_INCLUDE });
