@@ -14,7 +14,19 @@ import {
   getVendors,
   getWallet,
 } from "@/lib/api";
+import type { Wallet } from "@/lib/types";
 import { GalleryClient } from "./GalleryClient";
+
+/** Stand-in for the signed-out case — see the `.catch()` at the fetch below. */
+const EMPTY_WALLET: Wallet = {
+  id: "gallery-placeholder",
+  userId: "gallery-placeholder",
+  balance: 0,
+  pendingCashback: 0,
+  lifetimeSaved: 0,
+  payWithWalletDefault: true,
+  updatedAt: new Date(0).toISOString(),
+};
 
 /**
  * DEV-ONLY component gallery (M1).
@@ -64,8 +76,15 @@ export default async function GalleryPage() {
     getLaundryServices(),
     getCategories(),
     getOccasions(),
-    getWallet(),
-    getTransactions(),
+    // `getWallet`/`getTransactions` are owner-scoped, and a Server
+    // Component render carries no session — so both 401 and, unhandled,
+    // took the whole page down with a 500 (found by the audit sweep;
+    // production never saw it because the `notFound()` above runs first,
+    // which is also why it went unnoticed). This screen exists to look at
+    // primitives, so a wallet nobody is signed in to is an empty wallet,
+    // not a crash.
+    getWallet().catch(() => EMPTY_WALLET),
+    getTransactions().catch(() => []),
     getTopupOptions(),
     getLaundryDays(),
     getLaundrySlots(),

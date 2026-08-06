@@ -16,14 +16,14 @@ export interface MobileDrawerProps {
   navItems: NavLink[];
   /** Undefined while `useWallet()` is still hydrating (see `HeaderClient`) — renders "…" instead of a misleading ₹0. */
   walletBalance: number | undefined;
-  /** Present only for a signed-in seller currently in shopping mode — `HeaderClient`'s `sellerModePill` hides below ~840px (`.hideOnMobile`), so this is the only way to reach the dual-mode toggle on mobile (M8.5, same reasoning as the Wishlist entry below). */
+  /** Present only for a signed-in seller currently in shopping mode — `HeaderClient`'s `sellerModePill` hides below ~1120px (`.hideOnMobile`), so this is the only way to reach the dual-mode toggle on mobile (M8.5, same reasoning as the Wishlist entry below). */
   onSwitchToSelling?: () => void;
 }
 
 /**
  * Slide-in mobile nav. Carries the primary nav links plus wallet/wishlist/
  * account entries — the header hides its desktop nav, search pill and
- * wishlist/account icons below ~840px, so this is the only way to reach
+ * wishlist/account icons below ~1120px, so this is the only way to reach
  * them on small screens.
  */
 /** Everything focusable inside the panel, in DOM order. */
@@ -118,7 +118,7 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchT
         </div>
 
         {/* The header's search pill is one of the things `.hideOnMobile`
-            hides below ~840px, so without this the drawer's whole width
+            hides below ~1120px, so without this the drawer's whole width
             range has no way to search at all. */}
         <div className={styles.searchWrap}>
           <SearchForm variant="block" placeholder="Search homemade…" onSubmitted={onClose} />

@@ -52,11 +52,10 @@ was already made the other way — and don't treat it as backlog: it is a
 hard launch gate in `docs/LAUNCH-READINESS.md` §0.4, and closing it needs
 a Google OAuth client ID and an Apple service ID that nobody has yet.
 
-The rest are not code:
-
-The build is feature-complete against every approved plan and deployed.
-These three are what still stand between it and real customers, and each
-is the kind of thing a session will otherwise assume is already handled.
+**The other three are not code.** The build is feature-complete against
+every approved plan and deployed; these are what still stand between it
+and real customers, and each is the kind of thing a session will otherwise
+assume is already handled.
 
 - **An approved HomeKrafter still cannot sign in.** Twilio is unset, so a
   real OTP reaches the server log and nowhere else, and phone OTP is the
@@ -229,7 +228,9 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 - Mobile-first, fluid. No fixed 430/1180 "stage" (that was the
   prototype's reviewer chrome). Container maxes out at 1180px via the
   `.container` utility class (`styles/globals.css`), grace­fully down to
-  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~840px.
+  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~1120px (the
+  width the six-item nav + search + wallet chip + icons stops fitting;
+  was ~840 until the M21 audit measured it).
 
 ## Channel rules (see `lib/channel.ts` — read before building any module screen)
 
@@ -723,7 +724,7 @@ automatically.
 
 - ~~**`About` nav** points at `/`~~ — superseded: `/about` is a real route
   and the nav points at it.
-- **Wishlist is in `<MobileDrawer>`** — otherwise unreachable below 840px.
+- **Wishlist is in `<MobileDrawer>`** — otherwise unreachable below 1120px.
 - **`LoyaltyTier`** = `bronze|silver|gold|platinum` (naming pending brand input).
 - **Laundry `pricingModel`** uses all three union values: Wash & Fold
   `per-kg`, Dry Clean + Steam Ironing `per-item`, Home Cleaning `per-hour`

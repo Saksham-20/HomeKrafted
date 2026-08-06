@@ -64,12 +64,22 @@
   display: flex;
   align-items: center;
   gap: var(--hk-s5);
+  /* Without this the nav is a shrinkable flex item, so it gets squeezed
+     narrower than its content and the labels break mid-phrase — the audit
+     found "Homemade Food", "Handcrafted Gifts", "Gift Hampers" and
+     "Corporate & bulk" all stacked over two lines at 1280px, which is an
+     ordinary laptop, and pushed the header to 107px tall. There was room
+     for all of it (1092px of the 1180px container); flexbox was just
+     allowed to take it away. */
+  flex-shrink: 0;
 }
 
 .navLink {
   font-size: 14.5px;
   font-weight: 500;
   color: var(--hk-ink-2);
+  /* A nav label is a name, not a sentence — it never breaks. */
+  white-space: nowrap;
 }
 
 .navLink:hover {
@@ -107,7 +117,7 @@
 
 /* The pill's own look lives in `components/search/SearchForm.module.css`
    now that it is a real form rather than a link — this class is only the
-   header's layout hook (and what the ≤840px rule below hides). */
+   header's layout hook (and what the ≤1120px rule below hides). */
 .searchPill {
   flex: 0 1 auto;
   min-width: 0;
@@ -181,12 +191,26 @@
   flex-shrink: 0;
 }
 
-/* ---- Collapse to hamburger below ~840px ----
+/* ---- Collapse to hamburger below ~1120px ----
  * Wishlist/Account carry .hideOnMobile in addition to .utilityIcon so they
  * hide with nav/search; Cart deliberately does NOT carry it — the cart
  * icon (and the wallet chip) stay visible at every width, matching the
- * prototype's own header, which never hides them. */
-@media (max-width: 840px) {
+ * prototype's own header, which never hides them.
+ *
+ * **1120px, not the 840px this was written at.** 840 was chosen when the
+ * primary nav was shorter; M20's "Corporate & bulk" made it six items,
+ * and the full row — logo + six labels + search + wallet chip + three
+ * icons — measures ~1114px at its natural width. Between 840 and 1114 it
+ * therefore did not fit, and the audit found both ways it failed: with
+ * the nav shrinkable, labels broke mid-phrase into two lines ("Homemade
+ * Food" over two rows, header 107px tall); with the nav held at its
+ * natural width, the overflow moved right instead and clipped the wallet
+ * chip and the wishlist/account icons off the edge at 1024px.
+ *
+ * Neither is a styling problem — there is genuinely not room. The drawer
+ * already carries every nav item (plus Wishlist, which is why it exists),
+ * so the honest breakpoint is the width where the row stops fitting. */
+@media (max-width: 1120px) {
   .nav,
   .searchPill,
   .hideOnMobile {
