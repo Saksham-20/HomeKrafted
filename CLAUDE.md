@@ -39,6 +39,33 @@ accounts).
   idea" isn't already a ranked item there.
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
+## Standing blockers (true as of 2026-08-06) — none of them are code
+
+The build is feature-complete against every approved plan and deployed.
+These three are what still stand between it and real customers, and each
+is the kind of thing a session will otherwise assume is already handled.
+
+- **An approved HomeKrafter still cannot sign in.** Twilio is unset, so a
+  real OTP reaches the server log and nowhere else, and phone OTP is the
+  *only* first sign-in an approved kitchen has (approval never sets a
+  password — see the M17 section). `OTP_TEST_CODE` is scoped to four demo
+  numbers, so it does not help a real one. **This, not the software, is
+  what caps supply growth** — don't plan around onboarding kitchens until
+  it is fixed. One afternoon of config.
+- **The platform collects nothing.** `commissionPct` (default 10) exists
+  only as a modelled number on the admin analytics screen; nothing deducts
+  it, and `Payout.amount` is gross. Deliberate — a take rate is a business
+  decision, not a bug fix — so don't "fix" it in passing. Both the
+  `/admin/payouts` queue and `docs/LAUNCH-READINESS.md` §3b say so out
+  loud; keep it that way until someone decides.
+- **The home page's "Backed by" strip is unverified.** CUNA, ISB Atal
+  Incubation Centre and CGC — `backedBy` in `lib/data/site.ts`, rendered by
+  `app/page.tsx`. Deliberately plain text rather than logos, because
+  reproducing a mark is a separate permission from stating a relationship
+  and we hold neither in writing. Confirm each before the site is promoted
+  publicly: an unverified affiliation on a live site is legal exposure, not
+  a copy nit.
+
 ## Execution model
 
 **Opus plans + reviews, Sonnet builds.** Opus writes each milestone's brief,
