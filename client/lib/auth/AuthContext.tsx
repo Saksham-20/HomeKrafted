@@ -345,58 +345,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (!stored.signedIn) {
-        // Explicit prior sign-out — stay signed out.
-        setSignedIn(false);
-        setRole(undefined);
-        setReady(true);
-        hydrated.current = true;
-        return;
-      }
-
-      if (stored.role === "seller") {
-        // Flagged seller but no real session survived (stale pre-M8.5
-        // localStorage, or a session that failed to restore above) —
-        // fall back to the local flags, no network. A real
-        // Seller sign-in always persists a real session
-        // (see below), so this is a defensive fallback, not the common
-        // path.
-        setSignedIn(true);
-        setRole("seller");
-        setDemoHomeKrafter(stored.sellerType);
-        setSellerModeState(stored.sellerMode ?? "selling");
-        setReady(true);
-        hydrated.current = true;
-        return;
-      }
-
-      if (stored.role === "admin") {
-        // Flagged admin but no real session survived (stale pre-M8.4b
-        // localStorage, or a session that failed to restore above) — same
-        // defensive local-flags fallback as the seller branch above,
-        // rather than falling through to the demo-consumer auto-sign-in
-        // below.
-        setSignedIn(true);
-        setRole("admin");
-        setReady(true);
-        hydrated.current = true;
-        return;
-      }
-
-      // Fresh browser (or a lost/expired session that was never explicitly
-      // signed out of) — stay signed out. This used to auto-sign-in as the
-      // seeded demo consumer, which every pre-M8.4 screen assumed; that
-      // made a first-time visitor land already logged in as someone else,
-      // so real signed-out state (and the whole sign-up/sign-in funnel)
-      // could never be seen or tested. The seeded demo consumer is still
-      // one tap away via the explicit "Sign in as demo user" button on
-      // `/login` (`signInAsDemoUser`), which uses these same credentials.
+      // No real session restored — signed out, whatever the local flags
+      // say, and for every role.
+      //
+      // There used to be a "flagged seller / flagged admin, trust the
+      // local flags" branch here, written when `/seller/*` and `/admin/*`
+      // predated real sessions. Since M8.4b/M8.5 every real sign-in
+      // persists one, so the only thing those branches could still fire
+      // on was a session that had just failed to restore — and they
+      // turned that into a *claim* of being signed in. The audit walked
+      // it: an admin whose refresh token had expired got the admin shell,
+      // every request inside it 401'd, `http.ts` bounced them to
+      // `/login`, and `/login` — reading the same flags — told them
+      // "You're all set, you're signed in to your Homekrafted admin
+      // account" and offered "Go to the admin panel", which bounced
+      // straight back. No sign-in form anywhere in the loop. Only the
+      // "Sign out" button escaped it.
+      //
+      // Same rule as `getMySeller()`: anything derived from a session
+      // must fail empty, never fall back to a fixture.
       clearSession();
       setSignedIn(false);
       setRole(undefined);
+      setDemoHomeKrafter(undefined);
+      setSellerModeState(undefined);
       setSessionUserState(undefined);
       setReady(true);
       hydrated.current = true;
+      // Written here rather than left to the persist effect below.
+      //
+      // That effect is keyed on `signedIn` changing, and `signedIn`
+      // starts at `false` — so landing here sets it to `false` again,
+      // React bails out of the no-op update, no re-render happens and the
+      // effect never runs. The stale `hk_auth_v1` and `hk_role` therefore
+      // survived every failed restore, which is what made the loop above
+      // permanent instead of self-healing on the next load.
+      writeStorage({ signedIn: false, role: undefined });
+      writeRoleCookie(undefined);
     }
 
     void hydrate();

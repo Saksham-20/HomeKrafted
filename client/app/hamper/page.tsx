@@ -96,12 +96,15 @@ export default async function HamperPage() {
           </div>
         ) : (
           <div className={styles.grid}>
-            {hampers.map((product) => (
+            {hampers.map((product, index) => (
               <ProductGridCard
                 key={product.id}
                 product={product}
                 makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
                 href={`/product/${product.slug}`}
+                // First row only — see `ShopClient`'s grid for why it is
+                // the row and not a single card.
+                priority={index < 3}
               />
             ))}
           </div>

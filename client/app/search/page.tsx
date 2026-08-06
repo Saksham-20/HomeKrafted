@@ -99,12 +99,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 Products <span className={styles.count}>{results.products.length}</span>
               </h2>
               <div className={styles.grid}>
-                {results.products.map((product) => (
+                {results.products.map((product, index) => (
                   <ProductGridCard
                     key={product.id}
                     product={product}
                     makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
                     href={`/product/${product.slug}`}
+                    // First row only — see `ShopClient`'s grid for why it
+                    // is the row and not a single card.
+                    priority={index < 3}
                   />
                 ))}
               </div>

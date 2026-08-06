@@ -276,12 +276,23 @@ export function ShopClient({
           <p className={styles.empty}>No products match your filters.</p>
         ) : (
           <div className={styles.grid}>
-            {pageItems.map((product) => (
+            {pageItems.map((product, index) => (
               <ProductGridCard
                 key={product.id}
                 product={product}
                 makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
                 href={`/product/${product.slug}`}
+                // The first row, not the first card. This grid is the top
+                // of the page, so its LCP element is one of the row-one
+                // cards — but every card renders at the same size, so
+                // *which* one wins is decided by paint order and is not
+                // stable: measured at 1280px, the warning named the second
+                // card, not the first. Marking one card was therefore a
+                // fix that happened to miss. Three is the desktop row
+                // count; all three are above the fold and needed for first
+                // paint anyway, so nothing is being fetched early that
+                // wasn't already required.
+                priority={index < 3}
               />
             ))}
           </div>

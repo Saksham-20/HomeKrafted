@@ -11,6 +11,8 @@ export interface ProductGridCardProps {
   product: Product;
   makerName: string;
   href: string;
+  /** Forwarded to `ProductCard` — first card of an above-the-fold grid only. */
+  priority?: boolean;
   className?: string;
 }
 
@@ -23,7 +25,7 @@ export interface ProductGridCardProps {
  * built in M2 (Home featured rail, Shop listing, Storefront, Occasion
  * collections) so the click/add/wishlist wiring lives in exactly one place.
  */
-export function ProductGridCard({ product, makerName, href, className }: ProductGridCardProps) {
+export function ProductGridCard({ product, makerName, href, priority, className }: ProductGridCardProps) {
   const router = useRouter();
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
@@ -33,6 +35,7 @@ export function ProductGridCard({ product, makerName, href, className }: Product
     <ProductCard
       product={product}
       makerName={makerName}
+      priority={priority}
       className={className}
       onCardClick={() => router.push(href)}
       wishlisted={has(product.id)}

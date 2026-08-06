@@ -99,6 +99,43 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — a dead session that presented as a live one
+
+- **A failed session restore left the browser claiming to be signed in,
+  permanently.** `AuthContext`'s hydration had two "no real session
+  survived, trust the local flags" branches for seller and admin, written
+  when those surfaces predated real sessions. Since M8.4b/M8.5 every real
+  sign-in persists one, so the only thing left that could fire them was a
+  session that had just failed to restore — and they turned that into a
+  claim of being signed in. Walked in the browser: an admin whose refresh
+  token had expired got the admin shell, every request inside it 401'd,
+  `http.ts` bounced them to `/login`, and `/login` — reading the same
+  flags — answered "You're all set. You're signed in to your Homekrafted
+  admin account" and offered "Go to the admin panel", which bounced
+  straight back. No sign-in form anywhere in the loop; only the "Sign out"
+  button escaped. Both branches are gone: no real session means signed
+  out, for every role. Same rule as `getMySeller()` — anything derived
+  from a session must fail empty, never fall back to a fixture.
+
+- **…and it could not self-heal, because the flags were never rewritten.**
+  The effect that persists `hk_auth_v1` and the `hk_role` cookie is keyed
+  on `signedIn` changing, and `signedIn` starts at `false` — so hydration
+  landing on "signed out" set it to `false` again, React bailed out of the
+  no-op update, no re-render happened and the effect never ran. Stale
+  flags therefore survived every failed restore. Hydration now writes them
+  itself.
+
+### Fixed — LCP
+
+- **Four product grids left their above-the-fold images lazy-loaded**
+  (`/shop`, `/gifts`, `/hamper`, `/search`), so the one image the LCP
+  score is measured on was fetched only after layout. `ProductCard` and
+  `ProductGridCard` now take a `priority` prop and each grid marks its
+  first row. The **row**, not the first card: every card renders at the
+  same size, so which one wins LCP is decided by paint order and is not
+  stable — measured at 1280px, Next named the second card, and marking
+  only the first was a fix that missed.
+
 ### Changed — auth UI
 
 - **Social sign-in moved out of a third method tab** and now sits under

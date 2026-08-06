@@ -16,6 +16,14 @@ export interface ProductCardProps {
   onToggleWishlist?: () => void;
   added?: boolean;
   onAdd?: () => void;
+  /**
+   * Eager-load this card's image. Set it on the **first card of an
+   * above-the-fold grid only** — that card is usually the page's LCP
+   * element, and left lazy it is fetched only after layout, which delays
+   * LCP by a round trip. Marking a whole grid priority is the same as
+   * marking none: see `ImageSlot`'s `priority` doc comment.
+   */
+  priority?: boolean;
   className?: string;
 }
 
@@ -38,6 +46,7 @@ export function ProductCard({
   onToggleWishlist,
   added = false,
   onAdd,
+  priority = false,
   className,
 }: ProductCardProps) {
   const weight =
@@ -62,6 +71,7 @@ export function ProductCard({
           alt={product.name}
           src={image?.src}
           sizes="(max-width: 640px) 45vw, (max-width: 1180px) 30vw, 260px"
+          priority={priority}
           compact
         />
         {tag && <Tag label={tag} className={styles.tag} />}
