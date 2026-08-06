@@ -1,4 +1,5 @@
 import type { MouseEvent } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { Tag } from "./Tag";
@@ -10,7 +11,20 @@ export interface ProductCardProps {
   product: Product;
   /** Vendor/maker display name — ProductCard is presentational and doesn't fetch it itself. */
   makerName: string;
-  /** Whole-card click (ported from the prototype's `onClick` div) — wire up navigation here. */
+  /**
+   * Where the card goes. **Prefer this over `onCardClick`.**
+   *
+   * Rendered as a real `<Link>` around the title, stretched over the whole
+   * card by a CSS overlay — so the card keeps its whole-surface click
+   * *and* becomes a genuine link: keyboard-activatable, middle-clickable,
+   * "open in new tab", "copy link address".
+   */
+  href?: string;
+  /**
+   * Whole-card click, for a card with no destination URL (the dev
+   * gallery). **A card with an `href` should not use this** — see the
+   * component doc for why the `role="button"` version was a defect.
+   */
   onCardClick?: () => void;
   wishlisted?: boolean;
   onToggleWishlist?: () => void;
@@ -34,13 +48,28 @@ function stop(event: MouseEvent) {
 /**
  * Product card — ported from the Home "featured" rail / Shop listing grid.
  * 1:1 image, maker eyebrow, Fraunces title, rating · weight, price +
- * strikethrough MRP, round add button, corner wishlist heart. Root is a
- * plain clickable `<div>` (matching the prototype's own div+onClick
- * technique) so the wishlist/add buttons never nest inside an `<a>`.
+ * strikethrough MRP, round add button, corner wishlist heart.
+ *
+ * **The card is a link, via an overlay on the title (M22).** It used to be
+ * a `<div role="button" tabIndex={0} onClick>`, ported from the
+ * prototype's div+onClick technique to keep the wishlist and add buttons
+ * from nesting inside an `<a>`. That reasoning was right and the result
+ * was still broken: React's `onClick` on a div does **not** fire for Enter
+ * or Space, and nothing supplied a `onKeyDown`. So every product card on
+ * every grid was focusable and could not be activated — a keyboard user
+ * could tab through the entire shop and open nothing. Measured in a
+ * browser: click navigated, Enter and Space did not.
+ *
+ * The stretched-link pattern fixes both halves at once. The title is a
+ * real anchor whose `::after` covers the card, so the whole surface stays
+ * clickable and the destination is a real URL (openable in a new tab,
+ * which a div never was); the two buttons sit above it in z-order, so they
+ * are still buttons and still not inside the anchor.
  */
 export function ProductCard({
   product,
   makerName,
+  href,
   onCardClick,
   wishlisted = false,
   onToggleWishlist,
@@ -57,10 +86,26 @@ export function ProductCard({
 
   return (
     <div
-      className={clsx(styles.card, onCardClick && styles.clickable, className)}
-      onClick={onCardClick}
-      role={onCardClick ? "button" : undefined}
-      tabIndex={onCardClick ? 0 : undefined}
+      className={clsx(styles.card, (href || onCardClick) && styles.clickable, className)}
+      // Only for the href-less variant. With an `href` the anchor below
+      // does the work, and adding a redundant div handler here would
+      // double-fire navigation on every click.
+      onClick={href ? undefined : onCardClick}
+      role={!href && onCardClick ? "button" : undefined}
+      tabIndex={!href && onCardClick ? 0 : undefined}
+      onKeyDown={
+        !href && onCardClick
+          ? (event) => {
+              // A `role="button"` div owes this. Without it the element
+              // claims to be a button and then ignores the two keys a
+              // button must answer to.
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onCardClick();
+              }
+            }
+          : undefined
+      }
     >
       <div className={styles.imageWrap}>
         <ImageSlot
@@ -99,7 +144,15 @@ export function ProductCard({
       </div>
       <div className={styles.content}>
         <span className={styles.maker}>{makerName}</span>
-        <span className={styles.name}>{product.name}</span>
+        <span className={styles.name}>
+          {href ? (
+            <Link href={href} className={styles.nameLink}>
+              {product.name}
+            </Link>
+          ) : (
+            product.name
+          )}
+        </span>
         <span className={styles.meta}>
           {/*
             No reviews is not a rating of zero. Every craft listing showed

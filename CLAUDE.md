@@ -648,6 +648,15 @@ silently override another — the same reason `Product.isAvailable` and
   `aria-hidden` over focusable elements is itself a violation.
 - **Icon-only buttons need `aria-label`.** `<Button variant="icon">`
   exists precisely so this is not forgotten.
+- **A card that navigates is a link, not a `role="button"` div.** React's
+  `onClick` on a div does *not* fire for Enter or Space, so a
+  `role="button" tabIndex={0}` card is focusable and un-openable — which
+  is exactly what every product grid shipped until M22. Use the stretched
+  link (`ProductCard`'s `.nameLink::after` covering the card, buttons
+  lifted above it with `z-index: 1`); it also buys open-in-new-tab, which
+  a div never had. If a div genuinely must be the button, it owes an
+  `onKeyDown` for both keys — `client/lib/keyboard-activation.spec.ts`
+  fails the build otherwise.
 - **`ImageSlot` needs a real `alt`** — see its section above.
 
 ## Auth & identity (M17) — three ways this broke at once

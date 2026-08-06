@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ProductCard } from "@/components/ui/ProductCard";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
@@ -17,8 +16,8 @@ export interface ProductGridCardProps {
 }
 
 /**
- * Thin client wrapper around the `ProductCard` primitive: navigates to the
- * product detail route on card click, adds the card's default weight to
+ * Thin client wrapper around the `ProductCard` primitive: passes the
+ * product detail route as a real link, adds the card's default weight to
  * the real cart (M3, `useCart().addItem`) on the round "+" button, and
  * (M7a) toggles the real, `localStorage`-persisted wishlist store
  * (`useWishlist()`) on the corner heart. Reused across every product grid
@@ -26,7 +25,6 @@ export interface ProductGridCardProps {
  * collections) so the click/add/wishlist wiring lives in exactly one place.
  */
 export function ProductGridCard({ product, makerName, href, priority, className }: ProductGridCardProps) {
-  const router = useRouter();
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
   const [added, setAdded] = useState(false);
@@ -37,7 +35,10 @@ export function ProductGridCard({ product, makerName, href, priority, className 
       makerName={makerName}
       priority={priority}
       className={className}
-      onCardClick={() => router.push(href)}
+      // `href`, not `router.push` (M22). The card is now a real link, so
+      // it can be opened in a new tab and — the actual defect — activated
+      // from the keyboard, which a `role="button"` div never could.
+      href={href}
       wishlisted={has(product.id)}
       onToggleWishlist={() => toggle(product.id)}
       added={added}

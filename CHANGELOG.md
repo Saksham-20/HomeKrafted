@@ -99,6 +99,36 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — no product could be opened from a keyboard
+
+Found by pressing Enter, which is the only way it could have been found.
+
+`ProductCard` was a `<div role="button" tabIndex={0} onClick>` — the
+prototype's div+onClick technique, kept deliberately so the wishlist and
+add buttons would not nest inside an `<a>`. The reasoning was sound and
+the result was still broken: React's `onClick` on a div does **not** fire
+for Enter or Space, and nothing supplied an `onKeyDown`. Every product
+card on every grid — shop, gifts, storefront, home rails, occasion pages —
+was focusable and could not be activated. A keyboard-only user could tab
+through the entire catalogue and open nothing. Measured in a browser:
+mouse click navigated, Enter and Space did not.
+
+It had survived every review because it is invisible three ways. The
+element is focusable, so it looks reachable. `role="button"` makes an
+automated audit report a button. And every mouse test passes.
+
+The card is now a real link — a stretched `<Link>` on the title whose
+`::after` covers the card. That keeps the whole surface clickable, keeps
+the two buttons out of the anchor (they sit above it in z-order, verified
+by hit-testing), and makes the destination a genuine URL: openable in a
+new tab, copyable, and activated by Enter like every other link on the
+web. The div variant survives for the dev gallery, which has no
+destination, and now carries the key handler it always owed.
+
+`client/lib/keyboard-activation.spec.ts` scans every component for the
+same shape and fails on any `role="button"` without an `onKeyDown` —
+verified by reintroducing the bug.
+
 ### Changed — the marketplace stopped being food-first in its own type system
 
 Owner request: *this marketplace is for everything that is homemade.* It

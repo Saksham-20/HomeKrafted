@@ -1,4 +1,6 @@
 .card {
+  /* Anchors the stretched title link's `::after` overlay (M22). */
+  position: relative;
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-lg);
@@ -34,6 +36,9 @@
 
 .wishlist {
   position: absolute;
+  /* Above the title link's stretched `::after` overlay (M22), or the
+     overlay would swallow every click on the heart. */
+  z-index: 1;
   top: 10px;
   right: 10px;
   width: 30px;
@@ -88,6 +93,40 @@
   line-height: 1.15;
 }
 
+/* ---- The stretched link (M22) ----
+   The card used to be a `role="button"` div, which meant Enter and Space
+   did nothing and no product was reachable by keyboard. This is a real
+   anchor: its `::after` covers the whole card, so the entire surface stays
+   clickable while the destination is a genuine URL. */
+.nameLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nameLink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Below the wishlist/add buttons (z-index 1), so those stay clickable
+     and are not swallowed by the overlay. */
+  z-index: 0;
+}
+
+.nameLink:hover {
+  color: var(--hk-pine);
+}
+
+/* The focus ring belongs on the whole card, not on the few characters of
+   the title — the card is what the anchor actually covers. */
+.nameLink:focus-visible {
+  outline: none;
+}
+
+.card:has(.nameLink:focus-visible) {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 2px;
+}
+
 .meta {
   font-size: 12.5px;
   color: var(--hk-muted);
@@ -120,6 +159,9 @@
 }
 
 .add {
+  /* Above the stretched link overlay — see `.wishlist`. */
+  position: relative;
+  z-index: 1;
   background: var(--hk-pine);
   color: #fff;
   border: none;
