@@ -148,6 +148,31 @@ is now covered by a spec that races real in-flight requests.
   `cancellationRate`, which is `null` rather than `0` before anything has
   closed: absence gets said as absence.
 
+### Changed — Meal plans is in the nav
+
+- **The one product that recurs was reachable only from the footer.** M19
+  built the whole subscription engine — wallet debit, one `MealDelivery`
+  row per meal owed, skip/pause/resume/cancel — and M20 built
+  `/meal-plans` and `/meal-plans/[slug]` on top of it. Neither put it in
+  the primary nav. This is the same argument M19 already made in
+  `site.ts` when it promoted **Corporate & bulk** out of the footer
+  ("reachable only from the footer — the least-read part of the page —
+  while the enquiry form and the whole quote funnel behind it sat
+  finished"), and it applies harder here: a cycle is ₹960–₹3,900 and it
+  renews, against ₹120 for one thali.
+
+  It **replaces About** rather than joining the row. About is already in
+  the footer's Help column and is not something anyone arrives intending
+  to buy; the nav, meanwhile, is full.
+
+- **The header breakpoint moved 1120px → 1190px, and the nav gap tightened
+  one step.** "Meal plans" is wider than "About", which took the row to
+  1190px inside an 1180px container — so it no longer fitted at *any*
+  viewport width, the same class of failure the M21 header fix already
+  found twice. `--hk-s5` → `--hk-s4` on `.nav` buys back exactly the 20px.
+  Measured, not guessed, and written down in `CLAUDE.md`: the next nav
+  item added has to displace one.
+
 ### Added — the listing says where it is delivering to
 
 `components/location/LocationBar.tsx`, on `/shop` and `/snacks`.

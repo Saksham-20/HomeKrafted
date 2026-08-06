@@ -228,9 +228,12 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 - Mobile-first, fluid. No fixed 430/1180 "stage" (that was the
   prototype's reviewer chrome). Container maxes out at 1180px via the
   `.container` utility class (`styles/globals.css`), grace­fully down to
-  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~1120px (the
-  width the six-item nav + search + wallet chip + icons stops fitting;
-  was ~840 until the M21 audit measured it).
+  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~1190px —
+  the measured width at which the six-item nav + search + wallet chip +
+  icons stops fitting (was ~840 until the M21 audit measured it). **The
+  nav is full**: swapping "About" for the wider "Meal plans" already
+  needed the nav gap tightened to fit inside the 1180px container. Adding
+  a seventh item means taking one out — re-measure if you touch it.
 
 ## Channel rules (see `lib/channel.ts` — read before building any module screen)
 
@@ -724,7 +727,7 @@ automatically.
 
 - ~~**`About` nav** points at `/`~~ — superseded: `/about` is a real route
   and the nav points at it.
-- **Wishlist is in `<MobileDrawer>`** — otherwise unreachable below 1120px.
+- **Wishlist is in `<MobileDrawer>`** — otherwise unreachable below 1190px.
 - **`LoyaltyTier`** = `bronze|silver|gold|platinum` (naming pending brand input).
 - **Laundry `pricingModel`** uses all three union values: Wash & Fold
   `per-kg`, Dry Clean + Steam Ironing `per-item`, Home Cleaning `per-hour`

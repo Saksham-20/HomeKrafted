@@ -27,7 +27,7 @@ export interface AnnouncementItem {
 }
 
 /**
- * Header primary nav — collapses into <MobileDrawer> under ~840px.
+ * Header primary nav — collapses into <MobileDrawer> under ~1120px.
  *
  * M20 renames rather than re-routes. "Shop" became **Homemade Food**
  * because the site now sells two different things and "Shop" no longer
@@ -51,7 +51,19 @@ export const primaryNav: NavLink[] = [
   // finished. A buyer sourcing fifty Diwali hampers is not scrolling to
   // the bottom to find out whether we do that.
   { label: "Corporate & bulk", href: "/corporate" },
-  { label: "About", href: "/about" },
+  // M21 (audit). Same argument the line above makes, applied to the one
+  // product on the site that *recurs*: `/meal-plans` and
+  // `/meal-plans/[slug]` shipped in M20 on top of M19's whole
+  // subscription engine — wallet debit, delivery rows, skip/pause/cancel —
+  // and were reachable only from the footer and the mobile drawer. A
+  // cycle is ₹960–₹3,900 and renews; a thali is ₹120.
+  //
+  // It replaces **About** rather than joining the row: the nav fits
+  // exactly six items at the 1120px breakpoint (see
+  // `Header.module.css`), and About is already in the footer's Help
+  // column, still a real route, and is not something anyone arrives
+  // intending to buy.
+  { label: "Meal plans", href: "/meal-plans" },
 ];
 
 export const announcementItems: AnnouncementItem[] = [

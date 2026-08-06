@@ -63,7 +63,14 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: var(--hk-s5);
+  /* `--hk-s5` (20px) until M21 swapped "About" for the wider "Meal plans".
+     Six labels + search + wallet chip + three icons then measured 1190px
+     against a 1180px container — it did not fit at *any* viewport width,
+     because the container is what caps it. Five gaps at 16px instead of 20
+     buys back the 20px, which is the smallest change that keeps every
+     label and every action visible. The next nav item added here does not
+     fit; something has to leave. */
+  gap: var(--hk-s4);
   /* Without this the nav is a shrinkable flex item, so it gets squeezed
      narrower than its content and the labels break mid-phrase — the audit
      found "Homemade Food", "Handcrafted Gifts", "Gift Hampers" and
@@ -117,7 +124,7 @@
 
 /* The pill's own look lives in `components/search/SearchForm.module.css`
    now that it is a real form rather than a link — this class is only the
-   header's layout hook (and what the ≤1120px rule below hides). */
+   header's layout hook (and what the ≤1190px rule below hides). */
 .searchPill {
   flex: 0 1 auto;
   min-width: 0;
@@ -191,26 +198,32 @@
   flex-shrink: 0;
 }
 
-/* ---- Collapse to hamburger below ~1120px ----
+/* ---- Collapse to hamburger below ~1190px ----
  * Wishlist/Account carry .hideOnMobile in addition to .utilityIcon so they
  * hide with nav/search; Cart deliberately does NOT carry it — the cart
  * icon (and the wallet chip) stay visible at every width, matching the
  * prototype's own header, which never hides them.
  *
- * **1120px, not the 840px this was written at.** 840 was chosen when the
- * primary nav was shorter; M20's "Corporate & bulk" made it six items,
- * and the full row — logo + six labels + search + wallet chip + three
- * icons — measures ~1114px at its natural width. Between 840 and 1114 it
- * therefore did not fit, and the audit found both ways it failed: with
- * the nav shrinkable, labels broke mid-phrase into two lines ("Homemade
- * Food" over two rows, header 107px tall); with the nav held at its
- * natural width, the overflow moved right instead and clipped the wallet
- * chip and the wishlist/account icons off the edge at 1024px.
+ * **1190px, measured — not chosen.** This value has moved twice, both
+ * times because the nav grew and the breakpoint did not follow:
  *
- * Neither is a styling problem — there is genuinely not room. The drawer
- * already carries every nav item (plus Wishlist, which is why it exists),
- * so the honest breakpoint is the width where the row stops fitting. */
-@media (max-width: 1120px) {
+ *  - It was 840px, set when the nav was four items. M20's "Corporate &
+ *    bulk" made it six, and between 840 and the width the row actually
+ *    needed it failed two ways. With the nav shrinkable, four labels broke
+ *    mid-phrase into two lines at 1280px — an ordinary laptop — and pushed
+ *    the header to 107px. Pinning the nav moved the overflow right instead
+ *    and clipped the wallet chip and the wishlist/account icons off the
+ *    edge at 1024px.
+ *  - M21 swapped "About" for the wider "Meal plans", and the row went to
+ *    1190px against a 1180px container — so it no longer fitted at *any*
+ *    viewport width. Tightening the nav gap (see `.nav`) bought back 20px;
+ *    the row now needs 1170px, plus 20px of container padding.
+ *
+ * Neither failure was a styling problem — there was genuinely not room.
+ * The drawer already carries every nav item (plus Wishlist, which is why
+ * it exists), so the honest breakpoint is the width where the row stops
+ * fitting. **If you add or widen a nav item, re-measure this.** */
+@media (max-width: 1190px) {
   .nav,
   .searchPill,
   .hideOnMobile {
