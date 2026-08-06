@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
   Bell,
@@ -16,7 +16,7 @@ import {
   Store,
   User,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { SignedOutNotice } from "@/components/auth/SignedOutNotice";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AccountShell.module.css";
 
@@ -69,23 +69,13 @@ export const ACCOUNT_NAV_ITEMS: AccountNavItem[] = [
  */
 export function AccountShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { isSignedIn, ready } = useAuth();
 
   if (ready && !isSignedIn) {
     return (
-      <section className={clsx("container", styles.signedOutPage)}>
-        <div className={styles.signedOutCard}>
-          <span className={styles.eyebrow}>Account</span>
-          <h1 className={styles.signedOutTitle}>You&rsquo;re signed out</h1>
-          <p className={styles.signedOutCopy}>
-            Sign in to view your orders, addresses, wishlist and wallet.
-          </p>
-          <Button variant="primary" onClick={() => router.push("/login")}>
-            Sign in
-          </Button>
-        </div>
-      </section>
+      <SignedOutNotice eyebrow="Account">
+        Sign in to view your orders, addresses, wishlist and wallet.
+      </SignedOutNotice>
     );
   }
 

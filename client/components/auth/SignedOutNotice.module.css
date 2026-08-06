@@ -1,0 +1,42 @@
+/* Lifted verbatim from AccountShell.module.css's `.signedOut*` rules when
+   the card was extracted, so `/account/*` looks exactly as it did. */
+
+.page {
+  padding-block: var(--hk-s8);
+  display: flex;
+  justify-content: center;
+}
+
+.card {
+  max-width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s2);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s6);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  /* Not `--hk-gold`: this is 11px regular weight, where gold's 3.6:1 on
+     white is not AA-safe. See CLAUDE.md's token-gap notes. */
+  color: var(--hk-gold-text-sm);
+}
+
+.title {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+}
+
+.copy {
+  color: var(--hk-muted);
+  font-size: 14px;
+  margin-bottom: var(--hk-s2);
+}

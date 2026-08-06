@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { AmountPicker } from "@/components/ui/AmountPicker";
 import { TransactionRow } from "@/components/ui/TransactionRow";
 import { WalletBalanceCard } from "@/components/ui/WalletBalanceCard";
+import { SignedOutNotice } from "@/components/auth/SignedOutNotice";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD, useWallet } from "@/lib/wallet/WalletContext";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { WalletTransaction } from "@/lib/types";
@@ -42,6 +44,7 @@ function groupByMonth(transactions: WalletTransaction[]): [string, WalletTransac
  * `CHANGELOG.md`'s M6 entry.
  */
 export function WalletClient({ topupOptions }: WalletClientProps) {
+  const { isSignedIn, ready: authReady } = useAuth();
   const {
     balance,
     pendingCashback,
@@ -90,6 +93,22 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
     () => groupByMonth(visibleTransactions),
     [visibleTransactions],
   );
+
+  // Same gate `/account/*` gets from `AccountShell`. `/wallet` is a
+  // sibling route with no shell, so before the audit it had none: a
+  // signed-out visitor got a full wallet reading "available balance ₹0"
+  // and a top-up form that worked right up until the button, which threw
+  // them at `/login` and discarded the amount they had typed.
+  //
+  // Below every hook on purpose — an early return above `useMemo` changes
+  // the hook order between renders (caught by `react-hooks/rules-of-hooks`).
+  if (authReady && !isSignedIn) {
+    return (
+      <SignedOutNotice eyebrow="Wallet">
+        Sign in to see your balance, add money and review your transactions.
+      </SignedOutNotice>
+    );
+  }
 
   return (
     <section className={clsx("container", styles.page)}>
