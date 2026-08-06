@@ -171,25 +171,9 @@
   color: var(--hk-gold);
 }
 
-.socialButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--hk-s2);
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
-  padding: 11px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--hk-ink-2);
-  min-height: 44px;
-}
-
-.socialButton:hover {
-  border-color: var(--hk-gold-border);
-  color: var(--hk-ink);
-}
+/* `.socialButton` moved to `SocialSignIn.module.css` when social sign-in
+   stopped being a third method tab and became a divider + two buttons
+   underneath whichever form is active. */
 
 .demoButton {
   align-self: center;

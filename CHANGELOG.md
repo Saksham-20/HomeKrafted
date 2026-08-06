@@ -3,6 +3,72 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M21] — Production audit: browser sweep, hardening, load testing — 2026-08-06 (in progress)
+
+The first time this build has been driven in a real browser or put under
+load. `docs/PRODUCTION-AUDIT.md` item 21 and `docs/LAUNCH-READINESS.md` §5
+had both named these as owed and neither had ever been scoped.
+
+### Fixed — auth
+
+- **Suspension now takes effect on the next request, not the next login.**
+  `assertNotSuspended` ran only where a session *starts*, so an
+  already-issued access token kept working for the rest of its 15-minute
+  TTL. Confirmed against a running server: a suspended account still read
+  `/wallet` and still wrote through `PATCH /users/me`. `JwtAuthGuard` now
+  re-checks `User.suspended` per request, at the cost of one primary-key
+  lookup on authenticated routes. A TTL cache in front of it would
+  reintroduce the exact staleness being closed.
+
+- **The OTP guess budget is per phone number, not per issued code.**
+  `MAX_ATTEMPTS` counted against one `PhoneOtp` row and requesting a new
+  code minted a fresh row with `attempts: 0` — five guesses, request, five
+  more, indefinitely, against a six-digit space. Attempts are now summed
+  across a rolling 15-minute window per number (10), and the number of
+  codes one phone can be *sent* is capped too (5), which was separately
+  uncapped: somebody else's phone buzzing all night on our SMS bill.
+
+- **An unexpected error no longer describes itself to the client.**
+  `AllExceptionsFilter` returned `exception.message` verbatim for any
+  non-`HttpException`, so a `PrismaClientKnownRequestError` handed over
+  table, column and constraint names. Kept outside production, where a
+  500 you cannot read is a 500 you debug with `console.log`.
+
+- **`GET /admin/exports/:kind` answers an unknown kind with a 400.** The
+  `switch` had no `default`, so it returned `undefined` and the caller
+  destructured `{ filename }` off it — a mistyped URL produced a 500
+  reading "Cannot destructure property 'filename' of '(intermediate
+  value)' as it is undefined", which is both bugs in one response.
+
+### Changed — auth UI
+
+- **Social sign-in moved out of a third method tab** and now sits under
+  whichever form is active on `/login` and `/signup`, behind an "or
+  continue with" divider. A tab framed it as a fourth thing to go and
+  find, and hid it from anyone who never clicked. Extracted to a shared
+  `components/auth/SocialSignIn.tsx` — the glyphs and both buttons had
+  been copy-pasted into `LoginClient` and `SignupClient`.
+
+- **Removed the sign-in page footnote** that told every visitor social
+  login "trusts the browser instead of verifying a real Google/Apple
+  token". True, tracked, and not something to publish to the people best
+  placed to use it.
+
+### Known — carried, not fixed
+
+- **`POST /auth/social/:provider` is an account takeover** and stays open
+  by owner decision (2026-08-06): keep the endpoint, add real id-token
+  verification before launch. Now a hard launch gate in
+  `docs/LAUNCH-READINESS.md` §0.4 and in `CLAUDE.md`'s standing blockers,
+  not a backlog item. Needs a Google OAuth client ID and an Apple service
+  ID that do not exist yet.
+
+### Tests
+
+- `server/test/e2e/auth-hardening.e2e-spec.ts` — 10 specs covering all
+  four fixes above, including that the new guard lookup still
+  short-circuits on `@Public()` routes.
+
 ## [M20] — Two verticals, a home page that says so, and meal plans you can buy — 2026-08-04
 
 The client's change document, read end to end. Most of it was copy. Two

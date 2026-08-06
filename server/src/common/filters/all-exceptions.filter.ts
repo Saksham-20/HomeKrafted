@@ -40,8 +40,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
       }
     } else if (exception instanceof Error) {
+      // Log the real thing, return the generic default. An unexpected error
+      // is by definition one nobody wrote a message for, and Prisma's are
+      // the common case — `PrismaClientKnownRequestError` names the table,
+      // the column and the constraint, which is a free schema dump for
+      // anyone who can make a query fail. The audit found this live: an
+      // unknown `GET /admin/exports/:kind` returned "Cannot destructure
+      // property 'filename' of '(intermediate value)' as it is undefined."
+      // Outside production the message is kept, because a 500 you can't
+      // read is a 500 you debug by adding console.log.
       this.logger.error(exception.message, exception.stack);
-      message = exception.message;
+      if (process.env.NODE_ENV !== 'production') {
+        message = exception.message;
+      }
     } else {
       this.logger.error('Unknown exception thrown', String(exception));
     }

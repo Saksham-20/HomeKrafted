@@ -1,4 +1,10 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
@@ -6,7 +12,26 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppConfig } from '../config/configuration';
 import { SmsProviderService } from '../notifications/providers/sms.provider';
 
+/** Wrong guesses allowed against a single issued code. */
 const MAX_ATTEMPTS = 5;
+
+/**
+ * The three limits below are per *phone number*, and they exist because
+ * `MAX_ATTEMPTS` alone is not a brute-force control.
+ *
+ * `MAX_ATTEMPTS` counts against one `PhoneOtp` row. Requesting a new code
+ * mints a new row with `attempts: 0`, so before this an attacker got five
+ * guesses, asked for another code, got five more, and repeated — the audit
+ * confirmed the counter resetting. Against a six-digit space the only
+ * thing standing in the way was the IP throttle.
+ *
+ * `MAX_REQUESTS_PER_WINDOW` also closes the other half of it: nothing
+ * capped how many codes one number could be sent, which is somebody
+ * else's phone buzzing all night and our Twilio bill.
+ */
+const WINDOW_MINUTES = 15;
+const MAX_ATTEMPTS_PER_WINDOW = 10;
+const MAX_REQUESTS_PER_WINDOW = 5;
 
 /**
  * Phone-OTP issue + verify. The code is always sent through
@@ -32,9 +57,25 @@ export class OtpService {
     private readonly smsProvider: SmsProviderService,
   ) {}
 
+  /** Start of the rolling per-phone window the two caps below are counted over. */
+  private windowStart(): Date {
+    return new Date(Date.now() - WINDOW_MINUTES * 60 * 1000);
+  }
+
   async requestOtp(phone: string, purpose = 'login'): Promise<void> {
     const length = this.configService.get('otp.codeLength', { infer: true });
     const ttlSeconds = this.configService.get('otp.ttlSeconds', { infer: true });
+
+    const recentRequests = await this.prisma.phoneOtp.count({
+      where: { phone, purpose, createdAt: { gte: this.windowStart() } },
+    });
+    if (recentRequests >= MAX_REQUESTS_PER_WINDOW) {
+      this.logger.warn(`[OTP] request cap hit for ${phone} (purpose=${purpose})`);
+      throw new HttpException(
+        `Too many verification codes requested. Try again in ${WINDOW_MINUTES} minutes.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
 
     const code = this.generateCode(length);
     const codeHash = await argon2.hash(code);
@@ -101,6 +142,22 @@ export class OtpService {
         data: { consumedAt: new Date() },
       });
       return { bypassed: true };
+    }
+
+    // Counted across every row for this number in the window, not just the
+    // current one — otherwise the budget resets with each new code (see the
+    // constants' comment). Checked before the row lookup so a locked-out
+    // number gets the same answer whether or not a code is pending.
+    const windowAttempts = await this.prisma.phoneOtp.aggregate({
+      where: { phone, purpose, createdAt: { gte: this.windowStart() } },
+      _sum: { attempts: true },
+    });
+    if ((windowAttempts._sum.attempts ?? 0) >= MAX_ATTEMPTS_PER_WINDOW) {
+      this.logger.warn(`[OTP] window attempt cap hit for ${phone} (purpose=${purpose})`);
+      throw new HttpException(
+        `Too many incorrect attempts. Try again in ${WINDOW_MINUTES} minutes.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const otp = await this.prisma.phoneOtp.findFirst({

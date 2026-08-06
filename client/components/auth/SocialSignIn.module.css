@@ -1,0 +1,68 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+/* Rule either side of the label, drawn with a border on the pseudo-elements
+   so it tracks the label's height rather than needing a fixed offset. */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--hk-border-2);
+}
+
+.dividerLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+/* Side by side, since each label is now one word. Wraps to stacked below
+   ~320px of card width, which is where two pill buttons stop fitting. */
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.socialButton {
+  flex: 1 1 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hk-s2);
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-pill);
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  min-height: 44px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+/* Same hover as the pre-restyle button in LoginClient.module.css — the
+   gold border is the established treatment for a secondary auth action. */
+.socialButton:hover:not(:disabled) {
+  border-color: var(--hk-gold-border);
+  color: var(--hk-ink);
+}
+
+.socialButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

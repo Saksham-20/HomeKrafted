@@ -39,7 +39,20 @@ accounts).
   idea" isn't already a ranked item there.
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
-## Standing blockers (true as of 2026-08-06) — none of them are code
+## Standing blockers (true as of 2026-08-06)
+
+**Social sign-in is an account takeover, and it is deliberate for now.**
+`POST /auth/social/:provider` never verifies a Google/Apple id-token — it
+trusts a posted `email` and issues a session for whatever account matches,
+admin included. Confirmed against a running server during the 2026-08-06
+audit. The owner chose to **keep the endpoint and the buttons and add
+verification before launch**, on the grounds that there are no real
+accounts yet. Don't quietly delete it in a later session — that decision
+was already made the other way — and don't treat it as backlog: it is a
+hard launch gate in `docs/LAUNCH-READINESS.md` §0.4, and closing it needs
+a Google OAuth client ID and an Apple service ID that nobody has yet.
+
+The rest are not code:
 
 The build is feature-complete against every approved plan and deployed.
 These three are what still stand between it and real customers, and each

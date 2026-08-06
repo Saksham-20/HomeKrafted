@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminOrdersService } from './orders.service';
 
@@ -36,7 +36,9 @@ export function toCsv(headers: string[], rows: unknown[][]): string {
   return `${lines.join('\r\n')}\r\n`;
 }
 
-export type ExportKind = 'orders' | 'sellers' | 'payouts';
+/** The closed set of exports, as a value so the route can validate against it and the 400 can name them. */
+export const EXPORT_KINDS = ['orders', 'sellers', 'payouts'] as const;
+export type ExportKind = (typeof EXPORT_KINDS)[number];
 
 @Injectable()
 export class AdminExportsService {
@@ -56,6 +58,16 @@ export class AdminExportsService {
         return { filename: `homekrafted-homekrafters-${stamp}.csv`, csv: await this.sellers() };
       case 'payouts':
         return { filename: `homekrafted-payouts-${stamp}.csv`, csv: await this.payouts(since) };
+      default:
+        // `kind` is typed as `ExportKind`, but it arrives as a raw route
+        // param — TypeScript cannot stop `/admin/exports/anything`. Without
+        // this the switch fell through returning `undefined`, the caller
+        // destructured `{ filename }` off it, and the admin got a 500
+        // reading "Cannot destructure property 'filename' of '(intermediate
+        // value)' as it is undefined." A typo in a URL is a 400.
+        throw new BadRequestException(
+          `Unknown export kind "${kind}". Expected one of: ${EXPORT_KINDS.join(', ')}.`,
+        );
     }
   }
 

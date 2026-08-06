@@ -70,6 +70,45 @@ the API uses, and refuses the leaked one. Then check `AdminAuditLog` for
 anything you did not do — as of 2026-08-02 it held a single legitimate
 entry (a seller-application approval on 2026-07-30).
 
+### 0.4 Social sign-in verifies nothing — account takeover ⛔
+
+**Found by the production audit 2026-08-06. Confirmed exploitable against
+a running server, not a code-reading guess.**
+
+`POST /api/v1/auth/social/:provider` is `@Public()`, takes a
+client-supplied `providerAccountId` and `email`, and **never verifies a
+Google or Apple id-token**. If a `User` with that email exists it links a
+`SocialAccount` and issues a full session:
+
+```
+POST /api/v1/auth/social/google
+{"providerAccountId":"anything","email":"admin@homekrafted.example"}
+→ 200, accessToken with {"sub":"user-admin-demo","role":"admin"}
+```
+
+Any account whose email can be guessed is takeable — the admin, and any
+HomeKrafter whose payout details the attacker could then change. It
+defeats every other control in the auth layer: the argon2 OTP, the
+deliberate refusal to issue an admin session from a bypassed OTP
+(§0.2/M18), and the rotating refresh tokens.
+
+**The owner's decision (2026-08-06) is to keep the endpoint and the
+buttons, and add the verification layer before launch** rather than remove
+social sign-in and rebuild the UI later. That is defensible only while
+there are no real accounts to take over — which is true today and stops
+being true at the first real signup.
+
+**This is therefore a hard launch gate, not backlog.** Closing it means
+verifying a real id-token against Google's/Apple's JWKS in
+`AuthService#socialLogin`, which needs a Google OAuth client ID and an
+Apple service ID — neither of which exists yet. Until then, treat
+`admin@homekrafted.example` as reachable by anyone, and note that §0.1's
+password rotation does **not** help: this path never checks a password.
+
+Files: `server/src/auth/auth.service.ts` (`socialLogin`),
+`server/src/auth/dto/social-login.dto.ts`,
+`client/components/auth/SocialSignIn.tsx`.
+
 ### 0.2 Demo accounts: kept, deliberately, for now
 
 The seed creates demo shoppers and three demo HomeKrafters sharing one
