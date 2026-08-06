@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma, ProductTag } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
+import { initialSubmission, requeueOnEdit } from '../catalog/moderation';
 import { dietaryTagsFromFrontend } from '../catalog/dietary-tag.util';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -72,6 +73,10 @@ export class SellerListingsService {
         isSnack: dto.isSnack ?? false,
         cashbackPct: dto.cashbackPct,
         description: dto.description,
+        // M22 — explicit rather than leaning on the column default, because
+        // a reader of this method needs to see that a new listing is not
+        // live yet. `submittedAt` is what the admin queue orders on.
+        ...initialSubmission(),
         images: {
           create: [{ placeholder: `${dto.name} product photo`, src: dto.imagePath || undefined, ratio: '1/1', sortOrder: 0 }],
         },
@@ -104,6 +109,14 @@ export class SellerListingsService {
     if (dto.defaultWeightSku && dto.weightOptions?.length) {
       this.assertDefaultSkuPresent({ weightOptions: dto.weightOptions, defaultWeightSku: dto.defaultWeightSku });
     }
+
+    const requeue = requeueOnEdit(
+      existing.moderationStatus,
+      (dto.name !== undefined && dto.name !== existing.name) ||
+        (dto.description !== undefined && dto.description !== existing.description) ||
+        (dto.categoryId !== undefined && dto.categoryId !== existing.categoryId) ||
+        dto.imagePath !== undefined,
+    );
 
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.weightOptions) {
@@ -142,6 +155,7 @@ export class SellerListingsService {
           isSnack: dto.isSnack,
           cashbackPct: dto.cashbackPct,
           description: dto.description,
+          ...requeue,
         },
         include: PRODUCT_INCLUDE,
       });

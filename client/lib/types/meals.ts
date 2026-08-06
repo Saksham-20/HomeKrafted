@@ -7,6 +7,7 @@
  * web.
  */
 import type { ID, ISODateString } from "./shared";
+import type { ProductModerationStatus } from "./marketplace";
 
 export type MealType = "breakfast" | "lunch" | "dinner";
 
@@ -65,7 +66,9 @@ export interface MealPlan {
   /** The kitchen's switch: "am I taking subscribers". */
   isActive: boolean;
   /** The admin's switch. A buyer needs this AND `isActive` to pass. */
-  moderationStatus: "active" | "hidden" | "flagged";
+  moderationStatus: ProductModerationStatus;
+  /** The admin's reason, shown to the kitchen in the portal, never to a buyer. */
+  moderationNote?: string;
   maxSubscribers?: number;
   /** `null` means uncapped — which is not the same as no seats left. */
   seatsLeft: number | null;

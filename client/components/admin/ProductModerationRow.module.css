@@ -1,4 +1,13 @@
+/* The card is now a column — the row of controls, plus the reason box
+   that opens under it (M22). `.main` keeps the original single-line
+   layout so nothing about the row itself changed. */
 .row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.main {
   display: flex;
   align-items: center;
   gap: var(--hk-s3);
@@ -37,6 +46,14 @@
 .meta {
   font-size: 12.5px;
   color: var(--hk-muted);
+}
+
+/* The decision already on file. Terracotta rather than gold: this is the
+   reason something is *not* selling, and it should read as a state that
+   wants resolving. */
+.note {
+  font-size: 12.5px;
+  color: var(--hk-terracotta);
 }
 
 .price {
@@ -78,8 +95,54 @@
   border-color: var(--hk-gold-border);
 }
 
+/* ---- Reason box (M22) ---- */
+
+.reasonBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  padding: var(--hk-s3);
+  background: var(--hk-surface-3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+}
+
+.reasonLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.reasonInput {
+  width: 100%;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--hk-ink);
+  padding: var(--hk-s2);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-sm);
+  resize: vertical;
+}
+
+.reasonInput:focus-visible {
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+.reasonError {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--hk-terracotta);
+}
+
+.reasonActions {
+  display: flex;
+  gap: var(--hk-s2);
+}
+
 @media (max-width: 640px) {
-  .row {
+  .main {
     align-items: flex-start;
   }
 

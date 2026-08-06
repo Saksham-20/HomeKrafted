@@ -51,3 +51,16 @@
   padding: var(--hk-s6);
   text-align: center;
 }
+
+/* A refused moderation decision (M22) — the server now rejects a takedown
+   or rejection that carries no reason, so a failure has to be visible or
+   it reads as a click that did nothing. */
+.actionError {
+  margin: 0 0 var(--hk-s4);
+  padding: var(--hk-s3);
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  background: var(--hk-surface-3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+}

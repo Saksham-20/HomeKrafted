@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from './whatsapp.service';
+import { PUBLICLY_LISTED } from '../catalog/moderation';
 
 interface MetaWebhookValue {
   metadata?: { phone_number_id?: string };
@@ -106,7 +107,14 @@ export class WhatsAppInboundService {
     for (const match of itemLines) {
       const quantity = parseInt(match[1], 10);
       const name = match[2].trim();
-      const snack = await this.prisma.snack.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
+      // `...PUBLICLY_LISTED` (M22): a WhatsApp order names an item in free
+      // text, so without it a message could create a real `SnackOrder`
+      // against an unreviewed or taken-down item — the one order path that
+      // never passes through a browse surface, and so the one that would
+      // have kept working after every other gate closed.
+      const snack = await this.prisma.snack.findFirst({
+        where: { name: { equals: name, mode: 'insensitive' }, ...PUBLICLY_LISTED },
+      });
       if (!snack || !snack.sellerId) {
         this.logger.warn(`[WHATSAPP INBOUND] no sellable snack matched for "${name}" from ${fromPhone} — item skipped`);
         continue;

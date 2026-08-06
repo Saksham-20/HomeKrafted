@@ -201,9 +201,33 @@ enum ProductShippingScope {
   national
 }
 
+/// The admin's switch on a listing. Read it as a five-state review
+/// lifecycle, not a boolean with extras.
+///
+/// **Every read path must allowlist `active`, never denylist `hidden`.**
+/// Before M22 the enum had three members and the public queries said
+/// `{ not: 'hidden' }`, which was equivalent. It stopped being equivalent
+/// the moment `pending` existed: a denylist would have published every
+/// unreviewed listing, turning the approval gate into decoration. If you
+/// add a member here, grep for `moderationStatus` and check each filter.
 enum ProductModerationStatus {
+  /// Submitted, never reviewed, not public. The default for anything
+  /// created from M22 on. Pre-M22 rows stay `active` — applying an
+  /// approval gate retroactively would delist a live catalogue and take
+  /// every kitchen's income with it.
+  pending
+  /// Reviewed and allowed. The only state a buyer can see.
   active
+  /// Reviewed and refused, with a reason in `moderationNote`. Distinct
+  /// from `hidden` on purpose: this listing never went live, the
+  /// HomeKrafter is expected to fix it and resubmit, and the copy they
+  /// read ("we could not approve this yet") is not the copy for something
+  /// taken down after it sold.
+  rejected
+  /// Was live, an admin removed it. Direct links still resolve, because
+  /// carts, orders and wishlists already reference it.
   hidden
+  /// Under investigation — off the storefront, not yet decided.
   flagged
 }
 
@@ -480,6 +504,12 @@ model User {
   razorpayOrders          RazorpayOrder[]
   corporateQuotes         CorporateQuote[]         @relation("CorporateQuoteCreatedBy")
   adminAuditLogs          AdminAuditLog[]
+  /// M22 catalogue review. Named relations because a `User` can be the
+  /// moderator of three different things and Prisma cannot tell them
+  /// apart otherwise.
+  moderatedProducts       Product[]                @relation("ProductModerator")
+  moderatedMealPlans      MealPlan[]               @relation("MealPlanModerator")
+  moderatedSnacks         Snack[]                  @relation("SnackModerator")
   /// Payouts this admin settled or refused — see `Payout.decidedById`.
   payoutDecisions         Payout[]                 @relation("PayoutDecidedBy")
 
@@ -1292,7 +1322,24 @@ model Product {
   shelfLife           String?
   storageInstructions String?
   madeIn              String?
-  moderationStatus    ProductModerationStatus @default(active)
+  /// M22: defaults to `pending`, so a new listing is reviewed before it is
+  /// public. It used to default to `active` — a listing went live the
+  /// instant it was saved and moderation was retrospective takedown.
+  moderationStatus    ProductModerationStatus @default(pending)
+  /// Why an admin refused, hid or flagged this listing, in their own
+  /// words, shown verbatim to the HomeKrafter. Required by
+  /// `ModerateProductDto` on every refusing action: a refusal with no
+  /// reason gives the person who has to fix it nothing to act on, and
+  /// before M22 no reason was even recordable.
+  moderationNote      String?
+  moderatedById       String?
+  moderatedBy         User?                   @relation("ProductModerator", fields: [moderatedById], references: [id])
+  moderatedAt         DateTime?
+  /// When this listing last entered `pending`. The review queue orders on
+  /// it rather than `createdAt`, so a resubmitted listing takes its turn
+  /// at the back instead of holding its original place in the queue
+  /// forever.
+  submittedAt         DateTime?
   /// HomeKrafter-controlled "am I making this right now" switch, toggled
   /// from the portal's Availability panel. Distinct from `moderationStatus`,
   /// which is admin-controlled: an item can be perfectly allowed but simply
@@ -1359,6 +1406,8 @@ model Product {
   /// M20. `/gifts` filters on `kind`, and `shippingScope` decides whether a
   /// listing is subject to the delivery-radius gate at all.
   @@index([kind])
+  /// The M22 review queue: pending first, oldest submission first.
+  @@index([moderationStatus, submittedAt])
 }
 
 model ProductOccasion {
@@ -1693,10 +1742,22 @@ model Snack {
   sellerId         String?
   seller           Seller?       @relation(fields: [sellerId], references: [id])
 
+  /// M22. This table had **no moderation at all** — the one catalogue on
+  /// the platform an admin could not touch. `SellerMenuService` lets a
+  /// HomeKrafter create rows here directly, so leaving it ungated would
+  /// have left an open door beside a locked one.
+  moderationStatus ProductModerationStatus @default(pending)
+  moderationNote   String?
+  moderatedById    String?
+  moderatedBy      User?         @relation("SnackModerator", fields: [moderatedById], references: [id])
+  moderatedAt      DateTime?
+  submittedAt      DateTime?
+
   snackListItems  SnackListItem[]
   snackOrderItems SnackOrderItem[]
 
   @@index([sellerId])
+  @@index([moderationStatus, submittedAt])
 }
 
 /// The customer's in-progress selection that becomes a WhatsApp payload —
@@ -1977,7 +2038,15 @@ model MealPlan {
   /// admin's. A buyer needs both to pass. Merging them would let a
   /// moderator's action be silently undone by a cook toggling availability.
   isActive         Boolean                 @default(true)
-  moderationStatus ProductModerationStatus @default(active)
+  /// M22: same review gate as `Product`. Without it a kitchen refused a
+  /// listing could publish the identical thing as a subscription plan,
+  /// which would make the gate theatre.
+  moderationStatus ProductModerationStatus @default(pending)
+  moderationNote   String?
+  moderatedById    String?
+  moderatedBy      User?                   @relation("MealPlanModerator", fields: [moderatedById], references: [id])
+  moderatedAt      DateTime?
+  submittedAt      DateTime?
 
   /// The ceiling a home cook can actually cook to. `VendorProfile.capacityPerDay`
   /// has existed since M16 and is enforced nowhere; this one is checked on

@@ -2,6 +2,7 @@ import {
   API_PREFIX,
   Actor,
   Harness,
+  approveProduct,
   auth,
   createActor,
   createCategory,
@@ -131,6 +132,10 @@ describe('hamper listings', () => {
         .expect(201);
 
       expect(res.body.isHamper).toBe(true);
+      // M22: a new listing is `pending`, so it is deliberately not on the
+      // public catalogue until an admin approves it. This assertion is
+      // about `?isHamper=true` filtering, not about the review gate.
+      await approveProduct(h, res.body.id);
       expect(slugsOf((await listProducts('?isHamper=true').expect(200)).body)).toEqual([
         res.body.slug,
       ]);

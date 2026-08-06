@@ -20,6 +20,7 @@ import { AdminSellersService } from './sellers.service';
 import { SellerInviteService } from './seller-invite.service';
 import { AdminCatalogController } from './catalog.controller';
 import { AdminCatalogService } from './catalog.service';
+import { ModerationNotificationsService } from './moderation-notifications.service';
 import { AdminOrdersController } from './orders.controller';
 import { AdminOrdersService } from './orders.service';
 import { AdminPayoutsController } from './payouts.controller';
@@ -91,6 +92,7 @@ import { AdminCorporateService } from './corporate.service';
     AdminSellersService,
     SellerInviteService,
     AdminCatalogService,
+    ModerationNotificationsService,
     AdminOrdersService,
     AdminPayoutsService,
     AdminSupportService,

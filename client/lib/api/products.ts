@@ -21,8 +21,13 @@ import { http, isMockMode } from "./http";
  * client-side, identical to the pre-M8.4a mock's own filtering logic.
  */
 
+/**
+ * Allowlist, not `!== "hidden"` (M22). Mock data mostly omits the field,
+ * so the `?? "active"` fallback is what keeps every seeded fixture
+ * browsable — without it, mock mode would show an empty catalogue.
+ */
 function isBrowsable(product: Product): boolean {
-  return product.moderationStatus !== "hidden";
+  return (product.moderationStatus ?? "active") === "active";
 }
 
 interface ProductsPage {

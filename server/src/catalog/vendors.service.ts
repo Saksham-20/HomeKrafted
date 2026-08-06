@@ -4,6 +4,7 @@ import { PRODUCT_INCLUDE, mapProduct } from './mappers/product.mapper';
 import { mapVendor } from './mappers/vendor.mapper';
 import { VendorProfileService } from './vendor-profile.service';
 import { VendorAvailabilityService } from './vendor-availability.service';
+import { PUBLICLY_LISTED } from './moderation';
 
 @Injectable()
 export class VendorsService {
@@ -119,12 +120,12 @@ export class VendorsService {
     return vendor;
   }
 
-  /** Excludes `moderationStatus: "hidden"` — same rule `lib/api/products.ts#getProductsByVendor` applies (a storefront listing, not a single-item resolve). */
+  /** A storefront listing, not a single-item resolve — so it shows only what an admin has allowed (`PUBLICLY_LISTED`), same rule `lib/api/products.ts#getProductsByVendor` applies. */
   async productsBySlug(slug: string) {
     const vendor = await this.prisma.vendor.findUnique({ where: { slug } });
     if (!vendor) throw new NotFoundException('Vendor not found');
     const products = await this.prisma.product.findMany({
-      where: { vendorId: vendor.id, moderationStatus: { not: 'hidden' } },
+      where: { vendorId: vendor.id, ...PUBLICLY_LISTED },
       include: PRODUCT_INCLUDE,
     });
     return products.map((p) => mapProduct(p));

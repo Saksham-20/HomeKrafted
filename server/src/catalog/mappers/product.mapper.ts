@@ -65,6 +65,20 @@ export function mapProduct(product: ProductWithRelations) {
     storageInstructions: product.storageInstructions ?? undefined,
     madeIn: product.madeIn ?? undefined,
     moderationStatus: product.moderationStatus,
+    /**
+     * M22. The HomeKrafter's portal reads these to show *why* a listing is
+     * not live and what to do about it — the whole point of recording a
+     * reason. They ride the shared mapper rather than a portal-only one
+     * because the admin queue needs the same three fields, and a second
+     * mapper is how two views of one row drift.
+     *
+     * A buyer never sees them: `pending` and `rejected` listings do not
+     * reach a public surface at all (see `catalog/moderation.ts`), so
+     * there is no payload a shopper receives carrying a note.
+     */
+    moderationNote: product.moderationNote ?? undefined,
+    moderatedAt: product.moderatedAt?.toISOString(),
+    submittedAt: product.submittedAt?.toISOString(),
     featured: product.featured,
   };
 }

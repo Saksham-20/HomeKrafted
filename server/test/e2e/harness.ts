@@ -1,6 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, ProductModerationStatus, UserRole } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 
@@ -312,11 +312,22 @@ export async function createCategory(h: Harness) {
   });
 }
 
+/**
+ * A live, approved listing — the fixture nearly every spec means when it
+ * says "a product exists".
+ *
+ * `moderationStatus` is explicit because M22 changed the column default to
+ * `pending`. Leaning on the default here would have quietly made every
+ * fixture invisible to every browse surface, and the resulting failures
+ * would have read as broken catalogue queries rather than as fixtures that
+ * had never been approved. Pass `moderationStatus` to test the gate
+ * itself.
+ */
 export async function createProduct(
   h: Harness,
   vendorId: string,
   categoryId: string,
-  overrides: { name?: string; price?: number } = {},
+  overrides: { name?: string; price?: number; moderationStatus?: ProductModerationStatus } = {},
 ) {
   // `WeightOption.sku` is globally unique, not unique per product — two
   // products in one test would collide on a shared literal.
@@ -329,6 +340,7 @@ export async function createProduct(
       name: overrides.name ?? 'Mango thokku pickle',
       defaultWeightSku: sku,
       description: 'Slow-cooked in small batches.',
+      moderationStatus: overrides.moderationStatus ?? 'active',
     },
   });
   await h.prisma.weightOption.create({
@@ -342,6 +354,19 @@ export async function createProduct(
     },
   });
   return product;
+}
+
+/**
+ * Approves a listing created through the seller API, the way an admin
+ * would. Specs that create a listing and then assert it is *visible* need
+ * this — since M22 a new listing is `pending`, so without it they are
+ * asserting on something the platform has deliberately not published yet.
+ */
+export async function approveProduct(h: Harness, productId: string) {
+  return h.prisma.product.update({
+    where: { id: productId },
+    data: { moderationStatus: 'active', moderatedAt: new Date() },
+  });
 }
 
 export async function createAddress(h: Harness, userId: string) {

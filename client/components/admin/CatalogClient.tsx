@@ -18,11 +18,16 @@ import {
 import type { Vendor } from "@/lib/types";
 import styles from "./CatalogClient.module.css";
 
-type StatusFilter = "all" | "active" | "hidden" | "flagged" | "featured";
+type StatusFilter = "all" | "pending" | "active" | "rejected" | "hidden" | "flagged" | "featured";
 
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  // "Waiting" first, and the default (see `useState` below) — since M22 a
+  // listing is invisible until someone acts on it, so this is the one
+  // filter with a HomeKrafter waiting on the other end of it.
+  { value: "pending", label: "Waiting" },
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
+  { value: "rejected", label: "Rejected" },
   { value: "flagged", label: "Flagged" },
   { value: "hidden", label: "Taken down" },
   { value: "featured", label: "Featured" },
@@ -46,7 +51,8 @@ export function CatalogClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [vendorFilter, setVendorFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -63,17 +69,35 @@ export function CatalogClient() {
     };
   }, [ready, role]);
 
-  async function handleAction(productId: string, action: ProductModerationAction) {
-    const updated = await moderateProduct(productId, action);
-    if (!updated) return;
-    setProducts((current) =>
-      current.map((p) =>
-        p.id === productId
-          ? { ...p, moderationStatus: updated.moderationStatus, featured: updated.featured }
-          : p,
-      ),
-    );
+  async function handleAction(productId: string, action: ProductModerationAction, reason?: string) {
+    setActionError(null);
+    try {
+      const updated = await moderateProduct(productId, action, reason);
+      if (!updated) return;
+      setProducts((current) =>
+        current.map((p) =>
+          p.id === productId
+            ? {
+                ...p,
+                moderationStatus: updated.moderationStatus,
+                moderationNote: updated.moderationNote,
+                featured: updated.featured,
+              }
+            : p,
+        ),
+      );
+    } catch (err) {
+      // Load-bearing now that the server refuses decisions on purpose:
+      // without it, a rejection missing its reason is indistinguishable
+      // from a click that did nothing.
+      setActionError(err instanceof Error ? err.message : "That didn’t go through. Try again.");
+    }
   }
+
+  const pendingCount = useMemo(
+    () => products.filter((p) => (p.moderationStatus ?? "active") === "pending").length,
+    [products],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -97,7 +121,16 @@ export function CatalogClient() {
 
   return (
     <div>
-      <AdminPageHeader title="Catalog" subtitle={`${products.length} product${products.length === 1 ? "" : "s"} across every vendor`} />
+      {/* The waiting count leads, because it is the only number here with
+          somebody's income attached to it. */}
+      <AdminPageHeader
+        title="Catalog"
+        subtitle={
+          pendingCount > 0
+            ? `${pendingCount} waiting for review · ${products.length} listing${products.length === 1 ? "" : "s"} across every vendor`
+            : `${products.length} listing${products.length === 1 ? "" : "s"} across every vendor`
+        }
+      />
       <CatalogTabs active="products" />
 
       <div className={styles.filters}>
@@ -127,8 +160,18 @@ export function CatalogClient() {
         </div>
       </div>
 
+      {actionError && (
+        <p className={styles.actionError} role="alert">
+          {actionError}
+        </p>
+      )}
+
       {filtered.length === 0 ? (
-        <Card className={styles.empty}>No products match these filters.</Card>
+        <Card className={styles.empty}>
+          {statusFilter === "pending"
+            ? "Nothing waiting for review. Every listing has been looked at."
+            : "No products match these filters."}
+        </Card>
       ) : (
         <div className={styles.list}>
           {filtered.map((product) => (

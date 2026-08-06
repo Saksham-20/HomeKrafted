@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapSnack } from '../snacks/snacks.mapper';
+import { initialSubmission, requeueOnEdit } from '../catalog/moderation';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 
@@ -42,13 +43,23 @@ export class SellerMenuService {
         imageSrc: dto.imagePath || undefined,
         available: dto.available,
         sellerId,
+        // M22 — this table had no moderation at all until now, so a menu
+        // item was the one thing on the platform that went live with
+        // nobody able to stop it.
+        ...initialSubmission(),
       },
     });
     return mapSnack(created);
   }
 
   async update(sellerId: string, snackId: string, dto: UpdateMenuItemDto) {
-    await this.assertOwned(sellerId, snackId);
+    const existing = await this.assertOwned(sellerId, snackId);
+    const requeue = requeueOnEdit(
+      existing.moderationStatus,
+      (dto.name !== undefined && dto.name !== existing.name) ||
+        (dto.description !== undefined && dto.description !== existing.description) ||
+        dto.imagePath !== undefined,
+    );
     const updated = await this.prisma.snack.update({
       where: { id: snackId },
       data: {
@@ -59,6 +70,7 @@ export class SellerMenuService {
         diet: dto.diet ? (dto.diet === 'non-veg' ? 'non_veg' : 'veg') : undefined,
         imageSrc: dto.imagePath,
         available: dto.available,
+        ...requeue,
       },
     });
     return mapSnack(updated);

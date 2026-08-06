@@ -47,7 +47,8 @@ export async function search(
     const vendorNameById = new Map(vendors.map((v) => [v.id, v.name]));
     const productHits = products.filter(
       (p) =>
-        p.moderationStatus !== "hidden" &&
+        // Allowlist (M22) — see `lib/api/products.ts#isBrowsable`.
+        (p.moderationStatus ?? "active") === "active" &&
         matchesAll([p.name, p.description, vendorNameById.get(p.vendorId)], terms),
     );
     const vendorHits = vendors.filter((v) => matchesAll([v.name, v.bio, v.area], terms));

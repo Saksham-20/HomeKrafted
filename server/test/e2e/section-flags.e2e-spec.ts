@@ -2,6 +2,7 @@ import {
   API_PREFIX,
   Actor,
   Harness,
+  approveProduct,
   auth,
   createActor,
   createCategory,
@@ -70,9 +71,24 @@ describe('M20 section flags', () => {
   const createListing = (body: Record<string, unknown>) =>
     h.api().post(`${API_PREFIX}/seller/listings`).set(auth(seller)).send(body);
 
+  /**
+   * Create a listing and approve it, the way an admin would.
+   *
+   * Since M22 a new listing is `pending` and deliberately absent from
+   * every public catalogue. These specs are about section *filtering* —
+   * `kind`, `shippingScope`, `isSnack` — so they need a listing that is
+   * actually published; the review gate has its own spec
+   * (`catalog-moderation.e2e-spec.ts`).
+   */
+  async function createLiveListing(body: Record<string, unknown>) {
+    const res = await createListing(body).expect(201);
+    await approveProduct(h, res.body.id);
+    return res;
+  }
+
   describe('kind', () => {
     it('lets a maker create a craft, and it shows on the gifts catalogue', async () => {
-      const res = await createListing(listingBody({ kind: 'craft' })).expect(201);
+      const res = await createLiveListing(listingBody({ kind: 'craft' }));
       expect(res.body.kind).toBe('craft');
 
       const gifts = await h.api().get(`${API_PREFIX}/products?kind=craft`).expect(200);
@@ -89,10 +105,10 @@ describe('M20 section flags', () => {
     });
 
     it('keeps the two verticals apart', async () => {
-      const craft = await createListing(listingBody({ kind: 'craft' })).expect(201);
-      const food = await createListing(
+      const craft = await createLiveListing(listingBody({ kind: 'craft' }));
+      const food = await createLiveListing(
         listingBody({ categoryId: foodCategoryId, name: 'Mango thokku' }),
-      ).expect(201);
+      );
 
       const gifts = await h.api().get(`${API_PREFIX}/products?kind=craft`).expect(200);
       const slugs = gifts.body.items.map((p: { slug: string }) => p.slug);
@@ -113,12 +129,12 @@ describe('M20 section flags', () => {
         kitchen posting pickles across India, which is why it is its own
         column.
       */
-      const national = await createListing(
+      const national = await createLiveListing(
         listingBody({ kind: 'craft', shippingScope: 'national' }),
-      ).expect(201);
-      const local = await createListing(
+      );
+      const local = await createLiveListing(
         listingBody({ kind: 'craft', shippingScope: 'local', name: 'Stoneware mugs' }),
-      ).expect(201);
+      );
 
       // Mumbai — roughly 1,500km from the tricity, far outside any radius.
       const res = await h
@@ -141,9 +157,9 @@ describe('M20 section flags', () => {
     it('puts a listing on the snacks menu without taking it out of the shop', async () => {
       // The whole point of a capability flag over a table per section: the
       // listing is in both places, priced and moderated once.
-      const res = await createListing(
+      const res = await createLiveListing(
         listingBody({ categoryId: foodCategoryId, name: 'Masala mathri', isSnack: true }),
-      ).expect(201);
+      );
 
       const snacks = await h.api().get(`${API_PREFIX}/snacks`).expect(200);
       expect(snacks.body.some((s: { name: string }) => s.name === 'Masala mathri')).toBe(true);

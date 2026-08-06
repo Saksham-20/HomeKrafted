@@ -616,6 +616,11 @@ async function main(): Promise<void> {
         vendorId: p.vendorId,
         name: p.name,
         categoryId: p.categoryId,
+        // M22 — explicit, because the column default is now `pending`.
+        // Without this line the entire demo catalogue seeds invisible and
+        // every browse surface, screenshot and e2e fixture comes up empty
+        // with nothing obviously broken.
+        moderationStatus: 'active',
         featured: p.featured ?? false,
         dietary: p.dietary,
         defaultWeightSku: p.defaultWeightSku,
@@ -946,7 +951,7 @@ async function main(): Promise<void> {
   ] as const;
 
   for (const s of snackSeeds) {
-    await prisma.snack.create({ data: { ...s, sellerId: sl3.id, available: true } });
+    await prisma.snack.create({ data: { ...s, sellerId: sl3.id, available: true, moderationStatus: 'active' } });
   }
 
   await prisma.snackList.create({

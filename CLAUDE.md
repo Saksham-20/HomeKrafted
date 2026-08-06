@@ -332,6 +332,45 @@ to undo by accident:
   `Product.isAvailable`/`Snack.available` is the HomeKrafter's "am I making
   this today"; `moderationStatus` is the admin's. Buyers need both to pass.
 
+## Catalogue review gate (M22) — a listing is checked before it is public
+
+`ProductModerationStatus` is `pending | active | rejected | hidden |
+flagged`, and **`pending` is the default** on `Product`, `MealPlan` and
+`Snack`. Pre-M22 rows stay `active`: an approval gate applied retroactively
+would delist a live catalogue and take every kitchen's income with it.
+
+- **Filter on `PUBLICLY_LISTED` (`server/src/catalog/moderation.ts`), never
+  on `{ not: 'hidden' }`.** Every public query was a denylist before M22,
+  which was equivalent only while `hidden` was the one bad state. A
+  denylist now *publishes unreviewed listings* — and looks like it works
+  while doing it. Same rule client-side: `=== "active"`, not `!== "hidden"`.
+- **Three different questions, three helpers.** `isPubliclyListed` (browse),
+  `isDirectlyResolvable` (a direct link — `hidden`/`flagged` still resolve
+  because carts and orders already reference them; `pending`/`rejected`
+  404, or knowing a slug is a preview), `isPurchasable` (strictest —
+  an existing order renders, nothing new may be bought).
+- **A refusal requires a reason.** `reject`/`hide`/`takedown`/`flag` 400
+  without one, it is stored on `moderationNote`, and it reaches the
+  HomeKrafter **verbatim** on every channel their `account` preferences
+  allow. Never paraphrase it in the notification layer — that sentence is
+  the only thing telling them what to change. Category is `account`, not
+  `promo` (see M18: a promo block is per-sender and costs every future
+  order update).
+- **An edit re-queues only on a material change** — name, description,
+  category, photo (and `weeklyMenu` on a plan). Not price, stock or tags.
+  Re-queueing everything makes editing something a kitchen avoids;
+  re-queueing nothing makes approval a one-time formality you list
+  something innocuous to pass. A `rejected` listing re-queues on **any**
+  edit — that is the route back. A `pending` one keeps its `submittedAt`,
+  so saving repeatedly is not a way to jump the queue.
+- **`feature`/`unfeature` are merchandising, not moderation** — they must
+  not touch `moderationNote`/`moderatedAt`, or the reason a listing was
+  flagged is erased by putting it on the home page.
+- **Seeds must set `moderationStatus: 'active'` explicitly.** They relied
+  on the old default; without it the whole demo catalogue seeds invisible
+  and every browse page, screenshot and fixture comes up empty with nothing
+  obviously broken.
+
 ## Docs upkeep — do this as part of the work, not after
 
 Features pile up and these rot fast. When a change lands, update in the

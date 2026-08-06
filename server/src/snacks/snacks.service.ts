@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { distanceKm, formatDistanceKm } from '../common/geo';
 import { ListSnacksQueryDto } from './dto/list-snacks.query.dto';
 import { mapSnack } from './snacks.mapper';
+import { PUBLICLY_LISTED, isDirectlyResolvable } from '../catalog/moderation';
 
 /**
  * Snacks menu — `@Public()` reads only (browsable per `lib/channel.ts`,
@@ -98,6 +99,8 @@ export class SnacksService {
     const snacks = await this.prisma.snack.findMany({
       where: {
         available: true,
+        // M22 — the `Snack` table gained moderation for the first time.
+        ...PUBLICLY_LISTED,
         category: query.category,
         ...(terms.length > 0
           ? {
@@ -166,7 +169,9 @@ export class SnacksService {
 
   async getBySlug(slug: string) {
     const snack = await this.prisma.snack.findUnique({ where: { slug } });
-    if (!snack) throw new NotFoundException('Snack not found');
+    if (!snack || !isDirectlyResolvable(snack.moderationStatus)) {
+      throw new NotFoundException('Snack not found');
+    }
     return mapSnack(snack);
   }
 }

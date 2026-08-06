@@ -12,6 +12,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders.query.dto';
 import { mapOrder, orderStatusToFrontend } from './order.mapper';
 import { toOrderHistoryEntry, toLaundryHistoryEntry } from './order-history.util';
+import { isPurchasable, unavailableReason } from '../catalog/moderation';
 
 const ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
 
@@ -257,8 +258,11 @@ export class OrdersService {
         skipped.push({ name: item.name, reason: 'No longer sold' });
         continue;
       }
-      if (product.moderationStatus === 'hidden') {
-        skipped.push({ name: product.name, reason: 'No longer available' });
+      // Allowlist — `=== 'hidden'` before M22, which would have let a
+      // reorder pull a pending or rejected listing straight into a cart,
+      // past every browse filter.
+      if (!isPurchasable(product.moderationStatus)) {
+        skipped.push({ name: product.name, reason: unavailableReason(product.moderationStatus) });
         continue;
       }
       if (!product.isAvailable) {

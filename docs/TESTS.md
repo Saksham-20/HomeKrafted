@@ -105,6 +105,9 @@ Grouped by the rule, not by the file, because the rules are the point.
 | A reset link is single-use, expiring, session-revoking, and not an account-existence oracle | `e2e/password-reset.e2e-spec.ts` |
 | Approval hands the HomeKrafter a working way in: a single-use 7-day set-password link sent out of band, the link never in the audit log, a duplicate application refused rather than 500ing, and re-sending kills the older link | `e2e/seller-invite.e2e-spec.ts` |
 | No route file writes the brand into its own title — the root layout's `title.template` already appends it | `client/lib/seo-titles.spec.ts` |
+| A new listing is `pending` and reachable from **nowhere** — not the shop, storefront, search, a direct link, a cart, a wishlist, a reorder, the snacks menu or a meal-plan list. Each door is its own spec, because a gate that closes six of seven is not a gate | `e2e/catalog-moderation.e2e-spec.ts` |
+| A refusal without a reason is a 400 and changes nothing; the reason is stored, audited with before/after, and delivered to the HomeKrafter word for word | `e2e/catalog-moderation.e2e-spec.ts` |
+| An edit re-queues on a material change and not on a price change; a rejected listing resubmits on any edit; a pending one cannot restamp its way to the front of the queue | `e2e/catalog-moderation.e2e-spec.ts` |
 | Money writes survive being made twice at once: one payout per request, one admin decision per payout, one payable Razorpay order per order, one `SnackOrder` per WhatsApp message, and two same-named signups both succeed | `e2e/money-races.e2e-spec.ts` |
 | `isHamper` is a filter and nothing else — a hamper still obeys availability, moderation and ownership | `e2e/hamper-listings.e2e-spec.ts` |
 | Every path that writes `Order.status` messages the buyer; a new order messages each kitchen once | `e2e/order-notifications.e2e-spec.ts` |

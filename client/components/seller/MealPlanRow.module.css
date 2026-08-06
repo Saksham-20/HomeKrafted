@@ -3,6 +3,19 @@
   align-items: center;
   gap: var(--hk-s3);
   padding: var(--hk-s3);
+  /* Wraps so the M22 moderation note can sit on its own line under the
+     row rather than squeezing the pills. */
+  flex-wrap: wrap;
+}
+
+/* The admin's reason, verbatim. Terracotta because it is the thing
+   keeping the plan off the site. */
+.moderationNote {
+  flex-basis: 100%;
+  margin-left: 66px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--hk-terracotta);
 }
 
 .thumb {

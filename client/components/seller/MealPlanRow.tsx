@@ -13,6 +13,20 @@ export interface MealPlanRowProps {
 }
 
 /**
+ * M22 added `pending` and `rejected`, and they read very differently from
+ * a takedown: one is "we haven't looked yet", the other is "we looked and
+ * you need to change something". Labelling either "Hidden by us" would
+ * tell a kitchen they were penalised for submitting a plan.
+ */
+const MODERATION_LABEL: Record<SellerMealPlan["moderationStatus"], string> = {
+  pending: "Waiting for review",
+  active: "Live",
+  rejected: "Needs a change",
+  flagged: "Flagged",
+  hidden: "Hidden by us",
+};
+
+/**
  * One row on `/seller/meal-plans`.
  *
  * Shows **both** switches rather than one merged "available" pill. A cook
@@ -59,11 +73,13 @@ export function MealPlanRow({ plan, onClose }: MealPlanRowProps) {
           {plan.isActive ? "Taking subscribers" : "Closed"}
         </span>
         {hidden && (
-          <span className={clsx(styles.pill, styles.hidden)}>
-            {plan.moderationStatus === "flagged" ? "Flagged" : "Hidden by us"}
-          </span>
+          <span className={clsx(styles.pill, styles.hidden)}>{MODERATION_LABEL[plan.moderationStatus]}</span>
         )}
       </div>
+      {/* The reason, verbatim, next to the edit link that resolves it.
+          M22 — before this a plan could be refused and the kitchen was
+          told neither that it happened nor why. */}
+      {plan.moderationNote && <span className={styles.moderationNote}>{plan.moderationNote}</span>}
 
       <div className={styles.actions}>
         <Link

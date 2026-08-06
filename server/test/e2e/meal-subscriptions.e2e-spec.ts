@@ -63,6 +63,9 @@ describe('Meal subscriptions', () => {
         diet: 'veg',
         pricePerMeal: 120,
         imagePlaceholder: 'lunch',
+        // M22 — `MealPlan.moderationStatus` now defaults to `pending`. A
+        // plan a buyer can subscribe to is one an admin has approved.
+        moderationStatus: 'active',
       },
     });
     planId = plan.id;

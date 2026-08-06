@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapMealPlan } from '../meals/meals.mapper';
+import { initialSubmission, requeueOnEdit } from '../catalog/moderation';
 import { CreateMealPlanDto, UpdateMealPlanDto } from './dto/meal-plan.dto';
 
 /** `"Monthly Pickle Box"` → `"monthly-pickle-box"`. */
@@ -84,6 +85,10 @@ export class SellerMealPlansService {
         imageSrc: dto.imageSrc,
         maxSubscribers: dto.maxSubscribers,
         isActive: dto.isActive ?? true,
+        // M22 — a plan waits for review like a listing. Without this a
+        // kitchen refused a listing could publish the same thing as a
+        // subscription and the gate would be theatre.
+        ...initialSubmission(),
       },
     });
 
@@ -100,6 +105,17 @@ export class SellerMealPlansService {
      * nothing here re-reads it — that is what stops a rise from silently
      * changing what somebody already paid for mid-cycle.
      */
+    // Same materiality rule as a listing (see `requeueOnEdit`). The weekly
+    // menu counts: it is the substance of what a subscriber is buying, and
+    // on a food product it is the field most worth reviewing.
+    const requeue = requeueOnEdit(
+      existing.moderationStatus,
+      (dto.name !== undefined && dto.name !== existing.name) ||
+        (dto.description !== undefined && dto.description !== existing.description) ||
+        (dto.weeklyMenu !== undefined && dto.weeklyMenu.join('\n') !== existing.weeklyMenu.join('\n')) ||
+        (dto.imageSrc !== undefined && dto.imageSrc !== existing.imageSrc),
+    );
+
     const plan = await this.prisma.mealPlan.update({
       where: { id },
       data: {
@@ -116,6 +132,7 @@ export class SellerMealPlansService {
         imageSrc: dto.imageSrc,
         maxSubscribers: dto.maxSubscribers,
         isActive: dto.isActive,
+        ...requeue,
       },
     });
 

@@ -349,6 +349,9 @@ async function main(): Promise<void> {
           categoryId: category.id,
           kind: 'craft',
           shippingScope: listing.shippingScope,
+          // M22 — the column default is `pending`; seeded demo stock is
+          // meant to be visible.
+          moderationStatus: 'active',
           // Empty, not guessed. A craft has no dietary tags, and the seller
           // form no longer asks — see `ListingForm`.
           dietary: [],

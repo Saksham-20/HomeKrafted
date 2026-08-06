@@ -637,43 +637,71 @@ export async function getAllProductsAdmin(): Promise<AdminProductSummary[]> {
   }));
 }
 
-export type ProductModerationAction = "approve" | "hide" | "flag" | "feature" | "unfeature";
+/**
+ * M22 added `reject`. `approve` now means both "allow this new listing"
+ * and "put this hidden one back" — the server resolves either to `active`,
+ * so the client does not need to know which it was.
+ */
+export type ProductModerationAction =
+  | "approve"
+  | "reject"
+  | "hide"
+  | "flag"
+  | "feature"
+  | "unfeature";
 
 const MODERATION_STATUS_BY_ACTION: Partial<Record<ProductModerationAction, ProductModerationStatus>> = {
   approve: "active",
+  reject: "rejected",
   hide: "hidden",
   flag: "flagged",
 };
 
-/** Client's 5-value `ProductModerationAction` → the server DTO's 7 explicit toggle values (`docs/API.md`: "the mock's 'approve' here is 'unhide'"). */
+/**
+ * Client action → server DTO action.
+ *
+ * `approve` maps to the server's `approve`, which handles a pending
+ * listing *and* restores a hidden one. It used to map to `unhide`, from
+ * when `pending` did not exist and "approve" could only mean "undo a
+ * takedown".
+ */
 const SERVER_MODERATION_ACTION: Record<ProductModerationAction, string> = {
-  approve: "unhide",
+  approve: "approve",
+  reject: "reject",
   hide: "hide",
   flag: "flag",
   feature: "feature",
   unfeature: "unfeature",
 };
 
+/** The actions the server refuses without a reason — see `ModerateProductDto`. */
+export const MODERATION_ACTIONS_NEEDING_REASON: ProductModerationAction[] = ["reject", "hide", "flag"];
+
 export async function moderateProduct(
   productId: string,
   action: ProductModerationAction,
+  reason?: string,
 ): Promise<Product | undefined> {
   if (!isMockMode()) {
-    try {
-      return await http.patch<AdminProductSummary>(
-        `/admin/catalog/products/${encodeURIComponent(productId)}/moderate`,
-        { action: SERVER_MODERATION_ACTION[action] },
-      );
-    } catch {
-      return undefined;
-    }
+    // Deliberately **not** wrapped in `try/catch` any more. It used to
+    // swallow every failure and return `undefined`, which the caller
+    // rendered as "nothing happened" — so the server refusing a rejection
+    // for want of a reason would look identical to a silent no-op. The
+    // caller now shows the message.
+    return await http.patch<AdminProductSummary>(
+      `/admin/catalog/products/${encodeURIComponent(productId)}/moderate`,
+      { action: SERVER_MODERATION_ACTION[action], ...(reason ? { reason } : {}) },
+    );
   }
 
   const product = products.find((p) => p.id === productId);
   if (!product) return undefined;
 
   const nextStatus = MODERATION_STATUS_BY_ACTION[action];
-  if (nextStatus) product.moderationStatus = nextStatus;
+  if (nextStatus) {
+    product.moderationStatus = nextStatus;
+    product.moderationNote = reason || undefined;
+  }
   if (action === "feature") product.featured = true;
   if (action === "unfeature") product.featured = false;
 

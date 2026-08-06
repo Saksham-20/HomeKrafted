@@ -297,8 +297,28 @@ export type ProductTag = "Bestseller" | "New" | "Festive" | "Curated";
  * a real soft-delete), `"flagged"` (still browsable, but surfaced in the
  * admin queue for review). Optional so every pre-M11b seed product reads
  * as `"active"` via `?? "active"` without a data migration.
+ *
+ * **M22 added `"pending"` and `"rejected"`** — a listing is now reviewed
+ * before it is public, rather than taken down afterwards. Mirrors
+ * `server/prisma/schema.prisma`'s enum; keep the two in step.
+ *
+ * The same trap applies here as on the server: **filter on `=== "active"`,
+ * never `!== "hidden"`.** Every consumer filter in `lib/api` was the
+ * latter until M22, which was equivalent only while `"hidden"` was the
+ * one bad state. It is not equivalent now — a denylist shows unreviewed
+ * listings, and looks like it is working while it does.
  */
-export type ProductModerationStatus = "active" | "hidden" | "flagged";
+export type ProductModerationStatus =
+  /** Submitted, never reviewed, not public. The default for new listings. */
+  | "pending"
+  /** Reviewed and allowed. The only state a buyer sees. */
+  | "active"
+  /** Reviewed and refused, with a reason — the HomeKrafter edits and resubmits. */
+  | "rejected"
+  /** Was live, an admin removed it. Direct links still resolve. */
+  | "hidden"
+  /** Under investigation — off the storefront, not yet decided. */
+  | "flagged";
 
 export interface Product {
   id: ID;
@@ -352,6 +372,16 @@ export interface Product {
   madeIn?: string;
   /** See `ProductModerationStatus`'s doc comment. Absent reads as `"active"`. */
   moderationStatus?: ProductModerationStatus;
+  /**
+   * The admin's reason for refusing, hiding or flagging — shown verbatim
+   * to the HomeKrafter in the portal, and **never to a buyer**. A refusal
+   * without one gives the person who has to fix it nothing to act on.
+   */
+  moderationNote?: string;
+  /** When the decision in `moderationStatus` was made. */
+  moderatedAt?: ISODateString;
+  /** When this listing last entered review. The admin queue orders on it. */
+  submittedAt?: ISODateString;
   /**
    * The HomeKrafter's own "am I making this right now" switch, toggled from
    * the portal's Availability panel. Distinct from `moderationStatus`,

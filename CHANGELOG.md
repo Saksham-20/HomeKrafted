@@ -99,6 +99,74 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Added — a listing is reviewed before it is public, and a refusal says why
+
+Owner request, on priority. Before this, `Product.moderationStatus`
+defaulted to **`active`**: a listing was live the instant it was saved, and
+moderation was retrospective takedown. `ModerateProductDto` accepted an
+action and *nothing else* — there was no field for a reason, nowhere to
+store one, and **no notification of any kind**. A listing could be hidden
+and its owner was never told, nor why; they would find out by noticing
+their orders had gone quiet.
+
+- **`pending` and `rejected` joined the enum**, and `pending` is now the
+  default on `Product`, `MealPlan` **and** `Snack` — the last of which had
+  no moderation column at all, the one catalogue an admin could not touch,
+  sitting beside two that were gated. Existing rows stay `active`: the
+  migration changes a column default and runs no `UPDATE`, because applying
+  an approval gate retroactively would delist a live catalogue and take
+  every kitchen's income with it. Verified against the audit database — 16
+  live listings, all still `active`, default now `pending`.
+
+- **Every public filter flipped from a denylist to an allowlist, and this
+  was the whole risk.** Each browse query said `moderationStatus: { not:
+  'hidden' }`, which was exactly equivalent to an allowlist while `hidden`
+  was the only bad state. It stopped being equivalent the moment `pending`
+  existed: shipping the enum change alone would have **published every
+  unreviewed listing** while the feature looked like it worked. The rule
+  now lives in one file (`server/src/catalog/moderation.ts`) with the
+  reason attached, and a spec that fails if the denylist comes back.
+
+- **Six ways round the gate, all closed.** `getBySlug` filtered on nothing,
+  so a guessable slug was a preview of an unreviewed listing. `cart.addItem`
+  had **never** checked moderation in its life — a pre-existing hole that
+  let a hidden listing be bought by anyone holding its id, and that would
+  have made every browse filter cosmetic. Reorder checked `=== 'hidden'`.
+  Wishlist checked nothing. The WhatsApp inbound order path matched a snack
+  by free text with no moderation filter — the one order path that never
+  passes a browse surface, and so the one that would have kept working
+  after every other gate closed. `hidden`/`flagged` still resolve by direct
+  link, because carts and orders already reference them.
+
+- **A refusal requires a reason, and it reaches the HomeKrafter verbatim.**
+  `reject`/`hide`/`takedown`/`flag` 400 without one. It is stored on
+  `Product.moderationNote` and delivered in-app, by email and over WhatsApp
+  through the existing preference fan-out — confirmed live: three channels,
+  reason intact, not paraphrased. Approving clears the note.
+  `feature`/`unfeature` deliberately leave it alone, so putting an item on
+  the home page cannot erase why it was flagged.
+
+- **`/admin/catalog` is a queue**: `pending` first, oldest `submittedAt`
+  first, "Waiting" as the default filter, the waiting count leading the
+  page header, and an inline reason box that will not submit under ten
+  characters. Two queries rather than a JS sort, so the first rides the new
+  `(moderationStatus, submittedAt)` index.
+
+- **The seller portal shows the state and the remark next to the Edit
+  button**, and an edit resubmits. An edit re-queues only on a material
+  change — name, description, category, photo, and `weeklyMenu` on a plan —
+  not on price or stock. Re-queueing every edit makes editing something a
+  kitchen avoids, and stale listings are how a marketplace rots;
+  re-queueing nothing makes approval a formality you pass by listing
+  something innocuous and rewriting it after. A `rejected` listing
+  re-queues on any edit; a `pending` one keeps its place in the queue.
+
+- **Fixed in passing: `/admin/catalog` has always rendered "Vendor · " with
+  a dangling separator against a real server.** `categoryName` was in the
+  client's type from the day the screen shipped and was never sent by the
+  endpoint — only the mock produced it. Found in the browser, not by
+  reading the code.
+
 ### Added — an approved HomeKrafter can actually sign in
 
 The standing blocker `CLAUDE.md` has carried since M17, closed on the

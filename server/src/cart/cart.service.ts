@@ -3,6 +3,7 @@ import { Cart } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
 import { resolveCartLine } from '../common/pricing/resolve-cart-line';
+import { isPurchasable } from '../catalog/moderation';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { AddHamperItemDto } from './dto/add-hamper-item.dto';
 
@@ -55,6 +56,15 @@ export class CartService {
       include: { weightOptions: true },
     });
     if (!product) throw new NotFoundException('Product not found');
+    // M22. This check did not exist before — `addItem` resolved a product
+    // by id and never looked at its moderation state, so a hidden or
+    // taken-down listing could be added to a cart and bought by anyone who
+    // still had its id. With `pending` in the enum that gap becomes the
+    // whole gate: an unreviewed listing would be purchasable by API the
+    // moment it was saved.
+    if (!isPurchasable(product.moderationStatus)) {
+      throw new NotFoundException('Product not found');
+    }
     const weight = product.weightOptions.find((w) => w.sku === dto.sku);
     if (!weight) throw new NotFoundException('Weight option not found for this product');
 
@@ -90,7 +100,12 @@ export class CartService {
     }
     for (const line of dto.items) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
-      if (!product) throw new NotFoundException(`Product ${line.productId} not found`);
+      // Same gate as `addItem` — the retired hamper builder is still a way
+      // to put a product id into a cart, so it needs the same check or it
+      // is the way round it.
+      if (!product || !isPurchasable(product.moderationStatus)) {
+        throw new NotFoundException(`Product ${line.productId} not found`);
+      }
     }
     if (dto.recipientAddressId) {
       const address = await this.prisma.address.findUnique({ where: { id: dto.recipientAddressId } });

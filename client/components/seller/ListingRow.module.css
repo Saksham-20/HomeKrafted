@@ -108,3 +108,22 @@
     margin-left: 66px;
   }
 }
+
+/* ---- Review state (M22) ----
+   Where a HomeKrafter learns their listing is not live and what to do
+   about it. Sits under the meta line rather than as a pill on the right,
+   because the rejection reason is a sentence, not a status word. */
+.reviewNote {
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+/* Gold-family, not base `--hk-gold`: this is 12.5px, well under the
+   ≥16px-bold threshold base gold is AA-safe at on white. See CLAUDE.md. */
+.reviewPending {
+  color: var(--hk-gold-text-sm);
+}
+
+.reviewRejected {
+  color: var(--hk-terracotta);
+}

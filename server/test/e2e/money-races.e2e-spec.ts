@@ -392,6 +392,9 @@ describe('money paths under concurrency', () => {
           imagePlaceholder: 'mathri',
           category: 'namkeen',
           diet: 'veg',
+          // M22 — `Snack` gained moderation and defaults to `pending`. An
+          // item on the menu is one an admin has allowed.
+          moderationStatus: 'active',
         },
       });
     }

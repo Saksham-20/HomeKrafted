@@ -62,6 +62,13 @@ export function mapMealPlan(plan: MealPlan, options: MapPlanOptions = {}) {
      * undone by a cook toggling their own availability.
      */
     moderationStatus: plan.moderationStatus,
+    /**
+     * M22 — the admin's reason, for the kitchen's own portal. It reaches a
+     * buyer payload only in a state that cannot be public: every list a
+     * buyer reads filters on `moderationStatus: 'active'`, and approving
+     * clears the note to `null`.
+     */
+    moderationNote: plan.moderationNote ?? undefined,
     maxSubscribers: plan.maxSubscribers ?? undefined,
     /** `null` means uncapped, which is different from "no seats left". */
     seatsLeft,

@@ -117,6 +117,9 @@ async function main(): Promise<void> {
         slug,
         vendorId: seller.vendorId,
         sellerId: seller.id,
+        // M22 — the column default is `pending`; seeded plans are meant to
+        // be subscribable.
+        moderationStatus: 'active',
         name: plan.name,
         description: plan.description,
         mealType: plan.mealType,

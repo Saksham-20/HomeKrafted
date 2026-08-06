@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Wishlist, WishlistItem } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { isDirectlyResolvable } from '../catalog/moderation';
 
 type WishlistWithItems = Wishlist & { items: WishlistItem[] };
 
@@ -35,7 +36,13 @@ export class WishlistService {
 
   async add(userId: string, productId: string) {
     const product = await this.prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new NotFoundException('Product not found');
+    // Saving something is not buying it, so `isDirectlyResolvable` rather
+    // than `isPurchasable`: a wishlist entry for a listing an admin later
+    // hid stays, the same way an order line does. What must not happen is
+    // saving a listing that was never public in the first place.
+    if (!product || !isDirectlyResolvable(product.moderationStatus)) {
+      throw new NotFoundException('Product not found');
+    }
 
     const wishlist = await this.getOrCreate(userId);
     await this.prisma.wishlistItem.upsert({

@@ -42,7 +42,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | `Category` | name, productCount | referenced by `Product.categoryId` |
 | `Occasion` | name, initial, **celebratedOn? / tagline? / imageSrc? (M16)** | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
 | `Collection` | title, productIds[], **imageSrc? / featured / sortOrder (M16)** | many-to-many with `Product` (by id list, not a join table yet) |
-| `Product` | vendorId, categoryId, occasionIds[], dietary[], images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[], isPackaged, cashbackPct, moderationStatus? (`active`\|`hidden`\|`flagged`, M11b), featured? (M11b) | belongs to `Vendor` |
+| `Product` | vendorId, categoryId, occasionIds[], dietary[], images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[], isPackaged, cashbackPct, moderationStatus? (`pending`\|`active`\|`rejected`\|`hidden`\|`flagged` — **defaults to `pending` since M22**), moderationNote?/moderatedAt?/submittedAt? (M22), featured? (M11b) | belongs to `Vendor` |
 | `Cart` (+`CartItem`) | items[{productId?, sku?, hamperId?, quantity, giftWrap?, addressId?}] | belongs to `User`; a line is *either* a product (`productId`+`sku`) *or* an assembled hamper (`hamperId`), never both — see "Polymorphic cart/order lines" below; `CartItem.addressId` enables multi-address checkout |
 | `Wishlist` | items[{productId, addedAt}] | belongs to `User` |
 | `HamperBox` | name, maxItems, price | referenced by `Hamper.boxId` |

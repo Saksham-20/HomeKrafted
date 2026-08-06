@@ -6,6 +6,7 @@ import { ListProductsQueryDto } from './dto/list-products.query.dto';
 import { PRODUCT_INCLUDE, defaultPriceOf, mapProduct } from './mappers/product.mapper';
 import { dietaryTagsFromFrontend } from './dietary-tag.util';
 import { splitCsv } from './split-csv.util';
+import { PUBLICLY_LISTED, isDirectlyResolvable } from './moderation';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -30,7 +31,10 @@ export class ProductsService {
    * `priceOf()` uses (the `defaultWeightSku` price, not min/any option).
    */
   async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
-    const where: Prisma.ProductWhereInput = { moderationStatus: { not: 'hidden' } };
+    // Allowlist, not `{ not: 'hidden' }` — see `moderation.ts`. With the
+    // old denylist, M22's `pending` would have been public and the review
+    // gate would have done nothing visible enough to notice.
+    const where: Prisma.ProductWhereInput = { ...PUBLICLY_LISTED };
 
     // Buyers never see something the kitchen has switched off for the day.
     // An explicit `availableOnly=false` is how the seller portal and admin
@@ -167,14 +171,21 @@ export class ProductsService {
   }
 
   /**
-   * No `moderationStatus` filter here on purpose — matches
-   * `lib/api/products.ts#getProduct`'s doc comment: a direct-link/cart/
-   * order/wishlist lookup must still resolve even for a taken-down
-   * product; only browse/listing surfaces hide it.
+   * A direct-link/cart/order/wishlist lookup must still resolve for a
+   * **taken-down** product — matches `lib/api/products.ts#getProduct`'s
+   * doc comment, and is why this is not simply `PUBLICLY_LISTED`. An order
+   * somebody placed has to keep rendering after an admin hides the listing.
+   *
+   * M22 draws one line through that: `pending` and `rejected` 404. Those
+   * have never been public, so nothing legitimately links to them — and
+   * without this check the whole gate is bypassable by guessing a slug,
+   * which for a slugified product name is not guessing at all.
    */
   async getBySlug(slug: string): Promise<ReturnType<typeof mapProduct>> {
     const product = await this.prisma.product.findUnique({ where: { slug }, include: PRODUCT_INCLUDE });
-    if (!product) throw new NotFoundException('Product not found');
+    if (!product || !isDirectlyResolvable(product.moderationStatus)) {
+      throw new NotFoundException('Product not found');
+    }
     return mapProduct(product);
   }
 }

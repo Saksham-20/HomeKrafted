@@ -22,11 +22,58 @@ function stockStatus(product: Product): { label: string; className: string } {
   return { label: "In stock", className: styles.inStock };
 }
 
+/**
+ * Where a HomeKrafter finds out what happened to a listing (M22).
+ *
+ * Without this the review gate is invisible from the side that matters:
+ * they save a listing, it does not appear on the site, and nothing on this
+ * screen says why or for how long. The rejection reason is shown verbatim,
+ * next to the edit button that is the way out of it — a refusal with no
+ * route back is a dead listing.
+ *
+ * `null` for a live listing: an approved item does not need a badge saying
+ * so, and adding one to every row would bury the two states that need
+ * reading.
+ */
+function reviewState(product: Product): { text: string; className: string } | null {
+  switch (product.moderationStatus ?? "active") {
+    case "pending":
+      return {
+        text: "Waiting for review — buyers can’t see this yet. We usually look within a day.",
+        className: styles.reviewPending,
+      };
+    case "rejected":
+      return {
+        text: product.moderationNote
+          ? `Not approved: ${product.moderationNote} — edit and save to send it back for review.`
+          : "Not approved yet. Edit and save to send it back for review.",
+        className: styles.reviewRejected,
+      };
+    case "hidden":
+      return {
+        text: product.moderationNote
+          ? `Taken down by Homekrafted: ${product.moderationNote}`
+          : "Taken down by Homekrafted.",
+        className: styles.reviewRejected,
+      };
+    case "flagged":
+      return {
+        text: product.moderationNote
+          ? `Paused while we look into this: ${product.moderationNote}`
+          : "Paused while we look into this.",
+        className: styles.reviewRejected,
+      };
+    default:
+      return null;
+  }
+}
+
 /** One row on `/seller/listings` — thumbnail, name + category, price, derived stock pill, edit/delete actions. */
 export function ListingRow({ product, categoryName, onDelete }: ListingRowProps) {
   const weight = product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ?? product.weightOptions[0];
   const image = product.images[0];
   const stock = stockStatus(product);
+  const review = reviewState(product);
 
   return (
     <Card padding="none" className={styles.row}>
@@ -46,6 +93,7 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
           {categoryName ?? "Uncategorised"} · {product.weightOptions.length} SKU
           {product.weightOptions.length === 1 ? "" : "s"}
         </span>
+        {review && <span className={clsx(styles.reviewNote, review.className)}>{review.text}</span>}
       </div>
       <span className={styles.price}>{weight ? formatCurrency(weight.price) : "—"}</span>
       <span className={clsx(styles.stockPill, stock.className)}>{stock.label}</span>
