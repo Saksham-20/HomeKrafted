@@ -6,6 +6,18 @@ import { pageMetadata } from "@/lib/seo";
 import styles from "./Hamper.module.css";
 
 /**
+ * How many cards get `priority` — the first row at the widest layout this
+ * grid reaches (1180px container ÷ its own `minmax()` track). Above that
+ * row nothing is above the fold, and below it the row is narrower, so a
+ * couple of these are eager without being the LCP element; they are all
+ * first-screen images either way, so nothing is fetched that was not
+ * already needed. A single card is not enough: every card renders the same
+ * size, so which one wins LCP is decided by paint order, and at 1280px
+ * Next named the second one.
+ */
+const PRIORITY_CARDS = 5;
+
+/**
  * Gift hampers (M18) — **a catalogue, not a builder.**
  *
  * Until now this route was a three-step wizard where a buyer picked a box
@@ -102,9 +114,7 @@ export default async function HamperPage() {
                 product={product}
                 makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
                 href={`/product/${product.slug}`}
-                // First row only — see `ShopClient`'s grid for why it is
-                // the row and not a single card.
-                priority={index < 3}
+                priority={index < PRIORITY_CARDS}
               />
             ))}
           </div>

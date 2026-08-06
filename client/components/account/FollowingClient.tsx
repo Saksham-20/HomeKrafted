@@ -89,7 +89,8 @@ export function FollowingClient() {
                 <span className={styles.text}>
                   <span className={styles.name}>{vendor.name}</span>
                   <span className={styles.meta}>
-                    ★ {vendor.rating.toFixed(1)} · {vendor.location}
+                    {vendor.reviewCount > 0 ? `★ ${vendor.rating.toFixed(1)} · ` : ""}
+                    {vendor.location}
                   </span>
                 </span>
               </Link>

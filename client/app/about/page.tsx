@@ -3,7 +3,7 @@ import { AboutClient } from "@/components/about/AboutClient";
 import { getAboutContent } from "@/lib/api";
 
 export const metadata: Metadata = {
-  title: "About — Homekrafted",
+  title: "About",
   description:
     "Homekrafted is more than just a food delivery platform. We are a movement that supports home makers, bakers, and artists in transforming their passion into a thriving business.",
 };

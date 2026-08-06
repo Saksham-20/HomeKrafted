@@ -125,6 +125,41 @@ is now covered by a spec that races real in-flight requests.
   flags therefore survived every failed restore. Hydration now writes them
   itself.
 
+### Fixed — the food page was selling candles
+
+- **`/shop` listed both verticals.** M20 added `Product.kind` precisely so
+  Handcrafted Gifts could be a second vertical; `/gifts` was filtered to
+  `kind: craft` and `/shop` was left calling the unfiltered `getProducts`
+  it had used before crafts existed. So a page headed **Homemade Foods**,
+  reached from a nav item reading **Homemade Food**, described in its own
+  metadata as "small-batch pickles, sweets, bakes and snacks", listed
+  8 crafts among its 16 products — and offered "Candles & Home", "Handmade
+  Jewellery", "Art & Prints" and "Personalised Gifts" as filters in a food
+  sidebar. New `getFoodProducts()`; the category facet is scoped with
+  `Category.group` so the filters describe the catalogue the page shows.
+
+- **A listing with no reviews was rendered as a listing rated zero.**
+  `★ 0.0 (0)` on every product card, `★ 0.0 (0 reviews)` on every
+  storefront header, `★ 0.0 · location` in search and following — and, on
+  the product page, five filled stars beside "0.0 · 0 reviews", where the
+  decoration said five and the number said zero and neither was true. It
+  is the worst possible score, shown to every kitchen and every maker on
+  their first day. Now "New" / "No reviews yet". Same rule as M16's
+  `cancellationRate`, which is `null` rather than `0` before anything has
+  closed: absence gets said as absence.
+
+### Fixed — SEO
+
+- **Three routes shipped the brand twice in their title** — `/about`,
+  `/search` and the 404 all rendered `… — Homekrafted — Homekrafted`,
+  because they wrote the suffix that `app/layout.tsx`'s
+  `title.template` already appends. A title is the one piece of SEO nobody
+  reviews in a browser: the tab truncates it and the duplication only
+  shows up in a search result. `lib/seo-titles.spec.ts` now asserts no
+  route file writes the brand into its own title — checked over the route
+  files, because `pageMetadata` cannot see it (the string it is handed is
+  already wrong).
+
 ### Fixed — LCP
 
 - **Four product grids left their above-the-fold images lazy-loaded**

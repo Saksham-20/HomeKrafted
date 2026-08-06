@@ -123,13 +123,22 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </Link>
           )}
           <h1 className={styles.title}>{product.name}</h1>
+          {/* Five filled stars beside "0.0 · 0 reviews" was the worst of
+              these: the decoration says five, the number says zero, and
+              neither is true of a listing nobody has reviewed. */}
           <div className={styles.ratingRow}>
-            <span className={styles.stars} aria-hidden="true">
-              ★★★★★
-            </span>
-            <span className={styles.ratingText}>
-              {product.rating.toFixed(1)} · {product.reviewCount} reviews
-            </span>
+            {product.reviewCount > 0 ? (
+              <>
+                <span className={styles.stars} aria-hidden="true">
+                  ★★★★★
+                </span>
+                <span className={styles.ratingText}>
+                  {product.rating.toFixed(1)} · {product.reviewCount} reviews
+                </span>
+              </>
+            ) : (
+              <span className={styles.ratingText}>No reviews yet</span>
+            )}
           </div>
 
           <ProductPurchasePanel product={product} />

@@ -28,6 +28,13 @@ export function absoluteUrl(path: string): string {
 }
 
 export interface PageMetaInput {
+  /**
+   * This page's own name, **without the brand** — `"Search"`, not
+   * `"Search — Homekrafted"`. The root layout's
+   * `title.template: "%s — Homekrafted"` appends it. Three pages included
+   * it anyway and shipped `<title>Search — Homekrafted — Homekrafted`
+   * (also `/about` and the 404), which is what a search result showed.
+   */
   title: string;
   description: string;
   /** Path this page canonically lives at, e.g. `/product/mango-thokku-pickle`. */

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import clsx from "clsx";
 import { getBuyerCoords } from "@/lib/location/server";
-import { getCategories, getOccasions, getProducts, getVendors } from "@/lib/api";
+import { getCategories, getFoodProducts, getOccasions, getVendors } from "@/lib/api";
 import { ShopClient } from "./ShopClient";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
@@ -31,12 +31,22 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   // Server Component can't see. Undefined (no area picked, prompt
   // declined) means the full catalogue, never an empty page.
   const near = await getBuyerCoords();
-  const [products, categories, occasions, vendors] = await Promise.all([
-    getProducts(near),
+  const [products, allCategories, occasions, vendors] = await Promise.all([
+    // `getFoodProducts`, not `getProducts`. This page is one of two
+    // verticals, and the unfiltered call made it the everything-page it
+    // had been before crafts existed — a screen headed "Homemade Foods"
+    // listing candles and jewellery. See `getFoodProducts`'s doc comment.
+    getFoodProducts(near),
     getCategories(),
     getOccasions(),
     getVendors(),
   ]);
+
+  // The sidebar's facets have to be scoped the same way the listing is, or
+  // the filters describe a catalogue this page does not show: "Candles &
+  // Home 4" was a checkbox here, and ticking it now empties the grid.
+  // `group` is absent on pre-M20 rows and reads as food (see `Category`).
+  const categories = allCategories.filter((category) => category.group !== "craft");
 
   const vendorNameById = Object.fromEntries(vendors.map((vendor) => [vendor.id, vendor.name]));
 

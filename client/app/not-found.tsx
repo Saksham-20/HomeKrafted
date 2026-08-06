@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { RouteMessage, RouteMessageLink } from "@/components/feedback/RouteMessage";
 
 export const metadata: Metadata = {
-  title: "Page not found — Homekrafted",
+  title: "Page not found",
   robots: { index: false, follow: true },
 };
 

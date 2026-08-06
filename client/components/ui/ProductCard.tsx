@@ -101,7 +101,15 @@ export function ProductCard({
         <span className={styles.maker}>{makerName}</span>
         <span className={styles.name}>{product.name}</span>
         <span className={styles.meta}>
-          ★ {product.rating.toFixed(1)} ({product.reviewCount})
+          {/*
+            No reviews is not a rating of zero. Every craft listing showed
+            "★ 0.0 (0)", which reads as "rated zero out of five" for a maker
+            nobody has reviewed yet — the worst possible score, shown to
+            every listing on its first day. Same rule as M16's
+            `cancellationRate`, which is `null` rather than `0` before
+            anything has closed: absence gets said as absence.
+          */}
+          {product.reviewCount > 0 ? `★ ${product.rating.toFixed(1)} (${product.reviewCount})` : "New"}
           {weight ? ` · ${weight.label}` : null}
         </span>
         <div className={styles.priceRow}>

@@ -8,6 +8,17 @@ import { ProductGridCard } from "@/components/product/ProductGridCard";
 import type { Category, DietaryTag, Occasion, Product } from "@/lib/types";
 import styles from "./ShopClient.module.css";
 
+/**
+ * How many cards get `priority` — the first row at the widest layout this
+ * grid reaches. Three here, not five like the sidebar-less grids, because
+ * this page gives a column to filters; measured at 1280px.
+ *
+ * A single card is not enough: every card renders the same size, so which
+ * one wins LCP is decided by paint order, and at 1280px Next named the
+ * second one. Marking one card was a fix that happened to miss.
+ */
+const PRIORITY_CARDS = 3;
+
 export interface ShopClientProps {
   products: Product[];
   categories: Category[];
@@ -282,17 +293,7 @@ export function ShopClient({
                 product={product}
                 makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
                 href={`/product/${product.slug}`}
-                // The first row, not the first card. This grid is the top
-                // of the page, so its LCP element is one of the row-one
-                // cards — but every card renders at the same size, so
-                // *which* one wins is decided by paint order and is not
-                // stable: measured at 1280px, the warning named the second
-                // card, not the first. Marking one card was therefore a
-                // fix that happened to miss. Three is the desktop row
-                // count; all three are above the fold and needed for first
-                // paint anyway, so nothing is being fetched early that
-                // wasn't already required.
-                priority={index < 3}
+                priority={index < PRIORITY_CARDS}
               />
             ))}
           </div>

@@ -100,6 +100,31 @@ export async function getCraftProducts(near?: { lat: number; lng: number }): Pro
   return page.items;
 }
 
+/**
+ * Homemade food (M20) — `kind: food`, the other half of `getCraftProducts`.
+ *
+ * `/shop` used the unfiltered `getProducts` instead, so a page headed
+ * "Homemade Foods", reached from a nav item reading "Homemade Food", and
+ * described in its own metadata as "small-batch pickles, sweets, bakes and
+ * snacks" listed candles, jewellery and art prints alongside them —
+ * 8 crafts among 16 products, with craft categories offered as filters in
+ * the sidebar. The whole point of `Product.kind` in M20 was that these are
+ * two verticals; `/gifts` was filtered and `/shop` was left as the
+ * everything-page it had been before crafts existed.
+ */
+export async function getFoodProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
+  if (isMockMode()) return products.filter((p) => p.kind !== "craft" && isBrowsable(p));
+  const page = await http.get<ProductsPage>("/products", {
+    auth: false,
+    query: {
+      pageSize: 100,
+      kind: "food",
+      ...(near ? { lat: near.lat, lng: near.lng } : {}),
+    },
+  });
+  return page.items;
+}
+
 export async function getHamperProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
   if (isMockMode()) return products.filter((p) => p.isHamper && isBrowsable(p));
   const page = await http.get<ProductsPage>("/products", {

@@ -56,8 +56,12 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
           <h1 className={styles.name}>{vendor.name}</h1>
           {profile?.tagline && <p className={styles.tagline}>{profile.tagline}</p>}
           <div className={styles.meta}>
+            {/* A kitchen approved this morning has no rating, and "★ 0.0
+                (0 reviews)" says it has the worst one. See `ProductCard`. */}
             <span className={styles.rating}>
-              ★ {vendor.rating.toFixed(1)} ({vendor.reviewCount} reviews)
+              {vendor.reviewCount > 0
+                ? `★ ${vendor.rating.toFixed(1)} (${vendor.reviewCount} reviews)`
+                : "No reviews yet"}
             </span>
             <span className={styles.dot} aria-hidden="true">
               ·
