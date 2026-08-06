@@ -550,6 +550,12 @@ accident:
 - **A return request moves no money.** An admin resolves it. Auto-refund
   would make the most abusable path the most frictionless, and the loss
   lands on a home cook.
+- **A cancellation *does* refund — and must reverse the cashback with
+  it.** Cashback lands at `placed`; refunding the total while leaving it
+  meant place-then-cancel paid the buyer, repeatably (M22). Any new path
+  that gives money back owes the same question: what else did placement
+  hand over? `lifetimeSaved` unwinds too, or the loop buys loyalty tier
+  for free.
 - **`POST /admin/payouts/:id/pay` records a settlement, it does not
   perform one.** There is no payout provider. The `reference` is the only
   link to a real transfer. Both payout decisions are one-way.

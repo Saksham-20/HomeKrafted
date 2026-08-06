@@ -57,7 +57,7 @@ describe('order cancellation and returns', () => {
 
   const order = (
     status: 'pending_payment' | 'placed' | 'packed' | 'shipped' | 'delivered' | 'cancelled',
-    extra: { deliveredAt?: Date | null; placedAt?: Date } = {},
+    extra: { deliveredAt?: Date | null; placedAt?: Date; cashbackEarned?: number } = {},
   ) =>
     createOrder(h, {
       userId: buyer.userId,
@@ -105,6 +105,58 @@ describe('order cancellation and returns', () => {
       await cancel(buyer, o.id).expect(201);
       await cancel(buyer, o.id).expect(201);
       expect(await h.prisma.order.count({ where: { status: 'cancelled' } })).toBe(1);
+    });
+
+    it('takes the cashback back, so cancelling cannot pay you', async () => {
+      /*
+        Found in a browser, not by reading code. Cashback is credited the
+        moment an order reaches `placed`; cancelling refunded the full
+        total and left that credit alone. So place, cancel, keep the
+        cashback, repeat — a ₹1,029 order left the wallet ₹51 **up** on a
+        completed cycle, with nothing bounding how many times it runs.
+
+        The assertion is the invariant rather than any single figure: a
+        place-then-cancel round trip must leave the wallet exactly where
+        it started. A test on "is there a reversal row" would pass while
+        the arithmetic was still wrong.
+      */
+      const wallet = await h.prisma.wallet.findFirstOrThrow({ where: { userId: buyer.userId } });
+      const opening = Number(wallet.balance);
+      const openingSaved = Number(wallet.lifetimeSaved);
+
+      const o = await order('placed', { cashbackEarned: 25 });
+
+      // Reproduce exactly what placement leaves behind: the total taken,
+      // the cashback given.
+      await h.prisma.wallet.update({
+        where: { id: wallet.id },
+        data: {
+          balance: opening - Number(o.total) + 25,
+          lifetimeSaved: openingSaved + 25,
+        },
+      });
+
+      await cancel(buyer, o.id).expect(201);
+
+      const after = await h.prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+      expect(Number(after.balance)).toBe(opening);
+      // The same loop also bought loyalty tier progression for free.
+      expect(Number(after.lifetimeSaved)).toBe(openingSaved);
+    });
+
+    it('still refunds in full when an order earned no cashback', async () => {
+      const wallet = await h.prisma.wallet.findFirstOrThrow({ where: { userId: buyer.userId } });
+      const opening = Number(wallet.balance);
+      const o = await order('placed');
+      await h.prisma.wallet.update({
+        where: { id: wallet.id },
+        data: { balance: opening - Number(o.total) },
+      });
+
+      await cancel(buyer, o.id).expect(201);
+
+      const after = await h.prisma.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+      expect(Number(after.balance)).toBe(opening);
     });
 
     it("refuses to cancel someone else's order, as a 404 rather than a 403", async () => {

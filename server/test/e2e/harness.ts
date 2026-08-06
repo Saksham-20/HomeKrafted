@@ -400,6 +400,8 @@ export async function createOrder(
     status?: 'pending_payment' | 'placed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
     placedAt?: Date;
     deliveredAt?: Date | null;
+    /** What placement credited back as cashback — cancellation has to take it away again. */
+    cashbackEarned?: number;
   },
 ) {
   const subtotal = opts.items.reduce((sum, i) => sum + i.price * (i.quantity ?? 1), 0);
@@ -418,6 +420,7 @@ export async function createOrder(
       deliveredAt,
       subtotal,
       total: subtotal,
+      cashbackEarned: opts.cashbackEarned ?? 0,
       paymentMethod: 'wallet',
       shippingAddressIds: [opts.addressId],
       items: {

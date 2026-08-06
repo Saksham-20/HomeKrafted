@@ -99,6 +99,31 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — cancelling an order paid you
+
+Found by doing it in a browser and checking the wallet afterwards.
+
+Cashback is credited the moment an order reaches `placed`. Cancelling
+refunded the full order total and **left that credit alone**, so a
+completed place-then-cancel cycle left the buyer up by the cashback: a
+₹1,029 order moved the wallet 1250 → 221 → 272 → **1301**, a ₹51 gain for
+buying nothing. Nothing bounds how many times that runs — two API calls,
+repeatable indefinitely, and it drains the promotional budget without a
+single sale. The same loop also incremented `lifetimeSaved`, which drives
+loyalty tier, so it bought tier progression for free too.
+
+Cancellation now reverses the cashback in the same transaction as the
+refund, and unwinds `lifetimeSaved` by the same amount. It is affordable
+by construction — it runs immediately after crediting the full total
+back, and cashback is a fraction of that total, so the balance can never
+be short however the buyer spent in between. The reversal is marked
+`skipAutoTopupCheck`, because taking a promotion back is an accounting
+correction and must not trip an auto-top-up that charges someone's card.
+
+The spec asserts the invariant — a place-then-cancel round trip leaves
+the wallet exactly where it started — rather than the presence of a
+reversal row, which would pass while the arithmetic stayed wrong.
+
 ### Fixed — no product could be opened from a keyboard
 
 Found by pressing Enter, which is the only way it could have been found.

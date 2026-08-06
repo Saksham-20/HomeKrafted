@@ -382,6 +382,43 @@ export class OrdersService {
           refType: 'order',
           refId: order.id,
         });
+
+        /**
+         * Take the cashback back too.
+         *
+         * **Without this, cancelling an order pays you.** Cashback is
+         * credited the moment an order reaches `placed`, and cancelling
+         * refunded the full total while leaving that credit alone — so
+         * place, cancel, keep the cashback, repeat. Measured in a browser:
+         * a ₹1,029 order left the wallet ₹51 *up* on a completed
+         * place-then-cancel cycle, and nothing bounds how many times that
+         * runs. It also inflated `lifetimeSaved`, which drives loyalty
+         * tier, so the same loop bought tier progression for free.
+         *
+         * Affordable by construction: this runs immediately after
+         * crediting the full order total back, and cashback is a small
+         * percentage of that same total — so the balance can never be
+         * short at this point, whatever the buyer spent in between.
+         */
+        const cashback = Number(order.cashbackEarned);
+        if (cashback > 0) {
+          await this.walletService.postLedgerEntryTx(tx, {
+            walletId: wallet.id,
+            direction: 'debit',
+            category: 'cashback',
+            amount: cashback,
+            title: `Cashback reversed — cancelled order #${order.orderNumber}`,
+            refType: 'order',
+            refId: order.id,
+            // Negative, so the loyalty account unwinds by exactly what the
+            // placement added rather than double-counting the reversal.
+            lifetimeSavedDelta: -cashback,
+            // An accounting correction, not spending. Without this the
+            // reversal counts as a debit and can trip an auto-top-up —
+            // charging somebody's card because we took back a promotion.
+            skipAutoTopupCheck: true,
+          });
+        }
       }
 
       const updated = await tx.order.update({

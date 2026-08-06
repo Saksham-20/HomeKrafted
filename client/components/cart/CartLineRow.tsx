@@ -39,7 +39,7 @@ export function CartLineRow({ info, onQtyChange, onRemove }: CartLineRowProps) {
             value={info.quantity}
             onChange={onQtyChange}
             max={info.maxQuantity ?? 99}
-            aria-label={`Quantity for ${info.name}`}
+            itemName={info.name}
           />
         )}
       </div>

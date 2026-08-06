@@ -14,7 +14,17 @@ export interface QuantityStepperProps {
   onChange?: (value: number) => void;
   disabled?: boolean;
   className?: string;
-  /** Accessible label announced with the current value, e.g. "Quantity". */
+  /**
+   * The **name of the thing being counted**, e.g. "Mango Thokku Pickle" —
+   * not a full sentence. The stepper composes every label from it.
+   *
+   * It reaches the −/+ buttons, which is the point: without it a cart of
+   * three lines announces three identical "Increase quantity" buttons and
+   * a screen reader user cannot tell which row they are on, while the
+   * Remove button beside them has always named its product.
+   */
+  itemName?: string;
+  /** Label for the value itself when there is no `itemName`. */
   "aria-label"?: string;
 }
 
@@ -31,6 +41,7 @@ export function QuantityStepper({
   onChange,
   disabled = false,
   className,
+  itemName,
   "aria-label": ariaLabel = "Quantity",
 }: QuantityStepperProps) {
   const [internalValue, setInternalValue] = useState(defaultValue);
@@ -51,11 +62,15 @@ export function QuantityStepper({
         className={styles.btn}
         onClick={() => set(current - 1)}
         disabled={disabled || current <= min}
-        aria-label="Decrease quantity"
+        aria-label={itemName ? `Decrease quantity of ${itemName}` : "Decrease quantity"}
       >
         −
       </button>
-      <span className={styles.value} aria-live="polite" aria-label={ariaLabel}>
+      <span
+        className={styles.value}
+        aria-live="polite"
+        aria-label={itemName ? `Quantity of ${itemName}` : ariaLabel}
+      >
         {current}
       </span>
       <button
@@ -63,7 +78,7 @@ export function QuantityStepper({
         className={styles.btn}
         onClick={() => set(current + 1)}
         disabled={disabled || current >= max}
-        aria-label="Increase quantity"
+        aria-label={itemName ? `Increase quantity of ${itemName}` : "Increase quantity"}
       >
         +
       </button>
