@@ -112,6 +112,33 @@ function handleSessionExpired(): void {
   }
 }
 
+/**
+ * Human-readable copy for a `429`, with the wait when the server states one.
+ *
+ * **Not a retry.** The obvious fix here is to sleep for `Retry-After` and
+ * try again, and it does not work: `@nestjs/throttler` returns the whole
+ * remaining window, which is `THROTTLE_TTL_SECONDS` — measured at 60 on
+ * this server. Sleeping 60s inside a fetch is indistinguishable from a
+ * hang, and a retry capped below that never fires, so it would be dead
+ * code that reads like a safety net.
+ *
+ * What the throttler actually cost was legibility: `docs/DEPLOY.md`
+ * records 429s surfacing as blank modules or "Missing bearer token",
+ * which reads as a UI bug and sends people looking in the wrong place.
+ * Both limits key on client IP (`THROTTLE_LIMIT` 120/min,
+ * `THROTTLE_AUTH_LIMIT` 20/min), so one office behind a NAT shares a
+ * budget — this is a real user-facing state, not only a load-test
+ * artefact, and it deserves to say so.
+ */
+function rateLimitMessage(res: Response): string {
+  const seconds = Number(res.headers.get("Retry-After"));
+  if (Number.isFinite(seconds) && seconds > 0) {
+    const wait = seconds >= 60 ? `${Math.ceil(seconds / 60)} minute(s)` : `${seconds} seconds`;
+    return `Too many requests. Try again in about ${wait}.`;
+  }
+  return "Too many requests just now — wait a moment and try again.";
+}
+
 export interface RequestOptions {
   /** Attach the bearer token when present. Default `true` — pass `false` for `@Public()` endpoints called with no session (harmless either way, but explicit). */
   auth?: boolean;
@@ -176,10 +203,20 @@ async function request<T>(
 
   if (!res.ok) {
     const envelope = data as { error?: { code?: string; message?: string } } | undefined;
+    // The bare throttler says only "ThrottlerException: Too Many Requests",
+    // which is not copy to put in front of somebody. The OTP caps write
+    // their own message (they know the window) and it is kept.
+    const fallback =
+      res.status === 429 ? rateLimitMessage(res) : `Request to ${path} failed (${res.status})`;
+    const serverMessage = envelope?.error?.message;
+    const message =
+      res.status === 429 && (!serverMessage || /throttler|too many requests$/i.test(serverMessage))
+        ? fallback
+        : (serverMessage ?? fallback);
     throw new ApiError(
       res.status,
-      envelope?.error?.code ?? "ERROR",
-      envelope?.error?.message ?? `Request to ${path} failed (${res.status})`,
+      envelope?.error?.code ?? (res.status === 429 ? "RATE_LIMITED" : "ERROR"),
+      message,
     );
   }
 
