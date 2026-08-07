@@ -19,6 +19,7 @@ import {
   getPartnerBooking,
   nextBookingStatus,
   updatePartnerBookingSlots,
+  apiErrorMessage,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Address, LaundryBookingStatus, LaundryBooking, LaundryDay, LaundryService, LaundrySlot } from "@/lib/types";
@@ -55,6 +56,7 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
   const [slots, setSlots] = useState<LaundrySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [savingSlots, setSavingSlots] = useState(false);
   const [slotsSaved, setSlotsSaved] = useState(false);
 
@@ -94,21 +96,36 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
 
   async function handleAdvance() {
     setAdvancing(true);
-    await advancePartnerBookingStatus(bookingId);
-    await load();
-    setAdvancing(false);
+    setError(null);
+    try {
+      await advancePartnerBookingStatus(bookingId);
+      await load();
+    } catch (err) {
+      // A refused advance used to leave the button on "Updating…"
+      // permanently, with the order unmoved and nothing said — on the
+      // screen a HomeKrafter uses to run every order they take.
+      setError(apiErrorMessage(err, "Couldn't update this order. Try again."));
+    } finally {
+      setAdvancing(false);
+    }
   }
 
   async function handleSaveSlots() {
     if (!pickupDate || !pickupSlotId || !deliveryDate || !deliverySlotId) return;
     setSavingSlots(true);
-    await updatePartnerBookingSlots(bookingId, {
-      pickupSlot: { date: pickupDate, slotId: pickupSlotId },
-      deliverySlot: { date: deliveryDate, slotId: deliverySlotId },
-    });
-    await load();
-    setSavingSlots(false);
-    setSlotsSaved(true);
+    setError(null);
+    try {
+      await updatePartnerBookingSlots(bookingId, {
+        pickupSlot: { date: pickupDate, slotId: pickupSlotId },
+        deliverySlot: { date: deliveryDate, slotId: deliverySlotId },
+      });
+      await load();
+      setSlotsSaved(true);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't save these slots. Try again."));
+    } finally {
+      setSavingSlots(false);
+    }
     setTimeout(() => setSlotsSaved(false), 2500);
   }
 
@@ -177,6 +194,11 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
                   <Button variant="primary" onClick={handleAdvance} disabled={advancing}>
                     {advancing ? "Updating…" : `Mark as ${STATUS_LABEL[next]}`}
                   </Button>
+                )}
+                {error && (
+                  <p className={styles.error} role="alert">
+                    {error}
+                  </p>
                 )}
               </>
             )}

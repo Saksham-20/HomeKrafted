@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CollectionsTabs } from "./CollectionsTabs";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getOccasionsAdmin, updateOccasion } from "@/lib/api";
+import { apiErrorMessage, getOccasionsAdmin, updateOccasion } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { Occasion } from "@/lib/types";
 import styles from "./OccasionsClient.module.css";
@@ -41,6 +41,7 @@ export function OccasionsClient() {
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [savingId, setSavingId] = useState<string | undefined>();
   const [savedId, setSavedId] = useState<string | undefined>();
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,18 +83,24 @@ export function OccasionsClient() {
     const draft = drafts[occasion.id];
     if (!draft) return;
     setSavingId(occasion.id);
-    const updated = await updateOccasion(occasion.id, {
-      // An empty date field means "make this evergreen", which needs the
-      // explicit flag — omitting `celebratedOn` means "leave it alone".
-      ...(draft.celebratedOn
-        ? { celebratedOn: new Date(`${draft.celebratedOn}T00:00:00`).toISOString() }
-        : { clearCelebratedOn: true }),
-      tagline: draft.tagline.trim(),
-    });
-    setSavingId(undefined);
-    if (updated) {
-      replace(updated);
-      setSavedId(occasion.id);
+    setError(null);
+    try {
+      const updated = await updateOccasion(occasion.id, {
+        // An empty date field means "make this evergreen", which needs the
+        // explicit flag — omitting `celebratedOn` means "leave it alone".
+        ...(draft.celebratedOn
+          ? { celebratedOn: new Date(`${draft.celebratedOn}T00:00:00`).toISOString() }
+          : { clearCelebratedOn: true }),
+        tagline: draft.tagline.trim(),
+      });
+      if (updated) {
+        replace(updated);
+        setSavedId(occasion.id);
+      }
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't save this occasion. Try again."));
+    } finally {
+      setSavingId(undefined);
     }
   }
 
@@ -108,6 +115,11 @@ export function OccasionsClient() {
         subtitle={`${dated} of ${occasions.length} have a date set — the rest show under "any time of year"`}
       />
       <CollectionsTabs active="occasions" />
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
 
       <Card className={styles.note} padding="sm">
         Festival dates move every year. Set the <strong>next</strong> date each occasion falls on —

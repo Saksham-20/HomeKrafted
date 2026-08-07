@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
@@ -13,14 +13,17 @@ import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 export class UpsertCollectionDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(120)
   title!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   occasionId?: string;
 
   @IsArray()
@@ -33,6 +36,7 @@ export class UpsertCollectionDto {
   @IsOptional()
   @ValidateIf((_, value) => value !== '')
   @IsString()
+  @MaxLength(1000)
   imageSrc?: string;
 
   /** What the occasion hub and the home rail promote. */

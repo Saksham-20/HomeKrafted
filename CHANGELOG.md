@@ -99,6 +99,46 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — ten more screens that swallowed a refusal, and a "Saving…" that never ended
+
+The class from the previous entry, asked from the other side: a component
+that **changes something on the server** must have a `catch`. Ten more
+files failed that, none of them caught by the first rule — because they
+had no `try` at all.
+
+That shape is worse than silent. `SellerListingEditorClient` awaited
+`createSellerListing` bare, so a rejected save left the promise rejected,
+`setSaving(false)` never ran, and the button sat on **"Saving…" forever**
+while a HomeKrafter watched the listing they had just written up go
+nowhere. Same in the menu editor, and in all three `handleAdvance`
+screens — a HomeKrafter marking an order packed got a permanently
+spinning button and an order that had not moved.
+
+`HomePromoEditorClient` was different and worse again: `setSaved(band.id)`
+ran unconditionally, so a **failed** save still displayed "Saved." That is
+home-page copy, and an admin would have walked away believing it had
+changed.
+
+Also fixed while in there: the listing form's own pre-check omitted
+`description`, which the server requires — so submitting without one
+produced the raw class-validator string *"description must be longer than
+or equal to 1 characters"* on the screen a home cook writes their first
+listing on.
+
+### Fixed — unbounded text on every listing
+
+`CreateListingDto.name` and `.description` carried a `@MinLength(1)` and
+**no upper bound at all**. A 5,000-character product name was accepted and
+stored, and that string is rendered on every card, every grid, the admin
+queue and every order line. The only thing that had ever bounded it was
+Express's 100 KB body limit, which is not a product decision.
+
+Capped across the DTOs a person can actually reach: listing name (120),
+description (4000), sku, weight label and category id; menu item name and
+description; collection title, description and image URL; the admin
+refund title, wallet-adjust reason and status override. Both boundaries
+are tested — a cap nobody has checked from below tends to be off by one.
+
 ### Fixed — a referral programme built from neither end
 
 Found by opening `/account/referrals` and reading what the buttons did.

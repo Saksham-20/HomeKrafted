@@ -7,7 +7,12 @@ import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
 import { AdminReviewRow } from "./AdminReviewRow";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getAllReviewsAdmin, moderateReview, type AdminReviewSummary } from "@/lib/api";
+import {
+  apiErrorMessage,
+  getAllReviewsAdmin,
+  moderateReview,
+  type AdminReviewSummary,
+} from "@/lib/api";
 import styles from "./CatalogClient.module.css";
 
 type Filter = "all" | "flagged" | "hidden";
@@ -24,6 +29,7 @@ export function CatalogReviewsClient() {
   const [reviews, setReviews] = useState<AdminReviewSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -40,9 +46,17 @@ export function CatalogReviewsClient() {
   }, [ready, role]);
 
   async function handleToggleHidden(reviewId: string, hidden: boolean) {
-    const updated = await moderateReview(reviewId, hidden);
-    if (!updated) return;
-    setReviews((current) => current.map((r) => (r.id === reviewId ? { ...r, hidden } : r)));
+    setError(null);
+    try {
+      const updated = await moderateReview(reviewId, hidden);
+      if (!updated) return;
+      setReviews((current) => current.map((r) => (r.id === reviewId ? { ...r, hidden } : r)));
+    } catch (err) {
+      // Hiding a review also recomputes the vendor's rating aggregates
+      // (M15). A failure that says nothing leaves a moderator believing a
+      // review is gone from the storefront when it is still there.
+      setError(apiErrorMessage(err, "Couldn't moderate that review. Try again."));
+    }
   }
 
   const filtered = useMemo(() => {
@@ -66,6 +80,11 @@ export function CatalogReviewsClient() {
         subtitle={`${reviews.length} review${reviews.length === 1 ? "" : "s"} · ${flaggedCount} flagged`}
       />
       <CatalogTabs active="reviews" />
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
 
       <div className={styles.filters}>
         <div className={styles.chipRow} role="tablist" aria-label="Filter reviews">

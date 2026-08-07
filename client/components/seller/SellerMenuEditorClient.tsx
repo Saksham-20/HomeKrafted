@@ -11,7 +11,12 @@ import {
   type SnackMenuFormValues,
 } from "./SnackMenuForm";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { createSellerMenuItem, getSellerMenuItem, updateSellerMenuItem } from "@/lib/api";
+import {
+  apiErrorMessage,
+  createSellerMenuItem,
+  getSellerMenuItem,
+  updateSellerMenuItem,
+} from "@/lib/api";
 import type { Snack } from "@/lib/types";
 import styles from "./SellerMenuEditorClient.module.css";
 
@@ -73,13 +78,20 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
     setError(undefined);
     setSaving(true);
     const input = toSellerMenuInput(values);
-    if (isEdit && snackId) {
-      await updateSellerMenuItem(seller.id, snackId, input);
-    } else {
-      await createSellerMenuItem(seller.id, input);
+    try {
+      if (isEdit && snackId) {
+        await updateSellerMenuItem(seller.id, snackId, input);
+      } else {
+        await createSellerMenuItem(seller.id, input);
+      }
+      router.push("/seller/menu");
+    } catch (err) {
+      // Same shape as the listing editor: with no `try`, a refused save
+      // left the button on "Saving…" for good and the item unsaved.
+      setError(apiErrorMessage(err, "Couldn't save this menu item. Try again."));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    router.push("/seller/menu");
   }
 
   if (!ready || loading) {

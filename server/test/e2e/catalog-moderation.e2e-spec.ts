@@ -440,4 +440,37 @@ describe('catalogue review gate', () => {
       expect(after.body.map((s: { name: string }) => s.name)).toContain('Masala mathri');
     });
   });
+
+  /**
+   * Text a HomeKrafter types, and where it stops.
+   *
+   * `name` and `description` carried a `@MinLength(1)` and no upper bound
+   * at all until the 2026-08-07 audit — a 5,000-character product name was
+   * accepted and stored, and that string is rendered on every card, every
+   * grid, the admin queue and every order line. The only thing that had
+   * ever bounded it was Express's 100 KB body limit, which is not a
+   * product decision.
+   */
+  describe('a listing’s text is bounded', () => {
+    it('refuses a name longer than 120 characters and stores nothing', async () => {
+      await createListing(listingBody({ name: 'X'.repeat(121) })).expect(400);
+      expect(await h.prisma.product.count()).toBe(0);
+    });
+
+    it('accepts a name exactly at the limit', async () => {
+      // The boundary in both directions — a cap nobody has checked from
+      // below tends to be off by one.
+      await createListing(listingBody({ name: 'X'.repeat(120) })).expect(201);
+    });
+
+    it('refuses a description longer than 4000 characters', async () => {
+      await createListing(listingBody({ description: 'X'.repeat(4001) })).expect(400);
+      expect(await h.prisma.product.count()).toBe(0);
+    });
+
+    it('still refuses an empty name — the lower bound did not move', async () => {
+      await createListing(listingBody({ name: '' })).expect(400);
+    });
+  });
+
 });

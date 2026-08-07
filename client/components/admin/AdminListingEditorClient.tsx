@@ -14,7 +14,13 @@ import {
 } from "@/components/seller/ListingForm";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getCategories, getOccasions, getProductById, updateProductAdmin } from "@/lib/api";
+import {
+  apiErrorMessage,
+  getCategories,
+  getOccasions,
+  getProductById,
+  updateProductAdmin,
+} from "@/lib/api";
 import type { Category, Occasion, Product } from "@/lib/types";
 import styles from "./AdminListingEditorClient.module.css";
 
@@ -104,9 +110,14 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
     setError(undefined);
     setSaving(true);
     const input = toSellerListingInput(values);
-    await updateProductAdmin(productId, input);
-    setSaving(false);
-    router.push("/admin/catalog");
+    try {
+      await updateProductAdmin(productId, input);
+      router.push("/admin/catalog");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't save this listing. Try again."));
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!ready || loading) {

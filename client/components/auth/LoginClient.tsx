@@ -170,25 +170,54 @@ export function LoginClient() {
       : signedInAsAdmin
         ? "Go to the admin panel"
         : "Go to my account";
+
+    // `?role=seller` was ignored here entirely. Somebody who followed a
+    // "HomeKrafter sign in" link while a shopper account was signed in —
+    // a shared computer, a HomeKrafter who also buys — was told "you're
+    // all set" and offered their *shopper* account, with the surface they
+    // actually asked for never mentioned and no obvious way to reach it.
+    const wantsSeller = authRole === "seller";
+    const wrongAccount = wantsSeller && !signedInAsSeller;
+
     return (
       <section className={clsx("container", styles.page)}>
         <Card className={styles.signedInCard}>
           <span className={styles.eyebrow}>Already signed in</span>
-          <h1 className={styles.title}>You&rsquo;re all set</h1>
+          <h1 className={styles.title}>
+            {wrongAccount ? "That's a different account" : "You’re all set"}
+          </h1>
           <p className={styles.subtitle}>
-            {signedInAsSeller
-              ? "You're signed in to your Homekrafted HomeKrafter account."
-              : signedInAsAdmin
-                ? "You're signed in to your Homekrafted admin account."
-                : "You're signed in as the Homekrafted demo account."}
+            {wrongAccount
+              ? "You're signed in as a shopper. Sign out to use a HomeKrafter account."
+              : signedInAsSeller
+                ? "You're signed in to your Homekrafted HomeKrafter account."
+                : signedInAsAdmin
+                  ? "You're signed in to your Homekrafted admin account."
+                  : // Was "the Homekrafted demo account" — shown to every real
+                    // customer who ever landed here signed in. A leftover from
+                    // the mock era that survived because nobody signs in twice.
+                    "You're signed in to your Homekrafted account."}
           </p>
           <div className={styles.signedInActions}>
-            <Button variant="primary" onClick={() => router.push(homeHref)}>
-              {homeLabel}
-            </Button>
-            <Button variant="secondary" onClick={signOut}>
-              Sign out
-            </Button>
+            {wrongAccount ? (
+              <>
+                <Button variant="primary" onClick={signOut}>
+                  Sign out
+                </Button>
+                <Button variant="secondary" onClick={() => router.push(homeHref)}>
+                  {homeLabel}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="primary" onClick={() => router.push(homeHref)}>
+                  {homeLabel}
+                </Button>
+                <Button variant="secondary" onClick={signOut}>
+                  Sign out
+                </Button>
+              </>
+            )}
           </div>
         </Card>
       </section>

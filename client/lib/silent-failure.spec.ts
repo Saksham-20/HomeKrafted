@@ -68,3 +68,41 @@ describe("an await inside try/finally", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * The same failure with the `try` removed as well.
+ *
+ * `SellerListingEditorClient` awaited `createSellerListing` with no `try`
+ * at all, so the rule above — which keys on `finally` — did not see it.
+ * The result was worse than a silent save: the rejected promise meant
+ * `setSaving(false)` never ran either, so the button sat on **"Saving…"
+ * forever** while a HomeKrafter watched the listing they had just written
+ * up go nowhere.
+ *
+ * So this asks the question from the other side: a file that *changes
+ * something on the server* must contain a `catch`. The verbs are the
+ * naming convention `lib/api` already follows.
+ */
+describe("a component that mutates server state", () => {
+  const files = SCANNED_DIRS.flatMap((dir) => sourceFiles(join(CLIENT_ROOT, dir)));
+
+  /** `await createFoo(`, `await updateFoo(`, … — the mutating half of `lib/api`. */
+  const MUTATION_CALL = /\bawait\s+(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance)[A-Z]\w*\s*\(/;
+
+  it("always catches the refusal", () => {
+    const offenders: string[] = [];
+
+    for (const file of files) {
+      // `lib/api` itself is the transport, not a screen — a wrapper there
+      // is supposed to let the error through to its caller.
+      if (file.includes(join("lib", "api"))) continue;
+
+      const source = stripComments(readFileSync(file, "utf8"));
+      if (!MUTATION_CALL.test(source)) continue;
+      if (/\}\s*catch\b/.test(source)) continue;
+      offenders.push(file.replace(CLIENT_ROOT + "/", ""));
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});

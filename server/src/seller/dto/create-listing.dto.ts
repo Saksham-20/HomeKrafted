@@ -8,6 +8,7 @@ import {
   IsString,
   Max,
   Min,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
@@ -16,10 +17,12 @@ import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 export class WeightOptionInputDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(80)
   sku!: string;
 
   @IsString()
   @MinLength(1)
+  @MaxLength(40)
   label!: string;
 
   @IsNumber()
@@ -44,12 +47,21 @@ export class WeightOptionInputDto {
  * client-set.
  */
 export class CreateListingDto {
+  /**
+   * Capped as of the 2026-08-07 audit. `name` and `description` had a
+   * `@MinLength(1)` and no upper bound at all, so a 5,000-character
+   * product name was accepted and stored — and this string is rendered on
+   * every card, every grid, the admin queue and every order line. The
+   * only thing that had ever bounded it was Express's 100 KB body limit.
+   */
   @IsString()
   @MinLength(1)
+  @MaxLength(120)
   name!: string;
 
   @IsString()
   @MinLength(1)
+  @MaxLength(64)
   categoryId!: string;
 
   @IsOptional()
@@ -64,6 +76,7 @@ export class CreateListingDto {
 
   @IsString()
   @MinLength(1)
+  @MaxLength(4000)
   description!: string;
 
   @BooleanField()

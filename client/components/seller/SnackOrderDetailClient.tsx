@@ -14,6 +14,7 @@ import {
   advanceSnackOrderStatus,
   getSnackOrder,
   nextSnackOrderStatus,
+  apiErrorMessage,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { SnackOrder, SnackOrderStatus } from "@/lib/types";
@@ -44,6 +45,7 @@ export function SnackOrderDetailClient({ orderId }: SnackOrderDetailClientProps)
   const [order, setOrder] = useState<SnackOrder | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!seller) return;
@@ -61,9 +63,18 @@ export function SnackOrderDetailClient({ orderId }: SnackOrderDetailClientProps)
 
   async function handleAdvance() {
     setAdvancing(true);
-    await advanceSnackOrderStatus(orderId);
-    await load();
-    setAdvancing(false);
+    setError(null);
+    try {
+      await advanceSnackOrderStatus(orderId);
+      await load();
+    } catch (err) {
+      // A refused advance used to leave the button on "Updating…"
+      // permanently, with the order unmoved and nothing said — on the
+      // screen a HomeKrafter uses to run every order they take.
+      setError(apiErrorMessage(err, "Couldn't update this order. Try again."));
+    } finally {
+      setAdvancing(false);
+    }
   }
 
   if (!ready || loading) {
@@ -113,6 +124,11 @@ export function SnackOrderDetailClient({ orderId }: SnackOrderDetailClientProps)
               <Button variant="primary" onClick={handleAdvance} disabled={advancing}>
                 {advancing ? "Updating…" : `Mark as ${STATUS_LABEL[next]}`}
               </Button>
+            )}
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
             )}
           </Card>
         </div>

@@ -1,4 +1,4 @@
-import { IsIn, IsNumber, IsOptional, IsPositive, IsString, MinLength } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
  * `POST /admin/wallet/:userId/refund` — a standalone wallet-credit refund
@@ -15,8 +15,10 @@ export class AdminIssueRefundDto {
   @IsPositive()
   amount!: number;
 
+  /** Shown on the buyer's own wallet ledger, so it is bounded like any other rendered string. */
   @IsString()
   @MinLength(3)
+  @MaxLength(140)
   title!: string;
 
   @IsOptional()
@@ -25,5 +27,6 @@ export class AdminIssueRefundDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   refId?: string;
 }

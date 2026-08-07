@@ -1,4 +1,4 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
  * `PATCH /admin/orders/:type/:id/status` — a manual status override,
@@ -13,5 +13,6 @@ import { IsString, MinLength } from 'class-validator';
 export class OrderStatusOverrideDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(40)
   status!: string;
 }

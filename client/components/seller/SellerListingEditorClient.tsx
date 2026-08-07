@@ -12,6 +12,7 @@ import {
 } from "./ListingForm";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
+  apiErrorMessage,
   createSellerListing,
   getCategories,
   getOccasions,
@@ -99,20 +100,42 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
 
   async function handleSubmit() {
     if (!seller?.vendorId) return;
-    if (!values.name.trim() || !values.categoryId || values.weightRows.some((r) => !r.label.trim())) {
-      setError("Fill in a product name, category, and label every weight tier before saving.");
+    // `description` was missing from this list while the server requires
+    // it, so submitting without one produced the raw class-validator
+    // string "description must be longer than or equal to 1 characters" —
+    // developer language, on the screen a home cook writes their first
+    // listing on.
+    if (
+      !values.name.trim() ||
+      !values.categoryId ||
+      !values.description.trim() ||
+      values.weightRows.some((r) => !r.label.trim())
+    ) {
+      setError(
+        "Fill in a product name, category and description, and label every weight tier before saving.",
+      );
       return;
     }
     setError(undefined);
     setSaving(true);
     const input = toSellerListingInput(values);
-    if (isEdit && productId) {
-      await updateSellerListing(seller.vendorId, productId, input);
-    } else {
-      await createSellerListing(seller.vendorId, input);
+    try {
+      if (isEdit && productId) {
+        await updateSellerListing(seller.vendorId, productId, input);
+      } else {
+        await createSellerListing(seller.vendorId, input);
+      }
+      router.push("/seller/listings");
+    } catch (err) {
+      // There was no `try` here at all. A rejected save — a validation
+      // refusal, a 403, a dropped connection — left the promise rejected,
+      // so `setSaving(false)` never ran and the button sat on "Saving…"
+      // forever with nothing said. A HomeKrafter writing up their first
+      // listing would lose the lot.
+      setError(apiErrorMessage(err, "Couldn't save this listing. Try again."));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    router.push("/seller/listings");
   }
 
   if (!ready || loading) {
@@ -130,7 +153,11 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
         subtitle={isEdit ? values.name : "Create a new product for your storefront."}
       />
       <ListingForm values={values} onChange={setValues} categories={categories} occasions={occasions} />
-      {error && <p className={styles.error}>{error}</p>}
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
       <div className={styles.actions}>
         <Button variant="primary" onClick={handleSubmit} disabled={saving}>
           {saving ? "Saving…" : isEdit ? "Save changes" : "Create listing"}

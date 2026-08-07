@@ -5,7 +5,12 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getPlatformSettings, updatePlatformSettings, type PlatformSettings } from "@/lib/api";
+import {
+  apiErrorMessage,
+  getPlatformSettings,
+  updatePlatformSettings,
+  type PlatformSettings,
+} from "@/lib/api";
 import styles from "./SettingsClient.module.css";
 
 interface Draft {
@@ -60,17 +65,25 @@ export function SettingsClient() {
     if (!draft) return;
     setSaving(true);
     setMessage(undefined);
-    const updated = await updatePlatformSettings({
-      commissionPct: Number(draft.commissionPct),
-      defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
-    });
-    setSaving(false);
-    if (!updated) {
-      setMessage("That did not save. Commission must be 0–100%, radius 1–100 km.");
-      return;
+    try {
+      const updated = await updatePlatformSettings({
+        commissionPct: Number(draft.commissionPct),
+        defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
+      });
+      if (!updated) {
+        setMessage("That did not save. Commission must be 0–100%, radius 1–100 km.");
+        return;
+      }
+      setSettings(updated);
+      setMessage("Saved. Every change here is written to the audit log.");
+    } catch (err) {
+      // The `!updated` branch only covers a falsy result. A thrown
+      // refusal — the commission range check is server-side — skipped it
+      // entirely and left the button spinning.
+      setMessage(apiErrorMessage(err, "That did not save. Try again."));
+    } finally {
+      setSaving(false);
     }
-    setSettings(updated);
-    setMessage("Saved. Every change here is written to the audit log.");
   }
 
   return (

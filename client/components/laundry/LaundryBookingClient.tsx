@@ -16,6 +16,7 @@ import { AppTrackingBand } from "./AppTrackingBand";
 import {
   createBooking,
   createSubscription,
+  apiErrorMessage,
   getDefaultAddress,
   getWallet,
   type LaundrySubscriptionPlanOption,
@@ -183,67 +184,76 @@ export function LaundryBookingClient({
 
     setPlacing(true);
 
-    let subscriptionId: string | undefined;
-    if (subscriptionEnabled) {
-      const subscription = await createSubscription({
-        serviceId: service.id,
-        plan: subscriptionPlan,
-        slot: { day: pickupDay.day, slotId: pickupSlot.id },
-        nextPickup: pickupDay.isoDate,
-      });
-      subscriptionId = subscription.id;
-    }
-
-    const created = await createBooking({
-      serviceId: service.id,
-      estimatedWeightKg: service.pricingModel === "per-kg" ? weightKg : undefined,
-      itemCount: service.pricingModel === "per-item" ? itemCount : undefined,
-      estimatedHours: service.pricingModel === "per-hour" ? hours : undefined,
-      unitPrice: service.price,
-      pickupSlot: { date: pickupDay.isoDate, slotId: pickupSlot.id },
-      deliverySlot: { date: deliveryDay.isoDate, slotId: deliverySlot.id },
-      addressId,
-      photos,
-      specialInstructions: specialInstructions.trim() || undefined,
-      subscriptionId,
-      paymentMethod,
-    });
-
-    if (paymentMethod === "wallet") {
-      if (mock) {
-        // M6 mock behavior: the mock `createBooking` doesn't touch the
-        // wallet itself, so this client-side call was the only debit.
-        const result = await pay(created.estimatedTotal, {
-          title: `Paid — ${service.name} (Booking #${created.bookingNumber})`,
-          refType: "laundryBooking",
-          refId: created.bookingNumber,
+    // Wrapped as of the 2026-08-07 audit. Laundry is withdrawn (M19) —
+    // `POST /laundry/bookings` answers 410 — so with no `catch` here every
+    // submit on any surviving route rejected, leaving the button on
+    // "Placing…" for good and saying nothing at all.
+    try {
+      let subscriptionId: string | undefined;
+      if (subscriptionEnabled) {
+        const subscription = await createSubscription({
+          serviceId: service.id,
+          plan: subscriptionPlan,
+          slot: { day: pickupDay.day, slotId: pickupSlot.id },
+          nextPickup: pickupDay.isoDate,
         });
-        if (!result.ok) {
-          setFormError(
-            "Your wallet balance changed before this booking could be charged — please choose another payment method.",
-          );
-          setPlacing(false);
-          return;
-        }
-        if (created.walletCashback) {
-          earnCashback(created.walletCashback, {
-            title: `Cashback — Booking #${created.bookingNumber}`,
+        subscriptionId = subscription.id;
+      }
+
+      const created = await createBooking({
+        serviceId: service.id,
+        estimatedWeightKg: service.pricingModel === "per-kg" ? weightKg : undefined,
+        itemCount: service.pricingModel === "per-item" ? itemCount : undefined,
+        estimatedHours: service.pricingModel === "per-hour" ? hours : undefined,
+        unitPrice: service.price,
+        pickupSlot: { date: pickupDay.isoDate, slotId: pickupSlot.id },
+        deliverySlot: { date: deliveryDay.isoDate, slotId: deliverySlot.id },
+        addressId,
+        photos,
+        specialInstructions: specialInstructions.trim() || undefined,
+        subscriptionId,
+        paymentMethod,
+      });
+
+      if (paymentMethod === "wallet") {
+        if (mock) {
+          // M6 mock behavior: the mock `createBooking` doesn't touch the
+          // wallet itself, so this client-side call was the only debit.
+          const result = await pay(created.estimatedTotal, {
+            title: `Paid — ${service.name} (Booking #${created.bookingNumber})`,
             refType: "laundryBooking",
             refId: created.bookingNumber,
           });
+          if (!result.ok) {
+            setFormError(
+              "Your wallet balance changed before this booking could be charged — please choose another payment method.",
+            );
+            setPlacing(false);
+            return;
+          }
+          if (created.walletCashback) {
+            earnCashback(created.walletCashback, {
+              title: `Cashback — Booking #${created.bookingNumber}`,
+              refType: "laundryBooking",
+              refId: created.bookingNumber,
+            });
+          }
+        } else {
+          // M8.4a real mode: `POST /laundry/bookings` already debited the
+          // wallet + credited cashback atomically server-side (see
+          // `lib/api/laundry.ts#createBooking`'s doc comment) — just
+          // refresh the balance/ledger the header chip and Wallet screen
+          // read from.
+          refreshWallet();
         }
-      } else {
-        // M8.4a real mode: `POST /laundry/bookings` already debited the
-        // wallet + credited cashback atomically server-side (see
-        // `lib/api/laundry.ts#createBooking`'s doc comment) — just
-        // refresh the balance/ledger the header chip and Wallet screen
-        // read from.
-        refreshWallet();
       }
-    }
 
-    setBooking(created);
-    setPlacing(false);
+      setBooking(created);
+    } catch (err) {
+      setFormError(apiErrorMessage(err, "We couldn't place this booking. Please try again."));
+    } finally {
+      setPlacing(false);
+    }
   }
 
   if (booking) {
