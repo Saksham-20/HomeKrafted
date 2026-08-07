@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { AdminPageHeader } from "./AdminPageHeader";
@@ -68,28 +69,35 @@ export function SellersClient() {
    */
   const [inviteWarning, setInviteWarning] = useState<InviteDeliveryReport | null>(null);
   const [typeFilter, setTypeFilter] = useState<SellerSpecialty | "all">("all");
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(0);
+  const [page, setPage] = useState(1);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  async function refetch() {
-    const [sellerList, pending] = await Promise.all([getAllSellers(), getPendingSellerApplications()]);
-    setSellers(sellerList);
-    setApplications(pending);
-    setLoading(false);
+  /** Re-reads both lists after a mutation. */
+  function refetch() {
+    setReloadToken((n) => n + 1);
   }
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [sellerList, pending] = await Promise.all([getAllSellers(), getPendingSellerApplications()]);
+      const [sellerPage, pending] = await Promise.all([
+        getAllSellers({ specialty: typeFilter === "all" ? undefined : typeFilter, page }),
+        getPendingSellerApplications(),
+      ]);
       if (cancelled) return;
-      setSellers(sellerList);
+      setSellers(sellerPage.items);
+      setTotal(sellerPage.total);
+      setPageSize(sellerPage.pageSize);
       setApplications(pending);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, typeFilter, page, reloadToken]);
 
   /**
    * All three actions used to be a bare `await` + `refetch()` with no
@@ -137,12 +145,12 @@ export function SellersClient() {
     );
   }
 
-  const filteredSellers = useMemo(
-    // `specialties` is a list, so a HomeKrafter who both cooks and does
-    // laundry shows under either filter — matching how they actually work.
-    () => (typeFilter === "all" ? sellers : sellers.filter((s) => s.specialties.includes(typeFilter))),
-    [sellers, typeFilter],
-  );
+  // Filtered by the server now — this is the page it sent back.
+  // `specialties` is a list, so the query is a `has` and a HomeKrafter who
+  // both cooks and does laundry still shows under either filter, matching
+  // how they actually work.
+  const filteredSellers = sellers;
+  const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
 
   if (!ready || loading) {
     return <div className={styles.loading}>Loading HomeKrafters…</div>;
@@ -152,7 +160,9 @@ export function SellersClient() {
     <div>
       <AdminPageHeader
         title="HomeKrafters"
-        subtitle={`${sellers.length} seller${sellers.length === 1 ? "" : "s"} · ${applications.length} pending application${applications.length === 1 ? "" : "s"}`}
+        subtitle={`${total} HomeKrafter${total === 1 ? "" : "s"}${
+          typeFilter === "all" ? "" : " with this specialty"
+        } · ${applications.length} pending application${applications.length === 1 ? "" : "s"}`}
       />
 
       <div className={styles.tabRow} role="tablist" aria-label="Sellers view">
@@ -196,17 +206,44 @@ export function SellersClient() {
         <>
           <div className={styles.chipRow} role="tablist" aria-label="Filter by type">
             {TYPE_FILTERS.map((f) => (
-              <Chip key={f.value} label={f.label} selected={typeFilter === f.value} onClick={() => setTypeFilter(f.value)} />
+              <Chip key={f.value} label={f.label} selected={typeFilter === f.value} onClick={() => {
+                setTypeFilter(f.value);
+                setPage(1);
+              }} />
             ))}
           </div>
           {filteredSellers.length === 0 ? (
             <Card className={styles.empty}>No HomeKrafters match this filter.</Card>
           ) : (
-            <div className={styles.list}>
-              {filteredSellers.map((seller) => (
-                <SellerRow key={seller.id} seller={seller} onToggleStatus={handleToggleSellerStatus} />
-              ))}
-            </div>
+            <>
+              <div className={styles.list}>
+                {filteredSellers.map((seller) => (
+                  <SellerRow key={seller.id} seller={seller} onToggleStatus={handleToggleSellerStatus} />
+                ))}
+              </div>
+
+              {lastPage > 1 && (
+                <div className={styles.pager}>
+                  <Button
+                    variant="secondary"
+                    disabled={page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <span className={styles.pagerLabel} aria-live="polite">
+                    Page {page} of {lastPage}
+                  </span>
+                  <Button
+                    variant="secondary"
+                    disabled={page >= lastPage}
+                    onClick={() => setPage((current) => current + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </>
       ) : applications.length === 0 ? (

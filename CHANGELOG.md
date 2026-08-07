@@ -99,6 +99,18 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Changed — the HomeKrafter list pages too
+
+`GET /admin/sellers` is the slowest-growing list in the panel — bounded by
+supply headcount rather than by customers or orders — and was still an
+unbounded `findMany`. "Small today" is what every one of these had in
+common. Now a page of 25 with `specialty` and `q` applied in SQL.
+
+`specialty` is matched with `has`, not equality, so a HomeKrafter who bakes
+*and* pickles appears under both tags — which is the entire point of the
+field being a list, and is asserted rather than assumed. It stays a
+discovery filter and never an access decision (`CLAUDE.md`, M12).
+
 ### Fixed — two admin queues whose own badge lied when you filtered them
 
 `GET /admin/catalog/products` read every listing with its relations;

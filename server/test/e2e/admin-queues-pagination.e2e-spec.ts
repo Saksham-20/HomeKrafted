@@ -260,3 +260,80 @@ describe('admin support queue', () => {
     await h.api().get(`${API_PREFIX}/admin/support/tickets`).set(auth(buyer)).expect(403);
   });
 });
+
+/**
+ * The slowest-growing list in the admin panel — bounded by supply
+ * headcount rather than by customers or orders — and still an unbounded
+ * `findMany`. "Small today" is what every one of these had in common.
+ */
+describe('admin HomeKrafter list', () => {
+  let h: Harness;
+  let admin: Actor;
+
+  beforeAll(async () => {
+    h = await createHarness();
+  });
+
+  afterAll(async () => {
+    await h.close();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(h.prisma);
+    admin = await createActor(h, 'admin');
+  });
+
+  const list = (query = '') =>
+    h.api().get(`${API_PREFIX}/admin/sellers${query}`).set(auth(admin)).expect(200);
+
+  it('returns a page with the real total', async () => {
+    for (let i = 0; i < 30; i += 1) await createKitchen(h);
+
+    const res = await list();
+
+    expect(res.body.items).toHaveLength(25);
+    expect(res.body.total).toBe(30);
+  });
+
+  it('pages without repeating or dropping a HomeKrafter', async () => {
+    for (let i = 0; i < 30; i += 1) await createKitchen(h);
+
+    const first = await list();
+    const second = await list('?page=2');
+
+    const ids = [...first.body.items, ...second.body.items].map((s: { id: string }) => s.id);
+    expect(ids).toHaveLength(30);
+    expect(new Set(ids).size).toBe(30);
+  });
+
+  it('filters on a list column, so one HomeKrafter can match two specialties', async () => {
+    const both = await createKitchen(h);
+    await h.prisma.seller.update({
+      where: { id: both.seller.id },
+      data: { specialties: ['bakery', 'pickles_preserves'] },
+    });
+    const onlyBakery = await createKitchen(h);
+    await h.prisma.seller.update({
+      where: { id: onlyBakery.seller.id },
+      data: { specialties: ['bakery'] },
+    });
+
+    const bakers = await list('?specialty=bakery');
+    const picklers = await list('?specialty=pickles_preserves');
+
+    // `has`, not equality — a HomeKrafter who bakes *and* pickles belongs
+    // in both lists, which is the entire point of the field being a list.
+    expect(bakers.body.total).toBe(2);
+    expect(picklers.body.total).toBe(1);
+    expect(picklers.body.items[0].id).toBe(both.seller.id);
+  });
+
+  it('rejects an unknown specialty rather than ignoring it', async () => {
+    await h.api().get(`${API_PREFIX}/admin/sellers?specialty=wizardry`).set(auth(admin)).expect(400);
+  });
+
+  it('is still admin-only', async () => {
+    const buyer = await createActor(h);
+    await h.api().get(`${API_PREFIX}/admin/sellers`).set(auth(buyer)).expect(403);
+  });
+});

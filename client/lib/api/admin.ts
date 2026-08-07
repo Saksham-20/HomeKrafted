@@ -206,9 +206,34 @@ export async function setUserSuspended(id: string, suspended: boolean): Promise<
 // `server/src/admin/sellers.controller.ts`.
 // ---------------------------------------------------------------------------
 
-export async function getAllSellers(): Promise<Seller[]> {
-  if (isMockMode()) return sellers;
-  return http.get<Seller[]>("/admin/sellers");
+/** Filters for `GET /admin/sellers` — applied server-side in real mode. */
+export interface AdminSellersQuery {
+  specialty?: SellerSpecialty;
+  q?: string;
+  page?: number;
+}
+
+export interface AdminSellersPage {
+  items: Seller[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export async function getAllSellers(query: AdminSellersQuery = {}): Promise<AdminSellersPage> {
+  if (isMockMode()) {
+    const q = query.q?.trim().toLowerCase();
+    const items = sellers
+      .filter((s) => !query.specialty || s.specialties.includes(query.specialty))
+      .filter((s) => !q || s.displayName.toLowerCase().includes(q));
+    return { items, page: 1, pageSize: items.length, total: items.length };
+  }
+  const params = new URLSearchParams();
+  if (query.specialty) params.set("specialty", query.specialty);
+  if (query.q) params.set("q", query.q);
+  if (query.page && query.page > 1) params.set("page", String(query.page));
+  const qs = params.toString();
+  return http.get<AdminSellersPage>(`/admin/sellers${qs ? `?${qs}` : ""}`);
 }
 
 export async function getSellerById(id: string): Promise<Seller | undefined> {

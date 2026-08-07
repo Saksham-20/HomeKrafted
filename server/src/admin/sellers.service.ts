@@ -3,6 +3,7 @@ import { Prisma, Seller, SellerApplication, SellerApplicationCategory, SellerSpe
 import { PrismaService } from '../prisma/prisma.service';
 import { areaById } from '../common/geo';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
+import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { generateReferralCode } from '../auth/referral-code.util';
@@ -126,6 +127,8 @@ export interface ApproveSellerApplicationResult {
  * here (unlike the M11a mock's synthetic placeholder id, `Seller.userId`
  * is a real FK in this schema, so a live account must exist to point at).
  */
+const DEFAULT_SELLER_PAGE_SIZE = 25;
+
 @Injectable()
 export class AdminSellersService {
   constructor(
@@ -137,12 +140,39 @@ export class AdminSellersService {
     private readonly settings: AdminSettingsService,
   ) {}
 
-  async listSellers() {
-    const sellers = await this.prisma.seller.findMany({
-      include: { vendor: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
-    return sellers.map((s) => mapSeller(s, s.vendor?.name));
+  /**
+   * One page of HomeKrafters, newest first.
+   *
+   * The slowest-growing list in the admin panel — it is bounded by supply
+   * headcount rather than by customers or orders — but it is still a
+   * `findMany` with no limit, and "small today" is what every one of these
+   * had in common.
+   */
+  async listSellers(query: ListAdminSellersQueryDto = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_SELLER_PAGE_SIZE;
+
+    const where: Prisma.SellerWhereInput = {};
+    // `has`, not equality: `specialties` is a list, so a HomeKrafter who
+    // bakes and pickles shows under both tags.
+    if (query.specialty) where.specialties = { has: query.specialty };
+    if (query.q) {
+      const contains = { contains: query.q, mode: 'insensitive' as const };
+      where.OR = [{ displayName: contains }, { vendor: { name: contains } }];
+    }
+
+    const [sellers, total] = await Promise.all([
+      this.prisma.seller.findMany({
+        where,
+        include: { vendor: { select: { name: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.seller.count({ where }),
+    ]);
+
+    return { items: sellers.map((s) => mapSeller(s, s.vendor?.name)), page, pageSize, total };
   }
 
   async getSellerById(id: string) {

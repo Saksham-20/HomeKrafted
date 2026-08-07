@@ -1206,7 +1206,7 @@ ever reads/decides on rows it didn't create.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /admin/sellers` | Every seller (any type/status), newest first. |
+| `GET /admin/sellers` | One page: `{ items, page, pageSize, total }`. Query: `specialty` (a single `SellerSpecialty`, matched with `has` — a HomeKrafter with several appears under each), `q` (display name or storefront name), `page`, `pageSize` (default 25, max 100). Every seller (any type/status), newest first. |
 | `GET /admin/sellers/:id` | Single seller detail. |
 | `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
 | `GET /admin/settings` | **M16 (M5).** `{ commissionPct, defaultDeliveryRadiusKm }`. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. `hamperBuilderEnabled` was removed in M18 with the builder it gated; a stale row is ignored rather than surfaced. |

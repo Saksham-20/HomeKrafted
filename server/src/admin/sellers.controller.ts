@@ -6,6 +6,7 @@ import { AdminSellersService } from './sellers.service';
 import { SetSellerStatusDto } from './dto/set-seller-status.dto';
 import { SetVerificationDto } from './dto/set-verification.dto';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
+import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
 
 /**
  * Unscoped seller directory + the onboarding approval queue — closes the
@@ -61,8 +62,8 @@ export class AdminSellersController {
   }
 
   @Get()
-  list() {
-    return this.sellersService.listSellers();
+  list(@Query() query: ListAdminSellersQueryDto) {
+    return this.sellersService.listSellers(query);
   }
 
   @Get(':id')
