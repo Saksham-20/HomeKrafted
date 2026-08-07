@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminCatalogService } from './catalog.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
+import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { ModerateReviewDto } from './dto/moderate-review.dto';
 
 /** Unscoped catalog + review moderation — any vendor's products, any target's reviews. */
@@ -13,8 +14,8 @@ export class AdminCatalogController {
   constructor(private readonly catalogService: AdminCatalogService) {}
 
   @Get('products')
-  listProducts() {
-    return this.catalogService.listProducts();
+  listProducts(@Query() query: ListAdminCatalogQueryDto) {
+    return this.catalogService.listProducts(query);
   }
 
   @Get('products/:id')

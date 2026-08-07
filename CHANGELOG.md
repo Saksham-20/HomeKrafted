@@ -99,6 +99,51 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — two admin queues whose own badge lied when you filtered them
+
+`GET /admin/catalog/products` read every listing with its relations;
+`GET /admin/support/tickets` read every ticket with its whole message
+thread. Both are now pages of 25, with status, vendor and search applied in
+SQL.
+
+The pagination is the smaller half. **Each queue leads with a count of what
+is waiting, and each derived that count from whatever rows it happened to
+have loaded** — so narrowing the view changed the number. On support,
+clicking "Resolved" made the header report `open: 0, in progress: 0,
+awaiting reply: 0`: a support queue telling an admin that nobody is waiting,
+on the one screen whose entire job is telling them who is. On the
+catalogue, filtering to "Active" reported nothing waiting for review, which
+is how a HomeKrafter waits a week for a listing nobody knows is queued.
+Both are now their own queries, deliberately unscoped, with tests that
+filter to something else and assert the badge did not move. Confirmed in a
+browser: three seeded tickets, filter to Resolved, list narrows to one and
+the header still reads "Waiting on us 2".
+
+`awaitingReply` is "the newest message came from the customer", which is a
+per-row lookup rather than a column — so it is a raw `COUNT` with a
+correlated subquery rather than reading every thread into memory. Writing
+that query surfaced two things worth recording: the status literals must be
+the **database's** spelling (`SupportTicketStatus` declares
+`in_progress @map("in-progress")`, and the Prisma-side name is not a member
+of the enum type — a 500, caught by the test), and a DTO on a `@Query()`
+validates *every* key in the query string under `forbidNonWhitelisted`, so
+leaving `status` off the support DTO made filtering the queue 400.
+
+The catalogue keeps "pending first, oldest submission first, then decided
+newest first". Postgres cannot express that in one `ORDER BY` without a
+`CASE` Prisma will not emit, so it stays two queries — but a page is now
+cut out of the concatenation arithmetically instead of by materialising
+both halves and slicing, and a page wholly inside one half reads only that
+half.
+
+Both orderings gained a unique final key on `id`. Listings created in the
+same second and tickets sharing an `updatedAt` after a bulk status change
+are the normal case, not a contrivance, and that is exactly when a page
+boundary starts showing one row twice and dropping another.
+
+A third subtitle was lying under a filter — "0 listings across every
+vendor", on the Waiting tab of a catalogue holding seventeen.
+
 ### Fixed — the eleventh Priya could not create an account
 
 A referral code is a first name plus a suffix, and the suffix was

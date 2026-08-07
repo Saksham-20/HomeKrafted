@@ -10,6 +10,7 @@ import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
+  apiErrorMessage,
   getAdminSupportTickets,
   replyToSupportTicket,
   setSupportTicketStatus,
@@ -52,33 +53,42 @@ export function SupportQueueClient() {
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  // Bumped after a reply or a status change. The queue counts are the
+  // server's answer over every ticket, so they cannot be re-derived from
+  // the page in hand — and re-deriving them was how "Resolved" used to
+  // make the header claim nobody was waiting.
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
-    getAdminSupportTickets().then((data) => {
-      if (!cancelled) setQueue(data);
-    });
+    getAdminSupportTickets(filter === "all" ? undefined : filter, page)
+      .then((data) => {
+        if (!cancelled) {
+          setQueue(data);
+          setError(null);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(apiErrorMessage(caught, "Couldn’t load the support queue. Try again."));
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, filter, page, reloadToken]);
 
   function applyUpdate(updated: AdminSupportTicket) {
-    setQueue((current) => {
-      if (!current) return current;
-      const items = current.items.map((row) => (row.id === updated.id ? updated : row));
-      return {
-        items,
-        summary: {
-          open: items.filter((t) => t.status === "open").length,
-          inProgress: items.filter((t) => t.status === "in-progress").length,
-          awaitingReply: items.filter(
-            (t) => t.awaitingReply && (t.status === "open" || t.status === "in-progress"),
-          ).length,
-        },
-      };
-    });
+    // Patch the row so the open conversation updates immediately, then
+    // re-read for the authoritative counts and ordering.
+    setQueue((current) =>
+      current
+        ? { ...current, items: current.items.map((row) => (row.id === updated.id ? updated : row)) }
+        : current,
+    );
+    setReloadToken((n) => n + 1);
   }
 
   async function sendReply(ticket: AdminSupportTicket) {
@@ -111,7 +121,9 @@ export function SupportQueueClient() {
     return <div className={styles.loading}>Loading support queue…</div>;
   }
 
-  const visible = queue.items.filter((row) => filter === "all" || row.status === filter);
+  // Filtered by the server now — this is the page it sent back.
+  const visible = queue.items;
+  const lastPage = queue.pageSize > 0 ? Math.max(1, Math.ceil(queue.total / queue.pageSize)) : 1;
   const selected = queue.items.find((row) => row.id === selectedId) ?? null;
 
   return (
@@ -137,7 +149,10 @@ export function SupportQueueClient() {
             key={f.value}
             label={f.label}
             selected={filter === f.value}
-            onClick={() => setFilter(f.value)}
+            onClick={() => {
+              setFilter(f.value);
+              setPage(1);
+            }}
           />
         ))}
       </div>
@@ -176,6 +191,28 @@ export function SupportQueueClient() {
                 </Card>
               </button>
             ))
+          )}
+
+          {lastPage > 1 && (
+            <div className={styles.pager}>
+              <Button
+                variant="secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </Button>
+              <span className={styles.pagerLabel} aria-live="polite">
+                Page {page} of {lastPage}
+              </span>
+              <Button
+                variant="secondary"
+                disabled={page >= lastPage}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next
+              </Button>
+            </div>
           )}
         </div>
 

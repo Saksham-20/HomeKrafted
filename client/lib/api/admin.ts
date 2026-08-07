@@ -719,15 +719,78 @@ export interface AdminProductSummary extends Product {
   categoryName: string;
 }
 
-export async function getAllProductsAdmin(): Promise<AdminProductSummary[]> {
+/** Filters for `GET /admin/catalog/products` — applied server-side in real mode. */
+export interface AdminCatalogQuery {
+  status?: ProductModerationStatus | "featured";
+  vendorId?: string;
+  q?: string;
+  page?: number;
+}
+
+export interface AdminCatalogPage {
+  items: AdminProductSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /**
+   * Listings waiting for review across the whole platform — deliberately
+   * not narrowed by the filter or the page. A queue badge reading zero
+   * because the admin happens to be looking at "hidden" is worse than no
+   * badge, and there is a HomeKrafter's income behind the number.
+   */
+  pendingCount: number;
+}
+
+/**
+ * One page of the catalogue.
+ *
+ * This fetched **every listing on the platform with its relations** so the
+ * screen could filter the array. The status, vendor and search filters
+ * moved to the server with the pagination — the review queue is the one
+ * list where "search only what is on screen" would mean a HomeKrafter
+ * waiting because their listing was on page 3.
+ */
+export async function getAllProductsAdmin(query: AdminCatalogQuery = {}): Promise<AdminCatalogPage> {
   if (!isMockMode()) {
-    return http.get<AdminProductSummary[]>("/admin/catalog/products");
+    const params = new URLSearchParams();
+    if (query.status) params.set("status", query.status);
+    if (query.vendorId) params.set("vendorId", query.vendorId);
+    if (query.q) params.set("q", query.q);
+    if (query.page && query.page > 1) params.set("page", String(query.page));
+    const qs = params.toString();
+    return http.get<AdminCatalogPage>(`/admin/catalog/products${qs ? `?${qs}` : ""}`);
   }
-  return products.map((product) => ({
+
+  const q = query.q?.trim().toLowerCase();
+  const all = products.map((product) => ({
     ...product,
     vendorName: getVendorById(product.vendorId)?.name ?? "Unknown vendor",
     categoryName: getCategoryById(product.categoryId)?.name ?? "Uncategorised",
   }));
+  const items = all
+    .filter((p) => !query.vendorId || p.vendorId === query.vendorId)
+    .filter((p) =>
+      !query.status
+        ? true
+        : query.status === "featured"
+          ? !!p.featured
+          : (p.moderationStatus ?? "active") === query.status,
+    )
+    .filter(
+      (p) =>
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.vendorName.toLowerCase().includes(q) ||
+        p.categoryName.toLowerCase().includes(q),
+    );
+
+  return {
+    items,
+    page: 1,
+    pageSize: items.length,
+    total: items.length,
+    pendingCount: all.filter((p) => (p.moderationStatus ?? "active") === "pending").length,
+  };
 }
 
 /**
@@ -1604,17 +1667,30 @@ export interface AdminSupportTicket extends SupportTicket {
 
 export interface AdminSupportQueue {
   items: AdminSupportTicket[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /**
+   * Queue-wide counts, **never narrowed by the status filter or the
+   * page**. They used to be derived from whatever rows were loaded, so
+   * clicking "Resolved" made the header say nobody was waiting — on the
+   * one screen whose entire job is telling an admin who is.
+   */
   summary: { open: number; inProgress: number; awaitingReply: number };
 }
 
 export async function getAdminSupportTickets(
   status?: SupportTicketStatus,
+  page?: number,
 ): Promise<AdminSupportQueue> {
   if (isMockMode()) {
-    return { items: [], summary: { open: 0, inProgress: 0, awaitingReply: 0 } };
+    return { items: [], page: 1, pageSize: 0, total: 0, summary: { open: 0, inProgress: 0, awaitingReply: 0 } };
   }
+  const query: Record<string, string> = {};
+  if (status) query.status = status;
+  if (page && page > 1) query.page = String(page);
   return http.get<AdminSupportQueue>("/admin/support/tickets", {
-    query: status ? { status } : undefined,
+    query: Object.keys(query).length ? query : undefined,
   });
 }
 

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { mapTicket, ticketStatusToFrontend, SupportTicketWithMessages } from '../support/support.mapper';
 import { AdminAuditLogService } from './audit-log.service';
+import { ListAdminSupportQueryDto } from './dto/list-admin-support.query.dto';
 
 const TICKET_INCLUDE = {
   messages: { orderBy: { createdAt: 'asc' } },
@@ -40,6 +41,8 @@ function mapAdminTicket(ticket: AdminTicketRow) {
  * Unscoped, like every other service in this module — an admin sees every
  * ticket, and their replies post as `agent`.
  */
+const DEFAULT_SUPPORT_PAGE_SIZE = 25;
+
 @Injectable()
 export class AdminSupportService {
   constructor(
@@ -48,29 +51,83 @@ export class AdminSupportService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  async list(status?: SupportTicketStatus) {
-    const rows = await this.prisma.supportTicket.findMany({
-      where: status ? { status } : undefined,
-      include: TICKET_INCLUDE,
-      orderBy: { updatedAt: 'desc' },
-    });
+  /**
+   * One page of the queue, plus the counts that head it.
+   *
+   * **The summary is computed independently of the filter**, and used not
+   * to be: it was derived from the same already-filtered array, so
+   * clicking "Resolved" made the header report `open: 0, in progress: 0,
+   * awaiting reply: 0` — a support queue telling an admin nobody is
+   * waiting, at the exact moment they narrowed the view. Same class of bug
+   * as the catalogue's pending badge, and the reason both counts are now
+   * their own queries.
+   */
+  async list(status?: SupportTicketStatus, query: ListAdminSupportQueryDto = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_SUPPORT_PAGE_SIZE;
+    const where = status ? { status } : undefined;
 
-    const items = rows.map(mapAdminTicket);
+    const [rows, total, open, inProgress, awaitingReply] = await Promise.all([
+      this.prisma.supportTicket.findMany({
+        where,
+        include: TICKET_INCLUDE,
+        // `id` breaks the tie — several tickets can share an `updatedAt`
+        // to the millisecond after a bulk status change, and without it a
+        // page boundary repeats one and drops another.
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.supportTicket.count({ where }),
+      this.prisma.supportTicket.count({ where: { status: 'open' } }),
+      this.prisma.supportTicket.count({ where: { status: 'in_progress' } }),
+      this.countAwaitingReply(),
+    ]);
+
     return {
-      items,
-      summary: {
-        open: items.filter((t) => t.status === 'open').length,
-        inProgress: items.filter((t) => t.status === 'in-progress').length,
-        // The number that actually matters on a queue: how many people
-        // are waiting on us right now. `resolved`/`closed` are excluded
-        // because a customer who writes back on a resolved ticket reopens
-        // it (`SupportService.addMessage`), so anything still sitting in
-        // those buckets genuinely isn't waiting on us.
-        awaitingReply: items.filter(
-          (t) => t.awaitingReply && (t.status === 'open' || t.status === 'in-progress'),
-        ).length,
-      },
+      items: rows.map(mapAdminTicket),
+      page,
+      pageSize,
+      total,
+      summary: { open, inProgress, awaitingReply },
     };
+  }
+
+  /**
+   * How many people are waiting on us right now — the one number on this
+   * screen with somebody sitting at the other end of it.
+   *
+   * "Awaiting reply" means the newest message on the ticket came from the
+   * customer, which is a per-row lookup rather than a column, so this is
+   * raw SQL rather than a `count`. Reading every ticket and its whole
+   * message thread to work it out in JavaScript is what it replaces.
+   *
+   * `resolved` and `closed` are excluded because a customer who writes
+   * back on a resolved ticket reopens it (`SupportService.addMessage`) —
+   * so anything still sitting in those states genuinely is not waiting.
+   *
+   * **The status literals are the database's spelling, not Prisma's.**
+   * `SupportTicketStatus` declares `in_progress @map("in-progress")`, so
+   * Postgres stores `in-progress` and the Prisma-side name is not a member
+   * of the enum type at all. Writing `in_progress` here is a 500 rather
+   * than a quietly wrong number, which is the one mercy of it — and the
+   * reason a raw query needs a test that actually runs it.
+   */
+  private async countAwaitingReply(): Promise<number> {
+    const rows = await this.prisma.$queryRaw<{ count: bigint }[]>`
+      SELECT COUNT(*) AS count
+      FROM "SupportTicket" t
+      WHERE t."status" IN ('open', 'in-progress')
+        AND COALESCE(
+              (SELECT m."sender"
+                 FROM "SupportMessage" m
+                WHERE m."ticketId" = t.id
+                ORDER BY m."createdAt" DESC, m.id DESC
+                LIMIT 1),
+              'user'
+            ) = 'user'
+    `;
+    return Number(rows[0]?.count ?? 0);
   }
 
   async getById(id: string) {

@@ -7,6 +7,40 @@ import { ReviewAggregatesService } from '../reviews/review-aggregates.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { ModerationNotificationsService } from './moderation-notifications.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
+import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
+
+const DEFAULT_CATALOG_PAGE_SIZE = 25;
+
+/**
+ * Oldest submission first, so a resubmission takes its turn at the back
+ * rather than holding its original place forever. `nulls: 'last'` covers
+ * pre-M22 rows that never had a `submittedAt`.
+ */
+const PENDING_ORDER = [
+  { submittedAt: { sort: 'asc' as const, nulls: 'last' as const } },
+  { createdAt: 'asc' as const },
+  // Unique final key — without it a page boundary between two listings
+  // submitted in the same second can show one twice and skip another.
+  { id: 'asc' as const },
+];
+
+/** For an already-decided listing, recency is what an admin is looking for. */
+const DECIDED_ORDER = [{ createdAt: 'desc' as const }, { id: 'desc' as const }];
+
+type ProductWithNames = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
+
+export interface PaginatedCatalog {
+  items: (ReturnType<typeof mapProduct> & { vendorName: string; categoryName: string })[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /**
+   * Listings awaiting review, platform-wide — never narrowed by the
+   * caller's filter or page. It is the queue badge, and one that reads
+   * zero because the admin is looking at "hidden" is worse than none.
+   */
+  pendingCount: number;
+}
 
 /**
  * Actions that refuse or remove a listing, and therefore owe the
@@ -48,43 +82,147 @@ export class AdminCatalogService {
    * Everything else follows in the old newest-first order, because for an
    * already-decided listing recency is what an admin is looking for.
    */
-  async listProducts() {
-    // Two queries rather than one sorted in JS: Postgres cannot order by
-    // "pending first" without a CASE expression Prisma will not emit, and
-    // this way the first query rides the `(moderationStatus, submittedAt)`
-    // index the migration added.
-    const [pending, decided] = await Promise.all([
-      this.prisma.product.findMany({
-        where: { moderationStatus: 'pending' },
-        include: PRODUCT_INCLUDE,
-        orderBy: [{ submittedAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
-      }),
-      this.prisma.product.findMany({
-        where: { moderationStatus: { not: 'pending' } },
-        include: PRODUCT_INCLUDE,
-        orderBy: { createdAt: 'desc' },
-      }),
+  async listProducts(query: ListAdminCatalogQueryDto = {}): Promise<PaginatedCatalog> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_CATALOG_PAGE_SIZE;
+    const skip = (page - 1) * pageSize;
+
+    const scope: Prisma.ProductWhereInput = {};
+    if (query.vendorId) scope.vendorId = query.vendorId;
+    if (query.q) {
+      const contains = { contains: query.q, mode: 'insensitive' as const };
+      scope.OR = [
+        { name: contains },
+        { vendor: { name: contains } },
+        { category: { name: contains } },
+      ];
+    }
+
+    // `featured` is a different column, not a moderation state — keeping
+    // the translation here is what stops it leaking into the enum.
+    const statusWhere: Prisma.ProductWhereInput =
+      query.status === 'featured'
+        ? { featured: true }
+        : query.status
+          ? { moderationStatus: query.status }
+          : {};
+
+    const pendingScoped: Prisma.ProductWhereInput = { ...scope, ...statusWhere };
+
+    // The waiting count is deliberately **not** scoped to the current
+    // filter or page: it is the queue badge, and a badge that reads zero
+    // because the admin happens to be looking at "hidden" is worse than no
+    // badge. Somebody's income is behind that number.
+    const pendingCountPromise = this.prisma.product.count({
+      where: { moderationStatus: 'pending' },
+    });
+
+    let rows: ProductWithNames[];
+    let total: number;
+
+    if (query.status) {
+      // One state, one natural order — nothing to interleave.
+      const [found, count, pendingCount] = await Promise.all([
+        this.prisma.product.findMany({
+          where: pendingScoped,
+          include: PRODUCT_INCLUDE,
+          orderBy: query.status === 'pending' ? PENDING_ORDER : DECIDED_ORDER,
+          skip,
+          take: pageSize,
+        }),
+        this.prisma.product.count({ where: pendingScoped }),
+        pendingCountPromise,
+      ]);
+      rows = found;
+      total = count;
+      return this.withNames(rows, page, pageSize, total, pendingCount);
+    }
+
+    /**
+     * Unfiltered: pending listings lead, oldest submission first, then
+     * everything already decided newest first. Postgres cannot express
+     * that in one `ORDER BY` without a `CASE` Prisma will not emit, so it
+     * stays two queries — but a page is now cut out of the *concatenation*
+     * arithmetically rather than by materialising both halves and slicing.
+     * A page wholly inside one half reads only that half.
+     */
+    const [pendingTotal, decidedTotal, pendingCount] = await Promise.all([
+      this.prisma.product.count({ where: { ...scope, moderationStatus: 'pending' } }),
+      this.prisma.product.count({ where: { ...scope, moderationStatus: { not: 'pending' } } }),
+      pendingCountPromise,
     ]);
-    const products = [...pending, ...decided];
+
+    const fromPending = Math.max(0, Math.min(pageSize, pendingTotal - skip));
+    const [pending, decided] = await Promise.all([
+      fromPending > 0
+        ? this.prisma.product.findMany({
+            where: { ...scope, moderationStatus: 'pending' },
+            include: PRODUCT_INCLUDE,
+            orderBy: PENDING_ORDER,
+            skip,
+            take: fromPending,
+          })
+        : Promise.resolve([]),
+      fromPending < pageSize
+        ? this.prisma.product.findMany({
+            where: { ...scope, moderationStatus: { not: 'pending' } },
+            include: PRODUCT_INCLUDE,
+            orderBy: DECIDED_ORDER,
+            // Once the pending half is exhausted the offset carries over
+            // into the decided half — `skip - pendingTotal` on later
+            // pages, and 0 on the page that straddles the boundary.
+            skip: Math.max(0, skip - pendingTotal),
+            take: pageSize - fromPending,
+          })
+        : Promise.resolve([]),
+    ]);
+
+    return this.withNames(
+      [...pending, ...decided],
+      page,
+      pageSize,
+      pendingTotal + decidedTotal,
+      pendingCount,
+    );
+  }
+
+  /** Batches the vendor/category name lookups for one page of listings. */
+  private async withNames(
+    products: ProductWithNames[],
+    page: number,
+    pageSize: number,
+    total: number,
+    pendingCount: number,
+  ): Promise<PaginatedCatalog> {
     const vendorIds = [...new Set(products.map((p) => p.vendorId))];
     const categoryIds = [...new Set(products.map((p) => p.categoryId))];
     const [vendors, categories] = await Promise.all([
-      this.prisma.vendor.findMany({ where: { id: { in: vendorIds } }, select: { id: true, name: true } }),
+      vendorIds.length
+        ? this.prisma.vendor.findMany({ where: { id: { in: vendorIds } }, select: { id: true, name: true } })
+        : Promise.resolve([]),
       // `categoryName` was in the client's `AdminProductSummary` type from
       // the day the screen shipped and was **never sent** by this endpoint
-      // — only the mock produced it. Every row on `/admin/catalog` has
+      // — only the mock produced it. Every row on `/admin/catalog` had
       // therefore rendered "Vendor · " with a dangling separator against a
       // real server. Found in the browser during M22, not by reading code.
-      this.prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } }),
+      categoryIds.length
+        ? this.prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
+        : Promise.resolve([]),
     ]);
     const vendorNameById = new Map(vendors.map((v) => [v.id, v.name]));
     const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
 
-    return products.map((p) => ({
-      ...mapProduct(p),
-      vendorName: vendorNameById.get(p.vendorId) ?? 'Unknown vendor',
-      categoryName: categoryNameById.get(p.categoryId) ?? 'Uncategorised',
-    }));
+    return {
+      items: products.map((p) => ({
+        ...mapProduct(p),
+        vendorName: vendorNameById.get(p.vendorId) ?? 'Unknown vendor',
+        categoryName: categoryNameById.get(p.categoryId) ?? 'Uncategorised',
+      })),
+      page,
+      pageSize,
+      total,
+      pendingCount,
+    };
   }
 
   async getProduct(id: string) {

@@ -154,6 +154,7 @@ Grouped by the rule, not by the file, because the rules are the point.
 | The admin user list is a page whose role, status and search all apply in SQL — a search finds an account that is not on the first page, and a filter narrows the *total* rather than only the rows | `e2e/admin-users-pagination.e2e-spec.ts` |
 | The eleventh person with a given first name can still register: the code space stops being ten wide, and the overflow suffix contains nothing that can be misread aloud | `unit/referral-code.spec.ts`, and the 30-account seed in `e2e/admin-users-pagination.e2e-spec.ts` |
 | What a HomeKrafter is owed multiplies by quantity, counts only delivered orders, counts only their own products, keeps paise, is ₹0 rather than NaN for an empty kitchen, and never goes negative | `e2e/seller-earnings.e2e-spec.ts` |
+| A queue's badge counts the queue, not the page: filtering the catalogue to "active" or the support list to "resolved" leaves "waiting for review" and "waiting on us" where they were | `e2e/admin-queues-pagination.e2e-spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |
 | Absence is never a closure: no working days = open every day, no prep time = 90 minutes | `availability.e2e-spec.ts` |
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |

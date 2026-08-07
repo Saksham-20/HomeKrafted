@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { SearchField } from "@/components/ui/SearchField";
@@ -9,6 +10,7 @@ import { CatalogTabs } from "./CatalogTabs";
 import { ProductModerationRow } from "./ProductModerationRow";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
+  apiErrorMessage,
   getAllProductsAdmin,
   getVendors,
   moderateProduct,
@@ -53,39 +55,68 @@ export function CatalogClient() {
   const [vendorFilter, setVendorFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // Bumped after a moderation decision, to re-read the list. A decision
+  // changes which filter a listing belongs to and what the queue badge
+  // says, and neither is derivable from the row that came back.
+  const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [list, vendorList] = await Promise.all([getAllProductsAdmin(), getVendors()]);
-      if (cancelled) return;
-      setProducts(list);
-      setVendors(vendorList);
-      setLoading(false);
+      setLoading(true);
+      try {
+        const [result, vendorList] = await Promise.all([
+          getAllProductsAdmin({
+            status: statusFilter === "all" ? undefined : statusFilter,
+            vendorId: vendorFilter === "all" ? undefined : vendorFilter,
+            q: debouncedQuery || undefined,
+            page,
+          }),
+          getVendors(),
+        ]);
+        if (cancelled) return;
+        setProducts(result.items);
+        setTotal(result.total);
+        setPageSize(result.pageSize);
+        setPendingCount(result.pendingCount);
+        setVendors(vendorList);
+        setLoadError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(err, "Couldn’t load the catalogue. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, statusFilter, vendorFilter, debouncedQuery, page, reloadToken]);
 
   async function handleAction(productId: string, action: ProductModerationAction, reason?: string) {
     setActionError(null);
     try {
       const updated = await moderateProduct(productId, action, reason);
       if (!updated) return;
-      setProducts((current) =>
-        current.map((p) =>
-          p.id === productId
-            ? {
-                ...p,
-                moderationStatus: updated.moderationStatus,
-                moderationNote: updated.moderationNote,
-                featured: updated.featured,
-              }
-            : p,
-        ),
-      );
+      // Re-read rather than patch the row in place: a decision moves the
+      // listing out of the filter it is being viewed under and changes the
+      // waiting count, and the response cannot tell us either.
+      setReloadToken((n) => n + 1);
     } catch (err) {
       // Load-bearing now that the server refuses decisions on purpose:
       // without it, a rejection missing its reason is indistinguishable
@@ -94,28 +125,9 @@ export function CatalogClient() {
     }
   }
 
-  const pendingCount = useMemo(
-    () => products.filter((p) => (p.moderationStatus ?? "active") === "pending").length,
-    [products],
-  );
+  const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return products.filter((p) => {
-      const status = p.moderationStatus ?? "active";
-      if (vendorFilter !== "all" && p.vendorId !== vendorFilter) return false;
-      if (statusFilter === "featured" && !p.featured) return false;
-      if (statusFilter !== "all" && statusFilter !== "featured" && status !== statusFilter) return false;
-      if (!q) return true;
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.vendorName.toLowerCase().includes(q) ||
-        p.categoryName.toLowerCase().includes(q)
-      );
-    });
-  }, [products, query, vendorFilter, statusFilter]);
-
-  if (!ready || loading) {
+  if (!ready || (loading && products.length === 0 && !loadError)) {
     return <div className={styles.loading}>Loading catalog…</div>;
   }
 
@@ -125,11 +137,18 @@ export function CatalogClient() {
           somebody's income attached to it. */}
       <AdminPageHeader
         title="Catalog"
-        subtitle={
-          pendingCount > 0
-            ? `${pendingCount} waiting for review · ${products.length} listing${products.length === 1 ? "" : "s"} across every vendor`
-            : `${products.length} listing${products.length === 1 ? "" : "s"} across every vendor`
-        }
+        subtitle={(() => {
+          // `products.length` was the page, not the catalogue, and
+          // "across every vendor" was untrue under any filter — together
+          // that read "0 listings across every vendor" while sitting on
+          // the Waiting tab of a catalogue with seventeen in it.
+          const filtered =
+            statusFilter !== "all" || vendorFilter !== "all" || Boolean(debouncedQuery);
+          const scope = filtered
+            ? `${total} listing${total === 1 ? "" : "s"} match these filters`
+            : `${total} listing${total === 1 ? "" : "s"} across every vendor`;
+          return pendingCount > 0 ? `${pendingCount} waiting for review · ${scope}` : scope;
+        })()}
       />
       <CatalogTabs active="products" />
 
@@ -143,7 +162,10 @@ export function CatalogClient() {
         <select
           className={styles.select}
           value={vendorFilter}
-          onChange={(event) => setVendorFilter(event.target.value)}
+          onChange={(event) => {
+            setVendorFilter(event.target.value);
+            setPage(1);
+          }}
           aria-label="Filter by vendor"
         >
           <option value="all">All vendors</option>
@@ -155,7 +177,10 @@ export function CatalogClient() {
         </select>
         <div className={styles.chipRow} role="tablist" aria-label="Filter by status">
           {STATUS_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => setStatusFilter(f.value)} />
+            <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => {
+                setStatusFilter(f.value);
+                setPage(1);
+              }} />
           ))}
         </div>
       </div>
@@ -166,18 +191,50 @@ export function CatalogClient() {
         </p>
       )}
 
-      {filtered.length === 0 ? (
+      {loadError && (
+        <Card className={styles.empty} role="alert">
+          {loadError}
+        </Card>
+      )}
+
+      {!loadError && products.length === 0 ? (
         <Card className={styles.empty}>
           {statusFilter === "pending"
             ? "Nothing waiting for review. Every listing has been looked at."
             : "No products match these filters."}
         </Card>
       ) : (
-        <div className={styles.list}>
-          {filtered.map((product) => (
-            <ProductModerationRow key={product.id} product={product} onAction={handleAction} />
-          ))}
-        </div>
+        !loadError && (
+          <>
+            <div className={styles.list}>
+              {products.map((product) => (
+                <ProductModerationRow key={product.id} product={product} onAction={handleAction} />
+              ))}
+            </div>
+
+            {lastPage > 1 && (
+              <div className={styles.pager}>
+                <Button
+                  variant="secondary"
+                  disabled={page <= 1 || loading}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </Button>
+                <span className={styles.pagerLabel} aria-live="polite">
+                  Page {page} of {lastPage}
+                </span>
+                <Button
+                  variant="secondary"
+                  disabled={page >= lastPage || loading}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
+        )
       )}
     </div>
   );

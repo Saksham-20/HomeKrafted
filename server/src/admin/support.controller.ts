@@ -5,6 +5,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { SetTicketStatusDto, SupportReplyDto } from './dto/support-reply.dto';
 import { AdminSupportService } from './support.service';
+import { ListAdminSupportQueryDto } from './dto/list-admin-support.query.dto';
 
 /** Frontend statuses are hyphenated; the Prisma enum member can't be. */
 function toDbStatus(status: string): SupportTicketStatus {
@@ -21,8 +22,8 @@ export class AdminSupportController {
   constructor(private readonly support: AdminSupportService) {}
 
   @Get()
-  list(@Query('status') status?: string) {
-    return this.support.list(status ? toDbStatus(status) : undefined);
+  list(@Query('status') status: string | undefined, @Query() query: ListAdminSupportQueryDto) {
+    return this.support.list(status ? toDbStatus(status) : undefined, query);
   }
 
   @Get(':id')

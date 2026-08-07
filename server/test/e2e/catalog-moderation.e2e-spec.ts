@@ -371,7 +371,9 @@ describe('catalogue review gate', () => {
         .get(`${API_PREFIX}/admin/catalog/products`)
         .set(auth(admin))
         .expect(200);
-      const names = list.body.map((p: { name: string }) => p.name);
+      // M23: this endpoint is a page now — `{ items, page, pageSize,
+      // total, pendingCount }` rather than a bare array.
+      const names = list.body.items.map((p: { name: string }) => p.name);
       expect(names.slice(0, 2)).toEqual(['Waiting longest', 'Waiting less']);
       expect(names).toContain('Already live');
       void newer;
