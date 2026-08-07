@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getUserById, setUserSuspended } from "@/lib/api";
+import { apiErrorMessage, getUserById, setUserSuspended } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { User } from "@/lib/types";
 import styles from "./UserDetailClient.module.css";
@@ -20,6 +20,7 @@ export interface UserDetailClientProps {
 export function UserDetailClient({ userId }: UserDetailClientProps) {
   const { ready, role } = useAuth();
   const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -37,8 +38,13 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
   async function handleToggleSuspend() {
     if (!user) return;
     const nextSuspended = !(user.suspended ?? false);
-    const updated = await setUserSuspended(user.id, nextSuspended);
-    if (updated) setUser({ ...updated });
+    setError(null);
+    try {
+      const updated = await setUserSuspended(user.id, nextSuspended);
+      if (updated) setUser({ ...updated });
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't change that account. Try again."));
+    }
   }
 
   if (!ready || user === undefined) {
@@ -61,6 +67,11 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
 
   return (
     <div>
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
       <Link href="/admin/users" className={styles.back}>
         <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
         Back to users

@@ -553,18 +553,31 @@ export async function getSellerEarningsSummary(sellerId: string): Promise<Seller
 }
 
 /**
- * Real mode: **shape change** — no `amount` param anymore
- * (`docs/API.md`: "the real endpoint computes it server-side, never trust
- * a client-submitted payout amount"). Kept on the signature only so the
- * call site (`SellerPayoutsClient`) doesn't need to change; ignored.
+ * `POST /seller/payouts/request` — asks for the **whole** pending
+ * balance. There is no amount parameter because the server computes the
+ * figure itself and never trusts a client-submitted one (`docs/API.md`).
+ *
+ * It used to take one anyway, "kept on the signature so the call site
+ * doesn't need to change; ignored" — and the call site duly rendered an
+ * Amount box, validated it as greater than zero, and threw it away. A
+ * HomeKrafter with ₹6,210 pending could type 1,000 and get a request for
+ * ₹6,210. The 2026-08-07 audit removed the field and this parameter with
+ * it.
+ *
+ * `pendingAmount` is **mock-mode only** — the offline ledger has no
+ * server to compute against, and a mock payout of ₹0 would misrepresent
+ * what the real one does.
  */
-export async function requestSellerPayout(sellerId: string, amount: number): Promise<Payout> {
+export async function requestSellerPayout(
+  sellerId: string,
+  pendingAmount = 0,
+): Promise<Payout> {
   if (isMockMode()) {
     const today = new Date().toISOString().slice(0, 10);
     const payout: Payout = {
       id: `po-${Date.now()}`,
       sellerId,
-      amount,
+      amount: pendingAmount,
       periodStart: today,
       periodEnd: today,
       status: "pending",

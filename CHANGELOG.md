@@ -125,6 +125,34 @@ produced the raw class-validator string *"description must be longer than
 or equal to 1 characters"* on the screen a home cook writes their first
 listing on.
 
+### Fixed — a payout Amount box that was thrown away
+
+`POST /seller/payouts/request` takes **no amount** — the server computes
+the whole pending balance itself and never trusts a client-submitted
+figure. The screen collected one anyway: an Amount input, validated as
+"greater than zero", disabled the button until it was filled, and then
+called the endpoint with no body. A HomeKrafter with ₹6,210 pending could
+type 1,000, press the button, and get a request for ₹6,210.
+
+The origin is in the api layer's own doc comment: the parameter was
+"kept on the signature only so the call site doesn't need to change;
+ignored". The call site duly built a form around it.
+
+The field is gone, replaced by what actually happens — the pending figure,
+in words, plus the fact that settlement is by hand. The parameter is gone
+from the signature too.
+
+The same handler had no `catch`, and this endpoint's *normal* answer on
+this very screen is a 409: one payout may be pending at a time, and one
+already was. So the button sat on "Requesting…" forever, on the screen a
+HomeKrafter uses to ask for their money. It now says "A payout request is
+already pending for this account".
+
+Three admin handlers had the same gap — suspending an account and setting
+a verification badge, neither of which may fail quietly: an admin who
+believes they have locked an account or verified a kitchen, and has not,
+is the wrong person to leave uninformed.
+
 ### Fixed — unbounded text on every listing
 
 `CreateListingDto.name` and `.description` carried a `@MinLength(1)` and

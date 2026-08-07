@@ -65,3 +65,17 @@
   padding: var(--hk-s5);
   text-align: center;
 }
+
+.requestHint {
+  font-size: 13.5px;
+  color: var(--hk-muted);
+  margin-bottom: var(--hk-s3);
+}
+
+/* Terracotta is the marketplace's refusal colour and reads AA on white at
+   this size — same as `ReviewForm`'s `.error`. */
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  margin-top: var(--hk-s3);
+}

@@ -86,8 +86,32 @@ describe("an await inside try/finally", () => {
 describe("a component that mutates server state", () => {
   const files = SCANNED_DIRS.flatMap((dir) => sourceFiles(join(CLIENT_ROOT, dir)));
 
-  /** `await createFoo(`, `await updateFoo(`, … — the mutating half of `lib/api`. */
-  const MUTATION_CALL = /\bawait\s+(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance)[A-Z]\w*\s*\(/;
+  /**
+   * The verbs `lib/api` names its mutations with.
+   *
+   * Matched against **what the file imports from `@/lib/api`**, not
+   * against every identifier in scope. A bare name check flagged
+   * `LocationPrompt`'s `requestBrowserLocation`, which is a browser
+   * permission prompt that already returns a boolean and has nothing to
+   * refuse — a false positive is how a scanning rule earns an
+   * ignore-comment and then earns deletion.
+   */
+  const MUTATION_VERB =
+    /^(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance|request|apply|follow|unfollow|set|mark)[A-Z]/;
+
+  /** Every identifier this file pulls in from the api layer. */
+  function apiImports(source: string): string[] {
+    const names: string[] = [];
+    const importBlock = /import\s*\{([\s\S]*?)\}\s*from\s*["']@\/lib\/api(?:\/[\w-]+)?["']/g;
+    let match: RegExpExecArray | null;
+    while ((match = importBlock.exec(source)) !== null) {
+      for (const raw of match[1].split(",")) {
+        const name = raw.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0];
+        if (name) names.push(name);
+      }
+    }
+    return names;
+  }
 
   it("always catches the refusal", () => {
     const offenders: string[] = [];
@@ -98,7 +122,13 @@ describe("a component that mutates server state", () => {
       if (file.includes(join("lib", "api"))) continue;
 
       const source = stripComments(readFileSync(file, "utf8"));
-      if (!MUTATION_CALL.test(source)) continue;
+      const mutators = apiImports(source).filter((name) => MUTATION_VERB.test(name));
+      if (mutators.length === 0) continue;
+
+      const awaited = mutators.some((name) =>
+        new RegExp(`\\bawait\\s+${name}\\s*\\(`).test(source),
+      );
+      if (!awaited) continue;
       if (/\}\s*catch\b/.test(source)) continue;
       offenders.push(file.replace(CLIENT_ROOT + "/", ""));
     }

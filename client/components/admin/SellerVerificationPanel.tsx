@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
-import { getAdminSellerProfile, setSellerVerification } from "@/lib/api";
+import { apiErrorMessage, getAdminSellerProfile, setSellerVerification } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { AdminSellerProfile } from "@/lib/types";
 import styles from "./SellerVerificationPanel.module.css";
@@ -70,21 +70,29 @@ export function SellerVerificationPanel({ sellerId, onChanged }: SellerVerificat
   async function handleSave() {
     setSaving(true);
     setError(undefined);
-    const updated = await setSellerVerification(sellerId, {
-      ...(pending.identityVerified !== undefined ? { identityVerified: pending.identityVerified } : {}),
-      ...(pending.addressVerified !== undefined ? { addressVerified: pending.addressVerified } : {}),
-      ...(pending.fssaiVerified !== undefined ? { fssaiVerified: pending.fssaiVerified } : {}),
-      ...(note.trim() ? { note: note.trim() } : {}),
-    });
-    setSaving(false);
-    if (!updated) {
-      setError("That did not save.");
-      return;
+    try {
+      const updated = await setSellerVerification(sellerId, {
+        ...(pending.identityVerified !== undefined ? { identityVerified: pending.identityVerified } : {}),
+        ...(pending.addressVerified !== undefined ? { addressVerified: pending.addressVerified } : {}),
+        ...(pending.fssaiVerified !== undefined ? { fssaiVerified: pending.fssaiVerified } : {}),
+        ...(note.trim() ? { note: note.trim() } : {}),
+      });
+      if (!updated) {
+        setError("That did not save.");
+        return;
+      }
+      setProfile(updated);
+      setPending({ identityVerified: undefined, addressVerified: undefined, fssaiVerified: undefined });
+      setNote("");
+      onChanged?.();
+    } catch (err) {
+      // The verification badge is the whole point of M16, and the write
+      // path is audited. A refusal that showed nothing would leave an
+      // admin believing they had verified a kitchen they had not.
+      setError(apiErrorMessage(err, "That did not save. Try again."));
+    } finally {
+      setSaving(false);
     }
-    setProfile(updated);
-    setPending({ identityVerified: undefined, addressVerified: undefined, fssaiVerified: undefined });
-    setNote("");
-    onChanged?.();
   }
 
   return (

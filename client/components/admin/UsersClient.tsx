@@ -7,7 +7,7 @@ import { SearchField } from "@/components/ui/SearchField";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { UserRow } from "./UserRow";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getAllUsers, setUserSuspended } from "@/lib/api";
+import { apiErrorMessage, getAllUsers, setUserSuspended } from "@/lib/api";
 import type { User, UserRole } from "@/lib/types";
 import styles from "./UsersClient.module.css";
 
@@ -38,6 +38,7 @@ export function UsersClient() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
 
   useEffect(() => {
@@ -55,9 +56,17 @@ export function UsersClient() {
   }, [ready, role]);
 
   async function handleToggleSuspend(userId: string, suspended: boolean) {
-    const updated = await setUserSuspended(userId, suspended);
-    if (!updated) return;
-    setUsers((current) => current.map((u) => (u.id === userId ? { ...u, suspended } : u)));
+    setError(null);
+    try {
+      const updated = await setUserSuspended(userId, suspended);
+      if (!updated) return;
+      setUsers((current) => current.map((u) => (u.id === userId ? { ...u, suspended } : u)));
+    } catch (err) {
+      // Suspension takes effect on the very next request (M21). An admin
+      // who thinks they have locked an account and has not is the wrong
+      // person to leave uninformed.
+      setError(apiErrorMessage(err, "Couldn't change that account. Try again."));
+    }
   }
 
   const filtered = useMemo(() => {
@@ -83,6 +92,11 @@ export function UsersClient() {
   return (
     <div>
       <AdminPageHeader title="Users" subtitle={`${users.length} account${users.length === 1 ? "" : "s"} across every role`} />
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
 
       <div className={styles.filters}>
         <SearchField
