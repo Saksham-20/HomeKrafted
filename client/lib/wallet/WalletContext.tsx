@@ -342,7 +342,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       if (ref.refType !== "order" || !ref.refId) return { ok: false };
       try {
-        await payOrder(ref.refId);
+        // Keyed on the order, which is the whole point: paying the same
+        // order twice must replay, never double-debit. `payOrder` has
+        // accepted a key since M8 and no caller had ever sent one, so the
+        // only protection was the `pending_payment` status check — which
+        // holds for a sequential retry but not for two requests in flight.
+        await payOrder(ref.refId, `order-pay-${ref.refId}`);
         await refreshFromServer();
         return { ok: true };
       } catch (err) {

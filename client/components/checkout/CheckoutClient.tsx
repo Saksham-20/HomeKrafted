@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Wallet as WalletIcon, CreditCard } from "lucide-react";
@@ -82,6 +82,18 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   const [placing, setPlacing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
+
+  /** Flipped synchronously on submit — see `handlePlaceOrder`. */
+  const submittingRef = useRef(false);
+  /**
+   * One key for this checkout attempt, so a retry returns the order the
+   * first attempt created rather than creating a second one. Stable for
+   * the life of the mounted screen: a failed attempt (insufficient
+   * balance, a dismissed payment) legitimately retries under the same key,
+   * and the server does not consume a key whose work threw. A genuinely
+   * new purchase means a new mount, and therefore a new key.
+   */
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID());
 
   // `undefined` until the server answers, so no tile is offered on a guess.
   const [cardPayments, setCardPayments] = useState<boolean | undefined>(undefined);
@@ -208,6 +220,17 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   }
 
   async function handlePlaceOrder() {
+    // A ref, not `placing`. `setPlacing(true)` is a state update: the
+    // button is not actually disabled until React re-renders, so several
+    // clicks landing in one task all pass the check. The audit clicked
+    // three times in a single task and got three orders and three wallet
+    // debits — ₹894 taken for one ₹298 purchase. A ref flips now.
+    //
+    // This is the fast guard, not the real one. The server-side
+    // `Idempotency-Key` below is what holds when the retry comes from a
+    // different render, a second tab or a reconnecting client.
+    if (submittingRef.current) return;
+
     setFormError(null);
 
     if (items.length === 0) return;
@@ -220,6 +243,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
       }
     }
 
+    submittingRef.current = true;
     setPlacing(true);
 
     const giftAddressId = isGift ? await resolveGiftAddressId() : undefined;
@@ -269,6 +293,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
       gift,
       paymentMethod,
       walletApplied,
+      idempotencyKey: idempotencyKeyRef.current,
     });
 
     if (paymentMethod === "wallet") {
@@ -282,6 +307,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
           result.message ??
             "Your wallet balance changed before this order could be charged — please choose Card / UPI instead.",
         );
+        submittingRef.current = false;
         setPlacing(false);
         return;
       }
@@ -308,6 +334,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
         });
       } catch {
         setFormError("Payment wasn't completed — your order is saved and awaiting payment.");
+        submittingRef.current = false;
         setPlacing(false);
         return;
       }
@@ -329,6 +356,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
 
     setOrder(finalOrder);
     clear();
+    submittingRef.current = false;
     setPlacing(false);
   }
 

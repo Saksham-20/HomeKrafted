@@ -21,8 +21,12 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  create(@CurrentUser() user: RequestUser, @Body() dto: CreateOrderDto) {
-    return this.ordersService.create(user.userId, dto);
+  create(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateOrderDto,
+    @IdempotencyKey() key?: string,
+  ) {
+    return this.ordersService.create(user.userId, dto, key);
   }
 
   @Get()

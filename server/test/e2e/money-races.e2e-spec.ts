@@ -402,6 +402,170 @@ describe('money paths under concurrency', () => {
     });
   });
 
+  describe('one checkout creates one order', () => {
+    /**
+     * Found by clicking Place order three times in one task during the
+     * browser sweep: three real orders, three stock decrements and three
+     * wallet debits — ₹894 taken for one ₹298 purchase.
+     *
+     * `POST /orders/:id/pay` had been idempotent since M8, which made this
+     * look covered. It was not. Paying twice was prevented; *ordering*
+     * twice was not, and each duplicate order carried its own payable
+     * total. The only thing between a shopper and a duplicate purchase was
+     * `CheckoutClient`'s `placing` boolean — a React state update, not a
+     * lock.
+     */
+    async function buyerWithFullCart() {
+      const buyer = await createActor(h);
+      const address = await createAddress(h, buyer.userId);
+      const { vendor } = await createKitchen(h);
+      const category = await createCategory(h);
+      const product = await createProduct(h, vendor.id, category.id, { price: 250 });
+      const weight = await h.prisma.weightOption.findFirstOrThrow({
+        where: { productId: product.id },
+      });
+
+      const cart = await h.prisma.cart.create({ data: { userId: buyer.userId } });
+      await h.prisma.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId: product.id,
+          sku: weight.sku,
+          quantity: 1,
+          addressId: address.id,
+        },
+      });
+
+      return { buyer, address, sku: weight.sku };
+    }
+
+    it('creates one order when the same key arrives twice at once', async () => {
+      const { buyer, address, sku } = await buyerWithFullCart();
+      const key = `checkout-${Date.now()}`;
+
+      const submit = () =>
+        h
+          .api()
+          .post(`${API_PREFIX}/orders`)
+          .set(auth(buyer))
+          .set('Idempotency-Key', key)
+          .send({ defaultAddressId: address.id, paymentMethod: 'wallet', shipments: [] });
+
+      const [first, second] = await Promise.all([submit(), submit()]);
+
+      expect(first.status).toBe(201);
+      expect(second.status).toBe(201);
+      // The same order, not two — including the same order number, which
+      // is what a buyer would otherwise see duplicated in their history.
+      expect(second.body.id).toBe(first.body.id);
+      expect(second.body.orderNumber).toBe(first.body.orderNumber);
+
+      const orders = await h.prisma.order.findMany({ where: { userId: buyer.userId } });
+      expect(orders).toHaveLength(1);
+
+      // Stock is decremented once. A second decrement is a real unit of
+      // inventory a home cook no longer has.
+      const weight = await h.prisma.weightOption.findUniqueOrThrow({ where: { sku } });
+      expect(weight.stock).toBe(99);
+    });
+
+    it('creates one order when the same key is replayed after the first finished', async () => {
+      const { buyer, address } = await buyerWithFullCart();
+      const key = `checkout-${Date.now()}-sequential`;
+
+      const submit = () =>
+        h
+          .api()
+          .post(`${API_PREFIX}/orders`)
+          .set(auth(buyer))
+          .set('Idempotency-Key', key)
+          .send({ defaultAddressId: address.id, paymentMethod: 'wallet', shipments: [] });
+
+      const first = await submit().expect(201);
+      // The first call emptied the cart. Without the stored result this
+      // would now be a 400 "Cart is empty" rather than a replay — which is
+      // exactly what a shopper hitting refresh used to get.
+      const second = await submit().expect(201);
+
+      expect(second.body.id).toBe(first.body.id);
+      expect(await h.prisma.order.count({ where: { userId: buyer.userId } })).toBe(1);
+    });
+
+    it('still creates a second order for a genuinely new checkout', async () => {
+      // The key is per checkout attempt, not per buyer. Two real purchases
+      // are two orders, and collapsing them would be worse than the bug.
+      const { buyer, address } = await buyerWithFullCart();
+
+      await h
+        .api()
+        .post(`${API_PREFIX}/orders`)
+        .set(auth(buyer))
+        .set('Idempotency-Key', 'first-checkout')
+        .send({ defaultAddressId: address.id, paymentMethod: 'wallet', shipments: [] })
+        .expect(201);
+
+      const { vendor } = await createKitchen(h);
+      const category = await createCategory(h);
+      const product = await createProduct(h, vendor.id, category.id, { price: 100 });
+      const weight = await h.prisma.weightOption.findFirstOrThrow({
+        where: { productId: product.id },
+      });
+      const cart = await h.prisma.cart.findFirstOrThrow({ where: { userId: buyer.userId } });
+      await h.prisma.cartItem.create({
+        data: {
+          cartId: cart.id,
+          productId: product.id,
+          sku: weight.sku,
+          quantity: 1,
+          addressId: address.id,
+        },
+      });
+
+      await h
+        .api()
+        .post(`${API_PREFIX}/orders`)
+        .set(auth(buyer))
+        .set('Idempotency-Key', 'second-checkout')
+        .send({ defaultAddressId: address.id, paymentMethod: 'wallet', shipments: [] })
+        .expect(201);
+
+      expect(await h.prisma.order.count({ where: { userId: buyer.userId } })).toBe(2);
+    });
+
+    it('debits the wallet once when the same order is paid twice at once', async () => {
+      const { buyer, address } = await buyerWithFullCart();
+      const created = await h
+        .api()
+        .post(`${API_PREFIX}/orders`)
+        .set(auth(buyer))
+        .set('Idempotency-Key', `checkout-${Date.now()}-pay`)
+        .send({ defaultAddressId: address.id, paymentMethod: 'wallet', shipments: [] })
+        .expect(201);
+
+      const wallet = await h.prisma.wallet.upsert({
+        where: { userId: buyer.userId },
+        create: { userId: buyer.userId, balance: 5000 },
+        update: { balance: 5000 },
+      });
+
+      const pay = () =>
+        h
+          .api()
+          .post(`${API_PREFIX}/orders/${created.body.id}/pay`)
+          .set(auth(buyer))
+          // The key the web client now sends — keyed on the order, so a
+          // retry of the same payment replays rather than debiting again.
+          .set('Idempotency-Key', `order-pay-${created.body.id}`);
+
+      await Promise.all([pay(), pay()]);
+
+      const payments = await h.prisma.walletTransaction.findMany({
+        where: { walletId: wallet.id, category: 'payment' },
+      });
+      expect(payments).toHaveLength(1);
+    });
+  });
+
   describe('a redelivered WhatsApp message creates one SnackOrder', () => {
     /**
      * Driven through the service rather than `POST /whatsapp/webhook`.

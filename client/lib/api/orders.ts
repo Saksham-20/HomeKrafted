@@ -29,6 +29,15 @@ export interface CreateOrderInput {
   paymentMethod: PaymentMethod;
   /** Mock-mode-only display value — the real endpoint computes `walletApplied` itself from `paymentMethod`. */
   walletApplied: number;
+  /**
+   * One key per checkout attempt. Sending it is what makes a repeated
+   * submit return the *same* order instead of creating another one —
+   * without it, the only thing preventing a duplicate purchase is a React
+   * state flag, which is not a lock (see `OrdersService.create`). Callers
+   * must keep the key stable across retries of the same intended purchase
+   * and generate a fresh one for a genuinely new order.
+   */
+  idempotencyKey?: string;
 }
 
 /** Mock-mode-only in-memory order "table" — see `createOrder`'s doc comment. */
@@ -93,12 +102,16 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     return order;
   }
 
-  return http.post<Order>("/orders", {
-    defaultAddressId: input.defaultAddressId,
-    shipments: input.shipments,
-    gift: input.gift,
-    paymentMethod: input.paymentMethod,
-  });
+  return http.post<Order>(
+    "/orders",
+    {
+      defaultAddressId: input.defaultAddressId,
+      shipments: input.shipments,
+      gift: input.gift,
+      paymentMethod: input.paymentMethod,
+    },
+    { idempotencyKey: input.idempotencyKey },
+  );
 }
 
 /** `GET /orders/:id` — owner-scoped full order detail. */

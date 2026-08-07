@@ -99,6 +99,50 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — clicking Place order twice bought it twice
+
+Found by clicking it three times.
+
+`POST /orders` accepted no `Idempotency-Key`, and nothing else on the
+server deduplicated a checkout. The only thing between a shopper and a
+duplicate purchase was `CheckoutClient`'s `placing` flag — a React state
+update, which does not disable the button until the next render. Three
+clicks inside one task produced **three orders, three stock decrements and
+three wallet debits**: ₹894 taken for one ₹298 purchase, each duplicate a
+real unit of inventory a home cook no longer has.
+
+`POST /orders/:id/pay` had been idempotent since M8, which is what made
+this look covered. It was not — paying twice was prevented, *ordering*
+twice was not, and each duplicate order carried its own payable total.
+Worse, the web client had never sent a key to that endpoint either, so
+even the protection that existed was unused.
+
+A real mouse double-click did not reproduce it, because React happened to
+re-render in the ~50 ms between the two clicks. That is a timing accident,
+not a guard: held Enter on a focused button, a slow render on a cheap
+phone, or a client retry over a flaky connection all land in the same
+place.
+
+- **`POST /orders` accepts `Idempotency-Key`**, wrapped in the same
+  machinery the wallet endpoints already use.
+- **The key is checked before the cart validation**, not after. The first
+  call empties the cart, so a sequential replay — a refresh, a retry —
+  otherwise failed with `400 Cart is empty` for an order that had actually
+  succeeded. `IdempotencyService.replay()` exists for exactly this shape.
+- **Checkout mints one key per attempt** and keys the wallet payment on
+  the order id. A failed attempt retries under the same key (the server
+  does not consume a key whose work threw); a new purchase means a new
+  mount and a new key.
+- **A synchronous `useRef` guard** flips before any await, so the clicks
+  never both reach the network. That is the fast guard; the key is the one
+  that holds across renders, tabs and reconnects.
+- **The kitchen is notified inside the transaction**, so a replayed key
+  returns the stored order without messaging anyone twice about an order
+  they already have.
+
+Four specs, including that two genuinely separate purchases still produce
+two orders — collapsing those would be worse than the bug.
+
 ### Fixed — "Top up wallet" did nothing, silently, forever
 
 Found by clicking it.

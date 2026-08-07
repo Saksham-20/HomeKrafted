@@ -341,7 +341,7 @@ additionally re-checks the parent cart's `userId` before touching a row
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `POST /orders` | any authed role | Creates an order from the caller's **current `Cart`** — see "Server-authoritative pricing" below. Body: `{ defaultAddressId?, shipments?: [{addressId, deliveryDate?}], gift?: {recipientName, recipientAddressId, hidePrice?, message?}, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `gift.recipientAddressId` must be one of the caller's own saved addresses — "ship to someone else" means the recipient's address is in your address book, the same FK shape `Order.giftRecipientAddressId` requires; the mock checkout's synthetic `"gift-recipient"` id doesn't carry over (flagged for M8.4 below). `400` on an empty cart or a missing shipping address for some line; `404` if any resolved address isn't owned by the caller; `409` on a stock race lost inside the transaction. Clears the cart on success. |
+| `POST /orders` | any authed role | Creates an order from the caller's **current `Cart`** — see "Server-authoritative pricing" below. Body: `{ defaultAddressId?, shipments?: [{addressId, deliveryDate?}], gift?: {recipientName, recipientAddressId, hidePrice?, message?}, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `gift.recipientAddressId` must be one of the caller's own saved addresses — "ship to someone else" means the recipient's address is in your address book, the same FK shape `Order.giftRecipientAddressId` requires; the mock checkout's synthetic `"gift-recipient"` id doesn't carry over (flagged for M8.4 below). `400` on an empty cart or a missing shipping address for some line; `404` if any resolved address isn't owned by the caller; `409` on a stock race lost inside the transaction. Clears the cart on success. **Accepts `Idempotency-Key` (2026-08-07 audit).** Until then it did not, and nothing on the server stopped a repeated submit from creating a second order with its own stock decrement and its own payable total — the only guard was `CheckoutClient`'s `placing` React state, which is not a lock. Three clicks in one task produced three orders and three wallet debits. The key check runs **before** the cart validation, so a sequential replay (a refresh, a retried request) returns the original order instead of failing "Cart is empty" for an order that in fact succeeded. |
 | `GET /orders` | any authed role | Own orders only, newest first. `?page=&pageSize=` (default 20, max 100). Returns `{ items, page, pageSize, total }`. |
 | `GET /orders/history` | any authed role | `client/lib/api/history.ts#getOrderHistory`'s unified shape, **marketplace orders only** — laundry/snack bookings join this in M8.3 (see below). |
 | `GET /orders/:id` | any authed role, own order only (`404` otherwise) | Full order incl. items/shipments/gift. |
@@ -479,7 +479,7 @@ design rationale.
 
 ### Idempotency
 
-Every money-mutating endpoint below (`POST /wallet/adjust`,
+Every money-mutating endpoint below (`POST /orders`, `POST /wallet/adjust`,
 `POST /orders/:id/pay`, `POST /orders/:id/refund`) accepts an optional
 **`Idempotency-Key`** request header (falls back to an `idempotencyKey`
 body field if the header is absent). A repeat call with the same key
@@ -492,6 +492,13 @@ transaction as the mutation itself (see `ARCHITECTURE.md` for the exact
 mechanics — no polling, no separate lock). Omitting the header still runs
 the op (no replay protection); every wallet-balance mutation is still
 individually race-safe via the wallet row lock either way (see below).
+
+**Supporting the header is only half of it — a client has to send one.**
+The audit found the web client sent none anywhere, including on
+`POST /orders/:id/pay`, which had accepted a key since M8. Checkout now
+mints one key per attempt for `POST /orders` (stable across retries of the
+same intended purchase, fresh for a new one) and keys the wallet payment
+on the order id.
 
 ### Wallet (owner-scoped)
 

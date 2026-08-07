@@ -46,7 +46,38 @@ export class OrdersService {
    * `pending_payment` -> `placed` transition (see `order.mapper.ts`'s doc
    * comment on the status enum).
    */
-  async create(userId: string, dto: CreateOrderDto) {
+  /**
+   * `idempotencyKey` matters more here than anywhere else on this service.
+   *
+   * Until the 2026-08-07 audit, this endpoint had none — and the *only*
+   * thing standing between a shopper and a duplicate purchase was
+   * `CheckoutClient`'s `placing` boolean, which is a React state update
+   * and therefore not a lock. Three programmatic clicks in one task
+   * produced three real orders, three stock decrements and three wallet
+   * debits: ₹894 taken for one ₹298 purchase. A mouse double-click did
+   * not reproduce it only because React happened to re-render in the
+   * ~50 ms between the two clicks — which is a timing accident, not a
+   * guard. Held Enter on a focused button, a slow render, or a client
+   * retry over a flaky connection all land in the same place.
+   *
+   * `POST /orders/:id/pay` was already idempotent, which made this look
+   * covered from the server side. It was not: paying twice was prevented,
+   * *ordering* twice was not, and each duplicate order carried its own
+   * payable total.
+   */
+  async create(userId: string, dto: CreateOrderDto, idempotencyKey?: string) {
+    // Before any validation. The first call empties the cart, so a
+    // sequential replay would otherwise fail the "Cart is empty" check
+    // below and return a 400 for an order that actually succeeded.
+    if (idempotencyKey) {
+      const replayed = await this.idempotency.replay<ReturnType<typeof mapOrder>>(
+        userId,
+        'orders.create',
+        idempotencyKey,
+      );
+      if (replayed) return replayed;
+    }
+
     const cart = await this.prisma.cart.findUnique({ where: { userId } });
     if (!cart) throw new BadRequestException('Cart is empty');
 
@@ -121,7 +152,9 @@ export class OrdersService {
       deliveryDateByAddress.set(shipment.addressId, shipment.deliveryDate);
     }
 
-    const created = await this.prisma.$transaction(async (tx) => {
+    // With no key this is exactly the previous behaviour — `run` falls
+    // through to a plain `$transaction`.
+    return this.idempotency.run(userId, 'orders.create', idempotencyKey, async (tx) => {
       for (const item of rawItems) {
         if (item.productId && item.sku) {
           const result = await tx.weightOption.updateMany({
@@ -180,16 +213,20 @@ export class OrdersService {
 
       await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-      return order;
+      // Both sides hear about it. Fired inside the callback but never
+      // awaited: a placed order must not roll back because a message
+      // failed to send. Inside rather than after, so a *replayed* key
+      // returns the stored result without messaging the kitchen a second
+      // time about an order it already has.
+      void this.orderNotifications.notifyHomeKraftersOfNewOrder(order.id);
+      void this.orderNotifications.notifyBuyerOfStatus(order.id, order.status);
+
+      // The mapped DTO is what gets stored against the key, matching
+      // `payWithWallet`/`refundOrder`. Storing the raw row instead would
+      // put Prisma `Decimal`s and `Date`s through a JSON round trip and
+      // hand a replay a differently-shaped body than the first call.
+      return mapOrder(order);
     });
-
-    // Both sides hear about it. Outside the transaction and never awaited
-    // into the failure path: a paid order must not roll back because a
-    // message failed to send.
-    void this.orderNotifications.notifyHomeKraftersOfNewOrder(created.id);
-    void this.orderNotifications.notifyBuyerOfStatus(created.id, created.status);
-
-    return mapOrder(created);
   }
 
   async list(userId: string, query: ListOrdersQueryDto) {

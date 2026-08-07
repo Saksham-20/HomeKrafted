@@ -37,6 +37,26 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class IdempotencyService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * The stored result for a key, or `undefined` if this key has never
+   * completed. Same lookup `run` does on its fast path, exposed for a
+   * caller that validates *before* it reaches `run`.
+   *
+   * `OrdersService.create` is the case: it reads and checks the cart, the
+   * addresses and stock before opening its transaction. A sequential
+   * replay — a refresh, a retried request — therefore failed the cart
+   * check with a 400 "Cart is empty" before `run` ever got the chance to
+   * hand back the order that first call created. No duplicate was made,
+   * but the shopper saw an error for an order that had in fact succeeded,
+   * which is most of the point of having a key.
+   */
+  async replay<T>(userId: string, scope: string, key: string): Promise<T | undefined> {
+    const existing = await this.prisma.idempotencyKey.findUnique({
+      where: { userId_scope_key: { userId, scope, key } },
+    });
+    return existing ? (existing.responseBody as T) : undefined;
+  }
+
   async run<T>(
     userId: string,
     scope: string,
