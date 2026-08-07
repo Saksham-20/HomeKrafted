@@ -83,6 +83,19 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # A model edit with no migration behind it works locally — `prisma
+      # generate` reads the schema, so the types and the client are right
+      # and every test passes — and then simply never reaches production,
+      # because a deploy runs `migrate deploy`. M23 found exactly this in
+      # the other direction: a `DEFAULT` left on `CorporateInquiry.updatedAt`
+      # by a migration and never declared in the schema, quietly making
+      # every later `migrate diff` emit drift that wasn't ours.
+      - name: Schema matches its migrations
+        run: |
+          psql "$TEST_DATABASE_URL" -c 'CREATE DATABASE ci_shadow;'
+          SHADOW_DATABASE_URL='postgresql://homekrafted:homekrafted@localhost:5432/ci_shadow?schema=public' \
+            npm run prisma:check-drift
+
       # `migrate deploy`, not `db push` — this also proves the migration
       # lineage still applies cleanly to an empty database, which is the
       # thing that breaks on a deploy and nowhere earlier.

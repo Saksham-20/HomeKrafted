@@ -330,7 +330,7 @@ them to logrotate if they ever get large (they are a few lines a day).
 | Deploy refuses to start | It'll say why: missing env file, or local changes on the box |
 | Client build fails on prerender | The API wasn't up — see the gotcha above |
 | Changes not showing | `NEXT_PUBLIC_*` changes need a rebuild, not a restart |
-| Blank sections, "Missing bearer token", random empty dashboards | Rate limiting. See below. |
+| "Too many requests" banners, or blank sections on an older build | Rate limiting. See below. |
 
 ## Rate limits
 
@@ -342,11 +342,24 @@ THROTTLE_LIMIT=120          # all routes, per THROTTLE_TTL_SECONDS
 THROTTLE_AUTH_LIMIT=20      # /auth/* only, per THROTTLE_AUTH_TTL_SECONDS
 ```
 
-When exceeded the API returns `429 RATE_LIMITED`. The frontend doesn't
-special-case that, so it surfaces as blank modules or a "Missing bearer
-token" error — it looks like a broken page, not a rate limit. If testers
-report that, check `pm2 logs homekrafted-api` for 429s before chasing a UI
-bug.
+"Keyed on client IP" only became true in M23. nginx proxies to the API on
+localhost, so without `app.set('trust proxy', 1)` — added in
+`server/src/main.ts` — Express reported every request as `127.0.0.1` and
+the *entire internet* shared one bucket: the first handful of visitors in
+a window exhausted it and everybody else got a 429 they had done nothing
+to earn, while an attacker's login attempts were indistinguishable from
+everyone else's. It is `1` (one hop, the nginx in front of us) rather than
+`true`, because `true` trusts the whole `X-Forwarded-For` chain and lets a
+caller prepend a forged address to get a fresh bucket at will. **If a CDN
+is ever put in front, this becomes 2** — otherwise the CDN's IP becomes
+the client for every visitor and the bug returns in a new shape.
+
+When exceeded the API returns `429 RATE_LIMITED`, and the frontend now
+names it: `client/lib/api/http.ts` maps a 429 to a wait-and-retry message,
+using `Retry-After` when the server sends one. Before that it surfaced as
+blank modules or a "Missing bearer token" error, which looked like a
+broken page. If a tester still reports empty sections, check
+`pm2 logs homekrafted-api` for 429s before chasing a UI bug.
 
 Both take effect on `pm2 restart homekrafted-api` — no rebuild needed,
 they're read from `process.env` at boot. Don't lower `THROTTLE_AUTH_LIMIT`

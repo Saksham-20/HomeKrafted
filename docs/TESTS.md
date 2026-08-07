@@ -13,6 +13,20 @@ cd server && npm run test:e2e  # 240 tests, needs a database (below)
 CI runs all three plus typecheck, lint and both builds — see
 `.github/workflows/ci.yml`.
 
+CI also runs a **schema drift check** (M23), which is not a test file:
+
+```
+cd server && SHADOW_DATABASE_URL=postgresql://.../scratch npm run prisma:check-drift
+```
+
+It fails when `prisma/schema.prisma` says something the migrations do not.
+That gap is invisible to every layer below, because `prisma generate` reads
+the *schema* — so a model edit with no migration behind it gives you correct
+types, a correct client and a fully passing suite, and then simply never
+reaches production, where a deploy runs `migrate deploy`. It needs an empty
+database to build the comparison in and drops the schema there, so point
+`SHADOW_DATABASE_URL` at a scratch database and never at a real one.
+
 ---
 
 ## The three layers, and why each one exists

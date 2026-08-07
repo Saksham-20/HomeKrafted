@@ -24,6 +24,8 @@
     "test:watch": "jest --watch",
     "_comment:test:e2e": "Needs an empty Postgres database and TEST_DATABASE_URL pointing at it — see docs/TESTING.md. `test:e2e:setup` applies the migrations; the suite truncates between specs but never creates the database, so it can't be pointed at a developer's own by accident.",
     "test:e2e:setup": "DATABASE_URL=$TEST_DATABASE_URL prisma migrate deploy",
+    "_comment:prisma:check-drift": "Fails when schema.prisma says something the migrations do not — i.e. somebody changed the model and did not generate a migration, so the change works locally via `prisma generate` and silently never reaches production. Needs an empty database to build the comparison in; it drops and recreates the schema there, so point it at a scratch database, never a real one.",
+    "prisma:check-drift": "prisma migrate diff --from-migrations ./prisma/migrations --to-schema-datamodel ./prisma/schema.prisma --shadow-database-url $SHADOW_DATABASE_URL --exit-code",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:all": "npm run test && npm run test:e2e"
   },

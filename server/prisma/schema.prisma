@@ -650,7 +650,14 @@ model PhoneOtp {
   attempts   Int       @default(0)
   createdAt  DateTime  @default(now())
 
-  @@index([phone])
+  /// Matches the query `OtpService.verify` actually runs — `findFirst`
+  /// on `(phone, purpose, consumedAt: null)` ordered by `createdAt desc`.
+  /// The old `@@index([phone])` alone made every verification scan and
+  /// sort that phone's whole OTP history, which grows with the per-phone
+  /// request cap (5 per window) and never shrinks: OTP rows are not
+  /// deleted after use, only marked consumed. On the hot path of every
+  /// phone sign-in, which is how an approved HomeKrafter gets in.
+  @@index([phone, purpose, consumedAt, createdAt])
 }
 
 /// Stub social-login linkage — one row per (provider, providerAccountId) a
@@ -1623,7 +1630,18 @@ model Order {
   shipments      OrderShipment[]
   razorpayOrders RazorpayOrder[]
 
-  @@index([userId])
+  /// `[userId]` alone was the only index here, and no query uses it on its
+  /// own: every buyer-facing read is `where userId orderBy placedAt desc`
+  /// (`OrdersService.list`, `reorder`), so Postgres matched the index then
+  /// sorted the result by hand. The composite serves the same lookups and
+  /// hands back the ordering for free.
+  @@index([userId, placedAt])
+  /// Admin and seller order lists page a whole-table `orderBy placedAt
+  /// desc`; without this, every one of them sorts the entire Order table.
+  @@index([placedAt])
+  /// `VendorProfileService.stats` counts delivered/cancelled per vendor,
+  /// and the admin dashboard buckets by status.
+  @@index([status])
 }
 
 model OrderItem {
@@ -1643,6 +1661,14 @@ model OrderItem {
   giftWrap  Boolean  @default(false)
 
   @@index([orderId])
+  /// The hottest missing index in the schema. A HomeKrafter's orders are
+  /// "orders containing one of my products" — `items: { some: { productId:
+  /// { in: [...] } } }` — which is how `SellerOrdersService.list`,
+  /// `assertOwned`, `SellerAnalyticsService` and `VendorProfileService.stats`
+  /// all scope. With no index on `productId` every one of those scanned
+  /// OrderItem end to end, so the seller portal got slower for each kitchen
+  /// with every order anyone else placed.
+  @@index([productId])
 }
 
 model OrderShipment {

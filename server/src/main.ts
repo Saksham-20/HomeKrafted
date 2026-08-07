@@ -9,6 +9,7 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
 
@@ -18,8 +19,27 @@ async function bootstrap(): Promise<void> {
   // needed by `PaymentsController.webhook` to verify Razorpay's HMAC
   // signature against the exact bytes it signed, not a re-serialization
   // of the parsed body (see `razorpay-signature.util.ts`).
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   const configService = app.get(ConfigService<AppConfig, true>);
+
+  /**
+   * Production serves this API through nginx on the same box
+   * (`docs/DEPLOY.md`), so without this **every request arrives from
+   * `127.0.0.1`** as far as Express is concerned. `req.ip` is what
+   * `@nestjs/throttler` keys its buckets on, so the entire internet
+   * shared one rate-limit bucket: the first few visitors in a window
+   * exhausted it and everybody else — including the OTP and login limits
+   * that exist to stop credential stuffing — got a 429 they had done
+   * nothing to earn. It also made those auth limits useless in the other
+   * direction, since an attacker's requests were indistinguishable from
+   * everyone else's.
+   *
+   * `1`, not `true`. `true` trusts the whole `X-Forwarded-For` chain, so
+   * anyone can prepend a forged address and rotate through the limiter
+   * at will. One hop is exactly what sits in front of us; if a CDN is
+   * ever added, this becomes 2.
+   */
+  app.set('trust proxy', 1);
 
   app.use(helmet());
 

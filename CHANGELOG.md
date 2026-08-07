@@ -99,6 +99,66 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — every request looked like it came from the same person
+
+`app.set('trust proxy', 1)` in `server/src/main.ts`. Production serves the
+API through nginx on the same box, so Express saw `127.0.0.1` as the
+client for **every** request on the internet and `@nestjs/throttler` keyed
+its buckets on that: one shared budget for the whole world. Two failures
+in one, pulling opposite ways — the first few visitors in a window
+exhausted the limit and everyone else got a 429 they had done nothing to
+earn, while the `/auth/*` limit that exists to stop credential stuffing
+counted an attacker's guesses in the same bucket as everybody's ordinary
+sign-ins, so it could neither protect nor be tuned.
+
+`1`, not `true`. `true` trusts the whole `X-Forwarded-For` chain, which
+means any caller can prepend a forged address and mint a fresh rate-limit
+bucket on demand — a worse hole than the one being closed. One hop is
+exactly what sits in front of us today. `docs/DEPLOY.md` now says so, and
+says it becomes `2` if a CDN is ever added.
+
+### Fixed — four missing indexes, one of them the seller portal's
+
+Migration `20260807100000_m23_order_indexes`. Found by reading each
+`findMany`'s `where` + `orderBy` against the index list rather than by
+guessing, and measured on a scratch database loaded with 50,000 orders and
+150,000 order items (single connection, warm cache):
+
+| Query | Before | After |
+|---|---|---|
+| Buyer order history (`OrdersService.list`) | 0.067 ms | 0.053 ms |
+| Seller order list (`SellerOrdersService.list`) | 9.573 ms | 4.319 ms |
+| Vendor "delivered" count (`VendorProfileService.stats`) | 7.275 ms | 1.170 ms |
+| Admin order list, `placedAt desc` | 1.809 ms | 0.067 ms |
+
+- **`OrderItem.productId` had no index at all**, and it is the column the
+  entire seller portal is defined in terms of: a HomeKrafter's orders are
+  "orders containing one of my products". `SellerOrdersService.list` and
+  `assertOwned`, `SellerAnalyticsService` and `VendorProfileService.stats`
+  all scope that way, so every one of them scanned the whole `OrderItem`
+  table — meaning each kitchen's dashboard got slower with every order
+  placed by *anyone else on the platform*. The worst kind of slow, because
+  it never shows up in development.
+- **`Order.userId` became `Order(userId, placedAt)`.** Nothing queried by
+  `userId` alone; every buyer-facing read sorts `placedAt desc`, so the old
+  index found the rows and then left Postgres to sort them by hand. The
+  measured win is small at seeded volume and grows with orders per buyer —
+  it costs nothing because it *replaces* the old index rather than joining
+  it.
+- **`Order.placedAt`** for the admin and seller lists, and **`Order.status`**
+  for the dashboard's status buckets and the vendor stats counts.
+- **`PhoneOtp(phone, purpose, consumedAt, createdAt)`** replaces
+  `PhoneOtp(phone)`, matching what `OtpService.verify` actually runs. On
+  the phone column alone, every verification attempt re-read and re-sorted
+  every code ever sent to that number — on the hot path of the only
+  sign-in an approved HomeKrafter has.
+
+The migration also drops a stray `DEFAULT CURRENT_TIMESTAMP` that M20 left
+on `CorporateInquiry.updatedAt` (added so `ADD COLUMN ... NOT NULL` could
+backfill, never declared in the schema). Prisma's `@updatedAt` has always
+supplied that value, so the default had never once been used — but it
+meant every `prisma migrate diff` emitted phantom drift.
+
 ### Fixed — ten more screens that swallowed a refusal, and a "Saving…" that never ended
 
 The class from the previous entry, asked from the other side: a component
