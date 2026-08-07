@@ -15,7 +15,7 @@ import {
   skipMealDelivery,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { MealSubscription } from "@/lib/types";
+import type { MealDeliveryStatus, MealSubscription } from "@/lib/types";
 import styles from "./SubscriptionsListClient.module.css";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -25,6 +25,29 @@ const STATUS_COPY: Record<MealSubscription["status"], string> = {
   paused: "Paused",
   cancelled: "Cancelled",
   expired: "Finished",
+};
+
+/**
+ * Per-meal copy. The rows used to render `delivery.status` raw, so a
+ * paused plan showed a bare **CANCELLED** against a date — which on this
+ * product reads as "you lost that meal", the exact opposite of what
+ * happened. The meal is owed back and the cycle grew a day at the far end
+ * (`CLAUDE.md`, M19). `unavailable` was worse: a kitchen blackout day
+ * rendered as a word with no meaning to a buyer at all.
+ */
+const DELIVERY_STATUS_COPY: Record<MealDeliveryStatus, string> = {
+  scheduled: "Scheduled",
+  skipped: "Skipped",
+  unavailable: "Kitchen closed",
+  delivered: "Delivered",
+  cancelled: "Not sent",
+};
+
+/** Shown when the row carries no `reason` of its own — every non-scheduled state owes the buyer an explanation, and the server does not always supply one. */
+const DELIVERY_STATUS_NOTE: Partial<Record<MealDeliveryStatus, string>> = {
+  skipped: "You skipped this one — it's added back at the end.",
+  unavailable: "The kitchen wasn't cooking — this meal is added back at the end.",
+  cancelled: "Added back at the end of your plan.",
 };
 
 /**
@@ -266,8 +289,17 @@ export function SubscriptionsListClient() {
                         </span>
                         <span className={styles.deliveryWindow}>{delivery.bracketLabel}</span>
                         <span className={clsx(styles.deliveryStatus, styles[`d_${delivery.status}`])}>
-                          {delivery.status}
+                          {DELIVERY_STATUS_COPY[delivery.status]}
                         </span>
+                        {/* The server has always sent a `reason` (e.g.
+                            "Subscription paused") and nothing rendered it,
+                            so a buyer saw a status and no explanation for
+                            a meal they had paid for. */}
+                        {delivery.status !== "scheduled" && delivery.status !== "delivered" && (
+                          <span className={styles.deliveryReason}>
+                            {delivery.reason ?? DELIVERY_STATUS_NOTE[delivery.status]}
+                          </span>
+                        )}
                         {delivery.status === "scheduled" && sub.status === "active" && (
                           <button
                             type="button"

@@ -195,6 +195,8 @@
 
 .delivery {
   display: grid;
+  /* The reason column shares the status column's row on wide screens and
+     wraps beneath on narrow ones — see the media query at the end. */
   grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: var(--hk-s3);
@@ -276,4 +278,13 @@
 .loading {
   color: var(--hk-ink-3);
   font-size: 0.9rem;
+}
+
+/* Why a meal was not sent. The server has always carried this (e.g.
+   "Subscription paused") and nothing rendered it, so a buyer saw a bare
+   status against a meal they had paid for. */
+.deliveryReason {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  color: var(--hk-muted);
 }

@@ -99,6 +99,47 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — a referral programme built from neither end
+
+Found by opening `/account/referrals` and reading what the buttons did.
+
+**Nothing created a `Referral`.** `POST /auth/register` accepted
+`referredByCode` and `User.referredByCode` stored it, and no code path in
+the server ever read that column. Every row on the page came from the
+seed. So a real person could copy their code, watch a friend sign up with
+it, and the invite would never appear — under a page promising "you both
+get ₹250".
+
+**And the reward was a button.** `POST /referrals/:id/apply-credit`
+credited ₹250 of real wallet money gated on nothing but the row existing,
+and the page shipped a card headed *See it in action* with **"Apply
+referral credit (demo)"** wired straight to it. A shopper granting
+themselves a wallet credit — the same shape as the open review endpoint
+M15 closed, and a demo affordance moving real money on a production
+screen, which `CLAUDE.md` (M17) already forbids.
+
+- **Signup records the referral.** A matching code creates a
+  `status: joined` row inside the signup transaction. An unknown code is
+  ignored silently — a mistyped code must not fail a signup, and
+  reporting a miss would make registration an oracle over the code space
+  (same reasoning as `forgotPassword`).
+- **Self-referral is refused, and it was reachable.** Codes are derived
+  from the first name (`ANANYA250`) and the referrer lookup runs *inside*
+  the signup transaction, after the row is inserted — so somebody signing
+  up as "Ananya" and guessing `ANANYA250` found their own brand-new
+  account. On a live programme that is ₹250 for registering.
+- **The credit requires the friend's first order to be *delivered*.**
+  Not placed: a place-then-cancel round trip would otherwise pay ₹250 for
+  nothing, the exact hole M22 closed on cashback. Each refusal names
+  which condition is unmet.
+- **The demo card is gone** from the consumer screen.
+
+Nine specs. What is *not* built here: nothing pays the referral out
+automatically when that first order lands — the endpoint is now safe to
+leave reachable, but somebody still has to call it. **That trigger is a
+product decision and is left for the owner**, deliberately unimplemented
+rather than guessed at.
+
 ### Fixed — five screens where Save did nothing and said nothing
 
 One shape, found five times: `try { await save() } finally { setBusy(false) }`

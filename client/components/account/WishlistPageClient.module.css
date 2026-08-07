@@ -87,6 +87,12 @@
 .item {
   position: relative;
   overflow: hidden;
+  /* A grid item is stretched to the row height by default, but its inner
+     content is not — so a two-line product name pushed one card's "Move to
+     cart" higher than its neighbour's. Column layout here plus
+     `margin-top: auto` on the button pins every CTA to the same baseline. */
+  display: flex;
+  flex-direction: column;
 }
 
 .removeButton {
@@ -116,6 +122,7 @@
 .body {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 4px;
   padding: var(--hk-s3);
 }
@@ -143,6 +150,10 @@
 
 .moveButton {
   width: 100%;
+  margin-top: auto;
+  /* The name and price sit directly above; without this the button would
+     ride up against them once `margin-top: auto` collapses the gap. */
+  padding-top: var(--hk-s2);
 }
 
 @media (max-width: 420px) {

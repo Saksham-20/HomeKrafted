@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { Award, Copy, Gift, Share2 } from "lucide-react";
+import { Award, Copy, Share2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { CapacityMeter } from "@/components/ui/CapacityMeter";
-import { applyReferralCredit, getLoyaltyAccount, getReferralCode, getReferrals } from "@/lib/api";
-import { useWallet } from "@/lib/wallet/WalletContext";
+import { getLoyaltyAccount, getReferralCode, getReferrals } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { LoyaltyAccount, Referral } from "@/lib/types";
 import type { HowItWorksStep, LoyaltyTierInfo } from "@/lib/data";
@@ -26,24 +25,22 @@ const STATUS_LABEL: Record<Referral["status"], string> = {
 };
 
 /**
- * Referrals + loyalty (M7b; M8.4a real) — referral code with copy/share, a
- * demo "apply referral credit" button that wires `applyReferralCredit()`
- * (`lib/api/referrals.ts`, owner-scoped, targets one referral id — see
- * that function's doc comment) into `useWallet().earnReferralCredit()`
- * (which just refreshes the wallet in real mode — the server already
- * credited it as part of the same call), and the loyalty tier/points
- * ladder. `code`/referrals/`loyaltyAccount` are owner-scoped real reads
- * now, fetched here on mount (same reasoning as `OrdersListClient` — see
+ * Referrals + loyalty (M7b; M8.4a real) — referral code with copy/share,
+ * the list of invites, and the loyalty tier/points ladder.
+ * `code`/referrals/`loyaltyAccount` are owner-scoped real reads, fetched
+ * here on mount (same reasoning as `OrdersListClient` — see
  * `lib/auth/session.ts`'s file header) instead of server-fetched props;
  * `tiers`/`howItWorks`/`rewardAmount` stay static server-fetched props.
+ *
+ * **This screen moves no money** (2026-08-07 audit). It used to carry an
+ * "Apply referral credit (demo)" button that credited ₹250 to the
+ * caller's own wallet on click — see the comment where it used to be.
  */
 export function ReferralsClient({ tiers, howItWorks, rewardAmount }: ReferralsClientProps) {
-  const { earnReferralCredit } = useWallet();
   const [code, setCode] = useState("");
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loyaltyAccount, setLoyaltyAccount] = useState<LoyaltyAccount | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,37 +91,6 @@ export function ReferralsClient({ tiers, howItWorks, rewardAmount }: ReferralsCl
     }
   }
 
-  const hasCreditable = referrals.some((r) => r.status !== "rewarded");
-
-  /** M8.4a: the real endpoint targets one referral id explicitly (see `lib/api/referrals.ts#applyReferralCredit`'s doc comment) — picks the same "oldest `joined`, else oldest `pending`" candidate the pre-M8.4a mock auto-picked server-side. */
-  function nextCreditableReferral(): Referral | undefined {
-    return referrals.find((r) => r.status === "joined") ?? referrals.find((r) => r.status === "pending");
-  }
-
-  async function handleApplyCredit() {
-    if (!hasCreditable || busy) return;
-    setBusy(true);
-    try {
-      const target = nextCreditableReferral();
-      const result = await applyReferralCredit(target?.id);
-      if (!result) {
-        showToast("No pending invites to reward right now");
-        return;
-      }
-      setReferrals((current) =>
-        current.map((r) => (r.id === result.referral.id ? result.referral : r)),
-      );
-      earnReferralCredit(result.rewardAmount, {
-        title: `Referral credit — ${result.referral.refereeName ?? "a friend"}`,
-        refType: "referral",
-        refId: result.referral.id,
-      });
-      showToast(`${formatCurrency(result.rewardAmount)} credited to your wallet — thanks for the invite!`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (!loyaltyAccount) {
     return (
       <div className={styles.wrap}>
@@ -164,34 +130,30 @@ export function ReferralsClient({ tiers, howItWorks, rewardAmount }: ReferralsCl
         </div>
         <p className={styles.codeHint}>
           Invite a friend — you both get <b>{formatCurrency(rewardAmount)}</b> to your wallet once
-          they join and place their first order.
+          they join and their first order is delivered.
         </p>
-      </Card>
-
-      <Card className={styles.demoCard}>
-        <div className={styles.demoHeader}>
-          <Gift size={20} strokeWidth={1.6} className={styles.demoIcon} aria-hidden="true" />
-          <div>
-            <div className={styles.demoTitle}>See it in action</div>
-            <div className={styles.demoHint}>
-              Simulates a friend accepting your invite and placing their first order.
-            </div>
-          </div>
-        </div>
-        <Button
-          variant="primary"
-          onClick={handleApplyCredit}
-          disabled={!hasCreditable || busy}
-          className={styles.demoButton}
-        >
-          {hasCreditable ? "Apply referral credit (demo)" : "All invites rewarded"}
-        </Button>
         {toast && (
           <p className={styles.toast} role="status">
             {toast}
           </p>
         )}
       </Card>
+
+      {/*
+        The "See it in action / Apply referral credit (demo)" card is gone.
+
+        It was a button on a live consumer screen that credited ₹250 of
+        real wallet money on click, gated on nothing but a `Referral` row
+        existing — a shopper granting themselves a wallet credit. It was
+        labelled a demo and moved real money, which is precisely the shape
+        `CLAUDE.md` (M17) already forbids: demo affordances do not belong
+        on production screens.
+
+        The reward now lands the way the copy above has always described
+        it — the friend joins and their first order is delivered — and the
+        credit is applied against that, not by a button here. See
+        `ReferralsService.applyCredit`.
+      */}
 
       <Card className={styles.listCard}>
         <span className={styles.sectionLabel}>Your invites</span>

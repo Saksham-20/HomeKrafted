@@ -467,6 +467,7 @@ export class AuthService {
           const created = await tx.user.create({ data: build(code) });
           await tx.wallet.create({ data: { userId: created.id } });
           await tx.loyaltyAccount.create({ data: { userId: created.id } });
+          await this.recordReferralTx(tx, created);
           return created;
         });
       } catch (err) {
@@ -475,6 +476,50 @@ export class AuthService {
       }
     }
     throw new ConflictException('Could not allocate a unique referral code — please retry');
+  }
+
+  /**
+   * Turns the `referredByCode` a signup was given into an actual
+   * `Referral` row.
+   *
+   * **This link did not exist before the 2026-08-07 audit.**
+   * `RegisterDto` accepted `referredByCode`, `User.referredByCode` stored
+   * it, and *nothing in the server ever read that column*. No code path
+   * anywhere created a `Referral`, so every row on `/account/referrals`
+   * came from the seed. A real person could copy their code, watch a
+   * friend sign up with it, and the invite would never appear — while the
+   * page promised "you both get ₹250".
+   *
+   * Silent on a bad code, deliberately. Reporting "no such referral code"
+   * would make signup an account-existence oracle over the code space,
+   * and a mistyped code must not be a reason a signup fails — the account
+   * matters more than the referral.
+   *
+   * Runs inside the signup transaction, so an account never exists with
+   * its referral half-recorded.
+   */
+  private async recordReferralTx(tx: Prisma.TransactionClient, created: User): Promise<void> {
+    const code = created.referredByCode?.trim();
+    if (!code) return;
+
+    const referrer = await tx.user.findUnique({ where: { referralCode: code } });
+    if (!referrer) return;
+    // Referring yourself is not a referral. Cheap to attempt — the code is
+    // printed on the referrer's own account page.
+    if (referrer.id === created.id) return;
+
+    await tx.referral.create({
+      data: {
+        referrerUserId: referrer.id,
+        code,
+        refereeUserId: created.id,
+        refereeName: created.name,
+        // `joined`, not `rewarded`. The money is a separate question with
+        // its own gate — the friend's first order has to arrive first
+        // (`ReferralsService.applyCredit`).
+        status: 'joined',
+      },
+    });
   }
 
   /** Fast path only — see `createUserWithAccounts` for why the insert, not this, is what guarantees uniqueness. */

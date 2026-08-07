@@ -110,6 +110,12 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
                     variant="primary"
                     size="sm"
                     className={styles.moveButton}
+                    // Every card's button reads "Move to cart", so a screen
+                    // reader walking the grid hears the same three words
+                    // repeated with nothing to tell them apart. The visible
+                    // label stays short; the accessible one names the item,
+                    // same fix as `QuantityStepper`'s `itemName`.
+                    aria-label={`Move ${product.name} to cart`}
                     onClick={() => handleMoveToCart(product)}
                   >
                     Move to cart

@@ -69,7 +69,18 @@ component in `client/` changes shape, only what the function body does.
 Three sign-in flows, all converging on the same JWT session shape:
 
 - **Email + password** — `POST /auth/register`, `POST /auth/login`.
-  Passwords hashed with **argon2**.
+  Passwords hashed with **argon2**. `register` takes an optional
+  `referredByCode`, and **as of the 2026-08-07 audit it actually does
+  something with it**: a matching code creates a `Referral` row
+  (`status: joined`) inside the signup transaction. Before that the code
+  was stored on `User.referredByCode` and *never read by anything* — no
+  path in the server created a `Referral`, so every row on
+  `/account/referrals` came from the seed and a real invite could never
+  appear. An unknown code is ignored silently rather than failing the
+  signup or reporting a miss (that would make registration an oracle over
+  the code space); referring yourself is refused, which is reachable
+  because codes are derived from the first name and the lookup runs after
+  the row is inserted.
 - **Phone OTP** — `POST /auth/otp/request` (issues a 6-digit code, sent
   via `SmsProviderService`, M9 — real Twilio creds send a real SMS;
   placeholders degrade to a logged `[SMS STUB]`/`[OTP STUB]` pair so dev
@@ -684,7 +695,7 @@ pass a specific referral id once this swaps in.
 |---|---|---|
 | `GET /referrals/code` | any authed role | `{ code }` — the caller's own `User.referralCode`. |
 | `GET /referrals` | any authed role | Mine (as referrer), newest first. |
-| `POST /referrals/:id/apply-credit` | any authed role | Owner-scoped (`referral.referrerUserId` must be the caller). Credits `REFERRAL_REWARD_AMOUNT` (₹250, `client/lib/data/referrals.ts`) to the caller's wallet via `WalletService.postLedgerEntryTx` (`category: "referral"`) and marks the referral `rewarded`. **Once-only**: a referral already `status: "rewarded"` → `409`, re-read inside the same transaction as the ledger write (same read-then-mutate-atomically shape as `OrdersService.refundOrder`). Both `pending` and `joined` referrals are eligible (real "referee completed their first order" gating is a future M9 trigger, not modeled yet). Supports `Idempotency-Key`. |
+| `POST /referrals/:id/apply-credit` | any authed role | Owner-scoped (`referral.referrerUserId` must be the caller). Credits `REFERRAL_REWARD_AMOUNT` (₹250, `client/lib/data/referrals.ts`) to the caller's wallet via `WalletService.postLedgerEntryTx` (`category: "referral"`) and marks the referral `rewarded`. **Once-only**: a referral already `status: "rewarded"` → `409`, re-read inside the same transaction as the ledger write (same read-then-mutate-atomically shape as `OrdersService.refundOrder`). **The referee must have a delivered order (2026-08-07 audit)** — `409` otherwise, naming which condition is unmet. Before that the reward was gated on nothing but the row existing, and `/account/referrals` shipped an "Apply referral credit (demo)" button that called it: a shopper granting themselves a ₹250 wallet credit, the same shape as the open review endpoint M15 closed. Delivered rather than placed, because a place-then-cancel round trip would otherwise pay ₹250 for nothing (the hole M22 closed on cashback). Supports `Idempotency-Key`. |
 | `GET /loyalty` | any authed role | `LoyaltyAccount` — lazily creates a zero-point account if none exists yet. |
 
 ### Notifications (`server/src/notifications/`)

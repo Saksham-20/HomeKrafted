@@ -62,10 +62,17 @@ export class ReferralsService {
    * rather than crediting again, enforced by re-reading the row inside
    * the same transaction the ledger write happens in (same
    * read-then-mutate-atomically shape as `OrdersService.refundOrder`).
-   * `pending` referrals are eligible too (not just `joined`) — real
-   * "referee completed their first order" gating is a future trigger
-   * (M9), not modeled yet; both non-terminal states can be manually
-   * rewarded today, mirroring the mock's `joined ?? pending` fallback.
+   * **The referee must have a delivered order (2026-08-07 audit).** Until
+   * then any non-terminal referral could be cashed on demand — the reward
+   * was gated on nothing but the row existing, and `/account/referrals`
+   * shipped a button that called it. That is a wallet credit a shopper
+   * grants themselves, which is the same shape as the review endpoint
+   * before M15 required a delivered order, and for the same reason: the
+   * loop was built from one end only.
+   *
+   * Delivered, not placed. A place-then-cancel round trip would otherwise
+   * pay ₹250 for nothing, which is exactly the hole M22 closed on
+   * cashback.
    */
   async applyCredit(userId: string, referralId: string, idempotencyKey?: string) {
     return this.idempotency.run(userId, 'referrals.applyCredit', idempotencyKey, async (tx) => {
@@ -75,6 +82,22 @@ export class ReferralsService {
       }
       if (referral.status === 'rewarded') {
         throw new ConflictException('This referral has already been rewarded');
+      }
+
+      // An invite that never became an account cannot have ordered.
+      if (!referral.refereeUserId) {
+        throw new ConflictException(
+          'This friend has not joined yet — the credit lands once they sign up and their first order arrives.',
+        );
+      }
+      const firstDelivered = await tx.order.findFirst({
+        where: { userId: referral.refereeUserId, status: 'delivered' },
+        select: { id: true },
+      });
+      if (!firstDelivered) {
+        throw new ConflictException(
+          'The credit lands once their first order has been delivered.',
+        );
       }
 
       const wallet = await this.walletService.getOrCreateWalletTx(tx, userId);
