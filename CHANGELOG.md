@@ -99,6 +99,62 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — the eleventh Priya could not create an account
+
+A referral code is a first name plus a suffix, and the suffix was
+`250 + attempt` with the caller trying exactly ten attempts. That is not
+collision handling — it is a hard ceiling of **ten accounts per first
+name, ever**. The eleventh person called Priya to sign up got
+`409 Could not allocate a unique referral code — please retry`, and
+retrying could never succeed, because the space was permanently exhausted.
+On a marketplace whose market is India, with a signup form as the front
+door.
+
+Past the ten readable codes the suffix is now random, drawn from an
+alphabet with `O`/`0`, `I`/`1` and `S`/`5` removed — a referral code is
+read off one screen and typed into someone else's phone, and a misread
+character is a friend who never gets credited. The first ten people with a
+name still get `PRIYA250`…`PRIYA259`; the rest get `PRIYA` plus four
+characters. Verified against the running server: thirteen registrations as
+"Priya Audit" all returned 201, where 11 through 13 previously did not.
+
+Found by an audit test that seeded thirty accounts for an unrelated
+pagination check and could not get past the tenth — `createActor` names
+every account the same thing, which turned out to be the exact production
+scenario. The test deliberately still registers through the API rather
+than writing rows through Prisma, which would have hidden it again.
+
+### Fixed — the admin user list returned every account on the platform
+
+`GET /admin/users` is the one query on this server that grows with the
+entire customer base, and it had no limit; the screen filtered and
+searched the array in the browser. Now a page of 25, with `role`, `status`
+and `q` applied in SQL — search had to move for the same reason it did on
+the order list, or an admin looking up the person on the phone to them is
+told no such account exists.
+
+Two subtitles were quietly lying under a filter: "44 accounts across every
+role" became "6 accounts across every role" when filtered to HomeKrafters,
+and the order list did the same. They now say "match these filters" unless
+nothing is filtered.
+
+### Fixed — a HomeKrafter's earnings were summed in JavaScript
+
+`computeDeliveredEarnings` loaded **every** delivered line item, booking
+and snack order a kitchen had ever had onto the heap to add up three
+numbers — on the read behind both the dashboard and the payout request.
+Now aggregates; the marketplace leg needs raw SQL because it multiplies by
+a column, and it runs on the transaction client so a payout request still
+reads inside its own transaction.
+
+This number decides how much real money leaves a real bank account, and
+**nothing asserted its arithmetic** — the payouts suite covers the state
+machine around a payout, not the sum that sizes one. Eight tests now do,
+each computed by hand: quantity is multiplied, only `delivered` counts,
+only this kitchen's own products count, paise survive, an empty kitchen is
+₹0 rather than NaN, and the balance never goes negative. Three of them
+fail if the quantity multiplier is dropped.
+
 ### Fixed — three admin screens that read the whole platform
 
 `GET /admin/orders` read three whole tables — every marketplace `Order`,

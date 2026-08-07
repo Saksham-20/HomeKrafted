@@ -120,10 +120,58 @@ function toAdminUser(sessionUser: SessionUser): User {
   return toAppUser(sessionUser);
 }
 
-export async function getAllUsers(): Promise<User[]> {
-  if (isMockMode()) return users;
-  const list = await http.get<SessionUser[]>("/admin/users");
-  return list.map(toAdminUser);
+/** Filters for `GET /admin/users` — applied server-side in real mode. */
+export interface AdminUsersQuery {
+  role?: User["role"];
+  status?: "active" | "suspended";
+  q?: string;
+  page?: number;
+}
+
+export interface AdminUsersPage {
+  items: User[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/**
+ * One page of accounts.
+ *
+ * This used to fetch **every user on the platform** so the screen could
+ * filter and search the array — the one admin query that grows with the
+ * entire customer base. The filters moved to the server with the
+ * pagination, because a search over one page would answer "no users
+ * match" for somebody who is on the phone to the admin right then.
+ */
+export async function getAllUsers(query: AdminUsersQuery = {}): Promise<AdminUsersPage> {
+  if (isMockMode()) {
+    const q = query.q?.trim().toLowerCase();
+    const items = users
+      .filter((u) => !query.role || u.role === query.role)
+      .filter((u) =>
+        !query.status ? true : query.status === "suspended" ? !!u.suspended : !u.suspended,
+      )
+      .filter(
+        (u) =>
+          !q ||
+          u.name.toLowerCase().includes(q) ||
+          (u.email ?? "").toLowerCase().includes(q) ||
+          (u.phone ?? "").toLowerCase().includes(q),
+      );
+    return { items, page: 1, pageSize: items.length, total: items.length };
+  }
+
+  const params = new URLSearchParams();
+  if (query.role) params.set("role", query.role);
+  if (query.status) params.set("status", query.status);
+  if (query.q) params.set("q", query.q);
+  if (query.page && query.page > 1) params.set("page", String(query.page));
+  const qs = params.toString();
+  const res = await http.get<{ items: SessionUser[]; page: number; pageSize: number; total: number }>(
+    `/admin/users${qs ? `?${qs}` : ""}`,
+  );
+  return { ...res, items: res.items.map(toAdminUser) };
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {

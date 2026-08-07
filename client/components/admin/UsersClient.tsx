@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { SearchField } from "@/components/ui/SearchField";
@@ -40,20 +41,51 @@ export function UsersClient() {
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "suspended">("all");
+  const [total, setTotal] = useState(0);
+  const [pageSize, setPageSize] = useState(0);
+  const [page, setPage] = useState(1);
+  // What the request is actually made with. Without settling first,
+  // searching is one network call per keystroke.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+      // A new search restarts at page one — page 4 of a two-row result
+      // renders empty and reads as "no users".
+      setPage(1);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const list = await getAllUsers();
-      if (cancelled) return;
-      setUsers(list);
-      setLoading(false);
+      setLoading(true);
+      try {
+        const result = await getAllUsers({
+          role: roleFilter === "all" ? undefined : roleFilter,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          q: debouncedQuery || undefined,
+          page,
+        });
+        if (cancelled) return;
+        setUsers(result.items);
+        setTotal(result.total);
+        setPageSize(result.pageSize);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(apiErrorMessage(err, "Couldn’t load accounts. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, roleFilter, statusFilter, debouncedQuery, page]);
 
   async function handleToggleSuspend(userId: string, suspended: boolean) {
     setError(null);
@@ -69,29 +101,21 @@ export function UsersClient() {
     }
   }
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return users.filter((u) => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      const suspended = u.suspended ?? false;
-      if (statusFilter === "active" && suspended) return false;
-      if (statusFilter === "suspended" && !suspended) return false;
-      if (!q) return true;
-      return (
-        u.name.toLowerCase().includes(q) ||
-        (u.email ?? "").toLowerCase().includes(q) ||
-        (u.phone ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [users, query, roleFilter, statusFilter]);
+  const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
 
-  if (!ready || loading) {
+  if (!ready || (loading && users.length === 0 && !error)) {
     return <div className={styles.loading}>Loading users…</div>;
   }
 
   return (
     <div>
-      <AdminPageHeader title="Users" subtitle={`${users.length} account${users.length === 1 ? "" : "s"} across every role`} />
+      <AdminPageHeader title="Users" subtitle={
+          // "across every role" is a lie the moment a filter is on — and
+          // the filters are the reason to read this line at all.
+          roleFilter === "all" && statusFilter === "all" && !debouncedQuery
+            ? `${total} account${total === 1 ? "" : "s"} across every role`
+            : `${total} account${total === 1 ? "" : "s"} match these filters`
+        } />
       {error && (
         <p className={styles.error} role="alert">
           {error}
@@ -107,24 +131,54 @@ export function UsersClient() {
         />
         <div className={styles.chipRow} role="tablist" aria-label="Filter by role">
           {ROLE_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={roleFilter === f.value} onClick={() => setRoleFilter(f.value)} />
+            <Chip key={f.value} label={f.label} selected={roleFilter === f.value} onClick={() => {
+                setRoleFilter(f.value);
+                setPage(1);
+              }} />
           ))}
         </div>
         <div className={styles.chipRow} role="tablist" aria-label="Filter by status">
           {STATUS_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => setStatusFilter(f.value)} />
+            <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => {
+                setStatusFilter(f.value);
+                setPage(1);
+              }} />
           ))}
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {users.length === 0 ? (
         <Card className={styles.empty}>No users match these filters.</Card>
       ) : (
-        <div className={styles.list}>
-          {filtered.map((u) => (
-            <UserRow key={u.id} user={u} href={`/admin/users/${u.id}`} onToggleSuspend={handleToggleSuspend} />
-          ))}
-        </div>
+        <>
+          <div className={styles.list}>
+            {users.map((u) => (
+              <UserRow key={u.id} user={u} href={`/admin/users/${u.id}`} onToggleSuspend={handleToggleSuspend} />
+            ))}
+          </div>
+
+          {lastPage > 1 && (
+            <div className={styles.pager}>
+              <Button
+                variant="secondary"
+                disabled={page <= 1 || loading}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </Button>
+              <span className={styles.pagerLabel} aria-live="polite">
+                Page {page} of {lastPage}
+              </span>
+              <Button
+                variant="secondary"
+                disabled={page >= lastPage || loading}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

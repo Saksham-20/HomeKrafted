@@ -88,7 +88,11 @@ export function OrdersClient() {
     <div>
       <AdminPageHeader
         title="Orders"
-        subtitle={`${total} order${total === 1 ? "" : "s"} across marketplace, laundry and snacks`}
+        subtitle={
+          typeFilter === "all" && !debouncedQuery
+            ? `${total} order${total === 1 ? "" : "s"} across marketplace, laundry and snacks`
+            : `${total} order${total === 1 ? "" : "s"} match these filters`
+        }
       />
 
       <div className={styles.filters}>

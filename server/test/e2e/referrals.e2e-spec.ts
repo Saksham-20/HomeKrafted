@@ -111,7 +111,11 @@ describe('a referral', () => {
       // inserted. So somebody signing up as "Ananya" and guessing
       // `ANANYA250` finds their own brand-new account and refers
       // themselves, which on a live programme is ₹250 for registering.
-      const name = `Selfref${Math.random().toString(36).slice(2, 8)}`;
+      // Kept to 12 characters or fewer so the guess below is the whole
+      // name: `generateReferralCode` caps the readable stem at 12, and a
+      // longer name here would make this test assert a truncation rule
+      // that `unit/referral-code.spec.ts` already owns.
+      const name = `Selfref${Math.random().toString(36).slice(2, 6)}`;
       const ownCode = `${name.toUpperCase()}250`;
 
       const referee = await h

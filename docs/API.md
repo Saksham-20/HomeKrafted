@@ -1174,7 +1174,7 @@ than re-implementing it; `AdminWalletService.adjust`/`issueRefund` call
 
 | Endpoint | Notes |
 |---|---|
-| `GET /admin/users` | Every user, newest first. |
+| `GET /admin/users` | One page of accounts, newest first: `{ items, page, pageSize, total }`. Query: `role` (`consumer\|seller\|admin`), `status` (`active\|suspended`), `q` (matches name, email or phone, case-insensitive), `page`, `pageSize` (default 25, max 100). **M23: this used to return every account on the platform** — the one query that grows with the whole customer base — and the screen filtered it in the browser. |
 | `GET /admin/users/:id` | Single user detail. |
 | `PATCH /admin/users/:id` | Body: `{ suspended: boolean }`. Sets `User.suspended` — the same flag `AuthService` already gates login/OTP/social/refresh on, so a suspended user's next auth attempt is rejected `401` immediately (an already-issued access token still expires naturally on its own short TTL). Audited (`user.suspend`/`user.reactivate`). |
 

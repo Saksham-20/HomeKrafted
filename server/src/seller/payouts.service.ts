@@ -114,24 +114,37 @@ export class SellerPayoutsService {
     // sell jars, run pickups and take WhatsApp snack orders in the same
     // week; paying out only the stream matching a type label would quietly
     // drop the rest of their money.
-    const [items, bookings, orders] = await Promise.all([
-      tx.orderItem.findMany({
-        where: { product: { vendorId: seller.vendorId }, order: { status: 'delivered' } },
-        select: { price: true, quantity: true },
-      }),
-      tx.laundryBooking.findMany({
+    // Summed in the database, not in memory. This used to pull **every
+    // delivered line item, booking and snack order** a HomeKrafter had
+    // ever had onto the heap to add up three numbers — on a table that
+    // only grows, on the read behind both the dashboard and the payout
+    // request. The marketplace leg needs raw SQL because the quantity it
+    // multiplies by is a column, which `aggregate` cannot express;
+    // `$queryRaw` runs on the transaction client, so a payout request
+    // still reads inside its own transaction.
+    const [marketplaceRows, bookings, orders] = await Promise.all([
+      tx.$queryRaw<{ total: number | null }[]>`
+        SELECT SUM(oi."price" * oi."quantity")::float8 AS total
+        FROM "OrderItem" oi
+        JOIN "Product" p ON p.id = oi."productId"
+        JOIN "Order" o ON o.id = oi."orderId"
+        WHERE p."vendorId" = ${seller.vendorId} AND o."status" = 'delivered'::"OrderStatus"
+      `,
+      tx.laundryBooking.aggregate({
         where: { partnerId: seller.id, status: 'delivered' },
-        select: { estimatedTotal: true },
+        _sum: { estimatedTotal: true },
       }),
-      tx.snackOrder.findMany({
+      tx.snackOrder.aggregate({
         where: { sellerId: seller.id, status: 'delivered' },
-        select: { total: true },
+        _sum: { total: true },
       }),
     ]);
 
-    const marketplace = items.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0);
-    const laundry = bookings.reduce((sum, b) => sum + Number(b.estimatedTotal), 0);
-    const snacks = orders.reduce((sum, o) => sum + Number(o.total), 0);
+    // `SUM` over no rows is SQL NULL, not 0 — a HomeKrafter with nothing
+    // delivered yet must read as ₹0 earned, never NaN.
+    const marketplace = marketplaceRows[0]?.total ?? 0;
+    const laundry = Number(bookings._sum.estimatedTotal ?? 0);
+    const snacks = Number(orders._sum.total ?? 0);
     return marketplace + laundry + snacks;
   }
 }

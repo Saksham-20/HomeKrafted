@@ -10,7 +10,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
-import { generateReferralCode } from './referral-code.util';
+import { NAMED_ATTEMPTS, generateReferralCode } from './referral-code.util';
 import { parseDurationToMs } from './duration.util';
 import { JwtPayload } from '../common/types/jwt-payload.type';
 import { Prisma, SocialProvider, User } from '@prisma/client';
@@ -25,8 +25,17 @@ import { EmailProviderService } from '../notifications/providers/email.provider'
  */
 const PASSWORD_RESET_TTL_MINUTES = 60;
 
-/** Candidate referral codes tried before giving up — `NAME250`, `NAME251`, … */
-const REFERRAL_CODE_ATTEMPTS = 10;
+/**
+ * Candidate referral codes tried before giving up.
+ *
+ * The first `NAMED_ATTEMPTS` of these are the readable `NAME250`…`NAME259`
+ * (see `referral-code.util.ts`); the rest are randomly suffixed. That
+ * split is the whole point — this constant used to equal the named space
+ * exactly, so the eleventh person with a given first name had **no**
+ * candidate left and could not register at all. The extra attempts draw
+ * from a space of 30⁴, so exhausting them means something else is wrong.
+ */
+const REFERRAL_CODE_ATTEMPTS = NAMED_ATTEMPTS + 5;
 
 /**
  * A unique violation specifically on `User.referralCode`.
