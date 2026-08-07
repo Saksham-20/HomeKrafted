@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { AdminOrderSummary, AdminOrdersService, AdminOrderType } from './orders.service';
+import { AdminOrderType } from './orders.service';
 import { AdminSettingsService } from './settings.service';
 
 export interface AdminDashboardSnapshot {
@@ -98,25 +98,29 @@ function lastNDays(n: number): string[] {
  * — the same tradeoff `SellerService.getDashboard`'s per-seller
  * dashboards already make.
  */
+/** Money rounded to paise — a SUM over Decimal columns comes back as a float. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 @Injectable()
 export class AdminDashboardService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly ordersService: AdminOrdersService,
     private readonly settings: AdminSettingsService,
   ) {}
 
   async getDashboard(): Promise<AdminDashboardSnapshot> {
-    const unified = await this.ordersService.listUnified();
-
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const gmvTotal = unified.reduce((sum, o) => sum + o.total, 0);
-    const ordersTodayCount = unified.filter((o) => new Date(o.placedAt) >= todayStart).length;
-
-    const ordersByType: Record<AdminOrderType, number> = { marketplace: 0, laundry: 0, snack: 0 };
-    for (const order of unified) ordersByType[order.type] += 1;
+    // Every figure on this screen is a SUM or a COUNT, and all of them
+    // used to be computed by loading every order, booking and snack order
+    // on the platform — with nested `include`s — into memory and reducing
+    // over the array. Postgres does this over an index without moving the
+    // rows anywhere.
+    const { gmvTotal, ordersByType, ordersTotalCount, ordersTodayCount } =
+      await this.orderTotals(todayStart);
 
     const [approvedSellers, usersCount, pendingApplicationsCount, pendingPayoutsAgg, walletAgg] = await Promise.all([
       // `groupBy({ by: ['type'] })` no longer works: a HomeKrafter's
@@ -140,7 +144,7 @@ export class AdminDashboardService {
     return {
       gmvTotal,
       ordersTodayCount,
-      ordersTotalCount: unified.length,
+      ordersTotalCount,
       ordersByType,
       activeHomeKraftersCount: approvedSellers.length,
       activeBySpecialty,
@@ -153,20 +157,17 @@ export class AdminDashboardService {
 
   async getAnalytics(requestedDays = 14): Promise<AdminAnalyticsSnapshot> {
     const days = Math.min(Math.max(Math.trunc(requestedDays) || 14, 1), 365);
-    const unified = await this.ordersService.listUnified();
 
-    const ordersByType: Record<AdminOrderType, number> = { marketplace: 0, laundry: 0, snack: 0 };
-    for (const order of unified) ordersByType[order.type] += 1;
-
-    const [topSellers, topProducts, newUsersByMonth, walletFlow, settings] = await Promise.all([
-      this.computeSellerLeaderboard(),
-      this.computeProductLeaderboard(),
-      this.computeNewUsersByMonth(),
-      this.computeWalletFlow(),
-      this.settings.get(),
-    ]);
-
-    const gmvSeries = this.computeGmvSeries(unified, days);
+    const [{ ordersByType }, gmvSeries, topSellers, topProducts, newUsersByMonth, walletFlow, settings] =
+      await Promise.all([
+        this.orderTotals(),
+        this.computeGmvSeries(days),
+        this.computeSellerLeaderboard(),
+        this.computeProductLeaderboard(),
+        this.computeNewUsersByMonth(),
+        this.computeWalletFlow(),
+        this.settings.get(),
+      ]);
     const windowGmv = gmvSeries.reduce((sum, p) => sum + p.gmv, 0);
 
     return {
@@ -182,10 +183,93 @@ export class AdminDashboardService {
     };
   }
 
-  private computeGmvSeries(unified: AdminOrderSummary[], days: number): AnalyticsDailyPoint[] {
-    return lastNDays(days).map((date) => {
-      const dayOrders = unified.filter((o) => o.placedAt.slice(0, 10) === date);
-      return { date, gmv: dayOrders.reduce((sum, o) => sum + o.total, 0), orderCount: dayOrders.length };
+  /**
+   * Counts and sums across the three order-shaped tables, in the database.
+   *
+   * Six aggregates instead of three full table reads. `todayStart` is
+   * optional because the analytics screen wants the type breakdown but not
+   * "today" — asking for a count nothing renders is the same waste in
+   * miniature.
+   */
+  private async orderTotals(todayStart?: Date) {
+    const since = todayStart ? { gte: todayStart } : undefined;
+
+    const [orderAgg, bookingAgg, snackAgg, ordersToday, bookingsToday, snacksToday] = await Promise.all([
+      this.prisma.order.aggregate({ _sum: { total: true }, _count: { _all: true } }),
+      this.prisma.laundryBooking.aggregate({ _sum: { estimatedTotal: true }, _count: { _all: true } }),
+      this.prisma.snackOrder.aggregate({ _sum: { total: true }, _count: { _all: true } }),
+      since ? this.prisma.order.count({ where: { placedAt: since } }) : Promise.resolve(0),
+      since ? this.prisma.laundryBooking.count({ where: { createdAt: since } }) : Promise.resolve(0),
+      since ? this.prisma.snackOrder.count({ where: { createdAt: since } }) : Promise.resolve(0),
+    ]);
+
+    const ordersByType: Record<AdminOrderType, number> = {
+      marketplace: orderAgg._count._all,
+      laundry: bookingAgg._count._all,
+      snack: snackAgg._count._all,
+    };
+
+    return {
+      gmvTotal: round2(
+        Number(orderAgg._sum.total ?? 0) +
+          Number(bookingAgg._sum.estimatedTotal ?? 0) +
+          Number(snackAgg._sum.total ?? 0),
+      ),
+      ordersByType,
+      ordersTotalCount: ordersByType.marketplace + ordersByType.laundry + ordersByType.snack,
+      ordersTodayCount: ordersToday + bookingsToday + snacksToday,
+    };
+  }
+
+  /**
+   * Daily GMV for the last `days` days, grouped by date in SQL.
+   *
+   * Raw rather than `groupBy`, because Prisma cannot group on a derived
+   * value and the group key here is `date_trunc('day', ...)`. The
+   * alternative was reading every order ever placed and bucketing the
+   * strings in JavaScript, which is what this replaces.
+   *
+   * **The window boundary is a string, not a `Date`, on purpose.** These
+   * columns are `timestamp without time zone` holding UTC, and
+   * `date_trunc` here runs with no zone — but a JS `Date` bound as a
+   * parameter goes through the driver's timezone conversion on the way in.
+   * On a connection with `timezone = Asia/Kolkata` that moved the start of
+   * the window forward by 5½ hours, so the oldest day in the chart
+   * silently lost every order placed before 05:30 UTC. Caught by checking
+   * the endpoint against the same aggregate run by hand in psql — the
+   * numbers disagreed on exactly one day, which is what this class of bug
+   * looks like from the outside. Casting a literal keeps both sides in the
+   * one frame the data is actually stored in.
+   */
+  private async computeGmvSeries(days: number): Promise<AnalyticsDailyPoint[]> {
+    const dates = lastNDays(days);
+    const since = `${dates[0]} 00:00:00`;
+
+    const rows = await this.prisma.$queryRaw<{ date: string; gmv: number; order_count: bigint }[]>`
+      SELECT to_char(d, 'YYYY-MM-DD') AS date, SUM(amount)::float8 AS gmv, COUNT(*) AS order_count
+      FROM (
+        SELECT date_trunc('day', "placedAt") AS d, "total" AS amount
+          FROM "Order" WHERE "placedAt" >= ${since}::timestamp
+        UNION ALL
+        SELECT date_trunc('day', "createdAt"), "estimatedTotal"
+          FROM "LaundryBooking" WHERE "createdAt" >= ${since}::timestamp
+        UNION ALL
+        SELECT date_trunc('day', "createdAt"), "total"
+          FROM "SnackOrder" WHERE "createdAt" >= ${since}::timestamp
+      ) AS all_orders
+      GROUP BY d
+    `;
+
+    const byDate = new Map(rows.map((row) => [row.date, row]));
+    // Driven by `lastNDays`, not by what the query returned — a day with
+    // no orders is a zero on the chart, not a missing column.
+    return dates.map((date) => {
+      const row = byDate.get(date);
+      return {
+        date,
+        gmv: row ? round2(row.gmv) : 0,
+        orderCount: row ? Number(row.order_count) : 0,
+      };
     });
   }
 

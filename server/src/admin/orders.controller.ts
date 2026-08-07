@@ -5,6 +5,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminOrdersService, AdminOrderType } from './orders.service';
 import { OrderStatusOverrideDto } from './dto/order-status-override.dto';
+import { ListAdminOrdersQueryDto } from './dto/list-admin-orders.query.dto';
 
 const VALID_TYPES: AdminOrderType[] = ['marketplace', 'laundry', 'snack'];
 
@@ -22,8 +23,8 @@ export class AdminOrdersController {
   constructor(private readonly ordersService: AdminOrdersService) {}
 
   @Get()
-  list(@Query('type') type?: string) {
-    return this.ordersService.listUnified(type ? parseType(type) : undefined);
+  list(@Query() query: ListAdminOrdersQueryDto) {
+    return this.ordersService.listUnified(query);
   }
 
   @Get(':type/:id')

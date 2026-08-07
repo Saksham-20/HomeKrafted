@@ -9,6 +9,7 @@ import { mapLaundryBooking } from '../laundry/laundry.mapper';
 import { mapSnackOrder } from '../seller/mappers/snack-order.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
+import { ListAdminOrdersQueryDto } from './dto/list-admin-orders.query.dto';
 
 export type AdminOrderType = 'marketplace' | 'laundry' | 'snack';
 
@@ -69,6 +70,70 @@ export interface AdminOrderSummary {
  * write. Snack orders have no linked `userId`/wallet (WhatsApp-origin,
  * see `SnackOrder`'s schema doc comment) so refunding one is rejected.
  */
+const DEFAULT_ORDER_PAGE_SIZE = 25;
+
+/**
+ * How deep `?page=` may go. Each page reads `page × pageSize` rows from
+ * *each* of the three sources (see `listUnified`), so an uncapped page
+ * number is a way to ask for the whole platform's order history one query
+ * string at a time — precisely what this pagination exists to prevent.
+ * Search is how a specific old order gets found.
+ */
+const MAX_ORDER_PAGE = 40;
+
+/**
+ * Hard ceiling on a CSV export. Reached, the file is short and the admin
+ * narrows the date range — which is recoverable. Unbounded, the request
+ * is what takes the API down, which is not.
+ */
+export const EXPORT_ROW_CAP = 20000;
+
+export interface PaginatedOrders {
+  items: AdminOrderSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/**
+ * The search predicates, one per source table, matching the three fields
+ * the admin list row actually shows: reference, customer, HomeKrafter.
+ *
+ * `mode: 'insensitive'` throughout — an admin typing a customer's name in
+ * lower case is the normal case, and a case-sensitive search that returns
+ * nothing reads as "this order does not exist".
+ */
+function marketplaceSearchWhere(q?: string): Prisma.OrderWhereInput {
+  if (!q) return {};
+  const contains = { contains: q, mode: 'insensitive' as const };
+  return {
+    OR: [
+      { orderNumber: contains },
+      { user: { name: contains } },
+      { items: { some: { product: { vendor: { name: contains } } } } },
+    ],
+  };
+}
+
+function laundrySearchWhere(q?: string): Prisma.LaundryBookingWhereInput {
+  if (!q) return {};
+  const contains = { contains: q, mode: 'insensitive' as const };
+  return {
+    OR: [{ bookingNumber: contains }, { user: { name: contains } }, { partner: { displayName: contains } }],
+  };
+}
+
+function snackSearchWhere(q?: string): Prisma.SnackOrderWhereInput {
+  if (!q) return {};
+  const contains = { contains: q, mode: 'insensitive' as const };
+  // A snack order's "reference" is its own id upper-cased, and its
+  // customer name is stored on the row (there is no `User` — these arrive
+  // over WhatsApp from someone who may never have signed in).
+  return {
+    OR: [{ id: contains }, { customerName: contains }, { seller: { displayName: contains } }],
+  };
+}
+
 @Injectable()
 export class AdminOrdersService {
   constructor(
@@ -80,16 +145,87 @@ export class AdminOrdersService {
     private readonly orderNotifications: OrderNotificationsService,
   ) {}
 
-  async listUnified(type?: AdminOrderType): Promise<AdminOrderSummary[]> {
-    const [marketplace, laundry, snack] = await Promise.all([
-      !type || type === 'marketplace' ? this.listMarketplace() : Promise.resolve([]),
-      !type || type === 'laundry' ? this.listLaundry() : Promise.resolve([]),
-      !type || type === 'snack' ? this.listSnack() : Promise.resolve([]),
+  /**
+   * One page of every order-shaped row on the platform, newest first.
+   *
+   * **Why each source is read `depth` deep and not fully.** This is a
+   * union of three unrelated tables that only share a sort key, so there
+   * is no single query to page. But any row in the newest `depth` rows
+   * *globally* must also be in the newest `depth` rows of its own table —
+   * a row cannot be 60th-newest overall while being 200th-newest within
+   * its own source. Taking `depth` from each and merging is therefore
+   * exactly correct, and reads at most `3 × depth` rows instead of three
+   * whole tables. It used to read all three in full, with every relation,
+   * on every visit to `/admin/orders`.
+   *
+   * The cost is that deep pages read proportionally more, which is why
+   * `page` is capped: page 200 of an order list is not a thing anybody
+   * needs, and search is the tool for finding one specific order.
+   */
+  async listUnified(query: ListAdminOrdersQueryDto = {}): Promise<PaginatedOrders> {
+    const type = query.type;
+    const page = Math.min(query.page ?? 1, MAX_ORDER_PAGE);
+    const pageSize = query.pageSize ?? DEFAULT_ORDER_PAGE_SIZE;
+    const q = query.q?.trim() || undefined;
+    const depth = page * pageSize;
+
+    const wants = (kind: AdminOrderType) => !type || type === kind;
+
+    const [marketplace, laundry, snack, total] = await Promise.all([
+      wants('marketplace') ? this.listMarketplace(q, depth) : Promise.resolve([]),
+      wants('laundry') ? this.listLaundry(q, depth) : Promise.resolve([]),
+      wants('snack') ? this.listSnack(q, depth) : Promise.resolve([]),
+      this.countUnified(type, q),
     ]);
 
-    return [...marketplace, ...laundry, ...snack].sort(
+    const merged = [...marketplace, ...laundry, ...snack].sort(
       (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime(),
     );
+
+    const start = (page - 1) * pageSize;
+    return { items: merged.slice(start, start + pageSize), page, pageSize, total };
+  }
+
+  /**
+   * Every order since `since`, for the CSV export, capped.
+   *
+   * An export legitimately wants more than a page — that is what it is
+   * for — but "more than a page" is not "however many there are". The cap
+   * is the difference between a slow download and an admin clicking
+   * Export on a platform with a year of orders and taking the API's
+   * memory with it. `since` is applied in the query rather than by
+   * filtering the result, which is what made the date range cost the same
+   * as no date range at all.
+   */
+  async listForExport(since?: Date, cap = EXPORT_ROW_CAP): Promise<AdminOrderSummary[]> {
+    const [marketplace, laundry, snack] = await Promise.all([
+      this.listMarketplace(undefined, cap, since),
+      this.listLaundry(undefined, cap, since),
+      this.listSnack(undefined, cap, since),
+    ]);
+    return [...marketplace, ...laundry, ...snack]
+      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime())
+      .slice(0, cap);
+  }
+
+  /**
+   * The three counts, added up. Separate from the page read because a
+   * count over an index is cheap and the alternative — inferring a total
+   * from a page — cannot distinguish "the last page" from "as deep as we
+   * looked".
+   */
+  private async countUnified(type: AdminOrderType | undefined, q?: string): Promise<number> {
+    const wants = (kind: AdminOrderType) => !type || type === kind;
+    const [marketplace, laundry, snack] = await Promise.all([
+      wants('marketplace')
+        ? this.prisma.order.count({ where: marketplaceSearchWhere(q) })
+        : Promise.resolve(0),
+      wants('laundry')
+        ? this.prisma.laundryBooking.count({ where: laundrySearchWhere(q) })
+        : Promise.resolve(0),
+      wants('snack') ? this.prisma.snackOrder.count({ where: snackSearchWhere(q) }) : Promise.resolve(0),
+    ]);
+    return marketplace + laundry + snack;
   }
 
   async getDetail(type: AdminOrderType, id: string) {
@@ -225,8 +361,13 @@ export class AdminOrdersService {
   // (vendor/partner/seller/customer) rather than N+1 querying per row.
   // -----------------------------------------------------------------
 
-  private async listMarketplace(): Promise<AdminOrderSummary[]> {
-    const orders = await this.prisma.order.findMany({ include: ORDER_INCLUDE, orderBy: { placedAt: 'desc' } });
+  private async listMarketplace(q: string | undefined, depth: number, since?: Date): Promise<AdminOrderSummary[]> {
+    const orders = await this.prisma.order.findMany({
+      where: { ...marketplaceSearchWhere(q), ...(since ? { placedAt: { gte: since } } : {}) },
+      include: ORDER_INCLUDE,
+      orderBy: { placedAt: 'desc' },
+      take: depth,
+    });
     if (orders.length === 0) return [];
 
     const userIds = [...new Set(orders.map((o) => o.userId))];
@@ -266,8 +407,13 @@ export class AdminOrdersService {
     });
   }
 
-  private async listLaundry(): Promise<AdminOrderSummary[]> {
-    const bookings = await this.prisma.laundryBooking.findMany({ include: BOOKING_INCLUDE, orderBy: { createdAt: 'desc' } });
+  private async listLaundry(q: string | undefined, depth: number, since?: Date): Promise<AdminOrderSummary[]> {
+    const bookings = await this.prisma.laundryBooking.findMany({
+      where: { ...laundrySearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}) },
+      include: BOOKING_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: depth,
+    });
     if (bookings.length === 0) return [];
 
     const userIds = [...new Set(bookings.map((b) => b.userId))];
@@ -295,8 +441,13 @@ export class AdminOrdersService {
     }));
   }
 
-  private async listSnack(): Promise<AdminOrderSummary[]> {
-    const orders = await this.prisma.snackOrder.findMany({ include: SNACK_ORDER_INCLUDE, orderBy: { createdAt: 'desc' } });
+  private async listSnack(q: string | undefined, depth: number, since?: Date): Promise<AdminOrderSummary[]> {
+    const orders = await this.prisma.snackOrder.findMany({
+      where: { ...snackSearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}) },
+      include: SNACK_ORDER_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+      take: depth,
+    });
     if (orders.length === 0) return [];
 
     const sellerIds = [...new Set(orders.map((o) => o.sellerId))];

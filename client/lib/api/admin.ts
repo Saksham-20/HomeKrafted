@@ -444,9 +444,38 @@ function sellerNameForSnackOrder(order: SnackOrder): string[] {
   return [sellers.find((s) => s.id === order.sellerId)?.displayName ?? "Unknown seller"];
 }
 
-export async function getAllOrdersUnified(): Promise<AdminOrderSummary[]> {
+/** Filters for `GET /admin/orders` — applied server-side in real mode. */
+export interface AdminOrdersQuery {
+  type?: AdminOrderType;
+  q?: string;
+  page?: number;
+}
+
+export interface AdminOrdersPage {
+  items: AdminOrderSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/**
+ * One page of the unified order list.
+ *
+ * The search and the module filter are the **server's** job now. They used
+ * to run in the browser over a list containing every order ever placed —
+ * which worked, but only because the endpoint had no limit. Filtering a
+ * page client-side would quietly turn "search" into "search the twenty-five
+ * rows on screen", and an admin looking up a reference would be told the
+ * order does not exist.
+ */
+export async function getAllOrdersUnified(query: AdminOrdersQuery = {}): Promise<AdminOrdersPage> {
   if (!isMockMode()) {
-    return http.get<AdminOrderSummary[]>("/admin/orders");
+    const params = new URLSearchParams();
+    if (query.type) params.set("type", query.type);
+    if (query.q) params.set("q", query.q);
+    if (query.page && query.page > 1) params.set("page", String(query.page));
+    const qs = params.toString();
+    return http.get<AdminOrdersPage>(`/admin/orders${qs ? `?${qs}` : ""}`);
   }
 
   const [placedOrders, placedBookings, snackOrders] = await Promise.all([
@@ -491,9 +520,22 @@ export async function getAllOrdersUnified(): Promise<AdminOrderSummary[]> {
     placedAt: order.createdAt,
   }));
 
-  return [...marketplace, ...laundry, ...snacks].sort(
-    (a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime(),
-  );
+  const q = query.q?.trim().toLowerCase();
+  const items = [...marketplace, ...laundry, ...snacks]
+    .filter((o) => !query.type || o.type === query.type)
+    .filter(
+      (o) =>
+        !q ||
+        o.reference.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.sellerNames.some((name) => name.toLowerCase().includes(q)),
+    )
+    .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+
+  // Mock mode filters the seeded set in one page — it exists for offline
+  // frontend work, and paging a fixture teaches nothing the real path
+  // does not. The shape matches so no caller needs a branch.
+  return { items, page: 1, pageSize: items.length, total: items.length };
 }
 
 /**
@@ -505,8 +547,10 @@ export async function getAllOrdersUnified(): Promise<AdminOrderSummary[]> {
  * pattern `lib/api/products.ts#getProductById` uses.
  */
 export async function getAdminOrderById(type: AdminOrderType, id: string): Promise<AdminOrderSummary | undefined> {
-  const all = await getAllOrdersUnified();
-  return all.find((o) => o.id === `${type}:${id}`);
+  // Scoped to the one module, so this reads a page of that type rather
+  // than the whole platform to find a single row.
+  const { items } = await getAllOrdersUnified({ type });
+  return items.find((o) => o.id === `${type}:${id}`);
 }
 
 /** Full record fetch for `/admin/orders/[type]/[id]` — the summary above is deliberately thin (list-row shaped); the detail screen needs the real `Order`/`LaundryBooking`/`SnackOrder` for its line items. */
@@ -573,7 +617,8 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
     return http.get<AdminDashboardSnapshot>("/admin/dashboard");
   }
 
-  const unified = await getAllOrdersUnified();
+  // Mock mode only — the real dashboard is SQL aggregates server-side.
+  const { items: unified } = await getAllOrdersUnified();
   const today = new Date().toISOString().slice(0, 10);
 
   const gmvTotal = unified.reduce((sum, o) => sum + o.total, 0);
@@ -1274,7 +1319,8 @@ function last14Days(): string[] {
 }
 
 async function computeGmvSeries(): Promise<AnalyticsDailyPoint[]> {
-  const unified = await getAllOrdersUnified();
+  // Mock mode only — the real series is a grouped SQL query server-side.
+  const { items: unified } = await getAllOrdersUnified();
   return last14Days().map((date) => {
     const dayOrders = unified.filter((o) => o.placedAt.slice(0, 10) === date);
     return {

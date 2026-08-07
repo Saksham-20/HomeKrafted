@@ -1239,7 +1239,7 @@ record's id}`.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /admin/orders` | `?type=marketplace\|laundry\|snack` optional filter. Every order/booking/snack-order, newest first. |
+| `GET /admin/orders` | One page of every order/booking/snack-order, newest first: `{ items, page, pageSize, total }`. Query: `type` (`marketplace\|laundry\|snack`), `q` (matches reference, customer name or HomeKrafter name, case-insensitive), `page` (capped at 40), `pageSize` (default 25, max 100). **M23: this used to return all three tables in full, and the screen searched them in the browser** — which stops working the moment the response is a page, so `q` is now the server's job. |
 | `GET /admin/orders/:type/:id` | Full record (line items included) — `400` for an invalid `:type`. |
 | `POST /admin/orders/:type/:id/refund` | `marketplace` delegates straight to `OrdersService.refundOrder` (idempotent via `refundStatus`). `laundry` credits the booking owner's wallet via `WalletService`'s ledger primitives directly (`category: "refund"`, `refType: "laundryBooking"`) — idempotent-by-content (a prior refund `WalletTransaction` for this exact booking short-circuits to a no-op), since `LaundryBooking` has no `refundStatus` field to flip. `snack` is `400` — a `SnackOrder` has no `userId`/wallet to credit (WhatsApp-origin, no registered account). Supports `Idempotency-Key`. Audited (`order.refund`). |
 | `PATCH /admin/orders/:type/:id/status` | Body: `{ status }` (frontend-hyphenated form, e.g. `"out-for-delivery"`). A manual override distinct from a seller's one-step-at-a-time `advance` — jumps straight to any valid status for the type. `400` for a status not valid for that type. Audited (`order.status_override`). |

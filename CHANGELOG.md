@@ -99,6 +99,42 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — three admin screens that read the whole platform
+
+`GET /admin/orders` read three whole tables — every marketplace `Order`,
+every `LaundryBooking`, every `SnackOrder`, each with relations — on every
+visit, and `/admin/orders` then filtered and searched the result in the
+browser. It is now a page: `{ items, page, pageSize, total }`, 25 a page,
+with `?q=` and `?type=` applied in SQL.
+
+**Search had to move with it.** A page plus a client-side filter means
+"search the rows you happen to be looking at" — an admin typing a real
+order reference would be told no orders match, because the order was on
+page 2. The e2e for this searches for exactly that order.
+
+Paging a union of three unrelated tables is done by reading `page ×
+pageSize` from each and merging: any row in the newest N globally must
+also be in the newest N of its own table, so this is exact, and it reads
+at most 3N rows rather than three tables. Deep pages cost proportionally
+more, so `page` is capped at 40 — search is the tool for finding one old
+order. The CSV export keeps its wider read but gained a 20,000-row ceiling
+and applies its date range in the query rather than filtering afterwards.
+
+`GET /admin/dashboard` and `GET /admin/analytics` loaded the same three
+tables to compute sums and counts. They are now aggregates: six
+`aggregate`/`count` calls for the dashboard, and one grouped `UNION ALL`
+for the daily GMV series.
+
+**That rewrite shipped a bug, which is why it has its own test.** The
+window boundary was bound as a JS `Date`, and the driver applied the
+connection's timezone on the way in — on `Asia/Kolkata` this moved the
+start of the window forward 5½ hours, so the oldest day of the chart
+silently lost every order placed before 05:30 UTC while every other day
+stayed correct. Found by running the same aggregate by hand in psql and
+comparing: the two disagreed on exactly one day (₹1,427 against ₹1,847).
+The fix casts a literal so both sides stay in the frame the data is stored
+in, and the regression test fails when it is reverted.
+
 ### Fixed — every request looked like it came from the same person
 
 `app.set('trust proxy', 1)` in `server/src/main.ts`. Production serves the

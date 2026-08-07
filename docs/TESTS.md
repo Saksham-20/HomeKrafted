@@ -5,9 +5,9 @@ rule shipped in M15/M16 had been *verified by measurement* against a
 running API, and none of it was guarded against being undone.
 
 ```
-cd client && npm test          # 88 tests, no setup
-cd server && npm test          # 88 tests, no setup
-cd server && npm run test:e2e  # 240 tests, needs a database (below)
+cd client && npm test          # no setup
+cd server && npm test          # no setup
+cd server && npm run test:e2e  # needs a database (below)
 ```
 
 CI runs all three plus typecheck, lint and both builds — see
@@ -148,6 +148,9 @@ Grouped by the rule, not by the file, because the rules are the point.
 | A payout **records** a settlement rather than performing one; both decisions are one-way | `payouts.e2e-spec.ts` |
 | Seller revenue is their **line-item share**, not the order total; ratios are `null`, not `0` | `seller-analytics.e2e-spec.ts` |
 | Role gating across all three surfaces, and row scoping between two HomeKrafters | `rbac.e2e-spec.ts` |
+| The wallet ledger comes back one capped page at a time, walks the whole history exactly once across pages, and never returns another wallet's row whatever cursor is passed — the `id` tiebreaker is what stops 60 same-millisecond rows from duplicating and skipping | `e2e/wallet-pagination.e2e-spec.ts` |
+| The admin order list is a page with a real total, pages without repeating or dropping a row, and **finds by search an order that is not on the first page** — the thing a client-side filter over a page silently cannot do | `e2e/admin-orders-pagination.e2e-spec.ts` |
+| Dashboard and analytics figures are aggregates computed from the rows, and the oldest day of the GMV window keeps an order placed in its small hours — the timezone shift that dropped everything before 05:30 UTC from exactly one column | `e2e/admin-analytics.e2e-spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |
 | Absence is never a closure: no working days = open every day, no prep time = 90 minutes | `availability.e2e-spec.ts` |
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |

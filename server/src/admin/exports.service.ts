@@ -73,10 +73,8 @@ export class AdminExportsService {
 
   /** Every module's orders in one sheet — the unified view `/admin/orders` already shows. */
   private async orders(since?: Date): Promise<string> {
-    const all = await this.ordersService.listUnified();
-    const rows = all
-      .filter((o) => !since || new Date(o.placedAt) >= since)
-      .map((o) => [o.id, o.type, o.status, o.customerName, o.placedAt, o.total]);
+    const all = await this.ordersService.listForExport(since);
+    const rows = all.map((o) => [o.id, o.type, o.status, o.customerName, o.placedAt, o.total]);
     return toCsv(
       ['Order ID', 'Module', 'Status', 'Customer', 'Placed at', 'Total (INR)'],
       rows,
