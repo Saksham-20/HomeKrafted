@@ -275,6 +275,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       const order = await createRazorpayOrder({ purpose: "topup", amount });
+      // The server has just told us it minted a *mock* order because it has
+      // no usable Razorpay keys. Handing that to the real Checkout SDK is
+      // the hang described in `getPaymentsConfig` — the widget 401s, hides
+      // itself, and never calls back, leaving this promise pending and the
+      // page scroll-locked. Callers gate on `getPaymentsConfig()` before
+      // reaching here; this is the second lock on the same door.
+      if (order.mock) {
+        throw new Error("PAYMENTS_UNAVAILABLE");
+      }
       await new Promise<void>((resolve, reject) => {
         openRazorpayCheckout({
           keyId: order.keyId || RAZORPAY_KEY_ID,

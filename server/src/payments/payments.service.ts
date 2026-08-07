@@ -47,6 +47,28 @@ export class PaymentsService {
   }
 
   /**
+   * Whether a card/UPI payment can actually complete — served publicly by
+   * `GET /payments/config` so a client can decide **before** it offers the
+   * option, not after it has already created an order it cannot collect.
+   *
+   * The audit found the alternative: `createOrder` returns `mock: true`
+   * and both callers threw the flag away and opened the real Razorpay
+   * Checkout SDK with the placeholder key. Razorpay's servers 401, the
+   * widget hides itself, and neither `handler` nor `ondismiss` ever fires
+   * — so the page is left scroll-locked (`document.body { overflow:
+   * hidden }`, set by the SDK) with the awaited promise pending forever.
+   * On the wallet that is a dead "Top up" button; at checkout it strands a
+   * real `Order` at `pending_payment`.
+   *
+   * Deliberately derived from the *server's* env rather than from
+   * `NEXT_PUBLIC_RAZORPAY_KEY_ID`: the key that decides whether a payment
+   * can be captured is this one, and the two can disagree.
+   */
+  cardPaymentsEnabled(): boolean {
+    return !this.isMockMode();
+  }
+
+  /**
    * Opens a Razorpay order for either an existing Homekrafted `Order`
    * (`purpose: "order"` — amount is `Order.total`, read fresh from the DB,
    * the client's `amount` field if any is ignored) or a wallet top-up

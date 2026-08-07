@@ -58,3 +58,28 @@ export async function createRazorpayOrder(
 ): Promise<RazorpayOrderResult> {
   return http.post<RazorpayOrderResult>("/payments/razorpay/order", input);
 }
+
+export interface PaymentsConfig {
+  /** `false` when this deployment has no usable Razorpay keys — see the server's `PaymentsService.cardPaymentsEnabled`. */
+  cardPaymentsEnabled: boolean;
+}
+
+/**
+ * `GET /payments/razorpay/config` — whether a card/UPI payment can
+ * complete here.
+ *
+ * Callers must check this **before offering the option**, not after
+ * creating something that needs collecting. Opening Razorpay Checkout
+ * against an unconfigured key does not fail loudly: the widget hides
+ * itself and neither its success nor its dismiss callback ever fires, so
+ * an awaited promise hangs and the SDK's scroll lock stays on the page.
+ *
+ * Fails **closed** — an unreachable API reads as "not available" rather
+ * than routing a shopper into that hang.
+ */
+export async function getPaymentsConfig(): Promise<PaymentsConfig> {
+  if (isMockMode()) return { cardPaymentsEnabled: true };
+  return http
+    .get<PaymentsConfig>("/payments/razorpay/config")
+    .catch(() => ({ cardPaymentsEnabled: false }));
+}

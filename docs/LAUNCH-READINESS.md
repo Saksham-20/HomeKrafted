@@ -165,7 +165,7 @@ not happen. That is the dangerous shape: it looks fine.
 | What | Env | Without it | Blocks |
 |---|---|---|---|
 | **Twilio** (SMS/OTP) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | OTP codes only appear in the server log | **HomeKrafter onboarding**, phone sign-in for everyone |
-| **Razorpay live** | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Payments run a mock path — no money moves | **Taking payment** |
+| **Razorpay live** | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | No money moves. Since 2026-08-07 the UI **says so** rather than pretending: `GET /payments/razorpay/config` reports the truth, the wallet's Add money card reads "not available yet", and checkout disables the Card / UPI tile. Before that fix the buttons were live and opened a Checkout widget that hung silently (see `docs/API.md`) | **Taking payment** — a shopper whose wallet balance can't cover an order currently cannot check out at all |
 | **WhatsApp Cloud API** | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` | Snack orders and status updates are logged, never sent | **The entire snacks module**, whose only ordering channel is WhatsApp |
 | **SendGrid** (email) | `SENDGRID_API_KEY` | No transactional email at all | Order confirmations, receipts |
 | **`NEXT_PUBLIC_SITE_URL`** | client env | Canonicals and OG tags point at the wrong host | SEO, link previews |

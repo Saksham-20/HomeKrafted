@@ -99,6 +99,63 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — "Top up wallet" did nothing, silently, forever
+
+Found by clicking it.
+
+`POST /payments/razorpay/order` returns `mock: true` when the server has
+no usable Razorpay keys — it minted an `order_mock_…` id locally instead
+of calling Razorpay. Both callers read every other field of that response
+and dropped this one, then handed the fake id to the real `checkout.js`
+SDK with the placeholder key.
+
+That does not fail loudly, which is why it survived. Razorpay answers
+`401`, the widget sets its own container to `display: none`, and **neither
+the success handler nor `modal.ondismiss` ever fires** — so the promise
+awaiting one of them stays pending and the SDK's scroll lock
+(`document.body { overflow: hidden }`) is left behind. Measured in the
+browser: no modal, no error, no toast, no console message, and the page
+quietly stops scrolling. At checkout the same path ran *after* creating a
+real `Order`, stranding it at `pending_payment`.
+
+This is the state of every deployment there has ever been, production
+included — `docs/LAUNCH-READINESS.md` §1 has always listed the Razorpay
+keys as unset. So the two money entry points have been dead the whole
+time, presenting as live.
+
+- **`GET /payments/razorpay/config`** (public) reports whether a card
+  payment can actually complete. A client checks it *before* offering the
+  option rather than after creating something it cannot collect. Derived
+  from the server's env, not `NEXT_PUBLIC_RAZORPAY_KEY_ID` — the key that
+  decides whether a payment captures is that one, and the two can
+  disagree. It answers one boolean and discloses no key.
+- **The wallet's Add money card** is replaced with "not available yet"
+  when payments are off — the same shape as the paused auto-top-up card
+  beside it, and for the same reason: a dead control under a promise that
+  is false is worse than an honest absence. The auto-top-up card's own
+  copy ("top up manually above") is now conditional too, since it would
+  otherwise point at something that isn't there.
+- **Checkout disables the Card / UPI tile** and, when the wallet cannot
+  cover the total, refuses the order *before* creating it, saying exactly
+  why. Falling back to Razorpay for an uncovered balance was only ever
+  correct while Razorpay could collect.
+- Both call sites also check `mock` on the response itself. The config
+  fetch is the gate; this is the second lock on the same door.
+
+The client fetch **fails closed** — an unreachable API reads as "not
+available" rather than routing a shopper into the hang.
+
+Two guards, because there are two ways to undo this: an e2e spec asserts
+the endpoint is public, honest and key-free, and
+`client/lib/payments-guard.spec.ts` asserts no caller of
+`openRazorpayCheckout` ignores `mock` — verified by deleting the check and
+watching it fail.
+
+**Also fixed here:** a typed top-up amount that wasn't a positive number
+was silently swapped for the selected chip. Typing `-100` and pressing Top
+up opened a **₹500** charge with nothing said. Whatever is in the box is
+now what gets charged, or the form refuses it.
+
 ### Fixed — cancelling an order paid you
 
 Found by doing it in a browser and checking the wallet afterwards.

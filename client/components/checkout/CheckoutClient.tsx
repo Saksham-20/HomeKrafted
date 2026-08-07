@@ -20,6 +20,7 @@ import {
   createRazorpayOrder,
   getAddresses,
   getOrder,
+  getPaymentsConfig,
   getWallet,
   type CreateOrderLineInput,
 } from "@/lib/api";
@@ -82,14 +83,20 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
 
+  // `undefined` until the server answers, so no tile is offered on a guess.
+  const [cardPayments, setCardPayments] = useState<boolean | undefined>(undefined);
+
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAddresses(), getWallet()]).then(([addresses, w]) => {
-      if (cancelled) return;
-      setAddressList(addresses);
-      if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
-      setAccountReady(true);
-    });
+    Promise.all([getAddresses(), getWallet(), getPaymentsConfig()]).then(
+      ([addresses, w, payments]) => {
+        if (cancelled) return;
+        setAddressList(addresses);
+        if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
+        setCardPayments(payments.cardPaymentsEnabled);
+        setAccountReady(true);
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -123,8 +130,23 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
   const walletSufficient = walletBalance >= total;
+  // `false` only once the server has actually said so — `undefined` (still
+  // loading) must not read as "cards are off" and flip the tiles mid-render.
+  const cardPaymentsOff = cardPayments === false;
   // Derived, not stored — see `preferredPaymentMethod` above.
-  const paymentMethod: PaymentMethod = walletSufficient ? preferredPaymentMethod : "razorpay";
+  //
+  // Falling back to Razorpay when the wallet cannot cover the order is only
+  // correct while Razorpay can collect. With no keys configured it created
+  // a real `Order` and then hung on a Checkout widget that never calls back
+  // (see `getPaymentsConfig`), stranding the order at `pending_payment`. So
+  // when cards are off, wallet is the only method and an order that the
+  // balance cannot cover is refused *before* it is created.
+  const paymentMethod: PaymentMethod = cardPaymentsOff
+    ? "wallet"
+    : walletSufficient
+      ? preferredPaymentMethod
+      : "razorpay";
+  const cannotPay = cardPaymentsOff && !walletSufficient;
   const walletApplied = paymentMethod === "wallet" ? total : 0;
 
   async function addAddress() {
@@ -266,6 +288,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
     } else if (paymentMethod === "razorpay" && !mock) {
       try {
         const rzpOrder = await createRazorpayOrder({ purpose: "order", orderId: created.id });
+        // Mock order id = no usable Razorpay keys. Opening the SDK with one
+        // hangs forever (see `getPaymentsConfig`), so fail into the catch
+        // below, which at least tells the buyer their order is saved and
+        // unpaid. `cardPaymentsOff` should have prevented reaching here.
+        if (rzpOrder.mock) throw new Error("PAYMENTS_UNAVAILABLE");
         await new Promise<void>((resolve, reject) => {
           openRazorpayCheckout({
             keyId: rzpOrder.keyId || RAZORPAY_KEY_ID,
@@ -531,6 +558,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                   styles.paymentTile,
                   paymentMethod === "razorpay" && styles.paymentTileSelected,
                 )}
+                disabled={cardPaymentsOff}
                 onClick={() => setPreferredPaymentMethod("razorpay")}
                 aria-pressed={paymentMethod === "razorpay"}
               >
@@ -538,9 +566,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                 <span className={styles.paymentTileBody}>
                   <span className={styles.paymentTileTitle}>Card / UPI (Razorpay)</span>
                   <span className={styles.paymentTileHint}>
-                    {mock
-                      ? "Real payment integration lands in M8 — this is a stub."
-                      : "Razorpay test checkout — needs a real test key to fully complete."}
+                    {cardPaymentsOff
+                      ? "Not available yet — we're still setting up online payments."
+                      : mock
+                        ? "Real payment integration lands in M8 — this is a stub."
+                        : "Razorpay test checkout — needs a real test key to fully complete."}
                   </span>
                 </span>
               </button>
@@ -554,9 +584,14 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
             stickyOnMobile
             lines={summaryLines}
             cashbackLabel={
-              paymentMethod === "wallet"
-                ? `Paying with wallet · earn ${formatCurrency(cashback)} cashback`
-                : `Earn ${formatCurrency(cashback)} wallet cashback on this order`
+              // Not "paying with wallet" when the wallet cannot cover it —
+              // `paymentMethod` is forced to `wallet` while cards are off, so
+              // reading it alone would promise a payment that can't happen.
+              cannotPay
+                ? `Earn ${formatCurrency(cashback)} wallet cashback on this order`
+                : paymentMethod === "wallet"
+                  ? `Paying with wallet · earn ${formatCurrency(cashback)} cashback`
+                  : `Earn ${formatCurrency(cashback)} wallet cashback on this order`
             }
             footnote={
               shipping > 0
@@ -567,10 +602,21 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
             {/* Second location ask, right before money moves — see the
                 component for why this confirms rather than blocks. */}
             <DeliveryLocationConfirm />
-            <Button variant="primary" onClick={handlePlaceOrder} disabled={placing}>
+            <Button
+              variant="primary"
+              onClick={handlePlaceOrder}
+              disabled={placing || cannotPay || !accountReady}
+            >
               {placing ? "Placing order…" : "Place order"}
             </Button>
           </StickySummary>
+          {cannotPay && (
+            <p className={styles.formError} role="alert">
+              Your wallet balance is {formatCurrency(walletBalance)} and this order comes to{" "}
+              {formatCurrency(total)}. Card and UPI payments aren&apos;t available yet, so this
+              order can&apos;t be paid for right now.
+            </p>
+          )}
           {formError && <p className={styles.formError}>{formError}</p>}
         </aside>
       </div>

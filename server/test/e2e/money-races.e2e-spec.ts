@@ -368,6 +368,38 @@ describe('money paths under concurrency', () => {
 
       expect(second.body.razorpayOrderId).not.toBe(first.body.razorpayOrderId);
     });
+
+    /**
+     * Not a race — the audit's browser sweep. With placeholder keys (the
+     * state of every environment today, production included) the server
+     * mints a mock order and says so, and both clients threw the flag
+     * away and opened the real Razorpay Checkout SDK anyway. Razorpay
+     * 401s, the widget hides itself, and neither its success nor its
+     * dismiss callback fires — so the awaited promise never settles and
+     * the SDK's `overflow: hidden` stays on `document.body`. The wallet's
+     * Top up button did nothing at all, forever; checkout stranded a real
+     * `Order` at `pending_payment`.
+     *
+     * `GET /payments/razorpay/config` is what lets a client decide before
+     * offering the option instead of after creating something it cannot
+     * collect.
+     */
+    it('publishes whether a card payment can actually complete, to anyone', async () => {
+      const res = await h.api().get(`${API_PREFIX}/payments/razorpay/config`).expect(200);
+
+      // `test/e2e/env.ts` pins the `.env.example` placeholders, so this
+      // deployment cannot capture a payment and must say so.
+      expect(res.body).toEqual({ cardPaymentsEnabled: false });
+    });
+
+    it('never discloses the keys themselves', async () => {
+      const res = await h.api().get(`${API_PREFIX}/payments/razorpay/config`).expect(200);
+
+      // Public endpoint. It answers one question; a key id leaking through
+      // it would be a config disclosure on an unauthenticated URL.
+      expect(JSON.stringify(res.body)).not.toContain('rzp_test');
+      expect(Object.keys(res.body)).toEqual(['cardPaymentsEnabled']);
+    });
   });
 
   describe('a redelivered WhatsApp message creates one SnackOrder', () => {

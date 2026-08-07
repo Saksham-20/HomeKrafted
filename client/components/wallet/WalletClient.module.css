@@ -67,6 +67,24 @@
   padding: var(--hk-s5);
 }
 
+/* Mirrors `.autoTopupHeader` — same "label + state pill" row, used when
+   top-up is unavailable because no payment provider is configured. */
+.addMoneyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s2);
+}
+
+/* Same tone as `ReviewForm`'s `.error` — terracotta is the marketplace's
+   refusal colour and is AA on white at this size. */
+.amountError {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  margin-bottom: var(--hk-s3);
+}
+
 .amountGrid {
   margin: var(--hk-s4) 0 var(--hk-s4);
 }

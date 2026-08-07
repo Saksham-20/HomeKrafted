@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { Wallet as WalletIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { AmountPicker } from "@/components/ui/AmountPicker";
 import { TransactionRow } from "@/components/ui/TransactionRow";
 import { WalletBalanceCard } from "@/components/ui/WalletBalanceCard";
 import { SignedOutNotice } from "@/components/auth/SignedOutNotice";
+import { getPaymentsConfig } from "@/lib/api";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD, useWallet } from "@/lib/wallet/WalletContext";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -57,20 +58,48 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
 
   const [selectedAmount, setSelectedAmount] = useState(topupOptions[0] ?? 500);
   const [customAmount, setCustomAmount] = useState("");
+  const [amountError, setAmountError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  // Undefined until the answer is known, so the button never renders in a
+  // state the server has not confirmed.
+  const [cardPayments, setCardPayments] = useState<boolean | undefined>(undefined);
 
-  const customValue = customAmount ? Number(customAmount) : undefined;
-  const effectiveAmount = customValue !== undefined && customValue > 0 ? customValue : selectedAmount;
+  useEffect(() => {
+    let cancelled = false;
+    getPaymentsConfig().then((config) => {
+      if (!cancelled) setCardPayments(config.cardPaymentsEnabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // A typed amount is honoured exactly or refused — never quietly swapped
+  // for the selected chip. The audit typed `-100`, pressed Top up, and the
+  // page opened a ₹500 charge: `customValue > 0` failed, so the chip
+  // amount was substituted with nothing said. Whatever is in the box is
+  // what gets charged.
+  const trimmedCustom = customAmount.trim();
+  const customValue = trimmedCustom ? Number(trimmedCustom) : undefined;
+  const customIsValid =
+    customValue !== undefined && Number.isFinite(customValue) && customValue > 0;
+  const effectiveAmount = customValue === undefined ? selectedAmount : customValue;
   const bonus =
     effectiveAmount > TOPUP_BONUS_THRESHOLD ? Math.round(effectiveAmount * TOPUP_BONUS_RATE) : 0;
 
   function handlePickAmount(amount: number) {
     setSelectedAmount(amount);
     setCustomAmount("");
+    setAmountError(null);
   }
 
   async function handleTopUp() {
+    if (customValue !== undefined && !customIsValid) {
+      setAmountError("Enter an amount greater than ₹0, or pick one above.");
+      return;
+    }
+    setAmountError(null);
     if (!effectiveAmount || effectiveAmount <= 0) return;
     try {
       await topUp(effectiveAmount);
@@ -80,8 +109,12 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
           : `Added ${formatCurrency(effectiveAmount)} to your wallet`,
       );
       setCustomAmount("");
-    } catch {
-      setToast("Top-up wasn't completed — no charge was made.");
+    } catch (error) {
+      setToast(
+        error instanceof Error && error.message === "PAYMENTS_UNAVAILABLE"
+          ? "Adding money isn't available yet — no charge was made."
+          : "Top-up wasn't completed — no charge was made.",
+      );
     }
     window.setTimeout(() => setToast(null), 3500);
   }
@@ -133,6 +166,27 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
               lifetimeSaved={lifetimeSaved}
             />
 
+            {/*
+              Add money is only offered where money can actually move. With
+              no Razorpay keys the old card rendered in full and its button
+              opened a Checkout widget that 401s, hides itself and never
+              calls back — a dead control that also left the page
+              scroll-locked. Same reasoning as the paused auto-top-up card
+              below: say what is true, don't render a promise that isn't.
+            */}
+            {cardPayments === false ? (
+              <Card className={styles.addMoneyCard}>
+                <div className={styles.addMoneyHeader}>
+                  <span className={styles.sectionLabel}>Add money</span>
+                  <span className={styles.pausedPill}>Not available yet</span>
+                </div>
+                <p className={styles.autoTopupHint}>
+                  We&apos;re still setting up online payments, so the wallet can&apos;t be
+                  topped up from here yet. Your balance, cashback and refunds all work as
+                  normal.
+                </p>
+              </Card>
+            ) : (
             <Card className={styles.addMoneyCard}>
               <span className={styles.sectionLabel}>Add money</span>
               <AmountPicker
@@ -152,15 +206,25 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                     className={styles.customAmountInput}
                     placeholder="e.g. 1500"
                     value={customAmount}
-                    onChange={(event) => setCustomAmount(event.target.value)}
+                    aria-invalid={amountError ? true : undefined}
+                    aria-describedby={amountError ? "topup-amount-error" : undefined}
+                    onChange={(event) => {
+                      setCustomAmount(event.target.value);
+                      setAmountError(null);
+                    }}
                   />
                 </div>
               </label>
+              {amountError && (
+                <p className={styles.amountError} id="topup-amount-error" role="alert">
+                  {amountError}
+                </p>
+              )}
               <Button
                 variant="primary"
                 className={styles.topupButton}
                 onClick={handleTopUp}
-                disabled={!effectiveAmount}
+                disabled={!effectiveAmount || cardPayments === undefined}
               >
                 Top up wallet →
               </Button>
@@ -173,6 +237,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                 </p>
               )}
             </Card>
+            )}
 
             {/*
               Auto top-up is paused platform-wide: the credit it used to post
@@ -192,8 +257,10 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                 <span className={styles.pausedPill}>Paused</span>
               </div>
               <p className={styles.autoTopupHint}>
-                Auto top-up is paused while we move it onto a proper payment mandate. Top up
-                manually above — it takes a few seconds.
+                Auto top-up is paused while we move it onto a proper payment mandate.
+                {cardPayments === false
+                  ? " Adding money isn't available yet either — see above."
+                  : " Top up manually above — it takes a few seconds."}
               </p>
               {autoTopup.enabled && autoTopup.topupAmount > 0 && (
                 <p className={styles.autoTopupSavedRule}>

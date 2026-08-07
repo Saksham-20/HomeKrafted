@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Headers,
   HttpCode,
   HttpStatus,
@@ -20,6 +21,18 @@ import { PaymentsService } from './payments.service';
 @Controller('payments/razorpay')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
+
+  /**
+   * What this deployment can actually collect. `@Public()` because the
+   * checkout screen needs it before a shopper has necessarily signed in,
+   * and it discloses nothing — only whether a payment provider is
+   * configured, never which keys.
+   */
+  @Public()
+  @Get('config')
+  config() {
+    return { cardPaymentsEnabled: this.paymentsService.cardPaymentsEnabled() };
+  }
 
   @Post('order')
   createOrder(@CurrentUser() user: RequestUser, @Body() dto: CreateRazorpayOrderDto) {
