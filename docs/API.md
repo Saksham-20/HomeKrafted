@@ -151,6 +151,21 @@ All three return the same shape:
 | `PATCH /users/me/addresses/:id` | any authed role, own address only (404 otherwise) | updated `Address` |
 | `DELETE /users/me/addresses/:id` | any authed role, own address only | `204` |
 | `POST /users/me/addresses/:id/default` | any authed role, own address only | `Address` with `isDefault: true` |
+
+**`phone` and `pincode` are validated as of the 2026-08-07 audit**, on
+create and (via `PartialType`) on edit. Before that they were "a non-empty
+string" and nothing more: `phone: "not-a-phone"` with `pincode: "ABCDEF"`
+was accepted, stored, listed in the address book and shippable at
+checkout. The cost of that lands on the HomeKrafter — a delivery is routed
+by pincode and rescued by phone, so a malformed pair is a home cook who
+has cooked the food, set out to deliver it, and cannot find or call the
+buyer. `phone` uses `@IsPhoneNumber('IN')` rather than the region-less
+form, which demands strict E.164 and would have rejected a plain
+`9845012345`; `pincode` is `/^[1-9][0-9]{5}$/` — a format check, not a
+lookup against codes we serve, since coverage is a delivery-radius
+question decided elsewhere. See `addresses.e2e-spec.ts`.
+
+`PATCH /users/me` validates `phone` the same way, for the same reason.
 | `GET /users/:id` | **`admin` only** | any user's `PublicUser` — exists specifically to prove `RolesGuard` end to end against a real resource (see `UsersController`'s doc comment); a fuller admin user-management surface is M8.3/M11 scope |
 
 ## Uploads (M13 — real, `server/src/uploads/`)

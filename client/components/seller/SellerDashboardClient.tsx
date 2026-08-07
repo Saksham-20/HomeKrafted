@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerDashboard, type SellerDashboardSnapshot } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { Button } from "@/components/ui/Button";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { StatCard } from "./StatCard";
 import { AvailabilityPanel } from "./AvailabilityPanel";
@@ -38,6 +39,7 @@ export function SellerDashboardClient() {
   const { ready, seller } = useAuth();
   const [snapshot, setSnapshot] = useState<SellerDashboardSnapshot | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!ready || !seller) return;
@@ -46,6 +48,8 @@ export function SellerDashboardClient() {
       try {
         const snap = await getSellerDashboard(seller);
         if (!cancelled) setSnapshot(snap);
+      } catch {
+        if (!cancelled) setFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,6 +61,31 @@ export function SellerDashboardClient() {
 
   if (!ready || loading || !seller) {
     return <div className={styles.loading}>Loading your dashboard…</div>;
+  }
+
+  // A failed load used to fall through to the render below, where every
+  // `?? 0` turned "we could not reach the server" into "Today's orders 0,
+  // Today's revenue ₹0, Pending payout ₹0" — indistinguishable from a
+  // quiet morning. A home cook deciding whether to cook today is exactly
+  // the person who must not be shown invented zeroes.
+  if (failed) {
+    return (
+      <div>
+        <SellerPageHeader
+          title={`Hi, ${seller.displayName}`}
+          subtitle="We couldn't load today's numbers."
+        />
+        <div className={styles.loadFailed} role="alert">
+          <p>
+            Something went wrong fetching your dashboard, so the figures below are missing
+            rather than zero. Your orders and listings are unaffected.
+          </p>
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const s = snapshot;

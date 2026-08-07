@@ -6,6 +6,7 @@ import { Bell, Mail, MessageCircle, MessageSquare } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import {
+  apiErrorMessage,
   getNotificationPreferences,
   getNotifications,
   updateNotificationPreference,
@@ -55,6 +56,7 @@ export function NotificationsClient() {
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,11 +74,22 @@ export function NotificationsClient() {
   async function handleToggle(category: NotificationCategory, channel: NotificationChannel, checked: boolean) {
     const key = `${category}:${channel}`;
     setSavingKey(key);
+    setError(null);
     setPreferences((current) =>
       current.map((pref) => (pref.category === category ? { ...pref, [channel]: checked } : pref)),
     );
     try {
       await updateNotificationPreference(category, { [channel]: checked });
+    } catch (err) {
+      // The switch was flipped optimistically *before* the request, and
+      // nothing put it back when the request failed — so a failed save
+      // left the page showing a preference the server had never accepted.
+      // On a screen whose whole job is "what may we send you", that is the
+      // UI stating the opposite of the truth until the next reload.
+      setPreferences((current) =>
+        current.map((pref) => (pref.category === category ? { ...pref, [channel]: !checked } : pref)),
+      );
+      setError(apiErrorMessage(err, "Couldn't save that preference. Try again."));
     } finally {
       setSavingKey((current) => (current === key ? null : current));
     }
@@ -87,7 +100,16 @@ export function NotificationsClient() {
     setNotifications((current) =>
       current.map((n) => (n.id === notification.id ? { ...n, read: nextRead } : n)),
     );
-    await setNotificationRead(notification.id, nextRead);
+    try {
+      await setNotificationRead(notification.id, nextRead);
+    } catch {
+      // Same optimistic-update problem, lower stakes — put the dot back
+      // rather than showing something as read that the server still has
+      // as unread. No message: a read marker is not worth an alert.
+      setNotifications((current) =>
+        current.map((n) => (n.id === notification.id ? { ...n, read: !nextRead } : n)),
+      );
+    }
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -111,6 +133,11 @@ export function NotificationsClient() {
 
       <Card className={styles.prefsCard}>
         <span className={styles.sectionLabel}>Preferences</span>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
         <div className={styles.prefsTable} role="table">
           <div className={clsx(styles.prefsRow, styles.prefsHeadRow)} role="row">
             <span className={styles.prefsCategoryHead} role="columnheader">

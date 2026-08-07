@@ -38,3 +38,18 @@
   border-color: var(--hk-pine);
   color: var(--hk-pine);
 }
+
+/* Shown instead of the stat grid when the dashboard fetch failed — see
+   the component for why zeroes are not an acceptable fallback here. */
+.loadFailed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5);
+  font-size: 14px;
+  color: var(--hk-muted);
+}

@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
-import { createSupportTicket, type CreateSupportTicketInput } from "@/lib/api";
+import { apiErrorMessage, createSupportTicket, type CreateSupportTicketInput } from "@/lib/api";
 import { getAutoReply } from "@/lib/support/autoReply";
 import { MyTickets } from "./MyTickets";
 import type { SupportChannel, SupportTicket } from "@/lib/types";
@@ -170,16 +170,19 @@ function TicketForm() {
   const [form, setForm] = useState(EMPTY_TICKET_FORM);
   const [busy, setBusy] = useState(false);
   const [ticket, setTicket] = useState<SupportTicket | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const valid = form.subject.trim().length > 0 && form.message.trim().length > 0;
 
   function set<K extends keyof typeof EMPTY_TICKET_FORM>(key: K, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+    setError(null);
   }
 
   async function handleSubmit() {
     if (!valid || busy) return;
     setBusy(true);
+    setError(null);
     try {
       const input: CreateSupportTicketInput = {
         subject: form.subject.trim(),
@@ -189,6 +192,11 @@ function TicketForm() {
       };
       const created = await createSupportTicket(input);
       setTicket(created);
+    } catch (err) {
+      // Somebody has just typed out a problem they are having. Losing that
+      // silently — which is what no `catch` here meant — is the worst
+      // possible moment for the app to say nothing.
+      setError(apiErrorMessage(err, "Couldn't send your message. Try again."));
     } finally {
       setBusy(false);
     }
@@ -260,6 +268,11 @@ function TicketForm() {
         value={form.message}
         onChange={(event) => set("message", event.target.value)}
       />
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
       <Button variant="primary" onClick={handleSubmit} disabled={!valid || busy} className={styles.submitButton}>
         Submit ticket
       </Button>

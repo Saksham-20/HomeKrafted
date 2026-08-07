@@ -13,6 +13,7 @@ import {
   setDefaultAddress,
   updateAddress,
   type AddressInput,
+  apiErrorMessage,
 } from "@/lib/api";
 import type { Address } from "@/lib/types";
 import styles from "./AddressBookClient.module.css";
@@ -42,6 +43,27 @@ function isFormValid(form: AddressInput): boolean {
 }
 
 /**
+ * The two fields a delivery actually depends on, checked for shape.
+ *
+ * Kept deliberately loose on the phone — people type `98450 12345`,
+ * `+91 98450 12345` and `098450-12345`, and all three are the same
+ * number. Ten digits after stripping punctuation and an optional country
+ * code is the real requirement. The pincode is exact: six digits, never
+ * leading zero (the first digit is the postal region, 1–8, with 9 for
+ * Army Postal Service).
+ */
+function formatError(form: AddressInput): string | null {
+  const digits = form.phone.replace(/[\s\-()]/g, "").replace(/^\+?91/, "");
+  if (!/^[0-9]{10}$/.test(digits)) {
+    return "Enter a valid 10-digit phone number — a HomeKrafter needs it to find you.";
+  }
+  if (!/^[1-9][0-9]{5}$/.test(form.pincode.trim())) {
+    return "Enter a valid 6-digit pincode.";
+  }
+  return null;
+}
+
+/**
  * Address book CRUD (M7a; M8.4a real). Full add/edit/delete/set-default
  * over the address book, backed by `lib/api/addresses.ts`'s owner-scoped
  * `/users/me/addresses*` endpoints. Fetches its own initial list on mount
@@ -58,6 +80,7 @@ export function AddressBookClient() {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState<AddressInput>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,11 +124,24 @@ export function AddressBookClient() {
 
   function set<K extends keyof AddressInput>(key: K, value: AddressInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    setError(null);
   }
 
   async function handleSave() {
     if (!isFormValid(form)) return;
+
+    // Said here as well as by the server, because a delivery address is
+    // worth naming the specific field for rather than round-tripping a
+    // combined validation message. The server is still the authority —
+    // see `CreateAddressDto`.
+    const formatProblem = formatError(form);
+    if (formatProblem) {
+      setError(formatProblem);
+      return;
+    }
+
     setBusy(true);
+    setError(null);
     try {
       if (editingId) {
         const updated = await updateAddress(editingId, form);
@@ -117,6 +153,11 @@ export function AddressBookClient() {
         setAddresses((current) => [...current, created]);
       }
       cancelForm();
+    } catch (err) {
+      // The server now refuses a malformed phone or pincode (it used to
+      // store them — see `CreateAddressDto`). Without this catch that
+      // refusal was invisible: Save did nothing and said nothing.
+      setError(apiErrorMessage(err, "Couldn't save this address. Try again."));
     } finally {
       setBusy(false);
     }
@@ -124,6 +165,7 @@ export function AddressBookClient() {
 
   async function handleDelete(id: string) {
     setBusy(true);
+    setError(null);
     try {
       await deleteAddress(id);
       setAddresses((current) => {
@@ -135,6 +177,8 @@ export function AddressBookClient() {
         return next;
       });
       if (editingId === id) cancelForm();
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't delete this address. Try again."));
     } finally {
       setBusy(false);
     }
@@ -142,9 +186,12 @@ export function AddressBookClient() {
 
   async function handleSetDefault(id: string) {
     setBusy(true);
+    setError(null);
     try {
       await setDefaultAddress(id);
       setAddresses((current) => current.map((a) => ({ ...a, isDefault: a.id === id })));
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't change your default address. Try again."));
     } finally {
       setBusy(false);
     }
@@ -250,6 +297,11 @@ export function AddressBookClient() {
             value={form.instructions}
             onChange={(event) => set("instructions", event.target.value)}
           />
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
           <div className={styles.formActions}>
             <Button variant="primary" size="sm" onClick={handleSave} disabled={!isFormValid(form) || busy}>
               {editingId ? "Save changes" : "Save address"}

@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { updateUser } from "@/lib/api";
+import { apiErrorMessage, updateUser } from "@/lib/api";
 import type { User } from "@/lib/types";
 import styles from "./ProfileClient.module.css";
 
@@ -80,15 +80,18 @@ function ProfileDetails({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setSaved(false);
+    setError(null);
   }
 
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       await updateUser({
         name: form.name.trim(),
@@ -98,6 +101,12 @@ function ProfileDetails({
       await onSaved();
       setEditing(false);
       setSaved(true);
+    } catch (err) {
+      // Without this the server's refusal — "email must be an email;
+      // phone must be a valid phone number" — went nowhere at all. The
+      // form stayed open with the button un-greyed and nothing said, so
+      // Save simply appeared not to work.
+      setError(apiErrorMessage(err, "Couldn't save your profile. Try again."));
     } finally {
       setSaving(false);
     }
@@ -140,6 +149,11 @@ function ProfileDetails({
                 onChange={(event) => set("phone", event.target.value)}
               />
             </label>
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
             <div className={styles.formActions}>
               <Button variant="primary" size="sm" onClick={handleSave} disabled={!form.name.trim() || saving}>
                 Save changes

@@ -113,6 +113,8 @@ Grouped by the rule, not by the file, because the rules are the point.
 | A refusal without a reason is a 400 and changes nothing; the reason is stored, audited with before/after, and delivered to the HomeKrafter word for word | `e2e/catalog-moderation.e2e-spec.ts` |
 | An edit re-queues on a material change and not on a price change; a rejected listing resubmits on any edit; a pending one cannot restamp its way to the front of the queue | `e2e/catalog-moderation.e2e-spec.ts` |
 | Money writes survive being made twice at once: one payout per request, one admin decision per payout, one payable Razorpay order per order, one `SnackOrder` per WhatsApp message, and two same-named signups both succeed | `e2e/money-races.e2e-spec.ts` |
+| A delivery address must carry a phone somebody can ring and a pincode somebody can route to — every real Indian phone format accepted, `not-a-phone` and `ABCDEF` refused with nothing stored, on create and on edit | `e2e/addresses.e2e-spec.ts` |
+| No component awaits inside `try`/`finally` without somewhere to put the failure — the shape that made four screens' Save button do nothing, silently | `client/lib/silent-failure.spec.ts` |
 | One checkout creates one order — concurrently and on a sequential replay — decrements stock once and debits the wallet once, while two genuinely separate purchases still make two orders | `e2e/money-races.e2e-spec.ts` |
 | `isHamper` is a filter and nothing else — a hamper still obeys availability, moderation and ownership | `e2e/hamper-listings.e2e-spec.ts` |
 | Every path that writes `Order.status` messages the buyer; a new order messages each kitchen once | `e2e/order-notifications.e2e-spec.ts` |

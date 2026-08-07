@@ -29,3 +29,4 @@ export * from "./wishlist";
 export * from "./about";
 export * from "./search";
 export * from "./meals";
+export * from "./errors";

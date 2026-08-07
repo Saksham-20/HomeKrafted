@@ -20,6 +20,7 @@ import {
   createRazorpayOrder,
   getAddresses,
   getOrder,
+  apiErrorMessage,
   getPaymentsConfig,
   getWallet,
   type CreateOrderLineInput,
@@ -70,6 +71,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
   const [savingAddress, setSavingAddress] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
 
   const [isGift, setIsGift] = useState(false);
   const [recipient, setRecipient] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
@@ -166,6 +168,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
       return;
     }
     setSavingAddress(true);
+    setAddressError(null);
     try {
       if (mock) {
         const address: Address = {
@@ -198,6 +201,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
       }
       setNewAddress(EMPTY_ADDRESS_FORM);
       setShowAddAddress(false);
+    } catch (err) {
+      // The server refuses a malformed phone or pincode (`CreateAddressDto`).
+      // Without this the address simply never appeared in the list, with no
+      // reason given, on the screen where the buyer is trying to pay.
+      setAddressError(apiErrorMessage(err, "Couldn't save this address. Check the details."));
     } finally {
       setSavingAddress(false);
     }
@@ -534,6 +542,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
               {showAddAddress ? (
                 <div className={styles.addAddressForm}>
                   <AddressForm values={newAddress} onChange={setNewAddress} idPrefix="new-addr" />
+                  {addressError && (
+                    <p className={styles.formError} role="alert">
+                      {addressError}
+                    </p>
+                  )}
                   <div className={styles.addAddressActions}>
                     <Button variant="primary" size="sm" onClick={addAddress} disabled={savingAddress}>
                       {savingAddress ? "Saving…" : "Save address"}

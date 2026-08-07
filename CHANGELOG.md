@@ -99,6 +99,75 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — five screens where Save did nothing and said nothing
+
+One shape, found five times: `try { await save() } finally { setBusy(false) }`
+with no `catch` anywhere in the file. The server refused with a perfectly
+clear sentence, the UI showed none of it — form still open, button
+un-greyed, the only trace an unhandled rejection in a console nobody has
+open. Pressing Save appeared not to work.
+
+- **Profile** — an invalid email or phone returned "email must be an
+  email; phone must be a valid phone number" and the screen showed
+  nothing.
+- **The address book** — same, plus no client-side check at all.
+- **Notification preferences** — worse than silent. The switch was flipped
+  *before* the request and never put back, so a failed save left the page
+  showing a preference the server had rejected, on the one screen whose
+  whole job is "what may we send you".
+- **Support** — somebody types out a problem they are having, presses
+  send, and the message is dropped without a word.
+- **The seller dashboard** — a failed load fell through to a render where
+  every `?? 0` turned "we could not reach the server" into **"Today's
+  orders 0 · Today's revenue ₹0 · Pending payout ₹0"**, indistinguishable
+  from a quiet morning. A home cook deciding whether to cook today is
+  precisely who must not be shown invented zeroes. It now says the numbers
+  are missing, not zero.
+
+Each now catches and shows the server's own sentence via
+`apiErrorMessage()` — `ApiError.message` is already the right text,
+including the wait-and-retry copy `http.ts` composes for a 429 — with a
+plain fallback for a genuine network failure. The two optimistic toggles
+revert.
+
+`client/lib/silent-failure.spec.ts` makes `finally` imply `catch` across
+`components/` and `lib/`. It is deliberately coarse: a handler that should
+genuinely ignore a failure can still write an empty `catch` with a line
+saying why, which records the decision rather than leaving the question
+unasked. It found the fifth offender, which a grep had missed.
+
+### Fixed — an address nobody could deliver to
+
+`POST /users/me/addresses` validated `phone` and `pincode` as "a non-empty
+string" and nothing else. `phone: "not-a-phone"` with `pincode: "ABCDEF"`
+was accepted, stored, listed in the address book and shippable at
+checkout — confirmed against a running server.
+
+The cost lands entirely on the HomeKrafter. A delivery is routed by
+pincode and rescued by phone, so a malformed pair means a home cook who
+has already cooked the food, set out to deliver it, and has no way to find
+or call the buyer.
+
+- `phone` is `@IsPhoneNumber('IN')`, **not** the region-less form. Without
+  a region class-validator demands strict E.164, which rejects a bare
+  `9845012345` — the way the number is actually typed. Refusing the common
+  format would have been a worse bug than the one being fixed. Measured:
+  `'IN'` takes `9845012345`, `+919845012345`, `098450 12345` and
+  `98450-12345`, and still refuses `not-a-phone` and `12345`.
+- `pincode` is `/^[1-9][0-9]{5}$/` — six digits, never leading zero (the
+  first digit is the postal region, 1–8, 9 being Army Postal Service).
+  A format check, not a lookup against codes we serve: coverage is a
+  delivery-radius question, decided elsewhere and for a reason a buyer can
+  read.
+- `PATCH /users/me` gets the same phone rule, so the address form no
+  longer accepts what the profile form rejects.
+- The edit path inherits it through `PartialType`, asserted anyway — a
+  future rewrite giving updates their own DTO would otherwise reopen the
+  hole on the path people use to *correct* a bad address.
+
+23 specs. The client says it too, naming the field rather than
+round-tripping a combined message, but the server is the authority.
+
 ### Fixed — clicking Place order twice bought it twice
 
 Found by clicking it three times.
