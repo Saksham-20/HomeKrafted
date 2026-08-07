@@ -1,0 +1,10 @@
+node_modules/
+# Signed-in browser state, captured fresh by `auth.setup.ts` on every run.
+# It holds real session tokens for the demo accounts — short-lived, but
+# there is no reason for them to be in a repository.
+.auth/
+# Run output: traces, screenshots and the HTML report. Regenerated every
+# run, and large.
+test-results/
+playwright-report/
+blob-report/

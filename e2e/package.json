@@ -1,0 +1,15 @@
+{
+  "name": "homekrafted-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "_comment": "Deliberately its own package at the repo root rather than a dependency of client/. Playwright pulls browser binaries and a test runner; putting that in the web app's dependency graph would slow every `npm ci` for the deploy and put test-only code one bad import away from the production bundle.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "install-browsers": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

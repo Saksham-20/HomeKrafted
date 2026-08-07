@@ -106,3 +106,94 @@ jobs:
         run: npm run test:e2e
 
       - run: npm run build
+
+  browser:
+    name: browser — Playwright against a real stack
+    runs-on: ubuntu-latest
+
+    # The layer the other two jobs cannot reach. `docs/PRODUCTION-AUDIT.md`
+    # item 21 asked for this and the 2026-08-07 audit is why it exists: a
+    # Save button that did nothing and said nothing, a Place-order button
+    # that charged twice on a double-click, a product card that was
+    # focusable and un-openable from a keyboard, and two dialogs claiming
+    # `aria-modal` while trapping nothing. Every one of those passed the
+    # whole suite above, because none of it opens a page.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: homekrafted
+          POSTGRES_PASSWORD: homekrafted
+          POSTGRES_DB: homekrafted_browser
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://homekrafted:homekrafted@localhost:5432/homekrafted_browser?schema=public
+      # The specs drive the real UI, which means real sign-ins, real
+      # searches and real page loads — well past a production throttle.
+      # Raised here only; `money-races.e2e-spec.ts` is where the limiter
+      # itself is tested.
+      THROTTLE_LIMIT: '100000'
+      THROTTLE_AUTH_LIMIT: '100000'
+      JWT_SECRET: ci-access-secret-not-a-real-one
+      JWT_REFRESH_SECRET: ci-refresh-secret-not-a-real-one
+      PORT: '4100'
+      CLIENT_ORIGIN: http://localhost:3100
+      SITE_URL: http://localhost:3100
+      NODE_ENV: development
+      E2E_BASE_URL: http://localhost:3100
+      E2E_API_URL: http://localhost:4100/api/v1
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install, build and seed the API
+        working-directory: server
+        run: |
+          npm ci
+          npx prisma generate
+          npm run build
+          npx prisma migrate deploy
+          npx ts-node prisma/seed.ts
+          npx ts-node prisma/seed-crafts.ts
+          npx ts-node prisma/seed-meal-plans.ts
+
+      - name: Build the web app
+        working-directory: client
+        run: npm ci && npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4100/api/v1
+          NEXT_PUBLIC_SITE_URL: http://localhost:3100
+
+      # Started as background steps rather than through Playwright's
+      # `webServer`, so the seeding above is an explicit precondition
+      # rather than something hidden in a test config — see
+      # `e2e/playwright.config.ts`.
+      - name: Start the API and the web app
+        run: |
+          (cd server && npm run start:prod &)
+          (cd client && PORT=3100 npx next start &)
+          npx wait-on http://localhost:4100/health http://localhost:3100 --timeout 120000
+
+      - name: Browser tests
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm test
+
+      - uses: actions/upload-artifact@v4
+        # Only useful when something failed, and the traces are large.
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7

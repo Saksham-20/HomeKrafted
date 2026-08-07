@@ -99,6 +99,46 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Added — a fourth test layer: a real browser, the running app
+
+`e2e/`, Playwright, wired into CI as its own job against a seeded stack.
+`docs/PRODUCTION-AUDIT.md` item 21 and `docs/LAUNCH-READINESS.md` §5 have
+both asked for this since M15; nothing in the repo had ever opened a page.
+
+It exists because this audit found a whole class of defect that **passed
+all 460 server tests and all 114 client ones**: a Save button that did
+nothing and said nothing on fifteen screens, Place order charging three
+times for three clicks in one second, product cards that were focusable
+and un-openable from a keyboard, and two dialogs announcing `aria-modal`
+while trapping no focus at all. None of that is visible without a rendered
+DOM, a real click, or a status line.
+
+Twenty-seven tests across a desktop and a 390px project, covering the two
+focus traps `docs/TESTS.md` has named as owed since M16, the `/admin/login`
+credential check, keyboard-operable product cards, the real 404 status on
+an unknown slug, the admin search that has to reach page 2, and the queue
+badges.
+
+**The first browser test ever run against this app immediately failed on a
+real bug.** `LocationPrompt` is mounted in the root layout, which the staff
+surfaces share, so it opened over `/admin/login` — a focus-trapping modal
+asking an admin which neighbourhood to deliver their groceries to, holding
+Tab while they tried to type a password. It is now suppressed on `/admin`,
+`/seller`, and the auth and checkout routes, where the visitor already has
+a task in hand. Nothing is lost by waiting: `asked` is only recorded when
+somebody actually answers, so the prompt simply appears on the next page.
+
+Two things about writing these are worth keeping, and are in
+`e2e/README.md` because both cost real time:
+
+- **`isVisible()` does not wait.** On a page that is still hydrating it
+  returns `false`, and the natural next line is `test.skip()` — so the test
+  goes green having checked nothing. That happened twice here, and both
+  times it looked exactly like a pass.
+- **Every consumer page renders two `aria-modal` dialogs** (the mobile
+  drawer, present but hidden on desktop, and the location prompt), so the
+  obvious locator matches both and trips strict mode.
+
 ### Changed — the HomeKrafter list pages too
 
 `GET /admin/sellers` is the slowest-growing list in the panel — bounded by

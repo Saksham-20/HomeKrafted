@@ -8,6 +8,7 @@ running API, and none of it was guarded against being undone.
 cd client && npm test          # no setup
 cd server && npm test          # no setup
 cd server && npm run test:e2e  # needs a database (below)
+cd e2e    && npm test          # needs the app running (below)
 ```
 
 CI runs all three plus typecheck, lint and both builds — see
@@ -48,13 +49,21 @@ return window counts from `deliveredAt`. A mocked Prisma would let those
 tests pass while the query said something else entirely, so there are no
 mocks here at all.
 
+**4. `e2e/` — Playwright, a real browser, the running app (M23).**
+The layer that opens a page. Added because the 2026-08-07 audit found a
+whole class of defect that passed all three layers above: a Save button
+that did nothing and said nothing on fifteen screens, Place order charging
+three times for three clicks, product cards focusable and un-openable from
+a keyboard, and two dialogs announcing `aria-modal` while trapping no
+focus. None of that is visible without a rendered DOM, a real click or a
+status line. See `e2e/README.md`.
+
 ### What is deliberately not tested
 
-**Component rendering.** It would need jsdom plus Testing Library plus a
-Next mock surface, and would mostly assert that markup still looks like
-markup. Where DOM behaviour genuinely matters — the dialog focus traps in
-`MobileDrawer` and `LocationPrompt` — a browser-level test is the honest
-tool, and that is still owed.
+**Component rendering in isolation.** jsdom plus Testing Library plus a
+Next mock surface, mostly asserting that markup still looks like markup.
+Where DOM behaviour genuinely matters, the browser layer is the honest
+tool and it is now there.
 
 ---
 
@@ -108,6 +117,38 @@ Match a `pid` back to its owner with `lsof -nP -p <node-pid> -iTCP | grep 5432`.
 
 ---
 
+## Running the browser suite locally
+
+It drives the **running app**, so both servers have to be up against a
+seeded database that can be thrown away. One of the specs writes an
+address to the demo shopper's account (and deletes it again), so never
+point this at anything real.
+
+```bash
+# 1. A seeded database and the API
+cd server
+export DATABASE_URL="postgresql://$USER@localhost:5432/hk_browser"
+createdb hk_browser
+npx prisma migrate deploy && npx ts-node prisma/seed.ts
+PORT=4100 CLIENT_ORIGIN=http://localhost:3100 SITE_URL=http://localhost:3100 npm run start:dev
+
+# 2. The web app, pointed at it
+cd client
+NEXT_PUBLIC_API_URL=http://localhost:4100/api/v1 PORT=3100 npm run dev
+
+# 3. The tests
+cd e2e
+npm install && npx playwright install --with-deps chromium
+npm test
+```
+
+`e2e/README.md` covers the layout and the two mistakes that cost the most
+time writing it — `isVisible()` not waiting (a skipped test looks exactly
+like a passing one), and every consumer page rendering two `aria-modal`
+dialogs.
+
+---
+
 ## What the suite actually guards
 
 Grouped by the rule, not by the file, because the rules are the point.
@@ -155,6 +196,10 @@ Grouped by the rule, not by the file, because the rules are the point.
 | The eleventh person with a given first name can still register: the code space stops being ten wide, and the overflow suffix contains nothing that can be misread aloud | `unit/referral-code.spec.ts`, and the 30-account seed in `e2e/admin-users-pagination.e2e-spec.ts` |
 | What a HomeKrafter is owed multiplies by quantity, counts only delivered orders, counts only their own products, keeps paise, is ₹0 rather than NaN for an empty kitchen, and never goes negative | `e2e/seller-earnings.e2e-spec.ts` |
 | A queue's badge counts the queue, not the page: filtering the catalogue to "active" or the support list to "resolved" leaves "waiting for review" and "waiting on us" where they were | `e2e/admin-queues-pagination.e2e-spec.ts` |
+| A dialog claiming `aria-modal` actually moves focus in, traps Tab **and** Shift+Tab, and gives focus back to whatever opened it — and leaves the tab order entirely when closed | `e2e/tests/focus-traps.spec.ts` |
+| The location prompt never opens over a staff surface or an auth form, where it used to trap focus while somebody typed a password | `e2e/tests/focus-traps.spec.ts` |
+| `/admin/login` signs in as **what was typed**, not a hardcoded account | `e2e/tests/auth.setup.ts` |
+| A product card opens on Enter from the keyboard; an unknown slug answers **404 in the status line**, not a soft 404 | `e2e/tests/audit-regressions.spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |
 | Absence is never a closure: no working days = open every day, no prep time = 90 minutes | `availability.e2e-spec.ts` |
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |

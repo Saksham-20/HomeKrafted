@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useLocation } from "@/lib/location/LocationContext";
@@ -10,6 +11,9 @@ import styles from "./LocationPrompt.module.css";
 /** Everything focusable inside the card, in DOM order — same list the mobile drawer traps against. */
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Consumer routes where the visitor is mid-task and the ask can wait. */
+const SUPPRESSED_ON = ["/login", "/signup", "/forgot-password", "/reset-password", "/checkout"];
 
 /**
  * The opening "where are you?" ask.
@@ -25,8 +29,18 @@ const FOCUSABLE =
  *
  * Deliberately *not* a hard gate. Blocking the catalogue behind a
  * permission grant is the version of this that loses first-time visitors.
+ *
+ * **Consumer surfaces only.** It is mounted in the root layout, which the
+ * staff surfaces share, so it used to open over `/admin/login` and the
+ * whole seller portal — asking an admin signing in which neighbourhood to
+ * deliver their groceries to. Not merely odd: it is `aria-modal` with a
+ * real focus trap, so it *took* focus on the admin login page and held Tab
+ * inside itself while somebody tried to type their password. Found by the
+ * first browser-level test ever run against this app, which could not
+ * click the sign-in button.
  */
 export function LocationPrompt() {
+  const pathname = usePathname();
   const { ready, asked, locating, error, requestBrowserLocation, setArea, dismiss } = useLocation();
   // Closes the moment the user answers, before the persisted `asked` flag
   // has round-tripped through storage.
@@ -38,7 +52,17 @@ export function LocationPrompt() {
   // Derived at render rather than stored via an effect: `asked` comes from
   // localStorage, so gating on `ready` stops the prompt flashing at
   // returning visitors during hydration, with no cascading setState.
-  const open = ready && !asked && !closed;
+  // Staff surfaces have no delivery area, and an auth surface is somewhere
+  // the visitor already has a task in hand — opening a modal over the
+  // password field to ask about groceries is friction for nothing.
+  // Suppressing it here costs nothing either: `asked` is only recorded
+  // when they actually answer, so the ask simply happens on the next page.
+  const suppressed =
+    !pathname ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/seller") ||
+    SUPPRESSED_ON.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+  const open = ready && !asked && !closed && !suppressed;
 
   /**
    * Focus management (M16). This announces itself as `aria-modal="true"`
