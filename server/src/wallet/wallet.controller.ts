@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdjustWalletDto } from './dto/adjust-wallet.dto';
+import { ListTransactionsQueryDto } from './dto/list-transactions.query.dto';
 import { SetAutoTopupDto } from './dto/set-auto-topup.dto';
 import { WalletService } from './wallet.service';
 
@@ -40,8 +41,8 @@ export class WalletController {
   }
 
   @Get('transactions')
-  getTransactions(@CurrentUser() user: RequestUser) {
-    return this.walletService.getTransactions(user.userId);
+  getTransactions(@CurrentUser() user: RequestUser, @Query() query: ListTransactionsQueryDto) {
+    return this.walletService.getTransactions(user.userId, query);
   }
 
   @Get('auto-topup')

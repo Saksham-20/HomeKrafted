@@ -9,9 +9,21 @@ export async function getWallet(): Promise<Wallet> {
   return http.get<Wallet>("/wallet");
 }
 
-export async function getTransactions(): Promise<WalletTransaction[]> {
-  if (isMockMode()) return walletTransactions;
-  return http.get<WalletTransaction[]>("/wallet/transactions");
+/** One page of the ledger, newest first. `nextCursor` is `null` on the last page. */
+export interface TransactionPage {
+  items: WalletTransaction[];
+  nextCursor: string | null;
+}
+
+/**
+ * A page of the wallet ledger — pass the previous page's `nextCursor` to
+ * continue. This used to return the entire ledger on every wallet render,
+ * for a screen that shows six rows.
+ */
+export async function getTransactions(cursor?: string): Promise<TransactionPage> {
+  if (isMockMode()) return { items: walletTransactions, nextCursor: null };
+  const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  return http.get<TransactionPage>(`/wallet/transactions${query}`);
 }
 
 /** Static amount-picker tiles — not itself a money-moving call, so it stays client-side config. */

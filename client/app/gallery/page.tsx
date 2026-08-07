@@ -84,7 +84,9 @@ export default async function GalleryPage() {
     // primitives, so a wallet nobody is signed in to is an empty wallet,
     // not a crash.
     getWallet().catch(() => EMPTY_WALLET),
-    getTransactions().catch(() => []),
+    getTransactions()
+      .then((page) => page.items)
+      .catch(() => []),
     getTopupOptions(),
     getLaundryDays(),
     getLaundrySlots(),

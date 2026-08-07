@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { distanceKm, formatDistanceKm } from '../common/geo';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListProductsQueryDto } from './dto/list-products.query.dto';
-import { PRODUCT_INCLUDE, defaultPriceOf, mapProduct } from './mappers/product.mapper';
+import { PRODUCT_INCLUDE, mapProduct } from './mappers/product.mapper';
 import { dietaryTagsFromFrontend } from './dietary-tag.util';
 import { splitCsv } from './split-csv.util';
 import { PUBLICLY_LISTED, isDirectlyResolvable } from './moderation';
@@ -17,6 +17,22 @@ export interface PaginatedResult<T> {
 
 const DEFAULT_PAGE_SIZE = 20;
 
+/**
+ * `defaultPriceOf` over the narrow phase-one row, which carries only
+ * `{ sku, price }` per weight option rather than the whole relation.
+ * Same rule, deliberately spelled out twice rather than widening the
+ * phase-one select to satisfy a type: the default option's price, falling
+ * back to the first, and 0 for a listing with no options at all.
+ */
+function slimDefaultPriceOf(product: {
+  defaultWeightSku: string;
+  weightOptions: { sku: string; price: Prisma.Decimal }[];
+}): number {
+  const weight =
+    product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ?? product.weightOptions[0];
+  return weight ? Number(weight.price) : 0;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -26,9 +42,9 @@ export class ProductsService {
    * filter/sort exactly (see that component's doc comment: this is the
    * seam it says moves server-side once a real paginated API lands).
    * Category/occasion/dietary/vendor are resolved at the DB layer;
-   * price-range + sort + pagination run in application code against the
-   * (small) already-filtered result set, same basis `ShopClient`'s local
-   * `priceOf()` uses (the `defaultWeightSku` price, not min/any option).
+   * price-range + distance + sort still run in application code, because
+   * neither price (the `defaultWeightSku` option's, not min/any) nor
+   * distance is a column — see the two phases inside.
    */
   async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
     // Allowlist, not `{ not: 'hidden' }` — see `moderation.ts`. With the
@@ -83,11 +99,36 @@ export class ProductsService {
       where.kind = query.kind;
     }
 
-    const products = await this.prisma.product.findMany({
+    /**
+     * **Phase one: the smallest row that can answer every derived filter
+     * and sort.**
+     *
+     * Price and distance are not columns — price is the `defaultWeightSku`
+     * option's price, distance is haversine against the kitchen — so
+     * neither can be filtered or sorted in SQL without PostGIS or a
+     * denormalised column. That much is unavoidable and unchanged.
+     *
+     * What *was* avoidable: this used to hydrate the entire matching
+     * catalogue with every relation — images, weight options, occasions,
+     * category, vendor — and then throw away all but twenty rows. The
+     * relations are the expensive part, and none of them are consulted by
+     * any filter or comparator below. So the wide read now happens once,
+     * against the page, in phase two.
+     */
+    const candidates = await this.prisma.product.findMany({
       where,
-      // `vendor` joined here (not in the shared PRODUCT_INCLUDE) purely for
-      // its lat/lng/deliveryRadiusKm — the distance filter below needs them.
-      include: { ...PRODUCT_INCLUDE, vendor: true },
+      select: {
+        id: true,
+        name: true,
+        rating: true,
+        reviewCount: true,
+        shippingScope: true,
+        defaultWeightSku: true,
+        weightOptions: { select: { sku: true, price: true } },
+        // Not in the shared PRODUCT_INCLUDE — wanted here purely for
+        // lat/lng/deliveryRadiusKm, which the distance filter needs.
+        vendor: { select: { lat: true, lng: true, deliveryRadiusKm: true } },
+      },
     });
 
     // "Near me": keep only kitchens whose own delivery radius reaches the
@@ -100,9 +141,9 @@ export class ProductsService {
         : undefined;
 
     const distanceByProduct = new Map<string, number>();
-    let inRange = products;
+    let inRange = candidates;
     if (buyer) {
-      inRange = products.filter((p) => {
+      inRange = candidates.filter((p) => {
         const v = p.vendor;
         if (!v) return false;
         // M20: a nationally-shipped listing is not radius-eligible at all.
@@ -122,7 +163,7 @@ export class ProductsService {
       });
     }
 
-    let withPrice = inRange.map((p) => ({ product: p, price: defaultPriceOf(p) }));
+    let withPrice = inRange.map((p) => ({ product: p, price: slimDefaultPriceOf(p) }));
 
     if (query.minPrice !== undefined) {
       withPrice = withPrice.filter((x) => x.price >= query.minPrice!);
@@ -150,21 +191,46 @@ export class ProductsService {
       }
       const ratingDelta = Number(b.product.rating) - Number(a.product.rating);
       if (ratingDelta !== 0) return ratingDelta;
-      return b.product.reviewCount - a.product.reviewCount;
+      const reviewDelta = b.product.reviewCount - a.product.reviewCount;
+      if (reviewDelta !== 0) return reviewDelta;
+      // Every comparator above can tie, and until this line the order
+      // within a tie was whatever `findMany` happened to return — which
+      // Postgres does not promise to be the same twice. Paging through a
+      // catalogue where a hundred new listings all sit at rating 0,
+      // reviewCount 0 could therefore show a product on page 2 and again
+      // on page 3, and skip another entirely. A unique final key is what
+      // makes pagination stable at all.
+      return a.product.id < b.product.id ? -1 : a.product.id > b.product.id ? 1 : 0;
     });
 
     const total = withPrice.length;
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
-    const items = withPrice.slice(start, start + pageSize).map((x) => {
-      const km = distanceByProduct.get(x.product.id);
-      return {
-        ...mapProduct(x.product),
-        ...(km !== undefined
-          ? { distanceKm: Math.round(km * 10) / 10, distanceLabel: formatDistanceKm(km) }
-          : {}),
-      };
+    const pageIds = withPrice.slice(start, start + pageSize).map((x) => x.product.id);
+    if (pageIds.length === 0) return { items: [], page, pageSize, total };
+
+    // **Phase two: hydrate only the page.** `findMany` returns no
+    // particular order for an `in` list, so the ordering settled above is
+    // reapplied here rather than assumed.
+    const rows = await this.prisma.product.findMany({
+      where: { id: { in: pageIds } },
+      include: PRODUCT_INCLUDE,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+
+    const items = pageIds.flatMap((id) => {
+      const row = byId.get(id);
+      if (!row) return [];
+      const km = distanceByProduct.get(id);
+      return [
+        {
+          ...mapProduct(row),
+          ...(km !== undefined
+            ? { distanceKm: Math.round(km * 10) / 10, distanceLabel: formatDistanceKm(km) }
+            : {}),
+        },
+      ];
     });
 
     return { items, page, pageSize, total };

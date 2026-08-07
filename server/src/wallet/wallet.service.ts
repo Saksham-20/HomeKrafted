@@ -3,6 +3,7 @@ import { Prisma, Wallet, WalletTransactionCategory, WalletTransactionDirection, 
 import { PrismaService } from '../prisma/prisma.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { AdjustWalletDto } from './dto/adjust-wallet.dto';
+import { ListTransactionsQueryDto } from './dto/list-transactions.query.dto';
 import { SetAutoTopupDto } from './dto/set-auto-topup.dto';
 import {
   AUTO_TOPUP_UNAVAILABLE_REASON,
@@ -15,6 +16,13 @@ import {
 /** Top-ups above this amount earn a 3% bonus credit — exact port of `client/lib/wallet/WalletContext.tsx`'s `TOPUP_BONUS_THRESHOLD`/`TOPUP_BONUS_RATE`. */
 export const TOPUP_BONUS_THRESHOLD = 2000;
 export const TOPUP_BONUS_RATE = 0.03;
+
+/**
+ * Ledger rows returned when a caller names no `limit`. Comfortably more
+ * than the six the wallet screen shows before "View full history", so the
+ * common case is still one request — the point is the cap, not the number.
+ */
+const DEFAULT_TRANSACTION_PAGE = 50;
 
 export interface LedgerRef {
   title: string;
@@ -74,13 +82,45 @@ export class WalletService {
     return mapWallet(wallet);
   }
 
-  async getTransactions(userId: string) {
+  /**
+   * The ledger, newest first, one page at a time.
+   *
+   * This returned **every row a wallet had ever accumulated**, on a table
+   * that only ever grows and that a regular buyer adds to several times
+   * per order (debit, cashback, sometimes a refund). Nothing capped it and
+   * nothing asked for less: the wallet screen renders six rows and hid the
+   * rest behind a "View full history" toggle it had already paid to
+   * download.
+   *
+   * Cursor, not `skip`/`take`, because a ledger takes new rows at the end
+   * being read from — an offset page 2 would re-show a row that page 1
+   * already displayed the moment cashback lands mid-scroll. The cursor is
+   * an id, so it stays correct however many rows appear above it.
+   *
+   * `id desc` after `createdAt desc` is load-bearing, not decoration:
+   * every transaction an order writes shares a timestamp to the
+   * millisecond, so `createdAt` alone is not a total order, and a cursor
+   * over a non-total order silently skips rows.
+   */
+  async getTransactions(userId: string, query: ListTransactionsQueryDto = {}) {
     const wallet = await this.getOrCreateWallet(userId);
+    const limit = query.limit ?? DEFAULT_TRANSACTION_PAGE;
+
     const rows = await this.prisma.walletTransaction.findMany({
       where: { walletId: wallet.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      // One extra row is how "is there another page" is answered without a
+      // second count query over the whole ledger.
+      take: limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
     });
-    return rows.map(mapWalletTransaction);
+
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      items: items.map(mapWalletTransaction),
+      nextCursor: hasMore ? items[items.length - 1].id : null,
+    };
   }
 
   async getAutoTopup(userId: string) {

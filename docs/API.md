@@ -237,7 +237,7 @@ dropping it.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `isHamper` (`true`/`false`, **M18** — ready-made gift hampers; three states, since omitting it returns both and a hamper is an ordinary listing that still appears in `/shop`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `kind` (`food` \| `craft`, **M20** — omitted returns both, since the split is a browse convenience and a search for "candle" should find one either way), `sort` (`most-loved` default \| `price-asc` \| `price-desc`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Excludes `moderationStatus: "hidden"`. |
+| `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`), `featured` (`true`/`false`), `isHamper` (`true`/`false`, **M18** — ready-made gift hampers; three states, since omitting it returns both and a hamper is an ordinary listing that still appears in `/shop`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `kind` (`food` \| `craft`, **M20** — omitted returns both, since the split is a browse convenience and a search for "candle" should find one either way), `sort` (`most-loved` default \| `price-asc` \| `price-desc` \| `nearest`, which needs `lat`/`lng`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Lists only `PUBLICLY_LISTED` statuses (**M22** — an allowlist, not `{ not: "hidden" }`; see `server/src/catalog/moderation.ts`). Ordering breaks ties on `id`, so paging cannot show a row twice or skip one. |
 **M20 — `lat`/`lng` no longer filter every listing.** A `Product` now
 carries `shippingScope`: `local` rows are gated on
 `distanceKm <= Vendor.deliveryRadiusKm` exactly as before, and `national`
@@ -531,7 +531,7 @@ on the order id.
 | Endpoint | Auth | Notes |
 |---|---|---|
 | `GET /wallet` | any authed role | `{ id, userId, balance, pendingCashback, lifetimeSaved, payWithWalletDefault, updatedAt }` — lazily creates a zero-balance wallet if none exists yet (shouldn't happen for a real account; `auth.service.ts` creates one at registration). |
-| `GET /wallet/transactions` | any authed role | Full ledger, newest first — `WalletTransaction[]` matching `client/lib/types/wallet.ts` exactly. |
+| `GET /wallet/transactions` | any authed role | One page of the ledger, newest first: `{ items: WalletTransaction[], nextCursor: string \| null }`. Query: `limit` (default 50, max 100), `cursor` (a previous response's `nextCursor`). Cursor rather than offset because the ledger grows at the end being read from. `items` matches `client/lib/types/wallet.ts` exactly. **M23: this used to return the entire ledger as a bare array, uncapped.** |
 | `GET /wallet/auto-topup` | any authed role | Current `AutoTopupRule`, or an off/`below-threshold` default shape if never configured. **Always carries `active: false` + `unavailableReason`** — auto-top-up is paused platform-wide, so a stored rule may read `enabled: true` and still never fire. Clients must branch on `active`, never on `enabled`. |
 | `PUT /wallet/auto-topup` | any authed role | Partial patch: `{ enabled?, trigger?, thresholdAmount?, topupAmount?, paymentMethodRef? }`. Upserts. **Rejects `enabled: true` with `400`** (M19) — the credit it used to perform had no captured payment behind it. `thresholdAmount`/`topupAmount` are capped at ₹25,000. Turning an existing rule *off* still works. |
 | `POST /wallet/adjust` | `@Roles('admin')` | Manual credit/debit: `{ userId, direction: "credit"\|"debit", amount, reason }`. The one endpoint where a caller-supplied `amount` is intentional — gated to admins, `reason` required (becomes the ledger row's `title` for audit), `category: "adjustment"`. |
@@ -1467,7 +1467,7 @@ flow or `POST /orders/:id/pay`/`:id/refund` instead).
 | Function | Returns | Real endpoint |
 |---|---|---|
 | `getWallet()` | `Wallet` | `GET /api/v1/wallet` |
-| `getTransactions()` | `WalletTransaction[]` | `GET /api/v1/wallet/transactions` |
+| `getTransactions(cursor?)` | `{ items: WalletTransaction[], nextCursor: string \| null }` | `GET /api/v1/wallet/transactions` |
 | `getTopupOptions()` | `number[]` | Still static client-side config (`client/lib/data/wallet.ts`'s `topupOptions`) — just amount-picker tiles for `POST /payments/razorpay/order`'s `amount` field, not itself a money-moving call, so it didn't need a real endpoint. |
 
 `WalletContext`'s `topUp`/`pay`/`earnCashback`/`refund` client methods swap

@@ -61,6 +61,13 @@ interface WalletState {
   pendingCashback: number;
   lifetimeSaved: number;
   transactions: WalletTransaction[];
+  /**
+   * The cursor for the next ledger page, or `null` when the loaded rows
+   * are the whole history. Held in state rather than derived, because
+   * "there is more" is something only the server can answer — the client
+   * cannot tell a full page from the last page.
+   */
+  transactionsCursor: string | null;
   autoTopup: AutoTopupRule;
 }
 
@@ -82,6 +89,10 @@ export interface WalletContextValue {
   pendingCashback: number;
   lifetimeSaved: number;
   transactions: WalletTransaction[];
+  /** True when the server holds ledger rows older than the ones loaded — i.e. `loadMoreTransactions` has something to fetch. Always `false` in mock mode, which has one page by construction. */
+  hasMoreTransactions: boolean;
+  /** Appends the next page of ledger rows. Resolves `false` when there was nothing left to fetch. */
+  loadMoreTransactions: () => Promise<boolean>;
   autoTopup: AutoTopupRule;
   /** True once the wallet has hydrated (mock: localStorage + seed; real: the signed-in consumer's `GET /wallet`, or immediately `true` with zero values for a non-consumer/signed-out session). */
   ready: boolean;
@@ -121,6 +132,10 @@ function readStorage(): WalletState | null {
       pendingCashback: parsed.pendingCashback ?? 0,
       lifetimeSaved: parsed.lifetimeSaved ?? 0,
       transactions: parsed.transactions,
+      // Mock mode only ever holds one page, and a cursor read back from
+      // storage would point into a server ledger this state never came
+      // from. Always start fresh.
+      transactionsCursor: null,
       autoTopup: parsed.autoTopup,
     };
   } catch {
@@ -133,6 +148,7 @@ const EMPTY_STATE: WalletState = {
   pendingCashback: 0,
   lifetimeSaved: 0,
   transactions: [],
+  transactionsCursor: null,
   autoTopup: {
     id: "atr-pending",
     walletId: "wallet-demo",
@@ -149,17 +165,48 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<WalletState>(EMPTY_STATE);
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
-
   const refreshFromServer = useCallback(async () => {
-    const [w, transactions] = await Promise.all([getWallet(), getTransactions()]);
+    const [w, page] = await Promise.all([getWallet(), getTransactions()]);
     setState((current) => ({
       ...current,
       balance: w.balance,
       pendingCashback: w.pendingCashback,
       lifetimeSaved: w.lifetimeSaved,
-      transactions,
+      // Back to page one deliberately. A refresh follows something that
+      // just wrote a row, so the newest page is the one that changed;
+      // stitching it onto pages fetched before the write would show the
+      // ledger as it was either side of a row that moved everything down.
+      transactions: page.items,
+      transactionsCursor: page.nextCursor,
     }));
   }, []);
+
+  /**
+   * Appends the next ledger page. Resolves to `false` when there was
+   * nothing more to fetch, so a caller can stop asking.
+   */
+  const loadMoreTransactions = useCallback(async (): Promise<boolean> => {
+    // Read straight from state, with the cursor in the dependency list.
+    // The two shortcuts here are both wrong: a ref assigned during render
+    // is what `react-hooks/refs` exists to stop, and a `setState` updater
+    // that reads `current` and returns it unchanged still runs during
+    // render — and twice in development.
+    const cursor = state.transactionsCursor;
+    if (!cursor) return false;
+    const page = await getTransactions(cursor);
+    setState((current) => ({
+      ...current,
+      // Guard against a double-tap appending the same page twice — the
+      // button is disabled while loading, but a slow network plus an
+      // impatient second click is exactly how duplicate keys reach React.
+      transactions: [
+        ...current.transactions,
+        ...page.items.filter((row) => !current.transactions.some((seen) => seen.id === row.id)),
+      ],
+      transactionsCursor: page.nextCursor,
+    }));
+    return true;
+  }, [state.transactionsCursor]);
 
   // Mock mode: hydrate from localStorage + the seeded mock wallet once,
   // client-side only, exactly as pre-M8.4a (no auth gating).
@@ -167,13 +214,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!mock) return;
     const stored = readStorage();
     Promise.all([getWallet(), getTransactions(), getAutoTopupRule()]).then(
-      ([w, transactions, autoTopup]) => {
+      ([w, page, autoTopup]) => {
         setState(
           stored ?? {
             balance: w.balance,
             pendingCashback: w.pendingCashback,
             lifetimeSaved: w.lifetimeSaved,
-            transactions,
+            transactions: page.items,
+            transactionsCursor: page.nextCursor,
             autoTopup,
           },
         );
@@ -204,13 +252,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
     let cancelled = false;
     Promise.all([getWallet(), getTransactions(), getAutoTopupRule()]).then(
-      ([w, transactions, autoTopup]) => {
+      ([w, page, autoTopup]) => {
         if (cancelled) return;
         setState({
           balance: w.balance,
           pendingCashback: w.pendingCashback,
           lifetimeSaved: w.lifetimeSaved,
-          transactions,
+          transactions: page.items,
+          transactionsCursor: page.nextCursor,
           autoTopup,
         });
         setReady(true);
@@ -497,6 +546,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     pendingCashback: state.pendingCashback,
     lifetimeSaved: state.lifetimeSaved,
     transactions: state.transactions,
+    hasMoreTransactions: state.transactionsCursor !== null,
+    loadMoreTransactions,
     autoTopup: state.autoTopup,
     ready,
     topUp,

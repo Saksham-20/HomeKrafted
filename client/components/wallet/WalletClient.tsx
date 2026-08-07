@@ -9,7 +9,7 @@ import { AmountPicker } from "@/components/ui/AmountPicker";
 import { TransactionRow } from "@/components/ui/TransactionRow";
 import { WalletBalanceCard } from "@/components/ui/WalletBalanceCard";
 import { SignedOutNotice } from "@/components/auth/SignedOutNotice";
-import { getPaymentsConfig } from "@/lib/api";
+import { apiErrorMessage, getPaymentsConfig } from "@/lib/api";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD, useWallet } from "@/lib/wallet/WalletContext";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -51,6 +51,8 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
     pendingCashback,
     lifetimeSaved,
     transactions,
+    hasMoreTransactions,
+    loadMoreTransactions,
     autoTopup,
     ready,
     topUp,
@@ -61,6 +63,8 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
   const [amountError, setAmountError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showFullHistory, setShowFullHistory] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   // Undefined until the answer is known, so the button never renders in a
   // state the server has not confirmed.
   const [cardPayments, setCardPayments] = useState<boolean | undefined>(undefined);
@@ -117,6 +121,20 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
       );
     }
     window.setTimeout(() => setToast(null), 3500);
+  }
+
+  async function handleLoadMore() {
+    setHistoryError(null);
+    setLoadingMore(true);
+    try {
+      await loadMoreTransactions();
+    } catch (err) {
+      setHistoryError(
+        apiErrorMessage(err, "Couldn't load older transactions. Try again."),
+      );
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   const visibleTransactions = showFullHistory
@@ -305,7 +323,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
               ))
             )}
 
-            {transactions.length > HISTORY_PREVIEW_COUNT && (
+            {(transactions.length > HISTORY_PREVIEW_COUNT || hasMoreTransactions) && (
               <Button
                 variant="secondary"
                 className={styles.historyToggle}
@@ -313,6 +331,27 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
               >
                 {showFullHistory ? "Show less" : "View full history"}
               </Button>
+            )}
+
+            {/* The ledger arrives one page at a time, so "full history" is
+                only as full as what has been fetched. Rather than let that
+                read as "this is everything", the next page is offered
+                explicitly. */}
+            {showFullHistory && hasMoreTransactions && (
+              <Button
+                variant="secondary"
+                className={styles.historyToggle}
+                disabled={loadingMore}
+                onClick={handleLoadMore}
+              >
+                {loadingMore ? "Loading…" : "Load older transactions"}
+              </Button>
+            )}
+
+            {historyError && (
+              <p className={styles.historyError} role="alert">
+                {historyError}
+              </p>
             )}
           </Card>
         </div>

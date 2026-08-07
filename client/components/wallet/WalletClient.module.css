@@ -343,6 +343,14 @@
   margin-top: var(--hk-s4);
 }
 
+.historyError {
+  margin-top: var(--hk-s3);
+  font-size: 13px;
+  /* Terracotta is the refusal colour throughout the marketplace. */
+  color: var(--hk-terracotta);
+  text-align: center;
+}
+
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
