@@ -125,16 +125,22 @@ test.describe('the admin order list', () => {
     // Take a reference from page 2, then search for it from page 1. A
     // client-side filter over a page answers "no orders match" here, which
     // is what this endpoint's search moving server-side is for.
+    // The pager label updates before the rows do, so waiting on it alone
+    // can read a page-1 row and call it buried. Wait for the first row's
+    // href to actually change.
+    const firstRow = page.locator('a[href^="/admin/orders/"]').first();
+    const onPageOne = await firstRow.getAttribute('href');
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByText(/Page 2 of/)).toBeVisible();
+    await expect(firstRow).not.toHaveAttribute('href', onPageOne!, { timeout: 15_000 });
 
-    const buried = await page.locator('a[href^="/admin/orders/"]').first().innerText();
+    const buried = await firstRow.innerText();
     const reference = buried.match(/#(\S+)/)?.[1];
     expect(reference).toBeTruthy();
 
     await page.getByPlaceholder(/search/i).first().fill(reference!);
 
-    await expect(page.locator('a[href^="/admin/orders/"]')).toHaveCount(1, { timeout: 10_000 });
+    await expect(page.locator('a[href^="/admin/orders/"]')).toHaveCount(1, { timeout: 15_000 });
     await expect(page.locator('a[href^="/admin/orders/"]').first()).toContainText(reference!);
   });
 
