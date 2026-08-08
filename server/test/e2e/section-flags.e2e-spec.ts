@@ -27,7 +27,6 @@ import {
 describe('M20 section flags', () => {
   let h: Harness;
   let seller: Actor;
-  let vendorId: string;
   let foodCategoryId: string;
   let craftCategoryId: string;
 
@@ -42,7 +41,6 @@ describe('M20 section flags', () => {
   beforeEach(async () => {
     await resetDatabase(h.prisma);
     const kitchen = await createKitchen(h);
-    vendorId = kitchen.vendor.id;
     seller = await createActor(h, 'seller', { sellerId: kitchen.seller.id });
     foodCategoryId = (await createCategory(h)).id;
     const craftCategory = await createCategory(h);
