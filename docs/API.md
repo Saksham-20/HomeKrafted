@@ -66,8 +66,34 @@ component in `client/` changes shape, only what the function body does.
 
 ## Auth model (M8.0 — real, implemented in `server/src/auth/`)
 
-Three sign-in flows, all converging on the same JWT session shape:
+Four sign-in flows, all converging on the same JWT session shape:
 
+- **One identifier + password (M25)** — `POST /auth/continue`, body
+  `{ identifier, password, name?, referredByCode? }`. This is what the web
+  form uses; `register`/`login` below are unchanged and still serve the
+  native clients. `identifier` is a mobile number **or** an email address
+  and is parsed server-side (`identifier.util.ts`, India-default region,
+  so a bare `9845012345` works); a number is normalised to E.164 and an
+  address is lowercased, so one person cannot become two accounts by
+  typing it differently.
+
+  It signs in or signs up, and **the status is how the caller tells the
+  outcomes apart** — the error envelope derives `code` from the status
+  alone, so message text is not a contract:
+
+  | Status | Meaning | What the form does |
+  |---|---|---|
+  | `200` | Signed in, or signed up. Body adds `created: boolean` and `kind: "email" \| "phone"`. | Redirect, or show the confirm-code step when `created`. |
+  | `400` starting `NAME_REQUIRED` | The identifier is new and no `name` was sent. | Reveal the name field, resubmit. |
+  | `401` | Wrong password. | Say so. |
+  | `409` | The account exists but **has no password at all**. | Offer the code route. |
+
+  The `409` is the one that matters. An approved HomeKrafter's account is
+  minted without a credential, so answering `401` would tell every real
+  kitchen their password is wrong for a password that never existed —
+  see `CLAUDE.md`'s "Auth & identity (M17)". It does confirm the account
+  exists, which is accepted knowingly: the alternative is a supply-side
+  lockout. Guarded by `test/e2e/auth-continue.e2e-spec.ts`.
 - **Email + password** — `POST /auth/register`, `POST /auth/login`.
   Passwords hashed with **argon2**. `register` takes an optional
   `referredByCode`, and **as of the 2026-08-07 audit it actually does
@@ -81,12 +107,28 @@ Three sign-in flows, all converging on the same JWT session shape:
   the code space); referring yourself is refused, which is reachable
   because codes are derived from the first name and the lookup runs after
   the row is inserted.
-- **Phone OTP** — `POST /auth/otp/request` (issues a 6-digit code, sent
-  via `SmsProviderService`, M9 — real Twilio creds send a real SMS;
-  placeholders degrade to a logged `[SMS STUB]`/`[OTP STUB]` pair so dev
-  login keeps working), `POST /auth/otp/verify` (creates the account on
-  first verify if none exists for that phone). Codes are argon2-hashed at
-  rest, short-TTL (`OTP_TTL_SECONDS`), with a per-attempt counter.
+- **One-time code, by SMS or email** — `POST /auth/otp/request`,
+  `POST /auth/otp/verify` (creates the account on first verify if none
+  exists for that identifier). Codes are argon2-hashed at rest, short-TTL
+  (`OTP_TTL_SECONDS`), with a per-attempt counter.
+
+  Both take `{ identifier }` as of M25 — a number **or** an address — and
+  the server picks the channel: `SmsProviderService` (Twilio-shaped) or
+  `EmailProviderService` (SendGrid-shaped). Real credentials send a real
+  message; placeholders degrade to a logged `[SMS STUB]`/`[OTP STUB]`
+  pair so dev login keeps working. The pre-M25 `{ phone }` field is
+  **still accepted** — the native apps send it, and narrowing a shipped
+  request value breaks a client that cannot be redeployed.
+
+  A successful verify also stamps `User.emailVerified` /
+  `User.phoneVerified`. Those are records, **not gates**: nothing checks
+  them before letting an account act, because delivery needs provider
+  keys that are not set (`docs/LAUNCH-READINESS.md`), and gating on an
+  undeliverable code would block every real sign-up.
+
+  This remains a **first-class way in**, not merely a verification step.
+  It is the only door an approved HomeKrafter has until they set a
+  password.
 
   **Test bypass (M18).** `OTP_TEST_CODE` verifies without an SMS, but
   *only* for a number listed in `OTP_TEST_PHONES`, and never for an admin
@@ -195,8 +237,27 @@ HomeKrafters uploading product shots, so authorization is "a valid
 session", and `purpose` plus the caller's own id (never a body param)
 decide where the bytes land.
 
+**Every accepted upload is re-encoded before it is stored (M25).** The
+bytes that land on disk are never the bytes that arrived: they go through
+`image-pipeline.ts` (sharp/libvips), which
+
+1. **strips all metadata** — a phone photo taken in a home kitchen carries
+   EXIF GPS, so before this a HomeKrafter's public listing photo published
+   their home address to anyone who ran `exiftool` on the URL;
+2. bakes the EXIF orientation into the pixels first, so portrait photos
+   are not stored sideways once the tag is dropped;
+3. caps the longest edge at **2000px** and re-encodes to **WebP q82** —
+   typically a tenth of the bytes of a straight-from-phone JPEG;
+4. refuses **decompression bombs** via `limitInputPixels` (~90MP). A byte
+   limit never caught these; the whole trick is that the file is small.
+
+So the stored object is always `image/webp` with a `.webp` extension
+whatever was uploaded, and `bytes` in the response is the *compressed*
+size. WebP rather than AVIF deliberately: AVIF encode costs seconds of CPU
+per image and this runs inline on a 1 vCPU box.
+
 **`url` is the value to persist**, not `key`. It's relative
-(`/uploads/listing/<sellerId>/<uuid>.jpg`) while storage is local disk,
+(`/uploads/listing/<sellerId>/<uuid>.webp`) while storage is local disk,
 and would be absolute behind a CDN driver — a stored `url` keeps resolving
 either way, which is what makes swapping drivers a config change rather
 than a data migration. `key` is only needed to delete an object later.
@@ -207,8 +268,8 @@ Rejections:
 |---|---|---|
 | `400` | `BAD_REQUEST` | missing/unknown `purpose`, or no file |
 | `401` | `UNAUTHORIZED` | no session |
-| `413` | `FILE_TOO_LARGE` | over `UPLOAD_MAX_BYTES` (default 5MB) |
-| `415` | `UNSUPPORTED_IMAGE` | bytes aren't a JPEG, PNG, WebP or AVIF |
+| `413` | `FILE_TOO_LARGE` | over `UPLOAD_MAX_BYTES` (default **12MB** since M25 — nothing that size is stored, so the limit is an abuse ceiling, not a storage budget) |
+| `415` | `UNSUPPORTED_IMAGE` | bytes aren't a JPEG, PNG, WebP or AVIF — **or** they pass the sniff but will not decode (truncated, corrupt, or a bomb) |
 | `429` | `RATE_LIMITED` | over `THROTTLE_UPLOAD_LIMIT` (default 30/min) |
 
 The accepted type is decided by **sniffing the leading bytes**, not the

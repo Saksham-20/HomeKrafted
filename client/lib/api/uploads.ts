@@ -17,6 +17,20 @@ export interface UploadedImage {
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 /**
+ * What the copy promises, in MB. Must match `UPLOAD_MAX_BYTES` on the
+ * server — this is display only, the limit that binds is enforced there.
+ *
+ * Raised from 5 once the server started re-encoding every upload
+ * (`server/src/uploads/image-pipeline.ts`). 5MB rejected a routine photo
+ * straight off a modern phone, which on a platform being onboarded by home
+ * cooks photographing their own food meant the *first* thing a new
+ * HomeKrafter did on the site failed. What lands on disk is a capped WebP
+ * of a few hundred KB whatever arrives, so the input limit exists to stop
+ * abuse, not to manage storage.
+ */
+export const MAX_UPLOAD_MB = 12;
+
+/**
  * Upload one image.
  *
  * **Not on `http.ts`.** That helper JSON-encodes bodies and sets

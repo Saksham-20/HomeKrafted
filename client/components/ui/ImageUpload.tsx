@@ -4,7 +4,12 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import clsx from "clsx";
 import { ImagePlus, Loader2, Trash2, UploadCloud } from "lucide-react";
 import { ApiError } from "@/lib/api/http";
-import { ACCEPTED_IMAGE_TYPES, uploadImage, type UploadPurpose } from "@/lib/api/uploads";
+import {
+  ACCEPTED_IMAGE_TYPES,
+  MAX_UPLOAD_MB,
+  uploadImage,
+  type UploadPurpose,
+} from "@/lib/api/uploads";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import styles from "./ImageUpload.module.css";
 
@@ -84,7 +89,8 @@ export function ImageUpload({
         onChange(uploaded.url);
       } catch (err) {
         const code = err instanceof ApiError ? err.code : "ERROR";
-        if (code === "FILE_TOO_LARGE") setError("That image is too large — keep it under 5MB.");
+        if (code === "FILE_TOO_LARGE")
+          setError(`That image is too large — keep it under ${MAX_UPLOAD_MB}MB.`);
         else if (code === "UNSUPPORTED_IMAGE") setError("That file isn't an image we can accept.");
         else if (code === "UNAUTHORIZED") setError("Your session expired — sign in again.");
         else setError(err instanceof ApiError ? err.message : "Upload failed. Try again.");
@@ -223,7 +229,7 @@ export function ImageUpload({
                 {hasImage ? "Drop a new image to replace" : "Drag an image here"}
               </span>
               <span className={styles.zoneHint}>
-                {hint ?? "or click to browse · JPEG, PNG, WebP, AVIF · up to 5MB"}
+                {hint ?? `or click to browse · JPEG, PNG, WebP, AVIF · up to ${MAX_UPLOAD_MB}MB`}
               </span>
             </>
           )}

@@ -91,6 +91,24 @@ User-uploaded photos (`POST /uploads`, see `docs/API.md`) are written to
 `UPLOAD_DIR` and served by nginx straight from disk at `/uploads/` — they
 never touch Node on the read path.
 
+**Every upload is re-encoded before it is written (M25).** `sharp` caps
+the longest edge at 2000px, converts to WebP, and strips all metadata —
+which is a privacy control, not a size optimisation: phone photos carry
+EXIF GPS, so unstripped listing images published a home cook's address.
+Consequences for this box:
+
+- **`sharp` is a native dependency.** `npm ci` in `server/` fetches a
+  prebuilt libvips binary for linux-x64. If a deploy ever fails resolving
+  it, that is the cause; there is no pure-JS fallback and the upload
+  endpoint will not start without it.
+- Encoding runs **inline on the request thread**, ~100ms per image on this
+  1 vCPU box. That is why the format is WebP and not AVIF, which would be
+  seconds.
+- `UPLOAD_MAX_BYTES` is **12MB** (was 5MB). It is an abuse ceiling, not a
+  storage budget — what lands on disk is a few hundred KB whatever
+  arrives. Raising it does not increase what is stored; it only widens
+  what will be decoded, so keep it under the 15MB multipart hard limit.
+
 **`UPLOAD_DIR` must stay outside `/var/www/homekrafted/HomeKrafted`.**
 Deploys `git merge --ff-only` in that clone and the clone is disposable;
 anything written inside it is one `git clean` away from gone. The default

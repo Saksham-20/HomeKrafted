@@ -41,8 +41,15 @@ type Props = {
   /** Called with the chosen provider. The caller owns the error/redirect handling. */
   onSelect: (provider: "google" | "apple") => void;
   disabled?: boolean;
-  /** Verb for the accessible labels — "Sign in" on `/login`, "Sign up" on `/signup`. */
-  action: "Sign in" | "Sign up";
+  /**
+   * Verb for the accessible labels.
+   *
+   * `"Continue"` since M25, because the one form is both — the button
+   * cannot honestly say "Sign in" when it may be about to create an
+   * account. The other two remain for any surface that genuinely knows
+   * which it is doing.
+   */
+  action: "Sign in" | "Sign up" | "Continue";
 };
 
 /**
@@ -53,7 +60,7 @@ type Props = {
  * from anyone who never clicked it; the convention everywhere else is that
  * social sits below the form, under a divider, always visible. It is also
  * why this is one shared component — the tab version had both glyphs and
- * both buttons copy-pasted into `LoginClient` and `SignupClient`, so the
+ * both buttons copy-pasted into every sign-in surface, so the
  * two screens could drift.
  *
  * Note the server side of this is **not** real OAuth yet:

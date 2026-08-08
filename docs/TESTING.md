@@ -27,7 +27,17 @@ your first visit.
 
 ## How to log in
 
-Go to **https://homekrafted.in/login** and use **email + password**.
+Go to **https://homekrafted.in/login**.
+
+**There is one field now (M25).** Type an email address *or* a mobile
+number into the first box — the form works out which it is and relabels
+itself as you type — then the password, then **Continue**. The same screen
+signs you in and creates an account; `/signup` is the same page. There are
+no Shopper/HomeKrafter tabs and no Phone/Email tabs any more, and where
+you land afterwards is decided by the account, not by anything you picked.
+
+A bare Indian mobile number works: `9845012345` is understood as
+`+919845012345`, and both reach the same account.
 
 All demo accounts share the same password:
 
@@ -42,11 +52,12 @@ admin credentials with view-source. The accounts below are unchanged —
 type the email and password into the ordinary form like a real user
 would, which is also what makes this a real test of sign-in.
 
-### Testing phone OTP
+### Testing the one-time code
 
-The SMS provider isn't connected, so a real code is written to the server
-log and nowhere else. To make that path testable there is a **fixed test
-code**:
+Codes now go to **either** channel — SMS for a number, email for an
+address — but neither provider is connected, so a real code is written to
+the server log and nowhere else. To make that path testable there is a
+**fixed test code**:
 
 | Field | Value |
 |---|---|
@@ -60,19 +71,24 @@ code**:
 | HomeKrafter (Ravi) | `+919822011223` |
 | HomeKrafter (Meera) | `+919008033445` |
 
-Type the number, tap **Send OTP**, then enter `123456`.
+Type the number, click **Use a code instead**, then enter `123456`.
 
-Two things it deliberately will **not** do, and both are worth trying:
+Three things it deliberately will **not** do, and all are worth trying:
 
 - **Any other number is refused.** `123456` on a number not in that list
-  gets "Incorrect OTP code" — it is not a master key, because phone
-  sign-in creates an account for a number it doesn't recognise.
+  gets "Incorrect code" — it is not a master key, because code sign-in
+  creates an account for a number it doesn't recognise.
 - **It never signs in an admin.** The admin account uses email and
   password only.
+- **It never works for an email address**, whatever is in the allowlist —
+  that list is checked against phone numbers only.
 
-This matters beyond convenience: phone OTP is genuinely the *only* way a
-newly-approved HomeKrafter signs in (see "A brand-new HomeKrafter" below),
-because approval never sets a password.
+This matters beyond convenience: a one-time code is genuinely the *only*
+way a newly-approved HomeKrafter signs in (see "A brand-new HomeKrafter"
+below), because approval never sets a password. Worth testing directly:
+enter an approved HomeKrafter's number **with any password at all** and
+the form should tell you the account has no password yet and switch to the
+code step by itself — not say "incorrect password".
 
 ### Forgot password
 

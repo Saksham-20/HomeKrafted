@@ -3,6 +3,88 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M25] — One sign-in field, and no photo leaves EXIF behind — 2026-08-08
+
+Two things stood between this build and onboarding real chefs. Both were
+in front of a HomeKrafter within their first two minutes on the site.
+
+### Fixed — an uploaded photo published the cook's home address
+
+`POST /uploads` stored the bytes it was given. A phone photo carries an
+EXIF block, and a phone photo taken in a home kitchen carries **GPS
+coordinates** in it — so a HomeKrafter's public listing image handed their
+home address to anyone who ran `exiftool` on the URL. On a platform whose
+sellers are individuals cooking at home, that is the most consequential
+thing in this release.
+
+`server/src/uploads/image-pipeline.ts` (sharp/libvips) now re-encodes every
+accepted upload before it ever reaches the storage driver:
+
+- **all metadata stripped**, with `.rotate()` applied *first* so the EXIF
+  orientation is baked into the pixels rather than lost with the tag —
+  otherwise every portrait phone photo would store sideways;
+- longest edge capped at **2000px**, output always **WebP q82**. A
+  straight-from-phone JPEG lands at roughly a tenth of its size;
+- **decompression bombs refused** (`limitInputPixels`, ~90MP). A byte-size
+  limit never caught these — the whole trick is that the file is small.
+
+WebP rather than AVIF is a CPU decision, not a quality one: AVIF costs
+seconds per image and this runs inline on a 1 vCPU box.
+
+Storage stays **local disk on the VPS** (`STORAGE_DRIVER=local`,
+`/var/lib/homekrafted/uploads`, served by nginx). `UPLOAD_MAX_BYTES` rose
+5MB → **12MB**, because nothing that size is stored any more and 5MB
+rejected an ordinary photo off a modern phone — which meant the *first*
+thing a new HomeKrafter tried on the site failed.
+
+### Changed — sign-in was a 2×2 grid of tabs; it is now one field
+
+`/login` asked the visitor to classify themselves twice before typing
+anything: Shopper/HomeKrafter, then Phone/Email. The role axis was the
+worse of the two — a HomeKrafter who also buys is both, and the account's
+own `role` decides the landing page regardless, so the question never
+affected the outcome.
+
+Now: **one box, one password, one button.** `POST /auth/continue` parses
+the identifier (`identifier.util.ts`, India-default region so a bare
+`9845012345` works), normalises it — E.164 for numbers, lowercase for
+addresses, so one person cannot become two accounts — and decides for
+itself whether this is a sign-in or a sign-up. `/signup` renders the same
+screen. `RoleChoice` and `SignupClient` are gone; `register`/`login` are
+untouched and still serve the native clients.
+
+**The approved-HomeKrafter door stayed open, and is now pinned by a test.**
+An account minted by approval has `passwordHash: null`, so the obvious
+implementation answers "incorrect password" to every real kitchen on their
+first visit. `/auth/continue` returns **409**, not 401, for that case and
+the form switches to the code route — plus "Use a code instead" is always
+visible, not only after a failure.
+
+### Added — codes go to email as well as SMS, and verification is recorded
+
+`POST /auth/otp/{request,verify}` take `{ identifier }` and pick the
+channel; `{ phone }` is still accepted, because narrowing a shipped
+request value breaks a client that cannot be redeployed. A successful
+verify stamps `User.emailVerified` / `phoneVerified`.
+
+Those columns are **records, not gates** — nothing checks them before
+letting an account act. Delivery needs Twilio and SendGrid keys that are
+still unset, so gating on an undeliverable code would block every real
+sign-up. Rows predating the migration were backfilled to `true`: they had
+no way to verify, and an un-satisfiable prompt is a nag with nothing
+behind it.
+
+`PhoneOtp` became `OtpChallenge` and its `phone` column reads as
+`destination` — a pure Prisma rename via `@@map`/`@map`, **zero SQL**, so
+that an email address is not sitting in a column called `phone` for the
+next person to copy.
+
+### Tests
+
++63 (`image-pipeline`, `identifier` on both sides, `auth-continue`
+end-to-end). The EXIF/GPS strip and the 409 HomeKrafter path are the two
+worth keeping green.
+
 ## [M21] — Production audit: browser sweep, hardening, load testing — 2026-08-06 (in progress)
 
 The first time this build has been driven in a real browser or put under

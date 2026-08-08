@@ -504,6 +504,18 @@ model User {
   /// Only set for the email+password auth flow; null for phone-OTP-only or
   /// social-only accounts.
   passwordHash      String?
+  /// Has the address/number been proved to belong to this person (M25)?
+  ///
+  /// **Not a sign-in gate, deliberately.** OTP delivery needs Twilio and
+  /// SendGrid keys that are not set yet (`docs/LAUNCH-READINESS.md`), so
+  /// requiring a verified contact to use an account would lock out every
+  /// real signup on day one. These record what has been proved so the
+  /// prompts, and later any action worth gating, have something true to
+  /// read. Rows created before M25 were backfilled to `true`: they had no
+  /// way to verify, and marking real accounts unverified retroactively is
+  /// a nag with nothing behind it.
+  emailVerified     Boolean        @default(false)
+  phoneVerified     Boolean        @default(false)
   avatarPlaceholder String?
   authProviders     AuthProvider[]
   createdAt         DateTime       @default(now())
@@ -640,10 +652,27 @@ model PasswordResetToken {
   @@index([userId])
 }
 
-model PhoneOtp {
-  id         String    @id @default(cuid())
-  phone      String
+/// One issued verification code.
+///
+/// Was `PhoneOtp` until M25, when the same machinery started carrying
+/// email codes too. The **table and column names are unchanged** — the
+/// rename is `@@map`/`@map` only, so it is a pure rename in Prisma and
+/// produces no SQL. Renaming mattered because the alternative was an
+/// email sitting in a column called `phone`, which is the kind of thing
+/// the next person copies.
+model OtpChallenge {
+  id String @id @default(cuid())
+
+  /// Where the code was sent: an E.164 phone number **or** an email
+  /// address. `AuthService` decides which by parsing it (see
+  /// `identifier.util.ts`); this layer only ever treats it as an opaque
+  /// key, which is why one column is right rather than two nullable ones.
+  destination String @map("phone")
+
   codeHash   String
+  /// `login` for sign-in, `verify` for confirming a contact somebody
+  /// already signed up with. Kept apart so a code minted to prove you own
+  /// an address cannot be replayed as a sign-in.
   purpose    String    @default("login")
   expiresAt  DateTime
   consumedAt DateTime?
@@ -651,13 +680,15 @@ model PhoneOtp {
   createdAt  DateTime  @default(now())
 
   /// Matches the query `OtpService.verify` actually runs — `findFirst`
-  /// on `(phone, purpose, consumedAt: null)` ordered by `createdAt desc`.
-  /// The old `@@index([phone])` alone made every verification scan and
-  /// sort that phone's whole OTP history, which grows with the per-phone
-  /// request cap (5 per window) and never shrinks: OTP rows are not
-  /// deleted after use, only marked consumed. On the hot path of every
-  /// phone sign-in, which is how an approved HomeKrafter gets in.
-  @@index([phone, purpose, consumedAt, createdAt])
+  /// on `(destination, purpose, consumedAt: null)` ordered by `createdAt
+  /// desc`. The old `@@index([phone])` alone made every verification scan
+  /// and sort that phone's whole OTP history, which grows with the
+  /// per-destination request cap (5 per window) and never shrinks: OTP
+  /// rows are not deleted after use, only marked consumed. On the hot
+  /// path of every phone sign-in, which is how an approved HomeKrafter
+  /// gets in.
+  @@index([destination, purpose, consumedAt, createdAt])
+  @@map("PhoneOtp")
 }
 
 /// Stub social-login linkage — one row per (provider, providerAccountId) a

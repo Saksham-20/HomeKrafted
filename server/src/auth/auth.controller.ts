@@ -2,9 +2,10 @@ import { Body, Controller, HttpCode, HttpStatus, Param, ParseEnumPipe, Post } fr
 import { Throttle } from '@nestjs/throttler';
 import { SocialProvider } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator';
-import { AuthService, AuthResult, TokenPair } from './auth.service';
+import { AuthService, AuthResult, ContinueResult, TokenPair } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ContinueDto } from './dto/continue.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
@@ -59,6 +60,23 @@ export class AuthController {
   }
 
   /**
+   * The single-field form's one endpoint (M25) — signs in or signs up
+   * from an identifier plus a password. See
+   * `AuthService.continueWithPassword` for the four outcomes and why the
+   * "no password set" case is a 409 rather than a 401.
+   *
+   * `register` and `login` above are untouched and still work: the native
+   * apps call them, and this is an addition rather than a replacement.
+   */
+  @Public()
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  @Post('continue')
+  continueWithPassword(@Body() dto: ContinueDto): Promise<ContinueResult> {
+    return this.authService.continueWithPassword(dto);
+  }
+
+  /**
    * Always 200 with the same body, hit or miss.
    *
    * A different answer for a known and an unknown address makes this an
@@ -92,8 +110,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('otp/request')
   async requestOtp(@Body() dto: RequestOtpDto): Promise<{ message: string }> {
-    await this.authService.requestOtp(dto.phone);
-    return { message: 'OTP sent (check server logs in dev — SMS provider is a stub until real Twilio creds are set)' };
+    const kind = await this.authService.requestOtp(dto);
+    return {
+      message:
+        kind === 'phone'
+          ? 'If that number can receive messages, a code is on its way.'
+          : 'If that address can receive mail, a code is on its way.',
+    };
   }
 
   @Public()

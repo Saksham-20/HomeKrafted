@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
@@ -8,7 +14,14 @@ import { AppConfig } from '../config/configuration';
 import { OtpService } from './otp.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ContinueDto } from './dto/continue.dto';
+import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import {
+  IdentifierKind,
+  ParsedIdentifier,
+  parseIdentifier,
+} from './identifier.util';
 import { SocialLoginDto } from './dto/social-login.dto';
 import { NAMED_ATTEMPTS, generateReferralCode } from './referral-code.util';
 import { parseDurationToMs } from './duration.util';
@@ -63,11 +76,37 @@ export interface AuthResult extends TokenPair {
 /** Never leak `passwordHash` (or anything else internal) back to the client. */
 export type PublicUser = Pick<
   User,
-  'id' | 'name' | 'email' | 'phone' | 'role' | 'referralCode' | 'createdAt' | 'suspended'
+  | 'id'
+  | 'name'
+  | 'email'
+  | 'phone'
+  | 'role'
+  | 'referralCode'
+  | 'createdAt'
+  | 'suspended'
+  | 'emailVerified'
+  | 'phoneVerified'
 >;
+
+/**
+ * What `POST /auth/continue` returns on success.
+ *
+ * `created` tells the form which of the two things just happened, so it
+ * can send a new account straight into "confirm the code we sent you"
+ * instead of the account page. It is not derivable client-side: the whole
+ * point of one field and one button is that the caller doesn't know in
+ * advance whether this is a sign-in or a sign-up.
+ */
+export interface ContinueResult extends AuthResult {
+  created: boolean;
+  /** Which channel the identifier resolved to, so the copy can say "phone" or "email". */
+  kind: IdentifierKind;
+}
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -113,6 +152,113 @@ export class AuthService {
     }
 
     return this.issueSession(user);
+  }
+
+  // ---------------------------------------------------------------------
+  // One field, one password (M25)
+  // ---------------------------------------------------------------------
+
+  /**
+   * Sign in, or sign up, from a single typed identifier and a password.
+   *
+   * This is what the Phone/Email × Shopper/HomeKrafter tab grid collapsed
+   * into. The caller does not say which it is doing, because the person
+   * filling the form does not think in those terms — they type the thing
+   * they know and a password.
+   *
+   * Four outcomes, and the awkward one is third:
+   *
+   * 1. **Known identifier, right password** → session. Ordinary sign-in.
+   * 2. **Known identifier, wrong password** → 401, one message for both
+   *    "wrong password" and "no such account with a password", because
+   *    telling them apart is an account-existence oracle.
+   * 3. **Known identifier, no password set at all** → 409, and a message
+   *    that routes them to the code instead. This is the case
+   *    `CLAUDE.md` warns about: an approved HomeKrafter's account is
+   *    minted without a credential, so "incorrect password" would be a
+   *    lie told to every real kitchen on their first visit. A 409 is a
+   *    *different status* precisely so the form can offer the OTP route
+   *    rather than repeating "wrong password" at somebody who never had
+   *    one. It does confirm the account exists — accepted knowingly: the
+   *    alternative is a supply-side lockout, and a combined sign-in/
+   *    sign-up form leaks existence through the name prompt regardless.
+   * 4. **Unknown identifier** → a new account, if a name came with it.
+   *    Without one, a 400 asking for it; the form then shows the field
+   *    and resubmits.
+   */
+  async continueWithPassword(dto: ContinueDto): Promise<ContinueResult> {
+    const target = this.parseOrThrow(dto.identifier);
+
+    const existing = await this.prisma.user.findUnique({
+      where:
+        target.kind === 'email' ? { email: target.value } : { phone: target.value },
+    });
+
+    if (existing) {
+      this.assertNotSuspended(existing);
+
+      if (!existing.passwordHash) {
+        throw new ConflictException(
+          target.kind === 'phone'
+            ? 'This account does not have a password yet. Continue with a code sent to your phone, and you can set one straight after.'
+            : 'This account does not have a password yet. Continue with a code sent to your email, and you can set one straight after.',
+        );
+      }
+
+      const valid = await argon2.verify(existing.passwordHash, dto.password);
+      if (!valid) {
+        throw new UnauthorizedException('That password does not match this account.');
+      }
+
+      return { ...(await this.issueSession(existing)), created: false, kind: target.kind };
+    }
+
+    if (!dto.name) {
+      throw new BadRequestException(
+        'NAME_REQUIRED: we have not seen this before — tell us your name and we will set the account up.',
+      );
+    }
+
+    const passwordHash = await argon2.hash(dto.password);
+    const user = await this.createUserWithAccounts(dto.name, (referralCode) => ({
+      name: dto.name as string,
+      ...(target.kind === 'email'
+        ? { email: target.value }
+        : { phone: target.value }),
+      passwordHash,
+      // The identifier they chose is the provider they have. `email` is
+      // added to a phone account only when they actually set an address.
+      authProviders: [target.kind === 'email' ? ('email' as const) : ('phone' as const)],
+      referralCode,
+      referredByCode: dto.referredByCode,
+    }));
+
+    // Send the confirmation code, but never let it fail the signup. The
+    // account is already real and usable — verification is a separate,
+    // non-blocking fact (see `User.emailVerified`) — so a provider outage,
+    // or the per-destination request cap, must not turn a completed
+    // sign-up into an error page in front of somebody who now *has* an
+    // account and would be told they don't.
+    void this.otpService
+      .requestOtp(target, 'verify')
+      .catch((error: unknown) =>
+        this.logger.warn(
+          `Could not send the verification code to ${target.value}: ${String(error)}`,
+        ),
+      );
+
+    return { ...(await this.issueSession(user)), created: true, kind: target.kind };
+  }
+
+  /** 400 rather than a 500 or a silent miss when the one box holds neither shape. */
+  private parseOrThrow(raw: string | undefined): ParsedIdentifier {
+    const parsed = raw ? parseIdentifier(raw) : null;
+    if (!parsed) {
+      throw new BadRequestException(
+        'Enter a mobile number or an email address.',
+      );
+    }
+    return parsed;
   }
 
   // ---------------------------------------------------------------------
@@ -224,14 +370,36 @@ export class AuthService {
   // Phone OTP
   // ---------------------------------------------------------------------
 
-  async requestOtp(phone: string): Promise<void> {
-    await this.otpService.requestOtp(phone);
+  async requestOtp(dto: RequestOtpDto): Promise<IdentifierKind> {
+    const target = this.parseOrThrow(dto.identifier ?? dto.phone);
+    await this.otpService.requestOtp(target);
+    return target.kind;
   }
 
+  /**
+   * Verify a code, and sign in on the strength of it.
+   *
+   * A code proves the person holds the address or the number, so it does
+   * two things at once: it lands a session, and it stamps
+   * `emailVerified`/`phoneVerified`. Those are the same fact.
+   *
+   * **This is still a first-class way in, and must stay one.** M25 moved
+   * the *form* to password-first, which is what makes verification the
+   * headline use — but an approved HomeKrafter's account is created
+   * without a password, and until they set one this endpoint is the only
+   * door they have. Removing it because "OTP is just for verification now"
+   * would lock out every kitchen the platform is trying to onboard.
+   */
   async verifyOtp(dto: VerifyOtpDto): Promise<AuthResult> {
-    const { bypassed } = await this.otpService.verifyOtp(dto.phone, dto.code);
+    const target = this.parseOrThrow(dto.identifier ?? dto.phone);
+    // `login`, not `verify`: a code minted to confirm a contact on a
+    // brand-new account must not double as a way to sign in to somebody
+    // else's. The purposes are separate rows and are checked separately.
+    const { bypassed } = await this.otpService.verifyOtp(target, dto.code);
 
-    let user = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+    let user = await this.prisma.user.findUnique({
+      where: target.kind === 'email' ? { email: target.value } : { phone: target.value },
+    });
 
     // The fixed test code exists so the OTP flow can be exercised without a
     // live SMS account. It must never become a route into the admin panel:
@@ -244,21 +412,30 @@ export class AuthService {
         'Admin accounts cannot sign in with the test OTP code — use email and password',
       );
     }
+
+    const provider = target.kind === 'email' ? ('email' as const) : ('phone' as const);
+    const verifiedField = target.kind === 'email' ? 'emailVerified' : 'phoneVerified';
+
     if (!user) {
-      user = await this.createUserWithAccounts(dto.name ?? dto.phone, (referralCode) => ({
+      user = await this.createUserWithAccounts(dto.name ?? target.value, (referralCode) => ({
         name: dto.name ?? 'Homekrafted user',
-        phone: dto.phone,
-        authProviders: ['phone'],
+        ...(target.kind === 'email' ? { email: target.value } : { phone: target.value }),
+        // Proved in the same request that created the account.
+        [verifiedField]: true,
+        authProviders: [provider],
         referralCode,
       }));
     } else {
       this.assertNotSuspended(user);
-      if (!user.authProviders.includes('phone')) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { authProviders: { push: 'phone' } },
-        });
-      }
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          [verifiedField]: true,
+          ...(user.authProviders.includes(provider)
+            ? {}
+            : { authProviders: { push: provider } }),
+        },
+      });
     }
 
     return this.issueSession(user);
@@ -551,6 +728,8 @@ export class AuthService {
       referralCode: user.referralCode,
       createdAt: user.createdAt,
       suspended: user.suspended,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
     };
   }
 }

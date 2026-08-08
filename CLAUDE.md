@@ -548,6 +548,23 @@ to `POST /uploads?purpose=…`, and hand back a URL to store.
   inert when served from our own origin (this is why SVG is excluded).
 - **Nothing deletes old files yet.** Replacing a photo orphans the previous
   one. See `docs/DEPLOY.md`.
+- **Nothing is stored as it arrived (M25).** Every accepted upload is
+  re-encoded by `server/src/uploads/image-pipeline.ts` — metadata
+  stripped, orientation baked in, longest edge capped at 2000px, output
+  **always WebP q82**. Storage stays local disk on the VPS
+  (`/var/lib/homekrafted/uploads`, nginx serves it; `STORAGE_DRIVER=local`).
+  Three rules if you touch it:
+  - **The metadata strip is a privacy control, not an optimisation.** A
+    phone photo of a home kitchen carries EXIF GPS; publishing it
+    published a home cook's address. Never add `.withMetadata()` to "fix"
+    orientation — `.rotate()` already bakes it in, which is why the strip
+    is safe.
+  - **`.rotate()` must stay ahead of the strip.** Drop the orientation tag
+    without applying it and every portrait phone photo is stored sideways.
+  - **WebP, not AVIF, is a CPU decision.** AVIF encodes in seconds on a
+    1 vCPU box and this runs inline on the request. Revisit only if the
+    box grows; nothing stored has to move, because the extension is
+    derived rather than echoed.
 
 ## Hampers, auth and notifications (M18) — three rules that bite
 
@@ -724,10 +741,19 @@ had a test, and none was visible from reading the happy path.
 - **An approved HomeKrafter has no password *at the moment of approval*.**
   Approval mints the account (`authProviders: ['phone']`) and an admin
   never sets a credential — that rule stands, and an admin must never be
-  able to. Phone OTP therefore remains a first-class sign-in and **any
-  surface offering to sign a HomeKrafter in must offer it**: removing the
-  Phone tab from `/login?role=seller` gives every real kitchen "Incorrect
-  email or password" for a password that never existed.
+  able to. A one-time code therefore remains a first-class sign-in and
+  **any surface offering to sign a HomeKrafter in must offer it**:
+  removing it gives every real kitchen "Incorrect email or password" for a
+  password that never existed.
+
+  **M25 collapsed the form to one field and kept that door open, by
+  status.** `POST /auth/continue` answers **409** (not 401) when the
+  account exists with `passwordHash: null`, and the form turns that into
+  the code route automatically. If you ever change that branch to a 401
+  "for consistency", you have re-broken supply-side onboarding — the
+  end-to-end path is pinned in `test/e2e/auth-continue.e2e-spec.ts`
+  ("the approved HomeKrafter case"). "Use a code instead" is also always
+  visible on the form, deliberately, not only after a failure.
 
   **M21 added the second door.** Approval sends a single-use, 7-day
   set-password link by email and SMS (`SellerInviteService`), which is
@@ -738,6 +764,14 @@ had a test, and none was visible from reading the happy path.
   must never be emailed**. That credential would sit readable in an inbox
   forever, could not be rotated, and on this platform is the one that can
   change payout details.
+- **One box decides its own type, and the two parsers are NOT twins.**
+  `server/src/auth/identifier.util.ts` (libphonenumber-js, region `IN`) is
+  the authority; `client/lib/auth/identifier.ts` only enables the button
+  and picks the label. Unlike `lib/geo.ts` and its server copy, these are
+  *allowed* to disagree — but only in one direction. The client must stay
+  **looser**: a false positive costs one request and a clear 400, while a
+  false negative strands somebody at a dead button with a valid number
+  typed in and nothing to fix. Never "tighten" the client to match.
 - **Never resolve the signed-in seller from `lib/data`.** Use
   `GET /seller/me` (`getMySeller()`). The mock list contains only seeded
   kitchens, so a lookup for a real one misses — and falling back to a

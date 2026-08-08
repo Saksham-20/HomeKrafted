@@ -41,6 +41,14 @@ export interface SessionUser {
   referralCode: string;
   createdAt: string;
   suspended?: boolean;
+  /**
+   * Whether the contact has been proved by a code (M25). Optional because
+   * a session persisted before M25 has neither field, and treating a
+   * missing value as `false` would tell a returning user their verified
+   * address is unverified.
+   */
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
 }
 
 export interface StoredSession {

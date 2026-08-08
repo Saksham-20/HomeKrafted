@@ -98,8 +98,8 @@ describe('an approved HomeKrafter can sign in', () => {
     const { phone } = await applyAndApprove();
 
     await h.api().post(`${API_PREFIX}/auth/otp/request`).send({ phone }).expect(200);
-    const otp = await h.prisma.phoneOtp.findFirst({
-      where: { phone },
+    const otp = await h.prisma.otpChallenge.findFirst({
+      where: { destination: phone },
       orderBy: { createdAt: 'desc' },
     });
     expect(otp).toBeTruthy();

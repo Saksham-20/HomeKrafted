@@ -148,6 +148,10 @@ export default (): AppConfig => ({
     driver: process.env.STORAGE_DRIVER ?? 'local',
     dir: process.env.UPLOAD_DIR ?? '/var/lib/homekrafted/uploads',
     publicPrefix: (process.env.UPLOAD_PUBLIC_PREFIX ?? '/uploads').replace(/\/$/, ''),
-    maxBytes: parseInt(process.env.UPLOAD_MAX_BYTES ?? '5242880', 10),
+    // 12MB. Deliberately generous, because nothing this size is ever
+    // stored: `image-pipeline.ts` re-encodes every accepted upload down to
+    // a capped WebP first. The limit is an abuse ceiling, not a storage
+    // budget, and 5MB used to reject an ordinary photo off a phone.
+    maxBytes: parseInt(process.env.UPLOAD_MAX_BYTES ?? '12582912', 10),
   },
 });

@@ -122,11 +122,11 @@ describe('OTP test bypass', () => {
 
     it('consumes any pending real code, so it cannot be replayed afterwards', async () => {
       await h.api().post(`${API_PREFIX}/auth/otp/request`).send({ phone: ALLOWED }).expect(200);
-      expect(await h.prisma.phoneOtp.count({ where: { phone: ALLOWED, consumedAt: null } })).toBe(1);
+      expect(await h.prisma.otpChallenge.count({ where: { destination: ALLOWED, consumedAt: null } })).toBe(1);
 
       await verify(ALLOWED, TEST_CODE).expect(200);
 
-      expect(await h.prisma.phoneOtp.count({ where: { phone: ALLOWED, consumedAt: null } })).toBe(0);
+      expect(await h.prisma.otpChallenge.count({ where: { destination: ALLOWED, consumedAt: null } })).toBe(0);
     });
 
     it('leaves a real OTP for a non-allowlisted number working normally', async () => {
@@ -136,7 +136,7 @@ describe('OTP test bypass', () => {
       await h.api().post(`${API_PREFIX}/auth/otp/request`).send({ phone: NOT_ALLOWED }).expect(200);
       await verify(NOT_ALLOWED, '000000').expect(401);
 
-      const row = await h.prisma.phoneOtp.findFirst({ where: { phone: NOT_ALLOWED } });
+      const row = await h.prisma.otpChallenge.findFirst({ where: { destination: NOT_ALLOWED } });
       expect(row!.attempts).toBe(1);
       expect(row!.consumedAt).toBeNull();
     });

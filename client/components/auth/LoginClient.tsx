@@ -1,42 +1,57 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
-import { Mail, Phone } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
-import { RoleChoice, type AuthRole } from "./RoleChoice";
+import { guessIdentifierKind, type IdentifierKind } from "@/lib/auth/identifier";
 import { SocialSignIn } from "./SocialSignIn";
 import type { UserRole } from "@/lib/types";
 import styles from "./LoginClient.module.css";
 
-type Method = "phone" | "email";
-
 /**
- * Sign in (M8.4a real auth, reworked M8.5 to lead with a role choice).
+ * Sign in and sign up, in one form (M25).
  *
- * Both `/login` and `/signup` open on the same "I'm a shopper / I'm a
- * seller" choice (`RoleChoice`) — admin is never offered here, staying a
- * separate internal-only `/admin/login`. The **shopper** tab is unchanged
- * from M8.4a: phone-OTP, email, and social sign-in against the live
- * `server/` (`useAuth()`'s `requestOtp`/`verifyOtp`/`signInWithEmail`/
- * `signInSocial`, `lib/api/auth.ts`). The **HomeKrafter** tab is
- * new: email/password only (real accounts are approval-provisioned, not
- * self-serve — no phone-OTP/social account creation for sellers) plus
- * "continue as demo maker/laundry/snack", all now real `POST /auth/login`
- * calls rather than a local state flip, and a
- * link into the `/sell` application flow for anyone without a seller
- * account yet. `/seller/login` (M10a) now just redirects to
- * `/login?role=seller` — this screen is the single entry point for both
- * roles. Whichever account actually signs in decides the redirect
- * (`/seller` vs `/account`), not which tab was selected — see
- * `redirectForRole`.
+ * **What this replaced.** Until M25 this screen was a 2×2 grid of tabs:
+ * Shopper/HomeKrafter across the top, Phone/Email inside each. Four
+ * screens, and the visitor had to classify themselves twice before
+ * typing anything — including on the *role* axis, which they cannot
+ * always answer (a HomeKrafter who also buys is both) and which the
+ * server has to re-decide anyway, since the account's own `role` is what
+ * picks the landing page. Now there is one box, one password, and one
+ * button.
+ *
+ * **The field decides what it is.** `guessIdentifierKind` watches what is
+ * typed and switches the label and hint between phone and email; the
+ * server re-parses it properly (`server/src/auth/identifier.util.ts`) and
+ * is the only thing that actually decides. The client copy is looser on
+ * purpose — see its doc comment.
+ *
+ * **Three steps, and only one is ever shown at a time:**
+ *
+ * - `password` — the normal one. Identifier + password → in.
+ * - `name` — reached only when the identifier is new. The server asks;
+ *   the client does not guess, because guessing needs an "does this
+ *   account exist" probe.
+ * - `code` — the OTP route. Reached deliberately ("Use a code instead"),
+ *   by a 409 (an account with no password — every approved HomeKrafter,
+ *   on their first ever visit), or straight after a sign-up to confirm
+ *   the contact.
+ *
+ * **The code route is not decoration and must not be removed.** Approval
+ * mints a HomeKrafter's account without a credential, so for a real
+ * kitchen signing in for the first time this is the only door — see the
+ * "Auth & identity (M17)" rules in `CLAUDE.md`. What M25 changed is that
+ * it is one link rather than a tab everybody has to read past.
  */
+
+type Step = "password" | "name" | "code";
+
 export function LoginClient() {
   const router = useRouter();
   const {
@@ -44,49 +59,56 @@ export function LoginClient() {
     ready,
     role: currentRole,
     busy,
+    continueWithPassword,
     requestOtp,
     verifyOtp,
-    signInWithEmail,
     signInSocial,
-    signInWithPassword,
     signOut,
   } = useAuth();
 
-  const [authRole, setAuthRole] = useState<AuthRole>("shopper");
-  // Read `?role=seller` (the old `/seller/login`'s redirect target) after
-  // mount only — deciding this during the initial render would disagree
-  // with the server-rendered "shopper" default and trip a hydration
-  // mismatch, since `window` isn't available during SSR.
+  const [step, setStep] = useState<Step>("password");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  /** Set once a sign-up has landed, so the code step reads as "confirm" rather than "sign in". */
+  const [justCreated, setJustCreated] = useState(false);
+
+  // `?role=seller` is a copy hint only now. It used to select a whole tab;
+  // keeping it as a subtitle means an old "HomeKrafter sign in" link still
+  // lands somewhere that looks right, without the form behaving
+  // differently — which it never should, since the account decides.
+  const [sellerContext, setSellerContext] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional one-time post-mount read of the ?role= query param; kept in an effect (not a lazy useState initializer / useSearchParams) precisely to avoid an SSR↔client hydration mismatch, since window.location isn't available during SSR.
-    if (params.get("role") === "seller") setAuthRole("seller");
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time post-mount read of ?role=; window.location isn't available during SSR, and reading it in a lazy initializer would trip a hydration mismatch.
+    if (params.get("role") === "seller") setSellerContext(true);
   }, []);
 
-  const [method, setMethod] = useState<Method>("phone");
-  const [phone, setPhone] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const kind: IdentifierKind | null = useMemo(
+    () => guessIdentifierKind(identifier),
+    [identifier],
+  );
+
+  const identifierLabel =
+    kind === "email" ? "Email address" : kind === "phone" ? "Mobile number" : "Mobile number or email";
+
+  function friendlyError(err: unknown): string {
+    if (err instanceof ApiError) return err.message;
+    return "Something went wrong — please try again.";
+  }
 
   /**
-   * The signed-in account's own `role` decides where to land — not which
-   * tab was used to sign in (a seller email entered while the shopper tab
-   * happened to be open still lands on `/seller`, and vice versa).
-   *
-   * All three roles are handled explicitly. `admin` used to fall into the
-   * `/account` default alongside `consumer`, which dropped an admin
-   * signing in through this page onto the ordinary shopper account screen
-   * instead of the admin panel.
+   * The signed-in account's own `role` decides where to land — never
+   * anything the form was told. `?next=` is set by the edge gate and by a
+   * session expiring mid-request; it is validated (same-origin relative
+   * path only) and then checked against the role, because returning a
+   * shopper to a `/seller/*` page would bounce off the gate and read as
+   * the sign-in having failed. See `lib/auth/return-to.ts`.
    */
   function redirectForRole(resultRole: UserRole) {
-    // `?next=` is set by the edge gate and by a session expiring
-    // mid-request. It is validated (same-origin relative path only) and
-    // then checked against the role — returning a shopper to a
-    // `/seller/*` page would bounce off the gate and read as the sign-in
-    // having failed. See `lib/auth/return-to.ts`.
     const requested = returnToForRole(
       safeReturnTo(new URLSearchParams(window.location.search).get(RETURN_TO_PARAM)),
       resultRole,
@@ -97,65 +119,89 @@ export function LoginClient() {
     return router.push("/account");
   }
 
-  function friendlyError(err: unknown): string {
-    if (err instanceof ApiError) return err.message;
-    return "Something went wrong — please try again.";
-  }
+  const canSubmitPassword = kind !== null && password.length >= 8 && !busy;
 
-  async function handleSendOtp() {
-    if (phone.trim().length < 10) return;
+  async function handleContinue(withName?: string) {
+    if (kind === null || password.length < 8) return;
     setError(null);
+    setNotice(null);
     try {
-      await requestOtp(phone.trim());
-      setOtpSent(true);
-    } catch (err) {
-      setError(friendlyError(err));
-    }
-  }
+      const { role, created } = await continueWithPassword({
+        identifier: identifier.trim(),
+        password,
+        name: withName?.trim() || undefined,
+      });
 
-  async function handleVerifyOtp() {
-    if (otp.trim().length < 4) return;
-    setError(null);
-    try {
-      const resultRole = await verifyOtp(phone.trim(), otp.trim());
-      redirectForRole(resultRole);
-    } catch (err) {
-      setError(friendlyError(err));
-    }
-  }
-
-  /**
-   * The HomeKrafter tab's email path.
-   *
-   * Deliberately **not** `signInWithEmail`, which falls back to creating
-   * a consumer account when the login fails — on this tab that turns
-   * "wrong password" into an attempt to register an email that already
-   * exists, and the 409 that comes back explains nothing. A HomeKrafter
-   * who has never set a password gets told to use the phone tab instead,
-   * which is the path their account was actually provisioned with.
-   */
-  async function handleSellerEmailSignIn() {
-    if (!email.trim().includes("@") || password.length < 8) return;
-    setError(null);
-    try {
-      const resultRole = await signInWithPassword(email.trim(), password);
-      redirectForRole(resultRole);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        setError(
-          "We couldn't sign you in with that email and password. If your account was created when your application was approved, you don't have a password yet — sign in with your phone number instead.",
+      if (created) {
+        // Signed in already — the account is real. This step confirms the
+        // contact, and says so; it is not a gate, which is why "I'll do
+        // this later" is a peer of the verify button rather than fine
+        // print. Verification cannot be delivered at all until the SMS and
+        // email providers have keys, so blocking on it would block every
+        // sign-up (`docs/LAUNCH-READINESS.md`).
+        setJustCreated(true);
+        setStep("code");
+        setNotice(
+          kind === "email"
+            ? `Welcome. We've emailed a code to ${identifier.trim()} — confirming it now means we can reach you about your orders.`
+            : `Welcome. We've texted a code to ${identifier.trim()} — confirming it now means we can reach you about your orders.`,
         );
         return;
+      }
+
+      redirectForRole(role);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // The server asks for a name only when it has established the
+        // identifier is new. Matched on the message prefix because the
+        // error envelope derives `code` from the HTTP status alone, so
+        // every 400 arrives as `BAD_REQUEST`.
+        if (err.status === 400 && err.message.startsWith("NAME_REQUIRED")) {
+          setStep("name");
+          setNotice("Looks like you're new here — what should we call you?");
+          return;
+        }
+        // 409: the account exists but has no password. An approved
+        // HomeKrafter's first visit is exactly this.
+        if (err.status === 409) {
+          setStep("code");
+          setJustCreated(false);
+          setNotice(err.message);
+          void sendCode();
+          return;
+        }
       }
       setError(friendlyError(err));
     }
   }
 
-  async function handleEmailContinue() {
-    if (!email.trim().includes("@") || password.length < 8) return;
+  async function sendCode() {
+    if (kind === null) return;
     setError(null);
     try {
-      const resultRole = await signInWithEmail(email.trim(), password);
+      await requestOtp(identifier.trim());
+    } catch (err) {
+      setError(friendlyError(err));
+    }
+  }
+
+  async function handleUseCodeInstead() {
+    if (kind === null) return;
+    setStep("code");
+    setJustCreated(false);
+    setNotice(
+      kind === "email"
+        ? `We'll email a code to ${identifier.trim()}.`
+        : `We'll text a code to ${identifier.trim()}.`,
+    );
+    await sendCode();
+  }
+
+  async function handleVerify() {
+    if (code.trim().length < 4) return;
+    setError(null);
+    try {
+      const resultRole = await verifyOtp(identifier.trim(), code.trim(), name.trim() || undefined);
       redirectForRole(resultRole);
     } catch (err) {
       setError(friendlyError(err));
@@ -165,11 +211,17 @@ export function LoginClient() {
   async function handleSocial(provider: "google" | "apple") {
     setError(null);
     try {
-      const resultRole = await signInSocial(provider);
-      redirectForRole(resultRole);
+      redirectForRole(await signInSocial(provider));
     } catch (err) {
       setError(friendlyError(err));
     }
+  }
+
+  function backToPassword() {
+    setStep("password");
+    setNotice(null);
+    setError(null);
+    setCode("");
   }
 
   if (ready && isSignedIn) {
@@ -182,13 +234,11 @@ export function LoginClient() {
         ? "Go to the admin panel"
         : "Go to my account";
 
-    // `?role=seller` was ignored here entirely. Somebody who followed a
-    // "HomeKrafter sign in" link while a shopper account was signed in —
-    // a shared computer, a HomeKrafter who also buys — was told "you're
-    // all set" and offered their *shopper* account, with the surface they
-    // actually asked for never mentioned and no obvious way to reach it.
-    const wantsSeller = authRole === "seller";
-    const wrongAccount = wantsSeller && !signedInAsSeller;
+    // Somebody who followed a "HomeKrafter sign in" link while a shopper
+    // account is signed in — a shared computer, a HomeKrafter who also
+    // buys — used to be told "you're all set" and offered their *shopper*
+    // account, with no route to the one they asked for.
+    const wrongAccount = sellerContext && !signedInAsSeller;
 
     return (
       <section className={clsx("container", styles.page)}>
@@ -204,10 +254,7 @@ export function LoginClient() {
                 ? "You're signed in to your Homekrafted HomeKrafter account."
                 : signedInAsAdmin
                   ? "You're signed in to your Homekrafted admin account."
-                  : // Was "the Homekrafted demo account" — shown to every real
-                    // customer who ever landed here signed in. A leftover from
-                    // the mock era that survived because nobody signs in twice.
-                    "You're signed in to your Homekrafted account."}
+                  : "You're signed in to your Homekrafted account."}
           </p>
           <div className={styles.signedInActions}>
             {wrongAccount ? (
@@ -240,322 +287,164 @@ export function LoginClient() {
       <div className={styles.header}>
         {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
         <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
-        <h1 className={styles.title}>Sign in</h1>
+        <h1 className={styles.title}>Sign in or create an account</h1>
         <p className={styles.subtitle}>
-          {authRole === "shopper"
-            ? "One account for the shop, snacks and your wallet."
-            : "Manage your listings, orders, storefront and payouts."}
+          {sellerContext
+            ? "Manage your listings, orders, storefront and payouts."
+            : "One account for the shop, snacks and your wallet."}
         </p>
       </div>
 
-      <RoleChoice
-        value={authRole}
-        onChange={(next) => {
-          setAuthRole(next);
-          setError(null);
-        }}
-        className={styles.roleChoice}
-      />
-
-      {authRole === "shopper" ? (
-        <>
-          <Card className={styles.card}>
-            <div className={styles.methodTabs} role="tablist" aria-label="Sign-in method">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={method === "phone"}
-                className={clsx(styles.methodTab, method === "phone" && styles.methodTabActive)}
-                onClick={() => {
-                  setMethod("phone");
-                  setError(null);
-                }}
-              >
-                <Phone size={15} strokeWidth={1.7} /> Phone
+      <Card className={styles.card}>
+        {step === "code" ? (
+          <div className={styles.form}>
+            {notice && <p className={styles.hint}>{notice}</p>}
+            <label className={styles.field}>
+              <span className={styles.label}>Enter the code</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={8}
+                className={clsx(styles.input, styles.otpInput)}
+                placeholder="••••••"
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+              />
+            </label>
+            <Button
+              variant="primary"
+              onClick={handleVerify}
+              disabled={code.trim().length < 4 || busy}
+            >
+              {busy ? "Checking…" : justCreated ? "Confirm" : "Verify & sign in"}
+            </Button>
+            <p className={styles.forgotRow}>
+              <button type="button" className={styles.linkButton} onClick={sendCode} disabled={busy}>
+                Send it again
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={method === "email"}
-                className={clsx(styles.methodTab, method === "email" && styles.methodTabActive)}
-                onClick={() => {
-                  setMethod("email");
-                  setError(null);
-                }}
-              >
-                <Mail size={15} strokeWidth={1.7} /> Email
-              </button>
-            </div>
-
-            {method === "phone" && (
-              <div className={styles.form}>
-                {!otpSent ? (
-                  <>
-                    <label className={styles.field}>
-                      <span className={styles.label}>Mobile number</span>
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        className={styles.input}
-                        placeholder="+91 98450 12345"
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      variant="primary"
-                      onClick={handleSendOtp}
-                      disabled={phone.trim().length < 10 || busy}
-                    >
-                      {busy ? "Sending…" : "Send OTP"}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className={styles.hint}>
-                      We&rsquo;ve sent a code to <strong>{phone}</strong> — check the server
-                      console (SMS delivery is stubbed until M9).
-                    </p>
-                    <label className={styles.field}>
-                      <span className={styles.label}>Enter OTP</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        className={clsx(styles.input, styles.otpInput)}
-                        placeholder="••••"
-                        value={otp}
-                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                      />
-                    </label>
-                    <Button variant="primary" onClick={handleVerifyOtp} disabled={otp.trim().length < 4 || busy}>
-                      {busy ? "Verifying…" : "Verify & sign in"}
-                    </Button>
-                    <button
-                      type="button"
-                      className={styles.linkButton}
-                      onClick={() => {
-                        setOtpSent(false);
-                        setOtp("");
-                      }}
-                    >
-                      Change number
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-
-            {method === "email" && (
-              <div className={styles.form}>
-                <label className={styles.field}>
-                  <span className={styles.label}>Email address</span>
-                  <input
-                    type="email"
-                    className={styles.input}
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Password</span>
-                  <input
-                    type="password"
-                    className={styles.input}
-                    placeholder="At least 8 characters"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </label>
-                <Button
-                  variant="primary"
-                  onClick={handleEmailContinue}
-                  disabled={!email.trim().includes("@") || password.length < 8 || busy}
-                >
-                  {busy ? "Signing in…" : "Continue with email"}
-                </Button>
-                <p className={styles.forgotRow}>
-                  <Link href="/forgot-password">Forgot your password?</Link>
-                </p>
-              </div>
-            )}
-
-            <SocialSignIn onSelect={handleSocial} disabled={busy} action="Sign in" />
-          </Card>
-
-          {error && (
-            <p className={styles.hint} role="alert">
-              {error}
             </p>
-          )}
-          <p className={styles.applyRow}>
-            New here? <Link href="/signup">Create an account</Link>
-          </p>
-          {/* The old copy here told every visitor that social sign-in "trusts
-              the browser instead of verifying a real Google/Apple token",
-              which is a working exploit written on the sign-in page. The gap
-              is real and tracked in `docs/LAUNCH-READINESS.md` §0.4 and in
-              `SocialSignIn`'s doc comment — it does not also need publishing
-              to the people best placed to use it. */}
-          <p className={styles.footnote}>
-            One Homekrafted account works across the shop, snacks, your wallet
-            and your orders.
-          </p>
-        </>
-      ) : (
-        <>
-          <Card className={styles.card}>
-            <div className={styles.methodTabs} role="tablist" aria-label="Sign-in method">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={method === "phone"}
-                className={clsx(styles.methodTab, method === "phone" && styles.methodTabActive)}
-                onClick={() => {
-                  setMethod("phone");
-                  setError(null);
-                }}
-              >
-                <Phone size={15} strokeWidth={1.7} /> Phone
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={method === "email"}
-                className={clsx(styles.methodTab, method === "email" && styles.methodTabActive)}
-                onClick={() => {
-                  setMethod("email");
-                  setError(null);
-                }}
-              >
-                <Mail size={15} strokeWidth={1.7} /> Email
-              </button>
-            </div>
-
-            {method === "phone" ? (
-              <div className={styles.form}>
-                <p className={styles.hint}>
-                  Use the mobile number on your application. This is how an
-                  approved HomeKrafter signs in for the first time.
-                </p>
-                {!otpSent ? (
-                  <>
-                    <label className={styles.field}>
-                      <span className={styles.label}>Mobile number</span>
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        className={styles.input}
-                        placeholder="+91 98450 12345"
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                      />
-                    </label>
-                    <Button
-                      variant="primary"
-                      onClick={handleSendOtp}
-                      disabled={phone.trim().length < 10 || busy}
-                    >
-                      {busy ? "Sending…" : "Send OTP"}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className={styles.hint}>
-                      We&rsquo;ve sent a code to <strong>{phone}</strong>.
-                    </p>
-                    <label className={styles.field}>
-                      <span className={styles.label}>Enter OTP</span>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        className={clsx(styles.input, styles.otpInput)}
-                        placeholder="••••"
-                        value={otp}
-                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, ""))}
-                      />
-                    </label>
-                    <Button
-                      variant="primary"
-                      onClick={handleVerifyOtp}
-                      disabled={otp.trim().length < 4 || busy}
-                    >
-                      {busy ? "Verifying…" : "Verify & sign in"}
-                    </Button>
-                    <button
-                      type="button"
-                      className={styles.linkButton}
-                      onClick={() => {
-                        setOtpSent(false);
-                        setOtp("");
-                        setError(null);
-                      }}
-                    >
-                      Use a different number
-                    </button>
-                  </>
-                )}
-              </div>
+            {justCreated ? (
+              // Already signed in at this point — the account exists and
+              // works. Leaving is a normal thing to do, not an escape
+              // hatch, so it is a plain action rather than a warning.
+              <p className={styles.forgotRow}>
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={() => redirectForRole(currentRole ?? "consumer")}
+                >
+                  I&rsquo;ll do this later
+                </button>
+              </p>
             ) : (
-              <div className={styles.form}>
-                <p className={styles.hint}>
-                  Only if you&rsquo;ve set a password. An account created by
-                  approving your application doesn&rsquo;t have one yet — sign
-                  in with your phone above.
-                </p>
-                <label className={styles.field}>
-                  <span className={styles.label}>Email address</span>
-                  <input
-                    type="email"
-                    className={styles.input}
-                    placeholder="you@yourbusiness.example"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Password</span>
-                  <input
-                    type="password"
-                    className={styles.input}
-                    placeholder="At least 8 characters"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </label>
-                <Button
-                  variant="primary"
-                  onClick={handleSellerEmailSignIn}
-                  disabled={!email.trim().includes("@") || password.length < 8 || busy}
-                >
-                  {busy ? "Signing in…" : "Sign in to sell"}
-                </Button>
-                <p className={styles.forgotRow}>
-                  <Link href="/forgot-password">Forgot your password?</Link>
-                </p>
-              </div>
+              <p className={styles.forgotRow}>
+                <button type="button" className={styles.linkButton} onClick={backToPassword}>
+                  Use a password instead
+                </button>
+              </p>
             )}
-          </Card>
+          </div>
+        ) : (
+          <div className={styles.form}>
+            {notice && <p className={styles.hint}>{notice}</p>}
 
-          {error && (
-            <p className={styles.hint} role="alert">
-              {error}
+            <label className={styles.field}>
+              <span className={styles.label}>{identifierLabel}</span>
+              <input
+                type="text"
+                // `email` rather than `tel`: the field takes both, and
+                // `tel` puts a numeric keypad in front of somebody about
+                // to type an address. `email` keeps a full keyboard and
+                // still offers the digits.
+                inputMode="email"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                className={styles.input}
+                placeholder="98450 12345 or you@example.com"
+                value={identifier}
+                onChange={(event) => {
+                  setIdentifier(event.target.value);
+                  setError(null);
+                }}
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.label}>Password</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                className={styles.input}
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setError(null);
+                }}
+              />
+            </label>
+
+            {step === "name" && (
+              <label className={styles.field}>
+                <span className={styles.label}>Your name</span>
+                <input
+                  type="text"
+                  autoComplete="name"
+                  autoFocus
+                  className={styles.input}
+                  placeholder="Priya Sharma"
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    setError(null);
+                  }}
+                />
+              </label>
+            )}
+
+            <Button
+              variant="primary"
+              onClick={() => handleContinue(step === "name" ? name : undefined)}
+              disabled={!canSubmitPassword || (step === "name" && name.trim().length === 0)}
+            >
+              {busy ? "One moment…" : step === "name" ? "Create my account" : "Continue"}
+            </Button>
+
+            <p className={styles.forgotRow}>
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={handleUseCodeInstead}
+                disabled={kind === null || busy}
+              >
+                Use a code instead
+              </button>
             </p>
-          )}
+            <p className={styles.forgotRow}>
+              <Link href="/forgot-password">Forgot your password?</Link>
+            </p>
+          </div>
+        )}
 
-          <p className={styles.applyRow}>
-            Not a seller yet? <Link href="/sell">Apply to sell on Homekrafted</Link>
-          </p>
-          <p className={styles.footnote}>
-            HomeKrafter sign-in goes through the same account system as
-            shoppers — there&rsquo;s no separate HomeKrafter sign-up here.
-            Apply above, and once approved you&rsquo;ll sign in right on
-            this page.
-          </p>
-        </>
+        <SocialSignIn onSelect={handleSocial} disabled={busy} action="Continue" />
+      </Card>
+
+      {error && (
+        <p className={styles.hint} role="alert">
+          {error}
+        </p>
       )}
+
+      <p className={styles.applyRow}>
+        Want to sell your own? <Link href="/sell">Apply to become a HomeKrafter</Link>
+      </p>
+      <p className={styles.footnote}>
+        One Homekrafted account works across the shop, snacks, your wallet and your
+        orders. If you&rsquo;ve been approved to sell, sign in here with the number or
+        email on your application.
+      </p>
     </section>
   );
 }

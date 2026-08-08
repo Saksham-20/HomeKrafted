@@ -91,9 +91,10 @@ import {
   logoutSession,
   refreshSession,
   registerWithEmail,
-  requestPhoneOtp,
+  continueWithPassword as apiContinueWithPassword,
+  requestOtpCode,
   socialLogin,
-  verifyPhoneOtp,
+  verifyOtpCode,
   type AuthResultDto,
 } from "@/lib/api/auth";
 import { isMockMode } from "@/lib/api/http";
@@ -161,10 +162,24 @@ export interface AuthContextValue {
   ready: boolean;
   /** True while a real network sign-in/sign-up call is in flight. */
   busy: boolean;
-  /** Consumer phone sign-in, step 1 — `POST /auth/otp/request`. */
-  requestOtp: (phone: string) => Promise<void>;
-  /** Consumer phone sign-in, step 2 — `POST /auth/otp/verify`; creates the account on first verify. Resolves the account's `role` so the caller can redirect (`/account` vs `/seller`). */
-  verifyOtp: (phone: string, code: string, name?: string) => Promise<UserRole>;
+  /**
+   * The single-field form's one call (M25) — `POST /auth/continue`.
+   *
+   * Signs in or signs up from an identifier and a password. Resolves
+   * `{ role, created }` so the caller can both redirect and decide
+   * whether to show the "confirm the code we just sent" step. Throws for
+   * every failure; see `lib/api/auth.ts#continueWithPassword` for how the
+   * three that matter are told apart.
+   */
+  continueWithPassword: (input: {
+    identifier: string;
+    password: string;
+    name?: string;
+  }) => Promise<{ role: UserRole; created: boolean }>;
+  /** Step 1 of the code route — `POST /auth/otp/request`. Takes a mobile number or an email. */
+  requestOtp: (identifier: string) => Promise<void>;
+  /** Step 2 of the code route — `POST /auth/otp/verify`; creates the account on first verify, and marks the identifier verified. Resolves the account's `role` so the caller can redirect (`/account` vs `/seller`). */
+  verifyOtp: (identifier: string, code: string, name?: string) => Promise<UserRole>;
   /** Email sign-in — role-agnostic, tries `POST /auth/login` first, falls back to `POST /auth/register` when no account exists yet for that email (see `LoginClient`'s added password field). Works for both the shopper and seller tabs; the resulting `role` comes from the account, not from which tab was used — resolves it so the caller can redirect accordingly. */
   signInWithEmail: (email: string, password: string, name?: string) => Promise<UserRole>;
   /**
@@ -397,11 +412,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     writeRoleCookie(signedIn ? role : undefined);
   }, [signedIn, role, sellerType, sellerMode]);
 
-  async function requestOtp(phone: string) {
+  async function requestOtp(identifier: string) {
     if (mock) return;
     setBusy(true);
     try {
-      await requestPhoneOtp(phone);
+      await requestOtpCode(identifier);
     } finally {
       setBusy(false);
     }
@@ -439,7 +454,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result.user.role;
   }
 
-  async function verifyOtp(phone: string, code: string, name?: string): Promise<UserRole> {
+  async function verifyOtp(identifier: string, code: string, name?: string): Promise<UserRole> {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
@@ -448,8 +463,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setBusy(true);
     try {
-      const result = await verifyPhoneOtp(phone, code, name);
+      const result = await verifyOtpCode(identifier, code, name);
       return completeRealSignIn(result);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * The one call behind the single-field form.
+   *
+   * Everything interesting happens on the server — which of sign-in and
+   * sign-up this turns out to be is its decision, not a branch the client
+   * takes first, because taking it here would need a "does this account
+   * exist" probe that nothing should expose.
+   *
+   * In mock mode this can't consult anything, so it reports `created:
+   * false`: offline frontend work should land on the signed-in screen
+   * rather than a verification step whose code will never arrive.
+   */
+  async function continueWithPassword(input: {
+    identifier: string;
+    password: string;
+    name?: string;
+  }): Promise<{ role: UserRole; created: boolean }> {
+    if (mock) {
+      setSignedIn(true);
+      setRole("consumer");
+      setDemoHomeKrafter(undefined);
+      return { role: "consumer", created: false };
+    }
+    setBusy(true);
+    try {
+      const result = await apiContinueWithPassword(input);
+      return { role: completeRealSignIn(result), created: result.created };
     } finally {
       setBusy(false);
     }
@@ -643,6 +690,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSignedIn: signedIn,
     ready,
     busy,
+    continueWithPassword,
     requestOtp,
     verifyOtp,
     signInWithEmail,

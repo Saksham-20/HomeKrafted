@@ -14,6 +14,8 @@ const PUBLIC_USER_SELECT = {
   referralCode: true,
   createdAt: true,
   suspended: true,
+  emailVerified: true,
+  phoneVerified: true,
 } as const;
 
 const DEFAULT_USER_PAGE_SIZE = 25;

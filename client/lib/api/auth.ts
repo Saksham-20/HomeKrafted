@@ -18,18 +18,53 @@ export interface AuthResultDto extends AuthTokens {
   user: SessionUser;
 }
 
-/** `POST /auth/otp/request` — issues a 6-digit code, stub-logged server-side (real SMS lands M9). */
-export async function requestPhoneOtp(phone: string): Promise<void> {
-  await http.post<{ message: string }>("/auth/otp/request", { phone }, { auth: false });
+/**
+ * `POST /auth/otp/request` — issues a code to a mobile number **or** an
+ * email address (M25). The server parses `identifier` and picks the
+ * channel; nothing here needs to know which.
+ */
+export async function requestOtpCode(identifier: string): Promise<void> {
+  await http.post<{ message: string }>("/auth/otp/request", { identifier }, { auth: false });
 }
 
-/** `POST /auth/otp/verify` — creates the account on first verify for an unseen phone. */
-export async function verifyPhoneOtp(
-  phone: string,
+/** `POST /auth/otp/verify` — creates the account on first verify for an unseen identifier. */
+export async function verifyOtpCode(
+  identifier: string,
   code: string,
   name?: string,
 ): Promise<AuthResultDto> {
-  return http.post<AuthResultDto>("/auth/otp/verify", { phone, code, name }, { auth: false });
+  return http.post<AuthResultDto>("/auth/otp/verify", { identifier, code, name }, { auth: false });
+}
+
+export interface ContinueResultDto extends AuthResultDto {
+  /** True when this call created the account rather than signing in to one. */
+  created: boolean;
+  kind: "email" | "phone";
+}
+
+/**
+ * `POST /auth/continue` — the single-field form's one call (M25).
+ *
+ * Signs in if the identifier is known and the password matches, creates
+ * the account if it isn't. Three failures the caller has to tell apart,
+ * and they are distinguished by **status**, not by message text:
+ *
+ * - **400** with `NAME_REQUIRED:` — new identifier, no name sent yet. Show
+ *   the name field and resubmit. (Matched on the prefix because the error
+ *   envelope derives `code` from the HTTP status alone, so every 400
+ *   arrives as `BAD_REQUEST` — see `server/src/common/filters`.)
+ * - **409** — the account exists but has no password. An approved
+ *   HomeKrafter is exactly this, on their first ever visit. Offer the
+ *   code route.
+ * - **401** — wrong password.
+ */
+export async function continueWithPassword(input: {
+  identifier: string;
+  password: string;
+  name?: string;
+  referredByCode?: string;
+}): Promise<ContinueResultDto> {
+  return http.post<ContinueResultDto>("/auth/continue", input, { auth: false });
 }
 
 /** `POST /auth/login` — email + password. */

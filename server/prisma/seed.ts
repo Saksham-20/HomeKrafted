@@ -74,7 +74,7 @@ async function clearTables(): Promise<void> {
   await prisma.review.deleteMany();
   await prisma.socialAccount.deleteMany();
   await prisma.refreshToken.deleteMany();
-  await prisma.phoneOtp.deleteMany();
+  await prisma.otpChallenge.deleteMany();
   await prisma.address.deleteMany();
   await prisma.user.deleteMany();
 }

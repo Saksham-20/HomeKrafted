@@ -22,6 +22,8 @@ export class UsersService {
       referralCode: user.referralCode,
       createdAt: user.createdAt,
       suspended: user.suspended,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
     };
   }
 
