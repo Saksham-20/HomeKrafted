@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from '@playwright/test';
+import { storageStateFor } from '../fixtures/accounts';
 import { skipLocationPrompt } from '../fixtures/location';
 
 /**
@@ -81,3 +82,51 @@ test.describe('structure', () => {
     });
   }
 });
+
+/**
+ * The same two rule sets behind a login.
+ *
+ * The public routes are the ones anybody would think to check; the
+ * portals are where the muted-text ramp is used hardest — a dashboard is
+ * mostly labels, meta lines and table headings, which is exactly the type
+ * of copy the contrast audit found failing. A HomeKrafter reading their
+ * own earnings and an admin reading a payout queue have the same claim on
+ * being able to read it as a shopper does.
+ */
+const SIGNED_IN_ROUTES = {
+  consumer: ['/account', '/account/orders', '/wallet', '/cart'],
+  seller: ['/seller', '/seller/orders', '/seller/listings', '/seller/payouts'],
+  admin: ['/admin', '/admin/orders', '/admin/payouts', '/admin/support'],
+} as const;
+
+for (const [role, routes] of Object.entries(SIGNED_IN_ROUTES)) {
+  test.describe(`${role} surfaces`, () => {
+    test.use({ storageState: storageStateFor(role as keyof typeof SIGNED_IN_ROUTES) });
+
+    for (const route of routes) {
+      test(`${route} is readable and names its controls`, async ({ page }) => {
+        await skipLocationPrompt(page);
+        await page.goto(route);
+        // A dashboard renders its numbers after a fetch, and axe reads
+        // whatever is on screen when it runs — scanning a loading state
+        // would pass by having nothing to look at.
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+        const results = await new AxeBuilder({ page })
+          .withRules([
+            'color-contrast',
+            'button-name',
+            'link-name',
+            'input-button-name',
+            'label',
+            'aria-hidden-focus',
+            'image-alt',
+            'duplicate-id-aria',
+          ])
+          .analyze();
+
+        expect(describe(results.violations)).toEqual([]);
+      });
+    }
+  });
+}

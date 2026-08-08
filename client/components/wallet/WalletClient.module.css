@@ -53,12 +53,13 @@
   min-width: 0;
 }
 
+/* See ProductCard.maker — small gold text takes the AA-safe shade. */
 .sectionLabel {
   font-family: var(--hk-font-mono);
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 /* ---- Add money ---- */
@@ -316,10 +317,11 @@
   color: var(--hk-pine);
 }
 
+/* See ProductCard.maker — small gold text takes the AA-safe shade. */
 .historyMeta {
   font-family: var(--hk-font-mono);
   font-size: 12px;
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .emptyHistory {

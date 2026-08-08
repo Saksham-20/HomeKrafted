@@ -60,6 +60,14 @@
      tint, 5.03:1 under white. */
   --hk-whatsapp-text: #10803a;
 
+  /* ---- Terracotta on its own tint ----
+     `--hk-terracotta` (#B65D3C) is 4.55:1 on white, so a price is fine.
+     On the terracotta tint (#f6e7e0) it is 3.77:1, which is where the
+     "Cancelled" and "Returned" pills live — 11px, and the one pill whose
+     meaning somebody scanning a queue most needs to catch. This shade is
+     4.81:1 there. */
+  --hk-terracotta-text: #a04d2e;
+
   /* ---- Muted text, corrected ----
      **The one place this file overrides `tokens.css` rather than adding
      to it**, and it is deliberate. `--hk-muted` is documented there as

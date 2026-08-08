@@ -41,5 +41,6 @@
      TransactionRow/OrderStatusPill (see root CLAUDE.md's "Known token
      gaps"), reused rather than inventing a second near-identical shade. */
   background: #f6e7e0;
-  color: var(--hk-terracotta);
+  /* Terracotta is 3.77:1 on this tint — see `--hk-terracotta-text`. */
+  color: var(--hk-terracotta-text);
 }

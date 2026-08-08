@@ -483,6 +483,10 @@ adding to it.
   #2c473a` (divider above the legal row).
 - `--hk-scrollbar: #d9cdb4` — the `.hk-scroll` scrollbar-thumb tint
   (decorative, low stakes; see `styles/globals.css`).
+- `--hk-terracotta-text: #a04d2e` — terracotta *on the terracotta tint*
+  (#f6e7e0), where `--hk-terracotta` is 3.77:1: the "Cancelled" and
+  "Returned" pills in both order queues. On white it is 4.55:1, so a
+  price stays on the base token.
 - `--hk-whatsapp-text: #10803a` — WhatsApp green *as text*, and as a fill
   under white text. `--hk-whatsapp` (#1FA855) and `--hk-whatsapp-deep`
   (#128C3E) are brand fills and both fail as copy (3.1–4.0:1). Same shape
