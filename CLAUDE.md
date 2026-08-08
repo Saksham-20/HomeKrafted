@@ -233,10 +233,18 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   name and drop it straight into `tokens.css`.
 - **White-first, warmth is accent-only.** Canvas `#F4F3F0`, cards
   `#FFFFFF` + `1px #ECEAE4` border. Never reintroduce beige/cream fills.
-- **Gold (`--hk-gold` `#B98724`) is decorative-only: ≥16px bold, or pure
-  decoration (eyebrows, "view all").** Never body text or small UI copy at
-  regular weight — its contrast on white is only 3.6:1. Terracotta
+- **Gold (`--hk-gold` `#B98724`) is for fills, borders and rules — never
+  for text.** Its contrast is 3.2:1 on white and 2.9:1 on the canvas.
+  This rule used to carve out "pure decoration (eyebrows, 'view all')";
+  the 2026-08-08 contrast audit deleted that carve-out, because an
+  eyebrow labels a section and "View all" is a link — both are words
+  somebody reads, and axe fails them. Small gold text takes
+  **`--hk-gold-text-sm`**, which exists for exactly this. Terracotta
   (`--hk-terracotta`) is for prices/remove in the marketplace.
+- **Every new surface owes a contrast pass, and it is automated:**
+  `e2e/tests/a11y.spec.ts` runs axe's `color-contrast` plus the
+  structural WCAG rules over every public route at both viewports. Add a
+  route to `PUBLIC_ROUTES` there when you add one.
 - **Real photos where supplied, placeholder otherwise — always via
   `<ImageSlot>`.** Brand photography lives under
   `client/public/images/{products,categories,snacks,vendors,site}`;
@@ -453,23 +461,42 @@ centralized as real CSS custom properties in `client/styles/tokens.extend.css`
 (imported once, right after `globals.css`, in `app/layout.tsx`) so every
 `components/ui/*.module.css` file can reference `var(--hk-...)` instead of
 repeating the raw hex. `tokens.css` itself stays untouched and remains law —
-`tokens.extend.css` is purely additive and NOT part of the `handoff/`
-design system.
+`tokens.extend.css` is **almost** purely additive and NOT part of the
+`handoff/` design system — see the two corrected values at the end of the
+list, which are the only place it overrides `tokens.css` rather than
+adding to it.
 
 - `--hk-on-pine: #eadfc9` — copy on solid `--hk-pine` (announcement bar,
   tag chips, badges on dark cards, PromoBand's dark variant,
   WalletBalanceCard).
-- `--hk-gold-text-sm: #8a6a16` — gold-family text/icons at small sizes on
-  white/gold-tint, where base `--hk-gold` (3.6:1 on white) isn't AA-safe
-  below ~16px/bold (wallet chip, cashback lines, StickySummary's cashback
-  line, Button's `ghost-gold` label).
+- `--hk-gold-text-sm: #886815` — **all** gold-family text, not only small
+  text: `--hk-gold` fails AA everywhere it carries words (wallet chip,
+  cashback lines, `ghost-gold` label, and since the 2026-08-08 audit the
+  section eyebrows, "view all" links, shop filter headings and every
+  product card's maker line). Darkened from the prototype's `#8a6a16`,
+  which measured 4.49:1 on the gold tint — one hundredth short.
 - A light-on-`--hk-pine-deep` ramp, used on the footer and any other solid
   dark-pine surface: `--hk-footer-ink: #c7d3c5` (body), `--hk-footer-ink-2:
   #a9bcae` (link list), `--hk-footer-muted: #9fb3a5` (brand blurb),
-  `--hk-footer-mono: #7e9488` (mono legal row), `--hk-footer-border:
+  `--hk-footer-mono: #869c90` (mono legal row — darker `#7e9488` was
+  4.18:1, and that row is the legal notice), `--hk-footer-border:
   #2c473a` (divider above the legal row).
 - `--hk-scrollbar: #d9cdb4` — the `.hk-scroll` scrollbar-thumb tint
   (decorative, low stakes; see `styles/globals.css`).
+- `--hk-whatsapp-text: #10803a` — WhatsApp green *as text*, and as a fill
+  under white text. `--hk-whatsapp` (#1FA855) and `--hk-whatsapp-deep`
+  (#128C3E) are brand fills and both fail as copy (3.1–4.0:1). Same shape
+  as `--hk-gold-text-sm`: the brand colour is left alone.
+- **`--hk-muted: #766c5d` and `--hk-muted-2: #6f6a5e` are the one
+  override.** `tokens.css` documents `--hk-muted` as "meta, captions" —
+  body text — and ships it at `#8A8070`, which is 3.50:1 on the canvas
+  and 3.88:1 on a card. It is used 306 times across 135 files: every
+  product card's maker line, every filter heading, the shop's breadcrumb
+  and subtitle. Correcting the value beats re-pointing 306 call sites at
+  a new name, which would leave the failing token in place for the 307th.
+  Same hue, minimum darkening that clears AA on the hardest background.
+  `tokens.css` is still untouched and still law; reverting is deleting
+  two lines from `tokens.extend.css`.
 
 A few narrower one-off gaps (each used in exactly one component) stayed as
 local hardcoded-plus-comment values rather than joining `tokens.extend.css`,

@@ -11,13 +11,15 @@
   gap: var(--hk-s2);
 }
 
+/* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
+   sense, but these are words somebody reads. `--hk-gold-text-sm` is the
+   same family at an AA-safe darkness (2026-08-08 contrast audit). */
 .eyebrow {
   font-family: var(--hk-font-mono);
   font-size: 11.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  /* Eyebrow — decorative gold, which is what the token is for. */
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .title {

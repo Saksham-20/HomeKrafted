@@ -15,7 +15,9 @@
    introducing a new one-off pair. */
 .noCheckout {
   background: var(--hk-success-tint);
-  color: var(--hk-whatsapp-deep);
+  /* `--hk-whatsapp-deep` is a fill; as text here it is 3.9:1.
+     `--hk-whatsapp-text` is the readable shade (2026-08-08 audit). */
+  color: var(--hk-whatsapp-text);
   font-size: 11.5px;
   font-weight: 600;
   border-radius: var(--hk-r-pill);

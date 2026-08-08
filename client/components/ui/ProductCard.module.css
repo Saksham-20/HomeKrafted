@@ -77,12 +77,15 @@
   gap: 5px;
 }
 
+/* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
+   sense, but these are words somebody reads. `--hk-gold-text-sm` is the
+   same family at an AA-safe darkness (2026-08-08 contrast audit). */
 .maker {
   font-family: var(--hk-font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .name {

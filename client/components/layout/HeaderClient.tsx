@@ -98,7 +98,16 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
               now; the pill styling moved into `SearchForm.module.css`. */}
           <SearchForm className={styles.searchPill} />
 
-          <Link href="/wallet" className={styles.walletChip}>
+          {/* The amount is hidden below the mobile breakpoint, which left
+              this link with an icon and no accessible name at all — a
+              screen reader announced "link". The label names the
+              destination and carries the balance where it is known, so it
+              says the same thing at both widths. */}
+          <Link
+            href="/wallet"
+            className={styles.walletChip}
+            aria-label={walletReady ? `Wallet, ${formatCurrency(walletBalance)}` : "Wallet"}
+          >
             <Wallet size={17} strokeWidth={1.7} />
             <span className={styles.walletAmount}>
               {walletReady ? formatCurrency(walletBalance) : "…"}

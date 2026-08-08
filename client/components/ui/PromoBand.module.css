@@ -31,8 +31,10 @@
   color: var(--hk-gold-bright);
 }
 
+/* See ProductCard.maker — small gold text takes the AA-safe shade.
+   The `.dark` variant keeps --hk-gold-bright, which is 8.9:1 on pine. */
 .tint .eyebrow {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .title {

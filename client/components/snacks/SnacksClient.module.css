@@ -98,7 +98,9 @@
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--hk-whatsapp-deep);
+  /* `--hk-whatsapp-deep` is a fill; as text here it is 3.9:1.
+     `--hk-whatsapp-text` is the readable shade (2026-08-08 audit). */
+  color: var(--hk-whatsapp-text);
 }
 
 .timeline {
@@ -110,8 +112,12 @@
   line-height: 1.5;
   /* Prototype's #7a8a7d on the WhatsApp-tint card — no matching token
      close enough to reuse; one-off gap, documented per the ProductCard/
-     SnackCard convention rather than joining tokens.extend.css. */
-  color: #7a8a7d;
+     SnackCard convention rather than joining tokens.extend.css.
+     Darkened from #7a8a7d by the 2026-08-08 contrast audit, which
+     measured it at 3.35:1 on that tint. #5f6e63 is the same green-grey
+     at 4.99:1 — this is the sentence explaining that ordering happens
+     on WhatsApp, so it is not decoration. */
+  color: #5f6e63;
   margin-top: var(--hk-s4);
 }
 

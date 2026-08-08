@@ -25,7 +25,11 @@
   color: var(--hk-gold-bright);
 }
 
+/* White on `--hk-whatsapp` (#1FA855) measures 3.09:1, and this badge is
+   10px — the fill is the one that has to move, not the text, because
+   white is already the lightest thing available. `--hk-whatsapp-text`
+   carries the same brand green at 5.03:1 under white. */
 .whatsapp {
-  background: var(--hk-whatsapp);
+  background: var(--hk-whatsapp-text);
   color: #fff;
 }

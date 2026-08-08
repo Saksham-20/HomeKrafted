@@ -23,19 +23,21 @@
   color: var(--hk-ink);
 }
 
+/* See ProductCard.maker — small gold text takes the AA-safe shade. */
 .viewAll {
   border: none;
   background: none;
   font-family: var(--hk-font-mono);
   font-size: 12px;
   letter-spacing: 0.1em;
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 /* Reels section head — the only section with an eyebrow above its title,
-   so the label sits in the same mono/gold treatment as .servicesEyebrow. */
+   so the label sits in the same mono/gold treatment as .servicesEyebrow.
+   See ProductCard.maker — small gold text takes the AA-safe shade. */
 .reelsEyebrow {
   display: block;
   margin-bottom: 6px;
@@ -43,7 +45,7 @@
   font-size: 12px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .occasionGrid {
@@ -81,12 +83,13 @@
   margin-bottom: var(--hk-s6);
 }
 
+/* See ProductCard.maker — small gold text takes the AA-safe shade. */
 .servicesEyebrow {
   font-family: var(--hk-font-mono);
   font-size: 12px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .servicesTitle {

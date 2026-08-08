@@ -23,8 +23,13 @@
      --hk-gold (#B98724) is only ~3.6:1 on white — fine for >=16px bold or
      pure decoration (eyebrows) per design-system.md, but not AA-safe for
      13px chip/label text. This darkened shade restores contrast at those
-     sizes. Ported verbatim from the prototype's #8a6a16. */
-  --hk-gold-text-sm: #8a6a16;
+     sizes. Ported verbatim from the prototype's #8a6a16, and darkened by
+     the 2026-08-08 contrast audit: #8a6a16 measures **4.49:1** on the
+     gold tint (#fbf1d6) — one hundredth short of AA, which is a fail on
+     the wallet chip, the seasonal band's link and the About page's
+     "coming soon". #886815 clears it on all three of the surfaces this
+     is used over: 4.62 on gold tint, 4.69 on canvas, 5.20 on white. */
+  --hk-gold-text-sm: #886815;
 
   /* ---- Footer / on-pine-deep text ramp ----
      Light-on-dark ramp for copy sitting on solid --hk-pine-deep (footer)
@@ -39,8 +44,39 @@
   --hk-footer-ink: #c7d3c5; /* body copy */
   --hk-footer-ink-2: #a9bcae; /* link list */
   --hk-footer-muted: #9fb3a5; /* brand blurb */
-  --hk-footer-mono: #7e9488; /* mono legal row */
+  /* #7e9488 measured 4.18:1 on --hk-pine-deep — the legal row is the one
+     place on the site where the words are a legal notice, so it is the
+     worst place to be under AA. #869c90 is the same hue at 4.63:1. */
+  --hk-footer-mono: #869c90; /* mono legal row */
   --hk-footer-border: #2c473a; /* divider above the legal row */
+
+  /* ---- AA-safe WhatsApp green ----
+     `--hk-whatsapp` (#1FA855) and `--hk-whatsapp-deep` (#128C3E) are
+     brand fills, and both fail as *text*: the deep shade measures
+     3.87–3.98:1 wherever a snacks eyebrow, note or link uses it, and
+     white on the bright one is 3.09:1 on the channel badge. This is the
+     same shape as `--hk-gold-text-sm` — the brand colour stays what it
+     is, and text gets a shade that can be read. 4.63:1 on the WhatsApp
+     tint, 5.03:1 under white. */
+  --hk-whatsapp-text: #10803a;
+
+  /* ---- Muted text, corrected ----
+     **The one place this file overrides `tokens.css` rather than adding
+     to it**, and it is deliberate. `--hk-muted` is documented there as
+     "meta, captions" — body text — and #8A8070 measures 3.50:1 on the
+     canvas and 3.88:1 on a card. It is used 306 times across 135 files:
+     every product card's maker line, every price-range label, every
+     filter heading, the shop's breadcrumb and subtitle. `--hk-muted-2`
+     (#7A7568) is 4.14:1 and fails the same way.
+
+     Re-pointing 306 call sites at a new name would leave the failing
+     token in place for the 307th, so the value is corrected here instead
+     — same warm-grey hue, minimum darkening that clears AA on the
+     hardest background (the #F4F3F0 canvas): 4.65:1 and 4.87:1.
+     `styles/tokens.css` is still untouched and still law; reverting is
+     deleting these two lines. */
+  --hk-muted: #766c5d;
+  --hk-muted-2: #6f6a5e;
 
   /* ---- Decorative scrollbar ----
      `.hk-scroll` thumb tint for horizontally-scrolling rails (chip rows,

@@ -89,7 +89,9 @@
 }
 
 .whatsapp .cta {
-  color: var(--hk-whatsapp-deep);
+  /* `--hk-whatsapp-deep` is a fill; as text here it is 3.9:1.
+     `--hk-whatsapp-text` is the readable shade (2026-08-08 audit). */
+  color: var(--hk-whatsapp-text);
 }
 
 .cta:hover {
