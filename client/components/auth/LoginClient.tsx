@@ -224,7 +224,18 @@ export function LoginClient() {
     setCode("");
   }
 
-  if (ready && isSignedIn) {
+  /**
+   * The "you're already signed in" card, shown to somebody who lands here
+   * with a live session.
+   *
+   * **`!justCreated` is load-bearing.** A sign-up signs you in — that is
+   * the point — so without it this branch fires the instant the account
+   * exists and returns before the `code` step below can ever render,
+   * making the whole confirm-your-contact step unreachable. Caught in
+   * production testing, not by a type or a unit test, because both halves
+   * are individually correct.
+   */
+  if (ready && isSignedIn && !justCreated) {
     const signedInAsSeller = currentRole === "seller";
     const signedInAsAdmin = currentRole === "admin";
     const homeHref = signedInAsSeller ? "/seller" : signedInAsAdmin ? "/admin" : "/account";

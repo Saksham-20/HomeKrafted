@@ -64,6 +64,37 @@ const DEFAULT_SIZES = "(max-width: 640px) 100vw, (max-width: 1180px) 50vw, 380px
  * Without a `src` the wrapper *is* the image — a labelled placeholder —
  * so it keeps `role="img"` there.
  */
+/**
+ * Is this an uploaded photo rather than a bundled asset?
+ *
+ * **Why it matters: `next/image` cannot optimise an upload, and fails
+ * loudly when it tries.** The optimiser resolves a local `src` against
+ * its *own* server (127.0.0.1:3000). Bundled art lives in `public/` so
+ * Next serves it and optimisation works — but `/uploads/` is served by
+ * nginx straight from `/var/lib/homekrafted/uploads` and the Next process
+ * knows nothing about it. So the optimiser fetched its own 404 page and
+ * answered `400 "The requested resource isn't a valid image"`, which is
+ * to say **every HomeKrafter-uploaded photo has rendered broken on the
+ * live site since `next/image` was introduced in M16**. Found by
+ * uploading a real photo to production, which is the only place the two
+ * halves (nginx's alias and Next's optimiser) exist together.
+ *
+ * Skipping the optimiser is the honest fix rather than a workaround,
+ * because as of M25 the bytes have *already* been through an equivalent
+ * pass: `server/src/uploads/image-pipeline.ts` caps every upload at
+ * 2000px and re-encodes it to WebP before it is ever stored. Optimising
+ * again would be a second resize of an image that is already web-ready.
+ *
+ * The cost is that one stored size serves every slot, so a 210px card
+ * downloads the same file as a full-width banner. That is the follow-up
+ * worth doing (stored variants, or teaching nginx to serve them) — but a
+ * heavy image beats a broken one, and this is what unblocks a
+ * HomeKrafter seeing their own photo.
+ */
+function isUpload(src: string): boolean {
+  return src.startsWith("/uploads/");
+}
+
 export function ImageSlot({
   ratio,
   label,
@@ -97,6 +128,7 @@ export function ImageSlot({
           fill
           sizes={sizes}
           priority={priority}
+          unoptimized={isUpload(src)}
         />
       </div>
     );
