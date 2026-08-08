@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
+import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
 import { RoleChoice, type AuthRole } from "./RoleChoice";
 import { SocialSignIn } from "./SocialSignIn";
 import type { UserRole } from "@/lib/types";
@@ -81,6 +82,16 @@ export function LoginClient() {
    * instead of the admin panel.
    */
   function redirectForRole(resultRole: UserRole) {
+    // `?next=` is set by the edge gate and by a session expiring
+    // mid-request. It is validated (same-origin relative path only) and
+    // then checked against the role — returning a shopper to a
+    // `/seller/*` page would bounce off the gate and read as the sign-in
+    // having failed. See `lib/auth/return-to.ts`.
+    const requested = returnToForRole(
+      safeReturnTo(new URLSearchParams(window.location.search).get(RETURN_TO_PARAM)),
+      resultRole,
+    );
+    if (requested) return router.push(requested);
     if (resultRole === "seller") return router.push("/seller");
     if (resultRole === "admin") return router.push("/admin");
     return router.push("/account");

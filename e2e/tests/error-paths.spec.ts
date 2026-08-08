@@ -88,3 +88,56 @@ test.describe('when the API rate-limits', () => {
     await expect(alert).not.toContainText(/throttlerexception|bearer/i);
   });
 });
+
+test.describe('being turned away at the gate', () => {
+  // Explicitly signed out — the setup project leaves three cached
+  // sessions around and inheriting one would skip the whole redirect.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('sign-in returns you to the page you asked for, not the dashboard', async ({ page }) => {
+    await skipLocationPrompt(page);
+
+    // The edge gate sends a signed-out visitor to /login. Before this it
+    // threw the destination away, so somebody following a link to a
+    // specific order signed in and arrived at the top of the dashboard
+    // with no route back to it.
+    await page.goto('/seller/orders');
+    await expect(page).toHaveURL(/\/login\?.*role=seller/);
+    expect(new URL(page.url()).searchParams.get('next')).toBe('/seller/orders');
+
+    await page.getByRole('tab', { name: 'Email', exact: true }).click();
+    await page.getByLabel(/email/i).fill('anjali@anjaliskitchen.example');
+    await page.getByLabel(/password/i).fill('Passw0rd!123');
+    await page.getByRole('button', { name: /sign in to sell/i }).click();
+
+    await expect(page).toHaveURL(/\/seller\/orders$/);
+  });
+
+  test('a destination off our own site is refused', async ({ page }) => {
+    await skipLocationPrompt(page);
+
+    // `?next=` is attacker-controlled. An unvalidated one turns our own
+    // login page into the referrer for somebody else's credential form.
+    await page.goto('/login?next=https://example.com/phish');
+    await page.getByRole('tab', { name: 'Email', exact: true }).click();
+    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
+    await page.getByLabel(/password/i).fill('Passw0rd!123');
+    await page.getByRole('button', { name: /continue with email/i }).click();
+
+    await expect(page).toHaveURL(/localhost:\d+\/account$/);
+  });
+
+  test('a shopper is not returned into the portal', async ({ page }) => {
+    await skipLocationPrompt(page);
+
+    // The gate would bounce them straight back out to /sell, and a round
+    // trip that ends somewhere else entirely reads as a failed sign-in.
+    await page.goto('/login?next=%2Fseller%2Forders');
+    await page.getByRole('tab', { name: 'Email', exact: true }).click();
+    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
+    await page.getByLabel(/password/i).fill('Passw0rd!123');
+    await page.getByRole('button', { name: /continue with email/i }).click();
+
+    await expect(page).toHaveURL(/\/account$/);
+  });
+});

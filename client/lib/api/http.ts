@@ -36,6 +36,7 @@
  * as raw browser text. See the `catch` in `doFetch`.
  */
 
+import { withReturnTo } from "@/lib/auth/return-to";
 import { clearSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth/session";
 
 export const API_BASE_URL =
@@ -113,7 +114,14 @@ async function doRefresh(): Promise<boolean> {
 function handleSessionExpired(): void {
   clearSession();
   if (isBrowser() && !window.location.pathname.startsWith("/login")) {
-    window.location.href = "/login";
+    // Carry the page they were on. A refresh token that has expired or
+    // been revoked lands here mid-task, and dropping the destination
+    // means somebody halfway through checkout signs in again and arrives
+    // at their account overview.
+    window.location.href = withReturnTo(
+      "/login",
+      window.location.pathname + window.location.search,
+    );
   }
 }
 

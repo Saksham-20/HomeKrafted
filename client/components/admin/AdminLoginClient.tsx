@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
 import { ApiError } from "@/lib/api/http";
 import styles from "./AdminLoginClient.module.css";
 
@@ -31,7 +32,15 @@ export function AdminLoginClient() {
   const [error, setError] = useState<string | undefined>(undefined);
 
   function goToDashboard() {
-    router.push("/admin");
+    // The gate sends `?next=` when it turns somebody away from a deep
+    // admin URL. Validated and role-checked in `lib/auth/return-to.ts` —
+    // this screen only ever signs in an admin, so anything same-origin
+    // survives.
+    const requested = returnToForRole(
+      safeReturnTo(new URLSearchParams(window.location.search).get(RETURN_TO_PARAM)),
+      "admin",
+    );
+    router.push(requested ?? "/admin");
   }
 
   /**

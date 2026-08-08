@@ -205,6 +205,7 @@ Grouped by the rule, not by the file, because the rules are the point.
 | Platform-wide wallet liability is the same number on page two as on page one — the totals are aggregates, not a sum of the rows on screen | `e2e/admin-queues-pagination.e2e-spec.ts` |
 | Filtering the payout queue to "paid" leaves ₹10,000 still showing as owed, and the corporate queue keeps its untouched count — the two remaining places a summary followed the page | `e2e/admin-queues-pagination.e2e-spec.ts` |
 | `GET /products` orders a page identically whether the SQL fast path or the general path serves it — a split that would otherwise diverge invisibly, since both return plausible pages | `e2e/products-browse.e2e-spec.ts` |
+| Signing in returns you to the page the gate turned you away from — and refuses a `?next=` that leaves the site or that the role cannot reach | `client/lib/auth/return-to.spec.ts`, `e2e/tests/error-paths.spec.ts` |
 | Every tab stop on a page shows a focus ring — on the control or on the wrapper that reads as the field, which is where three modules deliberately put it | `e2e/tests/presentation.spec.ts` |
 | Every public route passes axe's `color-contrast` and the structural WCAG rules (control names, `aria-hidden` over focusable elements, heading order, one `main`) at both viewports | `e2e/tests/a11y.spec.ts` |
 | An unreachable API says "can't reach Homekrafted", not "Failed to fetch"; a 429 says to wait, not `ThrottlerException`; and a browse page still renders its shell when the API is gone | `e2e/tests/error-paths.spec.ts` |

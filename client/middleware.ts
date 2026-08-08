@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { RETURN_TO_PARAM } from "@/lib/auth/return-to";
 
 /**
  * Role-gate for the seller (M10a) and admin (M11, scaffolded) route
@@ -52,6 +53,10 @@ export function middleware(request: NextRequest) {
     } else {
       const url = new URL(SELLER_LOGIN_PATH, request.url);
       url.searchParams.set("role", "seller");
+      // Carry where they were trying to go. Without it, a HomeKrafter
+      // whose session expired on an order they were part-way through
+      // signs in and lands on the dashboard, with no route back to it.
+      url.searchParams.set(RETURN_TO_PARAM, pathname + request.nextUrl.search);
       return NextResponse.redirect(url);
     }
   }
@@ -64,7 +69,9 @@ export function middleware(request: NextRequest) {
   // admin" redirect for other roles.
   if (pathname.startsWith("/admin") && pathname !== ADMIN_LOGIN_PATH) {
     if (role !== "admin") {
-      return NextResponse.redirect(new URL(ADMIN_LOGIN_PATH, request.url));
+      const url = new URL(ADMIN_LOGIN_PATH, request.url);
+      url.searchParams.set(RETURN_TO_PARAM, pathname + request.nextUrl.search);
+      return NextResponse.redirect(url);
     }
   }
 
