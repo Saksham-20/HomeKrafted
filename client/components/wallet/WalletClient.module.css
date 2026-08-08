@@ -106,6 +106,18 @@
   overflow: hidden;
 }
 
+/* The input inside sets `border: none; outline: none`, and nothing here
+   put the indicator back — so tabbing into the top-up amount showed
+   nothing at all. The ring goes on the row, which is what reads as the
+   field. Same pattern as `SearchField`/`SearchForm`, which already did
+   this. */
+.customAmountRow:focus-within {
+  border-color: var(--hk-pine);
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
+
 .customAmountPrefix {
   padding: 0 var(--hk-s3);
   color: var(--hk-muted);
@@ -236,6 +248,18 @@
   border-radius: var(--hk-r-md);
   overflow: hidden;
 }
+
+/* The input inside sets `border: none; outline: none`, and nothing here
+   put the indicator back — so tabbing into the top-up amount showed
+   nothing at all. The ring goes on the row, which is what reads as the
+   field. Same pattern as `SearchField`/`SearchForm`, which already did
+   this. */
+.fieldInputRow:focus-within {
+  border-color: var(--hk-pine);
+  outline: 2px solid var(--hk-pine);
+  outline-offset: 1px;
+}
+
 
 .fieldInputRow:has(.fieldInput:disabled) {
   opacity: 0.55;
