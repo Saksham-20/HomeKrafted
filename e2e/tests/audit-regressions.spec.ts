@@ -210,7 +210,22 @@ test.describe('an unknown slug is a real 404', () => {
  */
 async function openFilters(page: import('@playwright/test').Page) {
   const toggle = page.getByRole('button', { name: /^Filters/ });
-  if (await toggle.isVisible()) await toggle.click();
+  const anyFilter = page.getByRole('checkbox').first();
+
+  // Wait for whichever shape this viewport renders before deciding, rather
+  // than probing with `isVisible()`. That is an *instant* check: on a page
+  // still hydrating it answers false, the click never happens, and the
+  // failure surfaces 30 seconds later at whichever checkbox the test wanted
+  // — pointing at the filter panel instead of at this line. It is the same
+  // trap `e2e/README.md` names, and it bit only the mobile project, because
+  // above the sidebar breakpoint the filters are always rendered and there
+  // is no toggle to miss.
+  await expect(toggle.or(anyFilter).first()).toBeVisible({ timeout: 15_000 });
+
+  if (await toggle.isVisible()) {
+    await toggle.click();
+    await expect(anyFilter).toBeVisible();
+  }
 }
 
 test.describe('browsing survives the Back button', () => {

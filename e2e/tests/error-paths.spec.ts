@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { storageStateFor } from '../fixtures/accounts';
 import { skipLocationPrompt } from '../fixtures/location';
+import { signIn } from '../fixtures/sign-in';
 
 /**
  * Sweep chunk 7 — what the app says when the thing it depends on is gone.
@@ -23,11 +24,7 @@ test.describe('when the API is unreachable', () => {
     await page.goto('/login');
     await cutTheApi(page);
 
-    // Phone OTP is the default tab and must stay offered (`CLAUDE.md`, M17).
-    await page.getByRole('tab', { name: 'Email', exact: true }).click();
-    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
-    await page.getByLabel(/password/i).fill('Passw0rd!123');
-    await page.getByRole('button', { name: /continue with email/i }).click();
+    await signIn(page, { identifier: 'ananya.iyer@example.com', password: 'Passw0rd!123' });
 
     // A rejected `fetch` has no status and no error envelope, so before
     // this it arrived at the screens as its raw browser text — "Failed to
@@ -77,11 +74,7 @@ test.describe('when the API rate-limits', () => {
       }),
     );
 
-    // Phone OTP is the default tab and must stay offered (`CLAUDE.md`, M17).
-    await page.getByRole('tab', { name: 'Email', exact: true }).click();
-    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
-    await page.getByLabel(/password/i).fill('Passw0rd!123');
-    await page.getByRole('button', { name: /continue with email/i }).click();
+    await signIn(page, { identifier: 'ananya.iyer@example.com', password: 'Passw0rd!123' });
 
     const alert = page.getByRole('alert').first();
     await expect(alert).toBeVisible();
@@ -106,10 +99,7 @@ test.describe('being turned away at the gate', () => {
     await expect(page).toHaveURL(/\/login\?.*role=seller/);
     expect(new URL(page.url()).searchParams.get('next')).toBe('/seller/orders');
 
-    await page.getByRole('tab', { name: 'Email', exact: true }).click();
-    await page.getByLabel(/email/i).fill('anjali@anjaliskitchen.example');
-    await page.getByLabel(/password/i).fill('Passw0rd!123');
-    await page.getByRole('button', { name: /sign in to sell/i }).click();
+    await signIn(page, { identifier: 'anjali@anjaliskitchen.example', password: 'Passw0rd!123' });
 
     await expect(page).toHaveURL(/\/seller\/orders$/);
   });
@@ -120,10 +110,7 @@ test.describe('being turned away at the gate', () => {
     // `?next=` is attacker-controlled. An unvalidated one turns our own
     // login page into the referrer for somebody else's credential form.
     await page.goto('/login?next=https://example.com/phish');
-    await page.getByRole('tab', { name: 'Email', exact: true }).click();
-    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
-    await page.getByLabel(/password/i).fill('Passw0rd!123');
-    await page.getByRole('button', { name: /continue with email/i }).click();
+    await signIn(page, { identifier: 'ananya.iyer@example.com', password: 'Passw0rd!123' });
 
     await expect(page).toHaveURL(/localhost:\d+\/account$/);
   });
@@ -134,10 +121,7 @@ test.describe('being turned away at the gate', () => {
     // The gate would bounce them straight back out to /sell, and a round
     // trip that ends somewhere else entirely reads as a failed sign-in.
     await page.goto('/login?next=%2Fseller%2Forders');
-    await page.getByRole('tab', { name: 'Email', exact: true }).click();
-    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
-    await page.getByLabel(/password/i).fill('Passw0rd!123');
-    await page.getByRole('button', { name: /continue with email/i }).click();
+    await signIn(page, { identifier: 'ananya.iyer@example.com', password: 'Passw0rd!123' });
 
     await expect(page).toHaveURL(/\/account$/);
   });
@@ -160,10 +144,7 @@ test.describe('when the browser really is offline', () => {
     // feature with its own cache-invalidation problems, not an audit fix.
     await context.setOffline(true);
 
-    await page.getByRole('tab', { name: 'Email', exact: true }).click();
-    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
-    await page.getByLabel(/password/i).fill('Passw0rd!123');
-    await page.getByRole('button', { name: /continue with email/i }).click();
+    await signIn(page, { identifier: 'ananya.iyer@example.com', password: 'Passw0rd!123' });
 
     const alert = page.getByRole('alert').first();
     await expect(alert).toBeVisible();

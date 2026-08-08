@@ -130,18 +130,47 @@ point this at anything real.
 cd server
 export DATABASE_URL="postgresql://$USER@localhost:5432/hk_browser"
 createdb hk_browser
-npx prisma migrate deploy && npx ts-node prisma/seed.ts
+npx prisma migrate deploy
+# All four. The first three are the demo catalogue; without `seed-crafts`
+# and `seed-meal-plans`, `/gifts` and `/meal-plans` render empty and read
+# as product defects. `seed-browser-orders` exists only for this stack —
+# see below.
+npx ts-node prisma/seed.ts
+npx ts-node prisma/seed-crafts.ts
+npx ts-node prisma/seed-meal-plans.ts
+npx ts-node prisma/seed-browser-orders.ts
 PORT=4100 CLIENT_ORIGIN=http://localhost:3100 SITE_URL=http://localhost:3100 npm run start:dev
 
 # 2. The web app, pointed at it
 cd client
-NEXT_PUBLIC_API_URL=http://localhost:4100/api/v1 PORT=3100 npm run dev
+# NEXT_PUBLIC_SITE_URL matters: unset, `lib/seo.ts` falls back to
+# https://homekrafted.in and every canonical on this local build points at
+# production.
+NEXT_PUBLIC_API_URL=http://localhost:4100/api/v1 \
+  NEXT_PUBLIC_SITE_URL=http://localhost:3100 PORT=3100 npm run dev
 
 # 3. The tests
 cd e2e
 npm install && npx playwright install --with-deps chromium
 npm test
 ```
+
+**`seed-browser-orders.ts` is for this stack only, and is not part of the
+demo dataset.** `seed.ts` plus the laundry bookings and snack orders come to
+21 rows; `DEFAULT_ORDER_PAGE_SIZE` is 25. So `/admin/orders` reads "Page 1
+of 1", and the spec that searches for an order deliberately buried on page
+2 waits forever for a "Next" button that is correctly absent. It adds 20
+`HKB*` orders, removes only its own rows on a re-run, and stays out of
+`seed.ts` because those rows would otherwise appear in every tester's
+order history and every screenshot.
+
+**A green run is not proof the suite ran.** `auth.setup.ts` is a setup
+project both viewport projects declare in `dependencies` — when it fails,
+they **skip**, and the reporter prints "0 failed". That is how the whole
+browser layer sat dead from M25 (which deleted the two-tab login form the
+fixture was driving) until 2026-08-08. Check the test *count*, not just the
+absence of failures. The form's selectors now live in one place,
+`e2e/fixtures/sign-in.ts`, which throws a diagnosis rather than timing out.
 
 `e2e/README.md` covers the layout and the two mistakes that cost the most
 time writing it — `isVisible()` not waiting (a skipped test looks exactly

@@ -3,6 +3,62 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M26] — The QA sweep, and the test layer that had stopped running — 2026-08-08 (in progress)
+
+`docs/M26-QA-PLAN.md` is the plan for a full-site sweep: every route, every
+role, judged with four questions. It was reviewed before it was started,
+and the review found that the layer the sweep depends on had been dead for
+a milestone.
+
+### Fixed — the browser suite reported "0 failed" while running almost nothing
+
+`e2e/tests/auth.setup.ts` is a Playwright *setup project*, and both viewport
+projects declare it in `dependencies`. M25 collapsed the sign-in form to one
+field; the fixture still clicked `getByRole('tab', { name: 'Email' })` and a
+button named "Continue with email". There are zero `role="tab"` elements in
+`client/` and the button reads "Continue" — so two of three setup steps
+timed out at 30 seconds each, and every dependent test **skipped**. A skip
+is not a failure, so the run printed "0 failed" and read as green.
+
+`.github/workflows/ci.yml` could not have caught it either: it set
+`JWT_SECRET`, while `server/src/config/env.validation.ts` requires
+`JWT_ACCESS_SECRET`. The API never booted, and the job failed two minutes
+later as a `wait-on` timeout rather than as "you did not set a secret".
+
+- **The form's selectors now live in one place** — `e2e/fixtures/sign-in.ts`
+  — instead of being copy-pasted across the setup and six blocks of
+  `error-paths.spec.ts`. That duplication is why it drifted. It anchors on
+  the placeholder rather than the label, because the label *relabels itself
+  as you type* (`Mobile number or email` → `Email address`), and it throws a
+  named diagnosis instead of timing out.
+- **Before:** 2 failed, 30.4 s, everything downstream skipped.
+  **After:** 129 passed, 22.8 s.
+
+### Fixed — a filter helper used the instant check its own README warns about
+
+`openFilters` in `audit-regressions.spec.ts` probed with `isVisible()`,
+which answers false on a page still hydrating. The click never happened and
+the failure surfaced 30 seconds later at whichever checkbox the test wanted.
+Mobile-only, because above the sidebar breakpoint the filters are always
+rendered and there is no toggle to miss. Three tests.
+
+### Added — a test for the door an approved HomeKrafter actually uses
+
+`e2e/tests/auth-form.spec.ts`. `POST /auth/continue` answers **409** when an
+account exists with `passwordHash: null`, and `auth-continue.e2e-spec.ts`
+pins the server half. Nothing pinned the browser half — that the form turns
+that 409 into the code step rather than "incorrect password" for a password
+that never existed. Also asserts "Use a code instead" is offered *before*
+any failure, not only after one.
+
+### Added — `prisma/seed-browser-orders.ts`, for the browser stack only
+
+The admin-orders search test needs an order buried on page 2. The documented
+demo dataset produces 21 rows against a page size of 25, so there is no page
+2 and the test waited for a "Next" button that was correctly absent. Twenty
+`HKB*` orders, idempotent, removing only its own rows — kept out of
+`seed.ts`, where they would appear in every tester's order history.
+
 ## [M25] — One sign-in field, and no photo leaves EXIF behind — 2026-08-08
 
 Two things stood between this build and onboarding real chefs. Both were
