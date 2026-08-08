@@ -73,13 +73,24 @@ assume is already handled.
   decision, not a bug fix — so don't "fix" it in passing. Both the
   `/admin/payouts` queue and `docs/LAUNCH-READINESS.md` §3b say so out
   loud; keep it that way until someone decides.
-- **The home page's "Backed by" strip is unverified.** CUNA, ISB Atal
-  Incubation Centre and CGC — `backedBy` in `lib/data/site.ts`, rendered by
-  `app/page.tsx`. Deliberately plain text rather than logos, because
-  reproducing a mark is a separate permission from stating a relationship
-  and we hold neither in writing. Confirm each before the site is promoted
-  publicly: an unverified affiliation on a live site is legal exposure, not
-  a copy nit.
+- **The home page's "Backed by" strip is unverified, and now carries the
+  logos.** CUNA, ISB AIC and CGC-J VentureNest — `backedBy` in
+  `lib/data/site.ts`, rendered by `app/page.tsx`, marks under
+  `public/images/backers/`. Until M24 this was plain text on the reasoning
+  that reproducing a mark is a separate permission from stating a
+  relationship; the owner supplied the three files and chose to ship them
+  (2026-08-08), which settles the second permission and **not the first**.
+  The exposure is therefore *larger* than it was — an affiliation asserted
+  with the other party's mark attached is a bigger claim to withdraw than
+  one in small grey text. Confirm each relationship in writing before the
+  site is promoted publicly. Two rules when editing: **never alter a mark**
+  (no recolour, no grayscale, no crop — optical differences are handled by
+  per-logo display height in `page.module.css`), and **keep the `detail`
+  sentence under each mark** — the logo identifies the organisation, the
+  sentence states the relationship, and dropping it turns a stated
+  affiliation into an implied endorsement. M24 also corrected "Supported by
+  CGC" to name the entity on the mark; the verb was deliberately left alone
+  so a name fix did not quietly upgrade the claim.
 
 ## Execution model
 

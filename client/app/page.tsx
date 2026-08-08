@@ -9,6 +9,7 @@ import { MakerCard } from "@/components/home/MakerCard";
 import { WayCard } from "@/components/home/WayCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
+import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { backedBy, waysToOrder } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import {
@@ -293,17 +294,40 @@ export default async function Home() {
         </div>
 
         {/*
-          Institutional claims, rendered as text rather than logos: showing
-          a mark is a separate permission from stating a relationship, and
-          we hold neither in writing. See `backedBy` in `lib/data/site.ts`.
+          Institutional claims, with the organisations' marks as of M24.
+
+          Each mark sits on a white tile because all three supplied files are
+          JPEGs with a baked near-white background: against the `#F4F3F0`
+          canvas those backgrounds would read as three accidental rectangles,
+          whereas on a card they read as the design system's own card
+          treatment. It also means the letterboxing inside the CGC file
+          disappears instead of having to be cropped out of somebody's logo.
+
+          A backer with no `logoSrc` still renders — as its sentence alone,
+          which is what the whole strip was before M24. See `backedBy` in
+          `lib/data/site.ts` for the two editing rules and the standing
+          "confirm these relationships in writing" warning.
         */}
         <div className={styles.backedBy}>
           <span className={styles.backedByLabel}>Backed by</span>
-          {backers.map((backer) => (
-            <span key={backer.label} className={styles.backer}>
-              {backer.detail}
-            </span>
-          ))}
+          <ul className={styles.backerRow}>
+            {backers.map((backer) => (
+              <li key={backer.id} className={styles.backer}>
+                {backer.logoSrc && backer.logoRatio ? (
+                  <span className={clsx(styles.backerMark, styles[backer.id])}>
+                    <ImageSlot
+                      ratio={backer.logoRatio}
+                      label={backer.label}
+                      alt={backer.logoAlt ?? backer.label}
+                      src={backer.logoSrc}
+                      sizes={backer.logoSizes}
+                    />
+                  </span>
+                ) : null}
+                <span className={styles.backerDetail}>{backer.detail}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
     </>

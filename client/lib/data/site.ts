@@ -178,25 +178,89 @@ export const homePromoBands: HomePromoBandContent[] = [
 /**
  * "Backed by" — the institutional strip under the home page.
  *
- * **These are claims about real organisations.** They are rendered as
- * plain text rather than logos on purpose: reproducing a mark is a
- * separate permission from stating a relationship, and we hold neither
- * in writing yet. Confirm each one before this goes in front of the
- * public — an unverified affiliation on a live site is a legal exposure,
- * not a copy nit.
+ * **These are claims about real organisations, and they now carry the
+ * organisations' marks.** Until M24 this was plain text on the reasoning that
+ * reproducing a mark is a separate permission from stating a relationship. The
+ * owner supplied the three files and chose to ship them (2026-08-08), which
+ * settles the second permission and not the first.
+ *
+ * So the original warning stands, and is *stronger* than it was: an affiliation
+ * asserted with the other party's logo attached is a bigger claim to have to
+ * withdraw than one asserted in small grey text. Confirm each relationship in
+ * writing. Tracked as a launch gate in `docs/LAUNCH-READINESS.md`.
+ *
+ * Two rules for anyone editing this:
+ * - **Never alter a mark** — no recolouring, no grayscale filter, no cropping.
+ *   Altering someone's logo is yet another permission. Optical differences are
+ *   handled in CSS by giving each mark its own display height.
+ * - **The `detail` sentence stays under the mark.** The logo identifies the
+ *   organisation; the sentence states what the relationship actually is.
+ *   Dropping it turns a stated affiliation into an implied endorsement.
  */
 export interface BackerClaim {
+  /** Stable key. Also selects the per-mark optical-size class in `page.module.css`. */
+  id: "cuna" | "isbAic" | "cgc";
   label: string;
   detail: string;
+  /**
+   * Bundled mark under `public/images/backers/`. Optional: a backer with no
+   * file renders as its `detail` sentence alone, which is what the whole
+   * strip was before M24.
+   */
+  logoSrc?: string;
+  /**
+   * The supplied file's own aspect ratio. Marks are normalised on **height**,
+   * never width — CGC's is a dense circular seal and ISB's a wide horizontal
+   * lockup, so equal widths would make one illegible and the other enormous.
+   */
+  logoRatio?: string;
+  /**
+   * `sizes` for the real rendered width. `ImageSlot`'s default assumes a card
+   * in a grid and would pull a viewport-wide image to fill ~44 pixels.
+   */
+  logoSizes?: string;
+  /**
+   * Alt text: the organisation's full name. `ImageSlot` falls back to `label`,
+   * and `label` is a short display string — never let a filename reach a
+   * screen reader.
+   */
+  logoAlt?: string;
 }
 
 export const backedBy: BackerClaim[] = [
   {
-    label: "Chandigarh United Nations Association",
+    id: "cuna",
+    label: "CUNA",
     detail: "Social initiative supported by CUNA",
+    logoSrc: "/images/backers/cuna.jpg",
+    logoRatio: "1/1",
+    logoSizes: "44px",
+    logoAlt: "Chandigarh United Nations Association",
   },
-  { label: "ISB AIC", detail: "Incubated at ISB Atal Incubation Centre" },
-  { label: "CGC", detail: "Supported by CGC" },
+  {
+    id: "isbAic",
+    label: "ISB AIC",
+    detail: "Incubated at ISB Atal Incubation Centre",
+    logoSrc: "/images/backers/isb-aic.jpg",
+    logoRatio: "4/1",
+    logoSizes: "176px",
+    logoAlt: "Indian School of Business — Atal Incubation Centre",
+  },
+  {
+    // M24: was `label: "CGC"` / `detail: "Supported by CGC"`. The supplied
+    // mark reads "CGC-J Technology Business Incubator Association ·
+    // VentureNest", which is a different organisation name from the one the
+    // site was printing. The *verb* is deliberately unchanged — correcting
+    // whose name it is must not quietly upgrade "supported by" into
+    // "incubated at", which is a stronger claim nobody has confirmed.
+    id: "cgc",
+    label: "CGC VentureNest",
+    detail: "Supported by CGC-J Technology Business Incubator Association (VentureNest)",
+    logoSrc: "/images/backers/cgc-venturenest.jpg",
+    logoRatio: "4/3",
+    logoSizes: "72px",
+    logoAlt: "CGC-J Technology Business Incubator Association — VentureNest",
+  },
 ];
 
 /**
