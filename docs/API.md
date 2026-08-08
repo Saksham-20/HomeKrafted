@@ -740,7 +740,7 @@ being quoted.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /admin/corporate-inquiries?status=` | The queue, with a `summary` counting `unworked`/`contacted`/`quoted`. |
+| `GET /admin/corporate-inquiries` | One page: `{ items, page, pageSize, total, summary: { unworked, contacted, quoted } }`. Query: `status` (`new\|contacted\|quoted\|closed`), `page`, `pageSize` (default 25, max 100). **`summary` counts the whole queue, never the filter** — narrowed to the loaded rows it read "0 unworked" the moment an admin filtered. |
 | `GET /admin/corporate-inquiries/:id` | One enquiry plus its quotes. |
 | `PATCH /admin/corporate-inquiries/:id/status` | `new\|contacted\|quoted\|closed`. |
 | `PATCH /admin/corporate-inquiries/:id/notes` | `internalNotes` — never shown to the customer. |
