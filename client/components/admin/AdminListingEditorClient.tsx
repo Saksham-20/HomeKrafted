@@ -18,7 +18,7 @@ import {
   apiErrorMessage,
   getCategories,
   getOccasions,
-  getProductById,
+  getAdminProductById,
   updateProductAdmin,
 } from "@/lib/api";
 import type { Category, Occasion, Product } from "@/lib/types";
@@ -85,7 +85,7 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
       const [cats, occs, product] = await Promise.all([
         getCategories(),
         getOccasions(),
-        getProductById(productId),
+        getAdminProductById(productId),
       ]);
       if (cancelled) return;
       setCategories(cats);

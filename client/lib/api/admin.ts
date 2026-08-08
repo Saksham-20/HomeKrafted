@@ -63,7 +63,7 @@ const VENDOR_TYPE_BY_CATEGORY: Record<SellerApplicationCategory, VendorType> = {
 };
 import type { HomePromoBandContent } from "@/lib/data";
 import { toAppUser, type SessionUser } from "@/lib/auth/session";
-import { http, isMockMode } from "./http";
+import { ApiError, http, isMockMode } from "./http";
 import { getCategories, getOccasions } from "./catalog";
 import { getPlacedBookings } from "./laundry";
 import { getPlacedOrders } from "./orders";
@@ -854,6 +854,47 @@ const SERVER_MODERATION_ACTION: Record<ProductModerationAction, string> = {
   feature: "feature",
   unfeature: "unfeature",
 };
+
+/**
+ * `GET /admin/catalog/products/:id` — one listing, resolved **unfiltered**.
+ *
+ * **Why this exists rather than reusing `getProductById`.** That helper
+ * resolves a listing out of the *public* catalogue (`getProducts()`),
+ * which since M22 filters on `PUBLICLY_LISTED`. A `pending` or `rejected`
+ * listing is not in it — so the admin editor rendered "Product not
+ * found." for exactly the listings the review gate exists to review. The
+ * list screen linked to a detail page that could not open. Found on the
+ * deployed site by creating a listing and clicking through to it.
+ *
+ * The server side already did the right thing: its handler is a plain
+ * `findUnique` with no moderation predicate. Only the client was reaching
+ * for the wrong door.
+ *
+ * It also stops downloading the entire catalogue to find one row, which
+ * is what the old path did.
+ */
+export async function getAdminProductById(id: string): Promise<AdminProductSummary | undefined> {
+  if (!isMockMode()) {
+    try {
+      return await http.get<AdminProductSummary>(
+        `/admin/catalog/products/${encodeURIComponent(id)}`,
+      );
+    } catch (error) {
+      // A genuine 404 is "no such listing" and the caller renders its own
+      // empty state; anything else is a real failure and should surface.
+      if (error instanceof ApiError && error.status === 404) return undefined;
+      throw error;
+    }
+  }
+
+  const product = getProductById(id);
+  if (!product) return undefined;
+  return {
+    ...product,
+    vendorName: getVendorById(product.vendorId)?.name ?? "Unknown vendor",
+    categoryName: getCategoryById(product.categoryId)?.name ?? "Uncategorised",
+  };
+}
 
 /** The actions the server refuses without a reason — see `ModerateProductDto`. */
 export const MODERATION_ACTIONS_NEEDING_REASON: ProductModerationAction[] = ["reject", "hide", "flag"];
