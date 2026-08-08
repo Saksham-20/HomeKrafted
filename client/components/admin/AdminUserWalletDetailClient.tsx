@@ -42,6 +42,7 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   const [lastAction, setLastAction] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [ledgerError, setLedgerError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -78,6 +79,7 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   async function loadMoreTransactions() {
     if (!data?.nextCursor || loadingMore) return;
     setLoadingMore(true);
+    setLedgerError(undefined);
     try {
       const next = await getUserWallet(userId, data.nextCursor);
       if (!next) return;
@@ -97,6 +99,12 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
             }
           : current,
       );
+    } catch {
+      // Without this the button simply un-greys and the ledger stops
+      // where it stopped — which on a dispute screen reads as "that is
+      // the whole history", the one wrong conclusion this page can lead
+      // an admin to.
+      setLedgerError("Couldn't load older transactions. Try again.");
     } finally {
       setLoadingMore(false);
     }
@@ -279,6 +287,11 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
             {/* The ledger arrives one page at a time, so what is on screen
                 is not necessarily all of it — offering the rest beats
                 letting a partial history read as a complete one. */}
+            {ledgerError && (
+              <p className={styles.ledgerError} role="alert">
+                {ledgerError}
+              </p>
+            )}
             {data.nextCursor && (
               <Button
                 variant="secondary"

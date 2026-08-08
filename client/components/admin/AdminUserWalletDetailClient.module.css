@@ -143,3 +143,11 @@
   width: 100%;
   margin-top: var(--hk-s4);
 }
+
+/* Sits directly above the button that failed, so the message and the
+   retry are the same glance. */
+.ledgerError {
+  color: var(--hk-terracotta);
+  font-size: 13px;
+  margin-top: var(--hk-s4);
+}

@@ -205,6 +205,8 @@ Grouped by the rule, not by the file, because the rules are the point.
 | Platform-wide wallet liability is the same number on page two as on page one — the totals are aggregates, not a sum of the rows on screen | `e2e/admin-queues-pagination.e2e-spec.ts` |
 | Filtering the payout queue to "paid" leaves ₹10,000 still showing as owed, and the corporate queue keeps its untouched count — the two remaining places a summary followed the page | `e2e/admin-queues-pagination.e2e-spec.ts` |
 | `GET /products` orders a page identically whether the SQL fast path or the general path serves it — a split that would otherwise diverge invisibly, since both return plausible pages | `e2e/products-browse.e2e-spec.ts` |
+| No public page scrolls sideways at 360/768/1180, every one has exactly one `<h1>`, the header collapses to the hamburger below the measured breakpoint, and the first Tab lands on a skip link that names a target that exists | `e2e/tests/presentation.spec.ts` |
+| An indexable route builds its metadata through `pageMetadata()` or says not to index it — the shape that let `/about` inherit the home page's canonical and declare itself a duplicate | `client/lib/canonical-metadata.spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |
 | Absence is never a closure: no working days = open every day, no prep time = 90 minutes | `availability.e2e-spec.ts` |
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |
