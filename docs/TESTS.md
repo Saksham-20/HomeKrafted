@@ -202,6 +202,7 @@ Grouped by the rule, not by the file, because the rules are the point.
 | `/admin/login` signs in as **what was typed**, not a hardcoded account | `e2e/tests/auth.setup.ts` |
 | A product card opens on Enter from the keyboard; an unknown slug answers **404 in the status line**, not a soft 404 | `e2e/tests/audit-regressions.spec.ts` |
 | A name has to contain something readable — spaces, tabs and newlines are refused across signup, addresses and support — and the **trimmed** value is what gets stored | `e2e/blank-names.e2e-spec.ts` |
+| Platform-wide wallet liability is the same number on page two as on page one — the totals are aggregates, not a sum of the rows on screen | `e2e/admin-queues-pagination.e2e-spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |
 | Absence is never a closure: no working days = open every day, no prep time = 90 minutes | `availability.e2e-spec.ts` |
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |

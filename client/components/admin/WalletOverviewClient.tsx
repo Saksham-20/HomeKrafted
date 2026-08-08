@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
@@ -20,12 +21,13 @@ export function WalletOverviewClient() {
   const { ready, role } = useAuth();
   const [overview, setOverview] = useState<AdminWalletOverview | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const snap = await getWalletOverview();
+      const snap = await getWalletOverview(page);
       if (cancelled) return;
       setOverview(snap);
       setLoading(false);
@@ -33,11 +35,19 @@ export function WalletOverviewClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, page]);
 
-  if (!ready || loading || !overview) {
+  if (!ready || (loading && !overview)) {
     return <div className={styles.loading}>Loading wallet overview…</div>;
   }
+  if (!overview) {
+    return <div className={styles.loading}>Loading wallet overview…</div>;
+  }
+
+  // There is one wallet per user, so this list grows with the whole
+  // customer base. The totals above are platform-wide regardless of which
+  // page is showing — they are aggregates, not a sum of these rows.
+  const lastPage = overview.pageSize > 0 ? Math.max(1, Math.ceil(overview.total / overview.pageSize)) : 1;
 
   return (
     <div>
@@ -65,6 +75,28 @@ export function WalletOverviewClient() {
           </Link>
         ))}
       </div>
+
+      {lastPage > 1 && (
+        <div className={styles.pager}>
+          <Button
+            variant="secondary"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </Button>
+          <span className={styles.pagerLabel} aria-live="polite">
+            Page {page} of {lastPage}
+          </span>
+          <Button
+            variant="secondary"
+            disabled={page >= lastPage || loading}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

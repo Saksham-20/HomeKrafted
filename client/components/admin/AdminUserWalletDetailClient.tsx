@@ -41,6 +41,7 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   const [formError, setFormError] = useState<string | undefined>(undefined);
   const [lastAction, setLastAction] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -60,9 +61,45 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   function prependTxn(txn: WalletTransaction) {
     setData((current) =>
       current
-        ? { wallet: { ...current.wallet, balance: txn.balanceAfter }, transactions: [txn, ...current.transactions] }
+        ? {
+            ...current,
+            wallet: { ...current.wallet, balance: txn.balanceAfter },
+            transactions: [txn, ...current.transactions],
+          }
         : current,
     );
+  }
+
+  /**
+   * Appends the next ledger page. The ledger is cursor-paged, so an admin
+   * looking into a dispute can still read back through it — before this it
+   * arrived whole, which worked only because no wallet was large yet.
+   */
+  async function loadMoreTransactions() {
+    if (!data?.nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await getUserWallet(userId, data.nextCursor);
+      if (!next) return;
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              transactions: [
+                ...current.transactions,
+                // A slow network plus an impatient second click is how
+                // duplicate React keys happen.
+                ...next.transactions.filter(
+                  (row) => !current.transactions.some((seen) => seen.id === row.id),
+                ),
+              ],
+              nextCursor: next.nextCursor,
+            }
+          : current,
+      );
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   async function handleIssueRefund() {
@@ -235,14 +272,32 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
         {data.transactions.length === 0 ? (
           <p className={styles.hint}>No transactions yet.</p>
         ) : (
-          data.transactions.map((txn) => <TransactionRow key={txn.id} transaction={txn} />)
+          <>
+            {data.transactions.map((txn) => (
+              <TransactionRow key={txn.id} transaction={txn} />
+            ))}
+            {/* The ledger arrives one page at a time, so what is on screen
+                is not necessarily all of it — offering the rest beats
+                letting a partial history read as a complete one. */}
+            {data.nextCursor && (
+              <Button
+                variant="secondary"
+                className={styles.loadMore}
+                disabled={loadingMore}
+                onClick={loadMoreTransactions}
+              >
+                {loadingMore ? "Loading…" : "Load older transactions"}
+              </Button>
+            )}
+          </>
         )}
       </Card>
 
       <p className={styles.footnote}>
-        Mock-persisted for this session only — M8 makes this a real,
-        server-authoritative wallet ledger with every write audit-logged
-        (who issued it, when, against which order).
+        A real, server-authoritative wallet ledger. Every write is
+        audit-logged — who issued it, when, and against which order — and
+        no balance is ever written directly: adjustments and refunds go
+        through the same row-locked ledger primitives a purchase does.
       </p>
     </div>
   );

@@ -975,11 +975,19 @@ export interface AdminWalletUserSummary {
 }
 
 export interface AdminWalletOverview {
+  /**
+   * Platform-wide, and deliberately **not** narrowed by the page. A "total
+   * liability" that only totalled the wallets on screen would be a money
+   * figure quietly meaning something else.
+   */
   totalLiability: number;
   walletCount: number;
   totalLifetimeSaved: number;
-  /** Every wallet, sorted by balance descending — small enough a dataset today not to need real pagination. */
+  /** One page of wallets, highest balance first. */
   balances: AdminWalletUserSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
 }
 
 function walletUserSummary(userId: string): AdminWalletUserSummary {
@@ -996,9 +1004,9 @@ function walletUserSummary(userId: string): AdminWalletUserSummary {
   };
 }
 
-export async function getWalletOverview(): Promise<AdminWalletOverview> {
+export async function getWalletOverview(page = 1): Promise<AdminWalletOverview> {
   if (!isMockMode()) {
-    return http.get<AdminWalletOverview>("/admin/wallet");
+    return http.get<AdminWalletOverview>(`/admin/wallet${page > 1 ? `?page=${page}` : ""}`);
   }
 
   const balances = Object.keys(adminWalletsByUser)
@@ -1010,25 +1018,43 @@ export async function getWalletOverview(): Promise<AdminWalletOverview> {
     walletCount: balances.length,
     totalLifetimeSaved: balances.reduce((sum, b) => sum + b.lifetimeSaved, 0),
     balances,
+    // Mock mode is the seeded fixture set in one page — it exists for
+    // offline frontend work, and paging a fixture teaches nothing the real
+    // path does not. The shape matches so no caller needs a branch.
+    page: 1,
+    pageSize: balances.length,
+    total: balances.length,
   };
 }
 
 export interface AdminUserWallet {
   wallet: Wallet;
   transactions: WalletTransaction[];
+  /** `null` on the last page. Cursor, not offset — a ledger grows at the end being read from. */
+  nextCursor: string | null;
 }
 
-export async function getUserWallet(userId: string): Promise<AdminUserWallet | undefined> {
+export async function getUserWallet(
+  userId: string,
+  cursor?: string,
+): Promise<AdminUserWallet | undefined> {
   if (!isMockMode()) {
     try {
-      return await http.get<AdminUserWallet>(`/admin/wallet/${encodeURIComponent(userId)}`);
+      const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+      return await http.get<AdminUserWallet>(
+        `/admin/wallet/${encodeURIComponent(userId)}${query}`,
+      );
     } catch {
       return undefined;
     }
   }
   const w = adminWalletsByUser[userId];
   if (!w) return undefined;
-  return { wallet: w, transactions: adminWalletTransactionsByUser[userId] ?? [] };
+  return {
+    wallet: w,
+    transactions: adminWalletTransactionsByUser[userId] ?? [],
+    nextCursor: null,
+  };
 }
 
 function genWalletTxnId(): string {

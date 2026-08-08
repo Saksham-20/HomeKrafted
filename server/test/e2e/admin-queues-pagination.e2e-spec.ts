@@ -337,3 +337,136 @@ describe('admin HomeKrafter list', () => {
     await h.api().get(`${API_PREFIX}/admin/sellers`).set(auth(buyer)).expect(403);
   });
 });
+
+/**
+ * There is one wallet per user, so `/admin/wallet` grew with the whole
+ * customer base — and the three money totals at the top were computed by
+ * reducing over the full array in JavaScript.
+ *
+ * Same shape as the queue badges: the page can narrow, the platform-wide
+ * figure cannot. A "total liability" that only totalled the wallets on
+ * screen would be a money number quietly meaning something else.
+ */
+describe('admin wallet overview', () => {
+  let h: Harness;
+  let admin: Actor;
+
+  beforeAll(async () => {
+    h = await createHarness();
+  });
+
+  afterAll(async () => {
+    await h.close();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(h.prisma);
+    admin = await createActor(h, 'admin');
+  });
+
+  /** `count` buyers, each with a wallet holding `each` rupees. */
+  async function seedWallets(count: number, each: number) {
+    for (let i = 0; i < count; i += 1) {
+      const buyer = await createActor(h);
+      await h.prisma.wallet.upsert({
+        where: { userId: buyer.userId },
+        create: { userId: buyer.userId, balance: each },
+        update: { balance: each },
+      });
+    }
+  }
+
+  const overview = (query = '') =>
+    h.api().get(`${API_PREFIX}/admin/wallet${query}`).set(auth(admin)).expect(200);
+
+  it('totals every wallet, while listing only a page of them', async () => {
+    // 30 buyers at ₹100, plus the admin's own wallet at ₹0.
+    await seedWallets(30, 100);
+
+    const res = await overview();
+
+    expect(res.body.balances).toHaveLength(25);
+    // By hand: 30 × 100. The admin's wallet is created lazily on first
+    // read and holds nothing, so it moves neither total.
+    expect(res.body.totalLiability).toBe(3000);
+    expect(res.body.total).toBe(res.body.walletCount);
+  });
+
+  it('reports the same liability on page two as on page one', async () => {
+    await seedWallets(30, 100);
+
+    const first = await overview();
+    const second = await overview('?page=2');
+
+    // The failure this guards is the totals being derived from `balances`
+    // — which would make page 2 report a fraction of the platform's money.
+    expect(second.body.totalLiability).toBe(first.body.totalLiability);
+    expect(second.body.walletCount).toBe(first.body.walletCount);
+  });
+
+  it('pages the balances without repeating or dropping a wallet', async () => {
+    await seedWallets(30, 100);
+
+    const first = await overview();
+    const second = await overview('?page=2');
+
+    const ids = [...first.body.balances, ...second.body.balances].map(
+      (b: { walletId: string }) => b.walletId,
+    );
+    // Every wallet holds the same balance, so the sort key ties on every
+    // row — exactly when an ordering with no unique final key starts
+    // showing one twice and skipping another.
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('pages one user\'s ledger by cursor', async () => {
+    const buyer = await createActor(h);
+    const wallet = await h.prisma.wallet.upsert({
+      where: { userId: buyer.userId },
+      create: { userId: buyer.userId, balance: 0 },
+      update: {},
+    });
+    const sameInstant = new Date('2026-08-07T10:00:00.000Z');
+    for (let i = 0; i < 60; i += 1) {
+      await h.prisma.walletTransaction.create({
+        data: {
+          walletId: wallet.id,
+          direction: 'credit',
+          category: 'adjustment',
+          title: `Row ${i}`,
+          amount: 1,
+          balanceAfter: i + 1,
+          createdAt: sameInstant,
+        },
+      });
+    }
+
+    const first = await h
+      .api()
+      .get(`${API_PREFIX}/admin/wallet/${buyer.userId}`)
+      .set(auth(admin))
+      .expect(200);
+    expect(first.body.transactions).toHaveLength(50);
+    expect(first.body.nextCursor).toBeTruthy();
+
+    const second = await h
+      .api()
+      .get(`${API_PREFIX}/admin/wallet/${buyer.userId}?cursor=${first.body.nextCursor}`)
+      .set(auth(admin))
+      .expect(200);
+    expect(second.body.transactions).toHaveLength(10);
+    expect(second.body.nextCursor).toBeNull();
+
+    const ids = [...first.body.transactions, ...second.body.transactions].map(
+      (t: { id: string }) => t.id,
+    );
+    // All 60 share one `createdAt`, so this is the case where a cursor
+    // over a non-total order silently skips rows.
+    expect(new Set(ids).size).toBe(60);
+  });
+
+  it('is still admin-only', async () => {
+    const buyer = await createActor(h);
+    await h.api().get(`${API_PREFIX}/admin/wallet`).set(auth(buyer)).expect(403);
+  });
+});

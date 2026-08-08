@@ -99,6 +99,30 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Changed — the wallet oversight screens page, and their totals stopped following the page
+
+`GET /admin/wallet` read **every wallet on the platform** — one per user,
+each with a transaction-count subquery — and reduced over the array in
+JavaScript to produce total liability, wallet count and lifetime saved.
+`GET /admin/wallet/:userId` returned that user's entire ledger, the same
+unbounded read the buyer-facing endpoint had.
+
+Both are pages now, and the three money totals are aggregates that
+**ignore the page**: a "total liability" summing only the twenty-five
+wallets on screen is a platform-wide figure quietly meaning something
+else, which is the same failure as the queue badges earlier in this
+release. The e2e asserts page two reports the same liability as page one.
+
+The balance list ties on every row when every wallet holds the same amount
+— a brand-new platform, or one where nobody has topped up — so the
+ordering gained a unique final key. Ledger paging is by cursor for the
+usual reason: it grows at the end being read from.
+
+While in there: the wallet detail screen footnote still told an admin that
+what they were looking at was "mock-persisted for this session only — M8
+makes this a real ledger". M8 shipped a long time ago. It now describes
+what the screen actually is.
+
 ### Fixed — a name made entirely of spaces
 
 `@MinLength(1)` counts **characters**, and `"   "` is three of them. So
