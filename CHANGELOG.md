@@ -9,6 +9,77 @@ The first time this build has been driven in a real browser or put under
 load. `docs/PRODUCTION-AUDIT.md` item 21 and `docs/LAUNCH-READINESS.md` §5
 had both named these as owed and neither had ever been scoped.
 
+### Fixed — the contrast floor had been reviewed, never measured
+
+`e2e/tests/a11y.spec.ts` runs axe over every public route and twelve
+signed-in ones, at both viewports. It failed on all of them the first
+time it ran.
+
+- **`--hk-muted` is 3.50:1 on the canvas.** `tokens.css` documents it as
+  "meta, captions" — body text — and it is used 306 times across 135
+  files: every product card's maker line, every filter heading, every
+  price-range label, the shop's breadcrumb and subtitle. `--hk-muted-2`
+  is 4.14:1 and fails the same way. Both corrected in
+  `tokens.extend.css`, which is the one place that file overrides
+  `tokens.css` rather than adding to it — re-pointing 306 call sites at a
+  new name would leave the failing token in place for the 307th.
+- **Gold as text is 2.88–3.2:1.** `CLAUDE.md` carved out "pure decoration
+  (eyebrows, view all)", which does not survive contact with the pages: an
+  eyebrow labels a section, "View all" is a link, and `.maker` is the
+  HomeKrafter's name on every card. The carve-out is deleted; small gold
+  text takes `--hk-gold-text-sm`, itself darkened because it measured
+  4.49:1 on the gold tint — one hundredth short.
+- **White on the WhatsApp green is 3.09:1** on the 10px channel badge;
+  terracotta on its own tint is 3.77:1, which is where "Cancelled" and
+  "Returned" live in both order queues; the footer's legal row was
+  4.18:1.
+- **The header's wallet link had no accessible name** below the mobile
+  breakpoint, where the balance is hidden and only the icon remains.
+
+Every fix is a colour value or an `aria-label`; no layout moved.
+
+### Fixed — two money fields took focus and showed nothing
+
+`globals.css` rings everything on `:focus-visible`, and nine modules
+override it with `outline: none` — usually correctly, because the input
+is borderless inside a styled wrapper and the ring belongs on the
+wrapper. `WalletClient` was the one that never put it back, so tabbing
+into the box where somebody types an amount of money, and into the
+auto-top-up thresholds, moved focus somewhere invisible. The tab-order
+walk in `presentation.spec.ts` now asserts every stop shows a ring.
+
+### Fixed — an unreachable server spoke browser, not English
+
+A rejected `fetch` — API stopped, nginx down, a phone in a lift — has no
+status and no error envelope, so it never reached the error handling in
+`lib/api/http.ts` and propagated as a raw `TypeError`. Nineteen screens
+render an error's `message` directly, so people saw "Failed to fetch" or
+"Load failed" in the same red text a refused password uses: it reads as
+the server rejecting what was typed, so the natural response is to edit a
+form that was never wrong. It is now an `ApiError` with status `0` and
+code `NETWORK_ERROR` carrying a sentence somebody can act on.
+
+### Added — sign-in returns you to where you were sent from
+
+The edge gates on `/seller/*` and `/admin/*`, and a session expiring
+mid-request, all sent people to a login screen and threw the destination
+away. They now carry `?next=`, interpreted in one place
+(`lib/auth/return-to.ts`) under two rules: it must be a same-origin
+relative path — an unvalidated one is an open redirect that makes our own
+domain the referrer for a credential-harvesting page — and it must be
+somewhere the signed-in role can actually reach, or the gate bounces them
+straight back out and the round trip reads as a failed sign-in.
+
+### Fixed — `/about` told Google it was the home page
+
+It hand-rolled a bare `Metadata` object with no `path`, so Next emitted
+no `alternates.canonical` and the route inherited the root layout's,
+which points at `/`. The only public route on the site with a wrong
+canonical, and invisible on the rendered page.
+`client/lib/canonical-metadata.spec.ts` now scans every route file:
+metadata is built through `pageMetadata()` or the route says
+`index: false`.
+
 ### Fixed — auth
 
 - **Suspension now takes effect on the next request, not the next login.**
