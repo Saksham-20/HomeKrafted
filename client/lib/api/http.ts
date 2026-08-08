@@ -29,6 +29,11 @@
  * `.status`/`.code`/`.message` so callers can branch on `code` (e.g.
  * `INSUFFICIENT_BALANCE` on a wallet-pay attempt) without string-matching
  * the message.
+ *
+ * **Unreachable server**: a rejected `fetch` (offline, API down, DNS
+ * gone) has no status and no envelope, so it became an `ApiError` with
+ * status `0` and code `NETWORK_ERROR` rather than reaching the screens
+ * as raw browser text. See the `catch` in `doFetch`.
  */
 
 import { clearSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth/session";
@@ -177,12 +182,38 @@ async function request<T>(
       const token = await resolveAccessToken();
       if (token) headers.Authorization = `Bearer ${token}`;
     }
-    return fetch(url, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal,
-    });
+    try {
+      return await fetch(url, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        signal,
+      });
+    } catch (cause) {
+      // A dropped connection, a killed API or a phone in a lift rejects
+      // `fetch` with a `TypeError`, not an HTTP status — so it never
+      // reached the envelope handling below and arrived at the screens as
+      // its raw browser text. Nineteen of them render `err.message`
+      // straight into their error region, which meant "Failed to fetch"
+      // (Chrome), "Load failed" (Safari) or "NetworkError when attempting
+      // to fetch resource" (Firefox) shown where a refusal belongs: it
+      // reads as the server rejecting what was typed, so people edit a
+      // form that was never wrong.
+      //
+      // Status `0` because there is no response — the number is
+      // deliberately not a plausible HTTP one, so a caller branching on
+      // `status >= 500` never mistakes an unreachable server for a
+      // failing one.
+      // An abort is somebody navigating away or a caller cancelling, not
+      // a failure — swallowing it into an error message would put "check
+      // your connection" on a screen nobody is looking at any more.
+      if (cause instanceof Error && cause.name === "AbortError") throw cause;
+      throw new ApiError(
+        0,
+        "NETWORK_ERROR",
+        "Can't reach Homekrafted right now. Check your connection and try again.",
+      );
+    }
   };
 
   let res = await doFetch();

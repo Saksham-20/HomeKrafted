@@ -361,6 +361,18 @@ blank modules or a "Missing bearer token" error, which looked like a
 broken page. If a tester still reports empty sections, check
 `pm2 logs homekrafted-api` for 429s before chasing a UI bug.
 
+The **API being unreachable** is the neighbouring case and was fixed the
+same way. A rejected `fetch` — the API stopped, nginx down, a tester on a
+train — carries no status and no error envelope, so it never reached the
+429 handling above and arrived on screen as the browser's own words:
+"Failed to fetch" in Chrome, "Load failed" in Safari. Nineteen screens
+render an error's `message` straight into the region a *refused* save
+uses, so it read as the server rejecting what had been typed. `http.ts`
+now turns it into an `ApiError` with status `0` and code `NETWORK_ERROR`
+carrying "Can't reach Homekrafted right now." Status `0` deliberately is
+not a plausible HTTP one, so nothing branching on `status >= 500`
+mistakes an unreachable server for a failing one.
+
 Both take effect on `pm2 restart homekrafted-api` — no rebuild needed,
 they're read from `process.env` at boot. Don't lower `THROTTLE_AUTH_LIMIT`
 to single digits: it's the brute-force guard on login, but set too tight it
