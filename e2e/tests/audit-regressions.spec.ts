@@ -201,3 +201,100 @@ test.describe('an unknown slug is a real 404', () => {
     expect(response?.status()).toBe(404);
   });
 });
+
+/**
+ * The filter sidebar is collapsed behind a "Filters" toggle below the
+ * layout breakpoint, so on the mobile project every checkbox is out of the
+ * accessibility tree until it is opened. Without this the mobile runs pass
+ * vacuously or fail on a locator that was never going to resolve.
+ */
+async function openFilters(page: import('@playwright/test').Page) {
+  const toggle = page.getByRole('button', { name: /^Filters/ });
+  if (await toggle.isVisible()) await toggle.click();
+}
+
+test.describe('browsing survives the Back button', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('a filtered, sorted page comes back the way it was left', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/shop');
+    await openFilters(page);
+
+    // Until 2026-08-08 every filter, the sort and the page number lived
+    // only in component state. Narrow the catalogue, open a listing, press
+    // Back — and land on an unsorted, unfiltered page 1. On a browse page
+    // whose whole job is narrowing before you buy, that is the loop broken
+    // at the point it matters.
+    const sort = page.getByRole('combobox', { name: 'Sort' });
+    await sort.selectOption('price-asc');
+    await page.getByRole('checkbox', { name: /^Snacks/ }).check();
+
+    // The URL is the fix and the assertion: state that is not in it cannot
+    // survive a navigation, and a filtered view that cannot be sent to
+    // anybody is half a browse page.
+    await expect(page).toHaveURL(/category=snacks/);
+    await expect(page).toHaveURL(/sort=price-asc/);
+
+    await page.locator('a[href^="/product/"]').first().click();
+    await expect(page).toHaveURL(/\/product\/[^/]+$/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/category=snacks/);
+    await openFilters(page);
+    await expect(sort).toHaveValue('price-asc');
+    await expect(page.getByRole('checkbox', { name: /^Snacks/ })).toBeChecked();
+  });
+
+  test('a filtered URL opens filtered for somebody else', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // The shareable half. A cold load has none of the state the first test
+    // built up, so this is the only thing proving the URL is read and not
+    // merely written.
+    await page.goto('/shop?category=snacks&sort=price-desc');
+    await openFilters(page);
+
+    await expect(page.getByRole('checkbox', { name: /^Snacks/ })).toBeChecked();
+    await expect(page.getByRole('combobox', { name: 'Sort' })).toHaveValue('price-desc');
+  });
+
+  test('nonsense in the query shows the catalogue rather than an empty grid', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // Every one of these arrives from somebody else's URL. The failure to
+    // avoid is not a crash — it is a page that quietly filters itself to
+    // nothing and reads as the catalogue being gone.
+    await page.goto('/shop?page=-3&sort=cheapest&minPrice=abc&category=does-not-exist');
+
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Sort' })).toHaveValue('most-loved');
+    await expect(page.locator('a[href^="/product/"]').first()).toBeVisible();
+  });
+
+  test('un-ticking a filter clears it from the URL', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // `?category=` used to seed the sidebar once and never be rewritten,
+    // so un-ticking left the URL still claiming it — and a refresh put the
+    // filter back with nothing on screen explaining why.
+    await page.goto('/shop?category=snacks');
+    await openFilters(page);
+    await page.getByRole('checkbox', { name: /^Snacks/ }).uncheck();
+
+    await expect(page).not.toHaveURL(/category=/);
+    await page.reload();
+    await openFilters(page);
+    await expect(page.getByRole('checkbox', { name: /^Snacks/ })).not.toBeChecked();
+  });
+
+  test('a tracking parameter on a shared link survives a filter click', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // The rewrite owns six keys and must leave everything else alone —
+    // otherwise the first click on a filter deletes the attribution on
+    // every link the business shares.
+    await page.goto('/shop?utm_source=whatsapp');
+    await openFilters(page);
+    await page.getByRole('checkbox', { name: /^Pickles/ }).check();
+
+    await expect(page).toHaveURL(/utm_source=whatsapp/);
+    await expect(page).toHaveURL(/category=pickles/);
+  });
+});

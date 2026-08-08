@@ -446,6 +446,15 @@ paragraphs over appending new ones.
   `ImageSlot` for every image, check `lib/channel.ts` before adding
   cart/checkout UI, use `formatCurrency`/`formatDate` from `lib/format`
   rather than ad hoc formatting.
+- **A listing page's filters, sort and page number belong in the URL**
+  (`lib/browse-params.ts`, used by `/shop`). State that is only in React
+  is lost the moment somebody opens a listing and presses Back, and a
+  narrowed view that cannot be sent to anybody is half a browse page.
+  Write it with **`router.replace`, debounced** — `push` makes every
+  checkbox a history entry, and `window.history.replaceState` does not
+  survive Back (the App Router restores its own `renderedSearch` and the
+  query is gone before `popstate` fires). Parse defensively: it is a URL,
+  so it comes from anybody.
 - **New milestone:** read the plan's milestone table + this file, build
   exactly to the brief's scope (resist finishing later milestones early),
   self-check the Definition-of-Done, update `CHANGELOG.md` and any

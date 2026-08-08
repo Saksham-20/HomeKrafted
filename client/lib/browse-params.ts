@@ -1,0 +1,137 @@
+import type { DietaryTag } from "@/lib/types";
+
+/**
+ * The browse state of a listing page, as it lives in the URL.
+ *
+ * `/shop` kept every filter, the sort and the page number in component
+ * state and never touched the address bar. Three things followed, and all
+ * three were confirmed in a browser during the 2026-08-08 sweep:
+ *
+ * - **Back loses your place.** Sort by price, go to page 2, open a
+ *   product, press Back: unsorted page 1. On a catalogue you narrow before
+ *   you buy, that is the browse loop broken at the point it matters.
+ * - **A filtered view cannot be sent to anybody.** The URL says `/shop`
+ *   whatever is on screen.
+ * - **`?category=` went stale.** It seeded the initial selection and was
+ *   never rewritten, so un-ticking that category left the URL claiming it
+ *   and a refresh silently put it back.
+ *
+ * Kept as pure functions over `URLSearchParams` so both halves — the
+ * Server Component's first render and the client's rewrites — read the
+ * same rules, and so the parsing is testable without a browser. **Every
+ * value here arrives from a URL somebody else may have written**, so
+ * parsing never trusts: an unknown sort, a page of `-3`, `NaN` prices and
+ * a diet tag that does not exist all resolve to the default rather than
+ * throwing or filtering the grid to nothing.
+ */
+
+export type BrowseSortKey = "most-loved" | "price-asc" | "price-desc";
+
+export const BROWSE_SORT_KEYS: BrowseSortKey[] = ["most-loved", "price-asc", "price-desc"];
+
+export const DEFAULT_BROWSE_SORT: BrowseSortKey = "most-loved";
+
+const DIETARY_TAGS: DietaryTag[] = [
+  "vegetarian",
+  "vegan",
+  "gluten-free",
+  "sugar-free",
+  "contains-nuts",
+];
+
+export interface BrowseParams {
+  /** Category slugs, in the order given. Empty means every category. */
+  categories: string[];
+  /** Occasion slugs. Empty means every occasion. */
+  occasions: string[];
+  dietary: DietaryTag[];
+  /**
+   * `null` when the range was left alone. The bounds depend on the product
+   * set, which this module deliberately knows nothing about — the caller
+   * clamps.
+   */
+  price: [number, number] | null;
+  sort: BrowseSortKey;
+  /** 1-based. Clamping against the real page count is the caller's job. */
+  page: number;
+}
+
+export const DEFAULT_BROWSE_PARAMS: BrowseParams = {
+  categories: [],
+  occasions: [],
+  dietary: [],
+  price: null,
+  sort: DEFAULT_BROWSE_SORT,
+  page: 1,
+};
+
+/** Comma-separated, trimmed, de-duplicated, empties dropped. */
+function parseList(raw: string | null): string[] {
+  if (!raw) return [];
+  const seen = new Set<string>();
+  for (const part of raw.split(",")) {
+    const value = part.trim();
+    if (value) seen.add(value);
+  }
+  return [...seen];
+}
+
+function parsePrice(raw: string | null): number | null {
+  if (raw === null || raw.trim() === "") return null;
+  const value = Number(raw);
+  // `Number("")` is 0 and `Number(" 12 ")` is 12, which is why the empty
+  // case is handled above rather than relying on this.
+  return Number.isFinite(value) ? value : null;
+}
+
+export function parseBrowseParams(input: string | URLSearchParams): BrowseParams {
+  const params = typeof input === "string" ? new URLSearchParams(input) : input;
+
+  const sortRaw = params.get("sort");
+  const sort = BROWSE_SORT_KEYS.includes(sortRaw as BrowseSortKey)
+    ? (sortRaw as BrowseSortKey)
+    : DEFAULT_BROWSE_SORT;
+
+  const pageRaw = Number(params.get("page"));
+  const page = Number.isInteger(pageRaw) && pageRaw >= 1 ? pageRaw : 1;
+
+  const min = parsePrice(params.get("minPrice"));
+  const max = parsePrice(params.get("maxPrice"));
+  // A half-stated range is not a range, and an inverted one would filter
+  // the grid to nothing with no way to see why.
+  const price = min !== null && max !== null && min <= max ? ([min, max] as [number, number]) : null;
+
+  const dietary = parseList(params.get("diet")).filter((tag): tag is DietaryTag =>
+    DIETARY_TAGS.includes(tag as DietaryTag),
+  );
+
+  return {
+    categories: parseList(params.get("category")),
+    occasions: parseList(params.get("occasion")),
+    dietary,
+    price,
+    sort,
+    page,
+  };
+}
+
+/**
+ * The query string for a browse state — `""` when nothing is narrowed.
+ *
+ * Defaults are omitted rather than spelled out, so an untouched `/shop`
+ * stays `/shop` and the canonical URL in `app/shop/page.tsx` keeps
+ * matching what is in the address bar.
+ */
+export function browseParamsToQuery(state: BrowseParams): string {
+  const params = new URLSearchParams();
+  if (state.categories.length) params.set("category", state.categories.join(","));
+  if (state.occasions.length) params.set("occasion", state.occasions.join(","));
+  if (state.dietary.length) params.set("diet", state.dietary.join(","));
+  if (state.price) {
+    params.set("minPrice", String(state.price[0]));
+    params.set("maxPrice", String(state.price[1]));
+  }
+  if (state.sort !== DEFAULT_BROWSE_SORT) params.set("sort", state.sort);
+  if (state.page > 1) params.set("page", String(state.page));
+  return params.toString();
+}

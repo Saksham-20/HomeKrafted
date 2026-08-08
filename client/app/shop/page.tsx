@@ -8,7 +8,25 @@ import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
 
 export interface ShopPageProps {
-  searchParams: Promise<{ category?: string; occasion?: string }>;
+  /**
+   * Every browse param lives here now — category, occasion, diet, price,
+   * sort and page — and `ShopClient` decodes the lot. Before the
+   * 2026-08-08 sweep only the first two existed, they seeded the sidebar
+   * once and were never rewritten, so Back landed on an unfiltered page 1
+   * and a filtered view could not be sent to anybody. See
+   * `lib/browse-params.ts`.
+   */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+/** The page's query string, flattened the way `URLSearchParams` reads it. */
+function toQuery(params: Record<string, string | string[] | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) for (const item of value) search.append(key, item);
+    else if (value !== undefined) search.set(key, value);
+  }
+  return search.toString();
 }
 
 /**
@@ -71,8 +89,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         categories={categories}
         occasions={occasions}
         vendorNameById={vendorNameById}
-        initialCategory={params.category}
-        initialOccasion={params.occasion}
+        initialQuery={toQuery(params)}
       />
     </>
   );
