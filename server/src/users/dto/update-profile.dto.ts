@@ -1,10 +1,9 @@
-import { IsEmail, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsPhoneNumber, IsString } from 'class-validator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 export class UpdateProfileDto {
   @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
+  @TrimmedString(1, 120)
   name?: string;
 
   @IsOptional()

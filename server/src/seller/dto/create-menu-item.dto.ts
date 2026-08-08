@@ -1,12 +1,11 @@
 import { IsIn, IsNumber, IsOptional, IsString, Min, MaxLength, MinLength } from 'class-validator';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 /** Snack seller menu create/update — mirrors `client/lib/api/seller.ts`'s `SellerMenuInput`. No `sellerId`: always the resolved seller's own id. */
 export class CreateMenuItemDto {
   /** Capped for the same reason as `CreateListingDto.name` — see there. */
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
+  @TrimmedString(1, 120)
   name!: string;
 
   @IsString()

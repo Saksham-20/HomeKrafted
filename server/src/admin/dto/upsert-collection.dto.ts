@@ -1,6 +1,7 @@
-import { IsArray, IsInt, IsOptional, IsString, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 /**
  * `POST /admin/collections` (create) / `PATCH /admin/collections/:id`
@@ -11,9 +12,7 @@ import { BooleanField } from '../../common/decorators/boolean-field.decorator';
  * `SellerListingsService.update` uses for `weightOptions`/`occasionIds`).
  */
 export class UpsertCollectionDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
+  @TrimmedString(1, 120)
   title!: string;
 
   @IsOptional()

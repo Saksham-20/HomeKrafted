@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 export class WeightOptionInputDto {
   @IsString()
@@ -54,9 +55,7 @@ export class CreateListingDto {
    * every card, every grid, the admin queue and every order line. The
    * only thing that had ever bounded it was Express's 100 KB body limit.
    */
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
+  @TrimmedString(1, 120)
   name!: string;
 
   @IsString()

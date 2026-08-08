@@ -1,12 +1,18 @@
 import { IsEmail, IsIn, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
+/**
+ * `companyName` and `contactName` gained an upper bound here (200 and 120)
+ * where they previously had none at all — the same unbounded-text hole the
+ * 2026-08-07 audit closed on listings. Both are rendered on the admin
+ * inquiry queue and carried into a quote, so the only thing that had ever
+ * limited them was Express's 100 KB body cap.
+ */
 export class CreateCorporateInquiryDto {
-  @IsString()
-  @MinLength(1)
+  @TrimmedString(1, 200)
   companyName!: string;
 
-  @IsString()
-  @MinLength(1)
+  @TrimmedString(1, 120)
   contactName!: string;
 
   @IsEmail()

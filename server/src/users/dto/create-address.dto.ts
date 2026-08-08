@@ -1,5 +1,6 @@
 import { IsOptional, IsPhoneNumber, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 /**
  * An address is the one thing on this platform a person physically goes
@@ -16,14 +17,10 @@ import { BooleanField } from '../../common/decorators/boolean-field.decorator';
  * never brought in line.
  */
 export class CreateAddressDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(60)
+  @TrimmedString(1, 60)
   label!: string;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
+  @TrimmedString(1, 120)
   recipientName!: string;
 
   /**
@@ -44,9 +41,7 @@ export class CreateAddressDto {
   })
   phone!: string;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
+  @TrimmedString(1, 200)
   line1!: string;
 
   @IsOptional()
@@ -54,9 +49,7 @@ export class CreateAddressDto {
   @MaxLength(200)
   line2?: string;
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(80)
+  @TrimmedString(1, 80)
   city!: string;
 
   @IsString()

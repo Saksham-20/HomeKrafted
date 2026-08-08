@@ -11,8 +11,9 @@ cd server && npm run test:e2e  # needs a database (below)
 cd e2e    && npm test          # needs the app running (below)
 ```
 
-CI runs all three plus typecheck, lint and both builds — see
-`.github/workflows/ci.yml`.
+CI runs all four plus typecheck, lint and both builds — see
+`.github/workflows/ci.yml`. The browser suite is its own job, because it
+needs the app running against a seeded database.
 
 CI also runs a **schema drift check** (M23), which is not a test file:
 
@@ -30,7 +31,7 @@ database to build the comparison in and drops the schema there, so point
 
 ---
 
-## The three layers, and why each one exists
+## The four layers, and why each one exists
 
 **1. `client/lib/**/*.spec.ts` — pure functions (no DOM, no network).**
 The modules that decide what the app is allowed to do: the schedule
@@ -200,6 +201,7 @@ Grouped by the rule, not by the file, because the rules are the point.
 | The location prompt never opens over a staff surface or an auth form, where it used to trap focus while somebody typed a password | `e2e/tests/focus-traps.spec.ts` |
 | `/admin/login` signs in as **what was typed**, not a hardcoded account | `e2e/tests/auth.setup.ts` |
 | A product card opens on Enter from the keyboard; an unknown slug answers **404 in the status line**, not a soft 404 | `e2e/tests/audit-regressions.spec.ts` |
+| A name has to contain something readable — spaces, tabs and newlines are refused across signup, addresses and support — and the **trimmed** value is what gets stored | `e2e/blank-names.e2e-spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |
 | Absence is never a closure: no working days = open every day, no prep time = 90 minutes | `availability.e2e-spec.ts` |
 | `GET /settings/public` is an **allowlist** — the commission rate is never published | `settings.e2e-spec.ts` |

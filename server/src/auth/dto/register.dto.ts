@@ -1,9 +1,8 @@
 import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 export class RegisterDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(120)
+  @TrimmedString(1, 120)
   name!: string;
 
   @IsEmail()

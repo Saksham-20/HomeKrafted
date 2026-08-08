@@ -1,9 +1,8 @@
 import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 export class CreateSupportTicketDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
+  @TrimmedString(1, 200)
   subject!: string;
 
   @IsIn(['chat', 'call', 'email'])

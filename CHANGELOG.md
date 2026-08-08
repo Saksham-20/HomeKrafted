@@ -99,6 +99,37 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — a name made entirely of spaces
+
+`@MinLength(1)` counts **characters**, and `"   "` is three of them. So
+every name-shaped field accepted pure whitespace and stored it verbatim:
+`POST /auth/register` with `{"name": "   "}` returned 201, and that account
+then rendered as a blank on the admin user list, in the wallet liability
+table, as the `customerName` on every order row an admin sees, and as the
+`refereeName` on a referral.
+
+Found in a browser rather than by reading code — a row on `/admin/wallet`
+with a balance, a transaction count, and no name at all.
+
+`@TrimmedString(min, max)` (`server/src/common/decorators/`) trims *before*
+validating and keeps the trimmed value, so `"  Ananya Iyer  "` is stored as
+`"Ananya Iyer"`. Validating a trimmed copy and then saving the padded
+original would pass every test and keep the bug — a leading space also
+sorts an account to the top of every admin list, and makes "Ananya" and
+" Ananya" look like two different people.
+
+Applied to the fields other people read: the account name, profile name,
+listing and menu-item names, the four address fields, a support ticket's
+subject, a collection title, and the corporate company/contact names.
+**Every existing upper bound is unchanged** — this adds a floor, not a
+ceiling. The two exceptions are `companyName` and `contactName`, which had
+no upper bound at all and now have one, closing the same unbounded-text
+hole this audit closed on listings.
+
+It follows `@BooleanField()`'s shape deliberately: that decorator exists
+because a bare `@IsBoolean()` was the bug, and this one exists because a
+bare `@MinLength(1)` is.
+
 ### Added — a fourth test layer: a real browser, the running app
 
 `e2e/`, Playwright, wired into CI as its own job against a seeded stack.
