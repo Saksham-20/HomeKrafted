@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { storageStateFor } from '../fixtures/accounts';
 import { skipLocationPrompt } from '../fixtures/location';
 
 /**
@@ -139,5 +140,77 @@ test.describe('being turned away at the gate', () => {
     await page.getByRole('button', { name: /continue with email/i }).click();
 
     await expect(page).toHaveURL(/\/account$/);
+  });
+});
+
+test.describe('when the browser really is offline', () => {
+  test('an action still speaks our language, not the network stack\'s', async ({ page, context }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/login');
+
+    // `route.abort()` above simulates this; `setOffline` is the real
+    // thing, through the real network stack, and the two produce
+    // different `TypeError`s in different browsers. This is the one a
+    // phone in a lift actually gets.
+    //
+    // What this deliberately does **not** claim: that a *navigation* while
+    // offline is handled. It is not — Next falls back to a hard load and
+    // the visitor gets Chrome's own error page, measured 2026-08-08. There
+    // is no service worker and no offline shell, and adding one is a
+    // feature with its own cache-invalidation problems, not an audit fix.
+    await context.setOffline(true);
+
+    await page.getByRole('tab', { name: 'Email', exact: true }).click();
+    await page.getByLabel(/email/i).fill('ananya.iyer@example.com');
+    await page.getByLabel(/password/i).fill('Passw0rd!123');
+    await page.getByRole('button', { name: /continue with email/i }).click();
+
+    const alert = page.getByRole('alert').first();
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(/can't reach homekrafted/i);
+    await expect(alert).not.toContainText(/failed to fetch|load failed|networkerror/i);
+
+    await context.setOffline(false);
+  });
+});
+
+test.describe('refreshing while the order is being placed', () => {
+  test.use({ storageState: storageStateFor('consumer') });
+
+  test('the cart is gone, and the page says why before you try again', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/product/ragi-almond-cookies');
+    await page.getByRole('button', { name: /add to cart/i }).first().click();
+
+    await page.goto('/checkout');
+    await expect(page.getByRole('button', { name: /^place order$/i })).toBeEnabled();
+
+    // The request must genuinely reach the server — `route.fetch()`, then
+    // sit on the response. Aborting instead would prove nothing: the first
+    // attempt at this measured "no double order" from a POST that never
+    // left the browser.
+    await page.route('**/api/v1/orders', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      const response = await route.fetch();
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+      // The page is gone by now; fulfilling a route on a dead frame throws
+      // and that is the whole point of the test.
+      await route.fulfill({ response }).catch(() => {});
+    });
+
+    await page.getByRole('button', { name: /^place order$/i }).click();
+    await expect(page.getByRole('button', { name: /placing order/i })).toBeVisible();
+    await page.reload();
+
+    // The order landed and the cart was cleared with it, which is what
+    // stops a second one — the buyer cannot re-place what is no longer
+    // there. Asserted through the UI rather than by counting orders,
+    // because the desktop and mobile projects run this concurrently on the
+    // same account and a delta would be racing itself.
+    await expect(page.getByText('Your cart is empty')).toBeVisible();
+
+    // And the part that was missing: the screen a refresh lands you on
+    // said nothing about whether the money moved.
+    await expect(page.getByRole('link', { name: /check your orders/i })).toBeVisible();
   });
 });

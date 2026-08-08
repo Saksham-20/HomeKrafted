@@ -209,6 +209,8 @@ Grouped by the rule, not by the file, because the rules are the point.
 | Every tab stop on a page shows a focus ring — on the control or on the wrapper that reads as the field, which is where three modules deliberately put it | `e2e/tests/presentation.spec.ts` |
 | Every public route passes axe's `color-contrast` and the structural WCAG rules (control names, `aria-hidden` over focusable elements, heading order, one `main`) at both viewports | `e2e/tests/a11y.spec.ts` |
 | An unreachable API says "can't reach Homekrafted", not "Failed to fetch"; a 429 says to wait, not `ThrottlerException`; and a browse page still renders its shell when the API is gone | `e2e/tests/error-paths.spec.ts` |
+| Browse state survives Back: `/shop`'s filters, sort and page are in the URL, a filtered URL opens filtered for somebody else, nonsense params show the catalogue rather than an empty grid, and a `utm_` param survives a filter click | `client/lib/browse-params.spec.ts`, `e2e/tests/audit-regressions.spec.ts` |
+| A refresh while an order is being placed leaves one order and an empty cart, on a page that says where to check | `e2e/tests/error-paths.spec.ts` |
 | No public page scrolls sideways at 360/768/1180, every one has exactly one `<h1>`, the header collapses to the hamburger below the measured breakpoint, and the first Tab lands on a skip link that names a target that exists | `e2e/tests/presentation.spec.ts` |
 | An indexable route builds its metadata through `pageMetadata()` or says not to index it — the shape that let `/about` inherit the home page's canonical and declare itself a duplicate | `client/lib/canonical-metadata.spec.ts` |
 | CSV formula injection is neutralised on the way out of a real export | `admin-exports.e2e-spec.ts` |

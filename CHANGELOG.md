@@ -70,6 +70,48 @@ domain the referrer for a credential-harvesting page — and it must be
 somewhere the signed-in role can actually reach, or the gate bounces them
 straight back out and the round trip reads as a failed sign-in.
 
+### Fixed — browsing lost its place the moment you opened a listing
+
+Every filter on `/shop`, the sort and the page number lived in component
+state and never touched the address bar. Sort by price, tick a category,
+go to page 2, open a product, press Back: unsorted, unfiltered page 1 —
+measured, not inferred. Two more followed from the same cause. A narrowed
+catalogue could not be sent to anybody, because the URL said `/shop`
+whatever was on screen. And `?category=`, which every category tile on the
+home page links to, seeded the sidebar once and was never rewritten, so
+un-ticking it left the URL still claiming the filter and a refresh
+silently put it back.
+
+`client/lib/browse-params.ts` is the encode/decode, kept pure so the
+Server Component's first render and the client's rewrites read the same
+rules. It parses defensively — `sort=cheapest`, `page=-3`, `minPrice=abc`
+and an inverted range all resolve to the default, because the failure to
+avoid is not a crash but a page that quietly filters itself to nothing.
+
+The write is a debounced `router.replace`. `push` would make every
+checkbox a history entry; `window.history.replaceState` needs no round
+trip and is what Next documents for search params, and **it does not
+survive Back** — the App Router restores its own `renderedSearch`, and
+instrumenting it showed `popstate` firing with `location.search` already
+reset to `""`. Keys the rewrite does not own are preserved: the first
+click on a filter had been deleting `utm_source` off every shared link.
+
+### Fixed — a refresh mid-payment left you staring at an empty cart
+
+Forced with a real order: the POST reaches the server, the response is
+held, the page is reloaded. The order lands and the cart is cleared with
+it — which is the property that matters, because a buyer cannot re-place
+what is no longer there. But the screen they come back to said only "Your
+cart is empty", with nothing on it about whether ₹489 had moved. It now
+says a refresh mid-payment can land you here and links to the order list,
+because the state it explains outlives a toast.
+
+**True offline is a navigation, and it is not handled.** Clicking a link
+with the network off falls back to a hard load and Chrome's own error
+page; there is no service worker and no offline shell. In-page actions do
+speak our language — `error-paths.spec.ts` now asserts that through the
+real network stack, not only through an aborted route.
+
 ### Fixed — `/about` told Google it was the home page
 
 It hand-rolled a bare `Metadata` object with no `path`, so Next emitted

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import clsx from "clsx";
 import { Wallet as WalletIcon, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -389,6 +390,20 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
       <section className={clsx("container", styles.page)}>
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>Your cart is empty</p>
+          {/*
+            You do not arrive at an empty checkout by browsing — you get
+            here with items or not at all. The realistic way to see this
+            screen is a refresh during "Placing order…": measured on
+            2026-08-08, the order lands, the cart is cleared, and the page
+            you come back to says only that your cart is empty. Nothing on
+            it says whether ₹489 moved. The cart being cleared is what
+            stops a second order; this is what stops the buyer having to
+            guess. Not a toast — the state it explains outlives one.
+          */}
+          <p className={styles.emptyHint}>
+            Placed an order just now? A refresh mid-payment can land you here —{" "}
+            <Link href="/account/orders">check your orders</Link> before trying again.
+          </p>
           <Button variant="primary" onClick={() => router.push("/shop")}>
             Continue shopping
           </Button>

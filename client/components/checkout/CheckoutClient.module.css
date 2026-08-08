@@ -32,6 +32,18 @@
   color: var(--hk-ink);
 }
 
+.emptyHint {
+  max-width: 46ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+}
+
+.emptyHint a {
+  color: var(--hk-pine);
+  text-decoration: underline;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 1fr 340px;
