@@ -357,8 +357,15 @@ below.
     layers plus CI — see `docs/TESTS.md`. It found a real bug on its
     first run: `"false"` evaluated as `true` on every boolean request
     field, including the verification badge (see M17 in `CHANGELOG.md`).
-    **Still owed:** browser-level tests for the dialog focus traps, and
-    load testing.
+    **Both closed in M23.** `e2e/` adds a fourth layer — Playwright
+    against the running app — including the two dialog focus traps this
+    line had named as owed since M17. And `load/` adds k6 with the
+    50 → 200 → 500 → 1000 ramp. Each found a real bug on *its* first run
+    too: the browser suite could not click the admin sign-in button
+    because a location-prompt modal was trapping focus over it, and the
+    load ramp passed at p95 4.55 ms against 16 seeded products and then
+    gave p95 2.06 s against 2,017 — the catalogue read was still scanning
+    the whole table. See M23 in `CHANGELOG.md`.
 22. ✅ **Runtime feature flags — shipped M17.** *(the open half of M5)*
     `GET /settings/public` plus `lib/features/` mean the `/hamper` route
     gate and all four client call sites resolve the same value, so a flip

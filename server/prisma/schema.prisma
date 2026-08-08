@@ -1452,6 +1452,20 @@ model Product {
   @@index([kind])
   /// The M22 review queue: pending first, oldest submission first.
   @@index([moderationStatus, submittedAt])
+  /// The default browse, served entirely from an index.
+  ///
+  /// `GET /products` with no search, price range or coordinates is
+  /// `WHERE moderationStatus IN (...) AND isAvailable ORDER BY rating
+  /// DESC, reviewCount DESC, id LIMIT 20` — the first request every
+  /// visitor makes. Without this Postgres sequentially scanned the whole
+  /// catalogue and top-N sorted it to return twenty rows: 2,016 rows read
+  /// per request, which held at 40 ms alone and collapsed to a p95 of
+  /// 2.06 s under a k6 ramp to 1000 VUs.
+  ///
+  /// The sort directions are part of the index, not decoration — an index
+  /// ascending on `rating` cannot serve a descending scan without a sort
+  /// step, which is the cost being removed.
+  @@index([moderationStatus, isAvailable, rating(sort: Desc), reviewCount(sort: Desc), id])
 }
 
 model ProductOccasion {

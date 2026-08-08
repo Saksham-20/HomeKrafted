@@ -1,0 +1,21 @@
+-- M23. The default browse, served from an index instead of a table scan.
+--
+-- `GET /products` with no search term, price range or coordinates is the
+-- first request every visitor makes, and it is
+-- `WHERE moderationStatus IN (...) AND isAvailable
+--  ORDER BY rating DESC, reviewCount DESC, id LIMIT 20`.
+--
+-- Without this index Postgres sequentially scanned the whole catalogue and
+-- top-N sorted it to return twenty rows. Measured with k6: against a
+-- 16-product seed a ramp to 1000 VUs held p95 at 4.55 ms, which is why the
+-- earlier pagination work looked sufficient. Against 2,017 products the
+-- same ramp gave **p95 2.06 s** and tripped the threshold — a single
+-- request was still only 40 ms, but 2,016 rows read per request multiplied
+-- by concurrency until the connection pool queued.
+--
+-- The DESC markers are load-bearing. An index ascending on `rating` cannot
+-- serve a descending scan without a sort step, and that sort step is the
+-- entire cost being removed.
+
+-- CreateIndex
+CREATE INDEX "Product_moderationStatus_isAvailable_rating_reviewCount_id_idx" ON "Product"("moderationStatus", "isAvailable", "rating" DESC, "reviewCount" DESC, "id");

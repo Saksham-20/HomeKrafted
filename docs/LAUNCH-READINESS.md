@@ -297,9 +297,18 @@ money in India.
 - No image CDN. Uploads are served from the app box by nginx.
 - `WalletContext` still holds some client-side balance state alongside
   the authoritative server ledger. *(L2)*
-- Browser-level tests for the two dialog focus traps are still owed —
-  jsdom would only assert that markup looks like markup.
-- No load testing has been done at all.
+- ✅ Browser-level tests exist (M23) — `e2e/`, Playwright, including the
+  two dialog focus traps this line had named as owed since M17.
+- ✅ Load testing exists (M23) — `load/`, k6, the 50 → 200 → 500 → 1000
+  ramp. **Local only.** This box is 1 vCPU / 4 GB running the Next
+  server, the API and Postgres together; 500–1000 VUs against it would
+  take the site down rather than stress it, and pm2 restart-loops under
+  memory pressure, so it can stay down after the load stops. Measuring
+  this box's real ceiling needs a same-spec throwaway VPS — see
+  `load/README.md`. Local numbers bound the *code*, not the server.
+- Search, price sort and price filter still read the whole matching set
+  (~28 ms against 2,000 listings, against 4 ms for the default browse).
+  Improving them needs full-text search and a denormalised price column.
 
 ---
 

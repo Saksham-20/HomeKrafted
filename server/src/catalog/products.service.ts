@@ -99,6 +99,61 @@ export class ProductsService {
       where.kind = query.kind;
     }
 
+    const sortMode = query.sort ?? 'most-loved';
+    const buyerCoords =
+      query.lat !== undefined && query.lng !== undefined
+        ? { lat: query.lat, lng: query.lng }
+        : undefined;
+
+    /**
+     * **The fast path: everything in SQL, twenty rows touched.**
+     *
+     * The two phases below exist because price and distance are derived,
+     * so they cannot be filtered or sorted in the database. But the
+     * *default browse* — no search term, no price range, no coordinates,
+     * `most-loved` ordering — uses none of that. It is `ORDER BY rating
+     * DESC, reviewCount DESC, id ASC` with a `LIMIT`, which Postgres does
+     * over an index without reading the catalogue.
+     *
+     * Measured, because the phased version looked fast enough on seeded
+     * data and was not: against 16 products a k6 ramp to 1000 VUs held
+     * p95 at 4.55 ms; against 2,017 products the same ramp gave **p95
+     * 2.06 s** and tripped the threshold. A single request was still only
+     * 40 ms — the cost was reading two thousand rows to return twenty,
+     * multiplied by concurrency until the pool queued. This is the request
+     * every visitor makes first, so it is the one worth a special case.
+     *
+     * The condition is deliberately narrow. Anything that needs a derived
+     * value falls through to the general path below, which is still
+     * correct — just slower, and far rarer.
+     */
+    const canPageInSql =
+      !query.q &&
+      query.minPrice === undefined &&
+      query.maxPrice === undefined &&
+      !buyerCoords &&
+      sortMode === 'most-loved';
+
+    if (canPageInSql) {
+      const page = query.page ?? 1;
+      const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+      const [rows, total] = await Promise.all([
+        this.prisma.product.findMany({
+          where,
+          include: PRODUCT_INCLUDE,
+          // Identical to the JavaScript comparator's `most-loved` branch,
+          // final `id` key included — the two paths must not disagree
+          // about ordering, or a page boundary shifts depending on which
+          // one served it.
+          orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { id: 'asc' }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        this.prisma.product.count({ where }),
+      ]);
+      return { items: rows.map((row) => mapProduct(row)), page, pageSize, total };
+    }
+
     /**
      * **Phase one: the smallest row that can answer every derived filter
      * and sort.**
@@ -135,10 +190,7 @@ export class ProductsService {
     // buyer, and remember how far each one is so the card can show it.
     // Filtering here rather than in SQL because there's no PostGIS and the
     // candidate set is one row per HomeKrafter — see `common/geo.ts`.
-    const buyer =
-      query.lat !== undefined && query.lng !== undefined
-        ? { lat: query.lat, lng: query.lng }
-        : undefined;
+    const buyer = buyerCoords;
 
     const distanceByProduct = new Map<string, number>();
     let inRange = candidates;
@@ -172,7 +224,7 @@ export class ProductsService {
       withPrice = withPrice.filter((x) => x.price <= query.maxPrice!);
     }
 
-    const sort = query.sort ?? 'most-loved';
+    const sort = sortMode;
     // A search hit in the product's own name beats one that only matched
     // its description or its kitchen's name, whatever the sort. Applied
     // ahead of the chosen sort rather than instead of it, so "price: low

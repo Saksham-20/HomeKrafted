@@ -99,6 +99,62 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Added — load tests, and the thing they immediately found
+
+`load/` — k6 scripts (`browse.js`, `mixed.js`, a shared `lib.js`) with the
+50 → 200 → 500 → 1000 ramp `docs/PRODUCTION-AUDIT.md` asks for. A single
+static binary, so nothing is added to either package's dependency graph.
+
+**The first run was a false pass, and that is the finding.** Against the
+16-product seed, 1000 VUs held p95 at 4.55 ms with zero errors — which
+would have been reported as "the catalogue scales fine". Loading 2,017
+products and re-running the identical ramp gave **p95 2.06 s**, tripping
+the threshold.
+
+A single request was still only 40 ms. The cost was that `GET /products`
+read every matching row to return twenty, and concurrency multiplied it
+until the connection pool queued. The pagination work earlier in this
+release removed the *relation* hydration for the whole catalogue but left
+that scan, and no amount of testing on seeded data would have shown it.
+
+Two changes, both measured:
+
+- **A SQL fast path for the default browse.** No search term, no price
+  range, no coordinates, `most-loved` — which is the first request every
+  visitor makes — is now `ORDER BY rating DESC, reviewCount DESC, id
+  LIMIT 20` straight from the database. Everything else falls through to
+  the general path, which still filters and sorts in application code
+  because price and distance are not columns.
+- **An index that actually serves it** (`Product(moderationStatus,
+  isAvailable, rating DESC, reviewCount DESC, id)`). The `DESC` markers
+  are load-bearing: an ascending index cannot serve a descending scan
+  without the sort step being removed. Postgres went from a sequential
+  scan of 2,016 rows plus a top-N sort to a 20-row index scan, 0.14 ms.
+
+Result on the same ramp: **p95 2.06 s → 745 ms, zero errors, throughput
+167 → 336 req/s.** Per request, 40 ms → 4 ms.
+
+A split like this introduces a risk that is invisible — both paths return
+plausible pages, and only a boundary or an ordering tie reveals they
+disagree. `products-browse.e2e-spec.ts` runs the same query down both
+paths (`minPrice=0` filters nothing but forces the general one) and
+asserts identical ordering on page one and page two. Verified to fail when
+the two tie-breakers are made to differ.
+
+**What is still slow, stated rather than fixed:** search, price sort and
+price filter all take the general path and cost ~28 ms against 2,000
+listings — seven times the fast path. Doing better needs full-text search
+(`tsvector`) for the first and a denormalised price column for the other
+two. Both are real changes with real trade-offs, not a tuning pass.
+
+**No production run.** `homekrafted.in` is one 1 vCPU / 4 GB VPS running
+the Next server, the API and Postgres together with pm2
+`max_memory_restart` at 600M/800M. 500–1000 VUs against it would not
+stress it, it would take it down — and under memory pressure pm2 
+restart-loops, so it can stay down after the load stops rather than
+recovering. `load/README.md` says so at the top. Local numbers are an
+upper bound on the code, not a prediction of that box.
+
 ### Fixed — the payouts queue reported nothing owed when you filtered it
 
 Same shape as the support and catalogue badges, on the one screen in the
