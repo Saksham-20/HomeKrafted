@@ -51,6 +51,36 @@ that 409 into the code step rather than "incorrect password" for a password
 that never existed. Also asserts "Use a code instead" is offered *before*
 any failure, not only after one.
 
+### Fixed — a new buyer's first screen advertised a module withdrawn six milestones ago
+
+`/account/orders` was subtitled "Marketplace orders and laundry bookings, in
+one place", its empty state read "bookings made on **Laundry** will show up
+here", and a Laundry filter chip sat above both. Laundry was withdrawn in
+M19; `/laundry` calls `notFound()` unconditionally.
+
+The fix is not deleting the word — somebody with six bookings still needs to
+find them, which is exactly why the models were kept. All three are now
+conditional on the account having a booking, so the offer is made only to
+the people it is true for. The empty state also gained the third part it
+owed: a way out. Ledger `M26-004`, guarded by
+`e2e/tests/withdrawn-modules.spec.ts`.
+
+### Added — `scripts/qa-up.sh` and a route inventory that cannot drift
+
+The documented setup did not work on a cold clone: it assumed `npm install`,
+never created `server/.env` (gitignored, and the API refuses to boot without
+`JWT_ACCESS_SECRET`), ran one of the three catalogue seeds so `/gifts` and
+`/meal-plans` came up empty and read as product defects, and left
+`NEXT_PUBLIC_SITE_URL` unset so every canonical on a localhost build pointed
+at production. `qa-up.sh` does all of it, parameterised (`QA_DB`,
+`QA_API_PORT`, `QA_WEB_PORT`) so two sweepers can run side by side.
+
+`scripts/route-inventory.sh --check` fails the build when `client/app` and
+`docs/route-inventory.tsv` disagree. The inventory is a *coverage* file, not
+a list: a clean route produces no ledger row, which is indistinguishable
+from a route nobody opened, so `swept_1280` / `swept_390` columns are what
+answer "what is left".
+
 ### Added — `prisma/seed-browser-orders.ts`, for the browser stack only
 
 The admin-orders search test needs an order buried on page 2. The documented

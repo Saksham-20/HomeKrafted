@@ -56,6 +56,29 @@
   font-size: 13.5px;
 }
 
+/*
+ * The way out. An empty state without one leaves somebody on a dead page
+ * to find the nav themselves — see the M26 plan's state contract.
+ */
+.emptyAction {
+  display: inline-block;
+  margin-top: var(--hk-s4);
+  padding: 10px 18px;
+  border: 1px solid var(--hk-pine);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  /* Copy on solid pine — the same token the announcement bar and the
+     wallet balance card use. */
+  color: var(--hk-on-pine);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.emptyAction:hover {
+  background: var(--hk-pine-deep);
+}
+
 .list {
   display: flex;
   flex-direction: column;
