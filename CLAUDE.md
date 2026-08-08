@@ -870,6 +870,26 @@ Three props matter and are easy to forget:
 uploads are same-origin (nginx serves `/uploads/` — see `docs/DEPLOY.md`),
 so nothing needs allowlisting. Don't widen it to `**` to make a CDN work.
 
+**An upload is served with `unoptimized`, and that is not a shortcut
+(M25).** `next/image` resolves a local `src` against its *own* server on
+`127.0.0.1:3000`. Bundled art under `public/` is served by Next, so the
+optimiser works. `/uploads/` is served **only by nginx**, from
+`/var/lib/homekrafted/uploads` — the Next process has no such route, so
+the optimiser fetched its own 404 page and answered `400 "The requested
+resource isn't a valid image"`. Every HomeKrafter-uploaded photo rendered
+broken on the live site from M16 until this was found, by uploading a
+real photo to production. Three things to know before touching it:
+
+- **A `public/uploads` symlink does not fix it** — tried on the box; Next
+  does not pick up `public/` changes at runtime.
+- **Skipping the optimiser is honest now, because the server already did
+  that pass.** `image-pipeline.ts` caps at 2000px and re-encodes to WebP
+  before storing, so optimising again resizes an already-web-ready file.
+- **The open cost is one stored size for every slot** — a 210px card
+  downloads the same file as a full-width banner. Stored variants (or
+  teaching nginx to serve them) is the follow-up; don't "fix" it by
+  re-enabling the optimiser, which puts the broken images back.
+
 ## Fonts & tokens wiring (established in M0 — don't re-derive this)
 
 `app/layout.tsx` loads all three families via `next/font/google` and

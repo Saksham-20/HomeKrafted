@@ -79,11 +79,30 @@ behind it.
 that an email address is not sitting in a column called `phone` for the
 next person to copy.
 
+### Fixed on the day, by driving the deployed site
+
+Three things that no check here could see, two of them found only because
+the milestone was tested in production rather than declared done:
+
+- **Uploaded photos rendered broken, and had since M16.** `next/image`
+  resolves a local `src` against its own server; `/uploads/` is served
+  only by nginx, so the optimiser fetched its own 404 page and returned
+  `400`. `ImageSlot` now skips the optimiser for `/uploads/` — safe
+  because the upload pipeline above already produced a capped WebP.
+- **Sign-up skipped its own confirmation step.** Signing up signs you in,
+  and the "already signed in" card returned early, making the code step
+  unreachable. Guarded by `signed-in-short-circuit.spec.ts`.
+- **The confirmation step handed out a code it could not accept.** The
+  post-sign-up code was minted under a `verify` purpose while `verifyOtp`
+  reads `login`, so the box rejected its own code. Purposes unified;
+  pinned by an e2e that round-trips whatever code sign-up actually issues.
+
 ### Tests
 
-+63 (`image-pipeline`, `identifier` on both sides, `auth-continue`
-end-to-end). The EXIF/GPS strip and the 409 HomeKrafter path are the two
-worth keeping green.
++66 (`image-pipeline`, `identifier` on both sides, `auth-continue`
+end-to-end, the short-circuit guard). The EXIF/GPS strip, the 409
+HomeKrafter path and the code round-trip are the three worth keeping
+green.
 
 ## [M21] — Production audit: browser sweep, hardening, load testing — 2026-08-06 (in progress)
 
