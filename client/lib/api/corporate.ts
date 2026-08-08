@@ -86,17 +86,25 @@ export async function getCorporateInquiries(): Promise<CorporateInquiry[]> {
 
 export interface AdminCorporateList {
   items: AdminCorporateInquiry[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /** The whole queue, never the page or the filter. */
   summary: { unworked: number; contacted: number; quoted: number };
 }
 
 export async function getAdminCorporateInquiries(
   status?: CorporateInquiryStatus,
+  page = 1,
 ): Promise<AdminCorporateList> {
   if (isMockMode()) {
-    return { items: [], summary: { unworked: 0, contacted: 0, quoted: 0 } };
+    return { items: [], page: 1, pageSize: 0, total: 0, summary: { unworked: 0, contacted: 0, quoted: 0 } };
   }
+  const query: Record<string, string> = {};
+  if (status) query.status = status;
+  if (page > 1) query.page = String(page);
   return http.get<AdminCorporateList>("/admin/corporate-inquiries", {
-    query: status ? { status } : undefined,
+    query: Object.keys(query).length ? query : undefined,
   });
 }
 

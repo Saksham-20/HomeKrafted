@@ -470,3 +470,128 @@ describe('admin wallet overview', () => {
     await h.api().get(`${API_PREFIX}/admin/wallet`).set(auth(buyer)).expect(403);
   });
 });
+
+/**
+ * The payout queue, which is the one screen in the admin panel that is
+ * entirely about money somebody is waiting for.
+ *
+ * Its summary was reduced over the loaded rows, so filtering to "Paid"
+ * made the header report `pendingCount: 0, pendingTotal: ₹0` while three
+ * HomeKrafters waited on ₹14,010. Reproduced against a running server
+ * during the audit before it was fixed.
+ */
+describe('admin payout queue', () => {
+  let h: Harness;
+  let admin: Actor;
+
+  beforeAll(async () => {
+    h = await createHarness();
+  });
+
+  afterAll(async () => {
+    await h.close();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(h.prisma);
+    admin = await createActor(h, 'admin');
+  });
+
+  async function payout(status: 'pending' | 'paid', amount: number) {
+    const kitchen = await createKitchen(h);
+    return h.prisma.payout.create({
+      data: {
+        sellerId: kitchen.seller.id,
+        amount,
+        status,
+        periodStart: new Date('2026-07-01'),
+        periodEnd: new Date('2026-07-31'),
+      },
+    });
+  }
+
+  const list = (query = '') =>
+    h.api().get(`${API_PREFIX}/admin/payouts${query}`).set(auth(admin)).expect(200);
+
+  it('totals what is owed from every payout, not the ones on screen', async () => {
+    await payout('pending', 4000);
+    await payout('pending', 6000);
+    await payout('paid', 9000);
+
+    const all = await list();
+    // By hand: two pending at 4000 and 6000.
+    expect(all.body.summary).toEqual({ pendingCount: 2, pendingTotal: 10000, paidTotal: 9000 });
+
+    const onlyPaid = await list('?status=paid');
+    // The list narrows to the one paid row…
+    expect(onlyPaid.body.items).toHaveLength(1);
+    // …and ₹10,000 is still owed. Derived from the loaded rows this said
+    // nothing was pending, on the screen that decides who gets paid.
+    expect(onlyPaid.body.summary).toEqual({ pendingCount: 2, pendingTotal: 10000, paidTotal: 9000 });
+  });
+
+  it('pages without repeating or dropping a payout', async () => {
+    for (let i = 0; i < 30; i += 1) await payout('pending', 100);
+
+    const first = await list();
+    const second = await list('?page=2');
+
+    expect(first.body.items).toHaveLength(25);
+    expect(first.body.total).toBe(30);
+    const ids = [...first.body.items, ...second.body.items].map((p: { id: string }) => p.id);
+    // Every payout is cut for the same fortnight, so `periodEnd` ties on
+    // all thirty — exactly when an ordering with no unique final key
+    // starts repeating one row and dropping another.
+    expect(new Set(ids).size).toBe(30);
+  });
+});
+
+describe('admin corporate inquiry queue', () => {
+  let h: Harness;
+  let admin: Actor;
+
+  beforeAll(async () => {
+    h = await createHarness();
+  });
+
+  afterAll(async () => {
+    await h.close();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(h.prisma);
+    admin = await createActor(h, 'admin');
+  });
+
+  const inquiry = (status: 'new' | 'contacted' | 'quoted') =>
+    h.prisma.corporateInquiry.create({
+      data: {
+        companyName: 'Acme Ltd',
+        contactName: 'A Buyer',
+        email: 'buyer@acme.test',
+        phone: '9845012345',
+        estimatedQuantity: 50,
+        message: 'Diwali hampers for the team.',
+        status,
+      },
+    });
+
+  it('counts what nobody has touched, whatever the view is filtered to', async () => {
+    await inquiry('new');
+    await inquiry('new');
+    await inquiry('quoted');
+
+    const all = await h.api().get(`${API_PREFIX}/admin/corporate-inquiries`).set(auth(admin)).expect(200);
+    expect(all.body.summary).toEqual({ unworked: 2, contacted: 0, quoted: 1 });
+
+    const quoted = await h
+      .api()
+      .get(`${API_PREFIX}/admin/corporate-inquiries?status=quoted`)
+      .set(auth(admin))
+      .expect(200);
+
+    expect(quoted.body.items).toHaveLength(1);
+    // Two inquiries are still untouched. This read zero.
+    expect(quoted.body.summary).toEqual({ unworked: 2, contacted: 0, quoted: 1 });
+  });
+});

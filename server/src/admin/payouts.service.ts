@@ -3,6 +3,7 @@ import { Prisma, PayoutStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AdminAuditLogService } from './audit-log.service';
+import { ListAdminPayoutsQueryDto } from './dto/list-admin-payouts.query.dto';
 
 const PAYOUT_INCLUDE = {
   seller: { include: { user: { select: { id: true, name: true, email: true, phone: true } }, vendor: true } },
@@ -47,6 +48,13 @@ function mapAdminPayout(payout: PayoutRow) {
  * otherwise — auto-crediting something, or implying a transfer this
  * system never made — would be worse than the honest ledger this keeps.
  */
+const DEFAULT_PAYOUT_PAGE_SIZE = 25;
+
+/** Money rounded to paise — a SUM over a Decimal column comes back as a float. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 @Injectable()
 export class AdminPayoutsService {
   constructor(
@@ -55,23 +63,48 @@ export class AdminPayoutsService {
     private readonly notifications: NotificationsService,
   ) {}
 
-  async list(status?: PayoutStatus) {
-    const rows = await this.prisma.payout.findMany({
-      where: status ? { status } : undefined,
-      include: PAYOUT_INCLUDE,
-      // Pending first regardless of the filter: this screen is a queue,
-      // and the oldest unanswered request is the one that matters.
-      orderBy: [{ status: 'asc' }, { periodEnd: 'desc' }],
-    });
+  /**
+   * The payout queue, one page, with the totals that head it.
+   *
+   * **The summary counts every payout, never the page or the filter.** It
+   * used to be reduced over whatever rows had been loaded, so clicking
+   * "Paid" made the header report `pendingCount: 0, pendingTotal: ₹0` —
+   * a payouts screen saying nobody is owed anything while three
+   * HomeKrafters waited on ₹14,010. Confirmed against a running server
+   * during the 2026-08-07 audit, on the one screen in the panel that is
+   * entirely about money somebody is waiting for.
+   */
+  async list(status: PayoutStatus | undefined, query: ListAdminPayoutsQueryDto = {}) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_PAYOUT_PAGE_SIZE;
+    const where = status ? { status } : undefined;
 
-    const items = rows.map(mapAdminPayout);
-    const pending = items.filter((p) => p.status === 'pending');
+    const [rows, total, pendingAgg, paidAgg] = await Promise.all([
+      this.prisma.payout.findMany({
+        where,
+        include: PAYOUT_INCLUDE,
+        // Pending first regardless of the filter: this screen is a queue,
+        // and the oldest unanswered request is the one that matters.
+        // `id` last, because several payouts share a `periodEnd` by
+        // construction — they are cut for the same fortnight.
+        orderBy: [{ status: 'asc' }, { periodEnd: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.payout.count({ where }),
+      this.prisma.payout.aggregate({ where: { status: 'pending' }, _count: { _all: true }, _sum: { amount: true } }),
+      this.prisma.payout.aggregate({ where: { status: 'paid' }, _sum: { amount: true } }),
+    ]);
+
     return {
-      items,
+      items: rows.map(mapAdminPayout),
+      page,
+      pageSize,
+      total,
       summary: {
-        pendingCount: pending.length,
-        pendingTotal: pending.reduce((sum, p) => sum + p.amount, 0),
-        paidTotal: items.filter((p) => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0),
+        pendingCount: pendingAgg._count._all,
+        pendingTotal: round2(Number(pendingAgg._sum.amount ?? 0)),
+        paidTotal: round2(Number(paidAgg._sum.amount ?? 0)),
       },
     };
   }

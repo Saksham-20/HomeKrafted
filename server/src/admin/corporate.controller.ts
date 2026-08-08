@@ -9,6 +9,7 @@ import {
   UpdateQuoteDto,
 } from '../corporate/dto/quote.dto';
 import { AdminCorporateService } from './corporate.service';
+import { ListAdminInquiriesQueryDto } from './dto/list-admin-inquiries.query.dto';
 
 /**
  * `admin/corporate-inquiries`, naming the resource in full like every
@@ -24,8 +25,8 @@ export class AdminCorporateController {
   constructor(private readonly corporate: AdminCorporateService) {}
 
   @Get()
-  list(@Query('status') status?: string) {
-    return this.corporate.list(status);
+  list(@Query('status') status: string | undefined, @Query() query: ListAdminInquiriesQueryDto) {
+    return this.corporate.list(status, query);
   }
 
   @Get(':id')

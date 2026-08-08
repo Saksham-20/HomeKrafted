@@ -10,6 +10,7 @@ import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
+  apiErrorMessage,
   getAdminPayouts,
   markPayoutPaid,
   rejectPayout,
@@ -54,17 +55,30 @@ export function PayoutsClient() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  // Bumped after a decision. The queue totals are the server's answer over
+  // every payout, so they cannot be re-derived from the rows in hand —
+  // and re-deriving them by arithmetic is the "increment a denormalised
+  // aggregate" pattern this codebase rejects everywhere else.
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
-    getAdminPayouts().then((data) => {
-      if (!cancelled) setQueue(data);
-    });
+    getAdminPayouts(filter === "all" ? undefined : filter, page)
+      .then((data) => {
+        if (!cancelled) {
+          setQueue(data);
+          setError(null);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) setError(apiErrorMessage(caught, "Couldn’t load payouts. Try again."));
+      });
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, filter, page, reloadToken]);
 
   function closeForm() {
     setOpenId(null);
@@ -74,21 +88,15 @@ export function PayoutsClient() {
   }
 
   function applyUpdate(updated: AdminPayout) {
+    // Patch the row so the decision shows immediately, then re-read for
+    // the authoritative totals. Recomputing them here by subtracting the
+    // amount would drift the moment two admins work the queue at once.
     setQueue((current) =>
       current
-        ? {
-            items: current.items.map((row) => (row.id === updated.id ? updated : row)),
-            summary: {
-              pendingCount: current.summary.pendingCount - 1,
-              pendingTotal: current.summary.pendingTotal - updated.amount,
-              paidTotal:
-                updated.status === "paid"
-                  ? current.summary.paidTotal + updated.amount
-                  : current.summary.paidTotal,
-            },
-          }
+        ? { ...current, items: current.items.map((row) => (row.id === updated.id ? updated : row)) }
         : current,
     );
+    setReloadToken((n) => n + 1);
   }
 
   async function submit(payout: AdminPayout) {
@@ -114,7 +122,9 @@ export function PayoutsClient() {
     return <div className={styles.loading}>Loading payouts…</div>;
   }
 
-  const visible = queue.items.filter((row) => filter === "all" || row.status === filter);
+  // Filtered by the server now — this is the page it sent back.
+  const visible = queue.items;
+  const lastPage = queue.pageSize > 0 ? Math.max(1, Math.ceil(queue.total / queue.pageSize)) : 1;
 
   return (
     <div>
@@ -159,7 +169,10 @@ export function PayoutsClient() {
             key={f.value}
             label={f.label}
             selected={filter === f.value}
-            onClick={() => setFilter(f.value)}
+            onClick={() => {
+              setFilter(f.value);
+              setPage(1);
+            }}
           />
         ))}
       </div>
@@ -288,6 +301,28 @@ export function PayoutsClient() {
               )}
             </Card>
           ))}
+        </div>
+      )}
+
+      {lastPage > 1 && (
+        <div className={styles.pager}>
+          <Button
+            variant="secondary"
+            disabled={page <= 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </Button>
+          <span className={styles.pagerLabel} aria-live="polite">
+            Page {page} of {lastPage}
+          </span>
+          <Button
+            variant="secondary"
+            disabled={page >= lastPage}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+          </Button>
         </div>
       )}
     </div>

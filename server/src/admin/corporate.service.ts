@@ -7,6 +7,7 @@ import { CorporateQuotesService } from '../corporate/corporate-quotes.service';
 import { mapAdminCorporateInquiry } from '../corporate/corporate.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { CreateQuoteDto, UpdateQuoteDto } from '../corporate/dto/quote.dto';
+import { ListAdminInquiriesQueryDto } from './dto/list-admin-inquiries.query.dto';
 
 const STATUSES: CorporateInquiryStatus[] = ['new', 'contacted', 'quoted', 'closed'];
 
@@ -21,6 +22,8 @@ const STATUSES: CorporateInquiryStatus[] = ['new', 'contacted', 'quoted', 'close
  *
  * Unscoped, like every other service in this module.
  */
+const DEFAULT_INQUIRY_PAGE_SIZE = 25;
+
 @Injectable()
 export class AdminCorporateService {
   constructor(
@@ -31,26 +34,39 @@ export class AdminCorporateService {
     private readonly config: ConfigService,
   ) {}
 
-  async list(status?: string) {
+  async list(status?: string, query: ListAdminInquiriesQueryDto = {}) {
     if (status && !STATUSES.includes(status as CorporateInquiryStatus)) {
       throw new BadRequestException(`Unknown status "${status}".`);
     }
 
-    const rows = await this.prisma.corporateInquiry.findMany({
-      where: status ? { status: status as CorporateInquiryStatus } : undefined,
-      include: { _count: { select: { quotes: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? DEFAULT_INQUIRY_PAGE_SIZE;
+    const where = status ? { status: status as CorporateInquiryStatus } : undefined;
 
-    const items = rows.map(mapAdminCorporateInquiry);
+    // The summary counts the whole queue, not the page or the filter —
+    // the same failure the payouts and support queues had. Narrowed to a
+    // filter, "how many nobody has touched" reads zero the moment an admin
+    // looks at anything else.
+    const [rows, total, unworked, contacted, quoted] = await Promise.all([
+      this.prisma.corporateInquiry.findMany({
+        where,
+        include: { _count: { select: { quotes: true } } },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.corporateInquiry.count({ where }),
+      this.prisma.corporateInquiry.count({ where: { status: 'new' } }),
+      this.prisma.corporateInquiry.count({ where: { status: 'contacted' } }),
+      this.prisma.corporateInquiry.count({ where: { status: 'quoted' } }),
+    ]);
+
     return {
-      items,
-      summary: {
-        // The number that matters on a queue: how many nobody has touched.
-        unworked: items.filter((i) => i.status === 'new').length,
-        contacted: items.filter((i) => i.status === 'contacted').length,
-        quoted: items.filter((i) => i.status === 'quoted').length,
-      },
+      items: rows.map(mapAdminCorporateInquiry),
+      page,
+      pageSize,
+      total,
+      summary: { unworked, contacted, quoted },
     };
   }
 

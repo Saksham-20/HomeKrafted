@@ -5,6 +5,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { RejectPayoutDto, SettlePayoutDto } from './dto/settle-payout.dto';
 import { AdminPayoutsService } from './payouts.service';
+import { ListAdminPayoutsQueryDto } from './dto/list-admin-payouts.query.dto';
 
 /**
  * The admin end of the payout loop (M15) — see `AdminPayoutsService` for
@@ -16,8 +17,8 @@ export class AdminPayoutsController {
   constructor(private readonly payouts: AdminPayoutsService) {}
 
   @Get()
-  list(@Query('status') status?: PayoutStatus) {
-    return this.payouts.list(status);
+  list(@Query('status') status: PayoutStatus | undefined, @Query() query: ListAdminPayoutsQueryDto) {
+    return this.payouts.list(status, query);
   }
 
   @Get(':id')

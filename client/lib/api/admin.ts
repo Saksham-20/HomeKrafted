@@ -1660,14 +1660,36 @@ export interface AdminPayout {
 
 export interface AdminPayoutQueue {
   items: AdminPayout[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /**
+   * Every payout, **never** the page or the filter. Reduced over the
+   * loaded rows this reported nothing pending the moment an admin clicked
+   * "Paid" — on the one screen that decides who gets paid.
+   */
   summary: { pendingCount: number; pendingTotal: number; paidTotal: number };
 }
 
-export async function getAdminPayouts(status?: PayoutStatus): Promise<AdminPayoutQueue> {
+export async function getAdminPayouts(
+  status?: PayoutStatus,
+  page = 1,
+): Promise<AdminPayoutQueue> {
   if (isMockMode()) {
-    return { items: [], summary: { pendingCount: 0, pendingTotal: 0, paidTotal: 0 } };
+    return {
+      items: [],
+      page: 1,
+      pageSize: 0,
+      total: 0,
+      summary: { pendingCount: 0, pendingTotal: 0, paidTotal: 0 },
+    };
   }
-  return http.get<AdminPayoutQueue>("/admin/payouts", { query: status ? { status } : undefined });
+  const query: Record<string, string> = {};
+  if (status) query.status = status;
+  if (page > 1) query.page = String(page);
+  return http.get<AdminPayoutQueue>("/admin/payouts", {
+    query: Object.keys(query).length ? query : undefined,
+  });
 }
 
 /**

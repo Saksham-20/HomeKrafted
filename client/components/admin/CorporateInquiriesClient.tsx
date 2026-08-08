@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { AdminPageHeader } from "./AdminPageHeader";
@@ -32,13 +33,14 @@ export function CorporateInquiriesClient() {
   const [data, setData] = useState<AdminCorporateList | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     // `setLoading(true)` belongs to the click that changes the filter, not
     // to this effect body — `react-hooks/set-state-in-effect`. Initial
     // state is already `true`, so the first render is covered.
     let cancelled = false;
-    getAdminCorporateInquiries(filter === "all" ? undefined : filter)
+    getAdminCorporateInquiries(filter === "all" ? undefined : filter, page)
       .then((res) => {
         if (!cancelled) setData(res);
       })
@@ -51,7 +53,11 @@ export function CorporateInquiriesClient() {
     return () => {
       cancelled = true;
     };
-  }, [filter]);
+  }, [filter, page]);
+
+  // The summary above counts the whole queue, not this page — narrowed to
+  // the loaded rows it read "0 unworked" the moment an admin filtered.
+  const lastPage = data && data.pageSize > 0 ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
     <div>
@@ -73,6 +79,7 @@ export function CorporateInquiriesClient() {
             onClick={() => {
               setLoading(true);
               setFilter(option.value);
+              setPage(1);
             }}
           />
         ))}
@@ -126,6 +133,28 @@ export function CorporateInquiriesClient() {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {lastPage > 1 && (
+        <div className={styles.pager}>
+          <Button
+            variant="secondary"
+            disabled={page <= 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </Button>
+          <span className={styles.pagerLabel} aria-live="polite">
+            Page {page} of {lastPage}
+          </span>
+          <Button
+            variant="secondary"
+            disabled={page >= lastPage}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+          </Button>
         </div>
       )}
     </div>

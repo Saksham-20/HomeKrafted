@@ -99,6 +99,27 @@ is now covered by a spec that races real in-flight requests.
   narrowed to `referralCode`, so a duplicate *email* still reports itself
   as one.
 
+### Fixed — the payouts queue reported nothing owed when you filtered it
+
+Same shape as the support and catalogue badges, on the one screen in the
+panel that is entirely about money somebody is waiting for. `summary` was
+reduced over the loaded rows, so clicking "Paid" made the header read
+`pendingCount: 0, pendingTotal: ₹0` — while three HomeKrafters waited on
+₹14,010. Reproduced against a running server before the fix and after it.
+
+`GET /admin/corporate-inquiries` had it too: filtering to "quoted" made
+"how many nobody has touched" read zero.
+
+Both summaries are aggregates now, both lists page, and both orderings
+gained a unique final key — payouts tie on `periodEnd` by construction,
+because they are cut for the same fortnight.
+
+The payouts screen also stopped recomputing its own totals after a
+decision (`pendingCount - 1`, `pendingTotal - amount`). That is the
+"increment a denormalised aggregate" pattern this codebase rejects
+everywhere else, and it would drift the moment two admins worked the queue
+at once. It re-reads instead.
+
 ### Changed — the wallet oversight screens page, and their totals stopped following the page
 
 `GET /admin/wallet` read **every wallet on the platform** — one per user,
