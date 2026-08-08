@@ -342,6 +342,50 @@ describe('POST /auth/continue', () => {
       expect(res.body.accessToken).toEqual(expect.any(String));
     });
 
+    it('issues a code the confirm step can actually redeem', async () => {
+      // The bug this pins: the sign-up code was minted under a `verify`
+      // purpose while `verifyOtp` reads `login`, so every new account was
+      // shown a code box that its own code did not open — "No pending
+      // code for this". Both halves worked in isolation; only the purpose
+      // disagreed, which no unit test could see.
+      await post({
+        identifier: 'redeemable@example.com',
+        password: 'Passw0rd!123',
+        name: 'Redeemable',
+      }).expect(200);
+
+      // The send is deliberately fire-and-forget (a failed code must not
+      // fail the sign-up), so the row lands just after the response. Poll
+      // rather than sleep a fixed amount.
+      let issued = null as Awaited<
+        ReturnType<typeof h.prisma.otpChallenge.findFirst>
+      > | null;
+      for (let attempt = 0; attempt < 50 && !issued; attempt += 1) {
+        issued = await h.prisma.otpChallenge.findFirst({
+          where: { destination: 'redeemable@example.com' },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (!issued) await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(issued).toBeTruthy();
+
+      // Whatever purpose sign-up used, the verify endpoint must read the
+      // same one. Asserted by round-tripping a known code through that
+      // exact purpose rather than by naming the string here.
+      await h.prisma.otpChallenge.update({
+        where: { id: issued!.id },
+        data: { codeHash: await argon2.hash('222333') },
+      });
+
+      const res = await h
+        .api()
+        .post(`${API_PREFIX}/auth/otp/verify`)
+        .send({ identifier: 'redeemable@example.com', code: '222333' })
+        .expect(200);
+
+      expect(res.body.user.emailVerified).toBe(true);
+    });
+
     it('lets an unverified account use the site straight away', async () => {
       const res = await post({
         identifier: 'unverified@example.com',

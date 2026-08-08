@@ -239,8 +239,20 @@ export class AuthService {
     // or the per-destination request cap, must not turn a completed
     // sign-up into an error page in front of somebody who now *has* an
     // account and would be told they don't.
+    //
+    // **Default purpose (`login`), deliberately, not a separate `verify`
+    // one.** It was minted as `verify` at first, and the confirm step then
+    // could not redeem it: `verifyOtp` reads the `login` purpose, so every
+    // new account was shown a code box its own code did not open, failing
+    // with "No pending code for this". Caught on the deployed site.
+    //
+    // Splitting the purposes bought nothing here. The value of a separate
+    // purpose is stopping a code minted for one thing being replayed as a
+    // sign-in — but this code goes to the identifier this account owns,
+    // and redeeming it signs in *that same account*, which the person
+    // already is. There is no escalation to prevent.
     void this.otpService
-      .requestOtp(target, 'verify')
+      .requestOtp(target)
       .catch((error: unknown) =>
         this.logger.warn(
           `Could not send the verification code to ${target.value}: ${String(error)}`,
@@ -392,9 +404,9 @@ export class AuthService {
    */
   async verifyOtp(dto: VerifyOtpDto): Promise<AuthResult> {
     const target = this.parseOrThrow(dto.identifier ?? dto.phone);
-    // `login`, not `verify`: a code minted to confirm a contact on a
-    // brand-new account must not double as a way to sign in to somebody
-    // else's. The purposes are separate rows and are checked separately.
+    // Default purpose, matching what every path that *issues* a code uses
+    // — see the note in `continueWithPassword` on why the post-sign-up
+    // code is not minted under a separate one.
     const { bypassed } = await this.otpService.verifyOtp(target, dto.code);
 
     let user = await this.prisma.user.findUnique({
