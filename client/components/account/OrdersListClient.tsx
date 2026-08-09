@@ -12,11 +12,20 @@ import styles from "./OrdersListClient.module.css";
 
 type Filter = "all" | "order" | "laundry";
 
+/**
+ * Laundry was withdrawn in M19 — the route 404s and the create endpoints
+ * return 410 — but the models stayed so that existing bookings still
+ * render. So the filter is shown to the people who have one and to nobody
+ * else: offering "Laundry" to a buyer who has never used it advertises a
+ * module that no longer exists, and hiding it from someone with six
+ * bookings loses them a way to find their own history.
+ */
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "order", label: "Marketplace" },
-  { value: "laundry", label: "Laundry" },
 ];
+
+const LAUNDRY_FILTER: { value: Filter; label: string } = { value: "laundry", label: "Laundry" };
 
 /**
  * Unified order history list (M7a) — fetches `getOrderHistory()`
@@ -39,6 +48,8 @@ export function OrdersListClient() {
   }, []);
 
   const visible = entries.filter((entry) => filter === "all" || entry.kind === filter);
+  const hasLaundry = entries.some((entry) => entry.kind === "laundry");
+  const filters = hasLaundry ? [...FILTERS, LAUNDRY_FILTER] : FILTERS;
 
   return (
     <div className={styles.wrap}>
@@ -46,12 +57,14 @@ export function OrdersListClient() {
         <span className={styles.eyebrow}>Account</span>
         <h1 className={styles.title}>Orders</h1>
         <p className={styles.subtitle}>
-          Marketplace orders and laundry bookings, in one place.
+          {hasLaundry
+            ? "Marketplace orders and your past laundry bookings, in one place."
+            : "Everything you've ordered, in one place."}
         </p>
       </div>
 
       <div className={styles.filters}>
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <Chip
             key={f.value}
             label={f.label}
@@ -65,10 +78,25 @@ export function OrdersListClient() {
         <p className={styles.loading}>Loading your orders…</p>
       ) : visible.length === 0 ? (
         <Card className={styles.empty}>
-          <p className={styles.emptyTitle}>No orders yet</p>
-          <p className={styles.emptyCopy}>
-            Orders placed on Shop or bookings made on Laundry will show up here.
+          {/*
+           * Three parts, per the M26 state contract: what is missing, why,
+           * and one way out. It previously pointed at Laundry, withdrawn
+           * in M19 — so the first screen a new account saw advertised a
+           * module whose route 404s.
+           */}
+          <p className={styles.emptyTitle}>
+            {filter === "all" ? "No orders yet" : "Nothing in this filter"}
           </p>
+          <p className={styles.emptyCopy}>
+            {filter === "all"
+              ? "Anything you order will show up here, with its delivery date and status."
+              : "Try “All” to see everything you've ordered."}
+          </p>
+          {filter === "all" && (
+            <Link href="/shop" className={styles.emptyAction}>
+              Start shopping
+            </Link>
+          )}
         </Card>
       ) : (
         <div className={styles.list}>

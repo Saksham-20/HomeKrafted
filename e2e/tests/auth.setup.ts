@@ -1,5 +1,6 @@
 import { test as setup, expect } from '@playwright/test';
 import { ACCOUNTS, RoleName, storageStateFor } from '../fixtures/accounts';
+import { signIn } from '../fixtures/sign-in';
 
 /**
  * Signs each role in once and caches the browser state, so the specs that
@@ -11,35 +12,36 @@ import { ACCOUNTS, RoleName, storageStateFor } from '../fixtures/accounts';
  * M17). A setup step that logs in and checks *which account it became* is
  * the cheapest possible guard against that returning — and unlike a unit
  * test, it goes through the real form.
+ *
+ * **And it is load-bearing in a way that hides its own failure.** Both
+ * viewport projects declare `dependencies: ['setup']`, so when this file
+ * breaks they do not fail — they **skip**, and the run prints "0 failed".
+ * That is how it went unnoticed from M25 (which deleted the two-tab form
+ * these steps were driving) until the 2026-08-08 review. The form
+ * selectors now live in one fixture that throws a diagnosis instead of
+ * timing out; see `fixtures/sign-in.ts`.
  */
 
-async function signInConsumerOrSeller(page: import('@playwright/test').Page, role: RoleName) {
+async function signInAs(page: import('@playwright/test').Page, role: RoleName) {
   const account = ACCOUNTS[role];
-  await page.goto(role === 'seller' ? '/login?role=seller' : '/login');
 
-  // Phone OTP is the default tab, and must stay offered — an approved
-  // HomeKrafter may have no password at all (`CLAUDE.md`, M17). These
-  // seeded accounts do, so switch to the email tab.
-  await page.getByRole('tab', { name: 'Email', exact: true }).click();
-
-  await page.getByLabel(/email/i).fill(account.email);
-  await page.getByLabel(/password/i).fill(account.password);
-  // The two role panes label their submit differently — "Continue with
-  // email" for a shopper, "Sign in to sell" for a HomeKrafter.
-  await page
-    .getByRole('button', { name: role === 'seller' ? /sign in to sell/i : /continue with email/i })
-    .click();
-
-  await expect(page).toHaveURL(role === 'seller' ? /\/seller/ : /\/account/);
+  // Always the same URL. Since M25 there is no role tab and no
+  // `?role=seller` pane — where you land is decided by the account, which
+  // makes "go to /login as a seller and end up in /seller" a real
+  // assertion rather than a restatement of a query parameter.
+  await page.goto('/login');
+  await signIn(page, { identifier: account.email, password: account.password });
 }
 
 setup('sign in as a shopper', async ({ page }) => {
-  await signInConsumerOrSeller(page, 'consumer');
+  await signInAs(page, 'consumer');
+  await expect(page).toHaveURL(/\/account/);
   await page.context().storageState({ path: storageStateFor('consumer') });
 });
 
-setup('sign in as a HomeKrafter', async ({ page }) => {
-  await signInConsumerOrSeller(page, 'seller');
+setup('sign in as a HomeKrafter, and land in the portal on the account alone', async ({ page }) => {
+  await signInAs(page, 'seller');
+  await expect(page).toHaveURL(/\/seller/);
   await page.context().storageState({ path: storageStateFor('seller') });
 });
 

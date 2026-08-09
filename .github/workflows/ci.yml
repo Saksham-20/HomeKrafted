@@ -140,7 +140,12 @@ jobs:
       # itself is tested.
       THROTTLE_LIMIT: '100000'
       THROTTLE_AUTH_LIMIT: '100000'
-      JWT_SECRET: ci-access-secret-not-a-real-one
+      # `JWT_ACCESS_SECRET`, not `JWT_SECRET` — the name matters, because
+      # `server/src/config/env.validation.ts` lists it as required and the
+      # app refuses to boot without it. Under the wrong name this job's API
+      # never started, and the failure surfaced two minutes later as a
+      # `wait-on` timeout rather than as "you did not set a secret".
+      JWT_ACCESS_SECRET: ci-access-secret-not-a-real-one
       JWT_REFRESH_SECRET: ci-refresh-secret-not-a-real-one
       PORT: '4100'
       CLIENT_ORIGIN: http://localhost:3100
@@ -165,6 +170,11 @@ jobs:
           npx ts-node prisma/seed.ts
           npx ts-node prisma/seed-crafts.ts
           npx ts-node prisma/seed-meal-plans.ts
+          # Browser-stack only. The three seeds above come to 21 rows across
+          # orders, laundry bookings and snack orders, against an admin page
+          # size of 25 — so `/admin/orders` reads "Page 1 of 1" and the spec
+          # that searches for an order buried on page 2 can never pass.
+          npx ts-node prisma/seed-browser-orders.ts
 
       - name: Build the web app
         working-directory: client
