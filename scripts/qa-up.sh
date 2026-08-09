@@ -14,6 +14,15 @@
 # re-seeds it, which is usually what you want mid-sweep; `dropdb $QA_DB`
 # first for a clean pass.
 #
+# **The printed API command raises the rate limits, and it has to.**
+# `server/.env` ships THROTTLE_AUTH_LIMIT=5 and THROTTLE_LIMIT=20, which
+# are per-IP — and a Playwright run is one IP signing in dozens of times in
+# a minute. Without the override the browser suite fails ~23 tests that
+# have nothing wrong with them, starting with the sign-in setup, whose
+# failure then *skips* both viewport projects rather than failing them.
+# CI already sets both to 100000 for exactly this reason; a local stack
+# that did not was a stack that could not run the suite it exists for.
+#
 # This replaces the six-line block that used to live in the plan. That
 # block did not work on a cold clone: it assumed `npm install`, it never
 # created `server/.env` (gitignored, and the API refuses to boot without
@@ -130,6 +139,7 @@ $(printf '\033[1mReady. Two terminals:\033[0m')
 
   1)  cd server && DATABASE_URL="$DB_URL" PORT=$QA_API_PORT \\
         CLIENT_ORIGIN=http://localhost:$QA_WEB_PORT SITE_URL=http://localhost:$QA_WEB_PORT \\
+        THROTTLE_LIMIT=100000 THROTTLE_AUTH_LIMIT=100000 \\
         npm run start:dev
 
   2)  cd client && env \$(grep -v '^#' .env.qa | xargs) PORT=$QA_WEB_PORT npm run dev
