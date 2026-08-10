@@ -131,7 +131,6 @@ export function GalleryClient({
   // not just that they render.
   const [wishlisted, setWishlisted] = useState(false);
   const [cardAdded, setCardAdded] = useState(false);
-  const [cardClicks, setCardClicks] = useState(0);
   const [snackAdded, setSnackAdded] = useState(false);
   const [selectedServiceId, setSelectedServiceId] = useState(laundryServices[0]?.id);
   const [chipSelected, setChipSelected] = useState(true);
@@ -315,16 +314,24 @@ export function GalleryClient({
 
         {heroProduct && (
           <Group title="ProductCard">
-            <Swatch label={`interactive · ${cardClicks} card click(s)`}>
+            {/*
+              The card is demoed with a real `href`, because that is the
+              only clickable shape it has. Until M28 this swatch used an
+              `onCardClick` counter, and being the prop's sole caller in
+              the codebase is what kept a `nested-interactive` variant
+              alive. Clicking the card here navigates to the product — the
+              honest demo of a stretched link, and a working one.
+            */}
+            <Swatch label="interactive · whole card is a link">
               <div className={styles.cardSlot}>
                 <ProductCard
                   product={heroProduct}
                   makerName={vendorNameById[heroProduct.vendorId] ?? "Maker"}
+                  href={`/product/${heroProduct.slug}`}
                   wishlisted={wishlisted}
                   onToggleWishlist={() => setWishlisted((w) => !w)}
                   added={cardAdded}
                   onAdd={() => setCardAdded((a) => !a)}
-                  onCardClick={() => setCardClicks((c) => c + 1)}
                 />
               </div>
             </Swatch>

@@ -58,20 +58,16 @@ the single-object return that would become a set).
 wrong in ways only real orders reveal. The moderation-SLA card shipped
 instead because it serves supply onboarding, which starts before launch.
 
-### `ProductCard`'s `onCardClick` variant is nested-interactive
-**What:** with `onCardClick` and no `href`, the card becomes a
-`role="button"` div that still contains the wishlist and add buttons —
-axe's `nested-interactive`, the one finding left on the M28 sweep.
-**Why it is not urgent:** the only caller in the entire codebase is
-`app/gallery/GalleryClient.tsx`, the dev-only primitives page that
-`notFound()`s in production. Every real surface passes `href` and gets
-the M22 stretched-link treatment, which is why the violation appears on
-`/gallery` and nowhere else.
-**Why it is worth doing anyway:** a variant whose sole consumer is its own
-demo page is a good candidate for deletion, and deleting it removes the
-finding rather than working around it. That is a call about the
-component's API, not a bug fix, which is why it is here.
-**Start at:** `client/components/ui/ProductCard.tsx:88-99`.
+### ~~`ProductCard`'s `onCardClick` variant is nested-interactive~~ — DONE
+Deleted, not worked around. The prop turned the card into a
+`role="button"` div containing the wishlist and add buttons (axe's
+`nested-interactive`, the one finding left on the M28 sweep), and its sole
+caller in the whole codebase was `/gallery`'s own demo swatch. That swatch
+now passes an `href` — the only clickable shape the card has, and the
+honest demo of the M22 stretched link. Kept here as a worked example of
+the call this file exists to record: an API surface whose only consumer is
+its own demo page is a deletion candidate, and deleting it is what removes
+the finding permanently.
 
 ### Full-suite e2e flakiness
 **What:** `npm run test:e2e` is not reliably green under full parallel

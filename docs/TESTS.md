@@ -208,9 +208,11 @@ node sweep.mjs --only=/shop             # while iterating on one screen
 node sweep.mjs --viewport=mobile
 ```
 
-**Use it before calling a visual change done.** `a11y.spec.ts` guards
-seven routes; this one covers all of them, which is how M26 found 114
-contrast failures on the other eighty. It complements the browser suite
+**Use it before calling a visual change done.** `a11y.spec.ts` guards the
+eight routes in `e2e/tests/public-routes.ts` (seven until M27, when that
+list and `presentation.spec.ts`'s were merged — they had quietly
+disagreed); this one covers all 87, which is how M26 found 114 contrast
+failures on the other eighty. It complements the browser suite
 rather than replacing it: Playwright asserts *behaviour* and fails the
 build, this measures *presentation* across everything and produces a
 shortlist for a person to look at.

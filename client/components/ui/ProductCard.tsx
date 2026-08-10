@@ -12,20 +12,20 @@ export interface ProductCardProps {
   /** Vendor/maker display name — ProductCard is presentational and doesn't fetch it itself. */
   makerName: string;
   /**
-   * Where the card goes. **Prefer this over `onCardClick`.**
+   * Where the card goes — the only way to make the card clickable.
    *
    * Rendered as a real `<Link>` around the title, stretched over the whole
    * card by a CSS overlay — so the card keeps its whole-surface click
-   * *and* becomes a genuine link: keyboard-activatable, middle-clickable,
+   * *and* is a genuine link: keyboard-activatable, middle-clickable,
    * "open in new tab", "copy link address".
+   *
+   * There is deliberately no `onCardClick` escape hatch. One existed until
+   * M28 and turned the card into a `role="button"` div wrapping the
+   * wishlist and add buttons — axe's `nested-interactive`, and a shape
+   * that has already shipped one keyboard-dead catalogue (see the
+   * component doc). A card with no destination is not clickable.
    */
   href?: string;
-  /**
-   * Whole-card click, for a card with no destination URL (the dev
-   * gallery). **A card with an `href` should not use this** — see the
-   * component doc for why the `role="button"` version was a defect.
-   */
-  onCardClick?: () => void;
   wishlisted?: boolean;
   onToggleWishlist?: () => void;
   added?: boolean;
@@ -65,12 +65,21 @@ function stop(event: MouseEvent) {
  * clickable and the destination is a real URL (openable in a new tab,
  * which a div never was); the two buttons sit above it in z-order, so they
  * are still buttons and still not inside the anchor.
+ *
+ * **M28 deleted the leftover `onCardClick` variant.** M22 fixed every real
+ * surface by giving it an `href`, but kept the div+`onClick` path alive for
+ * callers without a URL — and added the `onKeyDown` it owed, so it was no
+ * longer keyboard-dead. It was still a `role="button"` element containing
+ * two real buttons, which is axe's `nested-interactive`, and it was the one
+ * finding left on the M28 sweep. Its only remaining caller in the whole
+ * codebase was `/gallery`, the dev-only primitives page. Deleting the
+ * variant removes the finding outright rather than working around it, and
+ * closes the door on a second surface adopting the shape.
  */
 export function ProductCard({
   product,
   makerName,
   href,
-  onCardClick,
   wishlisted = false,
   onToggleWishlist,
   added = false,
@@ -85,28 +94,10 @@ export function ProductCard({
   const tag = product.tags[0];
 
   return (
-    <div
-      className={clsx(styles.card, (href || onCardClick) && styles.clickable, className)}
-      // Only for the href-less variant. With an `href` the anchor below
-      // does the work, and adding a redundant div handler here would
-      // double-fire navigation on every click.
-      onClick={href ? undefined : onCardClick}
-      role={!href && onCardClick ? "button" : undefined}
-      tabIndex={!href && onCardClick ? 0 : undefined}
-      onKeyDown={
-        !href && onCardClick
-          ? (event) => {
-              // A `role="button"` div owes this. Without it the element
-              // claims to be a button and then ignores the two keys a
-              // button must answer to.
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onCardClick();
-              }
-            }
-          : undefined
-      }
-    >
+    // No click handling here on purpose: the stretched `<Link>` below is
+    // the card's whole-surface click target. `.clickable` is presentation
+    // only (hover lift, cursor) and follows the anchor's presence.
+    <div className={clsx(styles.card, href && styles.clickable, className)}>
       <div className={styles.imageWrap}>
         <ImageSlot
           ratio={image?.ratio ?? "1/1"}
