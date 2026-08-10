@@ -85,6 +85,31 @@ how a real regression gets waved through.
 the M28 run's failure detail was truncated to twelve lines, which is why
 this still has no diagnosis.
 
+### The mobile portal nav does not scroll the active item into view
+**What:** on a phone `/seller/*`'s nav is a horizontal strip about four of
+ten items wide. Edge fades now show that it scrolls (M28), but it always
+starts at "Dashboard" — so a HomeKrafter on Payouts sees no sign of where
+they are, and `aria-current` points at something off-screen.
+**What was tried, and measured:** an effect that scrolls the active item in
+on `pathname` change. Three findings, in order:
+1. `current.scrollIntoView({ inline: 'nearest' })` is a **no-op** here.
+2. `offsetLeft` is the wrong measure — the nav sets no `position`, so
+   `offsetParent` is `BODY` and it returned 987 from the page origin rather
+   than from the scroll container. `getBoundingClientRect` deltas are
+   container-relative and correct.
+3. With correct numbers the effect **runs and scrolls** — logged going to
+   958px — and something resets `scrollLeft` to 0 within 500ms. Removing
+   `scroll-snap` (a real second cause, it re-snapped to the first item) did
+   not fix the reset. Suspect App Router scroll restoration on load, or the
+   nav being remounted after the effect.
+**Why it is not in the tree:** shipping an effect that provably does not
+work is worse than shipping neither. The fades are the substantive fix and
+they work. Picking this up means identifying what writes `scrollLeft`
+after the effect — start by listening for `scroll` on the nav and logging
+stacks.
+**Start at:** `client/components/seller/SellerShell.tsx` (nav render),
+`SellerShell.module.css` (the fade block, which documents the snap finding).
+
 ### Apostrophe normalisation
 **What:** ~566 straight contractions in user-facing copy versus ~20 curly.
 **Why not now:** a mechanical sweep over every string at the least stable

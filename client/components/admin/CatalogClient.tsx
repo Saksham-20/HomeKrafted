@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { SearchField } from "@/components/ui/SearchField";
+import { ReviewQueuePanel } from "./ReviewQueuePanel";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
 import { ProductModerationRow } from "./ProductModerationRow";
@@ -151,6 +152,12 @@ export function CatalogClient() {
         })()}
       />
       <CatalogTabs active="products" />
+
+      {/* Menu items and meal plans awaiting review. They have no tab of
+          their own and, until M28, no endpoint that could approve them —
+          so a snack sat pending forever while its maker was told it was
+          waiting. Renders nothing when the queue is clear. */}
+      <ReviewQueuePanel />
 
       <div className={styles.filters}>
         <SearchField

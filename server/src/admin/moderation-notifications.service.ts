@@ -1,6 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ProductModerationStatus } from '@prisma/client';
 import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
+import type { ModeratableKind } from '../catalog/moderation';
+
+/**
+ * Where the HomeKrafter goes to act on the decision. Named per kind
+ * because "edit it in your Listings tab" is wrong advice for a snack —
+ * they would go to Listings, not find it, and conclude the message was
+ * about something else.
+ */
+const TAB_FOR_KIND: Record<ModeratableKind, string> = {
+  product: 'Listings',
+  snack: 'Menu',
+  mealPlan: 'Meal plans',
+};
+
+/** What to call the thing, to the person who made it. */
+const NOUN_FOR_KIND: Record<ModeratableKind, string> = {
+  product: 'listing',
+  snack: 'menu item',
+  mealPlan: 'meal plan',
+};
 
 /**
  * What the platform tells a HomeKrafter about a decision on their work.
@@ -33,14 +53,21 @@ export class ModerationNotificationsService {
 
   constructor(private readonly delivery: NotificationsDeliveryService) {}
 
+  /**
+   * `kind` defaults to `product` so the pre-M28 call site reads unchanged.
+   * It is not optional in spirit — a snack decision that arrives telling
+   * somebody to check their Listings tab sends them to the wrong screen.
+   */
   async productDecided(input: {
     userId: string;
     productId: string;
     productName: string;
     status: ProductModerationStatus;
     reason?: string;
+    kind?: ModeratableKind;
   }): Promise<void> {
-    const message = this.message(input.productName, input.status, input.reason);
+    const kind = input.kind ?? 'product';
+    const message = this.message(input.productName, input.status, input.reason, kind);
     if (!message) return;
 
     try {
@@ -49,7 +76,7 @@ export class ModerationNotificationsService {
         category: 'account',
         title: message.title,
         body: message.body,
-        refType: 'product',
+        refType: kind === 'mealPlan' ? 'meal-plan' : kind,
         refId: input.productId,
       });
     } catch (err) {
@@ -71,33 +98,36 @@ export class ModerationNotificationsService {
   private message(
     name: string,
     status: ProductModerationStatus,
-    reason?: string,
+    reason: string | undefined,
+    kind: ModeratableKind,
   ): { title: string; body: string } | null {
+    const tab = TAB_FOR_KIND[kind];
+    const noun = NOUN_FOR_KIND[kind];
     switch (status) {
       case 'active':
         return {
           title: `"${name}" is live`,
-          body: `Your listing has been approved and is now on Homekrafted. Buyers can find it in the shop, on your storefront and in search.`,
+          body: `Your ${noun} has been approved and is now on Homekrafted. Buyers can find it in the shop, on your storefront and in search.`,
         };
       case 'rejected':
         return {
           title: `"${name}" needs a change before it can go live`,
           body:
-            `We could not approve this listing yet.\n\n${reason ?? ''}\n\n` +
-            `Edit the listing in your Listings tab and save it — that puts it straight back in the queue for another look.`,
+            `We could not approve this ${noun} yet.\n\n${reason ?? ''}\n\n` +
+            `Edit it in your ${tab} tab and save it — that puts it straight back in the queue for another look.`,
         };
       case 'hidden':
         return {
           title: `"${name}" has been taken down`,
           body:
-            `This listing is no longer visible to buyers.\n\n${reason ?? ''}\n\n` +
+            `This ${noun} is no longer visible to buyers.\n\n${reason ?? ''}\n\n` +
             `If you think this is a mistake, reply to this message or open a support ticket from your portal.`,
         };
       case 'flagged':
         return {
           title: `"${name}" is under review`,
           body:
-            `We have paused this listing while we look into it. It is off the storefront for now.\n\n${reason ?? ''}`,
+            `We have paused this ${noun} while we look into it. It is off the storefront for now.\n\n${reason ?? ''}`,
         };
       case 'pending':
         return null;

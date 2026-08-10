@@ -135,8 +135,12 @@ export class AdminDashboardService {
       pendingPayoutsAgg,
       walletAgg,
       oldestPendingApplication,
-      pendingListingsCount,
-      oldestPendingListing,
+      pendingProductsCount,
+      oldestPendingProduct,
+      pendingSnacksCount,
+      oldestPendingSnack,
+      pendingMealPlansCount,
+      oldestPendingMealPlan,
     ] = await Promise.all([
       // `groupBy({ by: ['type'] })` no longer works: a HomeKrafter's
       // `specialties` is a list, so one account can land in several buckets
@@ -157,12 +161,29 @@ export class AdminDashboardService {
         orderBy: { createdAt: 'asc' },
         select: { createdAt: true },
       }),
+      // All three catalogue tables, not just Product (M28). The gate has
+      // applied to snacks and meal plans since M22; this card counted
+      // products alone, so it read "queue clear" while a snack sat pending
+      // and unreachable. A card that reports an empty queue over a full one
+      // is worse than no card.
       this.prisma.product.count({ where: { moderationStatus: 'pending' } }),
       this.prisma.product.findFirst({
         where: { moderationStatus: 'pending' },
         // `submittedAt` is when it entered the queue and survives a
         // re-save, so it is the honest age — `updatedAt` would reset every
         // time a HomeKrafter touched a field while waiting.
+        orderBy: { submittedAt: 'asc' },
+        select: { submittedAt: true, createdAt: true },
+      }),
+      this.prisma.snack.count({ where: { moderationStatus: 'pending' } }),
+      this.prisma.snack.findFirst({
+        where: { moderationStatus: 'pending' },
+        orderBy: { submittedAt: 'asc' },
+        select: { submittedAt: true },
+      }),
+      this.prisma.mealPlan.count({ where: { moderationStatus: 'pending' } }),
+      this.prisma.mealPlan.findFirst({
+        where: { moderationStatus: 'pending' },
         orderBy: { submittedAt: 'asc' },
         select: { submittedAt: true, createdAt: true },
       }),
@@ -187,10 +208,17 @@ export class AdminDashboardService {
       pendingPayoutsAmount: Number(pendingPayoutsAgg._sum.amount ?? 0),
       walletLiability: Number(walletAgg._sum.balance ?? 0),
       oldestPendingApplicationAt: oldestPendingApplication?.createdAt.toISOString(),
-      pendingListingsCount,
-      oldestPendingListingAt: (
-        oldestPendingListing?.submittedAt ?? oldestPendingListing?.createdAt
-      )?.toISOString(),
+      pendingListingsCount: pendingProductsCount + pendingSnacksCount + pendingMealPlansCount,
+      // The oldest across all three, so the age answers "is anyone being
+      // left waiting" rather than "is any *product* being left waiting".
+      oldestPendingListingAt: [
+        oldestPendingProduct?.submittedAt ?? oldestPendingProduct?.createdAt,
+        oldestPendingSnack?.submittedAt,
+        oldestPendingMealPlan?.submittedAt ?? oldestPendingMealPlan?.createdAt,
+      ]
+        .filter((d): d is Date => d instanceof Date)
+        .sort((a, b) => a.getTime() - b.getTime())[0]
+        ?.toISOString(),
     };
   }
 

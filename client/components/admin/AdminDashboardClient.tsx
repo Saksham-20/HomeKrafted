@@ -96,12 +96,17 @@ export function AdminDashboardClient() {
           href="/admin/sellers"
           clearText="No applications waiting"
         />
+        {/* `/admin/catalog`, not `/admin/catalog/reviews` — this card is
+            about listings awaiting approval, and `/reviews` is the
+            *customer review* moderation screen. It sent an operator to the
+            wrong queue from M27 until 2026-08-10, and `CLAUDE.md`
+            documented the wrong target too. */}
         <SlaCard
           label="Oldest listing waiting"
           since={snapshot.oldestPendingListingAt}
           now={loadedAt}
           count={snapshot.pendingListingsCount ?? 0}
-          href="/admin/catalog/reviews"
+          href="/admin/catalog"
           clearText="No listings waiting review"
         />
       </div>

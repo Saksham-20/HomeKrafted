@@ -140,3 +140,82 @@ export function initialSubmission(): { moderationStatus: 'pending'; submittedAt:
 export function unavailableReason(status: ProductModerationStatus): string {
   return status === 'hidden' || status === 'flagged' ? 'No longer available' : 'Not available';
 }
+
+/** The catalogue tables a review decision can be made about (M28). */
+export type ModeratableKind = 'product' | 'snack' | 'mealPlan';
+
+/**
+ * The columns a moderation decision writes, for any of the three
+ * catalogue tables.
+ *
+ * **Why this is shared and not per-table.** M22 put the review gate on
+ * `Product`, `Snack` *and* `MealPlan` — all three default to `pending` and
+ * all three are filtered out of browse by `PUBLICLY_LISTED` — but the
+ * admin half was only ever built for `Product`. There was no queue listing
+ * a snack and no endpoint that could approve one, so **every snack and
+ * meal plan created since M22 was permanently invisible to buyers**: the
+ * HomeKrafter was truthfully told "waiting for approval" and nobody on the
+ * platform could act on it. Found on the live site, 2026-08-10.
+ *
+ * Writing the mapping once is the point. Three copies of "which action
+ * means which status" is how one table ends up treating `takedown`
+ * differently from another, and the difference would only ever show up as
+ * a listing that quietly stayed up.
+ *
+ * `feature`/`unfeature` deliberately return no status: they are
+ * merchandising, not moderation, and must not touch `moderationNote` or
+ * `moderatedAt` — otherwise putting a flagged listing on the home page
+ * erases the reason it was flagged (M22).
+ */
+export function moderationDecision(
+  action: ModerationAction,
+  adminUserId: string,
+  reason: string | undefined,
+): {
+  moderationStatus?: ProductModerationStatus;
+  moderationNote?: string | null;
+  moderatedById?: string;
+  moderatedAt?: Date;
+  featured?: boolean;
+} {
+  if (action === 'feature') return { featured: true };
+  if (action === 'unfeature') return { featured: false };
+
+  const moderationStatus: ProductModerationStatus =
+    action === 'reject'
+      ? 'rejected'
+      : action === 'hide' || action === 'takedown'
+        ? 'hidden'
+        : action === 'flag'
+          ? 'flagged'
+          : 'active';
+
+  return {
+    moderationStatus,
+    moderatedById: adminUserId,
+    moderatedAt: new Date(),
+    // An allowing decision clears the previous refusal's reason; a
+    // refusing one records the new one.
+    moderationNote: reason?.trim() ?? null,
+  };
+}
+
+/** Every moderation action an admin can take on a listing. */
+export type ModerationAction =
+  | 'approve'
+  | 'reject'
+  | 'hide'
+  | 'unhide'
+  | 'takedown'
+  | 'flag'
+  | 'unflag'
+  | 'feature'
+  | 'unfeature';
+
+/**
+ * Actions that refuse or remove a listing, and therefore owe the
+ * HomeKrafter a reason they can act on (M22). Enforced in the service
+ * rather than the DTO because whether `reason` is required depends on
+ * `action`, which `class-validator` cannot express without a custom rule.
+ */
+export const REFUSING_ACTIONS: readonly ModerationAction[] = ['reject', 'hide', 'takedown', 'flag'];

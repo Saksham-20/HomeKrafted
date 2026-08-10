@@ -167,6 +167,10 @@ export function SellerShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className={clsx("container", styles.body)}>
+        {/* The mobile strip's edge fades (see the stylesheet) are the
+            affordance that there is more nav than fits. Auto-scrolling the
+            active item into view was attempted and removed — see
+            `TODOS.md`; the scroll position is reset after the effect runs. */}
         <nav className={clsx(styles.sidebar, "hk-scroll")} aria-label="HomeKrafter">
           {navItems.map((item) => {
             const active =

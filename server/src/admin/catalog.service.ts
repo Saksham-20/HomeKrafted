@@ -1,15 +1,42 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductModerationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
 import { mapReview } from '../reviews/reviews.mapper';
+import { mapSnackForOwner } from '../snacks/snacks.mapper';
 import { ReviewAggregatesService } from '../reviews/review-aggregates.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { ModerationNotificationsService } from './moderation-notifications.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
+import { moderationDecision, REFUSING_ACTIONS, type ModeratableKind } from '../catalog/moderation';
 
 const DEFAULT_CATALOG_PAGE_SIZE = 25;
+
+/**
+ * How many pending items the unified queue returns at once. Not a page
+ * size — see `listReviewQueue`. If this is ever hit, the depth is the
+ * story and `total` still reports it honestly.
+ */
+const REVIEW_QUEUE_CAP = 200;
+
+export interface ReviewQueueItem {
+  kind: ModeratableKind;
+  id: string;
+  name: string;
+  /** Vendor name for a product or plan, HomeKrafter display name for a snack. */
+  makerName: string;
+  submittedAt: string;
+  imageSrc?: string;
+  /** Only products have an admin detail screen today. */
+  editHref?: string;
+}
+
+export interface ReviewQueue {
+  items: ReviewQueueItem[];
+  total: number;
+  counts: Record<ModeratableKind, number>;
+}
 
 /**
  * Oldest submission first, so a resubmission takes its turn at the back
@@ -41,12 +68,6 @@ export interface PaginatedCatalog {
    */
   pendingCount: number;
 }
-
-/**
- * Actions that refuse or remove a listing, and therefore owe the
- * HomeKrafter a reason they can act on.
- */
-const REFUSING_ACTIONS: ModerateProductDto['action'][] = ['reject', 'hide', 'takedown', 'flag'];
 
 /**
  * Unscoped catalog + review moderation — every `Product` across every
@@ -258,36 +279,19 @@ export class AdminCatalogService {
     });
     if (!existing) throw new NotFoundException('Product not found');
 
-    // The reason is required here rather than in the DTO because whether
-    // it is required depends on the action, which `class-validator`
-    // cannot express without a custom validator for one rule.
-    if (REFUSING_ACTIONS.includes(dto.action) && !dto.reason?.trim()) {
-      throw new BadRequestException(
-        'Refusing a listing needs a reason — the HomeKrafter is shown it verbatim and has to be able to act on it',
-      );
-    }
+    this.assertReasonGiven(dto);
 
-    const data: Prisma.ProductUncheckedUpdateInput = {};
-    if (dto.action === 'approve' || dto.action === 'unhide' || dto.action === 'unflag') {
-      data.moderationStatus = 'active';
-    }
-    if (dto.action === 'reject') data.moderationStatus = 'rejected';
-    if (dto.action === 'hide' || dto.action === 'takedown') data.moderationStatus = 'hidden';
-    if (dto.action === 'flag') data.moderationStatus = 'flagged';
-    if (dto.action === 'feature') data.featured = true;
-    if (dto.action === 'unfeature') data.featured = false;
-
-    // `feature`/`unfeature` are not moderation decisions — they are
-    // merchandising — so they leave the note and the decision stamp
-    // alone. Overwriting them would erase why a listing was flagged
-    // because somebody put it on the home page.
-    if (data.moderationStatus !== undefined) {
-      data.moderatedById = adminUserId;
-      data.moderatedAt = new Date();
-      // An allowing decision clears the previous refusal's reason; a
-      // refusing one records the new reason.
-      data.moderationNote = dto.reason?.trim() ?? null;
-    }
+    // Shared with `moderateSnack`/`moderateMealPlan` since M28. The action
+    // -> status mapping used to live here as a run of `if`s; three copies
+    // of it is how one table would come to treat `takedown` differently
+    // from another, visible only as a listing that quietly stayed up.
+    // `feature`/`unfeature` still return no status, so the note and the
+    // decision stamp are left alone — see `moderationDecision`.
+    const data: Prisma.ProductUncheckedUpdateInput = moderationDecision(
+      dto.action,
+      adminUserId,
+      dto.reason,
+    );
 
     const updated = await this.prisma.product.update({ where: { id }, data, include: PRODUCT_INCLUDE });
 
@@ -324,6 +328,209 @@ export class AdminCatalogService {
       vendorName: existing.vendor.name,
       categoryName: category?.name ?? 'Uncategorised',
     };
+  }
+
+  /**
+   * Everything awaiting review, across all three catalogue tables.
+   *
+   * **The queue this replaces did not exist.** M22 put the gate on
+   * `Product`, `Snack` and `MealPlan`; the admin side was built for
+   * `Product` alone. `listProducts` reads `prisma.product`, and there was
+   * no endpoint that could approve a snack — so a snack created after M22
+   * sat `pending` forever, filtered out of every buyer-facing query, while
+   * its maker was correctly told it was waiting for approval. Found on the
+   * live site on 2026-08-10 by a HomeKrafter whose first menu item never
+   * appeared.
+   *
+   * **Deliberately unpaginated, and capped instead.** This is the
+   * actionable backlog rather than a browsable archive: an admin works it
+   * to empty. Paginating a union of three differently-sorted tables buys
+   * correctness problems (a stable offset across heterogeneous sets) to
+   * solve a problem the platform does not have yet, and if the queue ever
+   * exceeds the cap then the cap being hit *is* the finding. `total` is
+   * counted separately so a truncated page still reports the real depth.
+   *
+   * Oldest submission first across the three, so a snack does not wait
+   * behind every product merely for being a snack.
+   */
+  async listReviewQueue(): Promise<ReviewQueue> {
+    const pending = { moderationStatus: 'pending' as const };
+
+    const [products, snacks, mealPlans, productCount, snackCount, mealPlanCount] = await Promise.all([
+      this.prisma.product.findMany({
+        where: pending,
+        orderBy: PENDING_ORDER,
+        take: REVIEW_QUEUE_CAP,
+        include: { vendor: { select: { name: true } } },
+      }),
+      this.prisma.snack.findMany({
+        where: pending,
+        // Not `PENDING_ORDER`: `Snack` has no `createdAt` column, so the
+        // shared order's `createdAt` tiebreak is not a valid field here and
+        // Prisma 500s on it. `submittedAt` plus the id is the same
+        // guarantee — oldest first, with a unique final key so a page
+        // boundary cannot show one row twice.
+        orderBy: [
+          { submittedAt: { sort: 'asc' as const, nulls: 'last' as const } },
+          { id: 'asc' as const },
+        ],
+        take: REVIEW_QUEUE_CAP,
+        include: { seller: { select: { displayName: true } } },
+      }),
+      this.prisma.mealPlan.findMany({
+        where: pending,
+        orderBy: PENDING_ORDER,
+        take: REVIEW_QUEUE_CAP,
+        include: { vendor: { select: { name: true } } },
+      }),
+      this.prisma.product.count({ where: pending }),
+      this.prisma.snack.count({ where: pending }),
+      this.prisma.mealPlan.count({ where: pending }),
+    ]);
+
+    const items: ReviewQueueItem[] = [
+      ...products.map((p) => ({
+        kind: 'product' as const,
+        id: p.id,
+        name: p.name,
+        makerName: p.vendor.name,
+        submittedAt: (p.submittedAt ?? p.createdAt).toISOString(),
+        imageSrc: undefined as string | undefined,
+        editHref: `/admin/catalog/${p.id}`,
+      })),
+      ...snacks.map((s) => ({
+        kind: 'snack' as const,
+        id: s.id,
+        name: s.name,
+        makerName: s.seller?.displayName ?? 'Unknown HomeKrafter',
+        submittedAt: (s.submittedAt ?? new Date(0)).toISOString(),
+        imageSrc: s.imageSrc ?? undefined,
+        editHref: undefined,
+      })),
+      ...mealPlans.map((m) => ({
+        kind: 'mealPlan' as const,
+        id: m.id,
+        name: m.name,
+        makerName: m.vendor.name,
+        submittedAt: (m.submittedAt ?? m.createdAt).toISOString(),
+        imageSrc: m.imageSrc ?? undefined,
+        editHref: undefined,
+      })),
+    ].sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
+
+    return {
+      items: items.slice(0, REVIEW_QUEUE_CAP),
+      total: productCount + snackCount + mealPlanCount,
+      counts: { product: productCount, snack: snackCount, mealPlan: mealPlanCount },
+    };
+  }
+
+  /**
+   * A decision on a snack. Mirrors `moderateProduct` through the shared
+   * `moderationDecision` mapping so the two cannot disagree about what
+   * `takedown` means.
+   */
+  async moderateSnack(adminUserId: string, id: string, dto: ModerateProductDto) {
+    const existing = await this.prisma.snack.findUnique({
+      where: { id },
+      include: { seller: { select: { displayName: true, userId: true } } },
+    });
+    if (!existing) throw new NotFoundException('Menu item not found');
+
+    this.assertReasonGiven(dto);
+    const data = moderationDecision(dto.action, adminUserId, dto.reason);
+    // `featured` is a Product column; a snack has no merchandising flag,
+    // so those two actions have nothing to write here.
+    if (data.moderationStatus === undefined) {
+      throw new BadRequestException('Featuring is not available for menu items');
+    }
+    delete data.featured;
+
+    const updated = await this.prisma.snack.update({ where: { id }, data });
+    await this.recordDecision('snack', 'Snack', id, adminUserId, dto, existing.moderationStatus, updated.moderationStatus, {
+      userId: existing.seller?.userId,
+      name: existing.name,
+    });
+    return mapSnackForOwner(updated);
+  }
+
+  /** A decision on a meal plan. Same shape and same rules as a snack. */
+  async moderateMealPlan(adminUserId: string, id: string, dto: ModerateProductDto) {
+    const existing = await this.prisma.mealPlan.findUnique({
+      where: { id },
+      include: { vendor: { select: { name: true, seller: { select: { userId: true } } } } },
+    });
+    if (!existing) throw new NotFoundException('Meal plan not found');
+
+    this.assertReasonGiven(dto);
+    const data = moderationDecision(dto.action, adminUserId, dto.reason);
+    if (data.moderationStatus === undefined) {
+      throw new BadRequestException('Featuring is not available for meal plans');
+    }
+    delete data.featured;
+
+    const updated = await this.prisma.mealPlan.update({ where: { id }, data });
+    await this.recordDecision(
+      'mealPlan',
+      'MealPlan',
+      id,
+      adminUserId,
+      dto,
+      existing.moderationStatus,
+      updated.moderationStatus,
+      { userId: existing.vendor.seller?.userId, name: existing.name },
+    );
+    return { id: updated.id, name: updated.name, moderationStatus: updated.moderationStatus };
+  }
+
+  /**
+   * A refusal without a reason is refused. The reason reaches the
+   * HomeKrafter verbatim and is the only thing telling them what to
+   * change (M22), so an empty one makes the decision unactionable.
+   */
+  private assertReasonGiven(dto: ModerateProductDto) {
+    if (REFUSING_ACTIONS.includes(dto.action) && !dto.reason?.trim()) {
+      throw new BadRequestException(
+        'Refusing a listing needs a reason — the HomeKrafter is shown it verbatim and has to be able to act on it',
+      );
+    }
+  }
+
+  /**
+   * Audit row + notification, shared by the two new types. Both are
+   * required for every decision: the audit log is how the platform
+   * answers "who did this", the notification is how the person whose
+   * income it affects finds out at all.
+   */
+  private async recordDecision(
+    kind: ModeratableKind,
+    targetType: string,
+    id: string,
+    adminUserId: string,
+    dto: ModerateProductDto,
+    from: string,
+    to: ProductModerationStatus,
+    owner: { userId?: string; name: string },
+  ) {
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: `${kind}.${dto.action}`,
+      targetType,
+      targetId: id,
+      metadata: { from, to, reason: dto.reason?.trim() ?? null },
+    });
+
+    // `void` — a decision must not roll back because a message failed.
+    if (owner.userId) {
+      void this.moderationNotifications.productDecided({
+        userId: owner.userId,
+        productId: id,
+        productName: owner.name,
+        status: to,
+        reason: dto.reason?.trim(),
+        kind,
+      });
+    }
   }
 
   async listReviews() {

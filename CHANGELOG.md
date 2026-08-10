@@ -130,6 +130,61 @@ broken images, 0 dead links, 0 horizontal overflow, 0 unlabelled inputs,
 every page exactly one `h1`. The only flag left is `/laundry` 404ing,
 which is correct — withdrawn in M19.
 
+### Fixed — a snack could never go live
+
+Reported as "it is in review, but nowhere in the admin dashboard". It was
+worse than a missing screen.
+
+M22 put the catalogue review gate on three tables — `Product`, `Snack` and
+`MealPlan`. All three default to `pending`, all three are filtered out of
+buyer-facing queries by `PUBLICLY_LISTED`. **The admin half was built for
+`Product` alone.** The queue read `prisma.product`; the only moderation
+endpoint was `PATCH /admin/catalog/products/:id/moderate`. So a snack or a
+meal plan created after M22 sat pending forever: no screen listed it, no
+endpoint could approve it, and the dashboard SLA card reported the queue
+clear because it counted products. The maker was correctly told "waiting
+for approval" and nobody on the platform could act on it. The only remedy
+was a manual database write.
+
+M22's own e2e proved a new snack stays off the public menu until approved.
+Nothing checked it could ever *be* approved — the gate was tested from one
+side.
+
+Now: `GET /admin/catalog/queue` returns everything awaiting review across
+all three kinds, oldest first; `PATCH …/snacks/:id/moderate` and
+`…/meal-plans/:id/moderate` take the decision, with M22's rules intact
+(reason required on a refusal, stored verbatim, audited, and the maker
+told on every channel their `account` preferences allow). A panel on
+`/admin/catalog` works the two kinds that have no tab of their own —
+products keep theirs — and hides itself when the queue is clear.
+
+The action-to-status mapping is now shared by all three
+(`moderationDecision`), because three copies of "which action means which
+status" is how one table comes to treat `takedown` differently from
+another, visible only as a listing that quietly stayed up.
+
+Two smaller faults fell out of it. The dashboard's "Oldest listing
+waiting" card linked to `/admin/catalog/reviews` — the *customer review*
+screen — so it sent an operator to the wrong queue. The M27 plan named
+that route for this link too, so the mistake was written down before it was
+coded. And the moderation notification told
+every maker to "edit the listing in your Listings tab", which sends the
+owner of a snack to a screen it is not on.
+
+### Changed — the phone nav no longer ends mid-word
+
+The HomeKrafter portal has ten destinations and about four fit at 390px.
+The strip scrolled, but nothing said so: the fifth item was cut off
+mid-word against a hard edge. It now carries edge fades painted with
+`background-attachment: local`, so the hint appears and disappears with
+the scroll position and costs no JS.
+
+Auto-scrolling the active item into view was attempted and **is not in the
+tree** — it provably did not work, and `TODOS.md` records all three
+findings, including that `offsetLeft` measures from `BODY` here because the
+nav sets no `position`, and that `scroll-snap` was re-snapping the strip
+back to the first item.
+
 ### Fixed — the last sweep finding, by deletion
 
 `/gallery` reported a `nested-interactive`: `ProductCard`'s `onCardClick`

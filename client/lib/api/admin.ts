@@ -940,6 +940,87 @@ export async function getAdminProductById(id: string): Promise<AdminProductSumma
   };
 }
 
+/**
+ * One item waiting for review, of any catalogue kind (M28).
+ *
+ * **Why a unified queue exists.** M22 put the review gate on products,
+ * menu items *and* meal plans, but the admin side was built for products
+ * alone: `/admin/catalog` reads products, and the only moderate endpoint
+ * was the product one. So a snack created after M22 sat `pending` forever,
+ * filtered out of every buyer-facing query, with no screen listing it and
+ * no endpoint able to approve it. Found on the live site 2026-08-10.
+ */
+export interface ReviewQueueItem {
+  kind: "product" | "snack" | "mealPlan";
+  id: string;
+  name: string;
+  /** Vendor name for a product or plan, HomeKrafter name for a menu item. */
+  makerName: string;
+  submittedAt: string;
+  imageSrc?: string;
+  /** Only products have an admin detail screen today. */
+  editHref?: string;
+}
+
+export interface ReviewQueue {
+  items: ReviewQueueItem[];
+  total: number;
+  counts: { product: number; snack: number; mealPlan: number };
+}
+
+/** What each kind is called on screen. An operator should not have to infer it. */
+export const REVIEW_KIND_LABEL: Record<ReviewQueueItem["kind"], string> = {
+  product: "Listing",
+  snack: "Menu item",
+  mealPlan: "Meal plan",
+};
+
+export async function getReviewQueue(): Promise<ReviewQueue> {
+  if (!isMockMode()) {
+    return await http.get<ReviewQueue>("/admin/catalog/queue");
+  }
+  const pending = products.filter((p) => p.moderationStatus === "pending");
+  return {
+    items: pending.map((p) => ({
+      kind: "product" as const,
+      id: p.id,
+      name: p.name,
+      makerName: "Mock vendor",
+      submittedAt: new Date().toISOString(),
+      editHref: `/admin/catalog/${p.id}`,
+    })),
+    total: pending.length,
+    counts: { product: pending.length, snack: 0, mealPlan: 0 },
+  };
+}
+
+/**
+ * A decision on a menu item or a meal plan.
+ *
+ * Separate paths rather than one `:type/:id` route because the product
+ * route already ships in a released client, and moving a live request path
+ * breaks native clients that cannot be redeployed in step (M27).
+ */
+export async function moderateCatalogItem(
+  kind: ReviewQueueItem["kind"],
+  id: string,
+  action: ProductModerationAction,
+  reason?: string,
+): Promise<void> {
+  if (kind === "product") {
+    await moderateProduct(id, action, reason);
+    return;
+  }
+  if (isMockMode()) return;
+  const path = kind === "snack" ? "snacks" : "meal-plans";
+  // Not wrapped in try/catch, same reason as `moderateProduct`: a refusal
+  // for want of a reason must not look like a silent no-op.
+  await http.patch(`/admin/catalog/${path}/${encodeURIComponent(id)}/moderate`, {
+    action: SERVER_MODERATION_ACTION[action],
+    ...(reason ? { reason } : {}),
+  });
+}
+
 /** The actions the server refuses without a reason — see `ModerateProductDto`. */
 export const MODERATION_ACTIONS_NEEDING_REASON: ProductModerationAction[] = ["reject", "hide", "flag"];
 
