@@ -155,6 +155,34 @@ the ids live, so it catches any fixture drift and not just the two already
 known to rot. `/laundry` trips it and is right to — it is withdrawn, and
 already carried `HTTP404`.
 
+### Fixed — `/sell` told every applicant that onboarding hadn't launched
+
+Reported as "seller onboarding is not working". Walking it end to end in a
+browser — apply, approve in the admin queue, open the invite link, set a
+password, sign in — **every step worked**, and the new HomeKrafter landed
+in their own portal under their own name.
+
+What was broken was the page. Step four of "How it works" read *"Your
+storefront opens once HomeKrafter onboarding launches."* That was true when
+written and false from M9 on: the form has posted to a real endpoint since
+then, M12 made an approved application a full HomeKrafter with every portal
+module, and M17/M21 gave them two ways to sign in. It was live on
+production, on the one page where a maker is being asked to join.
+
+Nothing detected it, and nothing could have: the sentence is grammatical,
+it renders, it passes axe and it passes the sweep. So the four steps are
+now pinned by `lib/data/sell-copy.spec.ts`, which fails on any step
+claiming the product is still coming. Two smaller lies went with it — step
+three promised a "packaging + photography guide" nobody has written, and
+step two promised "a short call" no mechanism arranges.
+
+Also fixed: the confirmation screen ran the business name into the next
+word ("for Test Kitchen QAand it's now under review") — JSX drops
+whitespace between an element and a line break, and the branch three lines
+above already used the `{" "}` fix, so one screen disagreed with itself.
+And `docs/TESTING.md` still told testers to sign in on "the Phone tab",
+which M25 removed, with no mention of the invite link at all.
+
 **Clean run:** 174 page-visits, 0 axe violations of any rule, 0 overflow,
 0 broken images, 0 dead links, 0 unlabelled inputs, 0 undersized targets,
 every page exactly one `h1`. The only console errors left are an anon

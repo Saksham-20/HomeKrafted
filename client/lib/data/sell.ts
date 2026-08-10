@@ -1,11 +1,30 @@
 import type { SellerApplication, SellerApplicationCategory } from "@/lib/types";
 
 /**
- * `/sell` content — seller onboarding is explicitly future-flagged per
- * the plan ("Seller onboarding *(future)* — `/sell` info + form
- * (flagged)"). This page is a real, submittable application form (mock),
- * clearly labelled "coming soon" rather than a live vendor dashboard —
- * see `SellerApplicationClient`'s banner copy.
+ * `/sell` content — the HomeKrafter application page.
+ *
+ * **Onboarding is live, and this file used to say it wasn't.** Everything
+ * above described a future-flagged, mock, "coming soon" page: true when it
+ * was written, false since M9 gave the form a real endpoint, M12 made
+ * every approved application a full HomeKrafter, and M17/M21 gave them a
+ * way to sign in. The "Go live" step still read *"your storefront opens
+ * once HomeKrafter onboarding launches"* — so the live site told every
+ * applicant that the thing they had just applied for did not exist yet.
+ * That shipped to production and is the likeliest reason onboarding was
+ * reported as broken when the flow itself worked end to end.
+ *
+ * **The steps below are the real mechanics, walked in a browser.** Apply →
+ * an admin approves in `/admin/sellers` → approval mints a single-use
+ * 7-day set-password link (`SellerInviteService`) sent by email and SMS →
+ * they set a password and land in `/seller` → listings they add are
+ * `pending` until reviewed (M22). If you change the flow, change these
+ * four strings with it: they are the only description of it a maker ever
+ * reads, and nothing fails when they drift.
+ *
+ * Don't restore a "coming soon" caveat here. The one thing still missing
+ * is a *provider key* — with SendGrid and Twilio unset the invite degrades
+ * to a logged stub and the admin screen says so, which is a server-config
+ * gap, not a reason to tell makers the product is unbuilt.
  */
 
 export interface SellerBenefit {
@@ -38,10 +57,24 @@ export interface SellerStep {
 }
 
 export const sellerSteps: SellerStep[] = [
-  { title: "Apply", description: "Tell us about what you make and where you're based." },
-  { title: "We review", description: "Our team checks fit and reaches out for a short call." },
-  { title: "Onboard", description: "List your first products with our packaging + photography guide." },
-  { title: "Go live", description: "Your storefront opens once HomeKrafter onboarding launches." },
+  {
+    title: "Apply",
+    description: "Tell us what you make and which area you work from. One form, no fee to list.",
+  },
+  {
+    title: "We read it",
+    description: "A person reads every application. We get in touch once a decision is made.",
+  },
+  {
+    title: "Set your password",
+    description:
+      "If you're approved, we send you a one-time link to choose a password. That opens your HomeKrafter dashboard.",
+  },
+  {
+    title: "Add your items",
+    description:
+      "Add what you make, with your own photos and prices. Each item is checked once before it shows up in the shop.",
+  },
 ];
 
 /**

@@ -181,9 +181,16 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
             </p>
           ) : (
             <p className={styles.confirmationCopy}>
-              We&rsquo;ve received your application for <b>{application.businessName}</b> and
-              it&rsquo;s now under review. We&rsquo;ll email {application.email} once a decision is
-              made.
+              {/*
+                `{" "}` rather than a plain space before `and`: JSX drops the
+                whitespace that sits between an element and a line break, so
+                the version without it rendered "for Test Kitchen QAand it's
+                now under review". Same fix the waitlist branch above already
+                uses — don't "tidy" it back into a bare space.
+              */}
+              We&rsquo;ve received your application for <b>{application.businessName}</b>{" "}
+              and it&rsquo;s now under review. We&rsquo;ll email {application.email} once a
+              decision is made.
             </p>
           )}
           <Button

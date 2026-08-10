@@ -141,16 +141,32 @@ resolved the seller record from mock data.
 The demo accounts above are seeded *with* passwords. A kitchen that comes
 through the real application flow is not:
 
-1. Apply at `/sell`.
-2. An admin approves it at `/admin/sellers`.
-3. The approved account has **no password at all** — the admin never sets
-   one. It signs in on the **Phone** tab of `/login?role=seller`, with the
-   mobile number from the application.
+1. Apply at `/sell`. The form confirms on the page and the application
+   lands in the admin queue.
+2. An admin approves it at `/admin/sellers` → **Approval queue**.
+3. Approval mints a **single-use set-password link, valid 7 days**, and
+   sends it by email and SMS. Opening it gives "Set your password"; after
+   saving, they sign in and land in `/seller` under their own name.
+4. **On a server with no email or SMS keys, nothing is sent — and the
+   admin screen says so**: "Approved — but we could not reach them",
+   with the link shown so it can be handed over by hand. That is the
+   expected state today, not a bug. `POST /admin/sellers/:id/resend-invite`
+   re-sends and burns the previous link.
 
-Until M17 that tab offered only email and password, so an approved
-HomeKrafter was told "Incorrect email or password" for a password that had
-never existed, with no other way in. If a newly approved kitchen cannot
-reach `/seller`, that is the bug to report.
+The approved account has **no password at the moment of approval** — an
+admin never sets one, and must not be able to. So a one-time code is also
+always a valid way in: the sign-in form is one field, and `/auth/continue`
+answers **409** for an account with no password, which the form turns into
+the code route automatically. "Use a code instead" is visible before any
+failure, deliberately.
+
+Two ways this has actually broken, both worth re-checking if a newly
+approved kitchen cannot reach `/seller`: before M17 the form offered only
+email and password, so a real kitchen was told "Incorrect email or
+password" for a password that had never existed; and until this was walked
+end to end on 2026-08-10, `/sell` itself told every applicant *"your
+storefront opens once HomeKrafter onboarding launches"* — the flow worked,
+the page said it did not.
 
 ---
 
