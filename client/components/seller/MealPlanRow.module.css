@@ -92,9 +92,20 @@
 /* The admin's switch, not the cook's — visually distinct from `.paused` so
    the two are never read as the same state. Terracotta tint, matching
    ListingRow's out-of-stock treatment. */
+/* `--hk-terracotta-text`, not `--hk-terracotta`: the base token measures
+   3.77:1 on this tint and fails AA. Same defect, same fix, same day as
+   SnackMenuRow's `.unavailable` — and invisible to the sweep for the same
+   reason, that no seeded plan sits in a non-active state. */
 .hidden {
   background: #f6e7e0;
-  color: var(--hk-terracotta);
+  color: var(--hk-terracotta-text);
+}
+
+/* Awaiting review reads as informational, not as a refusal. See
+   `moderationPill`'s tone split. */
+.pendingReview {
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
 }
 
 .actions {

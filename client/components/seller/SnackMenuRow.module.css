@@ -40,6 +40,13 @@
   flex-shrink: 0;
 }
 
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .availabilityPill {
   display: inline-flex;
   align-items: center;
@@ -59,9 +66,38 @@
   color: var(--hk-success);
 }
 
+/* `--hk-terracotta-text`, not `--hk-terracotta`: the base token is 3.77:1
+   on this tint and fails AA. That is exactly the pairing
+   `tokens.extend.css` documents the text variant for. It read
+   `var(--hk-terracotta)` until 2026-08-10 and the sweep never caught it,
+   because no seeded snack is unavailable. */
 .unavailable {
+  /* #f6e7e0 is the terracotta tint. Local literal rather than a new token:
+     CLAUDE.md says not to invent token names, and the same hex is already a
+     documented one-off in TransactionRow and MealPlanRow. */
   background: #f6e7e0;
-  color: var(--hk-terracotta);
+  color: var(--hk-terracotta-text);
+}
+
+/* Waiting on us, not a refusal — gold-family rather than terracotta, so a
+   kitchen is not told off for having listed something. 11px is well under
+   the size base `--hk-gold` is AA-safe at, hence the `-text-sm` variant
+   (4.62:1 on the gold tint). */
+.pendingReview {
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+}
+
+.blockedReview {
+  background: #f6e7e0;
+  color: var(--hk-terracotta-text);
+}
+
+.moderationNote {
+  flex-basis: 100%;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--hk-terracotta-text);
 }
 
 .actions {
@@ -97,8 +133,12 @@
     flex-wrap: wrap;
   }
 
+  /* `.pills`, not `.availabilityPill` — the pill is now inside a wrapper,
+     and indenting the child instead of the wrapper left the row's second
+     line hanging under the thumbnail. */
   .price,
-  .availabilityPill,
+  .pills,
+  .moderationNote,
   .actions {
     margin-left: 66px;
   }

@@ -4,6 +4,7 @@ import { Pencil, PowerOff } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCurrency } from "@/lib/format";
+import { moderationPill } from "@/lib/moderation-copy";
 import type { SellerMealPlan } from "@/lib/types";
 import styles from "./MealPlanRow.module.css";
 
@@ -11,20 +12,6 @@ export interface MealPlanRowProps {
   plan: SellerMealPlan;
   onClose?: (planId: string) => void;
 }
-
-/**
- * M22 added `pending` and `rejected`, and they read very differently from
- * a takedown: one is "we haven't looked yet", the other is "we looked and
- * you need to change something". Labelling either "Hidden by us" would
- * tell a kitchen they were penalised for submitting a plan.
- */
-const MODERATION_LABEL: Record<SellerMealPlan["moderationStatus"], string> = {
-  pending: "Waiting for review",
-  active: "Live",
-  rejected: "Needs a change",
-  flagged: "Flagged",
-  hidden: "Hidden by us",
-};
 
 /**
  * One row on `/seller/meal-plans`.
@@ -36,7 +23,7 @@ const MODERATION_LABEL: Record<SellerMealPlan["moderationStatus"], string> = {
  * switch that changes nothing.
  */
 export function MealPlanRow({ plan, onClose }: MealPlanRowProps) {
-  const hidden = plan.moderationStatus !== "active";
+  const review = moderationPill(plan.moderationStatus);
   // `maxSubscribers` absent means the kitchen set no ceiling. "0 seats left"
   // would close a plan that is open, so uncapped says so in words.
   const capacity = plan.maxSubscribers
@@ -72,8 +59,19 @@ export function MealPlanRow({ plan, onClose }: MealPlanRowProps) {
         <span className={clsx(styles.pill, plan.isActive ? styles.live : styles.paused)}>
           {plan.isActive ? "Taking subscribers" : "Closed"}
         </span>
-        {hidden && (
-          <span className={clsx(styles.pill, styles.hidden)}>{MODERATION_LABEL[plan.moderationStatus]}</span>
+        {/* `moderationPill` rather than a map local to this file: the same
+            four states appear on /seller/listings and /seller/menu, and
+            three private copies is how "Waiting for review" and "Waiting
+            for approval" came to mean the same thing. It also splits
+            pending from the rest by tone — "we have not looked yet" is not
+            "we looked and you must change something", and colouring them
+            alike tells a kitchen off for listing a plan. */}
+        {review && (
+          <span
+            className={clsx(styles.pill, review.tone === "pending" ? styles.pendingReview : styles.hidden)}
+          >
+            {review.label}
+          </span>
         )}
       </div>
       {/* The reason, verbatim, next to the edit link that resolves it.
