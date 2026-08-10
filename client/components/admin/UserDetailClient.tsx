@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -53,13 +54,12 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
 
   if (user === null) {
     return (
-      <div>
-        <Link href="/admin/users" className={styles.back}>
-          <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          Back to users
-        </Link>
-        <Card className={styles.notFound}>User not found.</Card>
-      </div>
+      <NotFoundCard
+        title="We couldn’t find that account"
+        body="No account matches this id. Search the users list by name, email or mobile number instead."
+        backHref="/admin/users"
+        backLabel="Back to users"
+      />
     );
   }
 

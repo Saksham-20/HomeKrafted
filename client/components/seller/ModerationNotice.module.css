@@ -1,0 +1,26 @@
+/* A banner, not a caption: this is the first thing to read on the screen
+   and it has to survive being skimmed past. Both variants sit on a tint,
+   so both use the *-text tokens — `--hk-terracotta` is 4.55:1 on white
+   but only 3.77:1 on its own tint, which is the exact trap the M26
+   contrast sweep found 114 times. */
+.pending,
+.attention {
+  margin: 0 0 var(--hk-s4);
+  padding: var(--hk-s3);
+  border-radius: var(--hk-r-sm);
+  font-size: 14px;
+  line-height: 1.55;
+  border: 1px solid transparent;
+}
+
+.pending {
+  background: var(--hk-gold-tint, #f7f2e4);
+  border-color: var(--hk-gold-border);
+  color: var(--hk-gold-text-sm);
+}
+
+.attention {
+  background: #f6e7e0;
+  border-color: #e6c9bd;
+  color: var(--hk-terracotta-text);
+}

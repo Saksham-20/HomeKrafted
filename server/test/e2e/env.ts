@@ -36,6 +36,23 @@ process.env.THROTTLE_AUTH_LIMIT = '100000';
 process.env.OTP_TEST_CODE = '123456';
 process.env.OTP_TEST_PHONES = '+919845000001,+919845000002';
 
+// Social sign-in, pointed at a key set the suite controls.
+//
+// `SOCIAL_JWKS_URL_OVERRIDE` replaces only *where keys are fetched from*;
+// issuer and audience are still checked against the real values, which is
+// what keeps "a wrong-issuer token is refused" a meaningful assertion
+// rather than something the harness switched off. `validateEnv` refuses
+// to boot production with this set — `social-login.e2e-spec.ts` asserts
+// that too, since it is the guard standing between a test convenience and
+// a mint-your-own-Google bypass.
+//
+// Two Google ids on purpose: the audience check must accept a list, or
+// the first native app build fails closed on every mobile sign-in.
+process.env.GOOGLE_CLIENT_IDS =
+  'e2e-web.apps.googleusercontent.com,e2e-ios.apps.googleusercontent.com';
+process.env.APPLE_SERVICE_IDS = 'in.homekrafted.e2e';
+process.env.SOCIAL_JWKS_URL_OVERRIDE = 'http://127.0.0.1:45677/jwks.json';
+
 // Every outbound provider stays a logged stub. An e2e run must never be
 // able to send a real WhatsApp message or charge a real card.
 process.env.RAZORPAY_KEY_ID = 'rzp_test_placeholder';

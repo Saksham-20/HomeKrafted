@@ -5,6 +5,14 @@ import 'reflect-metadata';
 // `AuthController`'s `@Throttle(AUTH_THROTTLE)` decorator. Keep this above
 // the `AppModule` import.
 import 'dotenv/config';
+// Sentry, armed after `dotenv` (it needs `SENTRY_DSN`) and before
+// `AppModule` (its instrumentation has to wrap the modules it reports on).
+// Both halves of that ordering matter and neither fails loudly if broken —
+// see `observability/sentry.ts`.
+import { initSentry } from './observability/sentry';
+
+const sentryArmed = initSentry();
+
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
@@ -65,6 +73,14 @@ async function bootstrap(): Promise<void> {
   const port = configService.get('port', { infer: true });
   await app.listen(port);
   console.log(`Homekrafted API listening on :${port} (${configService.get('nodeEnv', { infer: true })})`);
+  // Said out loud on every boot, because the dangerous state is the quiet
+  // one: an error reporter that is not reporting looks exactly like an
+  // application with no errors.
+  console.log(
+    sentryArmed
+      ? 'Sentry: reporting errors (5xx only, request bodies and breadcrumbs stripped)'
+      : 'Sentry: OFF — SENTRY_DSN is unset, so 500s are visible only in these logs',
+  );
 }
 
 bootstrap();

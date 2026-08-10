@@ -155,10 +155,15 @@ export function PhotoUpload({
         )}
       </div>
 
+      {/* Out of the tab order and out of the accessibility tree — the
+          drop tile above is the control that carries the name and the key
+          handlers. See the same comment in `ImageUpload`. */}
       <input
         ref={inputRef}
         type="file"
         multiple
+        tabIndex={-1}
+        aria-hidden="true"
         className={styles.input}
         accept={ACCEPTED_IMAGE_TYPES.join(",")}
         disabled={disabled}

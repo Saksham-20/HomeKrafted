@@ -88,3 +88,56 @@
   padding: var(--hk-s6);
   text-align: center;
 }
+
+/* --- Moderation SLA row (M27) -------------------------------------------
+   Two halves, side by side above the KPI grid. Deliberately not part of
+   `.statGrid`: these are queue-health readings an operator acts on, not
+   figures they scan, and mixing them into ten tiles buries them. */
+.slaRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s4);
+}
+
+.slaCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slaLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.slaValue {
+  font-family: var(--hk-font-display);
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--hk-ink);
+}
+
+/* Three days is the point at which an applicant reasonably assumes they
+   have been ignored. Terracotta, matching the pending-applications tile. */
+.slaWarn {
+  color: var(--hk-terracotta-text);
+}
+
+.slaClear {
+  font-size: 14px;
+  color: var(--hk-muted);
+  padding-top: 4px;
+}
+
+.slaLink {
+  font-size: 13px;
+  color: var(--hk-pine);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  align-self: flex-start;
+  min-height: 24px;
+}

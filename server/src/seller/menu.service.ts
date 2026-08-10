@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { mapSnack } from '../snacks/snacks.mapper';
+import { mapSnackForOwner } from '../snacks/snacks.mapper';
 import { initialSubmission, requeueOnEdit } from '../catalog/moderation';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
@@ -21,12 +21,12 @@ export class SellerMenuService {
 
   async list(sellerId: string) {
     const snacks = await this.prisma.snack.findMany({ where: { sellerId }, orderBy: { name: 'asc' } });
-    return snacks.map(mapSnack);
+    return snacks.map(mapSnackForOwner);
   }
 
   async getOne(sellerId: string, snackId: string) {
     const snack = await this.assertOwned(sellerId, snackId);
-    return mapSnack(snack);
+    return mapSnackForOwner(snack);
   }
 
   async create(sellerId: string, dto: CreateMenuItemDto) {
@@ -49,7 +49,7 @@ export class SellerMenuService {
         ...initialSubmission(),
       },
     });
-    return mapSnack(created);
+    return mapSnackForOwner(created);
   }
 
   async update(sellerId: string, snackId: string, dto: UpdateMenuItemDto) {
@@ -73,7 +73,7 @@ export class SellerMenuService {
         ...requeue,
       },
     });
-    return mapSnack(updated);
+    return mapSnackForOwner(updated);
   }
 
   /** Same one-tap availability switch as listings, over a `Snack`. */
@@ -83,7 +83,7 @@ export class SellerMenuService {
       where: { id: snackId },
       data: { available: isAvailable },
     });
-    return mapSnack(updated);
+    return mapSnackForOwner(updated);
   }
 
   async remove(sellerId: string, snackId: string): Promise<void> {

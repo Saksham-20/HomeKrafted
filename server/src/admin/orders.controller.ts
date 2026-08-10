@@ -32,6 +32,12 @@ export class AdminOrdersController {
     return this.ordersService.getDetail(parseType(type), id);
   }
 
+  /** The unified list row for one order — the detail screen's header. Separate from the record above because the row carries names (customer, HomeKrafter) the source table does not. */
+  @Get(':type/:id/summary')
+  getSummary(@Param('type') type: string, @Param('id') id: string) {
+    return this.ordersService.getSummary(parseType(type), id);
+  }
+
   /** Refunds the order/booking owner's wallet via `WalletService`'s ledger (idempotent) — `400` for a snack order (no linked wallet). */
   @Post(':type/:id/refund')
   refund(
@@ -43,7 +49,15 @@ export class AdminOrdersController {
     return this.ordersService.refund(admin.userId, parseType(type), id, key);
   }
 
-  /** Manual status override — jumps straight to any valid status for the given type, distinct from a seller's one-step-at-a-time `advance`. */
+  /**
+   * Manual status override — jumps straight to any status the kind
+   * permits, distinct from a seller's one-step-at-a-time `advance`.
+   *
+   * **It records a status; it does not move money.** `cancelled` and
+   * `returned` are refused with a message naming the path that does — see
+   * `OVERRIDE_FORBIDDEN`. Send `expectedStatus` to make it a
+   * compare-and-set (409 when another admin got there first).
+   */
   @Patch(':type/:id/status')
   overrideStatus(
     @CurrentUser() admin: RequestUser,
@@ -51,6 +65,12 @@ export class AdminOrdersController {
     @Param('id') id: string,
     @Body() dto: OrderStatusOverrideDto,
   ) {
-    return this.ordersService.overrideStatus(admin.userId, parseType(type), id, dto.status);
+    return this.ordersService.overrideStatus(
+      admin.userId,
+      parseType(type),
+      id,
+      dto.status,
+      dto.expectedStatus,
+    );
   }
 }

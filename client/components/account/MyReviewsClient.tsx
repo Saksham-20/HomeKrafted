@@ -90,6 +90,8 @@ export function MyReviewsClient() {
                           shape="square"
                           label={item.imagePlaceholder}
                           src={item.imageSrc}
+                          alt={item.name}
+                          sizes="64px"
                           compact
                         />
                       </span>

@@ -17,6 +17,12 @@ export interface AdminDashboardSnapshot {
   activeBySpecialty: Record<string, number>;
   usersCount: number;
   pendingApplicationsCount: number;
+  /** When the longest-waiting application arrived — `undefined` when the queue is clear. */
+  oldestPendingApplicationAt?: string;
+  /** Listings sitting in `pending` moderation. */
+  pendingListingsCount: number;
+  /** When the longest-waiting listing was submitted — `undefined` when the queue is clear. */
+  oldestPendingListingAt?: string;
   pendingPayoutsAmount: number;
   /** Real server-side aggregate of every `Wallet.balance` — the platform's total wallet liability. */
   walletLiability: number;
@@ -122,7 +128,16 @@ export class AdminDashboardService {
     const { gmvTotal, ordersByType, ordersTotalCount, ordersTodayCount } =
       await this.orderTotals(todayStart);
 
-    const [approvedSellers, usersCount, pendingApplicationsCount, pendingPayoutsAgg, walletAgg] = await Promise.all([
+    const [
+      approvedSellers,
+      usersCount,
+      pendingApplicationsCount,
+      pendingPayoutsAgg,
+      walletAgg,
+      oldestPendingApplication,
+      pendingListingsCount,
+      oldestPendingListing,
+    ] = await Promise.all([
       // `groupBy({ by: ['type'] })` no longer works: a HomeKrafter's
       // `specialties` is a list, so one account can land in several buckets
       // and the counts deliberately overlap (they sum to more than the
@@ -132,6 +147,25 @@ export class AdminDashboardService {
       this.prisma.sellerApplication.count({ where: { status: { notIn: ['approved', 'rejected'] } } }),
       this.prisma.payout.aggregate({ where: { status: 'pending' }, _sum: { amount: true } }),
       this.prisma.wallet.aggregate({ _sum: { balance: true } }),
+      // Moderation SLA (M27). A count answers "is there a queue"; the age
+      // of the oldest item answers "is anyone being left waiting", which
+      // is the question that matters while the platform is recruiting its
+      // first kitchens — a five-day-old application is a supply problem,
+      // not a backlog statistic.
+      this.prisma.sellerApplication.findFirst({
+        where: { status: { notIn: ['approved', 'rejected'] } },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      }),
+      this.prisma.product.count({ where: { moderationStatus: 'pending' } }),
+      this.prisma.product.findFirst({
+        where: { moderationStatus: 'pending' },
+        // `submittedAt` is when it entered the queue and survives a
+        // re-save, so it is the honest age — `updatedAt` would reset every
+        // time a HomeKrafter touched a field while waiting.
+        orderBy: { submittedAt: 'asc' },
+        select: { submittedAt: true, createdAt: true },
+      }),
     ]);
 
     const activeBySpecialty: Record<string, number> = {};
@@ -152,6 +186,11 @@ export class AdminDashboardService {
       pendingApplicationsCount,
       pendingPayoutsAmount: Number(pendingPayoutsAgg._sum.amount ?? 0),
       walletLiability: Number(walletAgg._sum.balance ?? 0),
+      oldestPendingApplicationAt: oldestPendingApplication?.createdAt.toISOString(),
+      pendingListingsCount,
+      oldestPendingListingAt: (
+        oldestPendingListing?.submittedAt ?? oldestPendingListing?.createdAt
+      )?.toISOString(),
     };
   }
 

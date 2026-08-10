@@ -1,7 +1,9 @@
 import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppConfig } from '../config/configuration';
+import { GcsDriver } from './storage/gcs.driver';
 import { LocalDiskDriver } from './storage/local-disk.driver';
+import { PurposeRoutingDriver } from './storage/purpose-routing.driver';
 import { STORAGE_DRIVER, StorageDriver } from './storage/storage-driver.interface';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
@@ -32,10 +34,52 @@ function createStorageDriver(config: ConfigService<AppConfig, true>): StorageDri
       logger.log(`Using local disk storage at ${dir} (served from ${prefix}/)`);
       return new LocalDiskDriver(dir, prefix);
     }
+    case 'gcs': {
+      const gcs = config.get('uploads.gcs', { infer: true });
+      // Belt to `validateEnv`'s braces. That check is the one that fires
+      // in practice; this one covers a programmatic construction that
+      // skips it, and costs nothing.
+      if (!gcs.bucket) {
+        throw new Error('STORAGE_DRIVER=gcs requires GCS_BUCKET.');
+      }
+      if (!gcs.keyFile && !gcs.credentialsJson) {
+        throw new Error(
+          'STORAGE_DRIVER=gcs requires credentials: set GCS_KEY_FILE (a path) or GCS_CREDENTIALS_JSON (the key inline).',
+        );
+      }
+      let credentials: Record<string, unknown> | undefined;
+      if (gcs.credentialsJson) {
+        try {
+          credentials = JSON.parse(gcs.credentialsJson);
+        } catch {
+          // Never echo the value — it is a private key.
+          throw new Error('GCS_CREDENTIALS_JSON is not valid JSON.');
+        }
+      }
+      const dir = config.get('uploads.dir', { infer: true });
+      const prefix = config.get('uploads.publicPrefix', { infer: true });
+      logger.log(
+        `Using Google Cloud Storage bucket ${gcs.bucket} (served from ${gcs.publicBaseUrl}/); ` +
+          `application documents stay on local disk at ${dir}`,
+      );
+      // Catalogue imagery to the bucket, application documents (FSSAI
+      // licences, identity photos) to the box. See `PurposeRoutingDriver`
+      // — the public bucket is public, and those are not catalogue.
+      return new PurposeRoutingDriver(
+        new GcsDriver({
+          bucket: gcs.bucket,
+          publicBaseUrl: gcs.publicBaseUrl,
+          keyFilename: gcs.keyFile || undefined,
+          credentials,
+          projectId: gcs.projectId || undefined,
+        }),
+        new LocalDiskDriver(dir, prefix),
+      );
+    }
     default:
       throw new Error(
-        `Unknown STORAGE_DRIVER "${driver}". Supported: "local". ` +
-          'To add cloud storage, implement StorageDriver and register it in UploadsModule.',
+        `Unknown STORAGE_DRIVER "${driver}". Supported: "local", "gcs". ` +
+          'To add another backend, implement StorageDriver and register it in UploadsModule.',
       );
   }
 }

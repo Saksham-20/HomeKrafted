@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { StatCard } from "./StatCard";
 import { PayoutRow } from "./PayoutRow";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -122,7 +123,10 @@ export function SellerPayoutsClient() {
 
       <h2 className={styles.sectionTitle}>History</h2>
       {payouts.length === 0 ? (
-        <Card className={styles.empty}>No payouts yet.</Card>
+        <EmptyState
+          title="No payouts yet."
+          body="Earnings become payable once an order is delivered, and settle from there. Nothing is needed from you — this fills in as orders complete."
+        />
       ) : (
         <Card className={styles.history} padding="md">
           {payouts.map((payout) => (

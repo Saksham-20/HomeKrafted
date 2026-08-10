@@ -90,9 +90,23 @@ const DEFAULT_SIZES = "(max-width: 640px) 100vw, (max-width: 1180px) 50vw, 380px
  * worth doing (stored variants, or teaching nginx to serve them) — but a
  * heavy image beats a broken one, and this is what unblocks a
  * HomeKrafter seeing their own photo.
+ *
+ * **The absolute-URL arm is structural on purpose (M27).** With cloud
+ * storage the stored URL becomes absolute
+ * (`https://storage.googleapis.com/…`). The obvious implementation —
+ * compare against a `NEXT_PUBLIC_UPLOAD_BASE_URL` — would be a build-time
+ * inline baked in by `deploy.sh` on the box, so one missing line in the
+ * web `.env` makes this return `false`, `next/image` runs its default
+ * loader against a deliberately empty `remotePatterns`, and it **throws**
+ * `Invalid src prop … hostname is not configured`. Not a broken image: a
+ * render error taking out every page carrying a HomeKrafter photo.
+ *
+ * Since `remotePatterns` is empty by design, "absolute ⇒ we are not
+ * optimising it" is simply true, needs no configuration, and cannot be
+ * misconfigured.
  */
 function isUpload(src: string): boolean {
-  return src.startsWith("/uploads/");
+  return src.startsWith("/uploads/") || /^https?:\/\//i.test(src);
 }
 
 export function ImageSlot({

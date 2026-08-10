@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import {
   EMPTY_LISTING_FORM,
   ListingForm,
@@ -126,13 +126,13 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
 
   if (notFound) {
     return (
-      <div>
-        <Link href="/admin/catalog" className={styles.back}>
-          <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          Back to catalog
-        </Link>
-        <Card className={styles.notFound}>Product not found.</Card>
-      </div>
+      <NotFoundCard
+        title="We couldn’t find that listing"
+        body="Nothing in the catalogue matches this id. It may have been deleted by the HomeKrafter since the queue was loaded."
+        reference={productId}
+        backHref="/admin/catalog"
+        backLabel="Back to catalog"
+      />
     );
   }
 

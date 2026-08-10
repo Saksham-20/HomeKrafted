@@ -51,7 +51,7 @@ export class AdminAuditLogService {
       actorId: query.actorId,
     };
 
-    const [rows, total] = await Promise.all([
+    const [rows, total, targetTypeRows] = await Promise.all([
       this.prisma.adminAuditLog.findMany({
         where,
         include: { actor: { select: { id: true, name: true, email: true } } },
@@ -60,6 +60,18 @@ export class AdminAuditLogService {
         take: pageSize,
       }),
       this.prisma.adminAuditLog.count({ where }),
+      // The distinct entity kinds actually present, so the filter's
+      // options come from the data rather than a hand-maintained list on
+      // the client. A typed list is a twin: it goes stale the first time
+      // a new `targetType` is logged and nobody notices, because the
+      // symptom is a filter that silently cannot find things.
+      // Unfiltered on purpose — narrowing to one type must not empty the
+      // dropdown you would use to pick a different one.
+      this.prisma.adminAuditLog.findMany({
+        distinct: ['targetType'],
+        select: { targetType: true },
+        orderBy: { targetType: 'asc' },
+      }),
     ]);
 
     return {
@@ -77,6 +89,7 @@ export class AdminAuditLogService {
       page,
       pageSize,
       total,
+      targetTypes: targetTypeRows.map((r) => r.targetType),
     };
   }
 }

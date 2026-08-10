@@ -190,8 +190,15 @@ export interface AuthContextValue {
   signInWithPassword: (email: string, password: string) => Promise<UserRole>;
   /** Explicit account creation (`/signup`'s shopper tab) — always `POST /auth/register`, no login-first fallback, so a duplicate email surfaces as a real error instead of silently signing the visitor into the existing account. */
   register: (name: string, email: string, password: string) => Promise<UserRole>;
-  /** Consumer social sign-in (stub — see `lib/api/auth.ts#socialLogin`'s doc comment). Resolves the account's `role`. */
-  signInSocial: (provider: "google" | "apple") => Promise<UserRole>;
+  /**
+   * Consumer social sign-in. Takes the **provider-signed id-token** the
+   * caller obtained from Google/Apple — this context never mints identity
+   * itself, which is what the pre-M27 stub did. Resolves the account's `role`.
+   */
+  signInSocial: (
+    provider: "google" | "apple",
+    credential: { idToken: string; nonce?: string; name?: string },
+  ) => Promise<UserRole>;
 
 
 
@@ -269,19 +276,21 @@ function applyAuthResult(result: AuthResultDto) {
   setSession({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
 }
 
-/** Stable per-provider fake OAuth id so repeated "Continue with Google/Apple" clicks resolve to the same demo account in one browser (see `lib/api/auth.ts#socialLogin`'s stub-payload comment). */
-function getOrCreateSocialAccountId(provider: "google" | "apple"): string {
-  if (typeof window === "undefined") return `${provider}-ssr`;
+/**
+ * Clear the pre-M27 fake OAuth ids.
+ *
+ * These backed the stub social flow, where the browser invented its own
+ * `providerAccountId` and the server trusted it. The server now derives
+ * identity from a verified id-token and the field is gone from the DTO,
+ * so the stored map is dead weight in every returning visitor's
+ * `localStorage`. Delete it once rather than leaving a key nobody reads.
+ */
+function clearLegacySocialAccountIds(): void {
+  if (typeof window === "undefined") return;
   try {
-    const raw = window.localStorage.getItem(SOCIAL_ACCOUNT_ID_KEY);
-    const map: Record<string, string> = raw ? JSON.parse(raw) : {};
-    if (map[provider]) return map[provider];
-    const id = `${provider}-${crypto.randomUUID()}`;
-    map[provider] = id;
-    window.localStorage.setItem(SOCIAL_ACCOUNT_ID_KEY, JSON.stringify(map));
-    return id;
+    window.localStorage.removeItem(SOCIAL_ACCOUNT_ID_KEY);
   } catch {
-    return `${provider}-${Date.now()}`;
+    // A blocked localStorage is not worth failing a sign-in over.
   }
 }
 
@@ -571,7 +580,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signInSocial(provider: "google" | "apple"): Promise<UserRole> {
+  async function signInSocial(
+    provider: "google" | "apple",
+    credential: { idToken: string; nonce?: string; name?: string },
+  ): Promise<UserRole> {
     if (mock) {
       setSignedIn(true);
       setRole("consumer");
@@ -580,8 +592,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setBusy(true);
     try {
-      const providerAccountId = getOrCreateSocialAccountId(provider);
-      const result = await socialLogin(provider, { providerAccountId });
+      const result = await socialLogin(provider, credential);
+      clearLegacySocialAccountIds();
       return completeRealSignIn(result);
     } finally {
       setBusy(false);

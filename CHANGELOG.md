@@ -3,6 +3,151 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M27] — Two account takeovers, a money button that lied, and the cloud storage seam — 2026-08-09
+
+Started as "fix what the production audit found". The review before the
+build found two things the audit had not, and both were worse than
+anything on the list.
+
+### Fixed — social sign-in handed out sessions for a posted email address
+
+`POST /auth/social/:provider` never verified a Google or Apple id-token.
+It read `email` off the request body and issued a session for whatever
+account matched — including the admin. Confirmed live, twice: once by the
+2026-08-06 audit and again on 2026-08-09 immediately before the fix.
+
+`SocialTokenVerifier` now verifies against the provider's published keys
+before anything is looked up. Details that are load-bearing rather than
+incidental:
+
+- **One JWKS key set per provider, built once.** Constructed per request,
+  `jose`'s ten-minute cache never survives to be used — every sign-in
+  would hit Google, and Google throttling us would become a total sign-in
+  outage.
+- **Audience is a list.** `server/` is shared with the native apps and
+  Google issues a client id per platform. A single-string audience passes
+  every test written on the web id and fails closed on the first mobile
+  build.
+- **An unknown key id answers 503, not 401.** It is what a forgery with a
+  made-up `kid` looks like *and* what a legitimate token looks like mid
+  key-rotation. The two are indistinguishable, so the tie goes to the real
+  user: 503 says "try again" and the next attempt works.
+- **`providerAccountId` and `email` are deleted from the DTO**, not
+  ignored. With `forbidNonWhitelisted` the old takeover body is now a
+  structural 400 — an ignored field can be quietly re-read by a later
+  change; a rejected one cannot.
+
+Unset client id means the provider is simply off (503, no button), so
+**this closed with no keys and no accounts**.
+
+### Fixed — and verifying the token was not enough on its own
+
+`register` never sets `emailVerified`. So an attacker could register
+`victim@gmail.com` with a password of their choosing and wait: the
+victim's first genuine Google sign-in was link-by-email'd straight into
+the attacker's account, with the attacker's password still on it.
+
+Auto-linking now requires an already-verified account. Otherwise the
+sign-in **seizes** it — every refresh token revoked, `passwordHash`
+nulled, address stamped verified, because the provider has just proved who
+owns it. Admins are refused outright, matching `verifyOtp`'s refusal of the
+OTP test-code bypass.
+
+### Fixed — the admin status override would have told buyers they were refunded
+
+M26 deferred this control as "a feature, not a repair". Reviewing the
+endpoint before building the UI found why that was lucky: `overrideStatus`
+writes a status and messages the buyer, and does nothing else. The real
+cancel path refunds the wallet, restocks every line, reverses the cashback
+placement credited and stamps `cancelledAt`, in one transaction. An admin
+choosing "cancelled" would have sent a cancellation notice against no
+money at all.
+
+`cancelled` and `returned` are now refused server-side — not merely absent
+from the dropdown, because the endpoint is reachable with curl — with a
+message naming the path that does move money. Three more on the same
+method: a no-op guard (re-selecting the current status notified the buyer
+again), `deliveredAt` stamped once (re-applying `delivered` silently
+restarted the seven-day return window), and `expectedStatus` making it a
+compare-and-set (two admins both wrote, last one winning silently). The
+audit row records what it changed *from*, which is the question a dispute
+actually asks.
+
+The control itself shipped: an inline two-step confirm following
+`ProductModerationRow`, stating in as many words that no money moves.
+
+### Fixed — Sentry would have installed cleanly and reported nothing
+
+`AllExceptionsFilter` is a global `@Catch()`, so it terminates every error
+before `@sentry/nestjs`'s own filter runs. Without
+`@SentryExceptionCaptured()` on it, Sentry boots, accepts the DSN, passes
+a `beforeSend` unit test and stays silent forever — a failure you discover
+the week you need it. `test/unit/sentry-capture.spec.ts` fails if the
+decorator is removed.
+
+The scrub is a privacy control, not tidiness: while Twilio and SendGrid
+are stubs this server writes **working OTP codes to its own log**, and
+Sentry's defaults collect console output as breadcrumbs. So: 5xx only, no
+request bodies, no headers or cookies, no breadcrumbs, and email / phone /
+bare-code redaction. Boot logs whether it armed, because a quiet error
+reporter looks exactly like an application with no errors.
+
+### Added — Google Cloud Storage behind the existing driver seam
+
+`STORAGE_DRIVER=gcs` switches new uploads to a bucket; local disk stays the
+default and old relative URLs keep resolving from nginx indefinitely. Three
+decisions worth keeping:
+
+- **`application`-purpose uploads never reach the public bucket.** That
+  purpose carries FSSAI licences and identity documents. A
+  `PurposeRoutingDriver` keeps them on local disk, so `GcsDriver` needs no
+  idea what an FSSAI licence is and `UploadsService` needs no idea there is
+  more than one backend.
+- **`ImageSlot.isUpload` is structural** — `/uploads/` or any absolute URL
+  — rather than compared against a `NEXT_PUBLIC_*` build-time inline. That
+  variant would have thrown `Invalid src prop` on every page with a
+  HomeKrafter photo the first time somebody deployed without it set.
+- **`scripts/sync-uploads-to-cloud.mjs`** copies the archive and rewrites
+  the stored URLs across all ten columns that can hold one (including
+  `LaundryBooking.photos`, the `String[]` that would have been missed). It
+  refuses to report success while any row still points at the old prefix,
+  because deleting the local archive early is unrecoverable.
+
+### Added — `/admin/audit`
+
+`GET /admin/audit` has recorded every admin mutation since M8 with no
+screen in front of it, while `docs/PRODUCTION-AUDIT.md` listed an audit log
+among the panel's features. Now true. Its filters are exactly what the
+endpoint supports — action and date filters were cut rather than faked in
+the browser over one page of fifty, which would have lied on the one screen
+whose whole job is being complete.
+
+### Added — moderation SLA on the dashboard
+
+The count said a queue existed; nothing said how long somebody had been in
+it. Two cards above the KPI grid, each linking to the queue that clears it,
+with an explicit all-clear instead of "0 days".
+
+### Fixed — smaller things
+
+- Approve/Reject had no busy state, and Reject fired immediately: one
+  misclick permanently rejected a real applicant. Both now guarded.
+- Wallet top-up had no in-flight state across an `await` that spans the
+  whole payment-widget session. "Waiting for payment…", amount controls
+  disabled, reset in a `finally`.
+- The corporate enquiry detail was the admin dead-end M26-015 missed;
+  three screens kept a bare `Loading…`; the quote-line grid never stacked
+  on a phone.
+- `UPLOAD_MAX_BYTES` documented 5 MB in `.env.example` while the code used
+  12 MB.
+- 503 and 502 responses were labelled `INTERNAL_ERROR`.
+
+### Not done, deliberately
+
+Commission collection, cohort analytics, refund-to-card, payout execution
+and stored image variants remain owner decisions or backlog. The take-rate
+**decision** now carries a date rather than a number.
+
 ## [M26] — The QA sweep, and the test layer that had stopped running — 2026-08-08 (in progress)
 
 `docs/M26-QA-PLAN.md` is the plan for a full-site sweep: every route, every
@@ -88,6 +233,141 @@ demo dataset produces 21 rows against a page size of 25, so there is no page
 2 and the test waited for a "Next" button that was correctly absent. Twenty
 `HKB*` orders, idempotent, removing only its own rows — kept out of
 `seed.ts`, where they would appear in every tester's order history.
+
+### Added — `e2e/sweep.mjs`, the machine half of the sweep
+
+Every route in `docs/route-inventory.tsv`, in every role that can reach it,
+at 1280 and 390 — 172 page-visits — recording axe violations, horizontal
+overflow, dead links, heading-order jumps, `h1` count, broken images,
+unlabelled inputs, undersized pointer targets and console errors, with a
+screenshot per visit.
+
+It does not replace opening pages and looking at them; it is what makes
+looking at them affordable. Nobody notices a 4.4:1 contrast ratio or an
+h2→h4 jump across 87 routes by eye, and those are exactly the defects that
+survive a visual pass. Three properties were worth the effort to get right:
+it seeds `hk_location_v1` **and** the `hk_loc` cookie (setting only the
+cookie leaves the location modal over every screenshot, which is how the
+first run photographed the same dialog 172 times); it scrolls each page to
+force lazy images before measuring, without which every below-fold image
+reads as broken; and it models WCAG 2.5.8's *inline* and *spacing*
+exceptions, without which one false positive per page buries the real ones.
+
+### Fixed — an admin could refund the same order twice, and could not open it at all
+
+Two defects on one screen, `/admin/orders/[type]/[id]`, found by opening it.
+
+**The refund button did not use the refund endpoint.** It posted a raw
+wallet credit to `POST /admin/wallet/:userId/refund` with an
+operator-typed amount, no `Idempotency-Key`, and `refId` set to the order
+*number* rather than its id. That path sets no `refundStatus`, so the same
+order could be refunded again the next day with nothing on the screen
+saying it already had been, and a retry after a timeout credited twice.
+Reproduced against the running API: three calls on a ₹1,499 order took the
+wallet from ₹2,749 to ₹7,246. `POST /admin/orders/:type/:id/refund` —
+idempotent, audited, guarded on `refundStatus`, refuses an unpaid order —
+already existed and was unused. M23 fixed this exact class on the buyer's
+"Place order"; the admin path was never revisited.
+
+The amount field is gone with it. It looked like a partial-refund control
+and behaved like one, but nothing downstream knew the order had been
+refunded at all. A partial adjustment is a different act with a different
+reason and keeps its own screen at `/admin/wallet/[userId]`.
+
+**The screen could not open an order older than the newest 25.** It
+resolved its header — customer and HomeKrafter names, which the `Order`
+table does not carry — by fetching page 1 of `GET /admin/orders` and
+finding the row in the browser. Anything below the fold of that page
+rendered "Order not found." for a record the API returns happily, and the
+refund control lives on that screen. Same shape as `8298b4b`
+(`/admin/catalog/[id]` resolving out of the *public* catalogue). New
+`GET /admin/orders/:type/:id/summary`, built by the same row-builders the
+list uses so the two can never disagree.
+
+`server/test/e2e/admin-order-detail.e2e-spec.ts` covers both: red on the
+parent (4 failed), green after.
+
+### Fixed — gold as text, on every surface the a11y suite does not visit
+
+114 axe `color-contrast` nodes across 24 page-visits. `--hk-gold` carrying
+words measured **2.88:1** on the product page's maker line, 3.2:1 on the
+gift-wrap label, the `/sell` section labels, the wallet and referral
+eyebrows, the seller editors. `--hk-whatsapp` under white on the button
+that starts every Snacks order was 3.09:1. Terracotta on tinted panels,
+3.77–4.09:1.
+
+`CLAUDE.md` has said "gold is never for text" since M1 and
+`--hk-gold-text-sm` exists for exactly this — but the 2026-08-08 contrast
+pass fixed the seven routes in `a11y.spec.ts`'s `PUBLIC_ROUTES` and
+nothing else, which is finding M26-006 cashed out: what is not measured is
+not fixed. 31 stylesheets moved to the text-safe tokens. Zero contrast
+violations remain on any production route.
+
+Three star-rating rules keep `--hk-gold` deliberately, with the reason in
+the file: a filled star is a graphic (WCAG 1.4.11, 3:1, and it measures
+3.2:1), the rating is stated in text beside it, and a muddied star stops
+reading as a rating.
+
+### Fixed — the photo upload could not be operated from a keyboard
+
+`ImageUpload`'s file input sat inside its `role="button"` dropzone: two tab
+stops for one control, the second announced as an unnamed file button.
+42 axe nodes across 18 page-visits — every listing, menu, meal-plan,
+storefront and profile editor, which is every screen where a HomeKrafter
+adds the photograph their listing lives or dies by.
+
+Worth recording for the next person: `tabIndex={-1}` plus `aria-hidden` is
+**not** enough, and axe says so in as many words — "a negative tabindex on
+an element inside an interactive control does not prevent assistive
+technologies from focusing the element". The input has to stop being a
+descendant.
+
+### Fixed — a phone showed one product per screen
+
+`repeat(auto-fill, minmax(200px, 1fr))` cannot fit two columns into a
+358px content width, so every browse grid collapsed to one card per row: a
+501px card on an 844px screen, 4864px of scrolling for six products. The
+announcement strip wrapped to three lines on top of that, so with the
+header there were 193px of chrome and the first product started 588px down
+the opening screen.
+
+Two-up under 640px across all eight browse grids and the loading skeleton;
+the announcement strip is one swipeable line on a phone. Card 501→335px,
+page 4864→2745px, first product 588→523px, no horizontal scroll at 390 or
+320.
+
+### Fixed — smaller things the sweep turned up
+
+- **`/shop` offered filters that could only return nothing.** Facets with a
+  count of zero were fully live — a tap, a page load, an empty grid. Dimmed
+  and disabled now, never hidden (a zero is information, and a list that
+  reshuffles as stock changes is one nobody can learn), and never disabled
+  while *checked*, or the filter that emptied the grid could not be undone.
+- **Six admin "not found" screens were dead ends** — one line in a centred
+  card, no heading, no reason, no way onward. `/admin/orders/[type]/[id]`
+  reported zero headings to a screen reader. One `NotFoundCard` now says
+  what happened, why it might have, and offers the way back; the order
+  detail also gained an `h1` in its success state, where the reference had
+  been a `span`.
+- **Six App Store / Google Play links went nowhere** — both hrefs defaulted
+  to `"#"` and the promo data stored `"#"`. A missing href renders a badge
+  rather than a link now: same shape, no pointer, no tab stop, "coming
+  soon" in the accessible name. Shipping day is a data change.
+- **`/account/notifications` still offered four Laundry switches** for a
+  module withdrawn in M19 — the one screen M26-004 did not reach. Shown
+  only to an account that actually has laundry notifications, on the same
+  reasoning as there.
+- **Header icon buttons rendered at 16px wide** despite declaring 38 —
+  `width` is a suggestion inside a flex row and the search field was
+  winning. Plus nav links at 23px, footer legal links at 18px, chips at 28.
+- Heading-order jumps on `/storefront/[vendor]` and `/seller/reviews`; an
+  unnamed support chat input; an unnamed product select on
+  `/admin/collections/new`.
+- **The admin order screen stopped citing an unshipped milestone.** "Status
+  overrides are still M8 scope" was on the page for a feature
+  `PATCH /admin/orders/:type/:id/status` has implemented and audited since
+  M8. The control itself is deferred — it is a new audited write, not a
+  repair — and recorded as M26-018 so it is not lost.
 
 ## [M25] — One sign-in field, and no photo leaves EXIF behind — 2026-08-08
 

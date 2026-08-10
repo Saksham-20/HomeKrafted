@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatCard } from "./StatCard";
@@ -30,6 +31,17 @@ export function AdminDashboardClient() {
   const { ready, role } = useAuth();
   const [snapshot, setSnapshot] = useState<AdminDashboardSnapshot | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  /**
+   * "Now", captured once when the snapshot lands.
+   *
+   * The queue ages below are relative to it, and nothing may read the
+   * clock during render — same rule as `lib/occasions.ts`, and the same
+   * reason: a component that derives from `Date.now()` while rendering
+   * disagrees with itself between server and client (React #418) and is
+   * impure for the compiler. Taken alongside the data it describes, so
+   * the age is measured against the moment the figures were true.
+   */
+  const [loadedAt, setLoadedAt] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -38,6 +50,7 @@ export function AdminDashboardClient() {
       const snap = await getAdminDashboard();
       if (cancelled) return;
       setSnapshot(snap);
+      setLoadedAt(Date.now());
       setLoading(false);
     })();
     return () => {
@@ -68,6 +81,30 @@ export function AdminDashboardClient() {
           </Link>
         </Card>
       )}
+
+      {/* Moderation SLA (M27). Directly under the applications callout it
+          explains: the count says a queue exists, this says how long
+          somebody has been waiting in it. Each half links to the queue
+          that clears it, because a metric an operator cannot act on from
+          where they read it is a metric they stop reading. */}
+      <div className={styles.slaRow}>
+        <SlaCard
+          label="Oldest application waiting"
+          since={snapshot.oldestPendingApplicationAt}
+          now={loadedAt}
+          count={snapshot.pendingApplicationsCount}
+          href="/admin/sellers"
+          clearText="No applications waiting"
+        />
+        <SlaCard
+          label="Oldest listing waiting"
+          since={snapshot.oldestPendingListingAt}
+          now={loadedAt}
+          count={snapshot.pendingListingsCount ?? 0}
+          href="/admin/catalog/reviews"
+          clearText="No listings waiting review"
+        />
+      </div>
 
       <div className={styles.statGrid}>
         <StatCard label="GMV (all modules)" value={formatCurrency(snapshot.gmvTotal)} hint="Marketplace + laundry + snacks" />
@@ -112,5 +149,52 @@ export function AdminDashboardClient() {
         })}
       </Card>
     </div>
+  );
+}
+
+/**
+ * One half of the moderation SLA row.
+ *
+ * Renders an explicit all-clear rather than a zero: "0 days" reads as a
+ * measurement of something, where "No applications waiting" reads as the
+ * queue being done, which is the actual state and the one worth
+ * recognising.
+ */
+function SlaCard({
+  label,
+  since,
+  now,
+  count,
+  href,
+  clearText,
+}: {
+  label: string;
+  since?: string;
+  /** Captured when the snapshot loaded — never read the clock in render. */
+  now: number;
+  count: number;
+  href: string;
+  clearText: string;
+}) {
+  if (!since || count === 0) {
+    return (
+      <Card className={styles.slaCard}>
+        <span className={styles.slaLabel}>{label}</span>
+        <span className={styles.slaClear}>{clearText}</span>
+      </Card>
+    );
+  }
+
+  const days = Math.floor((now - new Date(since).getTime()) / 86_400_000);
+  const age = days < 1 ? "Today" : days === 1 ? "1 day" : `${days} days`;
+
+  return (
+    <Card className={styles.slaCard}>
+      <span className={styles.slaLabel}>{label}</span>
+      <span className={clsx(styles.slaValue, days >= 3 && styles.slaWarn)}>{age}</span>
+      <Link href={href} className={styles.slaLink}>
+        {count} waiting →
+      </Link>
+    </Card>
   );
 }

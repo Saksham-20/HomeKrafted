@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { LaundryBookingStatus, OrderStatus, Prisma, SnackOrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
@@ -45,6 +50,62 @@ const SNACK_STATUS_MAP: Record<string, SnackOrderStatus> = {
   delivered: 'delivered',
 };
 
+/**
+ * Statuses the override endpoint refuses, per order kind.
+ *
+ * **This is a money rule, not a UI preference (M27).** `overrideStatus`
+ * writes a status and notifies the buyer. That is all it does. The real
+ * cancellation path (`OrdersService#cancelOrder`) additionally refunds to
+ * the wallet, restocks every line, reverses the cashback placement
+ * credited, and stamps `cancelledAt` — all in one transaction. So an
+ * admin setting "cancelled" here would tell a customer their order was
+ * cancelled while moving no money at all, leaving stock decremented and
+ * `cancelledAt` null. The buyer then has a cancellation notification and
+ * no refund, which is the worst possible version of this bug because it
+ * looks handled.
+ *
+ * Enforced here rather than only by omitting the option from
+ * `statusOptions`: a client-side exclusion is a suggestion, and this
+ * endpoint is reachable by any admin session with curl.
+ *
+ * Returns is the same shape — `POST /admin/orders/:type/:id/refund` and
+ * the returns queue own that transition, including the money.
+ */
+const OVERRIDE_FORBIDDEN: Record<AdminOrderType, Record<string, string>> = {
+  marketplace: {
+    cancelled:
+      'Cancel the order through the order cancel path instead — it refunds the buyer, restocks the items and reverses the cashback. This control only records a status.',
+    returned:
+      'Resolve the return through the returns queue instead — it decides the refund. This control only records a status.',
+  },
+  laundry: {
+    cancelled:
+      'Cancel the booking through the booking cancel path instead — this control only records a status and moves no money.',
+  },
+  // Snack orders are WhatsApp-origin with no wallet behind them, so none
+  // of their statuses move money and every one is safe to record here.
+  snack: {},
+};
+
+/**
+ * The statuses an admin may actually pick, per kind — what the summary
+ * endpoint hands the client so it never has to mirror the maps above.
+ *
+ * Named `statusOptions`, deliberately not `allowedStatuses`: these maps
+ * are flat lookup tables with no notion of which transitions are legal
+ * from the current state, so a name promising "allowed" would be a claim
+ * the server does not check, and the next reader would trust it.
+ */
+export function statusOptionsFor(type: AdminOrderType): string[] {
+  const map =
+    type === 'marketplace'
+      ? ORDER_STATUS_MAP
+      : type === 'laundry'
+        ? LAUNDRY_STATUS_MAP
+        : SNACK_STATUS_MAP;
+  return Object.keys(map).filter((s) => !(s in OVERRIDE_FORBIDDEN[type]));
+}
+
 export interface AdminOrderSummary {
   /** `${type}:${the underlying record's id}` — unique across all 3 source tables. */
   id: string;
@@ -58,6 +119,11 @@ export interface AdminOrderSummary {
   status: string;
   total: number;
   placedAt: string;
+  /**
+   * Statuses this order may be overridden to — server-derived, present
+   * only on the single-order `summary` response. See `statusOptionsFor`.
+   */
+  statusOptions?: string[];
 }
 
 /**
@@ -244,6 +310,40 @@ export class AdminOrdersService {
     return mapSnackOrder(snackOrder);
   }
 
+  /**
+   * One list row, by id — the header of `/admin/orders/[type]/[id]`.
+   *
+   * **Why this exists at all.** The client used to build this header by
+   * fetching the *first page* of the unified list and finding the row in
+   * it, the same "no by-id endpoint, resolve from the list" shortcut that
+   * `/admin/catalog/[id]` was fixed out of in `8298b4b`. The list is
+   * paginated at 25 per source, so any order older than the newest 25 of
+   * its kind resolved to `undefined` and the detail screen rendered
+   * "Order not found." — for an order the API itself returns happily. The
+   * refund control lives on that screen, so the practical effect was that
+   * an admin could not refund an order once 25 newer ones existed.
+   *
+   * It deliberately goes through the same `listX` builders rather than
+   * mapping a row again here: a summary that disagreed with the list row
+   * it was reached from would be worse than not having one.
+   */
+  async getSummary(type: AdminOrderType, id: string): Promise<AdminOrderSummary> {
+    const rows =
+      type === 'marketplace'
+        ? await this.listMarketplace(undefined, 1, undefined, id)
+        : type === 'laundry'
+          ? await this.listLaundry(undefined, 1, undefined, id)
+          : await this.listSnack(undefined, 1, undefined, id);
+
+    const summary = rows[0];
+    if (!summary) throw new NotFoundException('Order not found');
+    // Shipped with the row so the client never carries its own copy of
+    // the status tables. A client-side mirror is the `lib/geo.ts` trap:
+    // two lists that must stay identical, drifting silently the first
+    // time only one is edited.
+    return { ...summary, statusOptions: statusOptionsFor(type) };
+  }
+
   async refund(adminUserId: string, type: AdminOrderType, id: string, idempotencyKey?: string) {
     if (type === 'marketplace') {
       const result = await this.ordersService.refundOrder(adminUserId, id, idempotencyKey);
@@ -299,30 +399,63 @@ export class AdminOrdersService {
     );
   }
 
-  async overrideStatus(adminUserId: string, type: AdminOrderType, id: string, status: string) {
+  /**
+   * Record a corrected status on an order an operator can see is wrong.
+   *
+   * Four guards, each of which existed as a live defect until M27 and
+   * none of which is obvious from reading the happy path:
+   *
+   * - **Money-moving statuses are refused** (`OVERRIDE_FORBIDDEN`). This
+   *   endpoint writes a status; it does not refund, restock or reverse
+   *   cashback.
+   * - **`expectedStatus` makes it a compare-and-set.** Two admins on the
+   *   same order with stale option lists would otherwise both write and
+   *   both notify the buyer, last one winning silently.
+   * - **Re-selecting the current status is a no-op**, not a second
+   *   notification. `cancelOrder` has always had this guard; this did not,
+   *   so a double-click told the buyer twice.
+   * - **`deliveredAt` is stamped once.** Re-applying `delivered` used to
+   *   move it, silently restarting the seven-day return window on an
+   *   order that had already nearly run it out.
+   */
+  async overrideStatus(
+    adminUserId: string,
+    type: AdminOrderType,
+    id: string,
+    status: string,
+    expectedStatus?: string,
+  ) {
+    const forbidden = OVERRIDE_FORBIDDEN[type][status];
+    if (forbidden) throw new BadRequestException(forbidden);
+
     if (type === 'marketplace') {
       const dbStatus = ORDER_STATUS_MAP[status];
       if (!dbStatus) throw new BadRequestException(`Invalid marketplace order status "${status}"`);
       const existing = await this.prisma.order.findUnique({ where: { id } });
       if (!existing) throw new NotFoundException('Order not found');
+      this.assertExpectedStatus(existing.status, expectedStatus, ORDER_STATUS_MAP);
+      if (existing.status === dbStatus) return mapOrder(await this.reloadOrder(id));
+
       const updated = await this.prisma.order.update({
         where: { id },
-        // An admin override is the other way an order reaches
-        // `delivered`, so it stamps `deliveredAt` too — otherwise the
-        // return window would silently fall back to `placedAt`.
-        data: { status: dbStatus, ...(dbStatus === 'delivered' ? { deliveredAt: new Date() } : {}) },
+        data: {
+          status: dbStatus,
+          // An admin override is the other way an order reaches
+          // `delivered`, so it stamps `deliveredAt` too — otherwise the
+          // return window would silently fall back to `placedAt`. Only if
+          // it is not already set: re-applying `delivered` must not hand
+          // the buyer a fresh seven days.
+          ...(dbStatus === 'delivered' && !existing.deliveredAt ? { deliveredAt: new Date() } : {}),
+        },
         include: ORDER_INCLUDE,
       });
-      await this.logStatusOverride(adminUserId, 'Order', id, status);
+      await this.logStatusOverride(adminUserId, 'Order', id, status, existing.status);
 
       // An admin override is a real status change, so it owes the buyer
       // the same message the HomeKrafter's own advance would have sent.
       // A support agent fixing a stuck order should not leave the customer
       // less informed than the normal path would have.
       void this.orderNotifications.notifyBuyerOfStatus(id, dbStatus);
-      if (dbStatus === 'cancelled') {
-        void this.orderNotifications.notifyHomeKraftersOfCancellation(id);
-      }
 
       return mapOrder(updated);
     }
@@ -332,8 +465,17 @@ export class AdminOrdersService {
       if (!dbStatus) throw new BadRequestException(`Invalid laundry booking status "${status}"`);
       const existing = await this.prisma.laundryBooking.findUnique({ where: { id } });
       if (!existing) throw new NotFoundException('Booking not found');
+      this.assertExpectedStatus(existing.status, expectedStatus, LAUNDRY_STATUS_MAP);
+      if (existing.status === dbStatus) {
+        return mapLaundryBooking(
+          await this.prisma.laundryBooking.findUniqueOrThrow({
+            where: { id },
+            include: BOOKING_INCLUDE,
+          }),
+        );
+      }
       const updated = await this.prisma.laundryBooking.update({ where: { id }, data: { status: dbStatus }, include: BOOKING_INCLUDE });
-      await this.logStatusOverride(adminUserId, 'LaundryBooking', id, status);
+      await this.logStatusOverride(adminUserId, 'LaundryBooking', id, status, existing.status);
       return mapLaundryBooking(updated);
     }
 
@@ -341,18 +483,64 @@ export class AdminOrdersService {
     if (!dbStatus) throw new BadRequestException(`Invalid snack order status "${status}"`);
     const existing = await this.prisma.snackOrder.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Snack order not found');
+    this.assertExpectedStatus(existing.status, expectedStatus, SNACK_STATUS_MAP);
+    if (existing.status === dbStatus) {
+      return mapSnackOrder(
+        await this.prisma.snackOrder.findUniqueOrThrow({
+          where: { id },
+          include: SNACK_ORDER_INCLUDE,
+        }),
+      );
+    }
     const updated = await this.prisma.snackOrder.update({ where: { id }, data: { status: dbStatus }, include: SNACK_ORDER_INCLUDE });
-    await this.logStatusOverride(adminUserId, 'SnackOrder', id, status);
+    await this.logStatusOverride(adminUserId, 'SnackOrder', id, status, existing.status);
     return mapSnackOrder(updated);
   }
 
-  private async logStatusOverride(adminUserId: string, targetType: string, targetId: string, status: string): Promise<void> {
+  private reloadOrder(id: string) {
+    return this.prisma.order.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE });
+  }
+
+  /**
+   * Compare-and-set against what the operator's screen was showing.
+   *
+   * Optional so existing callers (and the native apps, when they get
+   * here) keep working; when supplied, a mismatch is a 409 rather than a
+   * silent overwrite of whatever the other admin just did.
+   */
+  private assertExpectedStatus(
+    currentDbStatus: string,
+    expectedStatus: string | undefined,
+    map: Record<string, string>,
+  ): void {
+    if (!expectedStatus) return;
+    const expectedDb = map[expectedStatus];
+    if (!expectedDb) {
+      throw new BadRequestException(`Invalid expected status "${expectedStatus}"`);
+    }
+    if (expectedDb !== currentDbStatus) {
+      throw new ConflictException(
+        'This order changed while you were looking at it. Reload and try again.',
+      );
+    }
+  }
+
+  private async logStatusOverride(
+    adminUserId: string,
+    targetType: string,
+    targetId: string,
+    status: string,
+    previousStatus: string,
+  ): Promise<void> {
     await this.auditLog.log({
       actorId: adminUserId,
       action: 'order.status_override',
       targetType,
       targetId,
-      metadata: { status },
+      // Both sides recorded: "who set this to delivered" is answerable
+      // from the status alone, but "what did they change it from" is the
+      // question a dispute actually asks.
+      metadata: { status, previousStatus },
     });
   }
 
@@ -361,9 +549,9 @@ export class AdminOrdersService {
   // (vendor/partner/seller/customer) rather than N+1 querying per row.
   // -----------------------------------------------------------------
 
-  private async listMarketplace(q: string | undefined, depth: number, since?: Date): Promise<AdminOrderSummary[]> {
+  private async listMarketplace(q: string | undefined, depth: number, since?: Date, onlyId?: string): Promise<AdminOrderSummary[]> {
     const orders = await this.prisma.order.findMany({
-      where: { ...marketplaceSearchWhere(q), ...(since ? { placedAt: { gte: since } } : {}) },
+      where: { ...marketplaceSearchWhere(q), ...(since ? { placedAt: { gte: since } } : {}), ...(onlyId ? { id: onlyId } : {}) },
       include: ORDER_INCLUDE,
       orderBy: { placedAt: 'desc' },
       take: depth,
@@ -407,9 +595,9 @@ export class AdminOrdersService {
     });
   }
 
-  private async listLaundry(q: string | undefined, depth: number, since?: Date): Promise<AdminOrderSummary[]> {
+  private async listLaundry(q: string | undefined, depth: number, since?: Date, onlyId?: string): Promise<AdminOrderSummary[]> {
     const bookings = await this.prisma.laundryBooking.findMany({
-      where: { ...laundrySearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}) },
+      where: { ...laundrySearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}), ...(onlyId ? { id: onlyId } : {}) },
       include: BOOKING_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: depth,
@@ -441,9 +629,9 @@ export class AdminOrdersService {
     }));
   }
 
-  private async listSnack(q: string | undefined, depth: number, since?: Date): Promise<AdminOrderSummary[]> {
+  private async listSnack(q: string | undefined, depth: number, since?: Date, onlyId?: string): Promise<AdminOrderSummary[]> {
     const orders = await this.prisma.snackOrder.findMany({
-      where: { ...snackSearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}) },
+      where: { ...snackSearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}), ...(onlyId ? { id: onlyId } : {}) },
       include: SNACK_ORDER_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: depth,

@@ -20,17 +20,30 @@
 #   *looks* like a backup.
 # * **Retention is by count, not by age.** A box that has been off for a
 #   week must not delete its only good copies on the day it comes back.
-# * **It writes to local disk.** That protects against a bad migration, a
-#   dropped table and a bad deploy — not against losing the box. Copying
-#   off-box is the next step and is called out in DEPLOY.md; a local
-#   backup is worth far more than the nothing it replaces, so it ships
-#   first rather than waiting for object storage.
+# * **Off-box copy is opt-in and env-gated** (M27). Set `BACKUP_REMOTE`
+#   to an rclone/gsutil destination and each verified dump is pushed
+#   there, along with the upload archive. Unset, the script behaves
+#   exactly as it did before and says so once per run — a local-only
+#   backup protects against a bad migration, a dropped table and a bad
+#   deploy, but not against losing the box, and the box is a single VPS.
+# * **The uploads directory is backed up too, and that is not incidental.**
+#   `pg_dump` captures the *URLs* of every HomeKrafter's photographs and
+#   none of the bytes. Restoring the database onto a new box without them
+#   gives you a catalogue of broken images that no migration can rebuild:
+#   those files exist nowhere else, and the people who took them are home
+#   cooks who photographed a jar of pickle once.
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/homekrafted}"
 KEEP="${KEEP:-14}"
 DB_NAME="${DB_NAME:-homekrafted}"
 LOG_FILE="${LOG_FILE:-/var/log/homekrafted-backup.log}"
+
+# Off-box destination, e.g. `gs://homekrafted-backups` (gsutil) or a
+# configured rclone remote like `hk-backups:homekrafted`. Empty = disabled.
+BACKUP_REMOTE="${BACKUP_REMOTE:-}"
+# What holds the HomeKrafter photographs. Matches `UPLOAD_DIR`.
+UPLOAD_DIR="${UPLOAD_DIR:-/var/lib/homekrafted/uploads}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -97,7 +110,52 @@ run_backup() {
   done < <(ls -1t "${BACKUP_DIR}"/homekrafted-*.dump 2>/dev/null | tail -n "+$((KEEP + 1))")
   [ "$pruned" -gt 0 ] && log "Pruned ${pruned} old backup(s), keeping ${KEEP}"
 
+  push_off_box "$file"
+
   log "Done. $(ls -1 "${BACKUP_DIR}"/homekrafted-*.dump 2>/dev/null | wc -l) backup(s) on disk."
+}
+
+# Copy the verified dump and the upload archive somewhere that is not this
+# box. Never fatal: a failed push must not lose the local backup that was
+# just taken and verified, so it warns loudly and returns 0. The
+# healthcheck line to watch for is "OFF-BOX PUSH FAILED".
+push_off_box() {
+  local dump="$1"
+
+  if [ -z "$BACKUP_REMOTE" ]; then
+    log "Off-box copy: DISABLED (BACKUP_REMOTE unset) — these dumps and every"
+    log "  HomeKrafter photo exist only on this box. See docs/DEPLOY.md."
+    return 0
+  fi
+
+  local tool
+  if command -v rclone >/dev/null 2>&1; then
+    tool=rclone
+  elif command -v gsutil >/dev/null 2>&1; then
+    tool=gsutil
+  else
+    log "OFF-BOX PUSH FAILED: BACKUP_REMOTE is set but neither rclone nor gsutil is installed."
+    return 0
+  fi
+
+  log "Pushing to ${BACKUP_REMOTE} with ${tool}"
+
+  if [ "$tool" = rclone ]; then
+    rclone copy "$dump" "${BACKUP_REMOTE}/db/" 2>&1 | sed 's/^/  /' \
+      || { log "OFF-BOX PUSH FAILED: database dump"; return 0; }
+    # `sync` rather than `copy` for uploads: it is an archive that only
+    # grows (keys are UUIDs, nothing is overwritten), so sync stays cheap
+    # and still mirrors deletions if the day comes.
+    rclone sync "$UPLOAD_DIR" "${BACKUP_REMOTE}/uploads/" 2>&1 | sed 's/^/  /' \
+      || { log "OFF-BOX PUSH FAILED: uploads"; return 0; }
+  else
+    gsutil -q cp "$dump" "${BACKUP_REMOTE}/db/" \
+      || { log "OFF-BOX PUSH FAILED: database dump"; return 0; }
+    gsutil -m -q rsync -r "$UPLOAD_DIR" "${BACKUP_REMOTE}/uploads/" \
+      || { log "OFF-BOX PUSH FAILED: uploads"; return 0; }
+  fi
+
+  log "Off-box copy complete."
 }
 
 case "${1:-}" in

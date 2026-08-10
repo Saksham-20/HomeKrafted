@@ -95,6 +95,8 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
                     ratio={image?.ratio ?? "1/1"}
                     label={image?.placeholder ?? product.name}
                     src={image?.src}
+                    alt={product.name}
+                    sizes="88px"
                     compact
                   />
                 </Link>

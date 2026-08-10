@@ -23,6 +23,7 @@ import {
   parseIdentifier,
 } from './identifier.util';
 import { SocialLoginDto } from './dto/social-login.dto';
+import { SocialTokenVerifier } from './social-token-verifier';
 import { NAMED_ATTEMPTS, generateReferralCode } from './referral-code.util';
 import { parseDurationToMs } from './duration.util';
 import { JwtPayload } from '../common/types/jwt-payload.type';
@@ -73,6 +74,19 @@ export interface AuthResult extends TokenPair {
   user: PublicUser;
 }
 
+/**
+ * One provider's availability, as reported to the sign-in page.
+ *
+ * `clientId` travels with `enabled` on purpose: it is a public value, and
+ * serving it here rather than duplicating it into a `NEXT_PUBLIC_*`
+ * build-time inline means the two can never disagree. A half-configured
+ * pair otherwise renders a button that can only fail.
+ */
+export interface SocialProviderConfig {
+  enabled: boolean;
+  clientId: string | null;
+}
+
 /** Never leak `passwordHash` (or anything else internal) back to the client. */
 export type PublicUser = Pick<
   User,
@@ -113,6 +127,7 @@ export class AuthService {
     private readonly configService: ConfigService<AppConfig, true>,
     private readonly otpService: OtpService,
     private readonly emailProvider: EmailProviderService,
+    private readonly socialTokens: SocialTokenVerifier,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -454,47 +469,122 @@ export class AuthService {
   }
 
   // ---------------------------------------------------------------------
-  // Social (stub provider — see SocialLoginDto's doc comment)
+  // Social
   // ---------------------------------------------------------------------
 
+  /** What `GET /auth/social/config` reports, so the UI can tell the truth. */
+  socialConfig(): Record<Lowercase<keyof typeof SocialProvider>, SocialProviderConfig> {
+    const describe = (provider: SocialProvider): SocialProviderConfig => ({
+      enabled: this.socialTokens.isConfigured(provider),
+      clientId: this.socialTokens.clientIdFor(provider),
+    });
+    return {
+      google: describe(SocialProvider.google),
+      apple: describe(SocialProvider.apple),
+    };
+  }
+
+  /**
+   * Sign in with a Google or Apple id-token.
+   *
+   * Two account-takeover paths met here, and both are closed by rules
+   * that are easy to undo by accident:
+   *
+   * **1. The token is verified, and identity comes only from its claims.**
+   * Until M27 this method trusted a posted `email` and issued a session
+   * for whatever account matched — including the admin. `SocialTokenVerifier`
+   * now checks the signature against the provider's published keys before
+   * anything is looked up.
+   *
+   * **2. An unverified local account is taken over, not inherited.**
+   * Verifying the token alone does *not* close the hole, and this is the
+   * subtle half. `register` never sets `emailVerified` — only the OTP path
+   * does — so an attacker can register `victim@gmail.com` with a password
+   * of their choosing and wait. When the real owner later clicks
+   * "Continue with Google" with a genuinely valid token, a naive
+   * link-by-email hands them a session *inside the attacker's account*,
+   * which still has the attacker's password on it. So: auto-link only to
+   * an already-verified account; otherwise seize it — revoke every
+   * session, drop the password, and stamp the address verified, because
+   * the provider has just proved who owns it.
+   *
+   * Admins are refused outright, matching `verifyOtp`'s refusal of the
+   * test-code bypass: it keeps "someone reached the founder's inbox" out
+   * of the admin blast radius.
+   */
   async socialLogin(provider: SocialProvider, dto: SocialLoginDto): Promise<AuthResult> {
+    const identity = await this.socialTokens.verify(provider, dto.idToken, dto.nonce);
+
     const existingLink = await this.prisma.socialAccount.findUnique({
-      where: { provider_providerAccountId: { provider, providerAccountId: dto.providerAccountId } },
+      where: {
+        provider_providerAccountId: { provider, providerAccountId: identity.providerAccountId },
+      },
       include: { user: true },
     });
 
     if (existingLink) {
       this.assertNotSuspended(existingLink.user);
+      this.assertNotAdmin(existingLink.user, provider);
       return this.issueSession(existingLink.user);
     }
 
-    // No linked account yet — match by email if provided, else create new.
-    let user = dto.email ? await this.prisma.user.findUnique({ where: { email: dto.email } }) : null;
+    // Only an address the provider vouches for may be used to find an
+    // existing account. An unverified provider email is a claim, not proof.
+    const matchableEmail = identity.emailVerified ? identity.email : undefined;
+    let user = matchableEmail
+      ? await this.prisma.user.findUnique({ where: { email: matchableEmail } })
+      : null;
 
     if (user) {
       this.assertNotSuspended(user);
-      await this.prisma.socialAccount.create({
-        data: { userId: user.id, provider, providerAccountId: dto.providerAccountId },
-      });
-      if (!user.authProviders.includes(provider as unknown as 'google' | 'apple')) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { authProviders: { push: provider as unknown as 'google' | 'apple' } },
+      this.assertNotAdmin(user, provider);
+
+      const seizing = !user.emailVerified;
+      user = await this.prisma.$transaction(async (tx) => {
+        if (seizing) {
+          // The pre-registration case. Whoever set this password never
+          // proved they hold the address; the person in front of us just
+          // did. Every existing session dies with the password.
+          await tx.refreshToken.deleteMany({ where: { userId: user!.id } });
+        }
+        await tx.socialAccount.create({
+          data: { userId: user!.id, provider, providerAccountId: identity.providerAccountId },
         });
+        return tx.user.update({
+          where: { id: user!.id },
+          data: {
+            emailVerified: true,
+            ...(seizing ? { passwordHash: null } : {}),
+            ...(user!.authProviders.includes(provider as unknown as 'google' | 'apple')
+              ? {}
+              : { authProviders: { push: provider as unknown as 'google' | 'apple' } }),
+          },
+        });
+      });
+
+      if (seizing) {
+        this.logger.warn(
+          `Social sign-in seized unverified account ${user.id}: sessions revoked and password cleared after a verified ${provider} token proved ownership of the address.`,
+        );
       }
     } else {
-      const referralCode = await this.uniqueReferralCode(dto.name ?? provider);
+      const displayName = identity.name ?? dto.name ?? 'Homekrafted user';
+      const referralCode = await this.uniqueReferralCode(displayName);
       user = await this.prisma.$transaction(async (tx) => {
         const created = await tx.user.create({
           data: {
-            name: dto.name ?? 'Homekrafted user',
-            email: dto.email,
+            name: displayName,
+            // An unverified provider email is not stored as this account's
+            // email: `User.email` is unique and doubles as a login handle,
+            // so squatting one here would block the real owner later.
+            email: matchableEmail,
+            emailVerified: Boolean(matchableEmail),
             authProviders: [provider as unknown as 'google' | 'apple'],
             referralCode,
           },
         });
         await tx.socialAccount.create({
-          data: { userId: created.id, provider, providerAccountId: dto.providerAccountId },
+          data: { userId: created.id, provider, providerAccountId: identity.providerAccountId },
         });
         await tx.wallet.create({ data: { userId: created.id } });
         await tx.loyaltyAccount.create({ data: { userId: created.id } });
@@ -503,6 +593,22 @@ export class AuthService {
     }
 
     return this.issueSession(user);
+  }
+
+  /**
+   * Admins do not sign in through a social provider.
+   *
+   * Same reasoning as `verifyOtp`'s refusal of the test-code bypass: the
+   * admin account can change payout details, so its recovery surface
+   * should not extend to "whoever controls that Google inbox". Admins
+   * have email and password.
+   */
+  private assertNotAdmin(user: User, provider: SocialProvider): void {
+    if (user.role === 'admin') {
+      throw new UnauthorizedException(
+        `Admin accounts cannot sign in with ${provider === SocialProvider.google ? 'Google' : 'Apple'} — use email and password.`,
+      );
+    }
   }
 
   // ---------------------------------------------------------------------

@@ -46,6 +46,29 @@ export interface AppConfig {
     /** E.164-ish phone numbers the `testCode` is accepted for. Empty = bypass disabled. */
     testPhones: string[];
   };
+  social: {
+    /**
+     * Google OAuth client ids accepted as the `aud` of an id-token.
+     *
+     * A **list**, because `server/` is shared with the native apps and
+     * Google issues one client id per platform. The first entry is the
+     * web one and is what `GET /auth/social/config` hands the browser.
+     * Empty = Google sign-in is off: the endpoint answers 503 and no
+     * button renders.
+     */
+    google: { clientIds: string[] };
+    /** Apple Services ids, same shape and same rules as Google's. */
+    apple: { serviceIds: string[] };
+    /**
+     * Points JWKS fetching at a local key set so the e2e suite can mint
+     * tokens it controls. **Refused in production by `validateEnv`** — a
+     * knob that redirects where signing keys come from is a mint-your-own
+     * -Google bypass, which is precisely the hole this whole feature
+     * exists to close. It replaces only the URL; issuer and audience stay
+     * real, so "a wrong-issuer token is refused" stays testable.
+     */
+    jwksUrlOverride: string;
+  };
   razorpay: {
     keyId: string;
     keySecret: string;
@@ -85,7 +108,30 @@ export interface AppConfig {
     /** URL prefix nginx maps to `dir`. Also the prefix stored in the database. */
     publicPrefix: string;
     maxBytes: number;
+    gcs: {
+      bucket: string;
+      /**
+       * Public origin the bucket is served from, no trailing slash.
+       * Defaults to `https://storage.googleapis.com/<bucket>`; set it to a
+       * custom domain once Cloud CDN is in front, which is also where the
+       * `nosniff`/CSP response headers nginx adds today get restored.
+       */
+      publicBaseUrl: string;
+      /** Path to a service-account key file. Mutually exclusive with `credentialsJson`. */
+      keyFile: string;
+      /** The key itself, inline — friendlier under pm2 than shipping a file. */
+      credentialsJson: string;
+      projectId: string;
+    };
   };
+}
+
+/** Comma-separated env value → trimmed, non-empty entries. */
+function csv(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export default (): AppConfig => ({
@@ -115,6 +161,11 @@ export default (): AppConfig => ({
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+  },
+  social: {
+    google: { clientIds: csv(process.env.GOOGLE_CLIENT_IDS) },
+    apple: { serviceIds: csv(process.env.APPLE_SERVICE_IDS) },
+    jwksUrlOverride: (process.env.SOCIAL_JWKS_URL_OVERRIDE ?? '').trim(),
   },
   razorpay: {
     keyId: process.env.RAZORPAY_KEY_ID ?? '',
@@ -153,5 +204,17 @@ export default (): AppConfig => ({
     // a capped WebP first. The limit is an abuse ceiling, not a storage
     // budget, and 5MB used to reject an ordinary photo off a phone.
     maxBytes: parseInt(process.env.UPLOAD_MAX_BYTES ?? '12582912', 10),
+    gcs: {
+      bucket: (process.env.GCS_BUCKET ?? '').trim(),
+      publicBaseUrl: (
+        process.env.GCS_PUBLIC_BASE_URL ??
+        (process.env.GCS_BUCKET ? `https://storage.googleapis.com/${process.env.GCS_BUCKET.trim()}` : '')
+      )
+        .trim()
+        .replace(/\/$/, ''),
+      keyFile: (process.env.GCS_KEY_FILE ?? '').trim(),
+      credentialsJson: (process.env.GCS_CREDENTIALS_JSON ?? '').trim(),
+      projectId: (process.env.GCS_PROJECT_ID ?? '').trim(),
+    },
   },
 });

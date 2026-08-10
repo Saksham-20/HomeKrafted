@@ -35,6 +35,26 @@
   gap: var(--hk-s2);
 }
 
+/* Google's own rendered button lives here (M27).
+   It is an iframe we are not permitted to restyle, so this wrapper only
+   reserves the same footprint our pill occupies — matching height and a
+   flex basis that lets it sit level beside the Apple button. Do not add
+   colour, border or radius rules targeting its internals: they will not
+   apply, and the next person will waste an hour finding out why. */
+.googleSlot {
+  flex: 1 1 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+/* GIS renders a fixed-width button; let it fill the slot on narrow cards
+   so it doesn't sit orphaned to one side. */
+.googleSlot > div {
+  width: 100%;
+}
+
 .socialButton {
   flex: 1 1 130px;
   display: flex;

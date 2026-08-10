@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { OrderRow } from "./OrderRow";
@@ -82,7 +82,11 @@ export function MakerOrdersClient() {
       </div>
 
       {filtered.length === 0 ? (
-        <Card className={styles.empty}>No orders in this status.</Card>
+        <EmptyState
+          title="No orders in this status."
+          body="Orders move through placed, packed, shipped and delivered — try another tab. If every tab is empty, nothing has come in yet; sharing your storefront is the fastest way to change that."
+          action={{ href: "/seller/listings", label: "Your listings" }}
+        />
       ) : (
         <div className={styles.list}>
           {filtered.map((order) => (

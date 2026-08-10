@@ -4,6 +4,7 @@ import { NotificationProvidersModule } from '../notifications/providers/provider
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpService } from './otp.service';
+import { SocialTokenVerifier } from './social-token-verifier';
 
 @Module({
   // `NotificationProvidersModule` (not the whole `NotificationsModule`)
@@ -11,7 +12,7 @@ import { OtpService } from './otp.service';
   // without depending on the inbox/preferences feature.
   imports: [JwtModule.register({}), NotificationProvidersModule],
   controllers: [AuthController],
-  providers: [AuthService, OtpService],
+  providers: [AuthService, OtpService, SocialTokenVerifier],
   exports: [AuthService],
 })
 export class AuthModule {}

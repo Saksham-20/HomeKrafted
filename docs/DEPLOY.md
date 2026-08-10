@@ -300,10 +300,41 @@ That restores the newest dump into a throwaway database, prints row
 counts for `User`/`Order`/`Product`, and drops it. The day you find out a
 backup doesn't restore should never be the day you need it.
 
-> **This writes to local disk.** It protects against a bad migration, a
-> dropped table and a bad deploy — not against losing the box. Copying
-> the dumps off-box (S3, Backblaze, even another VPS via `rsync`) is the
-> remaining half, and is still owed.
+### Getting the copies off the box (M27)
+
+A local backup covers a bad migration, a dropped table and a bad deploy.
+It does not cover losing the VPS, and this is a single VPS.
+
+```bash
+# In the cron environment (/etc/cron.d/homekrafted-backup) or the shell
+# you run the script from:
+export BACKUP_REMOTE="gs://homekrafted-backups"   # or an rclone remote
+```
+
+Set, each verified dump is pushed there **and the upload archive is
+mirrored**. Unset, nothing changes and the log says so once per run.
+
+**The uploads half is the part people skip, and it is the unrecoverable
+one.** `pg_dump` captures the *URLs* of every HomeKrafter's photographs
+and none of the bytes. Restore the database onto a new box without
+`/var/lib/homekrafted/uploads` and you have a catalogue of broken images
+that no migration can rebuild — those files exist nowhere else, and the
+people who took them are home cooks who photographed a jar of pickle
+once.
+
+**Harden the destination**, because a backup the box can delete is not a
+backup:
+
+- The service account gets **`roles/storage.objectCreator` only** — create,
+  not delete or overwrite. Whoever owns the box then cannot destroy its
+  own backups, which is the ransomware shape.
+- Turn on **object versioning** and a **retention policy** on the bucket.
+- Add a **lifecycle rule** to expire old versions, or it grows forever.
+- Keep it a **separate, private bucket** from the public uploads one.
+
+Watch for `OFF-BOX PUSH FAILED` in `/var/log/homekrafted-backup.log`. A
+failed push is deliberately non-fatal — it must never discard the local
+backup that was just taken and verified — so nothing else will tell you.
 
 ### Uptime checks
 

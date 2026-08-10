@@ -1,0 +1,161 @@
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s4);
+}
+
+.filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 220px;
+}
+
+.filterLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.select,
+.input {
+  min-height: 44px;
+  padding: 0 var(--hk-s3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-body);
+  font-size: 14px;
+  width: 100%;
+}
+
+.error {
+  margin-bottom: var(--hk-s4);
+  color: var(--hk-terracotta-text);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  text-align: left;
+}
+
+.emptyTitle {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  color: var(--hk-ink);
+}
+
+.emptyBody {
+  color: var(--hk-muted);
+  font-size: 14px;
+  max-width: 60ch;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rowHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+/* The action slug, shown as the system writes it. Mono because it is
+   system vocabulary on a forensic screen — it is also what you would
+   grep the logs for. */
+.action {
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  color: var(--hk-ink);
+  overflow-wrap: anywhere;
+}
+
+.when {
+  font-size: 13px;
+  color: var(--hk-muted);
+  white-space: nowrap;
+}
+
+.actor {
+  font-size: 14px;
+  color: var(--hk-ink-2);
+}
+
+.target {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.targetType,
+.targetId {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-muted);
+  overflow-wrap: anywhere;
+}
+
+.metadata {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) 1fr;
+  gap: 2px var(--hk-s3);
+  margin: 4px 0 0;
+  padding-top: var(--hk-s2);
+  border-top: 1px solid var(--hk-border-2);
+}
+
+.metaKey {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-muted-2);
+}
+
+.metaValue {
+  margin: 0;
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s4);
+}
+
+.pageCount {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+@media (max-width: 520px) {
+  .metadata {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .metaKey {
+    margin-top: var(--hk-s2);
+  }
+}

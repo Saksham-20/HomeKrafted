@@ -11,6 +11,7 @@ import { ApiError } from "@/lib/api/http";
 import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
 import { guessIdentifierKind, type IdentifierKind } from "@/lib/auth/identifier";
 import { SocialSignIn } from "./SocialSignIn";
+import type { SocialConfig } from "@/lib/api/auth";
 import type { UserRole } from "@/lib/types";
 import styles from "./LoginClient.module.css";
 
@@ -52,7 +53,18 @@ import styles from "./LoginClient.module.css";
 
 type Step = "password" | "name" | "code";
 
-export function LoginClient() {
+type LoginClientProps = {
+  /**
+   * Which social providers are usable, resolved on the server by the
+   * route wrapper. Passed in rather than fetched here so the sign-in page
+   * does not spend the per-IP auth throttle budget on every render — an
+   * office behind one NAT would exhaust it and the only symptom would be
+   * buttons that sometimes aren't there.
+   */
+  socialConfig: SocialConfig;
+};
+
+export function LoginClient({ socialConfig }: LoginClientProps) {
   const router = useRouter();
   const {
     isSignedIn,
@@ -208,10 +220,13 @@ export function LoginClient() {
     }
   }
 
-  async function handleSocial(provider: "google" | "apple") {
+  async function handleSocial(
+    provider: "google" | "apple",
+    credential: { idToken: string; nonce?: string },
+  ) {
     setError(null);
     try {
-      redirectForRole(await signInSocial(provider));
+      redirectForRole(await signInSocial(provider, credential));
     } catch (err) {
       setError(friendlyError(err));
     }
@@ -439,7 +454,12 @@ export function LoginClient() {
           </div>
         )}
 
-        <SocialSignIn onSelect={handleSocial} disabled={busy} action="Continue" />
+        <SocialSignIn
+          config={socialConfig}
+          onCredential={handleSocial}
+          disabled={busy}
+          action="Continue"
+        />
       </Card>
 
       {error && (

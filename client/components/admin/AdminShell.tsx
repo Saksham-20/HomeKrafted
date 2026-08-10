@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Banknote, BarChart3, Building2, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ShoppingBag, SlidersHorizontal, Store, Users, Wallet } from "lucide-react";
+import { Banknote, BarChart3, Building2, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ScrollText, ShoppingBag, SlidersHorizontal, Store, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import styles from "./AdminShell.module.css";
@@ -36,6 +36,10 @@ const NAV: AdminNavItem[] = [
   { label: "Corporate", href: "/admin/corporate", icon: Building2 },
   { label: "Collections", href: "/admin/collections", icon: FolderOpen },
   { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  // M27. The rows have been written since M8 and read by nobody — the
+  // endpoint existed with no screen in front of it, while the production
+  // audit listed an audit log as a feature of this panel.
+  { label: "Audit", href: "/admin/audit", icon: ScrollText },
   // M16 (M5). Last on purpose — a platform-wide value changes rarely and
   // is the one thing here that affects every other surface.
   { label: "Settings", href: "/admin/settings", icon: SlidersHorizontal },

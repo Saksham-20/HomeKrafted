@@ -28,6 +28,11 @@ export interface RouteMessageProps {
  * portal and inside the admin panel are the same message in three
  * different shells — the shell is supplied by the route group's layout,
  * so this component only owns the panel itself and stays chrome-free.
+ *
+ * Its neighbour `NotFoundCard` is the other half of this pair and the two
+ * are easy to confuse by name: that one is a card inside a page that
+ * loaded fine and returned **200**, where the *record* is missing. This
+ * one is the whole route failing to resolve.
  */
 export function RouteMessage({
   eyebrow,

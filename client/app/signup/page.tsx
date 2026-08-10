@@ -1,4 +1,5 @@
 import { LoginClient } from "@/components/auth/LoginClient";
+import { getSocialConfig } from "@/lib/api/auth";
 
 /**
  * Sign up — the same screen as `/login` since M25.
@@ -9,7 +10,12 @@ import { LoginClient } from "@/components/auth/LoginClient";
  * route is kept rather than redirected — "create an account" links exist
  * in the wild, and a 200 on the form they expected is better than a
  * bounce.
+ *
+ * Social config is read server-side for the same reasons as `/login`.
  */
-export default function SignupPage() {
-  return <LoginClient />;
+export const dynamic = "force-dynamic";
+
+export default async function SignupPage() {
+  const socialConfig = await getSocialConfig();
+  return <LoginClient socialConfig={socialConfig} />;
 }

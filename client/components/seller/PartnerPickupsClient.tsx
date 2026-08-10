@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { PickupRow } from "./PickupRow";
@@ -88,7 +88,10 @@ export function PartnerPickupsClient() {
       </div>
 
       {filtered.length === 0 ? (
-        <Card className={styles.empty}>No pickups in this status.</Card>
+        <EmptyState
+          title="No pickups in this status."
+          body="Pickups appear here once a booking is assigned to you. Try another tab to see the ones already in progress."
+        />
       ) : (
         <div className={styles.list}>
           {filtered.map((booking) => (

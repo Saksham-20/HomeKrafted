@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SellerReviewCard } from "./SellerReviewCard";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
@@ -62,7 +62,11 @@ export function SellerReviewsClient() {
       />
 
       {reviews.length === 0 ? (
-        <Card className={styles.empty}>No reviews yet.</Card>
+        <EmptyState
+          title="No reviews yet."
+          body="A review can only be left by someone whose order was delivered, so the first one arrives after your first completed order. They show on your storefront as they come in."
+          action={{ href: "/seller/orders", label: "Your orders" }}
+        />
       ) : (
         <div className={styles.list}>
           {reviews.map((review) => (

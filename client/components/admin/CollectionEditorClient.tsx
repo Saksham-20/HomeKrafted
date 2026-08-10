@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getCollectionsAdmin, getOccasionsAdmin, getProducts, upsertCollection } from "@/lib/api";
@@ -127,18 +129,17 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading…</div>;
+    return <RouteSkeleton variant="page" />;
   }
 
   if (notFound) {
     return (
-      <div>
-        <Link href="/admin/collections" className={styles.back}>
-          <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          Back to collections
-        </Link>
-        <Card className={styles.notFound}>Collection not found.</Card>
-      </div>
+      <NotFoundCard
+        title="We couldn’t find that collection"
+        body="No gift guide or occasion collection matches this id. It may have been deleted since this link was made."
+        backHref="/admin/collections"
+        backLabel="Back to collections"
+      />
     );
   }
 
@@ -246,7 +247,12 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
           </div>
         )}
         <div className={styles.addRow}>
-          <select className={styles.select} value={addProductId} onChange={(event) => setAddProductId(event.target.value)}>
+          <select
+            className={styles.select}
+            aria-label="Select a product to add to this collection"
+            value={addProductId}
+            onChange={(event) => setAddProductId(event.target.value)}
+          >
             <option value="">Select a product to add…</option>
             {availableToAdd.map((p) => (
               <option key={p.id} value={p.id}>

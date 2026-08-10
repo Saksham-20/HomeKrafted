@@ -6,7 +6,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Textarea";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { AdminPageHeader } from "./AdminPageHeader";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { StatusPill } from "./StatusPill";
 import {
   createCorporateQuote,
@@ -149,8 +151,18 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
     });
   }
 
-  if (loading) return <div className={styles.loading}>Loading…</div>;
-  if (!inquiry) return <div className={styles.loading}>Enquiry not found.</div>;
+  if (loading) return <RouteSkeleton variant="page" />;
+  if (!inquiry) {
+    return (
+      <NotFoundCard
+        title="We couldn’t find that enquiry"
+        body="Nothing matches this id. It may have been opened from a stale tab, or the enquiry may have been removed since."
+        reference={inquiryId}
+        backHref="/admin/corporate"
+        backLabel="Back to enquiries"
+      />
+    );
+  }
 
   return (
     <div>

@@ -66,10 +66,16 @@ remains is Phase 2 onward — see §7.
 | C4 ✅ | **Fixed in M15.** **Disputes have no admin surface.** `SupportTicket`/`SupportMessage` models and the customer-side `/support/tickets` API exist. No `/admin/support*` endpoint, no admin nav entry, no page. Tickets are written and never read. | `server/src/support/support.controller.ts`, `client/components/admin/AdminShell.tsx:31-38` |
 | C5 ✅ | **Fixed in M15.** **No customer cancellation, return or refund request.** `RefundStatus` carries `requested`, and admins can push a refund from `/admin/orders/:type/:id/refund` — but no customer-facing path reaches `requested`, and no order screen offers "cancel". The only listed remedy is a support ticket nobody reads (C4). | `server/prisma/schema.prisma` (`RefundStatus`), grep of `client/app` + `client/components` for cancel/return |
 
+| C6 ✅ | **Fixed in M26.** **The admin order screen refunded through the wallet, not through the refund endpoint** — no `Idempotency-Key`, no `refundStatus` write, `refId` set to the order number. The same order could be refunded again the next day, and three clicks credited three times. Measured against the running API: ₹2,749 → ₹7,246 on a ₹1,499 order. The audited, idempotent `POST /admin/orders/:type/:id/refund` already existed and was unused. | `client/components/admin/OrderDetailClient.tsx`, `server/test/e2e/admin-order-detail.e2e-spec.ts` |
+
 ### 2.2 High
 
 | # | Finding | Evidence |
 |---|---|---|
+| H10 ✅ | **Fixed in M26.** **`/admin/orders/[type]/[id]` could not open an order older than the newest 25**, because it resolved its header out of page 1 of the unified list. The refund control is on that screen. Same shape as `8298b4b`'s `/admin/catalog/[id]`. | `GET /admin/orders/:type/:id/summary`; spec red on the parent |
+| H11 ✅ | **Fixed in M26.** **114 axe contrast failures across 24 page-visits** — `--hk-gold` as text at 2.88:1 on the product page, `--hk-whatsapp` under white at 3.09:1 on the Snacks CTA, terracotta on tinted panels at 3.77–4.09:1. The 2026-08-08 pass fixed the seven routes `a11y.spec.ts` visits and nothing else. Zero remain on any production route. | `e2e/sweep.mjs`; 31 stylesheets |
+| H12 ✅ | **Fixed in M26.** **The photo upload was not keyboard-operable** — the file input sat inside its own `role="button"` dropzone on every listing, menu, meal-plan, storefront and profile editor. | `client/components/ui/ImageUpload.tsx` |
+| H13 ✅ | **Fixed in M26.** **Every browse grid showed one product per row on a phone** — a 501px card on an 844px screen, 4864px of scroll for six products, with 193px of chrome above the fold. | Eight grid stylesheets + `AnnouncementBar.module.css` |
 | H1 ✅ | **Fixed in M15.** **No error, loading or 404 boundaries.** The app has zero `error.tsx`, `not-found.tsx`, `loading.tsx` or `global-error.tsx` files. `notFound()` is called by product, storefront and collection pages and lands on Next's unstyled default; any thrown render error takes the whole page white. | `find client/app -name 'error.tsx' -o -name 'not-found.tsx'` → empty |
 | H2 ✅ | **Fixed in M15.** **SEO is effectively absent.** Two of 65 route files export metadata (`layout`, `about`). No `sitemap.ts`, no `robots.ts`, no canonical URLs, no Open Graph images, no JSON-LD (`Product`, `Offer`, `AggregateRating`, `LocalBusiness`, `BreadcrumbList`). A discovery marketplace that cannot be discovered. | grep for `generateMetadata` across `client/app` |
 | H3 ✅ | **Fixed in M15.** **Follow is fake.** `FollowButton` is local `useState` with a comment saying "no persistence yet". `VendorFollow` exists in the schema with a `@@unique([userId, vendorId])` — no endpoint, no mutation, no `/account/following`. `Vendor.followerCount` is decorative. | `client/components/storefront/FollowButton.tsx`, `server/prisma/schema.prisma` (`VendorFollow`) |
@@ -98,9 +104,9 @@ remains is Phase 2 onward — see §7.
 |---|---|
 | L1 | ✅ **M17.** `server/test/unit/geo-parity.spec.ts` now fails if the two copies drift by so much as a decimal place. |
 | L2 | `WalletContext` still holds client-side wallet state alongside the real wallet API in places; the balance shown is context-derived. |
-| L3 | The dev gallery (`/gallery`) is unlinked but publicly routable in production. |
+| L3 | The dev gallery (`/gallery`) is unlinked and `notFound()`s in production; `robots.txt` also disallows it. (This line claimed it was publicly routable until M27 — it is not.) |
 | L4 | ✅ **M17**, extended M18. 416 tests: 88 client unit, 88 server unit, 240 server e2e against a real Postgres, plus CI running all of it on every push. See `docs/TESTS.md`. |
-| L5 | No rate limiting visible on auth/OTP endpoints beyond what nginx provides. |
+| L5 | ✅ **Not true, verified M27.** `@Throttle(AUTH_THROTTLE)` is on all eight auth routes (`server/src/auth/auth.controller.ts`), reading `THROTTLE_AUTH_LIMIT`/`THROTTLE_AUTH_TTL_SECONDS` (20/60s by default), and `app.set('trust proxy', 1)` means it keys on the real client IP rather than nginx's. |
 | L6 | `handoff/prototype` ships in the repo (correctly excluded from lint, but still deployed source). |
 
 ### 2.5 Not found — things that are fine

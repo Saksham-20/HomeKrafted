@@ -70,7 +70,45 @@ the API uses, and refuses the leaked one. Then check `AdminAuditLog` for
 anything you did not do — as of 2026-08-02 it held a single legitimate
 entry (a seller-application approval on 2026-07-30).
 
-### 0.4 Social sign-in verifies nothing — account takeover ⛔
+### 0.4 Social sign-in — the takeover class is closed ✅ (keys still needed to turn it on)
+
+**Fixed in code (M27), 2026-08-09.** `POST /auth/social/:provider` now
+verifies a real Google/Apple id-token against the provider's published
+keys before anything is looked up, and identity comes only from the
+verified payload. The old body is a **structural 400**, not an ignored
+field:
+
+```
+POST /api/v1/auth/social/google
+{"providerAccountId":"anything","email":"admin@homekrafted.example"}
+→ 400 VALIDATION_ERROR   (was: 200 + an admin session)
+```
+
+Verified against a running server on 2026-08-09.
+
+**A second takeover was found in review and closed with it.** `register`
+never sets `emailVerified`, so an attacker could pre-register a victim's
+address with their own password and inherit the victim's first real Google
+sign-in. Auto-linking now requires an already-verified account; otherwise
+the sign-in seizes it (sessions revoked, password cleared). Admin accounts
+cannot use social sign-in at all.
+
+**What remains is configuration, and it is no longer a security gate.**
+With `GOOGLE_CLIENT_IDS` unset the provider is simply off: the endpoint
+answers 503 and no button renders. Setting it turns the feature on. An
+Apple Services ID ($99/yr) is optional and only needed if that button
+should exist at launch.
+
+Files: `server/src/auth/social-token-verifier.ts`,
+`server/src/auth/auth.service.ts` (`socialLogin`),
+`server/src/auth/dto/social-login.dto.ts`,
+`client/components/auth/SocialSignIn.tsx`.
+Pinned by `server/test/e2e/social-login.e2e-spec.ts` (22 cases).
+
+<details>
+<summary>The original finding, kept for the reasoning</summary>
+
+### 0.4 (historical) Social sign-in verifies nothing — account takeover
 
 **Found by the production audit 2026-08-06. Confirmed exploitable against
 a running server, not a code-reading guess.**
@@ -108,6 +146,8 @@ password rotation does **not** help: this path never checks a password.
 Files: `server/src/auth/auth.service.ts` (`socialLogin`),
 `server/src/auth/dto/social-login.dto.ts`,
 `client/components/auth/SocialSignIn.tsx`.
+
+</details>
 
 ### 0.2 Demo accounts: kept, deliberately, for now
 
@@ -168,6 +208,9 @@ not happen. That is the dangerous shape: it looks fine.
 | **Razorpay live** | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | No money moves. Since 2026-08-07 the UI **says so** rather than pretending: `GET /payments/razorpay/config` reports the truth, the wallet's Add money card reads "not available yet", and checkout disables the Card / UPI tile. Before that fix the buttons were live and opened a Checkout widget that hung silently (see `docs/API.md`) | **Taking payment** — a shopper whose wallet balance can't cover an order currently cannot check out at all |
 | **WhatsApp Cloud API** | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` | Snack orders and status updates are logged, never sent | **The entire snacks module**, whose only ordering channel is WhatsApp |
 | **SendGrid** (email) | `SENDGRID_API_KEY` | No transactional email at all | Order confirmations, receipts |
+| **Google sign-in** | `GOOGLE_CLIENT_IDS` (comma-separated; web id first) | The Google button does not render and the endpoint answers 503. **Not a security hole any more** (M27) — just a feature that is off | Social sign-in only |
+| **Sentry** | `SENTRY_DSN` | 500s are visible only in pm2 logs. The boot line says `Sentry: OFF` so this cannot be mistaken for "no errors" | Knowing when checkout breaks |
+| **Off-box backups** | a private GCS bucket + credentials | `pg_dump`s and **every HomeKrafter photo** exist only on the VPS. Losing the box loses both | Surviving the box |
 | **`NEXT_PUBLIC_SITE_URL`** | client env | Canonicals and OG tags point at the wrong host | SEO, link previews |
 
 Razorpay also needs the **webhook** registered against

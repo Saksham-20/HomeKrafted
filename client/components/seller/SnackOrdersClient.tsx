@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SnackOrderRow } from "./SnackOrderRow";
@@ -81,7 +81,11 @@ export function SnackOrdersClient() {
       </div>
 
       {filtered.length === 0 ? (
-        <Card className={styles.empty}>No orders in this status.</Card>
+        <EmptyState
+          title="No orders in this status."
+          body="Snack orders arrive over WhatsApp and appear here once recorded. Try another tab — if all of them are empty, none have come in yet."
+          action={{ href: "/seller/menu", label: "Your menu" }}
+        />
       ) : (
         <div className={styles.list}>
           {filtered.map((order) => (

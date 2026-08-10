@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { storageStateFor } from '../fixtures/accounts';
 import { skipLocationPrompt } from '../fixtures/location';
+import { PUBLIC_ROUTES } from './public-routes';
 
 /**
  * Sweep chunk 8 — what every page owes at every width.
@@ -11,7 +12,6 @@ import { skipLocationPrompt } from '../fixtures/location';
  * sideways" is true forever and is the thing a visitor actually feels.
  */
 
-const PUBLIC_ROUTES = ['/', '/shop', '/snacks', '/gifts', '/hamper', '/collections', '/about', '/meal-plans'];
 
 test.describe('no page scrolls sideways', () => {
   for (const width of [360, 768, 1180]) {

@@ -1,8 +1,23 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, ParseEnumPipe, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseEnumPipe,
+  Post,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { SocialProvider } from '@prisma/client';
 import { Public } from '../common/decorators/public.decorator';
-import { AuthService, AuthResult, ContinueResult, TokenPair } from './auth.service';
+import {
+  AuthService,
+  AuthResult,
+  ContinueResult,
+  SocialProviderConfig,
+  TokenPair,
+} from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ContinueDto } from './dto/continue.dto';
@@ -125,6 +140,23 @@ export class AuthController {
   @Post('otp/verify')
   verifyOtp(@Body() dto: VerifyOtpDto): Promise<AuthResult> {
     return this.authService.verifyOtp(dto);
+  }
+
+  /**
+   * Which social providers are actually usable, and their public client ids.
+   *
+   * Deliberately **not** `@Throttle`d down to the auth budget. The sign-in
+   * page reads this on every render, and that budget is per-IP — a whole
+   * office behind one NAT would burn 20/minute just loading the page, and
+   * the symptom (sign-in buttons vanishing at random) points nowhere near
+   * the cause. Read server-side by `app/login/page.tsx`; the app-wide
+   * throttler still applies.
+   */
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Get('social/config')
+  socialConfig(): Record<string, SocialProviderConfig> {
+    return this.authService.socialConfig();
   }
 
   @Public()

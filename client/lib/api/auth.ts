@@ -111,18 +111,66 @@ export async function registerWithEmail(
   );
 }
 
+/** One provider's availability, as reported by `GET /auth/social/config`. */
+export type SocialProviderConfig = {
+  enabled: boolean;
+  /** Public OAuth client id, for initialising the provider SDK. `null` when disabled. */
+  clientId: string | null;
+};
+
+export type SocialConfig = {
+  google: SocialProviderConfig;
+  apple: SocialProviderConfig;
+};
+
+/** Every provider off — what a config fetch failure resolves to. */
+export const SOCIAL_CONFIG_OFF: SocialConfig = {
+  google: { enabled: false, clientId: null },
+  apple: { enabled: false, clientId: null },
+};
+
 /**
- * `POST /auth/social/:provider` — **stub** (`server/src/auth/dto/social-login.dto.ts`):
- * trusts a client-submitted `{providerAccountId, email?, name?}` instead of
- * a verified OAuth token, since there's no real Google/Apple SDK wired up
- * yet. `AuthContext` generates + persists a stable per-provider
- * `providerAccountId` in `localStorage` so repeated "Continue with
- * Google/Apple" clicks in the same browser resolve to the same demo
- * account instead of minting a new one every time.
+ * `GET /auth/social/config` — which providers are actually usable.
+ *
+ * Read **server-side** by `app/login/page.tsx` and handed down, not
+ * fetched from the browser: the auth routes are throttled per-IP, and a
+ * whole office behind one NAT would otherwise burn that budget just
+ * loading the sign-in page, making buttons vanish for reasons nothing
+ * reports.
+ *
+ * The client id comes from here rather than a `NEXT_PUBLIC_*` inline so
+ * server and browser cannot disagree — a half-configured pair renders a
+ * button that can only fail.
+ *
+ * Fails **closed**: an unreachable API means no social buttons, which is
+ * correct. The password and one-time-code paths are unaffected.
+ */
+export async function getSocialConfig(): Promise<SocialConfig> {
+  try {
+    return await http.get<SocialConfig>("/auth/social/config", { auth: false });
+  } catch {
+    return SOCIAL_CONFIG_OFF;
+  }
+}
+
+/**
+ * `POST /auth/social/:provider` — exchange a **provider-signed id-token**
+ * for a Homekrafted session.
+ *
+ * Until M27 this posted a client-chosen `{providerAccountId, email}` and
+ * the server trusted it, which made any account reachable by anyone who
+ * knew its email address. Identity now comes only from the verified token
+ * payload; the old fields are gone from the DTO and a body carrying them
+ * is refused outright.
+ *
+ * `nonce` is minted per attempt by the caller and must match the token's
+ * own claim, so a captured token cannot be replayed later. `name` is a
+ * display fallback for Apple's first authorization, which returns a name
+ * outside the token.
  */
 export async function socialLogin(
   provider: "google" | "apple",
-  input: { providerAccountId: string; email?: string; name?: string },
+  input: { idToken: string; nonce?: string; name?: string },
 ): Promise<AuthResultDto> {
   return http.post<AuthResultDto>(`/auth/social/${provider}`, input, { auth: false });
 }

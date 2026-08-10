@@ -142,6 +142,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                         shape="circle"
                         label={vendor.avatarPlaceholder}
                         src={vendor.avatarSrc}
+                        alt=""
+                        sizes="56px"
                         compact
                       />
                     </span>

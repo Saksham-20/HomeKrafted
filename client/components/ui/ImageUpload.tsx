@@ -235,22 +235,45 @@ export function ImageUpload({
           )}
         </div>
 
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="file"
-          className={styles.input}
-          accept={ACCEPTED_IMAGE_TYPES.join(",")}
-          disabled={disabled}
-          onChange={(event) => {
-            void handleFile(event.target.files?.[0]);
-            // Reset so picking the same file twice in a row still fires
-            // `change` — otherwise a failed upload can't be retried from
-            // the picker.
-            event.target.value = "";
-          }}
-        />
       </div>
+
+      {/* A sibling of the zone, not a child, and that placement is the
+          fix rather than a detail.
+
+          The zone is the control: focusable, `role="button"`, named, and
+          wired to Enter and Space. While the file input lived *inside*
+          it, the zone was an interactive element containing another
+          interactive element — a second tab stop announced as an
+          unlabelled file button, which axe reported on every listing,
+          menu, meal-plan, storefront and profile editor. That is every
+          screen where a HomeKrafter adds the photograph their listing
+          lives or dies by.
+
+          `tabIndex={-1}` and `aria-hidden` alone do not fix it: assistive
+          technology can still reach a negatively-indexed control inside
+          an interactive parent, which is exactly what axe says. Moving it
+          out is what actually removes the nesting.
+
+          It stays visually-hidden rather than `display: none` because
+          `.click()` on a `display: none` input is the one variant with a
+          history of being ignored. */}
+      <input
+        ref={inputRef}
+        id={inputId}
+        type="file"
+        tabIndex={-1}
+        aria-hidden="true"
+        className={styles.input}
+        accept={ACCEPTED_IMAGE_TYPES.join(",")}
+        disabled={disabled}
+        onChange={(event) => {
+          void handleFile(event.target.files?.[0]);
+          // Reset so picking the same file twice in a row still fires
+          // `change` — otherwise a failed upload can't be retried from
+          // the picker.
+          event.target.value = "";
+        }}
+      />
 
       {error && (
         <p className={styles.error} role="alert">

@@ -233,3 +233,17 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Below ~560px a five-column quote line has nowhere left to go: at 1fr 1fr
+   the item name and description still share a row with a 70px quantity
+   box, and every field is too narrow to type in. Stack it.
+   The buyer-facing quote screen (`corporate/QuoteClient.module.css`)
+   already does this; the admin side never did, so the one person who has
+   to *build* a quote had the worse layout of the two. */
+@media (max-width: 560px) {
+  .lineRow,
+  .builderGrid {
+    grid-template-columns: 1fr;
+    gap: var(--hk-s2);
+  }
+}

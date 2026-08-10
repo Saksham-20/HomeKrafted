@@ -60,6 +60,14 @@ export function SellersClient() {
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState<string | null>(null);
   /**
+   * True while any queue mutation is in flight.
+   *
+   * One flag for the whole queue rather than one per row: `run` refetches
+   * the list on completion, so a second action started mid-flight would
+   * be acting on rows that are about to be replaced.
+   */
+  const [actionBusy, setActionBusy] = useState(false);
+  /**
    * Set when an approval succeeded but the new HomeKrafter could not be
    * reached on any channel. It is not an error — the account exists and
    * the storefront is live — but it is the one outcome an admin has to
@@ -111,12 +119,20 @@ export function SellersClient() {
    * the refusal is the whole point and the admin would never see it.
    */
   async function run(action: () => Promise<unknown>, fallback: string) {
+    // Refuse a second action while one is running. Approving a
+    // HomeKrafter mints an account and fires an invite; doing it twice
+    // because the first click looked like nothing happened is a real
+    // outcome, not a theoretical one.
+    if (actionBusy) return;
     setActionError(null);
+    setActionBusy(true);
     try {
       await action();
       await refetch();
     } catch (err) {
       setActionError(err instanceof ApiError && err.message ? err.message : fallback);
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -256,6 +272,7 @@ export function SellersClient() {
               application={application}
               onApprove={handleApprove}
               onReject={handleReject}
+              busy={actionBusy}
             />
           ))}
         </div>

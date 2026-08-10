@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { test, expect } from '@playwright/test';
 import { storageStateFor } from '../fixtures/accounts';
 import { skipLocationPrompt } from '../fixtures/location';
+import { PUBLIC_ROUTES } from './public-routes';
 
 /**
  * Sweep chunk 8 — the accessibility floor, measured rather than reviewed.
@@ -20,7 +21,6 @@ import { skipLocationPrompt } from '../fixtures/location';
  * month.
  */
 
-const PUBLIC_ROUTES = ['/', '/shop', '/snacks', '/gifts', '/collections', '/about', '/meal-plans'];
 
 /** Everything axe found, flattened to something a failure message can print. */
 function describe(violations: { id: string; nodes: { target: unknown[] }[] }[]): string[] {

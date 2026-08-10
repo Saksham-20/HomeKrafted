@@ -1,0 +1,73 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--hk-muted);
+  margin-bottom: var(--hk-s4);
+  min-height: 32px;
+}
+
+.back:hover {
+  color: var(--hk-pine);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s7) var(--hk-s6);
+  text-align: center;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  margin: 0;
+}
+
+.body {
+  max-width: 46ch;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+}
+
+.reference {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-muted-2);
+  background: var(--hk-bg);
+  border: 1px solid var(--hk-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  /* A record id has no spaces to break on, and the card is centred — an
+     unbreakable 30-character cuid is what pushes this off a 390px screen. */
+  overflow-wrap: anywhere;
+}
+
+/* Matches Button's `primary`, but this is a navigation, and a navigation
+   is a link — the whole point of the state is to offer a way out that
+   behaves like one (middle-click, open in a new tab, shown in the status
+   bar on hover). */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--hk-s5);
+  margin-top: var(--hk-s2);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.action:hover {
+  background: var(--hk-pine-deep);
+}

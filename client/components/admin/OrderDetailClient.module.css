@@ -144,6 +144,19 @@
   gap: 6px;
 }
 
+/* The amount is stated, not typed — see the comment at the call site. It
+   keeps the input's optical weight so the row still reads as
+   "value → action" rather than as a stray caption next to a button. */
+.refundAmount {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
 .refundInput {
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
@@ -183,4 +196,43 @@
   font-size: 14px;
   padding: var(--hk-s6);
   text-align: center;
+}
+
+/* --- Status override (M27) ---------------------------------------------
+   Sits above the refund block in the same card: routine action first,
+   money-moving action second. The rule underneath separates them, so the
+   two never read as one control group — an operator reaching for a
+   status should not have their eye pulled into the refund row. */
+.statusOverride {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  padding-bottom: var(--hk-s4);
+  margin-bottom: var(--hk-s4);
+  border-bottom: 1px solid var(--hk-border-2);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.statusSelect {
+  min-height: 44px;
+  padding: 0 var(--hk-s3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-body);
+  font-size: 14px;
+  flex: 1 1 200px;
+  max-width: 280px;
+}
+
+.statusSelect:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }

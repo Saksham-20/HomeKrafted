@@ -485,6 +485,19 @@ export interface AdminOrderSummary {
    * `OrderDetailClient` only renders the refund form when this is present.
    */
   customerUserId?: string;
+  /**
+   * Statuses an admin may override this order to — **server-derived**,
+   * and present only on the single-order `summary` response.
+   *
+   * Sent by the API rather than mirrored here on purpose: the status
+   * tables live in `AdminOrdersService`, and a second copy on the client
+   * is the `lib/geo.ts` trap — two lists that must stay identical,
+   * drifting the first time only one is edited. It also carries a money
+   * rule the client must not be able to reverse: `cancelled` and
+   * `returned` are absent because the override moves no money, and the
+   * server refuses them regardless of what is sent.
+   */
+  statusOptions?: string[];
   sellerNames: string[];
   status: string;
   total: number;
@@ -613,15 +626,34 @@ export async function getAllOrdersUnified(query: AdminOrdersQuery = {}): Promise
 
 /**
  * The one summary row matching a `/admin/orders/[type]/[id]` route.
- * Real mode: no dedicated single-summary endpoint exists (only the full
- * per-type record, via `getAdminMarketplaceOrder`/etc. below, and the
- * unified list) — resolved by filtering the same unified list this module
- * already fetches, same "no by-id endpoint, resolve from the full list"
- * pattern `lib/api/products.ts#getProductById` uses.
+ *
+ * **This used to resolve out of the unified list, and that was a bug.**
+ * `getAllOrdersUnified({ type })` returns page 1 — 25 rows per source —
+ * so an order with 25 newer siblings simply was not in it, and the detail
+ * screen rendered "Order not found." for a record `GET
+ * /admin/orders/marketplace/:id` returns without complaint. Because the
+ * refund control lives on that screen, the practical effect was that an
+ * admin could not refund an order once the queue had moved past it.
+ *
+ * Same shape of defect as `8298b4b` (`/admin/catalog/[id]` resolving a
+ * listing out of the *public* catalogue), same shape of fix: ask the
+ * server for the one row instead of paging a list and hoping.
  */
 export async function getAdminOrderById(type: AdminOrderType, id: string): Promise<AdminOrderSummary | undefined> {
-  // Scoped to the one module, so this reads a page of that type rather
-  // than the whole platform to find a single row.
+  if (!isMockMode()) {
+    try {
+      return await http.get<AdminOrderSummary>(
+        `/admin/orders/${encodeURIComponent(type)}/${encodeURIComponent(id)}/summary`,
+      );
+    } catch (error) {
+      // A genuine 404 is "no such order" and the caller renders its own
+      // empty state; anything else is a real failure and must surface
+      // rather than being flattened into "not found".
+      if (error instanceof ApiError && error.status === 404) return undefined;
+      throw error;
+    }
+  }
+
   const { items } = await getAllOrdersUnified({ type });
   return items.find((o) => o.id === `${type}:${id}`);
 }
@@ -680,6 +712,18 @@ export interface AdminDashboardSnapshot {
   activeBySpecialty: Partial<Record<SellerSpecialty, number>>;
   usersCount: number;
   pendingApplicationsCount: number;
+  /**
+   * Moderation SLA (M27) — when the longest-waiting item arrived, or
+   * `undefined` when that queue is clear.
+   *
+   * The count says whether there is a queue; the age says whether anyone
+   * is being left waiting, which is the question that matters while the
+   * platform is still recruiting kitchens. A five-day-old application is
+   * a supply problem wearing a backlog's clothes.
+   */
+  oldestPendingApplicationAt?: string;
+  pendingListingsCount?: number;
+  oldestPendingListingAt?: string;
   pendingPayoutsAmount: number;
   /** Real mode: server-side `Wallet.balance` aggregate (`server/src/admin/dashboard.service.ts`). Mock mode: sum of every seeded `Wallet` balance (`adminWalletsByUser`). */
   walletLiability: number;
@@ -1100,6 +1144,62 @@ export async function getUserWallet(
 
 function genWalletTxnId(): string {
   return `wt-adm-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+export interface RefundOrderResult {
+  /** What was credited back, in rupees — the order/booking total. */
+  amount: number;
+}
+
+/**
+ * Refund one order or booking — `POST /admin/orders/:type/:id/refund`.
+ *
+ * **This is not the same as crediting the wallet by hand, and the
+ * difference is the whole point.** `/admin/orders/[type]/[id]` used to
+ * refund through `issueRefund` (a raw `POST /admin/wallet/:userId/refund`
+ * with an operator-typed amount and no idempotency key). That path:
+ *
+ * - never set `Order.refundStatus`, so the same order could be refunded
+ *   again tomorrow with nothing on the screen saying it already had been;
+ * - sent no `Idempotency-Key`, so a retry after a timeout credited twice
+ *   — the exact failure M23 found on "Place order" and fixed for the
+ *   buyer's side only;
+ * - wrote the ledger row against `refId: orderNumber` while every other
+ *   refund writes the record's `id`, so the two could not be joined;
+ * - could not refuse to refund an order that was never paid.
+ *
+ * The purpose-built endpoint does all four. It refunds the full total by
+ * design — a partial adjustment is a different act with a different
+ * reason, and it has its own screen at `/admin/wallet/[userId]`, which is
+ * the path `CLAUDE.md` already documents for resolving a return.
+ */
+export async function refundAdminOrder(
+  type: AdminOrderType,
+  id: string,
+  idempotencyKey?: string,
+): Promise<RefundOrderResult> {
+  if (isMockMode()) {
+    // Offline frontend work still needs the button to do something
+    // visible. The mock ledger is the same one `issueRefund` writes to.
+    const summary = await getAdminOrderById(type, id);
+    if (!summary?.customerUserId) throw new Error("No wallet to refund.");
+    const txn = await issueRefund({
+      userId: summary.customerUserId,
+      amount: summary.total,
+      title: `Refund — Order #${summary.reference}`,
+      refType: type === "marketplace" ? "order" : "laundryBooking",
+      refId: id,
+    });
+    if (!txn) throw new Error("Couldn't issue that refund.");
+    return { amount: summary.total };
+  }
+
+  const result = await http.post<{ total?: number; estimatedTotal?: number }>(
+    `/admin/orders/${encodeURIComponent(type)}/${encodeURIComponent(id)}/refund`,
+    undefined,
+    { idempotencyKey },
+  );
+  return { amount: Number(result.total ?? result.estimatedTotal ?? 0) };
 }
 
 export interface IssueRefundInput {
@@ -1827,4 +1927,84 @@ export async function setSupportTicketStatus(
     `/admin/support/tickets/${encodeURIComponent(ticketId)}/status`,
     { status },
   );
+}
+
+/**
+ * `PATCH /admin/orders/:type/:id/status` — record a corrected status.
+ *
+ * **It records; it does not settle.** The server refuses `cancelled` and
+ * `returned` outright, because this path moves no money: the real cancel
+ * refunds the wallet, restocks the lines and reverses the cashback in one
+ * transaction, and an override that only wrote the word "cancelled" would
+ * tell a customer they had been refunded when nothing had moved. The UI
+ * never offers those two either (they are absent from `statusOptions`),
+ * so this is belt and braces — deliberately.
+ *
+ * `expectedStatus` makes it a compare-and-set: pass what the screen was
+ * showing and a second admin who got there first produces a 409 rather
+ * than a silent overwrite plus a duplicate notification to the buyer.
+ */
+export async function overrideAdminOrderStatus(
+  type: AdminOrderType,
+  id: string,
+  status: string,
+  expectedStatus?: string,
+): Promise<void> {
+  if (isMockMode()) return;
+  await http.patch(
+    `/admin/orders/${encodeURIComponent(type)}/${encodeURIComponent(id)}/status`,
+    { status, expectedStatus },
+  );
+}
+
+/** One row of the admin audit trail. */
+export interface AdminAuditEntry {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorEmail?: string;
+  /** Raw slug, e.g. `order.status_override`. Rendered verbatim — see `AuditClient`. */
+  action: string;
+  targetType: string;
+  targetId?: string;
+  /** Shape differs per action; rendered as a generic key/value grid, never per-action. */
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AdminAuditPage {
+  items: AdminAuditEntry[];
+  page: number;
+  pageSize: number;
+  total: number;
+  /** Distinct entity kinds present in the log — the filter's options, served rather than hardcoded. */
+  targetTypes: string[];
+}
+
+/**
+ * `GET /admin/audit` — every admin mutation, newest first.
+ *
+ * **The filters here are exactly what the endpoint supports**, which is
+ * entity kind and actor. Not action, and not a date range: filtering
+ * those in the browser would only narrow the fifty rows already fetched,
+ * so "last week" would silently miss everything on page two. A filter
+ * that lies is worse than no filter on the one screen whose whole job is
+ * being complete.
+ */
+export async function getAdminAuditLog(params: {
+  targetType?: string;
+  actorId?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<AdminAuditPage> {
+  if (isMockMode()) {
+    return { items: [], page: 1, pageSize: 50, total: 0, targetTypes: [] };
+  }
+  const query = new URLSearchParams();
+  if (params.targetType) query.set("targetType", params.targetType);
+  if (params.actorId) query.set("actorId", params.actorId);
+  if (params.page) query.set("page", String(params.page));
+  if (params.pageSize) query.set("pageSize", String(params.pageSize));
+  const suffix = query.toString() ? `?${query}` : "";
+  return http.get<AdminAuditPage>(`/admin/audit${suffix}`);
 }

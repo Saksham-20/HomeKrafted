@@ -1,0 +1,48 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  text-align: left;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  color: var(--hk-ink);
+}
+
+.body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+  max-width: 58ch;
+}
+
+/* Pill, matching the search page's empty CTA. `min-height` because it is
+   the only target in the card and WCAG 2.5.8 applies whether or not it is
+   the busiest screen. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 var(--hk-s4);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.cta:hover {
+  border-color: var(--hk-gold-border);
+  color: var(--hk-ink);
+}

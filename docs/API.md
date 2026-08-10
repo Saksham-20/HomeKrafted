@@ -148,12 +148,42 @@ Four sign-in flows, all converging on the same JWT session shape:
   refresh token** for the account. Suspended accounts get neither a link
   nor a reset. `SITE_URL` builds the link. Guarded by
   `test/e2e/password-reset.e2e-spec.ts`.
-- **Social (stub)** — `POST /auth/social/:provider` (`provider` =
-  `google`\|`apple`). **Stub**: trusts a client-submitted
-  `{providerAccountId, email?, name?}` payload instead of verifying a
-  real OAuth token — flagged in `SocialLoginDto`'s doc comment; a real
-  provider SDK verification is a service-body-only change (same DTO
-  shape, since a verified profile has the same fields).
+- **Social** — `POST /auth/social/:provider` (`provider` =
+  `google`\|`apple`). Body is `{ idToken, nonce?, name? }`.
+
+  **`providerAccountId` and `email` are no longer accepted, and sending
+  them is a 400 (M27).** Until then this endpoint trusted a posted email
+  and issued a session for whatever account matched — the admin included.
+  Identity now comes only from the verified token payload
+  (`SocialTokenVerifier`): signature checked against the provider's
+  published JWKS, `iss`/`aud` enforced, `aud` matched against a list
+  (Google issues one client id per platform and this API is shared with
+  the native apps), `nonce` compared when supplied. The old fields were
+  *deleted* from the DTO rather than ignored, so `forbidNonWhitelisted`
+  refuses them structurally.
+
+  Statuses: **401** for a token that is invalid, expired, wrong-audience,
+  wrong-issuer, replayed, or Google-unverified-email; **403** for an admin
+  account (same rule as the OTP test-code bypass) or a suspended one;
+  **503** when the provider is unconfigured, its JWKS is unreachable, or
+  the key id is unknown — that last one because a rotation and a forgery
+  look identical, and the tie goes to the real user. Pinned by
+  `test/e2e/social-login.e2e-spec.ts`.
+
+  Linking rule: a provider-verified email links to an existing account
+  **only if that account is already `emailVerified`**. Otherwise the
+  sign-in *seizes* it — every refresh token revoked and `passwordHash`
+  cleared — because `register` never sets `emailVerified`, so an
+  unverified match may be somebody who pre-registered the victim's
+  address and is waiting for exactly this.
+- **`GET /auth/social/config`** — `{ google: { enabled, clientId },
+  apple: { … } }`. Public, and deliberately *not* under the tighter auth
+  throttle: the sign-in page reads it on every render and that budget is
+  per-IP, so an office behind one NAT would exhaust it and the only
+  symptom would be sign-in buttons that sometimes are not there. The
+  client id is served here rather than duplicated into a `NEXT_PUBLIC_*`
+  build inline, so server and browser cannot disagree. Read server-side
+  by `app/login/page.tsx`.
 
 All three return the same shape:
 
@@ -1302,6 +1332,7 @@ record's id}`.
 |---|---|
 | `GET /admin/orders` | One page of every order/booking/snack-order, newest first: `{ items, page, pageSize, total }`. Query: `type` (`marketplace\|laundry\|snack`), `q` (matches reference, customer name or HomeKrafter name, case-insensitive), `page` (capped at 40), `pageSize` (default 25, max 100). **M23: this used to return all three tables in full, and the screen searched them in the browser** — which stops working the moment the response is a page, so `q` is now the server's job. |
 | `GET /admin/orders/:type/:id` | Full record (line items included) — `400` for an invalid `:type`. |
+| `GET /admin/orders/:type/:id/summary` | **M26.** The one unified *list row* for this order — the detail screen's header, which needs the customer and HomeKrafter names that the source table does not carry. Built by the same per-type row builders `GET /admin/orders` uses, so a summary can never disagree with the row it was reached from. `404` for an unknown id, `400` for an invalid `:type`. Exists because the client used to resolve this by fetching page 1 of the list and searching it in the browser: any order with 25 newer siblings rendered "Order not found." on a screen that also holds the refund control. **M27** adds `statusOptions: string[]` — the statuses this kind may be overridden to, server-derived, so the client keeps no copy of the status tables. Named `statusOptions` and not `allowedStatuses` on purpose: the maps carry no transition rules, so "allowed" would be a claim the server does not check. |
 | `POST /admin/orders/:type/:id/refund` | `marketplace` delegates straight to `OrdersService.refundOrder` (idempotent via `refundStatus`). `laundry` credits the booking owner's wallet via `WalletService`'s ledger primitives directly (`category: "refund"`, `refType: "laundryBooking"`) — idempotent-by-content (a prior refund `WalletTransaction` for this exact booking short-circuits to a no-op), since `LaundryBooking` has no `refundStatus` field to flip. `snack` is `400` — a `SnackOrder` has no `userId`/wallet to credit (WhatsApp-origin, no registered account). Supports `Idempotency-Key`. Audited (`order.refund`). |
 | `PATCH /admin/orders/:type/:id/status` | Body: `{ status }` (frontend-hyphenated form, e.g. `"out-for-delivery"`). A manual override distinct from a seller's one-step-at-a-time `advance` — jumps straight to any valid status for the type. `400` for a status not valid for that type. Audited (`order.status_override`). |
 
@@ -1312,7 +1343,7 @@ record's id}`.
 | `GET /admin/wallet` | Platform-wide totals plus one page of per-user balances: `{ totalLiability, walletCount, totalLifetimeSaved, balances, page, pageSize, total }`. Query: `page`, `pageSize` (default 25, max 100). **The three totals are aggregates over every wallet and are never narrowed by the page** — a liability figure that only totalled the rows on screen would quietly mean something else. `{ totalLiability, walletCount, totalLifetimeSaved, balances: [{userId,userName,walletId,balance,pendingCashback,lifetimeSaved,transactionCount}] }` — every wallet, balance descending. |
 | `GET /admin/wallet/:userId` | The wallet plus one cursor page of its ledger: `{ wallet, transactions, nextCursor }`. Query: `limit` (default 50, max 100), `cursor`. Cursor rather than offset — a ledger grows at the end being read from. `{ wallet, transactions }` for one user. |
 | `POST /admin/wallet/:userId/adjust` | Body: `{ direction: "credit"\|"debit", amount, reason }`. Forwards straight into `WalletService.adjust` (the same method `POST /wallet/adjust` already exposes) with `userId` from the route, not the body. Response: `{ wallet, balanceAfter, transactionId }` — **`transactionId` added in M9**, closing the M8.4b-flagged shape gap (`client/lib/api/admin.ts` no longer synthesizes a fake id). Supports `Idempotency-Key`. Audited (`wallet.adjust`). **M9**: also fires a `"wallet"`-category notification to the affected user via `NotificationsDeliveryService` (see "Notification delivery (M9)" above). |
-| `POST /admin/wallet/:userId/refund` | Body: `{ amount, title, refType?, refId? }`. A standalone refund credit not necessarily tied to an `Order` (for that, prefer `POST /admin/orders/marketplace/:id/refund`, which reads the amount off the order itself). Goes through `WalletService.postLedgerEntryTx` inside an idempotency-wrapped transaction — never a raw balance write. Response also includes `transactionId` (M9). Supports `Idempotency-Key`. Audited (`wallet.refund`). **M9**: also fires a `"wallet"`-category notification, same as `adjust` above. |
+| `POST /admin/wallet/:userId/refund` | Body: `{ amount, title, refType?, refId? }`. A standalone refund credit not necessarily tied to an `Order`. **Never use it to refund an order** — it sets no `refundStatus`, so nothing stops the same order being refunded again, and callers routinely omitted `Idempotency-Key`; `/admin/orders/[type]/[id]` did exactly this until M26 and would credit three times for three clicks. `POST /admin/orders/marketplace/:id/refund` is the order path: it reads the amount off the order, flips `refundStatus`, and refuses an unpaid one. Goes through `WalletService.postLedgerEntryTx` inside an idempotency-wrapped transaction — never a raw balance write. Response also includes `transactionId` (M9). Supports `Idempotency-Key`. Audited (`wallet.refund`). **M9**: also fires a `"wallet"`-category notification, same as `adjust` above. |
 
 ### Collections & CMS (`server/src/admin/collections.controller.ts`)
 
@@ -1399,7 +1430,7 @@ never block writing the log itself.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /admin/audit` | `?targetType=&actorId=&page=&pageSize=` all optional. `{ items: [{id,actorId,actorName,actorEmail,action,targetType,targetId,metadata,createdAt}], page, pageSize, total }`, newest first. |
+| `GET /admin/audit` | `?targetType=&actorId=&page=&pageSize=` all optional. `{ items: [{id,actorId,actorName,actorEmail,action,targetType,targetId,metadata,createdAt}], page, pageSize, total, targetTypes }`, newest first. **M27** adds `targetTypes` — the distinct entity kinds actually present, unfiltered, so the UI filter's options come from the data instead of a hand-typed list of Prisma model names that goes stale the first time a new kind is logged. Read by `/admin/audit`, which shipped in M27; note the filters there are exactly these two plus pagination — action and date filters were **not** faked client-side over one page, which would lie on the one screen whose job is completeness. |
 
 ## Health
 
@@ -1675,12 +1706,11 @@ flip.
   defined in `lib/api/seller.ts`) is superseded by `lib/api/admin.ts`'s own
   real `getAllOrdersUnified` (`GET /admin/orders`, unified server-side) and
   now stays mock-only — only `admin.ts`'s own mock branch still calls it.
-- **`GET /admin/audit` has no frontend screen** — no `/admin/audit` route
-  was ever built in any prior milestone, so there's nothing in `lib/api` to
-  swap. Verified directly against the endpoint instead (`curl` with an
-  admin token): every mutation made during this milestone's live testing
-  (`seller_application.approve`, `product.hide`/`unhide`, `wallet.refund`)
-  showed up correctly with actor/target/metadata.
+- ~~**`GET /admin/audit` has no frontend screen**~~ — **fixed in M27.**
+  `/admin/audit` exists, with a nav entry, entity/actor filters served by
+  the endpoint itself, and pagination. It had been recording every admin
+  mutation since M8 with no way to read one short of a psql prompt, while
+  this document listed an audit log among the admin panel's features.
 - **Verified live** (headless browser, seeded Postgres, all 3 roles in one
   session): seller sign-in as each demo type (maker/laundry/snack) — real
   `POST /auth/login`, no seller-portal network calls in mock mode when
