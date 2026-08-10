@@ -4,6 +4,22 @@ import type { Vendor } from "@/lib/types";
  * The makers behind the 8 seed products. One vendor per product for now
  * (including "Homekrafted" itself for the platform-curated hamper) —
  * multi-product storefronts arrive with the full catalog in M2.
+ *
+ * **No vendor carries an `avatarSrc` or `bannerSrc`, deliberately (M28).**
+ * Every one of them used to point at `/images/vendors/avatar.jpg` and
+ * `/images/vendors/banner.jpg` — two files, shared by all ten kitchens —
+ * so the storefronts rendered as the same stock face repeated down the
+ * page. On a platform whose entire pitch is that a real person cooked
+ * this, one borrowed face on ten makers reads as fake faster than no face
+ * does. Absent a `src`, `ImageSlot` falls back to the labelled
+ * placeholder, and each vendor's `avatarPlaceholder` already names them —
+ * so the cards are at least distinct and honest.
+ *
+ * The fix is real photographs, one per kitchen, which only the owner can
+ * supply (`CLAUDE.md`: never generate or AI-fabricate imagery). Dropping
+ * them under `public/images/vendors/` and setting the field here is then
+ * a pure data change. Do **not** re-point several vendors at one file to
+ * make the grid look full.
  */
 export const vendors: Vendor[] = [
   {
@@ -14,8 +30,6 @@ export const vendors: Vendor[] = [
     bio: "Home-cooked Punjabi food and small-batch pickles, made fresh every morning in a Sector 35 kitchen. Daily thalis, weekend specials, nothing frozen.",
     avatarPlaceholder: "ANJALI'S KITCHEN — AVATAR",
     bannerPlaceholder: "ANJALI'S KITCHEN — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Sector 35, Chandigarh",
     area: "chd-sector-35",
     lat: 30.7266,
@@ -34,8 +48,6 @@ export const vendors: Vendor[] = [
     bio: "Everyday home food from a Mohali kitchen — dal, sabzi, rotis packed hot, plus chutneys ground fresh each week.",
     avatarPlaceholder: "MEERA'S HOMEFOODS — AVATAR",
     bannerPlaceholder: "MEERA'S HOMEFOODS — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Phase 3B2, Mohali",
     area: "moh-phase-3b2",
     lat: 30.705,
@@ -54,8 +66,6 @@ export const vendors: Vendor[] = [
     bio: "A Sector 15 home-bakery: millet cookies, eggless cakes and breads baked to order, never off a shelf.",
     avatarPlaceholder: "HOME BATCH — AVATAR",
     bannerPlaceholder: "HOME BATCH — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Sector 15, Chandigarh",
     area: "chd-sector-15",
     lat: 30.7594,
@@ -74,8 +84,6 @@ export const vendors: Vendor[] = [
     bio: "Panchkula home kitchen roasting nuts, seeds and namkeen in small weekly batches.",
     avatarPlaceholder: "CRUNCH CORNER — AVATAR",
     bannerPlaceholder: "CRUNCH CORNER — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Sector 5, Panchkula",
     area: "pkl-sector-5",
     lat: 30.693,
@@ -94,8 +102,6 @@ export const vendors: Vendor[] = [
     bio: "Bean-to-bar chocolate and homemade desserts, made in a Sector 22 flat one batch at a time.",
     avatarPlaceholder: "COCOA HOMEMADE — AVATAR",
     bannerPlaceholder: "COCOA HOMEMADE — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Sector 22, Chandigarh",
     area: "chd-sector-22",
     lat: 30.7333,
@@ -114,8 +120,6 @@ export const vendors: Vendor[] = [
     bio: "Traditional sweets, mathri and dry-fruit preparations from a Zirakpur family kitchen, three generations of recipes.",
     avatarPlaceholder: "DADI'S RECIPE — AVATAR",
     bannerPlaceholder: "DADI'S RECIPE — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "VIP Road, Zirakpur",
     area: "zkp-vip-road",
     lat: 30.6425,
@@ -134,8 +138,6 @@ export const vendors: Vendor[] = [
     bio: "Hand-blended teas and homemade masalas, packed in Panchkula.",
     avatarPlaceholder: "HILLS & LEAVES — AVATAR",
     bannerPlaceholder: "HILLS & LEAVES — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Sector 9, Panchkula",
     area: "pkl-sector-9",
     lat: 30.687,
@@ -154,8 +156,6 @@ export const vendors: Vendor[] = [
     bio: "Our in-house team, building gift-ready hampers from the best of the tricity home kitchens.",
     avatarPlaceholder: "HOMEKRAFTED — AVATAR",
     bannerPlaceholder: "HOMEKRAFTED — BANNER",
-    avatarSrc: "/images/vendors/avatar.jpg",
-    bannerSrc: "/images/vendors/banner.jpg",
     location: "Sector 17, Chandigarh",
     area: "chd-sector-17",
     lat: 30.7418,

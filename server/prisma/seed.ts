@@ -349,8 +349,10 @@ async function main(): Promise<void> {
         bio: v.bio,
         avatarPlaceholder: `${v.name.toUpperCase()} — AVATAR`,
         bannerPlaceholder: `${v.name.toUpperCase()} — BANNER`,
-        avatarSrc: '/images/vendors/avatar.jpg',
-        bannerSrc: '/images/vendors/banner.jpg',
+        // No `avatarSrc`/`bannerSrc` (M28). Every vendor used to be seeded
+        // with the same two files, so ten kitchens shared one face and one
+        // banner. See `client/lib/data/vendors.ts` for the full reasoning;
+        // real per-kitchen photos are an owner asset, not a code change.
         location: v.location,
         area: v.area,
         lat: v.lat,

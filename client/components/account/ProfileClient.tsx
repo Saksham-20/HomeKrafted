@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { apiErrorMessage, updateUser } from "@/lib/api";
 import type { User } from "@/lib/types";
+import { kitchenLoading } from "@/lib/kitchen-copy";
 import styles from "./ProfileClient.module.css";
 
 interface FormState {
@@ -45,7 +46,9 @@ export function ProfileClient() {
   if (!ready) {
     return (
       <div className={styles.wrap}>
-        <p className={styles.loading}>Loading…</p>
+        <p className={styles.loading} role="status" aria-live="polite">
+          {kitchenLoading("account/profile")}
+        </p>
       </div>
     );
   }

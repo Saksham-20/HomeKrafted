@@ -12,12 +12,10 @@ import {
   mealPromo,
   mockCart,
   primaryNav,
-  trustStats,
   type AnnouncementItem,
   type FooterColumn,
   type HomePromoBandContent,
   type NavLink,
-  type TrustStat,
 } from "@/lib/data";
 import { getMe, updateMe } from "./auth";
 import { http, isMockMode } from "./http";
@@ -46,10 +44,6 @@ export async function getFooterColumns(): Promise<FooterColumn[]> {
 
 export async function getBrandBlurb(): Promise<string> {
   return brandBlurb;
-}
-
-export async function getTrustStats(): Promise<TrustStat[]> {
-  return trustStats;
 }
 
 /** Home page's two promo bands, admin-editable — see `HomePromoBandContent`'s doc comment. Mutated by `lib/api/admin.ts#updateHomePromoBand`. */

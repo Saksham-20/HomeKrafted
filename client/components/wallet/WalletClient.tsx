@@ -13,6 +13,7 @@ import { apiErrorMessage, getPaymentsConfig } from "@/lib/api";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD, useWallet } from "@/lib/wallet/WalletContext";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { kitchenLoading, WALLET_LOADING } from "@/lib/kitchen-copy";
 import type { WalletTransaction } from "@/lib/types";
 import styles from "./WalletClient.module.css";
 
@@ -62,6 +63,8 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
   const [customAmount, setCustomAmount] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  /** True from the moment the payment widget opens until it closes either way — see `handleTopUp`. */
+  const [topupInFlight, setTopupInFlight] = useState(false);
   const [showFullHistory, setShowFullHistory] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -98,13 +101,34 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
     setAmountError(null);
   }
 
+  /**
+   * Add money to the wallet.
+   *
+   * The `await` here spans the **entire Razorpay widget session** — open,
+   * card details typed, 3-D Secure, success or dismissal. That can be two
+   * minutes, not two hundred milliseconds, which is why the in-flight
+   * label says "Waiting for payment…" rather than the "Adding…" that
+   * would be right for a quick request, and why the amount controls are
+   * disabled with it: an amount picker that still responds while a
+   * payment sheet is open is offering a choice that no longer changes
+   * anything.
+   *
+   * The guard is a double-submit fix, not a double-credit one. Real
+   * credit only ever lands via `creditTopupTx` from the HMAC-verified
+   * Razorpay webhook, so a second click could not have minted balance —
+   * it could open a second widget, which is confusing rather than
+   * expensive. Reset in a `finally` so a dismissed widget re-enables the
+   * button (`onDismiss` rejects).
+   */
   async function handleTopUp() {
+    if (topupInFlight) return;
     if (customValue !== undefined && !customIsValid) {
       setAmountError("Enter an amount greater than ₹0, or pick one above.");
       return;
     }
     setAmountError(null);
     if (!effectiveAmount || effectiveAmount <= 0) return;
+    setTopupInFlight(true);
     try {
       await topUp(effectiveAmount);
       setToast(
@@ -119,6 +143,8 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
           ? "Adding money isn't available yet — no charge was made."
           : "Top-up wasn't completed — no charge was made.",
       );
+    } finally {
+      setTopupInFlight(false);
     }
     window.setTimeout(() => setToast(null), 3500);
   }
@@ -174,7 +200,9 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
       </div>
 
       {!ready ? (
-        <p className={styles.loading}>Loading your wallet…</p>
+        <p className={styles.loading} role="status" aria-live="polite">
+          {kitchenLoading("wallet", WALLET_LOADING)}
+        </p>
       ) : (
         <div className={styles.layout}>
           <div className={styles.main}>
@@ -212,6 +240,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                 value={customValue === undefined ? selectedAmount : undefined}
                 onChange={handlePickAmount}
                 className={styles.amountGrid}
+                disabled={topupInFlight}
               />
               <label className={styles.customAmountLabel}>
                 Or enter a custom amount
@@ -224,6 +253,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                     className={styles.customAmountInput}
                     placeholder="e.g. 1500"
                     value={customAmount}
+                    disabled={topupInFlight}
                     aria-invalid={amountError ? true : undefined}
                     aria-describedby={amountError ? "topup-amount-error" : undefined}
                     onChange={(event) => {
@@ -242,9 +272,10 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                 variant="primary"
                 className={styles.topupButton}
                 onClick={handleTopUp}
-                disabled={!effectiveAmount || cardPayments === undefined}
+                disabled={!effectiveAmount || cardPayments === undefined || topupInFlight}
+                aria-busy={topupInFlight || undefined}
               >
-                Top up wallet →
+                {topupInFlight ? "Waiting for payment…" : "Top up wallet →"}
               </Button>
               <p className={styles.bonusNote}>
                 Get 3% extra on top-ups above {formatCurrency(TOPUP_BONUS_THRESHOLD)}

@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { ModerationNotice } from "./ModerationNotice";
+import type { ProductModerationStatus } from "@/lib/types";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { MealPlanForm } from "./MealPlanForm";
 import {
@@ -69,6 +74,7 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [review, setReview] = useState<{ status?: ProductModerationStatus; note?: string }>({});
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -86,6 +92,7 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
           const plan = plans.find((p) => p.id === planId);
           if (plan) {
             setValues(planToFormValues(plan));
+          setReview({ status: plan.moderationStatus, note: plan.moderationNote });
             setBrackets(plan.brackets);
           } else {
             setNotFound(true);
@@ -129,11 +136,18 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading…</div>;
+    return <RouteSkeleton variant="page" message={kitchenLoading("seller/meal-plan-editor", MAKER_LOADING)} />;
   }
 
   if (notFound) {
-    return <div className={styles.loading}>Meal plan not found.</div>;
+    return (
+      <NotFoundCard
+        title="We couldn’t find that meal plan"
+        body="No plan of yours matches this id. It may have been removed since this link was made."
+        backHref="/seller/meal-plans"
+        backLabel="Back to meal plans"
+      />
+    );
   }
 
   return (
@@ -146,6 +160,7 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
             : "Anything you'd cook on a repeat — a daily tiffin, a weekly thali, a monthly box."
         }
       />
+      <ModerationNotice status={review.status} note={review.note} />
 
       <MealPlanForm
         values={values}

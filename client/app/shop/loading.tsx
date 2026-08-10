@@ -1,4 +1,5 @@
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading } from "@/lib/kitchen-copy";
 
 /**
  * Grid-shaped placeholder — `/shop` is a card grid, so a stack of slabs
@@ -19,5 +20,5 @@ import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
  * on paths `robots.ts` disallows anyway.
  */
 export default function ShopLoading() {
-  return <RouteSkeleton variant="grid" count={8} label="Loading the marketplace…" />;
+  return <RouteSkeleton variant="grid" count={8} message={kitchenLoading("shop")} />;
 }

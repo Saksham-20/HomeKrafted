@@ -14,6 +14,16 @@ export interface RouteSkeletonProps {
   count?: number;
   /** Announced to screen readers while the route streams in. */
   label?: string;
+  /**
+   * A visible line of kitchen-diary copy (`lib/kitchen-copy.ts`), shown
+   * under the skeleton blocks and used as the screen-reader announcement
+   * in place of `label`.
+   *
+   * Must be a **stable** string for a given screen — pass
+   * `kitchenLoading("some/surface")`, not a random pick, or the server and
+   * the browser render different text and React #418 follows.
+   */
+  message?: string;
 }
 
 /**
@@ -29,12 +39,22 @@ export function RouteSkeleton({
   variant = "page",
   count = 6,
   label = "Loading…",
+  message,
 }: RouteSkeletonProps) {
   return (
     <div className={clsx("container", styles.wrap)}>
-      <span className="hk-sr-only" role="status" aria-live="polite">
-        {label}
-      </span>
+      {/* One announcement, not two: when a visible message is present it
+          *is* the status text, so a separate sr-only "Loading…" would have
+          assistive tech read the wait twice. */}
+      {message ? (
+        <p className={styles.message} role="status" aria-live="polite">
+          {message}
+        </p>
+      ) : (
+        <span className="hk-sr-only" role="status" aria-live="polite">
+          {label}
+        </span>
+      )}
       <div className={styles.head} aria-hidden="true">
         <span className={styles.eyebrowBar} />
         <span className={styles.titleBar} />

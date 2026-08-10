@@ -3,6 +3,178 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M28] — The site stopped sounding like everybody else — 2026-08-09
+
+A brand and UX review of the public pages found copy that could have sat
+on any startup's homepage, on a product whose entire argument is that it
+is not interchangeable. Most of this milestone is words. Three of the
+findings turned out to be defects rather than taste.
+
+### Fixed — three claims that were wrong, not just off-brand
+
+- **"200+ home chefs · 0 preservatives · 48 hr freshly made"** — a stat
+  strip in the hero. Nobody can substantiate the first figure, and the
+  third contradicted the announcement bar's "cooked this morning" two
+  rows above it. Removed entirely, along with `trustStats` and its API
+  getter; the hero's own sentences carry the page. An unverifiable number
+  is worse than no number on a site asking you to trust a stranger's
+  kitchen.
+- **Ten kitchens shared one face.** Every vendor in both the mock data
+  and the Postgres seed pointed `avatarSrc` at `/images/vendors/avatar.jpg`
+  and `bannerSrc` at `banner.jpg` — two files, all ten storefronts. Both
+  fields are now unset, so `ImageSlot` falls back to the per-vendor
+  labelled placeholder and no two cards are identical. **Real
+  photographs are an owner asset** and remain outstanding; dropping files
+  under `public/images/vendors/` and setting the field is then a pure
+  data change.
+- **The `/about` team rendered the text "founder.jpg".** Reported as
+  broken images; nothing was broken. `ImageSlot` prints its `label`
+  inside the placeholder, and the label was a filename. It is now the
+  person's name, with an optional `photoSrc` for when real photos exist.
+
+Also: "Handkrafted" in the hero CTA and an occasions heading, against
+"Handcrafted" everywhere else — standardised. And `/about` still
+advertised handicrafts as "coming soon", two milestones after `/gifts`
+shipped with them.
+
+### Changed — copy that says what actually happens
+
+`lib/data/about.ts` had carried the old marketing site's words verbatim,
+deliberately, so the brand voice would survive the move. That voice was
+the finding: "A Revolution in Home-Cooked Goodness", "more than just a
+food delivery platform. We are a movement", "Experience the difference".
+
+Rewritten around one rule, now recorded in the file: **a sentence that
+would still be true if you swapped "homemade food" for "enterprise
+software" is the wrong sentence.** The hero leads with "Someone's
+kitchen. Not a cloud kitchen." and owns the wait rather than hiding it.
+
+Team titles lost their ranks — "Chief Research Analyst" on a team of
+eight is the org chart of a company that does not exist. They were *not*
+replaced with invented duties: the review suggested "Runs the kitchens",
+"Handles deliveries", and nobody here knows which of these named real
+people does what. Same domain, no rank, with a note asking for the real
+one-liners.
+
+### Changed — "Backed by" moved to `/about`
+
+It closed the home page directly beneath "Meet the Hands Behind the
+Flavours", making three incubator marks the last thing a visitor read
+after the makers. Borrowed credibility should not be the closing argument
+on a page about the people cooking. Both editing rules moved with it
+intact — never alter a mark, always keep the `detail` sentence — as did
+the standing warning that **none of the three relationships is confirmed
+in writing**.
+
+### Added — kitchen-diary copy (`lib/kitchen-copy.ts`)
+
+Loading states and the buyer's order stepper now sound like the product.
+Two constraints shaped it:
+
+- **Nothing is random.** A `Math.random()` line renders differently on
+  the server and in the browser, which is React #418 — the same hydration
+  failure M12 hit. `kitchenLoading(key)` hashes a stable surface key, so
+  a screen shows one line consistently while screens differ from each
+  other. Pinned in `kitchen-copy.spec.ts`.
+- **Every stage must be true of a candle as well as a curry.** The same
+  pipeline carries food and craft (M20), so the suggested "On the stove
+  now" is wrong for half the catalogue. "Being made now" survives the
+  difference. Also spec'd.
+
+`OrderConfirmation` now derives its stepper from `getOrderStatusSteps`
+instead of holding a second hardcoded copy of the five labels — which
+also makes it honest about a `pending-payment` order rather than showing
+a tick it has not earned. **The admin panel is deliberately excluded**:
+an operator is usually on those screens because something needs deciding,
+and "letting the dough rest…" over a queue somebody's income is stuck in
+reads as a product not taking the job seriously.
+
+### Changed — motion slowed
+
+`--hk-dur` `.28s` → `.36s`, the second documented override in
+`tokens.extend.css` (`tokens.css` stays untouched and stays law).
+`--hk-ease` was left alone — it is already a decelerating curve with no
+overshoot. Ten hardcoded `0.15s`/`120ms`/`140ms`/`160ms` transitions now
+read the tokens, so the tempo is settable in one place. The upload
+progress bar keeps `120ms linear` and says why: a meter reports bytes,
+and easing it makes the fill lag the transfer.
+
+### Fixed — the sweep was passing pages it could not see
+
+Running the visual gate over these changes turned up two faults in the
+instrument itself, both the same shape as M26's "browser layer reported
+0 failed while running almost nothing".
+
+- **A rendered error boundary is not always an error status.** Eleven
+  routes came back showing "This page didn't load"; the ones that 500'd
+  were flagged, but a Next error boundary can render on a **200** —
+  `/shop` did — so the sweep printed `ok` next to a broken page. New
+  `ERRBOUNDARY` flag.
+- **`unlabelledInputs` reported twelve phantom findings** across the
+  seller editors, every one the deliberately `aria-hidden`,
+  `tabIndex={-1}` file input that `ImageUpload` keeps beside a named
+  `role="button"` zone — the arrangement that *fixes* a real
+  nested-interactive violation. axe reports no `label` violation on any
+  of those routes; the probe simply didn't skip `aria-hidden` subtrees.
+  It was also collected and never printed, so it was invisible noise.
+  Both fixed.
+
+And the documented setup itself was wrong: `server/.env` carries
+`THROTTLE_LIMIT=20` against a code default of 120, so 174 back-to-back
+page-visits trip the limiter and the pages render error boundaries
+instead of content. Two full runs were discarded before this was found.
+`docs/TESTS.md` now says to raise it.
+
+**Clean run after all three:** 174 page-visits, 0 contrast failures, 0
+broken images, 0 dead links, 0 horizontal overflow, 0 unlabelled inputs,
+every page exactly one `h1`. The only flags left are `/laundry` 404ing
+(correct — withdrawn in M19) and one pre-existing `nested-interactive` on
+`/gallery`, the dev-only primitives page that `notFound()`s in
+production.
+
+### Fixed — a unit test that was green for about eighteen hours a day
+
+Running the server suite after the seed edit turned up a failure that had
+nothing to do with it. `availability.spec.ts` asserted that the blackout
+query's lower bound was `<= Date.now()`.
+
+Blackouts are `@db.Date` rows written at UTC midnight, so `startOfToday()`
+correctly builds UTC midnight from the *local* calendar date — which is
+**ahead of now** for the first UTC-offset hours of any day east of
+Greenwich. At 00:43 IST the bound is 05:30 IST, and the assertion fails.
+It passed on a UTC CI runner and failed on the developer's own machine
+overnight.
+
+The code was right; the test was wrong, and also too weak in the other
+direction — a bound of last January would have satisfied it. It now
+asserts the boundary itself: `gte` is UTC midnight of today's local date,
+a row stored for today is included, yesterday's is not. Verified green
+across UTC, Kolkata, Kiritimati, Midway and New York, and the old
+assertion verified red under the two eastern zones.
+
+### Not done, and why
+
+- **Palette, texture and a handwritten typeface.** The review asked for
+  turmeric/terracotta/kitchen-cloth warmth, paper texture on cards and a
+  handwritten headline face. All three contradict standing design law —
+  `tokens.css` is a verbatim copy of the handoff contract, and
+  "white-first, warmth is accent-only, never reintroduce beige/cream
+  fills" is explicit in `CLAUDE.md`. This is a design-system decision, not
+  a styling task; it needs the owner, and it wants the handoff updated
+  rather than overridden.
+- **The rotating live-activity ticker.** "Anjali started her thokku
+  tempering at 6:40 AM today" is exactly right in voice and would be a
+  fabricated event — there is no activity data, and no real HomeKrafters
+  yet. It becomes buildable from real order and listing rows once there
+  are some.
+- **A checkout prep-stage timeline replacing a delivery countdown.**
+  There is no countdown in checkout; the review was written from the
+  marketing pages and assumed one. The order stepper *is* the timeline,
+  and it got the diary copy. No urgency UI exists anywhere in the shopper
+  flow — that acceptance item was already met.
+- **Images fading in on load.** Needs client state in `ImageSlot`, which
+  is a server component used on nearly every route.
+
 ## [M27] — Two account takeovers, a money button that lied, and the cloud storage seam — 2026-08-09
 
 Started as "fix what the production audit found". The review before the

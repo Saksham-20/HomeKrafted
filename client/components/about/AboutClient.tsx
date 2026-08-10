@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { AtSign, Mail, MapPin, Phone } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
-import type { AboutContent } from "@/lib/data";
+import { backedBy, type AboutContent } from "@/lib/data";
 import styles from "./AboutClient.module.css";
 
 export interface AboutClientProps {
@@ -85,8 +85,30 @@ export function AboutClient({ content }: AboutClientProps) {
         </h2>
         <p className={styles.teamIntro}>{content.teamIntro}</p>
         <div className={styles.teamGrid}>
+          {/*
+            The label is the person's name, not a filename. `ImageSlot`
+            prints its label inside the placeholder, so `"founder.jpg"`
+            and `` `${member.name}.jpg` `` rendered the literal strings
+            "founder.jpg" and "Lavya.jpg" in the circles where the team's
+            faces belong — which is what the brand review reported as
+            broken images. Nothing was broken; the label was the bug.
+
+            `alt=""` throughout: the name is the very next element in the
+            DOM, so announcing it twice is noise (see `ImageSlot`'s prop
+            notes). `sizes` is set because these are 64px circles — the
+            default is a grid card, which would pull a viewport-wide file
+            to fill a thumbnail.
+          */}
           <Card className={clsx(styles.member, styles.founder)}>
-            <ImageSlot ratio="1/1" shape="circle" label="founder.jpg" compact />
+            <ImageSlot
+              ratio="1/1"
+              shape="circle"
+              label={content.founder.name}
+              src={content.founder.photoSrc}
+              alt=""
+              sizes="64px"
+              compact
+            />
             <div>
               <div className={styles.memberName}>{content.founder.name}</div>
               <div className={styles.memberRole}>{content.founder.role}</div>
@@ -94,7 +116,15 @@ export function AboutClient({ content }: AboutClientProps) {
           </Card>
           {content.team.map((member) => (
             <Card key={member.name} className={styles.member}>
-              <ImageSlot ratio="1/1" shape="circle" label={`${member.name}.jpg`} compact />
+              <ImageSlot
+                ratio="1/1"
+                shape="circle"
+                label={member.name}
+                src={member.photoSrc}
+                alt=""
+                sizes="64px"
+                compact
+              />
               <div>
                 <div className={styles.memberName}>{member.name}</div>
                 <div className={styles.memberRole}>{member.role}</div>
@@ -102,6 +132,50 @@ export function AboutClient({ content }: AboutClientProps) {
             </Card>
           ))}
         </div>
+      </section>
+
+      {/*
+        Institutional claims — moved here from the home page in M28.
+
+        On Home this strip sat directly under "Meet the Hands Behind the
+        Flavours", so three incubator marks were the last thing a visitor
+        saw after the makers: borrowed institutional credibility placed
+        where the makers' own should carry the page. It belongs on the
+        page somebody reads when they are specifically asking who is
+        behind this.
+
+        The two editing rules survive the move and are not negotiable
+        (`backedBy` in `lib/data/site.ts`): **never alter a mark** — no
+        recolour, no grayscale, no crop; optical differences are handled
+        by the per-logo width variables below — and **keep the `detail`
+        sentence under each mark**, because the logo identifies the
+        organisation while the sentence states the relationship, and
+        dropping it turns a stated affiliation into an implied
+        endorsement. The standing "confirm these relationships in
+        writing" warning moves with it.
+      */}
+      <section className={styles.backedBy} aria-labelledby="about-backers">
+        <h2 id="about-backers" className={styles.backedByLabel}>
+          Backed by
+        </h2>
+        <ul className={styles.backerRow}>
+          {backedBy.map((backer) => (
+            <li key={backer.id} className={styles.backer}>
+              {backer.logoSrc && backer.logoRatio ? (
+                <span className={clsx(styles.backerMark, styles[backer.id])}>
+                  <ImageSlot
+                    ratio={backer.logoRatio}
+                    label={backer.label}
+                    alt={backer.logoAlt ?? backer.label}
+                    src={backer.logoSrc}
+                    sizes={backer.logoSizes}
+                  />
+                </span>
+              ) : null}
+              <span className={styles.backerDetail}>{backer.detail}</span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className={styles.contact} aria-labelledby="about-contact">

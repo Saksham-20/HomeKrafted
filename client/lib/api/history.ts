@@ -15,6 +15,7 @@
 
 import type { LaundryBooking, LaundryBookingStatus, Order, OrderStatus } from "@/lib/types";
 import { laundryServices, seedLaundryBookings, seedOrders } from "@/lib/data";
+import { ORDER_STAGE_LABEL } from "@/lib/kitchen-copy";
 import { isMockMode } from "./http";
 import { getPlacedOrders } from "./orders";
 import { getPlacedBookings } from "./laundry";
@@ -46,12 +47,24 @@ export interface OrderHistoryEntry {
   booking?: LaundryBooking;
 }
 
+/**
+ * The buyer's stepper. Labels come from `ORDER_STAGE_LABEL` (M28) — a
+ * kitchen diary rather than a logistics tracker, because "Placed →
+ * Confirmed → Packed → Shipped" is the vocabulary of a courier and says
+ * nothing about the thing that actually happens in between.
+ *
+ * **Only the labels changed.** The `OrderStatus` values are untouched:
+ * the server writes them, the seller portal advances them and
+ * `docs/API.md` documents them, so renaming the states to read nicer
+ * would be a migration bought with nothing. `ORDER_STATUS_LABEL` below
+ * keeps the plain operational words for anywhere precision beats warmth.
+ */
 const ORDER_PIPELINE: { status: OrderStatus; label: string }[] = [
-  { status: "placed", label: "Placed" },
-  { status: "confirmed", label: "Confirmed" },
-  { status: "packed", label: "Packed" },
-  { status: "shipped", label: "Shipped" },
-  { status: "delivered", label: "Delivered" },
+  { status: "placed", label: ORDER_STAGE_LABEL.placed },
+  { status: "confirmed", label: ORDER_STAGE_LABEL.confirmed },
+  { status: "packed", label: ORDER_STAGE_LABEL.packed },
+  { status: "shipped", label: ORDER_STAGE_LABEL.shipped },
+  { status: "delivered", label: ORDER_STAGE_LABEL.delivered },
 ];
 
 const LAUNDRY_PIPELINE: { status: LaundryBookingStatus; label: string }[] = [
@@ -84,16 +97,20 @@ export const LAUNDRY_STATUS_LABEL: Record<LaundryBookingStatus, string> = {
 
 /**
  * Basic status stepper for an order (no live tracking, per
- * `lib/channel.ts`) — mirrors the exact pipeline + wording
- * `OrderConfirmation` already ports (Placed → Confirmed → Packed →
- * Shipped → Delivered). `cancelled`/`returned` collapse to a short
- * two-step "Placed → Cancelled/Returned" line instead of a stalled
- * mid-pipeline stepper.
+ * `lib/channel.ts`) — the same pipeline and wording `OrderConfirmation`
+ * shows, both now reading from `ORDER_STAGE_LABEL` so the confirmation
+ * screen and the history row cannot drift apart the way two hardcoded
+ * copies of the same five words eventually do.
+ *
+ * `cancelled`/`returned` collapse to a short two-step "Order received →
+ * Cancelled/Returned" line instead of a stalled mid-pipeline stepper.
+ * Those two endings stay plain: there is no warm way to say an order did
+ * not happen, and trying is worse than not.
  */
 export function getOrderStatusSteps(status: OrderStatus): OrderHistoryStep[] {
   if (status === "cancelled" || status === "returned") {
     return [
-      { label: "Placed", done: true },
+      { label: ORDER_STAGE_LABEL.placed, done: true },
       { label: status === "cancelled" ? "Cancelled" : "Returned", done: true },
     ];
   }

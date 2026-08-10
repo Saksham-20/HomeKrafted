@@ -15,11 +15,6 @@ export interface FooterColumn {
   links: NavLink[];
 }
 
-export interface TrustStat {
-  value: string;
-  label: string;
-}
-
 export interface AnnouncementItem {
   text: string;
   /** Gold mono treatment for the lead item, per the design system. */
@@ -112,13 +107,6 @@ export const footerColumns: FooterColumn[] = [
   },
 ];
 
-/** Home hero trust strip ("200+ home chefs · 0 preservatives · 48 hr freshly made"). */
-export const trustStats: TrustStat[] = [
-  { value: "200+", label: "home chefs" },
-  { value: "0", label: "preservatives" },
-  { value: "48 hr", label: "freshly made" },
-];
-
 /**
  * Home page's two promo bands (M11b CMS, `/admin/collections`'s "Home
  * promo content" tab) — previously hardcoded JSX in `app/page.tsx`, now
@@ -176,7 +164,14 @@ export const homePromoBands: HomePromoBandContent[] = [
 ];
 
 /**
- * "Backed by" — the institutional strip under the home page.
+ * "Backed by" — the institutional strip, on `/about` since M28.
+ *
+ * It used to close the home page, directly beneath "Meet the Hands Behind
+ * the Flavours", which put three incubator marks in the last position a
+ * visitor read after the makers themselves. Borrowed credibility should
+ * not be the closing argument on a page whose subject is the people
+ * cooking; it belongs where somebody has actually asked who is behind
+ * this. Rendered by `components/about/AboutClient.tsx`.
  *
  * **These are claims about real organisations, and they now carry the
  * organisations' marks.** Until M24 this was plain text on the reasoning that
@@ -198,7 +193,11 @@ export const homePromoBands: HomePromoBandContent[] = [
  *   Dropping it turns a stated affiliation into an implied endorsement.
  */
 export interface BackerClaim {
-  /** Stable key. Also selects the per-mark optical-size class in `page.module.css`. */
+  /**
+   * Stable key. Also selects the per-mark optical-size class in
+   * `components/about/AboutClient.module.css` — the strip moved off Home
+   * to `/about` in M28, so that is where the width variables live now.
+   */
   id: "cuna" | "isbAic" | "cgc";
   label: string;
   detail: string;

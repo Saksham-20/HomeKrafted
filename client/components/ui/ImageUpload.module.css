@@ -33,7 +33,8 @@
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  color: var(--hk-terracotta);
+  /* 12px on the canvas tint — 4.09:1 with the base token. */
+  color: var(--hk-terracotta-text);
   background: none;
   border: none;
   cursor: pointer;
@@ -61,7 +62,7 @@
   border-radius: var(--hk-r-lg);
   cursor: pointer;
   text-align: left;
-  transition: border-color 140ms ease, background 140ms ease;
+  transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
 }
 
 .zone:hover:not(.disabled) {
@@ -153,6 +154,11 @@
   height: 100%;
   background: var(--hk-pine);
   border-radius: var(--hk-r-pill);
+  /* The one transition deliberately left fast and `linear` (M28, when the
+     rest moved to `--hk-dur`/`--hk-ease`). This is an upload progress
+     bar: it reports bytes, so easing it would make the fill lag the real
+     transfer and a slow duration would have it still creeping after the
+     upload finished. A meter is not a micro-interaction. */
   transition: width 120ms linear;
 }
 

@@ -9,8 +9,7 @@ import { MakerCard } from "@/components/home/MakerCard";
 import { WayCard } from "@/components/home/WayCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
-import { backedBy, waysToOrder } from "@/lib/data";
+import { waysToOrder } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import {
   getCategories,
@@ -19,7 +18,6 @@ import {
   getOccasions,
   getProducts,
   getReels,
-  getTrustStats,
   getVendors,
 } from "@/lib/api";
 import { currentSeasonalOccasion } from "@/lib/occasions";
@@ -64,9 +62,8 @@ function renderPromoTitle(title: string) {
  * — see `getHomePromoBands`.
  */
 export default async function Home() {
-  const [trustStats, occasions, categories, allProducts, vendors, promoBands, reels, collections] =
+  const [occasions, categories, allProducts, vendors, promoBands, reels, collections] =
     await Promise.all([
-      getTrustStats(),
       getOccasions(),
       getCategories(),
       getProducts(),
@@ -77,7 +74,6 @@ export default async function Home() {
     ]);
 
   const ways = waysToOrder;
-  const backers = backedBy;
 
   /**
    * The four kitchens behind "Meet the Hands Behind the Flavours", each
@@ -170,7 +166,7 @@ export default async function Home() {
   return (
     <>
       <script {...jsonLdProps(siteJsonLd)} />
-      <Hero trustStats={trustStats} />
+      <Hero />
 
       {seasonal && (
         <section className={clsx("container", styles.seasonal)}>
@@ -185,7 +181,7 @@ export default async function Home() {
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>
-            Thoughtful Handkrafted Gifts for Every Occasion
+            Thoughtful handcrafted gifts for every occasion
           </h2>
           <Link href="/collections" className={styles.viewAll}>
             View all →
@@ -293,42 +289,6 @@ export default async function Home() {
           <AppInstallPanel />
         </div>
 
-        {/*
-          Institutional claims, with the organisations' marks as of M24.
-
-          Each mark sits on a white tile because all three supplied files are
-          JPEGs with a baked near-white background: against the `#F4F3F0`
-          canvas those backgrounds would read as three accidental rectangles,
-          whereas on a card they read as the design system's own card
-          treatment. It also means the letterboxing inside the CGC file
-          disappears instead of having to be cropped out of somebody's logo.
-
-          A backer with no `logoSrc` still renders — as its sentence alone,
-          which is what the whole strip was before M24. See `backedBy` in
-          `lib/data/site.ts` for the two editing rules and the standing
-          "confirm these relationships in writing" warning.
-        */}
-        <div className={styles.backedBy}>
-          <span className={styles.backedByLabel}>Backed by</span>
-          <ul className={styles.backerRow}>
-            {backers.map((backer) => (
-              <li key={backer.id} className={styles.backer}>
-                {backer.logoSrc && backer.logoRatio ? (
-                  <span className={clsx(styles.backerMark, styles[backer.id])}>
-                    <ImageSlot
-                      ratio={backer.logoRatio}
-                      label={backer.label}
-                      alt={backer.logoAlt ?? backer.label}
-                      src={backer.logoSrc}
-                      sizes={backer.logoSizes}
-                    />
-                  </span>
-                ) : null}
-                <span className={styles.backerDetail}>{backer.detail}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
       </section>
     </>
   );

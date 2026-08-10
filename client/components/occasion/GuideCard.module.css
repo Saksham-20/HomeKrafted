@@ -6,7 +6,7 @@
   border-radius: var(--hk-r-lg);
   overflow: hidden;
   text-decoration: none;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
 }
 
 .card:hover {

@@ -186,7 +186,7 @@ p {
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
-  transition: transform 0.15s ease;
+  transition: transform var(--hk-dur) var(--hk-ease);
 }
 
 .hk-skip-link:focus-visible {

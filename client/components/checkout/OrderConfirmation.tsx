@@ -1,6 +1,7 @@
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusTimeline } from "@/components/ui/StatusTimeline";
+import { getOrderStatusSteps } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import type { Order } from "@/lib/types";
 import styles from "./OrderConfirmation.module.css";
@@ -13,9 +14,18 @@ export interface OrderConfirmationProps {
 /**
  * Post-place-order confirmation state (M3) — rendered in place of the
  * checkout form, not a separate route: order number + a basic status
- * stepper (placed → confirmed → packed → shipped → delivered, first step
- * done), no live tracking. Full order history/detail is `/account/orders`
- * in M7 — this is just the immediate "you're done" screen.
+ * stepper, no live tracking. Full order history/detail is
+ * `/account/orders` in M7 — this is just the immediate "you're done"
+ * screen.
+ *
+ * The stepper is derived from `getOrderStatusSteps(order.status)` rather
+ * than hardcoded (M28). It used to hold its own copy of the five labels
+ * with the first marked done, which meant the kitchen-diary rewording had
+ * two places to land and the confirmation screen would have kept saying
+ * "Placed → Confirmed → Packed" while the history row said something
+ * else. Deriving it also makes the screen honest if the order is not
+ * actually at `placed` — a `pending-payment` order now says so instead of
+ * showing a tick it has not earned.
  */
 export function OrderConfirmation({ order, onContinueShopping }: OrderConfirmationProps) {
   return (
@@ -34,13 +44,7 @@ export function OrderConfirmation({ order, onContinueShopping }: OrderConfirmati
       <div className={styles.card}>
         <StatusTimeline
           orientation="horizontal"
-          steps={[
-            { label: "Placed", done: true },
-            { label: "Confirmed", done: false, current: false },
-            { label: "Packed", done: false },
-            { label: "Shipped", done: false },
-            { label: "Delivered", done: false },
-          ]}
+          steps={getOrderStatusSteps(order.status)}
         />
       </div>
 

@@ -112,7 +112,32 @@ describe('forVendor — blackouts', () => {
     const where = (prisma.vendorBlackoutDate.findMany as jest.Mock).mock.calls[0][0].where;
     expect(where.vendorId).toBe('vd1');
     expect(where.date.gte).toBeInstanceOf(Date);
-    expect(where.date.gte.getTime()).toBeLessThanOrEqual(Date.now());
+
+    /*
+     * The bound is **UTC midnight of today's local calendar date**, and it
+     * is compared against the stored value, never against the clock.
+     *
+     * This used to assert `gte <= Date.now()`, which is a different claim
+     * and only true for part of the day. Blackouts are `@db.Date` rows
+     * written at UTC midnight by `parseDateOnly`, so `startOfToday()`
+     * correctly builds UTC midnight from *local* Y/M/D — meaning that at
+     * 00:43 IST the bound is 05:30 IST, five hours in the future, and the
+     * old assertion failed. It passed on a UTC CI runner (where local is
+     * UTC) and failed on any machine east of Greenwich overnight: green
+     * for about eighteen hours a day. Caught at 00:43 IST on 2026-08-10.
+     *
+     * The old assertion was also too weak in the other direction — a bound
+     * of last January would have satisfied it. What matters is the
+     * boundary itself: today is in, yesterday is out.
+     */
+    const now = new Date();
+    const expected = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    expect(where.date.gte.getTime()).toBe(expected);
+
+    const todayRow = new Date(expected);
+    const yesterdayRow = new Date(expected - 24 * 60 * 60 * 1000);
+    expect(todayRow.getTime()).toBeGreaterThanOrEqual(where.date.gte.getTime());
+    expect(yesterdayRow.getTime()).toBeLessThan(where.date.gte.getTime());
   });
 });
 

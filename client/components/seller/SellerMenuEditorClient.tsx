@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { ModerationNotice } from "./ModerationNotice";
+import type { ProductModerationStatus } from "@/lib/types";
 import { SellerPageHeader } from "./SellerPageHeader";
 import {
   EMPTY_SNACK_FORM,
@@ -47,6 +52,7 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [review, setReview] = useState<{ status?: ProductModerationStatus; note?: string }>({});
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -58,6 +64,7 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
         if (cancelled) return;
         if (snack) {
           setValues(snackToFormValues(snack));
+          setReview({ status: snack.moderationStatus, note: snack.moderationNote });
         } else {
           setNotFound(true);
         }
@@ -95,11 +102,18 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading…</div>;
+    return <RouteSkeleton variant="page" message={kitchenLoading("seller/menu-editor", MAKER_LOADING)} />;
   }
 
   if (notFound) {
-    return <div className={styles.loading}>Snack not found.</div>;
+    return (
+      <NotFoundCard
+        title="We couldn’t find that snack"
+        body="No snack on your menu matches this id. It may have been removed since this link was made."
+        backHref="/seller/menu"
+        backLabel="Back to your menu"
+      />
+    );
   }
 
   return (
@@ -108,6 +122,7 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
         title={isEdit ? "Edit snack" : "Add snack"}
         subtitle={isEdit ? values.name : "Add a new snack to your menu."}
       />
+      <ModerationNotice status={review.status} note={review.note} />
       <SnackMenuForm values={values} onChange={setValues} />
       {error && <p className={styles.error}>{error}</p>}
       <div className={styles.actions}>

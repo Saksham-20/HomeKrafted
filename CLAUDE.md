@@ -73,9 +73,11 @@ assume is already handled.
   decision, not a bug fix — so don't "fix" it in passing. Both the
   `/admin/payouts` queue and `docs/LAUNCH-READINESS.md` §3b say so out
   loud; keep it that way until someone decides.
-- **The home page's "Backed by" strip is unverified, and now carries the
+- **The "Backed by" strip is unverified, and now carries the
   logos.** CUNA, ISB AIC and CGC-J VentureNest — `backedBy` in
-  `lib/data/site.ts`, rendered by `app/page.tsx`, marks under
+  `lib/data/site.ts`, rendered by `components/about/AboutClient.tsx`
+  (**on `/about` since M28**, moved off the home page where it closed the
+  page under the makers), marks under
   `public/images/backers/`. Until M24 this was plain text on the reasoning
   that reproducing a mark is a separate permission from stating a
   relationship; the owner supplied the three files and chose to ship them
@@ -85,7 +87,7 @@ assume is already handled.
   one in small grey text. Confirm each relationship in writing before the
   site is promoted publicly. Two rules when editing: **never alter a mark**
   (no recolour, no grayscale, no crop — optical differences are handled by
-  per-logo display height in `page.module.css`), and **keep the `detail`
+  per-logo display height in `AboutClient.module.css`), and **keep the `detail`
   sentence under each mark** — the logo identifies the organisation, the
   sentence states the relationship, and dropping it turns a stated
   affiliation into an implied endorsement. M24 also corrected "Supported by
@@ -252,10 +254,15 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   somebody reads, and axe fails them. Small gold text takes
   **`--hk-gold-text-sm`**, which exists for exactly this. Terracotta
   (`--hk-terracotta`) is for prices/remove in the marketplace.
-- **Every new surface owes a contrast pass, and it is automated:**
-  `e2e/tests/a11y.spec.ts` runs axe's `color-contrast` plus the
-  structural WCAG rules over every public route at both viewports. Add a
-  route to `PUBLIC_ROUTES` there when you add one.
+- **Every new surface owes a contrast pass, and two things measure it.**
+  `e2e/tests/a11y.spec.ts` runs axe's `color-contrast` plus the structural
+  WCAG rules over `e2e/tests/public-routes.ts` — **eight routes**, a fast
+  CI gate, not "every public route" (the claim this file carried until
+  M26, and why 114 contrast failures accumulated on the other eighty).
+  That list is shared with `presentation.spec.ts` since M27; the two used
+  to disagree. Add a route there when you add one, and run `node e2e/sweep.mjs` (all 87
+  routes × 4 roles × 2 viewports, screenshots included) before calling a
+  visual change done. `--only=/some/route` while iterating.
 - **Real photos where supplied, placeholder otherwise — always via
   `<ImageSlot>`.** Brand photography lives under
   `client/public/images/{products,categories,snacks,vendors,site}`;
@@ -452,6 +459,17 @@ paragraphs over appending new ones.
   `lib/api`) from a `"use client"` component (interaction) the way
   `Header.tsx` → `HeaderClient.tsx` does — don't make an entire
   data-fetching tree client-side just because one button needs state.
+- **New loading state or buyer-facing status label:** take the words from
+  `lib/kitchen-copy.ts` (M28), don't write "Loading…". Three rules live
+  there and each is a trap: **never pick a line randomly** (server and
+  browser then disagree — React #418, the M12 lesson; `kitchenLoading()`
+  hashes a stable surface key instead), **every order-stage label must be
+  true of a candle as well as a curry** (one pipeline carries food and
+  craft since M20, so "on the stove now" is wrong for half the
+  catalogue), and **the admin panel stays plain** — an operator is there
+  because something needs deciding, and whimsy over a queue holding
+  somebody's income reads as not taking the job seriously. Both the
+  determinism and the craft-safety are pinned in `kitchen-copy.spec.ts`.
 - **New screen/route:** follow the route tree in the plan
   (`app/{shop,hamper,laundry,snacks,wallet,account/...}`). Reuse
   `ImageSlot` for every image, check `lib/channel.ts` before adding
@@ -482,9 +500,11 @@ centralized as real CSS custom properties in `client/styles/tokens.extend.css`
 `components/ui/*.module.css` file can reference `var(--hk-...)` instead of
 repeating the raw hex. `tokens.css` itself stays untouched and remains law —
 `tokens.extend.css` is **almost** purely additive and NOT part of the
-`handoff/` design system — see the two corrected values at the end of the
-list, which are the only place it overrides `tokens.css` rather than
-adding to it.
+`handoff/` design system. It overrides `tokens.css` in exactly **two**
+places, both at the end of the list and both documented in the file: the
+corrected `--hk-muted`/`--hk-muted-2` (contrast), and `--hk-dur`
+(M28 — motion slowed from `.28s` to `.36s`; `--hk-ease` was left alone,
+it is already a decelerating curve). Everything else adds.
 
 - `--hk-on-pine: #eadfc9` — copy on solid `--hk-pine` (announcement bar,
   tag chips, badges on dark cards, PromoBand's dark variant,
@@ -624,6 +644,17 @@ accident:
   that gives money back owes the same question: what else did placement
   hand over? `lifetimeSaved` unwinds too, or the loop buys loyalty tier
   for free.
+- **An order is refunded through the order's own endpoint, never by
+  crediting the wallet (M26).** `POST /admin/orders/:type/:id/refund`
+  flips `Order.refundStatus`, takes an `Idempotency-Key`, refuses an
+  unpaid order and is audited. `POST /admin/wallet/:userId/refund` does
+  none of that — the admin order screen used it for months, so the same
+  order could be refunded again the next day and three clicks credited
+  three times (measured: ₹2,749 → ₹7,246 on a ₹1,499 order). The wallet
+  endpoint is for an adjustment that is genuinely not an order refund.
+  **Any new money button owes an idempotency key minted once per
+  operation, not per click** — a per-click key does nothing for the retry
+  that a timeout provokes.
 - **`POST /admin/payouts/:id/pay` records a settlement, it does not
   perform one.** There is no payout provider. The `reference` is the only
   link to a real transfer. Both payout decisions are one-way.

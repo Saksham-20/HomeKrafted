@@ -58,6 +58,37 @@ the single-object return that would become a set).
 wrong in ways only real orders reveal. The moderation-SLA card shipped
 instead because it serves supply onboarding, which starts before launch.
 
+### `ProductCard`'s `onCardClick` variant is nested-interactive
+**What:** with `onCardClick` and no `href`, the card becomes a
+`role="button"` div that still contains the wishlist and add buttons —
+axe's `nested-interactive`, the one finding left on the M28 sweep.
+**Why it is not urgent:** the only caller in the entire codebase is
+`app/gallery/GalleryClient.tsx`, the dev-only primitives page that
+`notFound()`s in production. Every real surface passes `href` and gets
+the M22 stretched-link treatment, which is why the violation appears on
+`/gallery` and nowhere else.
+**Why it is worth doing anyway:** a variant whose sole consumer is its own
+demo page is a good candidate for deletion, and deleting it removes the
+finding rather than working around it. That is a call about the
+component's API, not a bug fix, which is why it is here.
+**Start at:** `client/components/ui/ProductCard.tsx:88-99`.
+
+### Full-suite e2e flakiness
+**What:** `npm run test:e2e` is not reliably green under full parallel
+load. Observed: 1 failure, then 15, then 0, then (M28) 1 —
+`seller-analytics.e2e-spec.ts` failing in `beforeAll` at
+`createCategory`. That spec passes alone in 3.7s, and `createCategory`
+uses a unique slug, so it is contention (deadlock or pool exhaustion),
+not shared fixture state.
+**Why not now:** it is pre-existing, the harness already carries
+deadlock-retry logic, and chasing it properly means instrumenting the
+suite rather than guessing. But **a suite that fails ~1 in N runs for
+reasons nobody has pinned is a suite people learn to re-run**, which is
+how a real regression gets waved through.
+**Start at:** `server/test/e2e/harness.ts`, and capture full jest output —
+the M28 run's failure detail was truncated to twelve lines, which is why
+this still has no diagnosis.
+
 ### Apostrophe normalisation
 **What:** ~566 straight contractions in user-facing copy versus ~20 curly.
 **Why not now:** a mechanical sweep over every string at the least stable

@@ -86,6 +86,24 @@
   --hk-muted: #766c5d;
   --hk-muted-2: #6f6a5e;
 
+  /* ---- Motion, slowed ----
+     **The second place this file overrides `tokens.css`** (see the muted
+     note above for the first, and the same reasoning: correct the value,
+     do not mint a parallel name that leaves the old one in place).
+
+     `tokens.css` ships `--hk-dur: .28s`. Nothing was wrong with it in
+     isolation; it is simply the tempo of a delivery app, and it was the
+     tempo of a site arguing that its food is worth waiting for. The
+     2026-08 brand review asked for 300–500ms and gentler easing so
+     things settle rather than snap. `--hk-ease` is left exactly as it is
+     — `cubic-bezier(.2,.7,.2,1)` is already a decelerating curve with no
+     overshoot, which is the "ease-out, not bouncy" the review wanted.
+
+     Reverting is deleting one line. If a specific interaction genuinely
+     needs to feel immediate, give that rule its own duration and say why
+     — do not pull this back down for everything. */
+  --hk-dur: 0.36s;
+
   /* ---- Decorative scrollbar ----
      `.hk-scroll` thumb tint for horizontally-scrolling rails (chip rows,
      tabs). Decorative only, low stakes. Ported verbatim from the

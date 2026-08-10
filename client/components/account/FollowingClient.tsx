@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { getFollowedVendors, unfollowVendor } from "@/lib/api";
 import type { Vendor } from "@/lib/types";
+import { kitchenLoading } from "@/lib/kitchen-copy";
 import styles from "./FollowingClient.module.css";
 
 /**
@@ -60,7 +61,9 @@ export function FollowingClient() {
           Couldn&apos;t load who you follow. Reload the page to try again.
         </p>
       ) : vendors === undefined ? (
-        <p className={styles.loading}>Loading…</p>
+        <p className={styles.loading} role="status" aria-live="polite">
+          {kitchenLoading("account/following")}
+        </p>
       ) : vendors.length === 0 ? (
         <div className={styles.empty}>
           <p className={styles.emptyTitle}>You&apos;re not following anyone yet.</p>
@@ -83,6 +86,8 @@ export function FollowingClient() {
                     shape="circle"
                     label={vendor.avatarPlaceholder}
                     src={vendor.avatarSrc}
+                    alt=""
+                    sizes="56px"
                     compact
                   />
                 </span>

@@ -5,6 +5,9 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { StatusTimeline, type StatusTimelineStep } from "@/components/ui/StatusTimeline";
 import { OrderStatusPill } from "./OrderStatusPill";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -100,11 +103,18 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading order…</div>;
+    return <RouteSkeleton variant="page" message={kitchenLoading("seller/maker-order", MAKER_LOADING)} />;
   }
 
   if (!order) {
-    return <div className={styles.loading}>Order not found.</div>;
+    return (
+      <NotFoundCard
+        title="We couldn’t find that order"
+        body="No order containing one of your items matches this id. It may have been opened from a stale tab."
+        backHref="/seller/orders"
+        backLabel="Back to orders"
+      />
+    );
   }
 
   const isTerminalNonDelivered = order.status === "cancelled" || order.status === "returned";

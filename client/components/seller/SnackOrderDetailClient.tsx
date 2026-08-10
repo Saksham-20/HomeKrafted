@@ -5,6 +5,9 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { StatusTimeline, type StatusTimelineStep } from "@/components/ui/StatusTimeline";
 import { SnackOrderStatusPill } from "./SnackOrderStatusPill";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -78,11 +81,18 @@ export function SnackOrderDetailClient({ orderId }: SnackOrderDetailClientProps)
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading order…</div>;
+    return <RouteSkeleton variant="page" message={kitchenLoading("seller/snack-order", MAKER_LOADING)} />;
   }
 
   if (!order) {
-    return <div className={styles.loading}>Order not found.</div>;
+    return (
+      <NotFoundCard
+        title="We couldn’t find that order"
+        body="No snack order of yours matches this id. Snack orders arrive over WhatsApp, so a very new one may not have been recorded yet."
+        backHref="/seller/snack-orders"
+        backLabel="Back to orders"
+      />
+    );
   }
 
   const next = nextSnackOrderStatus(order.status);

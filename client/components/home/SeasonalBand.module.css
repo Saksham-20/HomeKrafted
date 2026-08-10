@@ -10,7 +10,7 @@
   background: var(--hk-gold-tint);
   border: 1px solid var(--hk-gold-border);
   text-decoration: none;
-  transition: transform 0.15s ease;
+  transition: transform var(--hk-dur) var(--hk-ease);
 }
 
 .band:hover {

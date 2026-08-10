@@ -5,6 +5,9 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { StatusTimeline, type StatusTimelineStep } from "@/components/ui/StatusTimeline";
 import { PickupStatusPill } from "./PickupStatusPill";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -130,11 +133,18 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading pickup…</div>;
+    return <RouteSkeleton variant="page" message={kitchenLoading("seller/pickup", MAKER_LOADING)} />;
   }
 
   if (!booking) {
-    return <div className={styles.loading}>Booking not found.</div>;
+    return (
+      <NotFoundCard
+        title="We couldn’t find that booking"
+        body="No pickup assigned to you matches this id. It may have been reassigned or cancelled."
+        backHref="/seller/pickups"
+        backLabel="Back to pickups"
+      />
+    );
   }
 
   const isCancelled = booking.status === "cancelled";

@@ -289,3 +289,18 @@
     padding-bottom: 84px;
   }
 }
+
+/*
+  The line under "Placing order…" (M28). Quiet and display-italic, the
+  same voice as the hero's aside and the route skeletons — company during
+  the wait, not another instruction.
+*/
+.placingNote {
+  font-family: var(--hk-font-display);
+  font-style: italic;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--hk-muted);
+  margin: var(--hk-s3) 0 0;
+  text-align: center;
+}

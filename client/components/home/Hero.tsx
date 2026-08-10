@@ -1,26 +1,32 @@
 import Link from "next/link";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
-import type { TrustStat } from "@/lib/data";
 import styles from "./Hero.module.css";
-
-export interface HeroProps {
-  trustStats: TrustStat[];
-}
 
 /**
  * Home hero.
  *
- * **"Everything homemade"** (M20, client copy). The line does the work the
- * previous one couldn't: the site now sells two different things — food
- * cooked near you, and craft posted anywhere — and any headline naming only
- * one of them misdescribes half the catalogue.
+ * **"Someone's kitchen. Not a cloud kitchen."** (M28, client copy.) The
+ * previous line was "Everything homemade" — accurate, and saying nothing
+ * a delivery app couldn't also say. What actually separates this platform
+ * is *where* the food is made and *how long that takes*, so the headline
+ * names the thing it is not, and the lede owns the slowness rather than
+ * apologising for it.
  *
- * The two CTAs are the two verticals, side by side and equally weighted,
- * because the split is the point. The eyebrow still says tricity, since
- * that is true of the food and is the thing a first-time visitor most needs
- * to know before browsing.
+ * **The lede has to carry both verticals** (the M20 rule): the site sells
+ * food cooked near you *and* craft posted anywhere, and the headline now
+ * names only the first. The two CTAs stay side by side and equally
+ * weighted for the same reason — that split is load-bearing, so if the
+ * headline is ever narrowed further, one of these has to widen.
+ *
+ * **There is no trust-stat strip, deliberately.** It read "200+ home
+ * chefs · 0 preservatives · 48 hr freshly made" — a SaaS trust bar whose
+ * first figure nobody could substantiate and whose third contradicted the
+ * announcement bar's "cooked this morning" two rows above it. A claim that
+ * cannot be checked is worse than no claim on a page whose entire pitch is
+ * that you can trust a stranger's kitchen. Don't reintroduce one; if a
+ * number is ever wanted here, derive it from the catalogue.
  */
-export function Hero({ trustStats }: HeroProps) {
+export function Hero() {
   return (
     <section className={styles.hero}>
       <div className="container">
@@ -28,13 +34,17 @@ export function Hero({ trustStats }: HeroProps) {
           <div className={styles.copy}>
             <span className={styles.eyebrow}>Home kitchens · Chandigarh, Mohali &amp; Panchkula</span>
             <h1 className={styles.heading}>
-              Everything
+              Someone&rsquo;s kitchen.
               <br />
-              <em className={styles.emphasis}>homemade</em>.
+              <em className={styles.emphasis}>Not a cloud kitchen</em>.
             </h1>
             <p className={styles.lede}>
-              Daily meals, fresh bakes, snacks, sweets and small-batch pickles from home kitchens
-              around the tricity — and handcrafted gifts, posted anywhere in India.
+              Daily meals, fresh bakes, snacks, sweets and small-batch pickles, made by hand the
+              same morning they go out, in home kitchens around the tricity — and handcrafted
+              gifts, posted anywhere in India.
+            </p>
+            <p className={styles.note}>
+              It takes a little longer than a restaurant. That&rsquo;s kind of the point.
             </p>
             <div className={styles.ctaRow}>
               <Link href="/shop" className={styles.ctaPrimary}>
@@ -43,16 +53,8 @@ export function Hero({ trustStats }: HeroProps) {
               {/* Two verticals, two buttons, equal weight — the split is
                   the whole message. */}
               <Link href="/gifts" className={styles.ctaOutline}>
-                Order handkrafted gifts →
+                Order handcrafted gifts →
               </Link>
-            </div>
-            <div className={styles.trustRow}>
-              {trustStats.map((stat) => (
-                <div key={stat.label} className={styles.trustStat}>
-                  <span className={styles.trustValue}>{stat.value}</span>
-                  <span className={styles.trustLabel}>{stat.label}</span>
-                </div>
-              ))}
             </div>
           </div>
           <div className={styles.imageWrap}>

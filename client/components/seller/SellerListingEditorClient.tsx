@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { ModerationNotice } from "./ModerationNotice";
 import { SellerPageHeader } from "./SellerPageHeader";
 import {
   EMPTY_LISTING_FORM,
@@ -70,6 +74,10 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [review, setReview] = useState<{
+    status?: Product["moderationStatus"];
+    note?: string;
+  }>({});
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -87,6 +95,10 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
       if (productId) {
         if (product) {
           setValues(productToFormValues(product));
+          // Kept alongside the form values so the review banner can show
+          // the admin's reason at the top of the screen — the one place
+          // the HomeKrafter can act on it.
+          setReview({ status: product.moderationStatus, note: product.moderationNote });
         } else {
           setNotFound(true);
         }
@@ -139,11 +151,18 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading…</div>;
+    return <RouteSkeleton variant="page" message={kitchenLoading("seller/listing-editor", MAKER_LOADING)} />;
   }
 
   if (notFound) {
-    return <div className={styles.loading}>Listing not found.</div>;
+    return (
+      <NotFoundCard
+        title="We couldn’t find that listing"
+        body="No listing of yours matches this id. It may have been removed, or the link may be from another account. Your other listings are unaffected."
+        backHref="/seller/listings"
+        backLabel="Back to listings"
+      />
+    );
   }
 
   return (
@@ -152,6 +171,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
         title={isEdit ? "Edit listing" : "Add listing"}
         subtitle={isEdit ? values.name : "Create a new product for your storefront."}
       />
+      <ModerationNotice status={review.status} note={review.note} />
       <ListingForm values={values} onChange={setValues} categories={categories} occasions={occasions} />
       {error && (
         <p className={styles.error} role="alert">

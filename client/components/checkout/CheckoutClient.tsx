@@ -30,6 +30,7 @@ import { isMockMode } from "@/lib/api/http";
 import { openRazorpayCheckout } from "@/lib/payments/razorpay";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatCurrency } from "@/lib/format";
+import { CHECKOUT_LOADING, kitchenLoading } from "@/lib/kitchen-copy";
 import type { DeliveryDateOption } from "@/lib/data";
 import type { Address, Order, OrderGift, OrderShipment, PaymentMethod } from "@/lib/types";
 import styles from "./CheckoutClient.module.css";
@@ -665,6 +666,18 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
             >
               {placing ? "Placing order…" : "Place order"}
             </Button>
+            {/*
+              The button label stays literal — "Placing order…" is what is
+              happening and a button is not the place for atmosphere. The
+              line beneath it is (M28): this wait is the one moment the
+              buyer is handing money to a stranger's kitchen, and saying
+              where the order is actually going does more than a spinner.
+            */}
+            {placing && (
+              <p className={styles.placingNote} role="status" aria-live="polite">
+                {kitchenLoading("checkout", CHECKOUT_LOADING)}
+              </p>
+            )}
           </StickySummary>
           {cannotPay && (
             <p className={styles.formError} role="alert">

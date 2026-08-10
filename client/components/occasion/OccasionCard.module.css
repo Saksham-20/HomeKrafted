@@ -7,7 +7,7 @@
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-lg);
   text-decoration: none;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: border-color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
 }
 
 .card:hover {
@@ -35,7 +35,7 @@
   font-weight: 600;
   /* 19px display weight 600 clears the gold contrast floor (CLAUDE.md:
      gold is decorative-only below ~16px bold). */
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .body {

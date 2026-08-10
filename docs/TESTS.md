@@ -139,7 +139,8 @@ npx ts-node prisma/seed.ts
 npx ts-node prisma/seed-crafts.ts
 npx ts-node prisma/seed-meal-plans.ts
 npx ts-node prisma/seed-browser-orders.ts
-PORT=4100 CLIENT_ORIGIN=http://localhost:3100 SITE_URL=http://localhost:3100 npm run start:dev
+PORT=4100 CLIENT_ORIGIN=http://localhost:3100 SITE_URL=http://localhost:3100 \
+  THROTTLE_LIMIT=100000 THROTTLE_AUTH_LIMIT=100000 npm run start:dev
 
 # 2. The web app, pointed at it
 cd client
@@ -154,6 +155,18 @@ cd e2e
 npm install && npx playwright install --with-deps chromium
 npm test
 ```
+
+**Raise the throttle, or the sweep measures nothing.** `server/.env` ships
+`THROTTLE_LIMIT=20` (the code default is 120), and `node e2e/sweep.mjs` is
+174 page-visits back to back — it trips the limiter within seconds and the
+API starts answering "Too many requests" to the *server-side* fetches, so
+routes render their error boundary instead of the page. This cost two
+whole sweep runs on 2026-08-10 before it was diagnosed, and the second one
+was thrown away silently: a Next error boundary can render on a **200**,
+so those rows printed `ok`. The sweep now flags that as `ERRBOUNDARY`
+(M28-004), but the limit still has to be raised or the run is not
+coverage. The limiter itself is tested separately and does not need
+exercising here.
 
 **`seed-browser-orders.ts` is for this stack only, and is not part of the
 demo dataset.** `seed.ts` plus the laundry bookings and snack orders come to
@@ -178,6 +191,40 @@ like a passing one), and every consumer page rendering two `aria-modal`
 dialogs.
 
 ---
+
+## The sweep — `e2e/sweep.mjs` (M26)
+
+Not a test suite; a **measuring instrument**, and it fails nothing. It
+opens every route in `docs/route-inventory.tsv` in every role that can
+reach it, at 1280 and 390 — 172 page-visits — and records per visit: axe
+violations, horizontal overflow, dead links (`href="#"`), heading-order
+jumps, `h1` count, broken images, unlabelled inputs, undersized pointer
+targets and console errors, with a screenshot each.
+
+```bash
+./scripts/qa-up.sh                      # same stack the browser suite uses
+cd e2e && node sweep.mjs                # → .qa-shots/{desktop,mobile}/*.png + sweep.json
+node sweep.mjs --only=/shop             # while iterating on one screen
+node sweep.mjs --viewport=mobile
+```
+
+**Use it before calling a visual change done.** `a11y.spec.ts` guards
+seven routes; this one covers all of them, which is how M26 found 114
+contrast failures on the other eighty. It complements the browser suite
+rather than replacing it: Playwright asserts *behaviour* and fails the
+build, this measures *presentation* across everything and produces a
+shortlist for a person to look at.
+
+Three things in it are load-bearing and easy to break:
+
+- **It seeds `hk_location_v1` in localStorage *and* the `hk_loc` cookie.**
+  The cookie alone leaves the location modal over every screenshot — the
+  first run photographed the same dialog 172 times.
+- **It scrolls each page before measuring**, or every below-fold lazy
+  image reads as broken.
+- **It models WCAG 2.5.8's inline and spacing exceptions.** Without them
+  every `mailto:` in a paragraph and every well-spaced checkbox is
+  reported, and one false positive per page buries the real findings.
 
 ## What the suite actually guards
 

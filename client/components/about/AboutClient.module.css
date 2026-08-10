@@ -304,3 +304,138 @@ a.contactRow:hover {
     max-width: 320px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   "Backed by" — the institutional claims, moved here from `app/page.module.css`
+   in M28. Ported verbatim: every rule below was arrived at against the three
+   supplied JPEGs, and the reasoning is kept because each one is a trap someone
+   would otherwise re-open.
+   --------------------------------------------------------------------------- */
+.backedBy {
+  border-top: 1px solid var(--hk-border);
+  padding-top: var(--hk-s6);
+  margin-top: var(--hk-s8, 48px);
+}
+
+.backedByLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--hk-ink-3);
+  display: block;
+  text-align: center;
+  /* It is an `<h2>` here rather than the `<span>` it was on Home — the
+     section needs an accessible name — so the heading's own margins have
+     to be zeroed or it inherits the page's h2 rhythm. */
+  margin: 0 0 var(--hk-s4);
+}
+
+.backerRow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s6);
+  /*
+    `center`, not `baseline`. Baseline alignment was correct while these were
+    three lines of text; it means nothing once the children are images of
+    different heights, and it was the first thing that would have made the
+    logo row look accidental.
+  */
+  align-items: center;
+  justify-content: center;
+}
+
+.backer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s2);
+  max-width: 260px;
+}
+
+/*
+  White tile behind each mark. All three supplied files are JPEGs carrying a
+  baked near-white background, so on the `#F4F3F0` canvas they would read as
+  three stray rectangles. On a card — the design system's own `#FFFFFF` +
+  `1px var(--hk-border)` treatment — the background becomes invisible and the
+  CGC file's internal letterboxing stops mattering. This is why no mark has to
+  be cropped or recoloured to sit in the row.
+*/
+.backerMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-sm, 8px);
+  padding: var(--hk-s3) var(--hk-s4);
+  /*
+    `content-box` so `--backer-mark-width` describes the MARK, not the tile.
+    `ImageSlot`'s own `.slot` is `width: 100%` and owns its aspect ratio, so
+    sizing the tile is what sizes the logo — trying to set width/height on the
+    slot itself would be an equal-specificity fight with its module, decided by
+    stylesheet order, which is not something to rely on.
+  */
+  box-sizing: content-box;
+  width: var(--backer-mark-width, 96px);
+}
+
+/*
+  Marks are normalised on HEIGHT, never width: each width below is derived from
+  the file's own aspect ratio at the height that makes that particular mark
+  read. Equal widths would render CGC's dense circular seal as an illegible dot
+  beside an oversized ISB lockup.
+
+  Element selector (`> div`, what ImageSlot renders) rather than `> *` so these
+  beat `.slot`'s own single-class rules on specificity instead of source order.
+*/
+.backerMark > div {
+  /* ImageSlot draws an inset hairline ring and a large radius; inside this
+     tile that reads as a second border around every logo. */
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+/* `.image` in ImageSlot's module is `object-fit: cover` — correct for a
+   product photo, wrong for a logo, which must never be cropped. */
+.backerMark img {
+  object-fit: contain;
+  /*
+    Do NOT add `mix-blend-mode: multiply` here to knock out the near-white
+    (#F8F8F8) background the ISB and CGC files carry. It was tried and it
+    erases all three marks: `next/image` with `fill` is absolutely positioned
+    and blends against its own stacking context rather than the tile behind it,
+    compositing to flat white. The faint grey edge inside those two tiles is
+    the accepted cost of not editing anyone's logo file.
+  */
+}
+
+/* 1:1 at 40px tall. */
+.cuna {
+  --backer-mark-width: 40px;
+}
+
+/* 4:1 at 28px tall — the widest file, and the only one whose lockup carries
+   readable words at this size. */
+.isbAic {
+  --backer-mark-width: 112px;
+}
+
+/* 4:3 at ~52px tall. Largest of the three because the 480x360 file has the
+   seal occupying well under half the frame: matching the others' rendered
+   height would leave the actual mark visibly smaller than its neighbours. */
+.cgc {
+  --backer-mark-width: 69px;
+}
+
+.backerDetail {
+  font-size: 0.85rem;
+  color: var(--hk-ink-2);
+  text-align: center;
+  line-height: 1.4;
+}

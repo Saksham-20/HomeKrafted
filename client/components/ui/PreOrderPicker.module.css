@@ -68,7 +68,7 @@
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-radius-sm);
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition: background var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
 }
 
 .navButton:hover:not(:disabled) {
@@ -117,7 +117,7 @@
   border: 1px solid transparent;
   border-radius: var(--hk-radius-md);
   cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+  transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
 }
 
 .dayButton:hover:not(.daySelected):not(:disabled) {
@@ -165,7 +165,7 @@
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-radius-md);
   cursor: pointer;
-  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
 }
 
 .timeButton:hover:not(.timeSelected) {

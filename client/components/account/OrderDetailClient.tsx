@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Address, LaundryService, LaundrySlot } from "@/lib/types";
+import { kitchenLoading } from "@/lib/kitchen-copy";
 import styles from "./OrderDetailClient.module.css";
 
 export interface OrderDetailClientProps {
@@ -75,7 +76,9 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
   if (entry === undefined) {
     return (
       <div className={styles.wrap}>
-        <p className={styles.loading}>Loading…</p>
+        <p className={styles.loading} role="status" aria-live="polite">
+          {kitchenLoading("account/order-detail")}
+        </p>
       </div>
     );
   }
