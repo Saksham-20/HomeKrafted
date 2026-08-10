@@ -22,6 +22,12 @@ button.chip {
   font-weight: 500;
   font-family: inherit;
   padding: 6px 13px;
+  /* 6px of padding on 12.5px text is a ~28px box. Chips are how filters,
+     categories and occasions are picked — overwhelmingly on a phone, with
+     a thumb, in a row of near-identical neighbours, which is the exact
+     situation the 32px floor exists for. The type size and the horizontal
+     rhythm are unchanged. */
+  min-height: 32px;
   cursor: pointer;
 }
 

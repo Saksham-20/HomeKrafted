@@ -145,6 +145,10 @@ function ChatWidget({ greeting }: { greeting: string }) {
         <input
           type="text"
           className={styles.chatInput}
+          /* A placeholder is not a label: it disappears the moment
+             somebody types, and a screen reader reaches this as an
+             unnamed text field. */
+          aria-label="Type a message to support"
           placeholder="Type a message…"
           value={input}
           onChange={(event) => setInput(event.target.value)}

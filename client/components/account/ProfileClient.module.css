@@ -150,7 +150,8 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--hk-terracotta);
+  /* Sits on a tinted panel, where the base terracotta is 3.95:1. */
+  color: var(--hk-terracotta-text);
   font-size: 14px;
   font-weight: 500;
   min-height: 44px;

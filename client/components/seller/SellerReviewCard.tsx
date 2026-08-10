@@ -54,7 +54,10 @@ export function SellerReviewCard({ review, onReply }: SellerReviewCardProps) {
           {review.targetType === "vendor" ? "Storefront review" : "Product review"}
         </span>
       </div>
-      {review.title && <h3 className={styles.title}>{review.title}</h3>}
+      {/* h2 — this list sits directly under the page's h1 ("Reviews") with
+          no section heading between, so an h3 skipped a level. Each review
+          is a top-level section of this page. */}
+      {review.title && <h2 className={styles.title}>{review.title}</h2>}
       <p className={styles.body}>{review.body}</p>
       <div className={styles.meta}>
         <span>{review.userName}</span>

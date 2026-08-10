@@ -19,5 +19,5 @@
 }
 
 .tile:hover .label {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }

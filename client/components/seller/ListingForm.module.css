@@ -166,7 +166,7 @@
 }
 
 .addRowButton:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .actions {

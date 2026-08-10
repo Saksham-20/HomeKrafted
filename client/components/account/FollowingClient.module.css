@@ -106,7 +106,7 @@
 }
 
 .rowLink:hover .name {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .avatar {

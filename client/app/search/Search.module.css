@@ -201,3 +201,13 @@
     gap: var(--hk-s4);
   }
 }
+
+/* Two results per row on a phone — same reasoning as `/shop`, see
+   `ShopClient.module.css`. A search that returns one visible result per
+   screen reads as "we found almost nothing". */
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hk-s3);
+  }
+}

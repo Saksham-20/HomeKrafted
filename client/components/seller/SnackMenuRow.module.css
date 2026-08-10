@@ -83,7 +83,7 @@
 }
 
 .iconLink:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
   border-color: var(--hk-gold-border);
 }
 

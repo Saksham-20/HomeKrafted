@@ -111,7 +111,7 @@
 }
 
 .body a:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 /* A definition-style block for the contact page and the "who we are" rows
@@ -138,9 +138,14 @@
 }
 
 /* A value still standing in for a real one. Named rather than styled
-   inline so the "unfilled" state is impossible to miss in review. */
+   inline so the "unfilled" state is impossible to miss in review.
+
+   `--hk-terracotta-text`, not `--hk-terracotta`: this sits on the canvas
+   tint (#F4F3F0), where the base token measures 4.09:1 — the same
+   distinction `TransactionRow` and the order pills already make. On white
+   the base token is 4.55:1 and stays. */
 .pending {
-  color: var(--hk-terracotta);
+  color: var(--hk-terracotta-text);
   font-family: var(--hk-font-mono);
   font-size: 13px;
 }

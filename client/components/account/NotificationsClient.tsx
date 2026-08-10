@@ -112,6 +112,24 @@ export function NotificationsClient() {
     }
   }
 
+  /**
+   * Laundry was withdrawn in M19 — `/laundry` 404s and both create
+   * endpoints return 410 — but the preference grid iterates the whole
+   * `NotificationCategory` enum, so every account was still offered four
+   * switches for messages about a service it cannot book. Same defect
+   * M26-004 fixed on `/account/orders`, in the one place that screen did
+   * not reach.
+   *
+   * Conditional rather than deleted, for the same reason as there: six
+   * real bookings exist, and somebody who made one keeps the ability to
+   * turn off messages about it. An account with no laundry notification
+   * has nothing to configure and is not shown the row.
+   */
+  const hasLaundryHistory = notifications.some((n) => n.category === "laundry");
+  const visiblePreferences = preferences.filter(
+    (pref) => pref.category !== "laundry" || hasLaundryHistory,
+  );
+
   const unreadCount = notifications.filter((n) => !n.read).length;
   const visibleNotifications = filter === "unread" ? notifications.filter((n) => !n.read) : notifications;
 
@@ -149,7 +167,7 @@ export function NotificationsClient() {
               </span>
             ))}
           </div>
-          {preferences.map((pref) => (
+          {visiblePreferences.map((pref) => (
             <div key={pref.category} className={styles.prefsRow} role="row">
               <span className={styles.prefsCategory} role="rowheader">
                 {CATEGORY_LABEL[pref.category]}

@@ -68,6 +68,11 @@
 }
 
 .viewSiteLink {
+  display: inline-flex;
+  align-items: center;
+  /* WCAG 2.2 pointer-target floor — this is a standalone control in the
+     topbar, not a link inside a sentence. */
+  min-height: 24px;
   font-size: 13px;
   color: var(--hk-footer-ink-2);
   background: none;

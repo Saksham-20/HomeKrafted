@@ -30,6 +30,10 @@
    rules and `tokens.extend.css`. */
 .change {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  /* WCAG 2.2 pointer-target floor — a standalone control on the bar. */
+  min-height: 24px;
   background: none;
   border: none;
   padding: 0;

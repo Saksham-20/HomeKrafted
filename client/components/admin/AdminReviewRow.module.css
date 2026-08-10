@@ -38,7 +38,10 @@
   padding: 4px 10px;
   border-radius: var(--hk-r-pill);
   background: #f6e7e0;
-  color: var(--hk-terracotta);
+  /* On the terracotta tint the base token is 3.77:1 — the same case
+     `TransactionRow` and the order pills already use the text shade for.
+     See `tokens.extend.css`. */
+  color: var(--hk-terracotta-text);
 }
 
 .title {

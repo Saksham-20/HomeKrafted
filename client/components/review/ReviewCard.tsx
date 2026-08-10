@@ -35,7 +35,10 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
           <span className={styles.verified}>Verified purchase</span>
         )}
       </div>
-      {review.title && <h4 className={styles.title}>{review.title}</h4>}
+      {/* h3, not h4 — `ReviewList` heads the section with an h2, so an h4
+          skipped a level and broke the document outline on every product
+          page and storefront that shows reviews. */}
+      {review.title && <h3 className={styles.title}>{review.title}</h3>}
       <p className={styles.body}>{review.body}</p>
       <div className={styles.meta}>
         <span className={styles.author}>{review.userName}</span>

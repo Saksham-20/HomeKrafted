@@ -20,6 +20,23 @@
   opacity: 0.85;
 }
 
+/* Not a link — the app isn't published. It keeps the badge's shape so the
+   row still reads as "iOS and Android are coming", and loses the two
+   things that would make it a lie: the pointer and the hover lift. */
+.pending {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.pending:hover {
+  opacity: 0.72;
+}
+
+.pendingNote {
+  font-weight: 400;
+  white-space: nowrap;
+}
+
 /* Dark warm border — no matching token (prototype's #56493a), used only
    on the dark food-delivery promo card. Hardcoded + documented. */
 .outline {

@@ -351,50 +351,65 @@ export function ShopClient({
       <aside className={clsx(styles.sidebar, filtersOpen && styles.sidebarOpen)}>
         <div className={styles.filterGroup}>
           <div className={styles.filterTitle}>Category</div>
-          {categories.map((category) => (
-            <label key={category.id} className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                className={styles.checkbox}
-                checked={selectedCategories.has(category.id)}
-                onChange={() => toggle(selectedCategories, setSelectedCategories, category.id)}
-              />
-              {category.name}
-              <span className={styles.count}>{categoryCounts.get(category.id) ?? 0}</span>
-            </label>
-          ))}
+          {categories.map((category) => {
+            const count = categoryCounts.get(category.id) ?? 0;
+            const checked = selectedCategories.has(category.id);
+            return (
+              <label key={category.id} className={clsx(styles.checkboxRow, count === 0 && !checked && styles.checkboxRowEmpty)}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={checked}
+                  disabled={count === 0 && !checked}
+                  onChange={() => toggle(selectedCategories, setSelectedCategories, category.id)}
+                />
+                {category.name}
+                <span className={styles.count}>{count}</span>
+              </label>
+            );
+          })}
         </div>
 
         <div className={styles.filterGroup}>
           <div className={styles.filterTitle}>Dietary</div>
-          {DIETARY_OPTIONS.map((tag) => (
-            <label key={tag} className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                className={styles.checkbox}
-                checked={selectedDietary.has(tag)}
-                onChange={() => toggle(selectedDietary, setSelectedDietary, tag)}
-              />
-              {DIETARY_LABELS[tag]}
-              <span className={styles.count}>{dietaryCounts.get(tag) ?? 0}</span>
-            </label>
-          ))}
+          {DIETARY_OPTIONS.map((tag) => {
+            const count = dietaryCounts.get(tag) ?? 0;
+            const checked = selectedDietary.has(tag);
+            return (
+              <label key={tag} className={clsx(styles.checkboxRow, count === 0 && !checked && styles.checkboxRowEmpty)}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={checked}
+                  disabled={count === 0 && !checked}
+                  onChange={() => toggle(selectedDietary, setSelectedDietary, tag)}
+                />
+                {DIETARY_LABELS[tag]}
+                <span className={styles.count}>{count}</span>
+              </label>
+            );
+          })}
         </div>
 
         <div className={styles.filterGroup}>
           <div className={styles.filterTitle}>Occasion</div>
-          {occasions.map((occasion) => (
-            <label key={occasion.id} className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                className={styles.checkbox}
-                checked={selectedOccasions.has(occasion.id)}
-                onChange={() => toggle(selectedOccasions, setSelectedOccasions, occasion.id)}
-              />
-              {occasion.name}
-              <span className={styles.count}>{occasionCounts.get(occasion.id) ?? 0}</span>
-            </label>
-          ))}
+          {occasions.map((occasion) => {
+            const count = occasionCounts.get(occasion.id) ?? 0;
+            const checked = selectedOccasions.has(occasion.id);
+            return (
+              <label key={occasion.id} className={clsx(styles.checkboxRow, count === 0 && !checked && styles.checkboxRowEmpty)}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={checked}
+                  disabled={count === 0 && !checked}
+                  onChange={() => toggle(selectedOccasions, setSelectedOccasions, occasion.id)}
+                />
+                {occasion.name}
+                <span className={styles.count}>{count}</span>
+              </label>
+            );
+          })}
         </div>
 
         <div className={styles.priceGroup}>

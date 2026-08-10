@@ -52,3 +52,6 @@ next-env.d.ts
 # Verification screenshots — evidence for a specific release, not source.
 deploy-*.png
 live-*.png
+
+# M26 QA sweep screenshots (local only)
+.qa-shots/

@@ -82,6 +82,12 @@
 }
 
 .navLink {
+  display: inline-flex;
+  align-items: center;
+  /* 14.5px text alone gave a 23px box — one pixel under WCAG 2.2's 24px
+     pointer floor, across every page on the site. Vertical padding would
+     change the header's height; a min-height does not. */
+  min-height: 24px;
   font-size: 14.5px;
   font-weight: 500;
   color: var(--hk-ink-2);
@@ -90,7 +96,7 @@
 }
 
 .navLink:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 /* ---- Right-hand actions ---- */
@@ -156,10 +162,15 @@
   color: var(--hk-ink-2);
   width: 38px;
   height: 38px;
+  /* `width` alone is a suggestion inside a flex row. The search field next
+     to these grows, so every icon was shrinking to 16px wide — measured
+     across 32 routes — which is under the 24px pointer-target floor and
+     makes the cart a genuinely awkward tap on a narrow laptop. */
+  flex: none;
 }
 
 .utilityIcon:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .cartButton,

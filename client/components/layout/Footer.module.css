@@ -103,7 +103,14 @@
   gap: var(--hk-s1) var(--hk-s3);
 }
 
+/* 11.5px mono gave these an 18px box — under the 24×24 floor WCAG 2.2
+   sets for a pointer target (2.5.8), and these are the links somebody
+   reaches for on a phone to find the refund policy. The type size is
+   unchanged; the box around it is not. */
 .legalLinks a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   color: var(--hk-footer-mono);
   text-decoration: none;
 }

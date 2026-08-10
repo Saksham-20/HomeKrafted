@@ -86,5 +86,23 @@
 }
 
 .emptyLink:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
+}
+
+/* Two products per row on a phone, not one.
+
+   `auto-fill, minmax(200px, 1fr)` needs 200px + gap + 200px to fit a
+   second column, which a 358px content width never does — so every
+   browse grid collapsed to a single 501px-tall card on a 844px screen.
+   Measured on `/shop` at 390px: one and a half products visible, and
+   4864px of scrolling for six of them. A marketplace that shows one
+   product per screen is a marketplace nobody browses.
+
+   `minmax(0, 1fr)` rather than a fixed floor, so the columns shrink with
+   the viewport instead of overflowing it at 320px. */
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hk-s3);
+  }
 }

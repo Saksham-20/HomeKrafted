@@ -44,23 +44,61 @@ function PlayGlyph() {
  * the prototype, always rendered as a pair (every prototype instance
  * shows them together). Two variants: "outline" (on the dark food-delivery
  * promo card) and "solid" (the "Get the app" QR panel).
+ *
+ * **A missing href renders a badge, not a link, and that is the point.**
+ * Both props defaulted to `"#"`, so on the home page, `/app-promo` and
+ * the gallery these were three pairs of links that scrolled the page to
+ * the top and did nothing else — the shape of a broken promise, since the
+ * apps are not published yet. A link is a claim that there is somewhere
+ * to go. Until there is, this is a label: same badge, no pointer, no tab
+ * stop, and a screen reader is told it is coming rather than being handed
+ * a link to nowhere.
  */
 export function StoreBadges({
   variant = "outline",
-  appStoreHref = "#",
-  playStoreHref = "#",
+  appStoreHref,
+  playStoreHref,
   className,
 }: StoreBadgesProps) {
   return (
     <div className={clsx(styles.row, className)}>
-      <a href={appStoreHref} className={clsx(styles.badge, styles[variant])}>
+      <StoreBadge href={appStoreHref} variant={variant} label="App Store">
         <AppleGlyph />
-        App Store
-      </a>
-      <a href={playStoreHref} className={clsx(styles.badge, styles[variant])}>
+      </StoreBadge>
+      <StoreBadge href={playStoreHref} variant={variant} label="Google Play">
         <PlayGlyph />
-        Google Play
-      </a>
+      </StoreBadge>
     </div>
+  );
+}
+
+function StoreBadge({
+  href,
+  variant,
+  label,
+  children,
+}: {
+  href?: string;
+  variant: "outline" | "solid";
+  label: string;
+  children: React.ReactNode;
+}) {
+  const className = clsx(styles.badge, styles[variant]);
+
+  if (!href) {
+    return (
+      <span className={clsx(className, styles.pending)}>
+        {children}
+        {label}
+        <span className={styles.pendingNote}> — coming soon</span>
+      </span>
+    );
+  }
+
+  return (
+    <a href={href} className={className}>
+      {children}
+      {label}
+    </a>
   );
 }

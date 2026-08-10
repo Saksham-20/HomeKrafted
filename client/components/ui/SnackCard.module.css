@@ -77,6 +77,9 @@
    hardcoded + documented, same convention as ProductCard's added state. */
 .added {
   background: var(--hk-success-tint);
-  color: var(--hk-whatsapp-deep);
+  /* `--hk-whatsapp-deep` is 3.87:1 on the success tint. Both are
+     WhatsApp-family greens; `--hk-whatsapp-text` is the one that carries
+     words. */
+  color: var(--hk-whatsapp-text);
   border-color: #b7e0c4;
 }

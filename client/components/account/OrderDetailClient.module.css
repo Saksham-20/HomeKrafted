@@ -22,7 +22,7 @@
 }
 
 .backLink:hover {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .header {

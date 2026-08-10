@@ -6,6 +6,7 @@
  */
 
 import type { ID } from "./shared";
+import type { ProductModerationStatus } from "./marketplace";
 
 export type SnackCategory = "savoury" | "sweet" | "baked" | "namkeen";
 export type DietType = "veg" | "non-veg";
@@ -33,6 +34,19 @@ export interface Snack {
   distanceKm?: number;
   /** Pre-formatted `distanceKm`, e.g. "2.3 km". */
   distanceLabel?: string;
+  /**
+   * Review state — **owner-only**, present just on `/seller/menu`
+   * responses (`mapSnackForOwner`), absent from the public catalogue.
+   *
+   * The public mapper deliberately omits both: `moderationNote` is an
+   * admin's private reason for refusing something and no buyer should
+   * read it. Until M27 the portal used the public mapper too, so a
+   * rejected snack told its HomeKrafter nothing at all — the one person
+   * the reason was written for.
+   */
+  moderationStatus?: ProductModerationStatus;
+  /** Verbatim, never paraphrased (M22). */
+  moderationNote?: string;
 }
 
 export interface SnackListItem {
@@ -101,7 +115,14 @@ export interface MealPromo {
   description: string;
   imagePlaceholder: string;
   imageSrc?: string;
-  appStoreUrl: string;
-  playStoreUrl: string;
+  /**
+   * Optional because the apps are not published. These held `"#"` as a
+   * placeholder, which `StoreBadges` turned into a link that went
+   * nowhere on the home page, `/app-promo` and the gallery. Absent, the
+   * badge renders as a "coming soon" label instead of a broken promise —
+   * so the shipping day is a data change and nothing else.
+   */
+  appStoreUrl?: string;
+  playStoreUrl?: string;
   qrCodePlaceholder: string;
 }

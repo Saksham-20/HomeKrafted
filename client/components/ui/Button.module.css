@@ -66,7 +66,12 @@
 }
 
 .whatsapp {
-  background: var(--hk-whatsapp);
+  /* `--hk-whatsapp` (#1FA855) is the brand fill and it is 3.09:1 under
+     white label text — the button that starts every Snacks order failed
+     AA. `--hk-whatsapp-text` exists in `tokens.extend.css` for exactly
+     this: the same hue, dark enough to carry white. The brand token is
+     left alone for glyphs and rules. */
+  background: var(--hk-whatsapp-text);
   color: #fff;
   border: none;
 }
@@ -86,7 +91,7 @@
 }
 
 .icon:hover:not(:disabled) {
-  color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
 }
 
 .iconSquare {
