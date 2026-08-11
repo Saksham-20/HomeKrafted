@@ -956,6 +956,48 @@ async function main(): Promise<void> {
     await prisma.snack.create({ data: { ...s, sellerId: sl3.id, available: true, moderationStatus: 'active' } });
   }
 
+  /*
+   * The one listing that is *not* `active`, and the reason it exists.
+   *
+   * Every other row above sets `moderationStatus: 'active'` explicitly and
+   * none sets a `moderationNote` — deliberately, and CLAUDE.md documents
+   * why (a retroactive approval gate would seed the whole demo catalogue
+   * invisible). The side effect was that **no seeded row ever rendered a
+   * moderation note**, so the QA sweep photographed `/seller/menu` for
+   * months and never saw the state that breaks it: with a note present the
+   * row's `flex-basis: 100%` note joined a non-wrapping flex line and
+   * crushed the name over the price. A screen the instrument cannot reach
+   * is a screen nobody is checking, whatever the sweep prints.
+   *
+   * Owned by `sl1` (Anjali), not `sl3`, because `/seller/menu` is scoped to
+   * the caller's own `sellerId` and Anjali is the seeded HomeKrafter the
+   * e2e storage state signs in as — on `sl3` the sweep would photograph an
+   * empty menu again.
+   *
+   * Idempotent by the same route as everything else here: `snack.deleteMany()`
+   * at the top of this file clears the table before any of it is written.
+   */
+  await prisma.snack.create({
+    data: {
+      id: 'sk-qa-rejected',
+      slug: 'baked-bhakarwadi-qa',
+      name: 'Baked Bhakarwadi',
+      description: 'Spiral of spiced gram flour, baked not fried',
+      price: 500,
+      category: 'baked',
+      diet: 'veg',
+      imagePlaceholder: 'baked_bhakarwadi.jpg',
+      available: true,
+      sellerId: sl1.id,
+      moderationStatus: 'rejected',
+      // Verbatim, and it stays verbatim: M22's rule is that this sentence
+      // is the only thing telling the kitchen what to change.
+      moderationNote: 'incorrect picture — the photo shows a different snack',
+      submittedAt: new Date('2026-08-04T09:15:00+05:30'),
+      moderatedAt: new Date('2026-08-05T11:40:00+05:30'),
+    },
+  });
+
   await prisma.snackList.create({
     data: {
       id: 'snacklist-demo',

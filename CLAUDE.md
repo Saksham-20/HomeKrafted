@@ -278,12 +278,27 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 - Mobile-first, fluid. No fixed 430/1180 "stage" (that was the
   prototype's reviewer chrome). Container maxes out at 1180px via the
   `.container` utility class (`styles/globals.css`), grace­fully down to
-  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~1190px —
-  the measured width at which the six-item nav + search + wallet chip +
-  icons stops fitting (was ~840 until the M21 audit measured it). **The
-  nav is full**: swapping "About" for the wider "Meal plans" already
-  needed the nav gap tightened to fit inside the 1180px container. Adding
-  a seventh item means taking one out — re-measure if you touch it.
+  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~1190px.
+  **1190 is not a fit width, and there isn't one** — corrected 2026-08-11.
+  M21 recorded the row as needing "1170px plus 20px of container padding";
+  the padding is `--hk-s8`, **44px a side**, so the row has **1092px**, not
+  1160px. It was over capacity from that day, and `.searchPill`'s
+  unlimited shrink meant the shortfall came silently out of the **search
+  box, which rendered a 0px-wide input for every role from 1190 to 1920**
+  — it looked like a search box and could not be typed in. Raising the
+  breakpoint fixes nothing: `.container` caps the row at 1180px at *any*
+  screen width, so capacity above 1190 is a constant. A typable field
+  needs 171px the row cannot spare, so **the search expands on focus**
+  instead — `.searchSlot` holds a 38px place in the flex line and the form
+  goes `position: absolute` over the nav at 420px (`:focus-within`,
+  ≥1191px only; Escape or blur closes it). The slot is what stops the
+  wallet and icons jumping when the form leaves the flow. **Nothing was
+  removed to pay for it**: the mode-switch chip went icon-only (147→38px)
+  and the nav/actions/row gaps went 16→12, 12→8, 34→26, leaving the slot
+  83px signed out, 52px as a shopper and 38px as a HomeKrafter — all
+  inside 1092px. **The nav is full**: adding a seventh item means taking
+  one out, and re-measure **against 1092px, not 1180px**. Pinned by
+  `e2e/tests/header-capacity.spec.ts`.
 - **Five breakpoint rails, by convention (M29): 420 · 560 · 640 · 780 ·
   900.** Roughly: 420 small phone, 560 phone, 640 large phone (and where
   fixed CTA bars engage), 780 shell/sidebar collapse, 900 two-pane goes

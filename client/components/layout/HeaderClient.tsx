@@ -82,21 +82,43 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
         </nav>
 
         <div className={styles.actions}>
+          {/* Icon-only, and the label is a real accessible name rather than
+              a visible one. The labelled version was 147px wide and the
+              header row has no 147px to give — with it in place the row
+              overran the 1180px container by 145px, which put the cart
+              icon 59px off the right edge of a 1280px screen where
+              `overflow-x: hidden` made it unreachable rather than merely
+              ugly. The affordance stays discoverable three other ways:
+              the `title` tooltip here, the drawer's labelled "Switch to
+              selling" row below 1190px, and `SellerShell`'s own "Switch
+              to shopping" mirror on the other side of the toggle. */}
           {isSeller && (
             <button
               type="button"
               className={clsx(styles.sellerModePill, styles.hideOnMobile)}
               onClick={handleSwitchToSelling}
+              aria-label="Switch to selling"
+              title="Switch to selling"
             >
               <Store size={16} strokeWidth={1.7} />
-              <span>Switch to selling</span>
             </button>
           )}
 
           {/* Was a `<Link href="/shop">` dressed as a search box — a dead
               affordance, since nothing in the app could search. Real form
-              now; the pill styling moved into `SearchForm.module.css`. */}
-          <SearchForm className={styles.searchPill} />
+              now; the pill styling moved into `SearchForm.module.css`.
+
+              The wrapper is load-bearing, not tidiness. The row has room
+              for about 38px of search (see `.searchSlot`), so the field
+              expands over the nav on focus — and expanding means going
+              `position: absolute`, which takes it out of the flex line.
+              Without a slot holding the 38px open, the wallet chip and
+              the three icons all jump 46px left the instant the caret
+              lands, and back again on blur. The slot keeps the flow
+              width; only the form moves. */}
+          <div className={styles.searchSlot}>
+            <SearchForm className={styles.searchPill} />
+          </div>
 
           {/* The amount is hidden below the mobile breakpoint, which left
               this link with an icon and no accessible name at all — a

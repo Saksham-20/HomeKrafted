@@ -23,6 +23,21 @@
   box-shadow: var(--hk-shadow-card);
 }
 
+/* The magnifier's hit area. The icon itself is 17px, which is under
+   WCAG 2.2's 24px pointer floor, and in the header it is the only thing
+   left to click once the pill has collapsed — so it is padded out to 25px
+   and the padding pulled back off with a negative margin, giving a real
+   target without moving anything around it by a pixel. */
+.iconLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  margin: -4px;
+  cursor: pointer;
+}
+
 .icon {
   color: var(--hk-muted);
   flex-shrink: 0;

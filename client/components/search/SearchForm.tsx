@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import type { FormEvent } from "react";
+import { useId, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Search } from "lucide-react";
@@ -44,6 +44,7 @@ export function SearchForm({
 }: SearchFormProps) {
   const router = useRouter();
   const [value, setValue] = useState(defaultValue);
+  const inputId = useId();
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,6 +52,15 @@ export function SearchForm({
     if (!q) return;
     router.push(`/search?q=${encodeURIComponent(q)}`);
     onSubmitted?.();
+  }
+
+  // Escape gives the field back. In the header the `pill` variant expands
+  // over the nav on focus (`Header.module.css`), so without this a
+  // keyboard user could open it and have no way to close it again short
+  // of tabbing all the way out — the same complaint as a dialog with no
+  // dismiss. Blur is enough: the expansion is driven by `:focus-within`.
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") event.currentTarget.blur();
   }
 
   return (
@@ -61,12 +71,30 @@ export function SearchForm({
       onSubmit={handleSubmit}
       className={clsx(styles.form, variant === "block" && styles.block, className)}
     >
-      <Search size={17} strokeWidth={1.7} className={styles.icon} aria-hidden="true" />
+      {/* The magnifier is a `<label>`, not decoration. In the header the
+          pill collapses to roughly its own icon (see `Header.module.css`
+          — the row has no width to spare), and at that size the icon *is*
+          the control: clicking it has to put the caret in the field, the
+          way it does on every other site. `htmlFor` is what buys that,
+          with no click handler and no JavaScript.
+
+          `aria-hidden` on the label, and the accessible name left on the
+          input: the label carries no text, so associating it would other-
+          wise leave the field named by `aria-label` and *also* labelled
+          by an empty element. Verified against the sweep's axe pass
+          (`label`, `form-field-multiple-labels`, `aria-hidden-focus` are
+          all in its rule list) — a label is not focusable, so hiding it
+          costs nothing. */}
+      <label htmlFor={inputId} className={styles.iconLabel} aria-hidden="true">
+        <Search size={17} strokeWidth={1.7} className={styles.icon} />
+      </label>
       <input
+        id={inputId}
         type="search"
         name="q"
         value={value}
         onChange={(event) => setValue(event.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         aria-label="Search homemade products, HomeKrafters and snacks"
         className={styles.input}

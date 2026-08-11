@@ -7,7 +7,11 @@
 .row {
   display: flex;
   align-items: center;
-  gap: var(--hk-s7);
+  /* `--hk-s7` (34px) until 2026-08-11. Two gaps, so the step down to the
+     next token on the scale returns 16px to the row — spent on the search
+     field, which had been rendering 0px wide. 26px is still a clear break
+     between the lockup, the nav and the actions. */
+  gap: var(--hk-s6);
   padding-block: var(--hk-s4);
 }
 
@@ -69,8 +73,13 @@
      because the container is what caps it. Five gaps at 16px instead of 20
      buys back the 20px, which is the smallest change that keeps every
      label and every action visible. The next nav item added here does not
-     fit; something has to leave. */
-  gap: var(--hk-s4);
+     fit; something has to leave.
+
+     16px → 12px on 2026-08-11: five gaps, so 20px back to the row, spent
+     on the search field, which had been rendering 0px wide and now has to
+     hold a 38px collapsed control. 12px is the floor here — the labels
+     stop reading as separate destinations much below it. */
+  gap: 12px;
   /* Without this the nav is a shrinkable flex item, so it gets squeezed
      narrower than its content and the labels break mid-phrase — the audit
      found "Homemade Food", "Handcrafted Gifts", "Gift Hampers" and
@@ -105,21 +114,29 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: var(--hk-s3);
+  /* `--hk-s3` (12px) until 2026-08-11 — 8px across four or five gaps
+     returns another 16–20px to the search slot, which is what pays for
+     its 38px tap target. The controls either side are 38px boxes with
+     their own internal padding, so the run still reads as separate
+     targets. */
+  gap: 8px;
 }
 
+/* Icon-only since 2026-08-11 (see `HeaderClient`) — the gold-border pill
+   look is what still reads it as the mode switch rather than a fourth
+   utility icon, so the border, radius and pine ink stay. Sized to match
+   `.utilityIcon`'s 38px box so the run of controls keeps one rhythm; the
+   old 7px label gap has nothing left to separate. */
 .sellerModePill {
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   border: 1px solid var(--hk-gold-border);
   background: var(--hk-surface);
   border-radius: var(--hk-r-pill);
-  padding: 7px 12px;
   color: var(--hk-pine);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
@@ -129,11 +146,100 @@
 }
 
 /* The pill's own look lives in `components/search/SearchForm.module.css`
-   now that it is a real form rather than a link — this class is only the
-   header's layout hook (and what the ≤1190px rule below hides). */
+ * now that it is a real form rather than a link — this class is only the
+ * header's layout hook. `.searchSlot` below is what the ≤1190px rule at
+ * the foot of this file hides.
+ *
+ * **`flex: 0 1 auto; min-width: 0` was a silent kill switch.** It sits
+ * later in the cascade than `SearchForm.module.css`'s `.form
+ * { min-width: 210px }`, so it overrode the form's floor with no floor at
+ * all — shrink permitted all the way to zero, growth never. The header
+ * row has been over capacity since M21 put "Meal plans" in the nav (see
+ * the breakpoint note at the foot of this file for the arithmetic), and
+ * this is the item that absorbed every pixel of the shortfall: measured
+ * 2026-08-11 on the QA stack, the rendered input was **0px wide for every
+ * role at every viewport width from 1190 to 1920**. It looked like a
+ * search box, focused like one, and could not be typed in.
+ *
+ * **The row cannot hold a typable field inline, so the field expands over
+ * the row instead.** Capacity here is fixed — `.container` caps this row
+ * at 1180px at every viewport width, which is 1092px of content after
+ * 44px of padding each side. Measured 2026-08-11 with the mode switch
+ * icon-only and all three gaps tightened above:
+ *
+ *   logo 115.5 + nav 630.5 + 2 row gaps 52 = 798
+ *   shopper actions, less search:  wallet 95.8 + 3 icons 114 + 4 gaps 32 = 241.8
+ *   HomeKrafter actions, less search: + switch 38 + a fifth gap 8 = 254.6
+ *   → the slot gets 1092 − 1039.8 = **52.2px** as a shopper,
+ *                   1092 − 1054.6 = **37.4px** as a HomeKrafter (so the
+ *                   38px floor below is the binding constraint there),
+ *               and 1092 − 1008.6 = **83.4px** signed out.
+ *
+ * A typable field needs 171px of that — 120px of input plus 51px of the
+ * pill's own chrome (24 padding, 2 border, 17 icon, 8 gap) — so inline it
+ * is roughly 130px short, and forcing it inline does not create the
+ * space, it pushes the cart icon off the screen (the bug above). Hence
+ * the split: the **slot** keeps a 38px place in the flex line, and the
+ * **form** leaves the line on focus and overlays the nav at 420px. No
+ * product content is removed and nothing else in the row moves.
+ *
+ * **38px is the floor because 24px is the floor.** Below 24px the
+ * collapsed control fails WCAG 2.2's pointer target, and 38px is what
+ * every other icon in this row already is, so the run reads as one set.
+ * The HomeKrafter row was offering only 22.4px at the gaps this file
+ * carried an hour earlier — the last two steps (nav 13→12, actions 10→8)
+ * are what bought the difference, and the figures above are after them. */
+.searchSlot {
+  /* The positioning context for the expansion below — without this the
+     focused form would anchor to the page, not to this slot. */
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 38px;
+  max-width: 240px;
+}
+
 .searchPill {
-  flex: 0 1 auto;
+  width: 100%;
   min-width: 0;
+  /* 33px from its own padding alone, against 38px for every other control
+     in this row. Two reasons that mattered once the pill collapsed to an
+     icon: at 38 wide and 33 tall it reads as a squashed pill rather than
+     the circle the icons next to it are, and when expanded it left a
+     hairline of the mode switch showing above and below the field it was
+     supposed to be covering. Header-scoped, so the `/search` and drawer
+     `block` variant keep their own height. */
+  min-height: 38px;
+  /* Restated rather than inherited: `SearchForm.module.css` transitions
+     border-color and box-shadow, and a `transition` here would replace
+     that list wholesale. `width` is what animates the expansion —
+     `position` cannot transition, so the jump to `absolute` is a cut and
+     the width carries the movement. */
+  transition:
+    width var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+/* Scoped to the range where the pill actually exists — below 1191px the
+   slot is hidden and the drawer's full-width `block` variant is the
+   search, so an overlay here would be styling something invisible. */
+@media (min-width: 1191px) {
+  .searchSlot:focus-within .searchPill {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    /* 420px is a comfortable field and always fits: anchored to the right
+       of a row whose content is 1092px, it reaches back to roughly the
+       middle of the nav and never past the container's left edge. The
+       `min()` keeps that true if the breakpoint above is ever lowered. */
+    width: min(420px, calc(100vw - 160px));
+    /* Opaque, and above the nav labels it now covers — the nav is earlier
+       in the DOM, so without this the labels read through the field. */
+    z-index: 3;
+    background: var(--hk-surface);
+    box-shadow: var(--hk-shadow-card);
+  }
 }
 
 .walletChip {
@@ -228,15 +334,33 @@
  *  - M21 swapped "About" for the wider "Meal plans", and the row went to
  *    1190px against a 1180px container — so it no longer fitted at *any*
  *    viewport width. Tightening the nav gap (see `.nav`) bought back 20px;
- *    the row now needs 1170px, plus 20px of container padding.
+ *    the row was recorded as needing "1170px, plus 20px of container
+ *    padding".
  *
- * Neither failure was a styling problem — there was genuinely not room.
- * The drawer already carries every nav item (plus Wishlist, which is why
- * it exists), so the honest breakpoint is the width where the row stops
- * fitting. **If you add or widen a nav item, re-measure this.** */
+ * **That last figure was wrong, and it is why the search box has been
+ * broken ever since.** `.container`'s padding is `--hk-s8` — 44px a side,
+ * 88px in total, not 20px — so the row has 1092px to work in, not 1160px.
+ * M21 therefore declared a fit it did not have, and because
+ * `.searchPill` allowed unlimited shrink (see its note above), the
+ * shortfall was taken silently out of the search field instead of showing
+ * up as a broken layout. Re-measured 2026-08-11: the input rendered
+ * **0px wide for every role between 1190px and 1920px**.
+ *
+ * **1190 stays, and it is no longer a fit width.** Raising it buys
+ * nothing — `.container` caps this row at 1180px however wide the screen
+ * gets, so capacity above 1190 is a constant and there is no width at
+ * which the six-item nav, a typable search field, the wallet chip and the
+ * icons all fit. What 1190 still marks honestly is the width below which
+ * the nav is better off in the drawer. The genuine shortfall is recorded
+ * in `.searchPill`; closing it needs a control to leave this row.
+ *
+ * Neither earlier failure was a styling problem — there was genuinely not
+ * room. The drawer already carries every nav item (plus Wishlist, which
+ * is why it exists). **If you add or widen a nav item, re-measure this —
+ * and measure against 1092px, not 1180px.** */
 @media (max-width: 1190px) {
   .nav,
-  .searchPill,
+  .searchSlot,
   .hideOnMobile {
     display: none;
   }

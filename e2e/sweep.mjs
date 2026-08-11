@@ -55,9 +55,9 @@ const F = {
   mealPlan: 'anjalis-kitchen-ghar-ka-khana-lunch',
   order: 'ord-seed-1987',
   user: 'user-demo',
-  inquiry: 'cmsmqui980037pnn4xuzrlaqm',
+  inquiry: 'cmsobidji0037nghhgsy8u5fm',
   ownListing: 'pr1',
-  ownPlan: 'cmsmqujle0001j5fmn65tdfg5',
+  ownPlan: 'cmsobiess0001uq7c38ehii63',
   sellerOrder: 'ord-seed-2039',
   pickup: 'lb-seed-1020',
   snack: 'sk1',
@@ -542,10 +542,36 @@ async function run() {
           /couldn[’']t find that page|not in your portal|no such record/i.test(h.text ?? ''),
         );
 
+        /*
+          And the same trap once more, at the front door.
+
+          On 2026-08-11 this sweep printed `ok` for `/seller/menu` while
+          photographing the "Sign in as a HomeKrafter" wall: the seller
+          storage state had gone stale, the route bounced to the portal
+          login, and a login form is a perfectly healthy page — 200, one
+          `h1`, no axe violations. So the crushed moderation row this
+          sweep exists to catch had been sitting one redirect away from
+          the camera, unphotographed.
+
+          Deliberately narrow: the `h1` only. Every portal wall opens with
+          "Sign in" ("Sign in as a HomeKrafter", the admin variant), and
+          matching anything broader — a heading elsewhere on the page, a
+          button label — would fire on `/login` and `/signup` themselves,
+          which are legitimate anon routes already in the list above.
+          `anon` is exempt for that reason: a signed-out visitor landing
+          on a sign-in page has arrived exactly where they asked to.
+        */
+        record.loginWall =
+          role !== 'anon' &&
+          (record.headings ?? []).some(
+            (h) => h.level === 1 && /^sign in/i.test((h.text ?? '').trim()),
+          );
+
         const flags = [
           record.error && 'ERR',
           boundaryHit && 'ERRBOUNDARY',
           notFoundHit && 'NOTFOUND',
+          record.loginWall && 'LOGINWALL',
           record.status >= 400 && `HTTP${record.status}`,
           record.horizontalScroll && 'OVERFLOW',
           record.axe?.length && `axe:${record.axe.reduce((n, v) => n + v.count, 0)}`,

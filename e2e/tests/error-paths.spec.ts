@@ -39,7 +39,16 @@ test.describe('when the API is unreachable', () => {
     // is what a generic catch produces for *every* failure, so it cannot
     // tell somebody whose wifi dropped that retrying will work. The
     // assertion is the specific copy, or this test passes against the bug.
-    await expect(alert).toContainText(/can't reach homekrafted/i);
+    //
+    // Which copy changed once: this line pinned "Can't reach Homekrafted
+    // right now. Check your connection and try again." until 2026-08-11,
+    // when `c11b56e` split the classification — that sentence blamed the
+    // visitor's connection for our outage and was itself the incident bug
+    // (docs/ERROR-HANDLING.md opens with it). The API being down while the
+    // page origin answers is SERVER_UNREACHABLE, and the copy must own it.
+    await expect(alert).toContainText(/something on our end/i);
+    await expect(alert).toContainText(/us, not you/i);
+    await expect(alert).not.toContainText(/check your connection/i);
     await expect(alert).not.toContainText(/failed to fetch|load failed|networkerror/i);
   });
 
@@ -148,7 +157,11 @@ test.describe('when the browser really is offline', () => {
 
     const alert = page.getByRole('alert').first();
     await expect(alert).toBeVisible();
-    await expect(alert).toContainText(/can't reach homekrafted/i);
+    // The one state where connection advice is true — `c11b56e` kept it
+    // for NETWORK_ERROR only, and the API-unreachable test above asserts
+    // its absence there. Between them the classifier's split is pinned
+    // from both sides.
+    await expect(alert).toContainText(/you appear to be offline/i);
     await expect(alert).not.toContainText(/failed to fetch|load failed|networkerror/i);
 
     await context.setOffline(false);

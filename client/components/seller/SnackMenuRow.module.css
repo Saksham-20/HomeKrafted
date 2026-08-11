@@ -3,6 +3,14 @@
   align-items: center;
   gap: var(--hk-s3);
   padding: var(--hk-s3);
+  /* Wraps so the M22 moderation note can sit on its own line under the
+     row rather than squeezing the pills. Was inside the ≤560px block
+     until 2026-08-11, while `.moderationNote` claimed `flex-basis: 100%`
+     unconditionally — so above 560px the note joined the single flex
+     line and crushed `.body` to ~0: the name painted over the price and
+     the meta line wrapped one word per row. Reported from the live site;
+     `MealPlanRow` had it right and this file was the copy that missed it. */
+  flex-wrap: wrap;
 }
 
 .thumb {
@@ -93,8 +101,12 @@
   color: var(--hk-terracotta-text);
 }
 
+/* The admin's reason, verbatim. Indented to the text column at every
+   width — `flex-basis: 100%` only ever made sense on a wrapping row, and
+   the 66px matches `MealPlanRow` (56px thumb + the row's 12px gap). */
 .moderationNote {
   flex-basis: 100%;
+  margin-left: 66px;
   font-size: 12.5px;
   line-height: 1.4;
   color: var(--hk-terracotta-text);
@@ -129,16 +141,13 @@
 }
 
 @media (max-width: 560px) {
-  .row {
-    flex-wrap: wrap;
-  }
-
   /* `.pills`, not `.availabilityPill` — the pill is now inside a wrapper,
      and indenting the child instead of the wrapper left the row's second
-     line hanging under the thumbnail. */
+     line hanging under the thumbnail. `.moderationNote` is no longer in
+     this list: it carries the same indent at every width now that the row
+     wraps at every width. */
   .price,
   .pills,
-  .moderationNote,
   .actions {
     margin-left: 66px;
   }
