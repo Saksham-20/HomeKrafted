@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppConfig } from '../config/configuration';
 import { SmsProviderService } from '../notifications/providers/sms.provider';
 import { EmailProviderService } from '../notifications/providers/email.provider';
+import { OTP_HASH_OPTIONS } from './hashing';
 import { ParsedIdentifier } from './identifier.util';
 
 /** Wrong guesses allowed against a single issued code. */
@@ -85,7 +86,11 @@ export class OtpService {
     }
 
     const code = this.generateCode(length);
-    const codeHash = await argon2.hash(code);
+    // Cheaper parameters than a password, and `hashing.ts` explains why
+    // that is defensible for a five-minute, single-use, attempt-capped
+    // six-digit code. Not a place to "restore the defaults" without
+    // reading it.
+    const codeHash = await argon2.hash(code, OTP_HASH_OPTIONS);
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
     await this.prisma.otpChallenge.create({
@@ -93,6 +98,16 @@ export class OtpService {
     });
 
     const ttlMinutes = Math.round(ttlSeconds / 60);
+    // **The send is awaited, and that is a choice worth revisiting when
+    // real provider keys land.** Today both providers are unconfigured in
+    // production and degrade to a logged stub, so this costs nothing and
+    // buys an honest failure: `POST /auth/otp/request` can say "we could
+    // not send it" rather than showing a code box for a message that
+    // never left. With live Twilio/SendGrid this becomes a third-party
+    // HTTP call inside the request — at that point respond first and move
+    // the send (and the `result.mock` logging below) into a `void`
+    // continuation, the way `continueWithPassword` already treats its
+    // post-signup code.
     const result =
       target.kind === 'phone'
         ? await this.smsProvider.send(

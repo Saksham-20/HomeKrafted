@@ -10,6 +10,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { PASSWORD_HASH_OPTIONS } from '../src/auth/hashing';
 
 const prisma = new PrismaClient();
 
@@ -83,7 +84,10 @@ async function main(): Promise<void> {
   console.log('Clearing existing data...');
   await clearTables();
 
-  const passwordHash = await argon2.hash(DEMO_PASSWORD);
+  // The same parameters the server hashes with (M31) — otherwise every
+  // seeded demo account carries a legacy-cost digest, so QA login timings
+  // measure the old cost plus a background re-hash write.
+  const passwordHash = await argon2.hash(DEMO_PASSWORD, PASSWORD_HASH_OPTIONS);
 
   // -------------------------------------------------------------------
   // Users (consumer, 3 sellers, 1 admin — admin has no frontend mock seed

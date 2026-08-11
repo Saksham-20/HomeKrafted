@@ -180,7 +180,11 @@ matter in production:
 NODE_ENV=production
 PORT=4000
 CLIENT_ORIGIN=https://homekrafted.in
-DATABASE_URL="postgresql://homekrafted:<password>@localhost:5432/homekrafted?schema=public"
+# `connection_limit` is not optional here (M31): without it Prisma sizes
+# the pool as `num_cpus * 2 + 1`, which is **3** on this 1 vCPU box, and
+# every screen that fans out wider than that (the seller dashboard runs
+# ~10 queries in one Promise.all) silently executes three at a time.
+DATABASE_URL="postgresql://homekrafted:<password>@localhost:5432/homekrafted?schema=public&connection_limit=10"
 JWT_ACCESS_SECRET=<openssl rand -base64 48>
 JWT_REFRESH_SECRET=<a different openssl rand -base64 48>
 

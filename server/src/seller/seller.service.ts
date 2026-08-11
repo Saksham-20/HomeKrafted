@@ -59,18 +59,31 @@ export class SellerService {
    * storefront without a second request.
    */
   async getOwnRecord(user: RequestUser) {
-    const seller = await this.resolveHomeKrafter(user);
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: seller.vendorId },
-      select: { name: true, slug: true },
+    if (!user.sellerId) {
+      throw new ForbiddenException('No seller account is linked to this session');
+    }
+
+    // One query, not `resolveSeller` followed by a vendor read (M31). The
+    // two were strictly serial — the vendor id only exists once the seller
+    // row lands — and this endpoint is on the critical path of every
+    // HomeKrafter sign-in, so that hop was paid on every portal load. The
+    // shared `resolveSeller` seam is deliberately left alone: no other
+    // controller needs the vendor, and widening it would put a join on
+    // every `/seller/*` request instead of taking one off this one.
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: user.sellerId },
+      include: { vendor: { select: { name: true, slug: true } } },
     });
+    if (!seller) {
+      throw new ForbiddenException('No seller account is linked to this session');
+    }
     return {
       id: seller.id,
       userId: seller.userId,
       specialties: seller.specialties,
       vendorId: seller.vendorId,
-      vendorName: vendor?.name,
-      vendorSlug: vendor?.slug,
+      vendorName: seller.vendor.name,
+      vendorSlug: seller.vendor.slug,
       displayName: seller.displayName,
       status: seller.status,
       createdAt: seller.createdAt.toISOString(),
@@ -131,62 +144,89 @@ export class SellerService {
   ) {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const today = new Date().toISOString().slice(0, 10);
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const vendorId = seller.vendorId;
 
-    const [vendor, products, pendingPayoutAmount, bookings, snackStats] = await Promise.all([
-      this.prisma.vendor.findUnique({ where: { id: vendorId } }),
-      this.prisma.product.findMany({ where: { vendorId }, select: { id: true, isAvailable: true } }),
+    // The pickup/delivery counters compare **UTC** calendar days: they
+    // were `date.toISOString().slice(0, 10) === today`, filtered in JS.
+    // Moving the filter into SQL keeps that exactly — it is not the same
+    // day as `todayStart`, which is local midnight, and quietly
+    // "correcting" it here would move somebody's counter by a day.
+    const utcDayStart = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+    const utcDayEnd = new Date(utcDayStart.getTime() + 24 * 60 * 60 * 1000);
+
+    // One wave (M31). This was two, because everything on the second one
+    // needed the list of product ids from the first — so a dashboard that
+    // is already the login destination paid two serial round trips of
+    // latency to ask questions expressible as a join on `vendorId`. The
+    // reads that pulled whole rows to sum or count them in JS
+    // (`laundryBooking.findMany` over *every* booking ever, both snack
+    // and product lists) are aggregates now; only what is displayed comes
+    // back.
+    const [
+      vendor,
+      listingsCount,
+      activeListingsCount,
+      lowStockCount,
+      todayOrders,
+      pendingPayoutAmount,
+      todayPickupsCount,
+      todayDeliveriesCount,
+      weekEarningsAgg,
+      incomingOrdersCount,
+      menuSize,
+      snackEarningsAgg,
+    ] = await Promise.all([
+      this.prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { rating: true, reviewCount: true },
+      }),
+      this.prisma.product.count({ where: { vendorId } }),
+      this.prisma.product.count({ where: { vendorId, isAvailable: true } }),
+      this.prisma.weightOption.count({ where: { product: { vendorId }, stock: { lt: 15 } } }),
+      this.prisma.order.aggregate({
+        where: { placedAt: { gte: todayStart }, items: { some: { product: { vendorId } } } },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
       payoutsService.getPendingBalance(seller),
-      this.prisma.laundryBooking.findMany({ where: { partnerId: seller.id } }),
-      Promise.all([
-        this.prisma.snackOrder.count({ where: { sellerId: seller.id, status: 'received' } }),
-        this.prisma.snack.count({ where: { sellerId: seller.id } }),
-        this.prisma.snackOrder.findMany({
-          where: { sellerId: seller.id, status: 'delivered' },
-          select: { total: true },
-        }),
-      ]),
+      this.prisma.laundryBooking.count({
+        where: { partnerId: seller.id, pickupDate: { gte: utcDayStart, lt: utcDayEnd } },
+      }),
+      this.prisma.laundryBooking.count({
+        where: { partnerId: seller.id, deliveryDate: { gte: utcDayStart, lt: utcDayEnd } },
+      }),
+      this.prisma.laundryBooking.aggregate({
+        where: {
+          partnerId: seller.id,
+          status: { not: 'cancelled' },
+          createdAt: { gte: weekAgo },
+        },
+        _sum: { estimatedTotal: true },
+      }),
+      this.prisma.snackOrder.count({ where: { sellerId: seller.id, status: 'received' } }),
+      this.prisma.snack.count({ where: { sellerId: seller.id } }),
+      this.prisma.snackOrder.aggregate({
+        where: { sellerId: seller.id, status: 'delivered' },
+        _sum: { total: true },
+      }),
     ]);
-
-    const productIdList = products.map((p) => p.id);
-    const [incomingSnackOrders, menuSize, deliveredSnackOrders] = snackStats;
-
-    const [todayOrders, lowStockCount] = await Promise.all([
-      productIdList.length
-        ? this.prisma.order.findMany({
-            where: { placedAt: { gte: todayStart }, items: { some: { productId: { in: productIdList } } } },
-            select: { total: true },
-          })
-        : Promise.resolve([]),
-      productIdList.length
-        ? this.prisma.weightOption.count({
-            where: { productId: { in: productIdList }, stock: { lt: 15 } },
-          })
-        : Promise.resolve(0),
-    ]);
-
-    const marketplaceRevenue = todayOrders.reduce((sum, o) => sum + Number(o.total), 0);
-    const snackEarnings = deliveredSnackOrders.reduce((sum, o) => sum + Number(o.total), 0);
 
     return {
       // Storefront / marketplace
-      todayOrdersCount: todayOrders.length,
-      todayRevenue: marketplaceRevenue,
-      listingsCount: products.length,
-      activeListingsCount: products.filter((p) => p.isAvailable).length,
+      todayOrdersCount: todayOrders._count._all,
+      todayRevenue: Number(todayOrders._sum.total ?? 0),
+      listingsCount,
+      activeListingsCount,
       lowStockCount,
       // Laundry / pickups — zero for a HomeKrafter who doesn't do pickups.
-      todayPickupsCount: bookings.filter((b) => b.pickupDate.toISOString().slice(0, 10) === today).length,
-      todayDeliveriesCount: bookings.filter((b) => b.deliveryDate.toISOString().slice(0, 10) === today).length,
-      weekEarnings: bookings
-        .filter((b) => b.status !== 'cancelled' && b.createdAt >= weekAgo)
-        .reduce((sum, b) => sum + Number(b.estimatedTotal), 0),
+      todayPickupsCount,
+      todayDeliveriesCount,
+      weekEarnings: Number(weekEarningsAgg._sum.estimatedTotal ?? 0),
       // Snacks / WhatsApp orders
-      incomingOrdersCount: incomingSnackOrders,
+      incomingOrdersCount,
       menuSize,
-      snackEarnings,
+      snackEarnings: Number(snackEarningsAgg._sum.total ?? 0),
       // Money + reputation
       pendingPayoutAmount,
       rating: vendor ? Number(vendor.rating) : 0,

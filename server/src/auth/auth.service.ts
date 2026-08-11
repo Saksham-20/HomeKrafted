@@ -25,6 +25,7 @@ import {
 import { SocialLoginDto } from './dto/social-login.dto';
 import { SocialTokenVerifier } from './social-token-verifier';
 import { NAMED_ATTEMPTS, generateReferralCode } from './referral-code.util';
+import { PASSWORD_HASH_OPTIONS } from './hashing';
 import { parseDurationToMs } from './duration.util';
 import { JwtPayload } from '../common/types/jwt-payload.type';
 import { Prisma, SocialProvider, User } from '@prisma/client';
@@ -63,6 +64,21 @@ function isReferralCodeCollision(err: unknown): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return false;
   const target = err.meta?.target;
   return Array.isArray(target) ? target.includes('referralCode') : target === 'referralCode';
+}
+
+/**
+ * Pulls a user's `Seller.id` along with the user row (M31).
+ *
+ * Every sign-in path already reads the `User`; before this, issuing the
+ * token then went back to the database for the seller row separately —
+ * a second serial round trip inside the response of every HomeKrafter
+ * sign-in and every token refresh. It is one indexed join here.
+ */
+const SELLER_ID_INCLUDE = { seller: { select: { id: true } } } as const;
+
+/** `null` (not `undefined`) for "this user has no seller row" — see `signTokenPair`. */
+function sellerIdOf(user: { seller?: { id: string } | null }): string | null {
+  return user.seller?.id ?? null;
 }
 
 export interface TokenPair {
@@ -140,7 +156,7 @@ export class AuthService {
       throw new ConflictException('An account with this email already exists');
     }
 
-    const passwordHash = await argon2.hash(dto.password);
+    const passwordHash = await argon2.hash(dto.password, PASSWORD_HASH_OPTIONS);
 
     const user = await this.createUserWithAccounts(dto.name, (referralCode) => ({
       name: dto.name,
@@ -151,11 +167,18 @@ export class AuthService {
       referredByCode: dto.referredByCode,
     }));
 
-    return this.issueSession(user);
+    // An account created a line ago has no seller row — `null`, not
+    // `undefined`, so `signTokenPair` doesn't go and look for one.
+    return this.issueSession(user, null);
   }
 
   async login(dto: LoginDto): Promise<AuthResult> {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    // The seller id rides along on the lookup we were doing anyway, so
+    // `signTokenPair` does not have to go back for it (M31).
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      include: SELLER_ID_INCLUDE,
+    });
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Incorrect email or password');
     }
@@ -165,8 +188,9 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Incorrect email or password');
     }
+    this.scheduleRehash(user.id, dto.password, user.passwordHash);
 
-    return this.issueSession(user);
+    return this.issueSession(user, sellerIdOf(user));
   }
 
   // ---------------------------------------------------------------------
@@ -207,6 +231,7 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({
       where:
         target.kind === 'email' ? { email: target.value } : { phone: target.value },
+      include: SELLER_ID_INCLUDE,
     });
 
     if (existing) {
@@ -224,8 +249,13 @@ export class AuthService {
       if (!valid) {
         throw new UnauthorizedException('That password does not match this account.');
       }
+      this.scheduleRehash(existing.id, dto.password, existing.passwordHash);
 
-      return { ...(await this.issueSession(existing)), created: false, kind: target.kind };
+      return {
+        ...(await this.issueSession(existing, sellerIdOf(existing))),
+        created: false,
+        kind: target.kind,
+      };
     }
 
     if (!dto.name) {
@@ -234,7 +264,7 @@ export class AuthService {
       );
     }
 
-    const passwordHash = await argon2.hash(dto.password);
+    const passwordHash = await argon2.hash(dto.password, PASSWORD_HASH_OPTIONS);
     const user = await this.createUserWithAccounts(dto.name, (referralCode) => ({
       name: dto.name as string,
       ...(target.kind === 'email'
@@ -274,7 +304,8 @@ export class AuthService {
         ),
       );
 
-    return { ...(await this.issueSession(user)), created: true, kind: target.kind };
+    // Brand-new account, so there is certainly no seller row to look for.
+    return { ...(await this.issueSession(user, null)), created: true, kind: target.kind };
   }
 
   /** 400 rather than a 500 or a silent miss when the one box holds neither shape. */
@@ -372,7 +403,7 @@ export class AuthService {
     if (!stored || stored.consumedAt || stored.expiresAt < new Date()) throw invalid;
     if (stored.user.suspended) throw invalid;
 
-    const passwordHash = await argon2.hash(password);
+    const passwordHash = await argon2.hash(password, PASSWORD_HASH_OPTIONS);
     const authProviders = stored.user.authProviders.includes('email')
       ? stored.user.authProviders
       : [...stored.user.authProviders, 'email' as const];
@@ -424,9 +455,13 @@ export class AuthService {
     // code is not minted under a separate one.
     const { bypassed } = await this.otpService.verifyOtp(target, dto.code);
 
-    let user = await this.prisma.user.findUnique({
+    const found = await this.prisma.user.findUnique({
       where: target.kind === 'email' ? { email: target.value } : { phone: target.value },
+      include: SELLER_ID_INCLUDE,
     });
+    let user: User | null = found;
+    // Known only on the existing-account branch; a new account has none.
+    const sellerId = found ? sellerIdOf(found) : null;
 
     // The fixed test code exists so the OTP flow can be exercised without a
     // live SMS account. It must never become a route into the admin panel:
@@ -454,18 +489,26 @@ export class AuthService {
       }));
     } else {
       this.assertNotSuspended(user);
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: {
-          [verifiedField]: true,
-          ...(user.authProviders.includes(provider)
-            ? {}
-            : { authProviders: { push: provider } }),
-        },
-      });
+
+      // Only write when something actually changes (M31). This used to
+      // update unconditionally, so every repeat code sign-in — the normal
+      // case for a HomeKrafter who has not set a password — wrote a row
+      // whose columns already held those exact values, inside the
+      // request, for nothing.
+      const alreadyVerified = user[verifiedField] === true;
+      const alreadyLinked = user.authProviders.includes(provider);
+      if (!alreadyVerified || !alreadyLinked) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            [verifiedField]: true,
+            ...(alreadyLinked ? {} : { authProviders: { push: provider } }),
+          },
+        });
+      }
     }
 
-    return this.issueSession(user);
+    return this.issueSession(user, sellerId);
   }
 
   // ---------------------------------------------------------------------
@@ -638,13 +681,20 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token is no longer valid — please sign in again');
     }
 
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    // The include matters here as much as on sign-in: a refreshed token
+    // that lost its `sellerId` would 403 every `/seller/*` request the
+    // moment the first access token expired — fifteen minutes into a
+    // HomeKrafter's session, with nothing on screen explaining it.
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: SELLER_ID_INCLUDE,
+    });
     if (!user) {
       throw new UnauthorizedException('Account no longer exists');
     }
     this.assertNotSuspended(user);
 
-    const pair = await this.signTokenPair(user);
+    const pair = await this.signTokenPair(user, sellerIdOf(user));
     const newHash = this.hashToken(pair.refreshToken);
     const refreshTtlMs = parseDurationToMs(this.configService.get('jwt.refreshTtl', { infer: true }));
 
@@ -677,14 +727,47 @@ export class AuthService {
   // Shared helpers
   // ---------------------------------------------------------------------
 
+  /**
+   * Upgrades a password hashed under older argon2 parameters, in the
+   * background, after its owner has just proved they know it.
+   *
+   * The plaintext is only ever in hand at this instant, so this is the
+   * one opportunity to re-hash — hence doing it here rather than in a
+   * migration, which cannot re-hash anything (it has only the digests).
+   *
+   * **Fire-and-forget on purpose**, same shape as the post-signup code
+   * send: the sign-in has already succeeded, and a failed rewrite must
+   * not turn a correct password into an error. Two sign-ins racing each
+   * other is harmless — both write a valid digest of the same password.
+   */
+  private scheduleRehash(userId: string, password: string, currentHash: string): void {
+    void this.maybeRehash(userId, password, currentHash).catch((error: unknown) =>
+      this.logger.warn(`Could not re-hash the password for ${userId}: ${String(error)}`),
+    );
+  }
+
+  /** The awaitable half of `scheduleRehash`, exposed to tests that must not race it. */
+  async maybeRehash(userId: string, password: string, currentHash: string): Promise<boolean> {
+    if (!argon2.needsRehash(currentHash, PASSWORD_HASH_OPTIONS)) return false;
+
+    const passwordHash = await argon2.hash(password, PASSWORD_HASH_OPTIONS);
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+    return true;
+  }
+
   private assertNotSuspended(user: User): void {
     if (user.suspended) {
       throw new UnauthorizedException('This account has been suspended. Contact support.');
     }
   }
 
-  private async issueSession(user: User): Promise<AuthResult> {
-    const pair = await this.signTokenPair(user);
+  /**
+   * @param sellerId The caller's `Seller.id`, when the caller already
+   *   read it. `undefined` means "unknown, go and look" — see
+   *   `signTokenPair`.
+   */
+  private async issueSession(user: User, sellerId?: string | null): Promise<AuthResult> {
+    const pair = await this.signTokenPair(user, sellerId);
     const refreshTtlMs = parseDurationToMs(this.configService.get('jwt.refreshTtl', { infer: true }));
 
     await this.prisma.refreshToken.create({
@@ -698,8 +781,26 @@ export class AuthService {
     return { ...pair, user: this.toPublicUser(user) };
   }
 
-  private async signTokenPair(user: User): Promise<TokenPair> {
-    const seller = user.role === 'seller' ? await this.prisma.seller.findUnique({ where: { userId: user.id } }) : null;
+  /**
+   * @param knownSellerId What the caller already knows about this user's
+   *   `Seller` row: an id, or `null` for "looked, there isn't one".
+   *   `undefined` means "not looked", and only then is the row read here.
+   *
+   *   Every sign-in path already fetches the `User`, so it can fetch the
+   *   seller id in the same query for free (`include`), which is what the
+   *   callers now do — this lookup used to be a second, strictly serial
+   *   round trip inside the sign-in response of every HomeKrafter (M31).
+   *   The fallback stays because it must: a path that forgets to pass the
+   *   id should mint a *correct* token slowly, never a token with no
+   *   `sellerId`, which would 403 the whole portal.
+   */
+  private async signTokenPair(user: User, knownSellerId?: string | null): Promise<TokenPair> {
+    const sellerId =
+      knownSellerId !== undefined
+        ? knownSellerId
+        : user.role === 'seller'
+          ? ((await this.prisma.seller.findUnique({ where: { userId: user.id }, select: { id: true } }))?.id ?? null)
+          : null;
 
     // `jti` is a per-issuance random nonce, not a real "JWT ID" tied to a
     // stored session — its only job is guaranteeing the signed token is
@@ -712,7 +813,7 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: user.id,
       role: user.role,
-      sellerId: seller?.id,
+      sellerId: sellerId ?? undefined,
       jti: crypto.randomUUID(),
     };
 
@@ -826,13 +927,31 @@ export class AuthService {
     });
   }
 
-  /** Fast path only — see `createUserWithAccounts` for why the insert, not this, is what guarantees uniqueness. */
+  /**
+   * Fast path only — see `createUserWithAccounts` for why the insert, not
+   * this, is what guarantees uniqueness.
+   *
+   * One query for every candidate rather than one query *per* candidate
+   * (M31). The loop this replaces was a sequential round trip per
+   * attempt, so a common first name — the case the readable
+   * `PRIYA250…PRIYA259` space exists for — cost up to fifteen of them
+   * inside the signup request. Since this is only a hint for the insert
+   * below, asking about all the candidates at once loses nothing.
+   */
   private async uniqueReferralCode(nameSeed: string): Promise<string> {
-    for (let attempt = 0; attempt < REFERRAL_CODE_ATTEMPTS; attempt += 1) {
-      const code = generateReferralCode(nameSeed, attempt);
-      const clash = await this.prisma.user.findUnique({ where: { referralCode: code } });
-      if (!clash) return code;
-    }
+    const candidates = Array.from({ length: REFERRAL_CODE_ATTEMPTS }, (_, attempt) =>
+      generateReferralCode(nameSeed, attempt),
+    );
+
+    const taken = await this.prisma.user.findMany({
+      where: { referralCode: { in: candidates } },
+      select: { referralCode: true },
+    });
+    const used = new Set(taken.map((row) => row.referralCode));
+
+    const free = candidates.find((code) => !used.has(code));
+    if (free) return free;
+
     throw new ConflictException('Could not allocate a unique referral code — please retry');
   }
 
