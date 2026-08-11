@@ -66,34 +66,28 @@
   gap: var(--hk-s4);
 }
 
-.featuredGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: var(--hk-s4);
-}
+/* `.featuredGrid` and `.servicesGrid` were deleted here in M29.
 
-/* Two products per row on a phone, not one.
+   Both were dead: `app/page.tsx` is this stylesheet's only importer, and
+   it stopped referencing either one in M20, when the home page was
+   restructured around the two verticals. The rules stayed behind.
 
-   The same fix as `app/shop/ShopClient.module.css` (which carries the full
-   reasoning), and the same arithmetic: `minmax(210px, 1fr)` needs
-   210 + gap + 210 = 436px for a second column, which the 358px content
-   column at 390px never has. So the featured rail rendered one ~360px card
-   per row.
+   They are worth a note rather than a silent deletion, because the
+   `.featuredGrid` rule **produced a false bug report**. It was
+   `repeat(auto-fill, minmax(210px, 1fr))`, which needs 436px for a second
+   column against a 358px content column — the exact arithmetic behind the
+   real fix in `app/shop/ShopClient.module.css`. Read on its own it says
+   "the home page shows one product per row on a phone", and the M29 mobile
+   plan reported it as the milestone's headline defect. It survived a
+   source check too: the rule is real, the arithmetic is right, the
+   reference fix it is compared against is real. What nobody checked was
+   whether anything *renders* it. Nothing does — the live home page has no
+   product grid at all, which is what a browser at 390px showed in about
+   ten seconds.
 
-   M26 propagated that fix to seven browse surfaces — /shop, /search,
-   /gifts, /hamper, /snacks, /storefront, /guides — and missed the home
-   page, which is the highest-traffic page on the site and the first thing
-   a phone visitor scrolls. `.occasionGrid` (120px) and `.categoryGrid`
-   (140px) already fit two-plus columns and need nothing.
-
-   `minmax(0, 1fr)` rather than a fixed floor, so the columns shrink with
-   the viewport instead of overflowing it at 320px. */
-@media (max-width: 640px) {
-  .featuredGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--hk-s3);
-  }
-}
+   The lesson is cheap to state and was not: dead CSS reads exactly like
+   live CSS, so a defect found by reading a stylesheet is a hypothesis
+   until a rendered page confirms it. */
 
 .bandsGrid {
   display: grid;
@@ -127,22 +121,6 @@
   font-size: 29px;
   color: var(--hk-ink);
   margin-top: var(--hk-s2);
-}
-
-.servicesGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--hk-s5);
-}
-
-.servicesGrid + .servicesGrid {
-  margin-top: var(--hk-s5);
-}
-
-@media (max-width: 780px) {
-  .servicesGrid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /*

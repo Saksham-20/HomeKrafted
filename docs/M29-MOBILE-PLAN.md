@@ -10,7 +10,7 @@ relative to `client/` unless they start with `e2e/` or `docs/`.
 
 ## Implementation status — 2026-08-10
 
-**Shipped:** every P1 in the table plus the guardrails. Rows 1–13 (the
+**Shipped:** every P1 in the table plus the guardrails. Rows 2–13 (the
 input-zoom class, fixed with one global rule rather than 34 module blocks —
 see the note below), 14–16 (shell parity via the extracted
 `.hk-strip-fade`), 17 (the portal nav, with a **corrected diagnosis** — see
@@ -20,8 +20,20 @@ comment), 22–23 (the two isolated touch targets). Plus one defect this plan
 did not find, surfaced by the sweep: `/checkout` rendered **no `h1`** for a
 signed-in buyer with an empty cart.
 
-**Three places the plan was wrong, recorded because the reasoning matters
-more than the outcome:**
+**Row 1 — the plan's headline item — was a false finding.** `.featuredGrid`
+was real, its arithmetic was right, and the reference fix it was compared
+against was real, so it survived both the plan's own source check and mine.
+Nothing renders it: `app/page.tsx` is that stylesheet's only importer and
+stopped referencing the class in M20. The live home page has no product
+grid at all. Caught by opening the deployed site at 390px — about ten
+seconds of looking, after the "fix" had already shipped. The dead rule and
+`.servicesGrid` (dead since the same milestone) are deleted, with the
+reasoning left in `page.module.css`. **A defect found by reading a
+stylesheet is a hypothesis until a rendered page confirms it** — dead CSS
+reads exactly like live CSS.
+
+**Three more places the plan was wrong, recorded because the reasoning
+matters more than the outcome:**
 
 1. **The input-zoom fix is one global rule, not 34 module blocks.** The
    plan's per-module recommendation was correct about specificity — an
@@ -54,10 +66,13 @@ owner decision, unchanged; see "Open questions" §1. Phase 4's admin form
 inputs are covered by the global rule rather than per-module. Breakpoint
 normalisation remains fold-on-touch as recommended.
 
-**Verified:** 193 client unit tests, 163 browser tests, and both sweeps
-(87 routes × 4 roles) with one flagged row each — `/laundry` 404, which is
-correct. Zero overflow, zero axe violations, zero `inputzoom`, zero
-undersized targets.
+**Verified:** 193 client unit tests, 163 browser tests, a clean production
+build, and both sweeps (87 routes × 4 roles) with one flagged row each —
+`/laundry` 404, which is correct. Zero overflow, zero axe violations, zero
+`inputzoom`, zero undersized targets. Then re-verified against the deployed
+site at 390px: login inputs measure 16px, `/`, `/shop`, `/snacks` and
+`/sell` measure zero horizontal overflow — and row 1's grid turned out not
+to exist.
 
 Working constants used throughout: mobile viewport is **390×844**
 (`e2e/sweep.mjs:166`); `.container` pads 16px per side below 420px
@@ -294,7 +309,7 @@ or guideline. "16px block" = the per-module
 
 | # | file:line | What breaks at 390px | Sev | Fix | Verified by |
 |---|---|---|---|---|---|
-| 1 | `app/page.module.css:71` | Featured grid needs 436px for 2 cols → one product per row on `/`; ~1.5 cards per 844px screen | P1 | `repeat(2, minmax(0,1fr))` at ≤640, per `ShopClient.module.css:190-203` | sweep `--only=/` screenshot |
+| 1 | ~~`app/page.module.css:71`~~ | **FALSE FINDING.** The rule and its arithmetic are real; nothing renders the class. `app/page.tsx` is the only importer and dropped it in M20, so `/` has no product grid. Verified in a browser at 390px against the deployed site | — | rule deleted as dead CSS | live browser, not the stylesheet |
 | 2 | `components/ui/SearchField.module.css:27` | 13px input → iOS zooms on focus (drawer search, snacks) | P1 | 16px block | new `inputzoom` sweep flag |
 | 3 | `components/search/SearchForm.module.css:36` | 13px input, `/search` + header search | P1 | 16px block | same |
 | 4 | `components/ui/Textarea.module.css:18` | 14.5px textarea → zoom (reviews, support, gift note) | P1 | 16px block | same |

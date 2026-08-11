@@ -25,10 +25,21 @@ was narrow, specific, and mostly invisible from a desktop browser.
   in the tree sets a control at or above 16px. Not fixed with
   `maximum-scale=1`, which stops the zoom by disabling pinch-zoom for
   everybody.
-- **The home page showed one product per row.** `.featuredGrid` needed
-  436px for a second column against a 358px content width. M26 propagated
-  exactly this fix to seven browse surfaces and missed `/` — the
-  highest-traffic page on the site.
+- ~~The home page showed one product per row.~~ **This was a false
+  finding, and it is left here rather than deleted because of how it
+  passed review.** `.featuredGrid` really was
+  `repeat(auto-fill, minmax(210px, 1fr))`, which really does need 436px for
+  a second column against a 358px content width — the exact arithmetic
+  behind the real fix in `ShopClient.module.css`. Every part of it checked
+  out at source level, so it was reported as the milestone's headline
+  defect and "fixed". What nobody checked was whether anything renders it:
+  `app/page.tsx` is that stylesheet's only importer and stopped referencing
+  the class in M20. The live home page has no product grid at all, which a
+  browser at 390px showed in about ten seconds after deploy. The dead rule
+  (and `.servicesGrid`, dead since the same milestone) is now deleted, with
+  the reasoning left in the file. **Dead CSS reads exactly like live CSS**,
+  so a defect found by reading a stylesheet is a hypothesis until a
+  rendered page confirms it.
 - **`ReelViewer` claimed `aria-modal="true"` and honoured only the scroll
   lock**, from the day it shipped. No focus moved in, Tab walked out into
   the home page behind a full-screen video player, and closing it dropped
@@ -114,10 +125,14 @@ looked complete.
   not run the focus-restore cleanup.
 - `client/lib/focus-trap.spec.ts` (new) — the duplication guard above.
 
-Verified: 193 client unit tests, **163 browser tests**, and both sweeps
-(87 routes × 4 roles, mobile and desktop) with **one flagged row in each —
-`/laundry` 404, which is correct**: zero overflow, zero axe violations,
-zero `inputzoom`, zero undersized targets.
+Verified: 193 client unit tests, **163 browser tests**, a clean production
+build, and both sweeps (87 routes × 4 roles, mobile and desktop) with **one
+flagged row in each — `/laundry` 404, which is correct**: zero overflow,
+zero axe violations, zero `inputzoom`, zero undersized targets. Then
+verified again against the deployed site at 390px, which is what caught the
+false finding above — every login input measured 16px, every buy-path route
+measured zero horizontal overflow, and the home page turned out to have no
+product grid to fix.
 
 ## [M28] — The site stopped sounding like everybody else — 2026-08-09
 
