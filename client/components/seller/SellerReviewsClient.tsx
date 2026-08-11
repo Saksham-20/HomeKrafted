@@ -12,7 +12,7 @@ import styles from "./SellerReviewsClient.module.css";
 
 /** `/seller/reviews` (M10a) — reviews on this maker's products + vendor storefront, newest first, with a mock reply. */
 export function SellerReviewsClient() {
-  const { ready, seller } = useAuth();
+  const { ready, seller, sellerDataReady } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
@@ -20,7 +20,7 @@ export function SellerReviewsClient() {
   const load = useCallback(async () => {
     if (!seller?.vendorId) return;
     try {
-      const list = await getSellerReviews(seller.vendorId);
+      const list = await getSellerReviews(seller?.vendorId ?? "");
       setReviews(list);
     } catch (error) {
       if (!isForbidden(error)) throw error;
@@ -34,11 +34,11 @@ export function SellerReviewsClient() {
     // Reviews hang off a vendor storefront — a HomeKrafter without one
     // has no reviews module, and the nav now surfaces it to everyone.
     // Derived at render time (`noStorefront`), so this effect just skips.
-    if (!ready || !seller?.vendorId) return;
+    if (!sellerDataReady) return;
     (async () => {
       await load();
     })();
-  }, [ready, seller, load]);
+  }, [sellerDataReady, seller, load]);
 
   async function handleReply(reviewId: string, body: string) {
     await replySellerReview(reviewId, body);

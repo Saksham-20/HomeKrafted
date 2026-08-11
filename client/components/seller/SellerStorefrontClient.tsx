@@ -36,7 +36,7 @@ interface FormState {
  * no business in a listing query.
  */
 export function SellerStorefrontClient() {
-  const { ready, seller } = useAuth();
+  const { ready, seller, sellerDataReady } = useAuth();
   const [vendor, setVendor] = useState<Vendor | undefined>(undefined);
   const [form, setForm] = useState<FormState>({ bio: "", location: "", avatarSrc: "", bannerSrc: "" });
   const [loading, setLoading] = useState(true);
@@ -48,11 +48,11 @@ export function SellerStorefrontClient() {
     // No `vendorId` means no storefront to edit (laundry partners, snack
     // sellers) — reachable now that the nav lists every module. Derived at
     // render time (`noStorefront`), so this effect just skips.
-    if (!ready || !seller?.vendorId) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
-        const v = await getSellerVendor(seller.vendorId!);
+        const v = await getSellerVendor(seller?.vendorId ?? "");
         if (cancelled) return;
         if (!v) {
           setUnavailable(true);
@@ -76,7 +76,7 @@ export function SellerStorefrontClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady, seller]);
 
   async function handleSave() {
     if (!seller?.vendorId) return;

@@ -23,20 +23,24 @@ const FILTERS: { value: LaundryBookingStatus | "all"; label: string }[] = [
 
 /** `/seller/pickups` (M10b, laundry type) — `LaundryBooking`s assigned to this partner, filterable by status, newest first. Mirrors `SellerOrdersClient`'s shape for the maker `Order` list, one level down (`LaundryBooking`/`LaundryBookingStatus` instead of `Order`/`OrderStatus`). */
 export function PartnerPickupsClient() {
-  const { ready, seller } = useAuth();
+  const { seller, sellerDataReady } = useAuth();
   const [bookings, setBookings] = useState<LaundryBooking[]>([]);
   const [services, setServices] = useState<LaundryService[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<LaundryBookingStatus | "all">("all");
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
         const [list, serviceList] = await Promise.all([
-          getPartnerBookings(seller.id),
+          getPartnerBookings(seller?.id ?? ""),
           getLaundryServices(),
         ]);
         if (cancelled) return;
@@ -53,14 +57,14 @@ export function PartnerPickupsClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady, seller]);
 
   const filtered = useMemo(
     () => (filter === "all" ? bookings : bookings.filter((b) => b.status === filter)),
     [bookings, filter],
   );
 
-  if (!ready || loading) {
+  if (!sellerDataReady || loading) {
     return <div className={styles.loading}>Loading your pickups…</div>;
   }
 

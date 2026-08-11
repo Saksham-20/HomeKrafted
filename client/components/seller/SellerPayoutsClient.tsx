@@ -26,7 +26,7 @@ interface Summary {
 
 /** `/seller/payouts` (M10a) — earnings summary, a mock "request payout" action, and full `Payout` history. */
 export function SellerPayoutsClient() {
-  const { ready, seller } = useAuth();
+  const { seller, sellerDataReady } = useAuth();
   const [summary, setSummary] = useState<Summary | undefined>(undefined);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,13 +44,17 @@ export function SellerPayoutsClient() {
     setPayouts(list);
   }, [seller]);
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     (async () => {
       await refresh();
       setLoading(false);
     })();
-  }, [ready, seller, refresh]);
+  }, [sellerDataReady, refresh]);
 
   async function handleRequest() {
     if (!seller) return;
@@ -73,7 +77,7 @@ export function SellerPayoutsClient() {
     }
   }
 
-  if (!ready || loading || !summary) {
+  if (!sellerDataReady || loading || !summary) {
     return <div className={styles.loading}>Loading your payouts…</div>;
   }
 

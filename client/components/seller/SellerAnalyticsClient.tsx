@@ -52,13 +52,17 @@ function formatDelta(value: number | null): { text: string; direction: "up" | "d
  * uses on the admin side — no chart library for six data series.
  */
 export function SellerAnalyticsClient() {
-  const { ready, seller } = useAuth();
+  const { sellerDataReady } = useAuth();
   const [days, setDays] = useState(30);
   const [snapshot, setSnapshot] = useState<SellerAnalytics | undefined>();
   const [unavailable, setUnavailable] = useState(false);
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
@@ -78,7 +82,7 @@ export function SellerAnalyticsClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller, days]);
+  }, [sellerDataReady, days]);
 
   // Derived rather than a third piece of state. Setting `loading` inside
   // the effect trips `react-hooks/set-state-in-effect`, and the snapshot
@@ -87,7 +91,7 @@ export function SellerAnalyticsClient() {
   // Keeping the stale chart on screen while the new range loads also
   // beats blanking the page on every chip press.
   if (unavailable) return <ModuleUnavailable module="Analytics" />;
-  if (!ready || !snapshot) {
+  if (!sellerDataReady || !snapshot) {
     return <div className={styles.loading}>Working out your numbers…</div>;
   }
 

@@ -67,6 +67,20 @@
   color: var(--hk-footer-ink);
 }
 
+/* Holds the kitchen name's place while `GET /seller/me` is in flight, so
+   the topbar does not reflow when it lands. Sized to a plausible name
+   rather than to any particular one; `--hk-footer-border` is the divider
+   tint already used on this pine-deep surface, so it reads as an absence
+   rather than as a control. Decorative and `aria-hidden` at the call
+   site — a screen reader is told nothing rather than told a placeholder. */
+.sellerNameSkeleton {
+  display: inline-block;
+  width: 104px;
+  height: 13.5px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-footer-border);
+}
+
 .viewSiteLink {
   display: inline-flex;
   align-items: center;

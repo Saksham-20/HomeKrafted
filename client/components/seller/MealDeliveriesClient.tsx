@@ -19,14 +19,18 @@ const HORIZON_DAYS = 14;
  * a cook plans a shop. Same `MealDeliveryQueue`, longer horizon.
  */
 export function MealDeliveriesClient() {
-  const { ready, seller } = useAuth();
+  const { sellerDataReady } = useAuth();
   const [deliveries, setDeliveries] = useState<SellerMealDelivery[]>([]);
   const [now, setNow] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
@@ -45,9 +49,9 @@ export function MealDeliveriesClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady]);
 
-  if (!ready || loading) {
+  if (!sellerDataReady || loading) {
     return <div className={styles.loading}>Loading your meals…</div>;
   }
 

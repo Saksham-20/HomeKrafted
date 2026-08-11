@@ -41,7 +41,7 @@ function dateKey(date: Date): string {
  */
 export function MealPlansClient() {
   const router = useRouter();
-  const { ready, seller } = useAuth();
+  const { sellerDataReady } = useAuth();
   const [plans, setPlans] = useState<SellerMealPlan[]>([]);
   const [deliveries, setDeliveries] = useState<SellerMealDelivery[]>([]);
   /** Stamped when the fetch resolves — after mount, so nothing reads the clock during SSR. */
@@ -49,8 +49,12 @@ export function MealPlansClient() {
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
@@ -73,7 +77,7 @@ export function MealPlansClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady]);
 
   async function handleClose(planId: string) {
     const plan = plans.find((p) => p.id === planId);
@@ -102,7 +106,7 @@ export function MealPlansClient() {
     setDeliveries((current) => current.filter((d) => d.id !== deliveryId));
   }
 
-  if (!ready || loading) {
+  if (!sellerDataReady || loading) {
     return <div className={styles.loading}>Loading your meal plans…</div>;
   }
 

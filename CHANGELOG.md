@@ -3,6 +3,122 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M30] — The states nobody seeded — 2026-08-11
+
+Two defects reported from live use, both in states the QA instrument had
+never photographed. Planned by one session, implemented by a second
+(Opus) against a written brief, reviewed and verified by the first —
+`e2e/` is fully green (199/199) at the end of it, which it had not been
+since the morning's error-copy fix landed.
+
+### Fixed — the two reports
+
+- **`/seller/menu` crushed itself the moment a snack was rejected.**
+  `SnackMenuRow`'s moderation note claims `flex-basis: 100%`, but the row
+  only wrapped below 560px — above that the note joined the single flex
+  line and squeezed the name column to nothing: the name painted over the
+  price, the meta line wrapped one word per row. `MealPlanRow` (the file
+  it was copied from) had the wrap; the copy dropped it. The row now
+  wraps at every width and the note indents to the text column, matching
+  the reference exactly.
+- **The header search rendered a 0px-wide input for every role, at every
+  width from 1190 to 1920 — and a signed-in HomeKrafter's cart icon sat
+  59px past the right edge of a 1280px screen,** unreachable under the
+  global `overflow-x: hidden`. Root cause is an arithmetic error M21
+  wrote into `CLAUDE.md`: it recorded the container padding as 20px when
+  it is 44px a side, declared a fit the row never had, and
+  `.searchPill`'s `flex: 0 1 auto; min-width: 0` (a floor of zero, growth
+  of none) let the search field absorb the entire shortfall silently.
+  Capacity is fixed — `.container` caps the row at 1180px on any monitor
+  — so no breakpoint move can fix it and nothing was removed to pay for
+  it. Instead: the mode-switch chip went icon-only (147→38px, tooltip +
+  aria-label + the drawer's labelled row keep it discoverable), the three
+  gaps tightened (nav 16→12, actions 12→8, row 34→26), and **the search
+  expands on focus** — a `.searchSlot` wrapper holds a 38px place in the
+  flex line while the form overlays the nav at 420px (`:focus-within`;
+  Escape or blur closes; the magnifier is now a real `<label>` so
+  clicking it focuses the field with no JavaScript). Neighbours provably
+  do not move when it opens. Pinned by `e2e/tests/header-capacity.spec.ts`
+  (39 cases), and the wrong M21 paragraph in `CLAUDE.md` is corrected.
+
+### Fixed — found while looking
+
+- **Two more terracotta-on-tint pills failed AA** (3.77:1): the pickup
+  queue's "Cancelled" and the listings' "Out of stock" — the 08-10 sweep
+  fixed the same defect in `OrderStatusPill` and the admin `StatusPill`
+  and missed these siblings. Both now use `--hk-terracotta-text`. The
+  icon-tile uses in `TransactionRow`/`PayoutRow` were checked and left:
+  non-text contrast, 3:1, passes.
+- **`error-paths.spec.ts` was pinning the incident copy.** The morning
+  commit `c11b56e` deliberately replaced "Can't reach Homekrafted…
+  check your connection" (wrong party blamed) with the classified pair —
+  "Something on our end isn't responding… us, not you" versus "You appear
+  to be offline" — but never updated the spec, so 4 cases had been red
+  since 10:15 asserting the deleted sentence. The spec now pins both
+  classified sentences from both sides (each message's presence, the
+  wrong message's absence); the raw-network-text guard is unchanged.
+
+### Fixed — "logging in is taking a long time"
+
+Measured before touching anything (`e2e/login-timing.mjs` +
+`e2e/login-timing-dom.mjs`, production build): consumer sign-in is 62ms
+click-to-dashboard and was left alone. The seller side had one real lie
+and three real drags:
+
+- **Every seller sign-in could flash the "Sign in as a HomeKrafter" wall**
+  (3 of 8 logins locally; a full round trip long in production).
+  `SellerShell` gated on `!seller`, and `seller` arrives from
+  `GET /seller/me` — so "the record hasn't answered yet" rendered the same
+  as "you are not a HomeKrafter". `AuthContext` now exposes
+  `sellerResolving`; the shell renders instantly with a skeleton pill for
+  the kitchen name (never a fixture — M17), and the wall is reserved for
+  an *answered* no. `login-transition.spec.ts` holds `/seller/me` for
+  600ms to force the race and asserts the wall never appears — and that
+  the skeleton never reads "undefined" or another kitchen's name.
+- **Eleven portal screens serialized their data fetch behind
+  `/seller/me`** although every real-mode `/seller/*` read is JWT-scoped
+  and ignores the record (`sellerDataReady`; mock mode still requires it —
+  its branches genuinely filter on `vendorId`). Two screens stay gated on
+  purpose: `getSellerListings`/`getSellerOrders` key a cache on
+  `vendorId`. Local numbers don't move (the record answers in 5ms here);
+  production, where that hop is a full round trip, is what this buys.
+- **The portal bundle downloaded inside the critical path** (~310ms
+  measured) — the sign-in screen now `router.prefetch`es `/account` and
+  `/seller` while the password is still being typed.
+- **The form un-busied between the auth response and the navigation
+  painting** — a visible flicker and a real double-submit window on slow
+  connections. It now stays busy until the new route paints.
+
+Honest ledger: local click-to-dashboard is ~379ms before and after — the
+first measurement's 850ms was mostly the harness's own selector
+resolution, and ~265ms of genuinely idle time between chunk-load and
+dashboard mount remains undiagnosed (needs a Chrome profile, not more
+request logging). What users get is the wall-flash gone everywhere and
+the round-trip/bundle costs off the critical path where they are
+expensive — on the real network.
+
+### The instrument, made honest about what it cannot see
+
+Both reported defects lived in states no seed produces, which is why 87
+routes × 4 roles × 2 viewports of sweeping never saw either. Three fixes
+to the instrument itself:
+
+- **One seeded listing is now deliberately not `active`**: Anjali's menu
+  carries a rejected snack with a verbatim admin note (`sk-qa-rejected`,
+  `server/prisma/seed.ts`), so the screen that shows a HomeKrafter why
+  something is off the site is permanently on camera. Every other row
+  keeps its explicit `active` — the CLAUDE.md rule stands.
+- **`sweep.mjs` now flags `LOGINWALL`**: it had printed `ok` for
+  `/seller/menu` while photographing the portal sign-in wall (storage
+  states die when `hk_qa` is reseeded) — a 200 with one `h1` and no axe
+  violations is a perfectly healthy page. Narrow heuristic (h1 starting
+  "Sign in", non-anon roles only).
+- **The sweep's OVERFLOW flag can never see this bug class**: the global
+  `overflow-x: hidden` keeps `scrollWidth` at the viewport while controls
+  sit unreachable past the edge. `header-capacity.spec.ts` therefore
+  asserts per-child geometry, not page overflow — the note in that file
+  says why.
+
 ## [M29] — The phone stopped being the second-class viewport — 2026-08-10
 
 Planned against the whole tree at 390px (`docs/M29-MOBILE-PLAN.md`) and

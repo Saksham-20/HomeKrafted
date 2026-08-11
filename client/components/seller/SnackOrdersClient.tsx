@@ -27,18 +27,22 @@ const FILTERS: { value: SnackOrderStatus | "all"; label: string }[] = [
  * `SnackOrderStatus` instead of `Order`/`OrderStatus`).
  */
 export function SnackOrdersClient() {
-  const { ready, seller } = useAuth();
+  const { seller, sellerDataReady } = useAuth();
   const [orders, setOrders] = useState<SnackOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<SnackOrderStatus | "all">("all");
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
-        const list = await getSnackOrders(seller.id);
+        const list = await getSnackOrders(seller?.id ?? "");
         if (cancelled) return;
         setOrders(list);
       } catch (error) {
@@ -52,14 +56,14 @@ export function SnackOrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady, seller]);
 
   const filtered = useMemo(
     () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
     [orders, filter],
   );
 
-  if (!ready || loading) {
+  if (!sellerDataReady || loading) {
     return <div className={styles.loading}>Loading your orders…</div>;
   }
 

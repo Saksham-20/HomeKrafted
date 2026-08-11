@@ -126,7 +126,7 @@ function num(value: string): number | undefined {
  * changed licence has not been checked.
  */
 export function SellerProfileClient() {
-  const { ready, seller } = useAuth();
+  const { ready, seller, sellerDataReady } = useAuth();
   const [profile, setProfile] = useState<OwnVendorProfile | undefined>();
   // Only for the "view live storefront" link — the slug isn't on the
   // session's `seller` claim, and `/seller/storefront` already owns this
@@ -144,14 +144,18 @@ export function SellerProfileClient() {
   const [error, setError] = useState<string | undefined>();
   const [unavailable, setUnavailable] = useState(false);
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller?.vendorId) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
         const [loaded, vendor, daysOff] = await Promise.all([
           getSellerProfile(),
-          getSellerVendor(seller.vendorId),
+          getSellerVendor(seller?.vendorId ?? ""),
           getSellerBlackouts(),
         ]);
         if (cancelled) return;
@@ -175,7 +179,7 @@ export function SellerProfileClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady, seller]);
 
   const photoUrls = useMemo(() => photos.map((photo) => photo.url), [photos]);
 

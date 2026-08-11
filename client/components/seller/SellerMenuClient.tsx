@@ -16,17 +16,21 @@ import styles from "./SellerMenuClient.module.css";
 /** `/seller/menu` (M10b, snack type) — this seller's `Snack`s as a list, edit/delete. Create lives at `/seller/menu/new`, edit at `/seller/menu/[id]` (both share `SnackMenuForm`). Mirrors `ListingsClient`'s shape for the maker Listings screen. */
 export function SellerMenuClient() {
   const router = useRouter();
-  const { ready, seller } = useAuth();
+  const { seller, sellerDataReady } = useAuth();
   const [snacks, setSnacks] = useState<Snack[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
 
+  // Fires as soon as we know a HomeKrafter is signed in: this screen's
+  // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
+  // waiting for `GET /seller/me` was a round trip in front of a request
+  // that never used its answer.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
-        const menu = await getSellerMenu(seller.id);
+        const menu = await getSellerMenu(seller?.id ?? "");
         if (cancelled) return;
         setSnacks(menu);
       } catch (error) {
@@ -40,7 +44,7 @@ export function SellerMenuClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady, seller]);
 
   async function handleDelete(snackId: string) {
     if (!seller) return;
@@ -51,7 +55,7 @@ export function SellerMenuClient() {
     setSnacks((current) => current.filter((s) => s.id !== snackId));
   }
 
-  if (!ready || loading) {
+  if (!sellerDataReady || loading) {
     return <div className={styles.loading}>Loading your menu…</div>;
   }
 

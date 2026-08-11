@@ -36,17 +36,26 @@ import styles from "./SellerDashboardClient.module.css";
  * one.
  */
 export function SellerDashboardClient() {
-  const { ready, seller } = useAuth();
+  const { seller, sellerDataReady } = useAuth();
   const [snapshot, setSnapshot] = useState<SellerDashboardSnapshot | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
+  // `sellerDataReady`, not `!ready || !seller`. `GET /seller/dashboard`
+  // is scoped by the JWT and ignores the record entirely (`lib/api/seller.ts`
+  // — the real branch is a bare `http.get`), so waiting for `/seller/me`
+  // put a whole round trip in front of a request that never used its
+  // answer. This is the login destination, so that hop was measured on
+  // every single HomeKrafter sign-in.
   useEffect(() => {
-    if (!ready || !seller) return;
+    if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
-        const snap = await getSellerDashboard(seller);
+        // `seller` may still be in flight in real mode, where this
+        // argument is ignored; `sellerDataReady` guarantees mock mode
+        // cannot reach here without it.
+        const snap = await getSellerDashboard(seller!);
         if (!cancelled) setSnapshot(snap);
       } catch {
         if (!cancelled) setFailed(true);
@@ -57,9 +66,9 @@ export function SellerDashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [sellerDataReady, seller]);
 
-  if (!ready || loading || !seller) {
+  if (!sellerDataReady || loading || !seller) {
     return <div className={styles.loading}>Loading your dashboard…</div>;
   }
 

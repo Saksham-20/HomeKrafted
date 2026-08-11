@@ -101,7 +101,8 @@ export function SellerShell({ children }: { children: ReactNode }) {
   // always starts at item one, so `aria-current` points off-screen.
   const navRef = useScrollActiveIntoView(pathname);
   const router = useRouter();
-  const { ready, isSignedIn, role, user, seller, switchToShopping, switchToSelling, signOut } = useAuth();
+  const { ready, isSignedIn, role, user, seller, sellerResolving, switchToShopping, switchToSelling, signOut } =
+    useAuth();
 
   // Keep the persisted `sellerMode` honest for anyone who lands on a
   // `/seller/*` page directly (bookmark, back/forward, a link elsewhere)
@@ -112,7 +113,24 @@ export function SellerShell({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, isSignedIn, role]);
 
-  if (ready && (!isSignedIn || role !== "seller" || !seller)) {
+  /*
+   * Three states, not two.
+   *
+   * This used to gate on `!seller`, and `seller` arrives from
+   * AuthContext's `GET /seller/me` — so for the whole of that round trip
+   * a HomeKrafter who had just signed in correctly was shown **"Sign in
+   * as a HomeKrafter"**, and then the dashboard. ~50ms locally, a full
+   * RTT plus server time in production, and it is the first thing they
+   * see after typing their password. It also reads as a rejection, which
+   * is the one thing it definitely was not.
+   *
+   * `sellerResolving` separates "the answer has not arrived" from "the
+   * answer was no". Only the second is a gate. The first renders the real
+   * chrome and the children immediately — the children gate their own
+   * fetches (`sellerDataReady`), so they are safe to mount early, and in
+   * real mode they can start fetching before `/seller/me` even lands.
+   */
+  if (ready && !sellerResolving && (!isSignedIn || role !== "seller" || !seller)) {
     return (
       <section className={clsx("container", styles.gatePage)}>
         <div className={styles.gateCard}>
@@ -151,9 +169,20 @@ export function SellerShell({ children }: { children: ReactNode }) {
             <span className={styles.portalTag}>HomeKrafter</span>
           </Link>
           <div className={styles.topbarActions}>
-            <span className={styles.sellerName}>
-              {seller?.displayName ?? user?.name ?? "HomeKrafter"}
-            </span>
+            {/* A skeleton, not `user?.name`, while the kitchen is still
+                resolving. The account holder's name is available and
+                *correct*, but it is a different string from the display
+                name that replaces it a moment later ("Anjali" →
+                "Anjali's Kitchen"), so using it swaps one real name for
+                another in the topbar and reads as a glitch. Never another
+                kitchen's name, and never "undefined" — M17. */}
+            {sellerResolving ? (
+              <span className={styles.sellerNameSkeleton} aria-hidden="true" />
+            ) : (
+              <span className={styles.sellerName}>
+                {seller?.displayName ?? user?.name ?? "HomeKrafter"}
+              </span>
+            )}
             <button type="button" onClick={handleSwitchToShopping} className={styles.viewSiteLink}>
               Switch to shopping
             </button>

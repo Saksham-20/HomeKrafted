@@ -155,6 +155,34 @@ export interface AuthContextValue {
   role: UserRole | undefined;
   /** Populated only when `role === "seller"` — the signed-in seller's owner-scoping record (`Seller.vendorId` etc.). */
   seller: Seller | undefined;
+  /**
+   * `seller` is `undefined` for two completely different reasons, and
+   * telling them apart is the whole point of this flag: **`GET /seller/me`
+   * has not answered yet**, or it answered and there is no record.
+   *
+   * `SellerShell` treated both as "not a HomeKrafter" and rendered the
+   * *sign-in wall* — to a HomeKrafter who had, that same instant, signed
+   * in successfully. Locally that lie was on screen for ~50ms; in
+   * production it is a full round trip plus server time, and it is the
+   * first thing a home cook sees after typing their password. Never
+   * resolve this by substituting a fixture (M17): the honest fix is to
+   * say "still loading", which is what this is.
+   */
+  sellerResolving: boolean;
+  /**
+   * True when a portal screen may fetch its own data.
+   *
+   * Real mode: as soon as we know a HomeKrafter is signed in — every
+   * `/seller/*` read is scoped by the JWT the request already carries, so
+   * the screens that waited on `seller` were waiting on a record their
+   * request never used. Mock mode still requires it, because the mock
+   * branches genuinely filter on `vendorId`/`seller.id`.
+   *
+   * Two screens deliberately do **not** use this and stay gated on
+   * `seller?.vendorId` — `getSellerListings`/`getSellerOrders` key a
+   * real-mode cache on the vendor id. See their note in `lib/api/seller.ts`.
+   */
+  sellerDataReady: boolean;
   /** Populated only when `role === "seller"` — the active dual-mode view, see the file header. `undefined` for consumer/admin. */
   sellerMode: SellerMode | undefined;
   isSignedIn: boolean;
@@ -668,8 +696,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // matches — so a record can never survive into the next account's
   // session, which clearing it in the effect would have risked doing a
   // render late.
-  const ownSeller =
-    realSeller && realSeller.userId === activeSessionUserId ? realSeller.seller : undefined;
+  const sellerRecordResolved = !!realSeller && realSeller.userId === activeSessionUserId;
+  const ownSeller = sellerRecordResolved ? realSeller.seller : undefined;
+
+  // A HomeKrafter session exists; whether their `Seller` row has arrived
+  // is a separate question, below. `sellerRecordResolved` stays true when
+  // the fetch came back *empty* — that is an answer (a corrupt session),
+  // not a pending state, and the shell must show the gate for it.
+  const sellerSessionActive = signedIn && role === "seller" && !!activeSessionUserId;
+  const sellerResolving = !mock && sellerSessionActive && !sellerRecordResolved;
 
   const seller: Seller | undefined =
     signedIn && role === "seller"
@@ -681,6 +716,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (mock && activeSessionUser ? getSellerByUserId(activeSessionUser.id) : undefined) ??
         (mock ? resolveDemoSeller(sellerType) : undefined)
       : undefined;
+
+  // Mock mode keeps the old requirement — its branches read `vendorId` /
+  // `seller.id` and cannot answer without them. Real mode does not: the
+  // request carries the JWT that scopes it.
+  const sellerDataReady = ready && sellerSessionActive && (mock ? !!seller : true);
 
   const user: User | undefined = !signedIn
     ? undefined
@@ -698,6 +738,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     role: signedIn ? role : undefined,
     seller,
+    sellerResolving,
+    sellerDataReady,
     sellerMode: signedIn && role === "seller" ? sellerMode : undefined,
     isSignedIn: signedIn,
     ready,
