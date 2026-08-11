@@ -5,18 +5,27 @@ import styles from "./Hero.module.css";
 /**
  * Home hero.
  *
- * **"Someone's kitchen. Not a cloud kitchen."** (M28, client copy.) The
- * previous line was "Everything homemade" — accurate, and saying nothing
- * a delivery app couldn't also say. What actually separates this platform
- * is *where* the food is made and *how long that takes*, so the headline
- * names the thing it is not, and the lede owns the slowness rather than
- * apologising for it.
+ * **"From home to the world"** (owner copy, 2026-08-11). It replaces
+ * M28's "Someone's kitchen. Not a cloud kitchen.", which replaced
+ * "Everything homemade" before that. Worth knowing what each was for, so
+ * the next edit does not lose it: "Everything homemade" said nothing a
+ * delivery app couldn't also say; M28's line fixed that by naming the
+ * thing this is *not*.
  *
- * **The lede has to carry both verticals** (the M20 rule): the site sells
- * food cooked near you *and* craft posted anywhere, and the headline now
- * names only the first. The two CTAs stay side by side and equally
- * weighted for the same reason — that split is load-bearing, so if the
- * headline is ever narrowed further, one of these has to widen.
+ * This one does something the previous two could not — it **carries both
+ * verticals in the headline itself**. "Home" is where everything here is
+ * made, food and craft alike, and "the world" is the gifting half, which
+ * posts anywhere in India while the food travels only around the tricity.
+ * That was the M20 rule the lede had been carrying alone, because the
+ * headline named food only.
+ *
+ * Two things it gives up, both deliberate and both now the lede's job: it
+ * no longer names the cloud-kitchen contrast, and it no longer sets up the
+ * slowness that the note below owns ("It takes a little longer than a
+ * restaurant"). Keep that note — a headline this broad needs the concrete
+ * lines under it more, not less. The two CTAs stay side by side and
+ * equally weighted for the same reason as before: the split is the
+ * message.
  *
  * **There is no trust-stat strip, deliberately.** It read "200+ home
  * chefs · 0 preservatives · 48 hr freshly made" — a SaaS trust bar whose
@@ -34,9 +43,9 @@ export function Hero() {
           <div className={styles.copy}>
             <span className={styles.eyebrow}>Home kitchens · Chandigarh, Mohali &amp; Panchkula</span>
             <h1 className={styles.heading}>
-              Someone&rsquo;s kitchen.
+              From home
               <br />
-              <em className={styles.emphasis}>Not a cloud kitchen</em>.
+              <em className={styles.emphasis}>to the world</em>
             </h1>
             <p className={styles.lede}>
               Daily meals, fresh bakes, snacks, sweets and small-batch pickles, made by hand the
