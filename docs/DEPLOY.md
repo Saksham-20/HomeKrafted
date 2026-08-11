@@ -16,6 +16,42 @@ DKIM `CNAME`s, `autodiscover` and `autoconfig` are Hostinger email, and
 (`62.72.28.224`) running the older ordering system. Changing the apex does
 not affect any of them.
 
+### One origin, and only one — `www` must 301 to the apex
+
+**This is a login-breaking configuration, and it was live.** Until
+2026-08-11 the TLS vhost answered for `homekrafted.in` *and*
+`www.homekrafted.in`, and certbot's port-80 redirect used `$host`, so
+`http://www` became `https://www` and stayed there. `www` served the whole
+application on a second origin.
+
+It failed in the worst available way — silently, and looking like the
+user's fault:
+
+- the browser bundle calls the API at `https://homekrafted.in/api/v1`
+  (`NEXT_PUBLIC_API_URL`, baked at build time), and the API's CORS
+  allowlist is `CLIENT_ORIGIN`, the apex;
+- so a visitor on `www` got every page rendered correctly by SSR, then had
+  **every** API call blocked by CORS. `fetch` rejects with a `TypeError`,
+  which `client/lib/api/http.ts` maps to *"Can't reach Homekrafted right
+  now. Check your connection and try again."*
+- the page's own CSP (`default-src 'self'`) would have blocked the same
+  call independently;
+- nothing was logged anywhere, because the request never reached the
+  server. It took a user sending a screenshot to find.
+
+Two guards now exist, and both should stay:
+
+1. A dedicated `www` vhost that does nothing but
+   `return 301 https://homekrafted.in$request_uri;`, and the apex vhost no
+   longer lists `www` in its `server_name`. **After any `certbot --nginx`
+   run, re-check this** — certbot rewrites the file and will happily put
+   `www` back on the main vhost.
+2. `scripts/healthcheck.sh` asserts `www` 301s to the apex, so a
+   regression is reported by the machine rather than by a customer.
+
+If you ever genuinely need a second origin to serve the app, it must be
+added to **both** `CLIENT_ORIGIN` (CORS) and the CSP — but prefer not to.
+
 The cert is Let's Encrypt via `certbot --nginx`, covering `homekrafted.in`
 and `www.homekrafted.in`, renewed automatically by `certbot.timer`:
 
@@ -71,7 +107,7 @@ scripts/deploy.sh --api-only       # backend-only change
 | Web (Next.js) | pm2 `homekrafted-web`, `next start` on 127.0.0.1:3000 |
 | API (NestJS) | pm2 `homekrafted-api`, `server/dist/main.js` on :4000 |
 | Process config | `ecosystem.config.cjs` (in git) |
-| nginx | `/etc/nginx/sites-available/homekrafted` — :443 TLS for `homekrafted.in`/`www`, :80 `default_server` redirecting to https; `/api/` and `/health` → :4000, everything else → :3000 |
+| nginx | `/etc/nginx/sites-available/homekrafted` — :443 TLS for `homekrafted.in` **only**, a second :443 vhost 301ing `www` to the apex, :80 `default_server` redirecting to https on the apex; `/api/` and `/health` → :4000, everything else → :3000. See "One origin, and only one" below — this was wrong for months |
 | Uploaded images | `/var/lib/homekrafted/uploads`, served by nginx at `/uploads/` — **outside the git clone on purpose** |
 | Database | local Postgres 16, db and role both `homekrafted` |
 | Boot | `pm2 startup systemd` + `pm2 save`, so both apps come back after a reboot |

@@ -30,6 +30,10 @@ API_URL="${API_URL:-http://127.0.0.1:4000/health}"
 DB_URL="${DB_URL:-http://127.0.0.1:4000/health/db}"
 WEB_URL="${WEB_URL:-http://127.0.0.1:3000/}"
 PUBLIC_URL="${PUBLIC_URL:-https://homekrafted.in/health}"
+# The non-canonical host, and what it must redirect to. See
+# `check_canonical_host` for why this is worth a check of its own.
+WWW_URL="${WWW_URL:-https://www.homekrafted.in/login}"
+CANONICAL_HOST="${CANONICAL_HOST:-https://homekrafted.in}"
 FAIL_THRESHOLD="${FAIL_THRESHOLD:-3}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
@@ -115,6 +119,49 @@ run_checks() {
     record public no || true
     log "NOTE: the public URL is failing while local checks may pass — suspect nginx, TLS or DNS"
   fi
+
+  check_canonical_host
+}
+
+# `www` must 301 to the apex, and this is checked because it silently did
+# not for months.
+#
+# One nginx vhost answered for both names, so `www` served the entire
+# application on a second origin. Every page rendered — SSR does not care
+# about origins — and then every API call from the browser was blocked by
+# CORS, because the bundle calls the apex and `CLIENT_ORIGIN` is the apex.
+# `fetch` rejects on a CORS block exactly as it does when the network is
+# down, so the UI told the visitor to check their connection. Nothing
+# reached the server, so nothing was logged, and the only signal that
+# anybody could not log in was a customer sending a screenshot.
+#
+# Every other check here asks "is it up". This one asks "is it the site we
+# think it is", which is the class of fault that stays invisible otherwise.
+# It restarts nothing: no process is unhealthy, the vhost is wrong, and
+# only a human editing nginx can fix that. Most likely cause of a
+# regression is a `certbot --nginx` run rewriting the file.
+check_canonical_host() {
+  local status
+  status="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 10 \
+    "$WWW_URL" 2>/dev/null || echo 'ERR')"
+
+  case "$status" in
+    301*"$CANONICAL_HOST"* | 308*"$CANONICAL_HOST"*)
+      record canonical yes || true
+      ;;
+    ERR*|"")
+      record canonical no || true
+      log "NOTE: could not reach ${WWW_URL} to check the canonical redirect"
+      ;;
+    *)
+      record canonical no || true
+      log "WRONG: ${WWW_URL} answered '${status}' instead of a 301 to ${CANONICAL_HOST}."
+      log "       If www serves the app, nobody arriving there can sign in:"
+      log "       the browser calls the apex API and CORS blocks it, which the"
+      log "       UI reports as 'check your connection'. See docs/DEPLOY.md,"
+      log "       'One origin, and only one'. Fix nginx; no restart will help."
+      ;;
+  esac
 }
 
 case "${1:-}" in
