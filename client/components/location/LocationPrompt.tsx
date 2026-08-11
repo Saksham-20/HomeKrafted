@@ -6,11 +6,8 @@ import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useLocation } from "@/lib/location/LocationContext";
 import { areasByCity } from "@/lib/geo";
+import { FOCUSABLE, trapTab } from "@/lib/focus-trap";
 import styles from "./LocationPrompt.module.css";
-
-/** Everything focusable inside the card, in DOM order — same list the mobile drawer traps against. */
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Consumer routes where the visitor is mid-task and the ask can wait. */
 const SUPPRESSED_ON = ["/login", "/signup", "/forgot-password", "/reset-password", "/checkout"];
@@ -87,19 +84,7 @@ export function LocationPrompt() {
         setClosed(true);
         return;
       }
-      if (event.key !== "Tab" || !card) return;
-
-      const focusable = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      trapTab(card, event);
     };
 
     document.addEventListener("keydown", onKeyDown);

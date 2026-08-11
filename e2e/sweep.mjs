@@ -322,6 +322,42 @@ async function probe(page) {
       .map((el) => el.getAttribute('name') || el.getAttribute('placeholder') || el.tagName)
       .slice(0, 6);
 
+    /*
+     * Text controls that make iOS Safari zoom.
+     *
+     * Safari zooms the whole page when a focused input/select/textarea has
+     * a computed font-size under 16px, and it does not zoom back out. Every
+     * text control in this codebase was 12.5–14.5px — 36 of them across 34
+     * modules — so *every* form on an iPhone shifted the layout under the
+     * visitor's thumb: the login field at the start of a session, the
+     * checkout address, the wallet top-up amount, the whole seller portal.
+     * Fixed globally in M29 (`styles/globals.css`).
+     *
+     * This probe is the half that keeps it fixed. The rule it guards is one
+     * global declaration, so the realistic regression is not somebody
+     * editing that rule — it is a new module whose input carries
+     * `!important` of its own, or a control outside the rule's selector.
+     * Only meaningful at the mobile viewport, where the zoom happens.
+     */
+    const inputZoom = [...document.querySelectorAll('input,select,textarea')]
+      .filter((el) => visible(el))
+      // Carry no text and are sized by the UA, so font-size is irrelevant.
+      .filter((el) => !['checkbox', 'radio', 'range'].includes(el.getAttribute('type') || ''))
+      .map((el) => ({
+        el,
+        size: Number.parseFloat(getComputedStyle(el).fontSize),
+      }))
+      .filter((r) => r.size > 0 && r.size < 16)
+      .map(
+        (r) =>
+          `${r.el.tagName.toLowerCase()}${
+            r.el.getAttribute('name') || r.el.getAttribute('placeholder')
+              ? `[${r.el.getAttribute('name') || r.el.getAttribute('placeholder')}]`
+              : ''
+          } ${r.size}px`,
+      )
+      .slice(0, 8);
+
     return {
       title: document.title,
       h1Count: document.querySelectorAll('h1').length,
@@ -334,6 +370,7 @@ async function probe(page) {
       smallTargets,
       brokenImages,
       unlabelledInputs,
+      inputZoom,
       textLength: (document.querySelector('main')?.innerText || document.body.innerText || '').trim().length,
     };
   });
@@ -519,6 +556,12 @@ async function run() {
           // Was collected into the JSON and never printed, so it could
           // only be found by someone already reading the raw file.
           record.unlabelledInputs?.length && `input:${record.unlabelledInputs.length}`,
+          // Mobile only: a sub-16px text control zooms iOS Safari on focus
+          // and does not zoom back. Meaningless at 1280, where nothing
+          // zooms, so printing it there would train people to ignore it.
+          vp.name === 'mobile' &&
+            record.inputZoom?.length &&
+            `inputzoom:${record.inputZoom.length}`,
           record.h1Count !== 1 && `h1x${record.h1Count}`,
         ].filter(Boolean);
         console.log(`${vp.name.padEnd(7)} ${role.padEnd(8)} ${route.padEnd(48)} ${flags.join(' ') || 'ok'}`);

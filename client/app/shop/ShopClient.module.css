@@ -156,8 +156,12 @@
 }
 
 .pageBtn {
-  min-width: 40px;
-  min-height: 40px;
+  /* 44px, the touch-target floor. Paging is the one control on this page
+     that is *only* reachable by tapping — there is no swipe or scroll
+     equivalent — and it is the last thing on a long browse page, so
+     nothing is competing for the four pixels. */
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--hk-r-pill);
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);

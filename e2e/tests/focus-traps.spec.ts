@@ -1,7 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 /**
- * The two dialogs `docs/TESTS.md` explicitly names as owed a browser test.
+ * Every dialog in the app, against the contract all three owe.
  *
  * `CLAUDE.md` (M16) states the rule they exist to hold: **a dialog owes
  * three things, not one** — move focus in on open, trap Tab at both ends,
@@ -9,19 +9,26 @@ import { test, expect, Page } from '@playwright/test';
  * claim the page does not honour, and it is a claim no unit test can
  * check, because there is no focus in a `node` test environment.
  *
- * Both of these announced `aria-modal="true"` and did none of the three
- * before M16. Nothing has stopped that regressing since.
+ * The drawer and the location prompt announced `aria-modal="true"` and did
+ * none of the three before M16. **`ReelViewer` was the third one and was
+ * missed** — a full-screen video player, reachable from the home rail,
+ * claiming `aria-modal` while honouring only the scroll lock, from the day
+ * it shipped until M29. Its case is at the bottom of this file. All three
+ * now share one implementation (`client/lib/focus-trap.ts`), so this file
+ * is what stops that sharing from silently regressing.
  */
 
 /**
- * Precise selectors, because the root layout renders **two** `aria-modal`
- * dialogs on every consumer page — the mobile drawer (present but hidden
- * on desktop) and the location prompt. `[role="dialog"][aria-modal="true"]`
- * matches both, which is a strict-mode violation rather than a useful
- * assertion.
+ * Precise selectors, because a consumer page can hold **three**
+ * `aria-modal` dialogs — the mobile drawer (present but hidden on
+ * desktop), the location prompt, and the reel viewer.
+ * `[role="dialog"][aria-modal="true"]` matches several, which is a
+ * strict-mode violation rather than a useful assertion.
  */
 const LOCATION_PROMPT = '[role="dialog"][aria-labelledby="hk-loc-title"]';
-const MOBILE_DRAWER = '#hk-mobile-drawer, [role="dialog"]:not([aria-labelledby="hk-loc-title"])';
+const REEL_VIEWER = '#hk-reel-viewer';
+const MOBILE_DRAWER =
+  '#hk-mobile-drawer, [role="dialog"]:not([aria-labelledby="hk-loc-title"]):not(#hk-reel-viewer)';
 
 /** Where the browser thinks focus is, as something readable in a failure. */
 async function focusedDescriptor(page: Page): Promise<string> {
@@ -152,6 +159,78 @@ test.describe('the location prompt', () => {
     // the visitor already has a task in hand.
     await page.goto('/login');
     await expect(page.locator(LOCATION_PROMPT)).toBeHidden();
+  });
+});
+
+test.describe('the reel viewer', () => {
+  // A phone is where a full-screen 9:16 player is actually used.
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('moves focus in, traps Tab, and gives it back', async ({ page }) => {
+    await page.goto('/');
+    await dismissLocationPrompt(page);
+
+    // The rail renders nothing at all when there are no reels
+    // (`ReelsRailClient` returns null), so an empty catalogue must skip
+    // rather than fail — this asserts the dialog contract, not the seed.
+    const reelCard = page.locator('#hk-reels-rail > button').first();
+    test.skip(!(await reelCard.count()), 'no reels seeded — nothing to open');
+
+    await reelCard.click();
+
+    const dialog = page.locator(REEL_VIEWER);
+    await expect(dialog).toBeVisible();
+
+    // 1. Focus moved in — and specifically onto Close. There are two
+    //    "Close reel" buttons (the full-bleed scrim hit area and the real
+    //    control); the scrim's carries `tabIndex={-1}` so `FOCUSABLE` skips
+    //    it, which is the whole reason the first stop is the one a keyboard
+    //    user wants. Asserted through the focused element rather than by
+    //    index, so it does not depend on DOM order.
+    expect(await focusIsInside(page, REEL_VIEWER)).toBe(true);
+    expect(await focusedDescriptor(page)).toBe('button: Close reel');
+
+    // 2. Tab is trapped, both directions.
+    for (const key of ['Tab', 'Shift+Tab'] as const) {
+      for (let i = 0; i < 20; i += 1) {
+        await page.keyboard.press(key);
+        if (!(await focusIsInside(page, REEL_VIEWER))) {
+          throw new Error(
+            `${key} escaped the reel viewer after ${i + 1} presses — focus is on ${await focusedDescriptor(page)}`,
+          );
+        }
+      }
+    }
+
+    // 3. Focus returns to the card that opened it. Without this a keyboard
+    //    user closes a full-screen player and lands at the top of the home
+    //    page, having lost the rail entirely.
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(reelCard).toBeFocused();
+  });
+
+  test('keeps focus inside while moving between reels', async ({ page }) => {
+    await page.goto('/');
+    await dismissLocationPrompt(page);
+
+    const reelCard = page.locator('#hk-reels-rail > button').first();
+    test.skip(!(await reelCard.count()), 'no reels seeded — nothing to open');
+
+    await reelCard.click();
+    await expect(page.locator(REEL_VIEWER)).toBeVisible();
+
+    /*
+     * The regression this guards. The key handler needs the current index,
+     * so it re-runs on every prev/next; the focus-in and focus-restore must
+     * NOT. Holding both in one effect meant each ArrowRight ran the cleanup
+     * — restoring focus to the card behind the still-open dialog — so a
+     * keyboard user stepping through reels was silently tabbing around the
+     * home page underneath a full-screen player.
+     */
+    await page.keyboard.press('ArrowRight');
+    expect(await focusIsInside(page, REEL_VIEWER)).toBe(true);
+    await expect(page.locator(REEL_VIEWER)).toBeVisible();
   });
 });
 

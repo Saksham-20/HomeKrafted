@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useScrollActiveIntoView } from "@/lib/useScrollActiveIntoView";
 import styles from "./SellerShell.module.css";
 
 interface SellerNavItem {
@@ -96,6 +97,9 @@ const HOMEKRAFTER_NAV: SellerNavItem[] = [
  */
 export function SellerShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // The portal nav is a horizontal strip on a phone; without this it
+  // always starts at item one, so `aria-current` points off-screen.
+  const navRef = useScrollActiveIntoView(pathname);
   const router = useRouter();
   const { ready, isSignedIn, role, user, seller, switchToShopping, switchToSelling, signOut } = useAuth();
 
@@ -171,7 +175,7 @@ export function SellerShell({ children }: { children: ReactNode }) {
             affordance that there is more nav than fits. Auto-scrolling the
             active item into view was attempted and removed — see
             `TODOS.md`; the scroll position is reset after the effect runs. */}
-        <nav className={clsx(styles.sidebar, "hk-scroll")} aria-label="HomeKrafter">
+        <nav ref={navRef} className={clsx(styles.sidebar, "hk-scroll", "hk-strip-fade")} aria-label="HomeKrafter">
           {navItems.map((item) => {
             const active =
               item.href === "/seller" ? pathname === "/seller" : pathname.startsWith(item.href);

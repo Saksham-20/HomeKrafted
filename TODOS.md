@@ -85,30 +85,36 @@ how a real regression gets waved through.
 the M28 run's failure detail was truncated to twelve lines, which is why
 this still has no diagnosis.
 
-### The mobile portal nav does not scroll the active item into view
-**What:** on a phone `/seller/*`'s nav is a horizontal strip about four of
-ten items wide. Edge fades now show that it scrolls (M28), but it always
-starts at "Dashboard" — so a HomeKrafter on Payouts sees no sign of where
-they are, and `aria-current` points at something off-screen.
-**What was tried, and measured:** an effect that scrolls the active item in
-on `pathname` change. Three findings, in order:
-1. `current.scrollIntoView({ inline: 'nearest' })` is a **no-op** here.
-2. `offsetLeft` is the wrong measure — the nav sets no `position`, so
-   `offsetParent` is `BODY` and it returned 987 from the page origin rather
-   than from the scroll container. `getBoundingClientRect` deltas are
-   container-relative and correct.
-3. With correct numbers the effect **runs and scrolls** — logged going to
-   958px — and something resets `scrollLeft` to 0 within 500ms. Removing
-   `scroll-snap` (a real second cause, it re-snapped to the first item) did
-   not fix the reset. Suspect App Router scroll restoration on load, or the
-   nav being remounted after the effect.
-**Why it is not in the tree:** shipping an effect that provably does not
-work is worse than shipping neither. The fades are the substantive fix and
-they work. Picking this up means identifying what writes `scrollLeft`
-after the effect — start by listening for `scroll` on the nav and logging
-stacks.
-**Start at:** `client/components/seller/SellerShell.tsx` (nav render),
-`SellerShell.module.css` (the fade block, which documents the snap finding).
+### ~~The mobile portal nav does not scroll the active item into view~~ — DONE (M29)
+Fixed in `client/lib/useScrollActiveIntoView.ts`, applied to all three
+portal shells, pinned by `e2e/tests/portal-nav.spec.ts` (10 cases: 4 seller,
+3 account, 3 admin, each asserting the active item is inside the strip's
+visible box and still is 700ms later).
+
+Kept here because **one of the three recorded findings was wrong, and it
+was the one that stopped the work.** Findings 1 and 2 stood exactly as
+written (`scrollIntoView({inline:'nearest'})` no-ops here; `offsetLeft`
+measures from `BODY` because the nav establishes no containing block, so
+`getBoundingClientRect` deltas are the correct measure). Finding 3 said
+"something resets `scrollLeft` to 0 within 500ms — suspect App Router
+scroll restoration, **or the nav being remounted after the effect**".
+
+Measured at 390px against a real seller session before writing any fix:
+setting `scrollLeft = 739` on `/seller/payouts` clamped to the strip's
+maximum of 726 and was **still 726 twelve hundred milliseconds later**,
+with no `scroll` event in between. There is no resetter. It was the second
+hypothesis — `SellerShell` gates its body behind an async HomeKrafter
+resolve, so the nav does not exist on the first effect pass and `pathname`
+never changes afterwards, so an effect keyed on the pathname alone never
+ran again. The fix is a **callback ref**: attaching the node is what
+schedules the work, so a late mount is handled by construction.
+
+The asymmetry is the lesson worth keeping: with a plain `useRef` the
+account and admin strips scrolled correctly on every route while the seller
+strip sat at 0 on all of them. A fix verified on one portal would have
+looked complete. So would a watchdog rAF loop, which is what the plan for
+this item originally called for — and it would have been permanent code
+defending against something that is not happening.
 
 ### Apostrophe normalisation
 **What:** ~566 straight contractions in user-facing copy versus ~20 curly.

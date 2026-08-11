@@ -50,6 +50,17 @@
   .page {
     flex-direction: column;
     gap: var(--hk-s4);
+    /* See `SellerShell.module.css`'s identical override for the full
+       reasoning. Short version: base `.page` sets `align-items: flex-start`
+       for the desktop row layout, and in the mobile stacked (column)
+       layout that same value becomes a cross-axis *width* rule — so
+       `.content` shrink-to-fits its children instead of filling the row,
+       and anything wider than the shrunk width (the referrals stat grid,
+       long order rows) overflows past the viewport and is clipped by
+       `body{overflow-x:hidden}` rather than wrapping. Both sibling shells
+       have carried this override since it was found live at 360px; this
+       one was missed. */
+    align-items: stretch;
   }
 
   .sidebar {
@@ -58,6 +69,11 @@
     flex-direction: row;
     overflow-x: auto;
     padding: var(--hk-s2);
+
+    /* Ten destinations, about four visible at 390px. The edge fades that
+       say so come from the `.hk-strip-fade` utility in
+       `styles/globals.css`, applied in `AccountShell.tsx` — see that
+       utility for why the recipe is shared rather than pasted. */
   }
 
   .navItem {

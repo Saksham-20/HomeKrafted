@@ -199,7 +199,9 @@ opens every route in `docs/route-inventory.tsv` in every role that can
 reach it, at 1280 and 390 — 172 page-visits — and records per visit: axe
 violations, horizontal overflow, dead links (`href="#"`), heading-order
 jumps, `h1` count, broken images, unlabelled inputs, undersized pointer
-targets and console errors, with a screenshot each.
+targets, console errors and — mobile only — **text controls under 16px**
+(`inputzoom`, M29: the size at which iOS Safari zooms on focus and does not
+zoom back), with a screenshot each.
 
 ```bash
 ./scripts/qa-up.sh                      # same stack the browser suite uses
@@ -275,7 +277,10 @@ Grouped by the rule, not by the file, because the rules are the point.
 | The eleventh person with a given first name can still register: the code space stops being ten wide, and the overflow suffix contains nothing that can be misread aloud | `unit/referral-code.spec.ts`, and the 30-account seed in `e2e/admin-users-pagination.e2e-spec.ts` |
 | What a HomeKrafter is owed multiplies by quantity, counts only delivered orders, counts only their own products, keeps paise, is ₹0 rather than NaN for an empty kitchen, and never goes negative | `e2e/seller-earnings.e2e-spec.ts` |
 | A queue's badge counts the queue, not the page: filtering the catalogue to "active" or the support list to "resolved" leaves "waiting for review" and "waiting on us" where they were | `e2e/admin-queues-pagination.e2e-spec.ts` |
-| A dialog claiming `aria-modal` actually moves focus in, traps Tab **and** Shift+Tab, and gives focus back to whatever opened it — and leaves the tab order entirely when closed | `e2e/tests/focus-traps.spec.ts` |
+| A dialog claiming `aria-modal` actually moves focus in, traps Tab **and** Shift+Tab, and gives focus back to whatever opened it — and leaves the tab order entirely when closed. **All three dialogs**, including the reel viewer, which claimed it and honoured only the scroll lock until M29; and moving between reels must not run the focus-restore cleanup | `e2e/tests/focus-traps.spec.ts` |
+| No dialog rolls its own focus trap — one `FOCUSABLE`, one `trapTab`, in `client/lib/focus-trap.ts`. The M16 selector's `:not([tabindex="-1"])` qualified only its last clause, so a `tabindex="-1"` *button* counted as a trap boundary and Shift+Tab escaped past it | `client/lib/focus-trap.spec.ts` |
+| No visible text control is under 16px on a phone — the size at which iOS Safari zooms the page on focus and does not zoom back. All 36 of them were, until M29 | `e2e/tests/presentation.spec.ts` (8 routes, fast gate) + `e2e/sweep.mjs`'s `inputzoom` flag (all 87) |
+| The portal nav strip scrolls the active item into view on a phone, in **all three** shells, and it stays there. The seller shell mounts its nav late (an async HomeKrafter resolve), so a fix verified only on account/admin passes while the surface a home cook actually uses sits at scrollLeft 0 | `e2e/tests/portal-nav.spec.ts` |
 | The location prompt never opens over a staff surface or an auth form, where it used to trap focus while somebody typed a password | `e2e/tests/focus-traps.spec.ts` |
 | `/admin/login` signs in as **what was typed**, not a hardcoded account | `e2e/tests/auth.setup.ts` |
 | A product card opens on Enter from the keyboard; an unknown slug answers **404 in the status line**, not a soft 404 | `e2e/tests/audit-regressions.spec.ts` |

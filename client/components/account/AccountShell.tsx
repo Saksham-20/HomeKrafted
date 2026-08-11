@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { SignedOutNotice } from "@/components/auth/SignedOutNotice";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useScrollActiveIntoView } from "@/lib/useScrollActiveIntoView";
 import styles from "./AccountShell.module.css";
 
 export interface AccountNavItem {
@@ -69,6 +70,9 @@ export const ACCOUNT_NAV_ITEMS: AccountNavItem[] = [
  */
 export function AccountShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // The portal nav is a horizontal strip on a phone; without this it
+  // always starts at item one, so `aria-current` points off-screen.
+  const navRef = useScrollActiveIntoView(pathname);
   const { isSignedIn, ready } = useAuth();
 
   if (ready && !isSignedIn) {
@@ -81,7 +85,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
 
   return (
     <section className={clsx("container", styles.page)}>
-      <nav className={clsx(styles.sidebar, "hk-scroll")} aria-label="Account">
+      <nav ref={navRef} className={clsx(styles.sidebar, "hk-scroll", "hk-strip-fade")} aria-label="Account">
         {ACCOUNT_NAV_ITEMS.map((item) => {
           const active = item.href === "/account" ? pathname === "/account" : pathname.startsWith(item.href);
           const Icon = item.icon;

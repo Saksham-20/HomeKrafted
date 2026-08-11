@@ -13,6 +13,50 @@ import { PUBLIC_ROUTES } from './public-routes';
  */
 
 
+/**
+ * iOS Safari zooms the page when a focused text control is under 16px, and
+ * it does not zoom back out. Every text control in this codebase was
+ * 12.5–14.5px — 36 of them across 34 modules — so *every* form on an iPhone
+ * shifted the layout under the visitor's thumb: the login field at the
+ * start of a session, the checkout address, the wallet top-up, the whole
+ * seller portal. Fixed with one global rule in M29
+ * (`client/styles/globals.css`).
+ *
+ * This is the fast gate over the eight `PUBLIC_ROUTES`; `e2e/sweep.mjs`'s
+ * `inputzoom` flag covers all 87. **No routes are added here** — the CI
+ * cost is one more pass over pages this gate already visits.
+ */
+test.describe('no text control zooms iOS Safari', () => {
+  test('every visible input, select and textarea is at least 16px at 390px', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    const offenders: string[] = [];
+    for (const route of PUBLIC_ROUTES) {
+      await page.goto(route);
+      const small = await page.evaluate(() =>
+        [...document.querySelectorAll('input,select,textarea')]
+          .filter((el) => {
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+          })
+          // No text, and sized by the UA — font-size is irrelevant.
+          .filter((el) => !['checkbox', 'radio', 'range'].includes(el.getAttribute('type') || ''))
+          .map((el) => ({
+            what: `${el.tagName.toLowerCase()}[${
+              el.getAttribute('name') || el.getAttribute('placeholder') || '?'
+            }]`,
+            size: Number.parseFloat(getComputedStyle(el).fontSize),
+          }))
+          .filter((r) => r.size > 0 && r.size < 16),
+      );
+      for (const s of small) offenders.push(`${route} → ${s.what} ${s.size}px`);
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 test.describe('no page scrolls sideways', () => {
   for (const width of [360, 768, 1180]) {
     test(`at ${width}px`, async ({ page }) => {

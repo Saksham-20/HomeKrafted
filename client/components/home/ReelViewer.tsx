@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Heart, Volume2, VolumeX, X } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCount } from "@/lib/format";
+import { FOCUSABLE, trapTab } from "@/lib/focus-trap";
 import type { Reel } from "@/lib/types";
 import styles from "./ReelViewer.module.css";
 
@@ -38,27 +39,68 @@ export function ReelViewer({
 }: ReelViewerProps) {
   const [muted, setMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const open = index !== null;
   const reel = open ? reels[index] : undefined;
 
+  /**
+   * Keys: Escape closes, ←/→ move between reels, Tab stays inside.
+   *
+   * Separate from the open/close effect below because this one has to see
+   * the current `index` — merging them would make every prev/next press
+   * re-run the scroll lock and the focus restore, which would bounce focus
+   * out of the viewer on each step.
+   */
   useEffect(() => {
     if (!open) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
       if (event.key === "ArrowRight" && index < reels.length - 1) onIndexChange(index + 1);
       if (event.key === "ArrowLeft" && index > 0) onIndexChange(index - 1);
+      trapTab(scrimRef.current, event);
     };
     document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, index, reels.length, onIndexChange, onClose]);
+
+  /**
+   * The rest of the dialog contract (CLAUDE.md, M16): move focus in on
+   * open, restore it to the opener on close, lock the page behind.
+   *
+   * This claimed `role="dialog" aria-modal="true"` from the day it shipped
+   * and honoured only the scroll lock — focus stayed on the reel card
+   * behind it, so a keyboard user opened a full-screen player and then
+   * tabbed through the home page underneath it, and on close landed back
+   * at the top of the document. The trap in the effect above is the second
+   * piece; this is the first and third.
+   *
+   * Keyed on `open` alone, deliberately. `index` changing is a move
+   * *within* the open dialog, not an open or a close.
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    returnFocusRef.current = document.activeElement as HTMLElement | null;
+    // The first focusable is the close button: the full-bleed
+    // click-to-close scrim button carries `tabIndex={-1}`, so `FOCUSABLE`
+    // skips it. Landing on "Close reel" is right for a surface whose
+    // content is a video that plays on its own.
+    scrimRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = previousOverflow;
+      // Back to the reel card that opened it, if it is still on the page.
+      returnFocusRef.current?.focus?.();
     };
-  }, [open, index, reels.length, onIndexChange, onClose]);
+  }, [open]);
 
   // Restart from the top whenever the viewer moves to a different reel.
   useEffect(() => {
@@ -74,7 +116,19 @@ export function ReelViewer({
   const hasNext = index < reels.length - 1;
 
   return (
-    <div className={styles.scrim} role="dialog" aria-modal="true" aria-label={reel.title}>
+    <div
+      ref={scrimRef}
+      /* A stable id, because the root layout already renders two other
+         `aria-modal` dialogs on every consumer page (the mobile drawer and
+         the location prompt) and `e2e/tests/focus-traps.spec.ts` needs to
+         address exactly one of the three — matching on `[role="dialog"]`
+         is a strict-mode violation, not an assertion. */
+      id="hk-reel-viewer"
+      className={styles.scrim}
+      role="dialog"
+      aria-modal="true"
+      aria-label={reel.title}
+    >
       <button
         type="button"
         className={styles.scrimHit}

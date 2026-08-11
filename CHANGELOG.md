@@ -3,6 +3,122 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M29] — The phone stopped being the second-class viewport — 2026-08-10
+
+Planned against the whole tree at 390px (`docs/M29-MOBILE-PLAN.md`) and
+implemented from the top of the list. The headline finding was that mobile
+is in *better* shape than the raw numbers suggested — 105 of 193 CSS
+modules have no media query, but most of those are components that don't
+need one, and the consumer buy path had already been worked. What remained
+was narrow, specific, and mostly invisible from a desktop browser.
+
+### Fixed — five defects, four of which no screenshot would show you
+
+- **Every form on the site zoomed an iPhone, permanently.** iOS Safari
+  zooms the page when a focused `input`/`select`/`textarea` is under 16px
+  and does not zoom back out. All **36 text controls across 34 modules**
+  were 12.5–14.5px: the login field at the start of a session, the
+  checkout address, the wallet top-up amount, the whole seller portal. One
+  global rule in `styles/globals.css` fixes the class. It is `!important`
+  because module *class* selectors beat any element selector that file can
+  write, and it only ever raises a value — verified beforehand that nothing
+  in the tree sets a control at or above 16px. Not fixed with
+  `maximum-scale=1`, which stops the zoom by disabling pinch-zoom for
+  everybody.
+- **The home page showed one product per row.** `.featuredGrid` needed
+  436px for a second column against a 358px content width. M26 propagated
+  exactly this fix to seven browse surfaces and missed `/` — the
+  highest-traffic page on the site.
+- **`ReelViewer` claimed `aria-modal="true"` and honoured only the scroll
+  lock**, from the day it shipped. No focus moved in, Tab walked out into
+  the home page behind a full-screen video player, and closing it dropped
+  the keyboard user at the top of the document. It also exposed a **latent
+  bug in the M16 focus selector**: `:not([tabindex="-1"])` qualified only
+  its last clause, so a `tabindex="-1"` *button* still matched
+  `button:not([disabled])` and was returned as focusable. Measured: the
+  trap compared against the scrim's click-to-close button, which focus can
+  never land on, so Shift+Tab escaped after four presses. `MobileDrawer`
+  and `LocationPrompt` carried the same hole and only got away with it
+  because neither contains such a button.
+- **The account and admin nav strips never got M28's fixes.** Ten and
+  thirteen destinations, about four visible at 390px, no edge fades saying
+  the strip scrolls, and `AccountShell` was also missing the
+  `align-items: stretch` override both siblings carry with a comment
+  explaining the content-clipping bug it fixes.
+- **`/account/notifications` hid the WhatsApp column.** A `min-width: 400px`
+  matrix inside an `overflow-x: auto` wrapper scrolled ~42px sideways with
+  no affordance, on the screen where a buyer turns order updates on.
+  Channel columns are now 44px (the touch floor — the columns shrank, the
+  targets did not) and the `min-width` is gone.
+
+Also: `/checkout` rendered **no `h1` at all** for a signed-in buyer with an
+empty cart — its title was a `<p>` styled as a heading, and the signed-out
+variant's own `h1` hid it. Found by the sweep's `h1x0` flag. Plus two touch
+targets raised to 44px (the drawer's close button, `/shop`'s pagination),
+and a comment in `SubscriptionsListClient.module.css` that had pointed at
+"the media query at the end" of a file that has never had one.
+
+### Fixed — the mobile portal nav, and a wrong diagnosis
+
+`TODOS.md` carried this as blocked with three measured findings. Two stood.
+The third — "something resets `scrollLeft` to 0 within 500ms, suspect App
+Router scroll restoration" — **was not reproducible**: setting
+`scrollLeft = 739` on `/seller/payouts` clamped to the strip's maximum of
+726 and was still 726 twelve hundred milliseconds later, with no `scroll`
+event in between. The cause was that finding's own second hypothesis, a
+late mount: `SellerShell` gates its body behind an async HomeKrafter
+resolve, so the nav does not exist on the first effect pass and `pathname`
+never changes afterwards. `lib/useScrollActiveIntoView.ts` therefore takes
+a **callback ref** — attaching the node is what schedules the work — and
+carries no watchdog, which the original plan for this item called for and
+which would have been permanent code defending against nothing.
+
+The asymmetry is the part worth remembering: with a plain `useRef` the
+account and admin strips scrolled correctly on every route while the seller
+strip sat at 0 on all of them. A fix verified on one portal would have
+looked complete.
+
+### Changed — three recipes that existed in two or three copies
+
+- **`lib/focus-trap.ts`** (new) holds `FOCUSABLE` and `trapTab`.
+  `MobileDrawer` and `LocationPrompt` each had a private copy of the
+  selector and the wrap arithmetic; `ReelViewer` had neither.
+  `lib/focus-trap.spec.ts` now fails the build on a fourth copy *or* on any
+  `aria-modal` component that doesn't import the module — verified red
+  against the pre-M29 `ReelViewer`, which it named exactly.
+- **`.hk-strip-fade`** in `styles/globals.css` holds the M28 edge-fade
+  recipe (gradients over `background-attachment: local`, momentum scroll,
+  scrollbar suppression), previously written out inside
+  `SellerShell.module.css`. It carries its own `max-width: 780px` guard,
+  because all three shells are a vertical sidebar above that width and a
+  CSS Module cannot `composes` a global class.
+- **Five breakpoint rails named** — 420 · 560 · 640 · 780 · 900, in
+  `CLAUDE.md`, as convention for new code. There are 27 distinct
+  `max-width` values in the tree; that tail is untidy rather than wrong,
+  so it folds to the nearest rail **only when a file is already open for a
+  real defect**. A standalone 193-file normalisation diff would be
+  unreviewable and buy nobody anything.
+
+### Added — tests, because four of these five were invisible
+
+- `e2e/sweep.mjs` gains an **`inputzoom`** flag (mobile viewport only —
+  printing it at 1280, where nothing zooms, would train people to ignore
+  the column). It covers all 87 routes, which is what catches the 35th
+  module rather than the 34 that exist today.
+- `e2e/tests/presentation.spec.ts` gains the same check as a fast gate over
+  the existing eight `PUBLIC_ROUTES` — **no routes added**, so the CI cost
+  is one more pass over pages it already visits.
+- `e2e/tests/portal-nav.spec.ts` (new) — 10 cases across all three portals.
+- `e2e/tests/focus-traps.spec.ts` gains the reel viewer, including a case
+  for the specific trap the split effect creates: moving between reels must
+  not run the focus-restore cleanup.
+- `client/lib/focus-trap.spec.ts` (new) — the duplication guard above.
+
+Verified: 193 client unit tests, **163 browser tests**, and both sweeps
+(87 routes × 4 roles, mobile and desktop) with **one flagged row in each —
+`/laundry` 404, which is correct**: zero overflow, zero axe violations,
+zero `inputzoom`, zero undersized targets.
+
 ## [M28] — The site stopped sounding like everybody else — 2026-08-09
 
 A brand and UX review of the public pages found copy that could have sat

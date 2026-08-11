@@ -55,7 +55,10 @@ export function ReelsRailClient({ reels, vendors }: ReelsRailClientProps) {
           <ChevronLeft size={18} strokeWidth={1.8} />
         </button>
 
-        <div ref={railRef} className={clsx(styles.rail, "hk-scroll")}>
+        {/* A stable id so `e2e/tests/focus-traps.spec.ts` can address a reel
+            card without guessing at an accessible name — the whole card is
+            the button (`ReelCard`), and its label is the reel's own copy. */}
+        <div ref={railRef} id="hk-reels-rail" className={clsx(styles.rail, "hk-scroll")}>
           {reels.map((reel, index) => (
             <ReelCard
               key={reel.id}

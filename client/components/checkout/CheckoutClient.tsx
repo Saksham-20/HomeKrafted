@@ -390,7 +390,18 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
     return (
       <section className={clsx("container", styles.page)}>
         <div className={styles.empty}>
-          <p className={styles.emptyTitle}>Your cart is empty</p>
+          {/*
+            An `h1`, not the `p` this was: it is the only heading on the
+            page in this state, so the document had no `h1` at all — a
+            screen-reader user landing here after a mid-payment refresh got
+            an untitled page at the moment they most needed to know where
+            they were. The styling is unchanged; `.emptyTitle` already sets
+            the family, size and weight, and the global reset zeroes the
+            heading margin. Found by the M29 mobile sweep, which reported
+            `h1x0` on `/checkout` for a signed-in buyer with an empty cart —
+            the signed-out variant has its own `h1` and hid this.
+          */}
+          <h1 className={styles.emptyTitle}>Your cart is empty</h1>
           {/*
             You do not arrive at an empty checkout by browsing — you get
             here with items or not at all. The realistic way to see this

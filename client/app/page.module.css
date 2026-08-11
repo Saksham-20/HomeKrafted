@@ -72,6 +72,29 @@
   gap: var(--hk-s4);
 }
 
+/* Two products per row on a phone, not one.
+
+   The same fix as `app/shop/ShopClient.module.css` (which carries the full
+   reasoning), and the same arithmetic: `minmax(210px, 1fr)` needs
+   210 + gap + 210 = 436px for a second column, which the 358px content
+   column at 390px never has. So the featured rail rendered one ~360px card
+   per row.
+
+   M26 propagated that fix to seven browse surfaces — /shop, /search,
+   /gifts, /hamper, /snacks, /storefront, /guides — and missed the home
+   page, which is the highest-traffic page on the site and the first thing
+   a phone visitor scrolls. `.occasionGrid` (120px) and `.categoryGrid`
+   (140px) already fit two-plus columns and need nothing.
+
+   `minmax(0, 1fr)` rather than a fixed floor, so the columns shrink with
+   the viewport instead of overflowing it at 320px. */
+@media (max-width: 640px) {
+  .featuredGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hk-s3);
+  }
+}
+
 .bandsGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;

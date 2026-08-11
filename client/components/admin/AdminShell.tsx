@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { Banknote, BarChart3, Building2, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ScrollText, ShoppingBag, SlidersHorizontal, Store, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useScrollActiveIntoView } from "@/lib/useScrollActiveIntoView";
 import styles from "./AdminShell.module.css";
 
 interface AdminNavItem {
@@ -67,6 +68,9 @@ const NAV: AdminNavItem[] = [
  */
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // The portal nav is a horizontal strip on a phone; without this it
+  // always starts at item one, so `aria-current` points off-screen.
+  const navRef = useScrollActiveIntoView(pathname);
   const router = useRouter();
   const { ready, isSignedIn, role, user, signOut } = useAuth();
 
@@ -120,7 +124,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className={clsx("container", styles.body)}>
-        <nav className={clsx(styles.sidebar, "hk-scroll")} aria-label="Admin">
+        <nav ref={navRef} className={clsx(styles.sidebar, "hk-scroll", "hk-strip-fade")} aria-label="Admin">
           {NAV.map((item) => {
             const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
             const Icon = item.icon;

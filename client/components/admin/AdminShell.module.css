@@ -190,6 +190,13 @@
     flex-direction: row;
     overflow-x: auto;
     padding: var(--hk-s2);
+
+    /* Thirteen destinations, about four visible at 390px — the longest of
+       the three portal strips. The edge fades come from the
+       `.hk-strip-fade` utility in `styles/globals.css`, applied in
+       `AdminShell.tsx`. An affordance is not decoration: CLAUDE.md's
+       "the admin panel stays plain" is about whimsy over somebody's
+       income, not about telling an operator that a nav scrolls. */
   }
 
   .navItem {

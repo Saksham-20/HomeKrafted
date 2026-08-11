@@ -70,8 +70,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  /* 44px, the touch-target floor. This is the only way out of a
+     focus-trapping full-height drawer on a phone, and the header row it
+     sits in is already taller than 44px — so the size was 36px for no
+     reason a layout was asking for. The glyph stays 18px; the target grew,
+     not the icon. */
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
   border-radius: var(--hk-r-md);

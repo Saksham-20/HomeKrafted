@@ -67,6 +67,36 @@
   min-width: 400px;
 }
 
+/* The matrix at 390px.
+
+   `min-width: 400px` inside an `overflow-x: auto` wrapper meant the table
+   scrolled about 42px sideways on a phone with nothing to say so, and the
+   column it hid was the last one — WhatsApp. This is the screen where a
+   buyer turns order updates on, and the channel most of them actually read
+   was the one off the edge.
+
+   The arithmetic at the 358px content width: four 44px channel columns plus
+   three 6px gaps is 194px, leaving 164px for the category label, which wraps
+   to two lines rather than truncating. 44px keeps each checkbox a full-size
+   touch target — the columns shrank from 58px, the targets did not.
+
+   Dropping `min-width` is the substantive half: with it, the row overflows
+   no matter what the columns do. */
+@media (max-width: 640px) {
+  .prefsRow {
+    grid-template-columns: 1fr repeat(4, 44px);
+    min-width: 0;
+  }
+
+  .prefsCategoryHead,
+  .prefsCategory {
+    /* Long channel names ("Order updates", "Meal subscriptions") get two
+       lines instead of an ellipsis — a truncated preference label is a
+       preference somebody cannot identify. */
+    overflow-wrap: break-word;
+  }
+}
+
 .prefsRow:last-child {
   border-bottom: none;
   padding-bottom: 0;

@@ -195,8 +195,12 @@
 
 .delivery {
   display: grid;
-  /* The reason column shares the status column's row on wide screens and
-     wraps beneath on narrow ones — see the media query at the end. */
+  /* The reason wraps onto its own line beneath the rest of the row. That
+     happens at every width, via `grid-column: 1 / -1` on `.deliveryReason`
+     at the end of this file — not via a media query. The comment here
+     promised "see the media query at the end" and this file has never had
+     one, which sends anybody debugging the row's narrow behaviour looking
+     for a rule that does not exist. */
   grid-template-columns: 1fr auto auto auto;
   align-items: center;
   gap: var(--hk-s3);

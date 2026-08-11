@@ -284,6 +284,33 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   nav is full**: swapping "About" for the wider "Meal plans" already
   needed the nav gap tightened to fit inside the 1180px container. Adding
   a seventh item means taking one out — re-measure if you touch it.
+- **Five breakpoint rails, by convention (M29): 420 · 560 · 640 · 780 ·
+  900.** Roughly: 420 small phone, 560 phone, 640 large phone (and where
+  fixed CTA bars engage), 780 shell/sidebar collapse, 900 two-pane goes
+  single-column. New code uses these. They live here and nowhere else,
+  because a CSS custom property is not valid inside an `@media` condition
+  and the things that fix that (`postcss-custom-media`, a preprocessor)
+  are new dependencies. **1190 is not a rail** — it is the *measured*
+  header collapse width, above. There are 27 distinct `max-width` values
+  in the tree; that tail is untidy rather than wrong (each was picked
+  where a component actually broke), so it is folded to the nearest rail
+  **only when a file is already being touched for a real defect**. A
+  standalone 193-file normalisation diff is unreviewable and buys nobody
+  anything.
+- **A text control is never under 16px on a phone, and one global rule
+  enforces it.** iOS Safari zooms the page when a focused
+  `input`/`select`/`textarea` is smaller than that, and it does not zoom
+  back out. All 36 text controls in the tree were 12.5–14.5px until M29,
+  so every form on an iPhone — login, checkout address, wallet top-up,
+  the whole seller portal — shifted the layout under the visitor's thumb.
+  The rule is in `styles/globals.css` and is `!important` because module
+  *class* selectors beat any element selector that file can write; it
+  raises values and never lowers them (verified: nothing sets a control
+  above 16px). Two things not to do: don't "fix" this instead with
+  `maximum-scale=1` on the viewport meta (that kills pinch-zoom for
+  everybody), and don't add a module rule that re-shrinks a control on
+  mobile. `e2e/sweep.mjs`'s **`inputzoom`** flag and a
+  `presentation.spec.ts` case are the guards.
 
 ## Channel rules (see `lib/channel.ts` — read before building any module screen)
 
@@ -745,8 +772,17 @@ silently override another — the same reason `Product.isAvailable` and
   hides it from assistive tech too) fails invisibly.
 - **A dialog owes three things**, not one: move focus in on open, trap
   Tab at both ends, restore focus to whatever opened it. `aria-modal`
-  without them is a claim the page doesn't honour. `MobileDrawer` and
-  `LocationPrompt` are the reference implementations.
+  without them is a claim the page doesn't honour. **Use
+  `lib/focus-trap.ts`** (`FOCUSABLE` + `trapTab`) — never write the
+  selector or the wrap arithmetic again. `MobileDrawer` and
+  `LocationPrompt` honoured all three from M16 but each held a private
+  copy of the recipe, and `ReelViewer` — a full-screen player claiming
+  `aria-modal` — honoured only the scroll lock from the day it shipped
+  until M29. It survived review because the markup is right and a mouse
+  never notices; only pressing Tab finds it. `lib/focus-trap.spec.ts`
+  now fails the build on a private copy or on an `aria-modal` component
+  that doesn't import the shared module, and
+  `e2e/tests/focus-traps.spec.ts` presses the keys for all three.
 - **Anything hidden off-screen must leave the tab order.** A
   `transform: translateX(100%)` panel is still focusable; use
   `visibility: hidden` (delay the transition so the animation survives).

@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { SearchForm } from "@/components/search/SearchForm";
+import { FOCUSABLE, trapTab } from "@/lib/focus-trap";
 import styles from "./MobileDrawer.module.css";
 
 export interface MobileDrawerProps {
@@ -26,10 +27,6 @@ export interface MobileDrawerProps {
  * wishlist/account icons below ~1190px, so this is the only way to reach
  * them on small screens.
  */
-/** Everything focusable inside the panel, in DOM order. */
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
 export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchToSelling }: MobileDrawerProps) {
   const { count: wishlistCount } = useWishlist();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -60,22 +57,9 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchT
         onClose();
         return;
       }
-      if (event.key !== "Tab" || !panel) return;
-
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      // Wrap at both ends. Without this, Tab walks out of the dialog and
-      // into the page it is covering.
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      // Wrap at both ends — shared with `LocationPrompt` and `ReelViewer`,
+      // see `lib/focus-trap.ts`.
+      trapTab(panel, event);
     };
     document.addEventListener("keydown", onKeyDown);
 

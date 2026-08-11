@@ -178,45 +178,15 @@
     overflow-x: auto;
     padding: var(--hk-s2);
 
-    /* A scrollable strip must look scrollable.
-       The portal has ten destinations and about four fit at 390px, so the
-       fifth was cut off mid-word with nothing to say the rest existed —
-       reported from a phone. Two things fix it and both are needed:
-
-       1. A fade on the right edge, painted with a `background` pair that
-          scrolls with the content, so it disappears exactly when there is
-          nothing further to reach. `linear-gradient` over
-          `background-attachment: local` is the standard trick and needs no
-          JS and no scroll listener.
-       There is deliberately **no `scroll-snap`** here. It was tried and
-       removed the same day: with `scroll-snap-align: start` on every item,
-       the browser re-snapped the strip back to the first item immediately
-       after the effect below scrolled the active one into view — measured
-       going to 958px and back to 0 within 500ms. Snapping ten short chips
-       is worth much less than showing somebody where they are.
+    /* The edge fades, momentum scrolling and scrollbar suppression that
+       used to be written out here now live in one place — the
+       `.hk-strip-fade` utility in `styles/globals.css`, applied to this
+       element in `SellerShell.tsx`. It moved in M29 because the account
+       and admin shells have the identical strip and never got the M28 fix;
+       the reasoning (including why there is no `scroll-snap`) went with it.
 
        Not a wrap: ten items wrapped is three stacked rows of chrome above
        the content on the screen with the least room for it. */
-    background:
-      linear-gradient(to right, var(--hk-surface) 30%, rgba(255, 255, 255, 0)) left center,
-      linear-gradient(to left, var(--hk-surface) 30%, rgba(255, 255, 255, 0)) right center,
-      /* The shadows that reveal the fades — sized in em so they scale with
-         the label text rather than being a fixed pixel guess. */
-      linear-gradient(to right, rgba(29, 43, 35, 0.11), rgba(255, 255, 255, 0)) left center,
-      linear-gradient(to left, rgba(29, 43, 35, 0.11), rgba(255, 255, 255, 0)) right center;
-    background-repeat: no-repeat;
-    background-size: 2.5em 100%, 2.5em 100%, 0.9em 100%, 0.9em 100%;
-    background-attachment: local, local, scroll, scroll;
-
-    /* Momentum scrolling on iOS; without it the strip feels stuck. */
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  /* The strip is navigated by swiping, and a visible bar steals height from
-     a 44px row. The fades above are the affordance. */
-  .sidebar::-webkit-scrollbar {
-    display: none;
   }
 
   .navItem {

@@ -71,6 +71,44 @@ select {
   color: inherit;
 }
 
+/* iOS Safari zooms the whole page when a focused text control has a
+   font-size under 16px, and it does not zoom back out. Every text control
+   in this codebase was 12.5–14.5px (36 of them across 34 modules, M29), so
+   *every* form on an iPhone shifted the layout and left the visitor zoomed
+   in: the login field at the start of a session, the checkout address, the
+   wallet top-up amount, the whole seller portal.
+
+   Three things about this rule, each of which is why it looks the way it
+   does rather than the way a module rule would:
+
+   1. **It is global on purpose, not 34 copies.** A per-module mobile block
+      is the house pattern, but here the pattern is the defect — the class
+      of bug is "somebody added a text control and didn't know", and 34
+      copies teach the 35th file nothing. `e2e/sweep.mjs`'s `inputzoom`
+      flag is the other half; the two together are what make this stay
+      fixed.
+   2. **`!important` is forced by specificity, not laziness.** These
+      controls are styled by CSS-Module *class* selectors, which beat any
+      element selector this file can write — `body input` included. The
+      only alternatives are !important or the 34 copies.
+   3. **It shrinks nothing.** Verified before shipping: no text control in
+      the codebase sets a font-size at or above 16px, and none uses
+      em/rem/clamp, so this only ever raises a value. If you add a
+      deliberately larger control, this rule stops applying the moment its
+      size clears 16px — set it and re-check the scan.
+
+   Do NOT "fix" this with `maximum-scale=1` on the viewport meta instead.
+   That also stops the zoom, by disabling pinch-zoom for everybody, which
+   is an accessibility violation rather than a fix. Checkbox/radio/range
+   are excluded because they carry no text and are laid out by size. */
+@media (max-width: 780px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 button {
   cursor: pointer;
 }
@@ -111,6 +149,68 @@ p {
 .hk-scroll::-webkit-scrollbar-thumb {
   background: var(--hk-scrollbar);
   border-radius: 8px;
+}
+
+/* ---- Portal nav strip: the scroll affordance ----
+
+   A horizontally-scrolling strip must look scrollable. Extracted in M29
+   from `SellerShell.module.css`, where it shipped in M28 for the ten-item
+   HomeKrafter nav: about four fit at 390px, so the fifth was cut off
+   mid-word with nothing to say the rest existed — reported from a phone.
+   The account shell (10 destinations) and the admin shell (13) have the
+   same strip and never got the fix. This lives here rather than being
+   pasted a third time because the recipe is not obvious enough to
+   re-derive, and a copy that gets one layer wrong fails silently.
+
+   How it works: two pairs of gradients — the fade painted in the surface
+   colour, and a soft shadow behind it to reveal the fade.
+   `background-attachment: local` makes the fade pair scroll with the
+   content, so each edge's fade disappears exactly when there is nothing
+   further to reach in that direction. No JS, no scroll listener, no state.
+
+   **Why the breakpoint is baked in, and why the name says "strip".** All
+   three shells are a *vertical* sticky sidebar above 780px and a
+   horizontal strip below it. Horizontal edge fades on a vertical column
+   would be simply wrong, and a CSS Module cannot `composes` a global
+   class, so the shells apply this in their TSX unconditionally and the
+   guard has to live here. If you ever need fades on a strip that is
+   horizontal at every width, lift the body out of this media query into
+   its own class rather than widening this one.
+
+   Assumes the strip's own background is `--hk-surface` — all three
+   `.sidebar` rules are. Elsewhere, override `--hk-strip-fade-bg`.
+
+   There is deliberately **no `scroll-snap`**. It was tried and removed the
+   same day in M28: with `scroll-snap-align: start` on every item, the
+   browser re-snapped the strip back to the first item immediately after an
+   effect scrolled the active one into view — measured going to 958px and
+   back to 0 inside 500ms. Snapping ten short chips is worth much less than
+   showing somebody where they are. */
+@media (max-width: 780px) {
+  .hk-strip-fade {
+    --hk-strip-fade-bg: var(--hk-surface);
+    background:
+      linear-gradient(to right, var(--hk-strip-fade-bg) 30%, rgba(255, 255, 255, 0)) left center,
+      linear-gradient(to left, var(--hk-strip-fade-bg) 30%, rgba(255, 255, 255, 0)) right center,
+      /* The shadows that reveal the fades — sized in em so they scale with
+         the label text rather than being a fixed pixel guess. */
+      linear-gradient(to right, rgba(29, 43, 35, 0.11), rgba(255, 255, 255, 0)) left center,
+      linear-gradient(to left, rgba(29, 43, 35, 0.11), rgba(255, 255, 255, 0)) right center;
+    background-repeat: no-repeat;
+    background-size: 2.5em 100%, 2.5em 100%, 0.9em 100%, 0.9em 100%;
+    background-attachment: local, local, scroll, scroll;
+
+    /* Momentum scrolling on iOS; without it the strip feels stuck. */
+    -webkit-overflow-scrolling: touch;
+
+    /* The strip is navigated by swiping, and a visible bar steals height
+       from a 44px row. The fades are the affordance instead. */
+    scrollbar-width: none;
+  }
+
+  .hk-strip-fade::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 @keyframes hkfade {
