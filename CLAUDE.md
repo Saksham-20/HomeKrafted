@@ -496,7 +496,7 @@ paragraphs over appending new ones.
   "you are offline" and "we are broken" stop being the same message);
   error copy **names the right party** — never tell somebody to check a
   connection that is working; and a browser-side failure is **beaconed to
-  `/api/client-errors`**, a Next route on the page's own origin, because a
+  `/client-errors`**, a Next route on the page's own origin, because a
   report posted to the API would be blocked by the very fault it reports.
   Every 5xx also carries an 8-hex `reference`, in the body, the
   `X-Request-Id` header and the log line.

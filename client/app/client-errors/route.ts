@@ -22,6 +22,17 @@ import { NextResponse } from "next/server";
  * the page itself rendered. It has no CORS to fail and no cross-origin CSP
  * to satisfy.
  *
+ * **Why the path is `/client-errors` and not `/api/client-errors`.** It
+ * was the latter for about an hour, and it 404'd in production while
+ * working perfectly in local dev — because nginx routes `location /api/`
+ * straight to the Nest API on :4000, so the request never reached Next at
+ * all. Two lessons, both of them the reason this file exists: local dev
+ * has no reverse proxy, so "works on my machine" cannot see this class of
+ * fault; and **a diagnostic that depends on an infrastructure rule is a
+ * diagnostic that dies with the infrastructure**. Under `location /`
+ * this route needs no nginx rule of its own, which is exactly the
+ * property it is supposed to have. Do not move it back under `/api`.
+ *
  * **It is deliberately small.** No auth (a signed-out visitor's failure is
  * the one most worth hearing about, and a token would not survive the
  * fault anyway), no database, no dependency on the API being up. It writes

@@ -132,7 +132,7 @@ export async function report(entry: ClientErrorReport): Promise<void> {
   });
 
   try {
-    await fetch("/api/client-errors", {
+    await fetch("/client-errors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,

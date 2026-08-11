@@ -88,7 +88,7 @@ removed the user is shown the token.
 
 ## §4 A failure nobody hears about
 
-**`client/app/api/client-errors/route.ts`** — a Next route handler, on the
+**`client/app/client-errors/route.ts`** — a Next route handler, on the
 page's own origin.
 
 The origin matters more than anything else about it: the failures worth
