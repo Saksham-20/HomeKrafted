@@ -213,6 +213,26 @@ export function SellerShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
+                // `prefetch={false}` (M31), and it is worth the paragraph.
+                //
+                // The sidebar is fully on screen the instant the portal
+                // mounts, so Next prefetched **every** entry at once — and
+                // in the App Router each one is several segment requests
+                // (`/_tree`, `/_head`, `__PAGE__`, …) plus its route
+                // chunks. Measured on the login transition: about seventy
+                // five requests and fifteen scripts landing between the
+                // navigation and the dashboard's own `GET
+                // /seller/dashboard`, which did not get issued until
+                // ~370ms — roughly 300ms of it queued behind prefetches
+                // for pages nobody had asked for. This is the "~265ms of
+                // undiagnosed idle" M30 recorded and could not explain.
+                //
+                // The portal is a tool used deliberately by one signed-in
+                // person, not a browse surface: paying that on every
+                // single sign-in to save a few tens of milliseconds on a
+                // click that may never come is the wrong way round. Hover
+                // still prefetches, which covers the real click.
+                prefetch={false}
                 className={clsx(styles.navItem, active && styles.navItemActive)}
                 aria-current={active ? "page" : undefined}
               >

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SellerReviewCard } from "./SellerReviewCard";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { isMockMode } from "@/lib/api/http";
 import { getSellerReviews, replySellerReview } from "@/lib/api";
 import type { Review } from "@/lib/types";
 import styles from "./SellerReviewsClient.module.css";
@@ -17,10 +18,25 @@ export function SellerReviewsClient() {
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
 
+  // Read through a ref so `load` has a stable identity: it is also the
+  // reply handler's refresh, and re-creating it on every `seller` change
+  // re-ran the effect below. See `SellerDashboardClient` for the full
+  // note (M31).
+  const sellerRef = useRef(seller);
+  useEffect(() => {
+    sellerRef.current = seller;
+  }, [seller]);
+
   const load = useCallback(async () => {
-    if (!seller?.vendorId) return;
+    // Only mock mode needs the vendor id — it filters fixtures by it. The
+    // real read is `GET /seller/reviews`, scoped by the JWT, so requiring
+    // a `vendorId` there meant this screen could not fetch until
+    // `/seller/me` landed: a whole round trip in front of a request that
+    // ignores its answer, which is exactly what `sellerDataReady` exists
+    // to avoid.
+    if (isMockMode() && !sellerRef.current?.vendorId) return;
     try {
-      const list = await getSellerReviews(seller?.vendorId ?? "");
+      const list = await getSellerReviews(sellerRef.current?.vendorId ?? "");
       setReviews(list);
     } catch (error) {
       if (!isForbidden(error)) throw error;
@@ -28,7 +44,7 @@ export function SellerReviewsClient() {
     } finally {
       setLoading(false);
     }
-  }, [seller]);
+  }, []);
 
   useEffect(() => {
     // Reviews hang off a vendor storefront — a HomeKrafter without one
@@ -38,7 +54,7 @@ export function SellerReviewsClient() {
     (async () => {
       await load();
     })();
-  }, [sellerDataReady, seller, load]);
+  }, [sellerDataReady, load]);
 
   async function handleReply(reviewId: string, body: string) {
     await replySellerReview(reviewId, body);

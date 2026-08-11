@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
@@ -47,6 +47,21 @@ export function SellerDashboardClient() {
   // put a whole round trip in front of a request that never used its
   // answer. This is the login destination, so that hop was measured on
   // every single HomeKrafter sign-in.
+  //
+  // **`seller` is read through a ref and is deliberately not a
+  // dependency (M31).** It was one until M31, and that quietly undid the
+  // fix above: in real mode `sellerDataReady` is true immediately while
+  // `seller` arrives with `/seller/me`, so the record landing changed
+  // this effect's identity, the cleanup set `cancelled` on the request
+  // already in flight, and its answer was thrown away in favour of an
+  // identical second one issued afterwards. The dashboard was therefore
+  // still painting a full `/seller/me` round trip late — the exact
+  // serialization removed here — while also fetching it twice.
+  const sellerRef = useRef(seller);
+  useEffect(() => {
+    sellerRef.current = seller;
+  }, [seller]);
+
   useEffect(() => {
     if (!sellerDataReady) return;
     let cancelled = false;
@@ -55,7 +70,7 @@ export function SellerDashboardClient() {
         // `seller` may still be in flight in real mode, where this
         // argument is ignored; `sellerDataReady` guarantees mock mode
         // cannot reach here without it.
-        const snap = await getSellerDashboard(seller!);
+        const snap = await getSellerDashboard(sellerRef.current!);
         if (!cancelled) setSnapshot(snap);
       } catch {
         if (!cancelled) setFailed(true);
@@ -66,7 +81,7 @@ export function SellerDashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, [sellerDataReady, seller]);
+  }, [sellerDataReady]);
 
   if (!sellerDataReady || loading || !seller) {
     return <div className={styles.loading}>Loading your dashboard…</div>;

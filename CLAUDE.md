@@ -889,6 +889,17 @@ had a test, and none was visible from reading the happy path.
   every non-empty string into `true`, so a bare `@IsBoolean()` read
   `"false"` as `true` — on the verification badge, wallet auto-top-up and
   more. See `server/src/common/decorators/boolean-field.decorator.ts`.
+- **argon2 parameters live in `server/src/auth/hashing.ts`, and nowhere
+  else (M31).** Never call `argon2.hash` bare — that is how all seven
+  call sites ended up on the library's defaults (`m=65536, t=3, p=4`),
+  which nobody chose and which put four lanes on the production box's one
+  core. Passwords use the OWASP argon2id reference config
+  (`m=19456, t=2, p=1`); one-time codes are cheaper on reasoning written
+  out in that file. `argon2.verify` stays parameterless — it reads the
+  cost from the stored digest, which is what lets old hashes keep working
+  while `AuthService.maybeRehash` upgrades each one in the background on
+  its owner's next sign-in. Both sets are pinned by
+  `server/test/unit/hashing.spec.ts`.
 
 ## Tests (M17) — `docs/TESTS.md`
 
@@ -927,8 +938,28 @@ streaming — status line included — before the page body runs, so a later
 `notFound()` can't set 404 and the visitor gets a **soft 404** (right
 page, 200 status). Measured during M15: a root `app/loading.tsx` made
 `/product/nope` and `/storefront/nope` return 200; deleting it restored
-404. Boundaries therefore live only on `/shop`, `/search`, `/snacks` and
-the two dashboard groups — never app-wide.
+404. Boundaries therefore live only on `/shop`, `/search` and `/snacks`
+— never app-wide.
+
+**And a boundary costs ~285ms of the wait it covers, so it must be
+earning that (M31).** Once React commits a Suspense fallback it throttles
+replacing it, so a boundary whose content resolves in 20ms still holds
+the skeleton for about three hundred milliseconds. Measured on the
+production build, client-side navigation to a painted `h1`: `/seller`
+385–401ms with a `loading.tsx` versus 80–100ms without; `/shop` 361ms
+with, against 46–90ms for `/gifts`, `/hamper` and `/collections`, which
+never had one. The two **dashboard groups' boundaries were deleted** for
+this reason and the seller sign-in got 4× faster.
+
+The line to hold: a `loading.tsx` is worth it only where the page is an
+`async` server component that genuinely `await`s data — `/shop`,
+`/search` and `/snacks` do, and there the skeleton covers real server
+work that a slow response would otherwise turn into a dead click.
+**Never add one over a route whose page is a thin wrapper around a client
+component** (every `/seller/*` and `/admin/*` page is): the RSC payload
+is static, so the boundary covers nothing but its own throttle. If you
+add a boundary anywhere, measure the navigation before and after — `node
+e2e/login-timing-dom.mjs` for the portal, and see M31 in `CHANGELOG.md`.
 
 ## `ImageSlot` — how every image renders, uploaded or not
 

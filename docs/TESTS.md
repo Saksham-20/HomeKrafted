@@ -230,6 +230,36 @@ Three things in it are load-bearing and easy to break:
   every `mailto:` in a paragraph and every well-spaced checkbox is
   reported, and one false positive per page buries the real findings.
 
+## Login timing — `e2e/login-timing-dom.mjs` (M30, extended M31)
+
+The other instrument, and the one to reach for before claiming a sign-in
+got faster. It signs a shopper and a HomeKrafter in twice each and reports
+four numbers per run, measured **in the page** rather than through a
+Playwright locator — the harness's selector resolution added ~470ms to
+M30's first figures and sent that investigation down the wrong road.
+
+```bash
+node e2e/login-timing-dom.mjs                                   # local QA stack
+LOGIN_TIMING_BASE=https://homekrafted.in node e2e/login-timing-dom.mjs   # production
+```
+
+- `destination-h1` — the heading naming the kitchen; needs `GET /seller/me`.
+- `stats` — the first StatCard (`data-testid="stat-card"`); needs
+  `GET /seller/dashboard`. **These are different requests**, and reporting
+  only the heading made it impossible to say which one was slow. It is
+  also what proved the paint gate on `/seller/me` costs nothing: the
+  record lands ~30ms before the figures do.
+- `sign-in-wall-flash` — `none`, or the ms at which the wall appeared.
+  Anything but `none` is the M30 regression.
+- The `seller/me landed` / `seller/dashboard landed` line — response
+  times, so a slow *request* and a late *issue* are distinguishable.
+
+Reference figures on the local production build after M31: shopper ~64ms,
+HomeKrafter ~90ms (it was ~385ms before, nearly all of it a `loading.tsx`
+Suspense throttle — see M31 in `CHANGELOG.md`). The argon2 change does not
+show locally, where the machine has cores to spare; measure it on the
+1 vCPU box.
+
 ## What the suite actually guards
 
 Grouped by the rule, not by the file, because the rules are the point.
@@ -294,6 +324,10 @@ Grouped by the rule, not by the file, because the rules are the point.
 | An unreachable API says "Something on our end isn't responding… us, not you" — never "check your connection", which is the incident sentence `c11b56e` deleted — while a genuinely offline browser gets "You appear to be offline"; a 429 says to wait, not `ThrottlerException`; and a browse page still renders its shell when the API is gone | `e2e/tests/error-paths.spec.ts` |
 | The desktop header stays inside its 1092px budget for every role — the collapsed search slot holds ≥38px, the field expands to a typable 420px on focus and closes on Escape, and no control (the cart was 59px offscreen) leaves the container | `e2e/tests/header-capacity.spec.ts` |
 | A HomeKrafter who just signed in is never shown the sign-in wall while `GET /seller/me` is in flight — the spec holds that response for 600ms to force the race — and the topbar skeleton never says "undefined" or another kitchen's name (the M17 fixture trap) | `e2e/tests/login-transition.spec.ts` |
+| `GET /seller/dashboard` is requested **exactly once** during a sign-in, and lands while `/seller/me` is still held — the coupling that made it fire twice and serially, undoing M30's fix, was invisible except as latency | `e2e/tests/login-transition.spec.ts` |
+| Passwords hash at the OWASP argon2id reference cost and one-time codes cheaper, read back out of a real digest; a pre-M31 digest still verifies and still reports `needsRehash`, so no account is locked out and none stays on the old cost | `server/test/unit/hashing.spec.ts` |
+| A HomeKrafter's token carries `sellerId` — after sign-in **and after a refresh**, where losing it would 403 the whole portal fifteen minutes into a session — `/seller/me` still names the storefront from its single collapsed query, a legacy password is upgraded on use, and verifying a code twice does not write the second time (proved with Postgres `xmin`, since `User` has no `updatedAt`) | `server/test/e2e/auth-performance.e2e-spec.ts` |
+| `GET /seller/dashboard` reports today's orders and revenue for this vendor only, listing/live/low-stock counts, snack earnings from delivered orders, pickups and deliveries by **UTC** day, and zeroes rather than an error for a kitchen with nothing yet — every figure computed by hand, and the spec verified against the pre-rewrite service so it is a parity check, not a recording | `server/test/e2e/seller-dashboard.e2e-spec.ts` |
 | Browse state survives Back: `/shop`'s filters, sort and page are in the URL, a filtered URL opens filtered for somebody else, nonsense params show the catalogue rather than an empty grid, and a `utm_` param survives a filter click | `client/lib/browse-params.spec.ts`, `e2e/tests/audit-regressions.spec.ts` |
 | A refresh while an order is being placed leaves one order and an empty cart, on a page that says where to check | `e2e/tests/error-paths.spec.ts` |
 | No public page scrolls sideways at 360/768/1180, every one has exactly one `<h1>`, the header collapses to the hamburger below the measured breakpoint, and the first Tab lands on a skip link that names a target that exists | `e2e/tests/presentation.spec.ts` |

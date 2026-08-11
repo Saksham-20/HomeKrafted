@@ -83,4 +83,51 @@ test.describe('signing in as a HomeKrafter', () => {
       false,
     );
   });
+
+  /**
+   * The dashboard read must not wait for `/seller/me`, and must not be
+   * issued twice.
+   *
+   * `sellerDataReady` (M30) exists so `GET /seller/dashboard` — which is
+   * scoped by the JWT and ignores the seller record entirely — can fire
+   * the moment a HomeKrafter session exists. That was quietly undone by
+   * listing `seller` in the effect's dependencies: the record landing
+   * changed the effect's identity, so the first request's answer was
+   * discarded and an identical second one was issued after it, putting
+   * the round trip back in front of the dashboard (M31).
+   *
+   * Holding `/seller/me` again is what makes this decisive rather than a
+   * race: if the dashboard read is coupled to the record, it cannot
+   * possibly land inside the hold.
+   */
+  test('fetches the dashboard once, without waiting for the seller record', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/login');
+
+    const dashboardCalls: number[] = [];
+    const start = Date.now();
+    await page.route('**/api/v1/seller/dashboard*', async (route) => {
+      dashboardCalls.push(Date.now() - start);
+      await route.continue();
+    });
+    await page.route('**/api/v1/seller/me', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await route.continue();
+    });
+
+    await page.getByLabel(/mobile number or email|email address/i).fill(ACCOUNTS.seller.email);
+    await page.getByLabel(/password/i).fill(DEMO_PASSWORD);
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    // The figures are on screen — that is the dashboard read having landed.
+    await expect(page.getByTestId('stat-card').first()).toBeVisible({ timeout: 30000 });
+
+    // Settle, so a late duplicate is caught rather than raced past.
+    await page.waitForTimeout(1500);
+
+    expect(
+      dashboardCalls.length,
+      `GET /seller/dashboard was requested ${dashboardCalls.length} times; it must be requested once`,
+    ).toBe(1);
+  });
 });

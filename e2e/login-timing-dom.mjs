@@ -12,10 +12,21 @@
  * So this measures the same phases with an in-page `setInterval`, which
  * is on the same clock the user's eyes are: the moment the destination's
  * heading exists is the moment the page is there.
+ *
+ * **Two markers for the seller, not one (M31).** `destination-h1` is the
+ * `Hi, <kitchen>` heading, which needs `GET /seller/me`; `stats` is the
+ * first StatCard, which needs `GET /seller/dashboard`. They are different
+ * requests, and reporting only the heading made it impossible to say
+ * which one a HomeKrafter was actually waiting on — the question that
+ * decides whether gating paint on the record costs anything. Response
+ * times for both are printed alongside.
+ *
+ * `LOGIN_TIMING_BASE` points it at any origin, so the same script
+ * measures production after a deploy rather than a hand-edited copy.
  */
 import { chromium } from '@playwright/test';
 
-const BASE = 'http://localhost:3100';
+const BASE = process.env.LOGIN_TIMING_BASE ?? 'http://localhost:3100';
 const CASES = [
   { name: 'consumer', id: 'ananya.iyer@example.com', landing: /\/account/, marker: 'Hi, ' },
   { name: 'seller', id: 'anjali@anjaliskitchen.example', landing: /\/seller/, marker: 'Hi, ' },
@@ -28,7 +39,9 @@ for (const c of CASES) {
     await ctx.addInitScript(() => window.localStorage.setItem('hk_location_v1', JSON.stringify({ source: 'area', asked: true, areaId: 'chd-sector-17', label: 'Sector 17', lat: 30.7418, lng: 76.7822 })));
     const page = await ctx.newPage();
     const api = [];
+    const responses = [];
     page.on('request', (r) => { if (r.url().includes('/api/v1/')) api.push({ u: r.url().replace(/^.*\/api\/v1/, ''), t: Date.now() }); });
+    page.on('response', (r) => { if (r.url().includes('/api/v1/')) responses.push({ u: r.url().replace(/^.*\/api\/v1/, ''), t: Date.now() }); });
 
     await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
     await page.getByLabel(/mobile number or email|email address/i).fill(c.id);
@@ -45,6 +58,13 @@ for (const c of CASES) {
           const r = h1.getBoundingClientRect();
           if (r.width > 0 && r.height > 0) window.__res.h1 = now;
         }
+        if (!window.__res.stats) {
+          const card = document.querySelector('[data-testid="stat-card"]');
+          if (card) {
+            const r = card.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) window.__res.stats = now;
+          }
+        }
       }, 8);
     }, c.marker);
 
@@ -55,7 +75,18 @@ for (const c of CASES) {
     await page.waitForFunction(() => window.__res.h1 !== undefined, null, { timeout: 30000 });
     const res = await page.evaluate(() => window.__res);
 
-    console.log(`${c.name} run${run}: urlchange=${tNav}ms  destination-h1=${res.h1}ms  sign-in-wall-flash=${res.gate ?? 'none'}`);
+    const landed = (path) => {
+      const hit = responses.find((r) => r.t >= t0 && r.u.startsWith(path));
+      return hit ? `${hit.t - t0}ms` : '—';
+    };
+
+    console.log(
+      `${c.name} run${run}: urlchange=${tNav}ms  destination-h1=${res.h1}ms` +
+        `  stats=${res.stats ?? '—'}ms  sign-in-wall-flash=${res.gate ?? 'none'}`,
+    );
+    if (c.name === 'seller') {
+      console.log(`   seller/me landed ${landed('/seller/me')}   seller/dashboard landed ${landed('/seller/dashboard')}`);
+    }
     console.log('   api:', api.filter((r) => r.t >= t0).map((r) => `${r.u.slice(0, 34)}@${r.t - t0}`).join('  '));
     await ctx.close();
   }

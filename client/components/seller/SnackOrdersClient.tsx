@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -37,12 +37,21 @@ export function SnackOrdersClient() {
   // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
   // waiting for `GET /seller/me` was a round trip in front of a request
   // that never used its answer.
+  //
+  // `seller` is read through a ref rather than depended on — see the
+  // long note in `SellerDashboardClient` for why depending on it fetched
+  // twice and re-serialized the very hop this removes (M31).
+  const sellerRef = useRef(seller);
+  useEffect(() => {
+    sellerRef.current = seller;
+  }, [seller]);
+
   useEffect(() => {
     if (!sellerDataReady) return;
     let cancelled = false;
     (async () => {
       try {
-        const list = await getSnackOrders(seller?.id ?? "");
+        const list = await getSnackOrders(sellerRef.current?.id ?? "");
         if (cancelled) return;
         setOrders(list);
       } catch (error) {
@@ -56,7 +65,7 @@ export function SnackOrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, [sellerDataReady, seller]);
+  }, [sellerDataReady]);
 
   const filtered = useMemo(
     () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),

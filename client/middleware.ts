@@ -43,6 +43,18 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const role = request.cookies.get("hk_role")?.value;
 
+  // **A signed-out prefetch of `/seller` is redirected, and cannot be
+  // exempted here (measured M31).** `LoginClient` prefetches `/seller`
+  // so a HomeKrafter's chunks are warm before they submit; the visitor
+  // is signed out at that moment, so every one of those prefetches gets
+  // the 307 below and the chunks arrive cold anyway. An exemption was
+  // written and reverted: Next strips its own routing headers
+  // (`next-router-prefetch`, `rsc`, `next-router-segment-prefetch`)
+  // before middleware runs, so the check matched nothing and only
+  // *looked* like it worked. `purpose: prefetch` does survive, but
+  // Next's router never sends it — only `<link rel=prefetch>` does.
+  // Don't re-add it without first proving, in a browser, that the header
+  // you are testing actually reaches this function.
   if (pathname.startsWith("/seller") && pathname !== "/seller/login") {
     if (role === "seller") {
       // allowed

@@ -1,5 +1,5 @@
 import { LoginClient } from "@/components/auth/LoginClient";
-import { getSocialConfig } from "@/lib/api/auth";
+import { getCachedSocialConfig } from "@/lib/auth/social-config.server";
 
 /**
  * Sign up — the same screen as `/login` since M25.
@@ -16,6 +16,6 @@ import { getSocialConfig } from "@/lib/api/auth";
 export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
-  const socialConfig = await getSocialConfig();
+  const socialConfig = await getCachedSocialConfig();
   return <LoginClient socialConfig={socialConfig} />;
 }

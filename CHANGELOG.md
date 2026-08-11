@@ -3,6 +3,138 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M31] — The skeleton was the wait — 2026-08-11
+
+Sign-in and sign-up performance, planned from two exploration passes and
+measured at every step. Headline, on the local production build: **a
+HomeKrafter's sign-in went from ~385ms to ~90ms** to a painted dashboard.
+The single biggest cause was not on the server at all, and not what the
+plan predicted.
+
+### The finding
+
+**`loading.tsx` cost ~285ms of the wait it was displayed to cover.**
+Once React has committed a Suspense fallback it throttles replacing it,
+so a boundary whose content resolves in 20ms still holds the fallback for
+about three hundred milliseconds. Measured, client-side navigation to a
+painted `<h1>`:
+
+| route | with the boundary | without |
+|---|---|---|
+| `/seller` (sign-in destination) | 385–401ms | 80–100ms |
+| `/shop` | 361–365ms | — |
+| `/gifts`, `/hamper`, `/collections` (never had one) | — | 46–90ms |
+
+This is the "~265ms of genuinely idle time between chunk-load and
+dashboard mount" M30 recorded as undiagnosed. It was idle: no long tasks,
+no pending requests, everything downloaded by 80ms and nothing rendered
+until 366ms.
+
+**Only the two dashboard boundaries were removed**, and the line is
+principled rather than convenient: `/seller` and `/admin` pages are thin
+wrappers over client components, so their RSC payload is static and the
+boundary covered nothing but its own throttle. `/shop`, `/search` and
+`/snacks` are `async` server components that genuinely `await` data —
+there the skeleton covers real server work, and removing it would turn a
+slow response into a dead click. **Never put a `loading.tsx` over a route
+whose page is a thin wrapper around a client component**; it is pure cost.
+
+### Fixed — client
+
+- **The seller dashboard fetched `/seller/dashboard` twice, serially,
+  undoing M30's fix.** `SellerDashboardClient`'s effect listed `seller` in
+  its dependencies; the record landing from `/seller/me` changed the
+  effect's identity, so the in-flight request's answer was discarded and
+  an identical one was issued after it — putting back the exact round trip
+  `sellerDataReady` was built to remove. `seller` is now read through a
+  ref. Same pattern fixed in `SnackOrdersClient`, and in
+  `SellerReviewsClient`, which was worse: its `load` early-returned on a
+  missing `vendorId`, so in real mode it could not fetch at all until
+  `/seller/me` landed, for a request that is JWT-scoped and ignores it.
+- **The portal nav prefetched all ten `/seller/*` routes on mount** —
+  about 75 requests and 15 chunks landing ahead of the dashboard's own
+  read. `prefetch={false}`; they now happen after the dashboard, not in
+  front of it.
+- **`/login` and `/signup` awaited an upstream API call before their first
+  byte.** `getSocialConfig()` is process-cached for five minutes
+  (`lib/auth/social-config.server.ts`). A failed read is deliberately not
+  cached, so one blip cannot hide the buttons for five minutes.
+
+### Fixed — server
+
+- **argon2 ran at the library's defaults — `m=65536, t=3, p=4` — which
+  nobody had chosen.** Now the OWASP argon2id reference configuration
+  (`m=19456, t=2, p=1`) in one place, `server/src/auth/hashing.ts`. `p=4`
+  was the worst of it: four lanes contending for one core on the
+  production box. Existing hashes keep verifying at their own cost and are
+  upgraded in the background on their owner's next successful sign-in
+  (`AuthService.maybeRehash`, fire-and-forget). One-time codes hash
+  cheaper still (`m=8192`), justified in the file: a five-minute,
+  single-use, attempt-capped six-digit code is protected by its caps, not
+  by its hash.
+- **Every HomeKrafter sign-in and every token refresh made a second,
+  serial query for the seller row.** The id now rides along on the user
+  lookup that was already happening. The refresh path matters most and is
+  pinned: a refreshed token that lost its `sellerId` would 403 the entire
+  portal fifteen minutes into a session.
+- **`GET /seller/me` was two serial queries**, the second needing the
+  first's `vendorId`. One `include`.
+- **`GET /seller/dashboard` was ~14 queries in three forced waves** — one
+  of them `laundryBooking.findMany()` over every booking ever recorded,
+  summed in JS. Now ~12 aggregates in a single wave, with the UTC-day
+  semantics of the pickup counters preserved exactly rather than quietly
+  "corrected" to local midnight.
+- **`POST /auth/otp/verify` wrote to `User` on every call**, including the
+  repeat sign-ins that are the normal case for a HomeKrafter without a
+  password. It now writes only when something changed.
+- **Referral-code allocation made up to 15 sequential round trips** inside
+  signup; it is one batched query. The insert-is-the-reservation retry
+  loop is untouched — that is what actually guarantees uniqueness.
+- **`connection_limit=10`** is now explicit in `DATABASE_URL`. Prisma's
+  default is `num_cpus * 2 + 1`, i.e. **three** on the production box, so
+  the dashboard's fan-out was executing three at a time. Config only —
+  it must be set in `server/.env` on the box.
+
+### Tests
+
+- `server/test/unit/hashing.spec.ts` — pins both parameter sets by reading
+  them back out of a real digest, and pins that a legacy digest still
+  verifies and still reports `needsRehash`.
+- `server/test/e2e/auth-performance.e2e-spec.ts` (9 cases) — `sellerId` in
+  the token and across a refresh, `/seller/me`'s shape, the re-hash
+  upgrade, the OTP no-op skip (proved with Postgres `xmin`, since `User`
+  has no `updatedAt`), referral uniqueness.
+- `server/test/e2e/seller-dashboard.e2e-spec.ts` (6 cases) — the numbers,
+  computed by hand. **Verified against both implementations**: the spec
+  was run against the pre-rewrite service and passes identically, which is
+  what makes it a parity check rather than a recording of the new
+  behaviour.
+- `e2e/tests/login-transition.spec.ts` gains a case asserting
+  `/seller/dashboard` is requested exactly once while `/seller/me` is held
+  600ms — confirmed to fail against the old dependency array.
+- `e2e/login-timing-dom.mjs` reports a second marker (`stats`, the first
+  StatCard) alongside the heading, so "content painted" and "name arrived"
+  stop being one number, and takes `LOGIN_TIMING_BASE` so the same script
+  measures production.
+
+### Not done, deliberately
+
+- **The seller dashboard still waits for `/seller/me` to paint its
+  heading.** Measured: the record lands at ~60ms and the figures at ~90ms,
+  so the gate costs nothing. Un-gating it would have added a skeleton
+  heading and an a11y surface for no win.
+- **The 58KB of `lib/data` fixtures in the shared bundle stay.** Removing
+  them means `AuthContext`'s two real-mode fallback branches return
+  `undefined` instead of a fixture — an auth behaviour change, in exactly
+  the code M17 warns about, for ~15KB compressed.
+- **A middleware exemption for signed-out `/seller` prefetches was written
+  and reverted.** Next strips its own routing headers before middleware
+  runs, so the check matched nothing and only looked like it worked. The
+  reasoning is left in `middleware.ts` so nobody writes it again.
+- **`otp/request` still awaits the provider send.** Both providers are
+  stubs in production, so it costs nothing today; the note says what to do
+  when real keys land.
+
 ## [M30] — The states nobody seeded — 2026-08-11
 
 Two defects reported from live use, both in states the QA instrument had
