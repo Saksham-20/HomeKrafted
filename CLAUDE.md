@@ -486,6 +486,20 @@ paragraphs over appending new ones.
   `lib/api`) from a `"use client"` component (interaction) the way
   `Header.tsx` → `HeaderClient.tsx` does — don't make an entire
   data-fetching tree client-side just because one button needs state.
+- **Anything that can fail:** read `docs/ERROR-HANDLING.md` — it is the
+  project standard and it exists because a misconfigured nginx vhost
+  locked real users out of their accounts while every dashboard stayed
+  green. Four rules in short: the app is served from **one origin**
+  (`www` 301s to the apex, guarded by `scripts/healthcheck.sh`); a
+  rejected `fetch` is **classified, not guessed** at
+  (`lib/api/unreachable.ts` asks whether our own origin still answers, so
+  "you are offline" and "we are broken" stop being the same message);
+  error copy **names the right party** — never tell somebody to check a
+  connection that is working; and a browser-side failure is **beaconed to
+  `/api/client-errors`**, a Next route on the page's own origin, because a
+  report posted to the API would be blocked by the very fault it reports.
+  Every 5xx also carries an 8-hex `reference`, in the body, the
+  `X-Request-Id` header and the log line.
 - **New loading state or buyer-facing status label:** take the words from
   `lib/kitchen-copy.ts` (M28), don't write "Loading…". Three rules live
   there and each is a trap: **never pick a line randomly** (server and

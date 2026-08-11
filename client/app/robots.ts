@@ -27,6 +27,9 @@ export default function robots(): MetadataRoute.Robots {
         "/wallet",
         // Dev-only primitives gallery. Unlinked, but publicly routable.
         "/gallery",
+        // The client-error beacon (POST only; a crawler's GET gets 405).
+        // Nothing to index and no reason to spend crawl budget on it.
+        "/api/client-errors",
         // Password reset (M18). `/reset-password` carries a single-use
         // token in the query string — a crawler following one from a
         // leaked email would burn it, and neither page has content worth

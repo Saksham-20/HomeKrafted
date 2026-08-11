@@ -30,14 +30,20 @@
  * `INSUFFICIENT_BALANCE` on a wallet-pay attempt) without string-matching
  * the message.
  *
- * **Unreachable server**: a rejected `fetch` (offline, API down, DNS
- * gone) has no status and no envelope, so it became an `ApiError` with
- * status `0` and code `NETWORK_ERROR` rather than reaching the screens
- * as raw browser text. See the `catch` in `doFetch`.
+ * **Unreachable server**: a rejected `fetch` (offline, API down, DNS gone,
+ * CORS) has no status and no envelope, so it becomes an `ApiError` with
+ * status `0` rather than reaching the screens as raw browser text. Since
+ * 2026-08-11 it is one of **two** codes, because treating them as one
+ * blamed a visitor for our outage: `NETWORK_ERROR` when the browser really
+ * is offline, and `SERVER_UNREACHABLE` when the page's own origin still
+ * answers — which means the network is fine and the fault is ours. The
+ * latter is beaconed to `/api/client-errors`. See `lib/api/unreachable.ts`
+ * and the `catch` in `doFetch`.
  */
 
 import { withReturnTo } from "@/lib/auth/return-to";
 import { clearSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth/session";
+import { classifyAndReport } from "@/lib/api/unreachable";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:4000/api/v1";
@@ -45,12 +51,19 @@ export const API_BASE_URL =
 export class ApiError extends Error {
   status: number;
   code: string;
+  /**
+   * Server-assigned id for a 5xx, present only on those. Quoting it in a
+   * bug report finds the exact log line — see the filter in
+   * `server/src/common/filters/all-exceptions.filter.ts`.
+   */
+  reference?: string;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, reference?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.reference = reference;
   }
 }
 
@@ -216,10 +229,20 @@ async function request<T>(
       // a failure — swallowing it into an error message would put "check
       // your connection" on a screen nobody is looking at any more.
       if (cause instanceof Error && cause.name === "AbortError") throw cause;
+
+      // Which of the two this is decides the wording, and the wording
+      // matters: this message used to tell a visitor to check a connection
+      // that was working, because a CORS block and a dead network reject
+      // `fetch` identically. `classifyAndReport` asks whether our own
+      // origin still answers, and beacons the case that is our fault.
+      // See `lib/api/unreachable.ts` for the incident.
+      const kind = await classifyAndReport(url);
       throw new ApiError(
         0,
-        "NETWORK_ERROR",
-        "Can't reach Homekrafted right now. Check your connection and try again.",
+        kind === "server-unreachable" ? "SERVER_UNREACHABLE" : "NETWORK_ERROR",
+        kind === "server-unreachable"
+          ? "Something on our end isn't responding. This one is us, not you — please try again in a moment."
+          : "You appear to be offline. Check your connection and try again.",
       );
     }
   };
@@ -241,7 +264,9 @@ async function request<T>(
   const data: unknown = text ? JSON.parse(text) : undefined;
 
   if (!res.ok) {
-    const envelope = data as { error?: { code?: string; message?: string } } | undefined;
+    const envelope = data as
+      | { error?: { code?: string; message?: string; reference?: string } }
+      | undefined;
     // The bare throttler says only "ThrottlerException: Too Many Requests",
     // which is not copy to put in front of somebody. The OTP caps write
     // their own message (they know the window) and it is kept.
@@ -252,10 +277,20 @@ async function request<T>(
       res.status === 429 && (!serverMessage || /throttler|too many requests$/i.test(serverMessage))
         ? fallback
         : (serverMessage ?? fallback);
+    // The server attaches a reference to 5xx only, and the message it
+    // sends with one is deliberately generic ("Something went wrong") —
+    // so without showing the reference, every 500 report is
+    // indistinguishable from every other. Appended to the message rather
+    // than left on the object because nineteen screens render
+    // `err.message` straight into their error region and would otherwise
+    // drop it silently; `.reference` is also on the error for anything
+    // that wants to present it properly.
+    const reference = envelope?.error?.reference;
     throw new ApiError(
       res.status,
       envelope?.error?.code ?? (res.status === 429 ? "RATE_LIMITED" : "ERROR"),
-      message,
+      reference ? `${message} (reference ${reference})` : message,
+      reference,
     );
   }
 

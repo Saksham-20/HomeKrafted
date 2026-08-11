@@ -1,6 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { SentryExceptionCaptured } from '@sentry/nestjs';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
 /**
  * Normalizes every thrown error (Nest `HttpException`s, class-validator
@@ -30,6 +31,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let code = 'INTERNAL_ERROR';
@@ -69,6 +71,37 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } else {
       this.logger.error('Unknown exception thrown', String(exception));
+    }
+
+    /**
+     * A reference the visitor can quote and a developer can grep.
+     *
+     * Production deliberately replaces a 500's real message with
+     * "Something went wrong" (see above — Prisma's errors name tables and
+     * constraints). That is right, and it left a user report with nothing
+     * in it: "it said something went wrong" matches every 500 the server
+     * has ever produced, so the first job of every bug report was working
+     * out which request it was about.
+     *
+     * So: 5xx only. A 400 already tells you what to fix and a 404 is not
+     * an incident; putting a reference on those trains people to ignore
+     * it. Eight hex characters is enough to find one line in a day of
+     * logs and short enough to read down a phone.
+     *
+     * The same value goes out as `X-Request-Id`, so a report with a
+     * screenshot of the network tab is just as searchable as one with the
+     * message.
+     */
+    if (status >= 500) {
+      const reference = randomBytes(4).toString('hex');
+      this.logger.error(
+        `ref=${reference} ${request?.method ?? '?'} ${request?.originalUrl ?? '?'} -> ${status}`,
+      );
+      response.setHeader('X-Request-Id', reference);
+      response.status(status).json({
+        error: { code, message, reference },
+      });
+      return;
     }
 
     response.status(status).json({
