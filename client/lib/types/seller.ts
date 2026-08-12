@@ -9,7 +9,7 @@
  * once a session exists).
  */
 
-import type { ID, ISODateString, SellerSpecialty } from "./shared";
+import type { ID, ISODateString, SellerApplication, SellerSpecialty } from "./shared";
 
 /** M10a builds `maker` only; `laundry`/`snack` are M10b's route + nav sets. */
 export type { SellerSpecialty } from "./shared";
@@ -161,4 +161,56 @@ export interface SellerAnalytics {
   series: SellerDailyPoint[];
   topItems: SellerTopItem[];
   byWeekday: SellerWeekdayPoint[];
+}
+
+/**
+ * Everything the admin panel shows about one HomeKrafter (M32).
+ *
+ * `GET /admin/sellers/:id/detail`. Admin-only: it carries contact details
+ * and the application they were approved on, neither of which appears on
+ * any buyer-facing payload.
+ */
+export interface AdminSellerDetail {
+  seller: Seller & { vendorName?: string };
+  vendor: {
+    id: ID;
+    name: string;
+    slug: string;
+    type: string;
+    bio?: string;
+    location: string;
+    area?: string;
+    deliveryRadiusKm?: number;
+    rating?: number;
+    reviewCount?: number;
+    followerCount: number;
+  };
+  contact: {
+    name: string;
+    email?: string;
+    phone?: string;
+    emailVerified: boolean;
+    phoneVerified: boolean;
+    suspended: boolean;
+    authProviders: string[];
+    accountCreatedAt: ISODateString;
+  };
+  signIn: SellerSignInState;
+  activity: {
+    listings: { total: number; available: number; awaitingReview: number };
+    snacks: number;
+    mealPlans: number;
+    orderCount: number;
+    unitsSold: number;
+    /** Their **line-item share**, never the order total — an order can span several kitchens. */
+    revenue: number;
+    lastOrderAt?: ISODateString;
+    snackOrderCount: number;
+    snackRevenue: number;
+    pendingPayoutCount: number;
+    pendingPayoutAmount: number;
+    reviewCount: number;
+  };
+  /** What they were approved on, matched by email. Absent for a kitchen created by hand. */
+  application?: SellerApplication;
 }

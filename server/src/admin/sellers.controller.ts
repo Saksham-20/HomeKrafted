@@ -84,6 +84,12 @@ export class AdminSellersController {
   }
 
   /** The profile an admin has to read in order to verify it (M16) — includes the submitted FSSAI number, which the public storefront deliberately never publishes. */
+  /** Everything about one HomeKrafter on one screen — contact, storefront, activity, and the application they were approved on (M32). */
+  @Get(':id/detail')
+  getDetail(@Param('id') id: string) {
+    return this.sellersService.getSellerDetail(id);
+  }
+
   @Get(':id/profile')
   getProfile(@Param('id') id: string) {
     return this.sellersService.getSellerProfile(id);

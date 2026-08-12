@@ -1,0 +1,176 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--hk-muted);
+  margin-bottom: var(--hk-s4);
+  min-height: 32px;
+}
+
+.back:hover {
+  color: var(--hk-pine);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s5);
+}
+
+.headerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.name {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+}
+
+.sub {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.headerActions {
+  margin-left: auto;
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+/* Below the shell's two-pane rail the actions sit under the name rather
+   than fighting it for the same line. */
+@media (max-width: 640px) {
+  .headerActions {
+    margin-left: 0;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s4);
+}
+
+.cardTitle {
+  font: var(--hk-card-title);
+  color: var(--hk-ink);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.fieldValue {
+  font-size: 14px;
+  color: var(--hk-ink);
+  /* An email or a storefront name can be longer than its column, and a
+     detail page that clips a contact address is worse than one that
+     wraps. */
+  overflow-wrap: anywhere;
+}
+
+.fieldValueMono {
+  font-family: var(--hk-font-mono);
+  font-size: 12.5px;
+  color: var(--hk-ink);
+  overflow-wrap: anywhere;
+}
+
+.fieldNote {
+  font-size: 11.5px;
+  color: var(--hk-muted-2);
+}
+
+.bio {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-muted);
+  white-space: pre-wrap;
+}
+
+.footnote {
+  color: var(--hk-muted-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.loading {
+  color: var(--hk-muted);
+  font-size: 14px;
+  padding: var(--hk-s6);
+  text-align: center;
+}
+
+/* Terracotta is the marketplace's refusal colour and reads AA on white at
+   this size — same as `UserDetailClient`'s `.error`. */
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  margin-bottom: var(--hk-s3);
+}
+
+/*
+  "Approved but not arrived" — the same gold caution the approval queue
+  uses for an out-of-area applicant. Gold never carries text at full
+  strength; `--hk-gold-text-sm` is the readable member of the family.
+*/
+.warnPill {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--hk-gold-text-sm);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-border-2);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+/* A link that has to sit in a row of buttons. Mirrors `Button`'s
+   `secondary` at `md` rather than re-styling it: same height, same pine
+   outline, so the row reads as one set of controls. */
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 var(--hk-s4);
+  border: 1px solid var(--hk-pine);
+  border-radius: var(--hk-r-pill);
+  color: var(--hk-pine);
+  background: var(--hk-white);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.linkButton:hover {
+  background: var(--hk-pine-tint);
+}

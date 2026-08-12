@@ -93,6 +93,28 @@ human.
   via an admin, so they are two routes to one person. Killing the link
   would break the case where their email works.
 
+### Two more things the queue could not tell you
+
+- **A duplicate application is marked before the click.** Approving
+  somebody who already has a HomeKrafter account has failed since M19 —
+  `Seller.userId` is unique — but the refusal arrived *after* the button,
+  on the one screen where a click sends a real person a welcome message.
+  Somebody who does not hear back and applies again is the ordinary way
+  it happens. The row now names the storefront they already have and the
+  Approve button is disabled. One query for the page, matched on email —
+  the same key approval matches on, so the badge and the button can never
+  disagree.
+- **`/admin/sellers/[id]` — one HomeKrafter, whole.** The list row
+  carried a name, a status and three buttons; everything needed to decide
+  anything about a kitchen was spread over five screens or was nowhere.
+  The name is now a link to contact details, storefront, listings (on vs
+  total vs awaiting review), orders, their share of sales, payouts
+  waiting, verification, sign-in details while they are still pending,
+  and the application they were approved on. Money there is the kitchen's
+  **line-item share**, never the order total — an order can span several
+  kitchens, and crediting each with the whole thing overstates what a
+  home cook earned and disagrees with what they are paid.
+
 ### Tests
 
 `server/test/e2e/temp-password.e2e-spec.ts` (20 cases) covers the whole
@@ -102,6 +124,11 @@ admin's copy stops working, and an already-open admin session is revoked.
 Five of them pin the three onboarding states and assert the filters are
 disjoint — the two-state bug was invisible to every test that only ever
 looked at one seller.
+`duplicate-applications.e2e-spec.ts` (6) asserts the badge and the
+refusal agree on exactly the same row; `admin-seller-detail.e2e-spec.ts`
+(8) pins the line-item share against a two-kitchen order, the listing
+counts against both switches, and that a shopper cannot read a
+HomeKrafter's phone number.
 `seller-onboarding.e2e-spec.ts`'s "provisions an account with no
 password, by design" is rewritten rather than deleted — the reversal is
 recorded where the old rule was asserted.

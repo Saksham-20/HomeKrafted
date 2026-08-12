@@ -168,6 +168,21 @@ through the real application flow is not:
    issued** — a password is on the row, unused. **Signed in** — they
    chose their own, and we hold nothing that opens the account.
 
+**The approval queue flags people who already have an account (M32).**
+Somebody who does not hear back and applies again leaves a second row in
+the queue. Approving it has always failed — one account per person — but
+the failure only arrived after the click. The row now says *Already a
+HomeKrafter*, names the storefront they have, and the Approve button is
+disabled. Reject the duplicate, or help them into the account they have.
+
+**Click a HomeKrafter's name for their whole record (M32).**
+`/admin/sellers/[id]` — contact details, storefront, listings (on vs
+total vs awaiting review), orders, their share of sales, payouts waiting,
+verification, sign-in details while they are still pending, and the
+application they were approved on. Sales there are the kitchen's
+**line-item share**, not the order total: one order can span several
+kitchens.
+
 **What to check on the forced change (M32).** Sign in with an issued
 password: you should land on `/set-password`, not the dashboard, and
 every other page should refuse you (the API answers `403

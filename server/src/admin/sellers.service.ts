@@ -363,6 +363,175 @@ export class AdminSellersService {
     return this.getSellerProfile(sellerId);
   }
 
+  /**
+   * Everything about one HomeKrafter on one screen (M32).
+   *
+   * The list row carries a name, a status and three buttons. Anything an
+   * admin actually needs in order to decide something about a kitchen —
+   * who they are, how to reach them, where they sell from, what they have
+   * listed, what they have sold, what they were approved on — was spread
+   * across five screens or nowhere at all.
+   *
+   * One wave of aggregates, following the M31 rule for the seller
+   * dashboard: nothing here pulls rows in order to count them in JS,
+   * except the line-item revenue sum, which Prisma cannot express as an
+   * aggregate over `price * quantity` and which therefore goes to SQL
+   * directly.
+   *
+   * Contact details (email, phone) are on this payload deliberately —
+   * this is the admin surface, and reaching a kitchen by phone is the
+   * whole onboarding path while no provider key is set. It appears on no
+   * buyer-facing route.
+   */
+  async getSellerDetail(sellerId: string) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: sellerId },
+      include: {
+        vendor: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            emailVerified: true,
+            phoneVerified: true,
+            suspended: true,
+            authProviders: true,
+            createdAt: true,
+            passwordHash: true,
+            mustChangePassword: true,
+            tempPassword: true,
+            tempPasswordIssuedAt: true,
+            credentialsClaimedAt: true,
+          },
+        },
+      },
+    });
+    if (!seller) throw new NotFoundException('Seller not found');
+
+    const vendorId = seller.vendorId;
+    const [
+      listingsTotal,
+      listingsAvailable,
+      listingsPending,
+      snacksTotal,
+      mealPlansTotal,
+      orderAgg,
+      unitsAgg,
+      lastOrder,
+      snackAgg,
+      payoutAgg,
+      reviewCount,
+      followerCount,
+      revenueRows,
+      application,
+    ] = await Promise.all([
+      this.prisma.product.count({ where: { vendorId } }),
+      this.prisma.product.count({ where: { vendorId, isAvailable: true } }),
+      this.prisma.product.count({ where: { vendorId, moderationStatus: 'pending' } }),
+      this.prisma.snack.count({ where: { sellerId } }),
+      this.prisma.mealPlan.count({ where: { vendorId } }),
+      this.prisma.order.count({ where: { items: { some: { product: { vendorId } } } } }),
+      this.prisma.orderItem.aggregate({
+        where: { product: { vendorId } },
+        _sum: { quantity: true },
+      }),
+      this.prisma.order.findFirst({
+        where: { items: { some: { product: { vendorId } } } },
+        orderBy: { placedAt: 'desc' },
+        select: { placedAt: true },
+      }),
+      this.prisma.snackOrder.aggregate({
+        where: { sellerId },
+        _count: { _all: true },
+        _sum: { total: true },
+      }),
+      this.prisma.payout.aggregate({
+        where: { sellerId, status: 'pending' },
+        _sum: { amount: true },
+        _count: { _all: true },
+      }),
+      // Reviews are polymorphic (`targetType`/`targetId`), so a vendor's
+      // are addressed by target, not by a foreign key.
+      this.prisma.review.count({
+        where: { targetType: 'vendor', targetId: vendorId, hidden: false },
+      }),
+      this.prisma.vendorFollow.count({ where: { vendorId } }),
+      // The kitchen's **line-item share**, never the order total — an
+      // order can span several kitchens, and crediting each with the whole
+      // thing overstates what a home cook earned and disagrees with what
+      // they are paid (`analytics.service.ts`, same rule). No status
+      // filter, matching that service.
+      this.prisma.$queryRaw<{ revenue: number | null }[]>`
+        SELECT COALESCE(SUM(oi."price" * oi."quantity"), 0)::float AS revenue
+        FROM "OrderItem" oi
+        JOIN "Product" p ON p."id" = oi."productId"
+        WHERE p."vendorId" = ${vendorId}
+      `,
+      // What they were approved on. Matched by email, the same key
+      // `approveApplication` reuses an account by — so a kitchen created
+      // by hand, or one whose applicant later changed their address,
+      // simply has none, which is why this is nullable rather than an
+      // empty object.
+      seller.user.email
+        ? this.prisma.sellerApplication.findFirst({
+            where: { email: seller.user.email },
+            orderBy: { createdAt: 'desc' },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      seller: mapSeller(seller, seller.vendor.name),
+      vendor: {
+        id: seller.vendor.id,
+        name: seller.vendor.name,
+        slug: seller.vendor.slug,
+        type: seller.vendor.type,
+        bio: seller.vendor.bio ?? undefined,
+        location: seller.vendor.location,
+        area: seller.vendor.area ?? undefined,
+        deliveryRadiusKm: seller.vendor.deliveryRadiusKm ?? undefined,
+        rating: seller.vendor.rating !== null ? Number(seller.vendor.rating) : undefined,
+        reviewCount: seller.vendor.reviewCount ?? undefined,
+        followerCount,
+      },
+      contact: {
+        name: seller.user.name,
+        email: seller.user.email ?? undefined,
+        phone: seller.user.phone ?? undefined,
+        emailVerified: seller.user.emailVerified,
+        phoneVerified: seller.user.phoneVerified,
+        suspended: seller.user.suspended,
+        authProviders: seller.user.authProviders,
+        accountCreatedAt: seller.user.createdAt.toISOString(),
+      },
+      signIn: mapSignInState(seller.user),
+      activity: {
+        listings: { total: listingsTotal, available: listingsAvailable, awaitingReview: listingsPending },
+        snacks: snacksTotal,
+        mealPlans: mealPlansTotal,
+        orderCount: orderAgg,
+        unitsSold: unitsAgg._sum.quantity ?? 0,
+        revenue: Number(revenueRows[0]?.revenue ?? 0),
+        lastOrderAt: lastOrder?.placedAt.toISOString(),
+        snackOrderCount: snackAgg._count._all,
+        snackRevenue: Number(snackAgg._sum.total ?? 0),
+        pendingPayoutCount: payoutAgg._count._all,
+        pendingPayoutAmount: Number(payoutAgg._sum.amount ?? 0),
+        reviewCount,
+      },
+      application: application
+        ? {
+            ...mapApplication(application),
+            // Deliberately not `existingSeller`-decorated: on this page the
+            // existing seller is the page.
+          }
+        : undefined,
+    };
+  }
+
   /** Everything the admin panel shows about one HomeKrafter's profile, including the submitted FSSAI number an admin has to read in order to check it. */
   async getSellerProfile(sellerId: string) {
     const seller = await this.prisma.seller.findUnique({
@@ -421,7 +590,7 @@ export class AdminSellersService {
       where: status ? { status: status as SellerApplication['status'] } : undefined,
       orderBy: { createdAt: 'desc' },
     });
-    return applications.map(mapApplication);
+    return this.withExistingAccounts(applications);
   }
 
   /**
@@ -484,7 +653,53 @@ export class AdminSellersService {
       where: { status: { notIn: ['approved', 'rejected'] } },
       orderBy: { createdAt: 'asc' },
     });
-    return applications.map(mapApplication);
+    return this.withExistingAccounts(applications);
+  }
+
+  /**
+   * Marks the applications whose applicant is already a HomeKrafter.
+   *
+   * `approveApplication` has refused these since M19 — `Seller.userId` is
+   * unique — but the refusal arrived *after* the click, on the one screen
+   * where a click sends somebody a welcome message. Somebody who does not
+   * hear back and applies again is the ordinary way this happens, so the
+   * queue fills with rows that look decidable and are not.
+   *
+   * Matched on **email**, which is what the approval guard matches on. A
+   * phone match would flag more rows than the server would actually
+   * refuse, and a badge that disagrees with the button is worse than no
+   * badge. One query for the whole page, not one per row.
+   */
+  private async withExistingAccounts(applications: SellerApplication[]) {
+    const emails = [...new Set(applications.map((a) => a.email))];
+    const sellers = emails.length
+      ? await this.prisma.seller.findMany({
+          where: { user: { email: { in: emails } } },
+          select: {
+            id: true,
+            displayName: true,
+            status: true,
+            createdAt: true,
+            user: { select: { email: true } },
+          },
+        })
+      : [];
+    const byEmail = new Map(sellers.map((s) => [s.user.email ?? '', s]));
+
+    return applications.map((app) => {
+      const existing = byEmail.get(app.email);
+      return {
+        ...mapApplication(app),
+        existingSeller: existing
+          ? {
+              id: existing.id,
+              displayName: existing.displayName,
+              status: existing.status,
+              since: existing.createdAt.toISOString(),
+            }
+          : undefined,
+      };
+    });
   }
 
   async approveApplication(adminUserId: string, applicationId: string): Promise<ApproveSellerApplicationResult> {

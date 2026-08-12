@@ -33,6 +33,13 @@ export interface ApplicationRowProps {
  * lightest possible guard, and the one the corporate screen already uses.
  */
 export function ApplicationRow({ application, onApprove, onReject, busy }: ApplicationRowProps) {
+  // They are already a HomeKrafter, so this application cannot be
+  // approved — `Seller.userId` is unique and the server refuses it. Said
+  // here, before the button, for the same reason the out-of-area warning
+  // is: a queue full of rows that look decidable and are not wastes the
+  // one screen where a click sends a real person a welcome message.
+  const duplicate = application.existingSeller;
+
   function handleReject() {
     const confirmed = window.confirm(
       `Reject ${application.businessName}'s application?\n\n` +
@@ -49,6 +56,14 @@ export function ApplicationRow({ application, onApprove, onReject, busy }: Appli
           {CATEGORY_LABEL[application.category]} · {application.city} · {application.contactName} ·{" "}
           {formatDate(application.createdAt)}
         </span>
+        {duplicate && (
+          <span className={styles.duplicate}>
+            Already a HomeKrafter — <strong>{duplicate.displayName}</strong>, since{" "}
+            {formatDate(duplicate.since)}
+            {duplicate.status === "suspended" ? " (suspended)" : ""}. Approving would fail. Reject
+            this duplicate, or help them into the account they have.
+          </span>
+        )}
         {/*
           An out-of-area applicant is visible BEFORE the approve button,
           not discovered from its refusal. The server won't approve an area
@@ -72,8 +87,9 @@ export function ApplicationRow({ application, onApprove, onReject, busy }: Appli
           variant="primary"
           size="sm"
           onClick={() => onApprove(application.id)}
-          disabled={busy}
+          disabled={busy || Boolean(duplicate)}
           aria-busy={busy || undefined}
+          title={duplicate ? "This applicant already has a HomeKrafter account" : undefined}
         >
           {busy ? "Working…" : "Approve"}
         </Button>

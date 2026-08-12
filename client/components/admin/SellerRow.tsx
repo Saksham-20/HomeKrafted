@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
@@ -38,7 +39,15 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
   return (
     <Card padding="sm" className={styles.row}>
       <div className={styles.body}>
-        <span className={styles.title}>{seller.displayName}</span>
+        {/*
+          The name is the way in to the whole record (M32). A link rather
+          than a click handler on the card: it is a navigation, so it owes
+          Enter, open-in-new-tab and a status-bar URL — none of which a
+          `role="button"` div has ever had.
+        */}
+        <Link href={`/admin/sellers/${seller.id}`} className={styles.titleLink}>
+          {seller.displayName}
+        </Link>
         <span className={styles.meta}>
           {seller.specialties.map((sp) => SPECIALTY_LABELS[sp]).join(" · ") || "HomeKrafter"} ·
           Since {formatDate(seller.createdAt)}

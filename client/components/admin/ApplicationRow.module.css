@@ -92,3 +92,40 @@
   padding: 6px 10px;
   margin-top: 2px;
 }
+
+/*
+  A duplicate application is a blocker, not a caution: the approve button
+  is refused, and the row's only useful action is Reject. Terracotta
+  rather than the gold used for the out-of-area warning, which is a
+  "fix this first" and still approvable afterwards.
+*/
+.duplicate {
+  font-size: 12.5px;
+  color: var(--hk-terracotta-text);
+  /* Known token gap: there is no terracotta tint in tokens.css. Same
+     #f6e7e0 TransactionRow's debit icon uses, and the surface
+     `--hk-terracotta-text` was measured against (4.7:1). */
+  background: #f6e7e0;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  padding: 6px 10px;
+  margin-top: 2px;
+}
+
+/*
+  Shared by `SellerRow` (same stylesheet — the two rows have always
+  shared it). The name is a link to the HomeKrafter's full record; it
+  keeps `.title`'s weight so the row does not suddenly read as a link
+  farm, and underlines on hover so it is discoverable.
+*/
+.titleLink {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+}
+
+.titleLink:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

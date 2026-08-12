@@ -74,6 +74,7 @@ import {
   setSellerApplicationStatus,
 } from "./sell";
 import type {
+  AdminSellerDetail,
   AdminSellerProfile,
   Category,
   Collection,
@@ -467,6 +468,18 @@ export async function setSellerStatus(sellerId: string, status: SellerStatus): P
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Everything about one HomeKrafter, for `/admin/sellers/[id]` (M32).
+ *
+ * Not available in mock mode: it aggregates orders, payouts and reviews
+ * across four tables, and a fixture that answers plausibly is worse than
+ * one that says it has nothing — a demo run would then show numbers
+ * nobody can reconcile with any other screen.
+ */
+export async function getAdminSellerDetail(sellerId: string): Promise<AdminSellerDetail> {
+  return http.get<AdminSellerDetail>(`/admin/sellers/${encodeURIComponent(sellerId)}/detail`);
 }
 
 /**

@@ -513,6 +513,22 @@ export interface SellerApplication {
   /** Set when an admin rejects or waitlists — shown back to the applicant. */
   decisionNote?: string;
   createdAt: ISODateString;
+  /**
+   * Set when this applicant **already has** a HomeKrafter account (M32).
+   *
+   * Admin surfaces only. The server has refused to approve one of these
+   * since M19 — `Seller.userId` is unique — but the refusal only arrived
+   * after the click, on the one screen where a click sends somebody a
+   * welcome message. Somebody who does not hear back and applies again is
+   * the ordinary way it happens.
+   */
+  existingSeller?: {
+    id: ID;
+    displayName: string;
+    /** Inlined rather than imported: `SellerStatus` lives in `seller.ts`, which imports this file. */
+    status: "pending" | "approved" | "suspended";
+    since: ISODateString;
+  };
 }
 
 // ---------------------------------------------------------------------------
