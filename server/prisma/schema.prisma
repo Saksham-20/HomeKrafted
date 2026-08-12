@@ -1024,6 +1024,31 @@ model SellerApplication {
   /// is the only thing that lets the platform setting apply.
   deliveryRadiusKm Int?
   description      String
+  /// Where their work already lives — an Instagram handle or a shop link
+  /// (M32). Optional, and the single most useful thing on the form for
+  /// deciding whether a stranger's kitchen is real: an admin can look.
+  ///
+  /// **Photos were the other option and were deliberately not built.**
+  /// `POST /uploads` is authenticated by design, and `/sell` is public —
+  /// opening an anonymous upload route to collect three sample images
+  /// would be a new abuse surface on the one endpoint that writes files
+  /// to disk. A link points at work they have already published.
+  instagramUrl     String?
+  websiteUrl       String?
+  /// Their FSSAI licence number, asked only of applicants who say they
+  /// make food (`makesFood`). Carried onto `VendorProfile.fssaiNumber` at
+  /// approval, where it stays **unverified** — only
+  /// `PATCH /admin/sellers/:id/verification` can set the badge, and
+  /// nothing on this form may reach it (M16).
+  fssaiNumber      String?
+  /// How long they have been making this, in years. Nullable — "didn't
+  /// say" is not "brand new", and an applicant of twenty years and one of
+  /// zero must not both read as 0.
+  yearsMaking      Int?
+  /// Roughly how many orders a day they can take. Carried onto
+  /// `VendorProfile.capacityPerDay`, which is the number a meal plan's
+  /// `maxSubscribers` and future capacity limits read.
+  capacityPerDay   Int?
   status           SellerApplicationStatus   @default(new)
   /// Set when an admin rejects or waitlists, shown back to the applicant.
   decisionNote     String?

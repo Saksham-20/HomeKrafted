@@ -115,6 +115,48 @@ human.
   kitchens, and crediting each with the whole thing overstates what a
   home cook earned and disagrees with what they are paid.
 
+### The form that lets a stranger's kitchen in
+
+Two live storefronts are named `jashanpreetsingh3105@gmail.com` and
+`abhinavsharma240520@gmail.com`. `businessName` was validated as
+`MinLength(1)`, and it becomes `Vendor.name` and `Seller.displayName` at
+approval — it is on every product card and every order — so a browser
+autofilling the wrong box put an email address on the marketplace
+permanently.
+
+- **The name, contact name and phone are checked for shape**, and the
+  messages are written to be read by a home cook on a phone: "that looks
+  like an email address — this is the name buyers will see", not a failed
+  regex. Shape, never taste: `Abc` is a poor storefront name and a valid
+  one, and which it is belongs to the admin. The phone normalises to
+  E.164 through the same `libphonenumber-js` seam sign-in uses — that
+  number is how an admin reads out sign-in details, so `x` in that column
+  is an approved kitchen nobody can reach.
+- **The city question is gone.** Two boxes asked where somebody worked
+  and disagreed constantly; the area is the one that decides where the
+  kitchen sits for every buyer's distance filter, so the city is derived
+  from it. Outside the tricity, where nothing can derive it, it is still
+  asked.
+- **Five new optional questions** — Instagram, website, years making,
+  orders a day, and an FSSAI number shown **only** to somebody who says
+  they make food (a specialty may decide what a form asks, never what a
+  HomeKrafter can reach). All of it is carried onto `VendorProfile` at
+  approval rather than left in a queue row nobody reads again. The
+  licence lands **unverified**: the badge has exactly one write path and
+  it is an admin decision, or anybody could type fourteen digits into a
+  public form and arrive verified.
+- **Photos were the obvious alternative and were deliberately not
+  built.** `POST /uploads` is authenticated and `/sell` is public, so
+  collecting sample images would mean opening an anonymous upload route —
+  a new abuse surface on the one endpoint that writes files to disk. A
+  link points at work they have already published.
+- Errors appear under the field, on blur rather than on the first
+  keystroke, wired with `aria-invalid`/`aria-describedby`. The client
+  copy of the rules is deliberately **looser** than the server's, the
+  same direction the two identifier parsers keep (M17): a false positive
+  costs one request, a false negative strands somebody at a dead button
+  with valid details typed in.
+
 ### Tests
 
 `server/test/e2e/temp-password.e2e-spec.ts` (20 cases) covers the whole
@@ -129,6 +171,14 @@ refusal agree on exactly the same row; `admin-seller-detail.e2e-spec.ts`
 (8) pins the line-item share against a two-kitchen order, the listing
 counts against both switches, and that a shopper cannot read a
 HomeKrafter's phone number.
+The `/sell` rules are unit-tested on both sides
+(`server/test/unit/application-fields.spec.ts`,
+`client/lib/sell/application-fields.spec.ts`) rather than through HTTP:
+the intake carries a real `@Throttle({ limit: 5, ttl: 60_000 })`, a
+public endpoint should stay throttled, and a spec with twenty cases
+should not be the reason it is weakened. What has to go through the front
+door — a refusal, one canonical stored shape, and the carry-over to
+`VendorProfile` — is `seller-application-fields.e2e-spec.ts` (6).
 `seller-onboarding.e2e-spec.ts`'s "provisions an account with no
 password, by design" is rewritten rather than deleted — the reversal is
 recorded where the old rule was asserted.

@@ -140,6 +140,13 @@ function mapApplication(app: SellerApplication) {
     areaLabel: app.areaLabel ?? undefined,
     deliveryRadiusKm: app.deliveryRadiusKm ?? undefined,
     description: app.description,
+    // M32 — the standardised form's extra fields, which is what an admin
+    // actually vets a stranger's kitchen on.
+    instagramUrl: app.instagramUrl ?? undefined,
+    websiteUrl: app.websiteUrl ?? undefined,
+    fssaiNumber: app.fssaiNumber ?? undefined,
+    yearsMaking: app.yearsMaking ?? undefined,
+    capacityPerDay: app.capacityPerDay ?? undefined,
     status: app.status,
     decisionNote: app.decisionNote ?? undefined,
     createdAt: app.createdAt.toISOString(),
@@ -814,6 +821,27 @@ export class AdminSellersService {
           status: 'approved',
         },
       });
+
+      // What they told us on the form, carried onto the profile rather
+      // than left in a queue row nobody reads again (M32). Only written
+      // when they actually said something — an empty `VendorProfile` row
+      // is not the same as none, and `VendorProfileService` computes
+      // completion from what is present.
+      //
+      // `fssaiNumber` lands here **unverified**, deliberately: the badge
+      // has one write path and it is an admin decision (M16). Recording
+      // the number is what lets somebody check it.
+      const profileFromApplication = {
+        instagramUrl: application.instagramUrl,
+        websiteUrl: application.websiteUrl,
+        fssaiNumber: application.fssaiNumber,
+        capacityPerDay: application.capacityPerDay,
+      };
+      if (Object.values(profileFromApplication).some((v) => v !== null && v !== undefined)) {
+        await tx.vendorProfile.create({
+          data: { vendorId: vendor.id, ...profileFromApplication },
+        });
+      }
 
       const decidedApplication = await tx.sellerApplication.update({
         where: { id: applicationId },

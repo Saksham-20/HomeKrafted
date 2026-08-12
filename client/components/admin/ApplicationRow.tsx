@@ -78,6 +78,44 @@ export function ApplicationRow({ application, onApprove, onReject, busy }: Appli
           </span>
         )}
         <span className={styles.description}>{application.description}</span>
+        {/*
+          What they gave us to check them on (M32). Links are the whole
+          point of asking — an admin can look at the work before deciding
+          — so they are real links, opened in a new tab so the queue does
+          not lose its place. `rel="noreferrer"` because these are URLs a
+          stranger submitted.
+        */}
+        <span className={styles.evidence}>
+          {application.instagramUrl && (
+            <a
+              href={application.instagramUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={styles.evidenceLink}
+            >
+              Instagram
+            </a>
+          )}
+          {application.websiteUrl && (
+            <a
+              href={application.websiteUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={styles.evidenceLink}
+            >
+              Website
+            </a>
+          )}
+          {application.fssaiNumber && <span>FSSAI {application.fssaiNumber}</span>}
+          {application.yearsMaking !== undefined && (
+            <span>
+              {application.yearsMaking} {application.yearsMaking === 1 ? "year" : "years"} making
+            </span>
+          )}
+          {application.capacityPerDay !== undefined && (
+            <span>{application.capacityPerDay}/day</span>
+          )}
+        </span>
       </div>
       <span className={styles.badges}>
         <StatusPill status={application.status} />

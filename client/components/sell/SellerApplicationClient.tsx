@@ -7,8 +7,22 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
-import { areasByCity } from "@/lib/geo";
-import { SPECIALTY_GROUPS, SPECIALTY_LABELS, type SellerSpecialty } from "@/lib/types";
+import { areaById, areasByCity } from "@/lib/geo";
+import {
+  SPECIALTY_GROUPS,
+  SPECIALTY_LABELS,
+  makesFood,
+  type SellerSpecialty,
+} from "@/lib/types";
+import {
+  businessNameError,
+  contactNameError,
+  emailError,
+  fssaiError,
+  instagramError,
+  phoneError,
+  websiteError,
+} from "@/lib/sell/application-fields";
 import { createSellerApplication, type CreateSellerApplicationInput } from "@/lib/api";
 import { ApiError } from "@/lib/api/http";
 import type { SellerApplication } from "@/lib/types";
@@ -37,6 +51,16 @@ const EMPTY_FORM = {
    */
   deliveryRadiusKm: "",
   description: "",
+  // M32 — the questions that make an application decidable rather than
+  // just receivable. All optional: a form that demands proof before it
+  // will take an application turns away the person who has none yet.
+  instagramUrl: "",
+  websiteUrl: "",
+  /** Only asked of somebody who says they make food. */
+  fssaiNumber: "",
+  /** Strings because they come off inputs; parsed on submit. Empty is "didn't say", never 0. */
+  yearsMaking: "",
+  capacityPerDay: "",
 };
 
 /** The value that turns the area picker into a free-text waitlist entry. */
@@ -66,13 +90,42 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
   }
 
   const isOtherArea = form.area === OTHER_AREA;
+  const sellsFood = makesFood(specialties);
+
+  /**
+   * The city is *derived* from the area, not asked twice (M32).
+   *
+   * Both boxes existed and disagreed constantly — somebody in Sector 34
+   * typing "Mohali" produced an application whose city contradicted the
+   * coordinates every buyer's distance filter uses. The area is the field
+   * that decides something, so it is the field that is asked.
+   */
+  const derivedCity = isOtherArea ? "" : (areaById(form.area)?.city ?? "");
+  const city = isOtherArea ? form.city : derivedCity;
+
+  // Shown under a field once it has been left, not while it is being
+  // typed: flagging "at least 2 characters" at the first keystroke is the
+  // form arguing with somebody who is halfway through their own name.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (key: string) => setTouched((t) => ({ ...t, [key]: true }));
+
+  const fieldErrors: Record<string, string | null> = {
+    businessName: businessNameError(form.businessName),
+    contactName: contactNameError(form.contactName),
+    email: emailError(form.email),
+    phone: phoneError(form.phone),
+    instagramUrl: instagramError(form.instagramUrl),
+    websiteUrl: websiteError(form.websiteUrl),
+    fssaiNumber: sellsFood ? fssaiError(form.fssaiNumber) : null,
+  };
+  const hasFieldError = Object.values(fieldErrors).some(Boolean);
 
   const valid =
     form.businessName.trim().length > 0 &&
     form.contactName.trim().length > 0 &&
     form.email.trim().length > 0 &&
     form.phone.trim().length > 0 &&
-    form.city.trim().length > 0 &&
+    city.trim().length > 0 &&
     // Area and at least one specialty are required: the first decides where
     // the kitchen sits for every buyer's distance filter, the second is how
     // buyers find them at all.
@@ -81,7 +134,10 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
     // button enables, the POST 400s, and the applicant sees nothing happen.
     (!isOtherArea || form.areaLabel.trim().length > 0) &&
     specialties.length > 0 &&
-    form.description.trim().length > 0;
+    form.description.trim().length > 0 &&
+    // Nothing typed may be *wrong* — an empty optional field is fine, a
+    // malformed one is not.
+    !hasFieldError;
 
   /**
    * This used to be `try { … } finally { setBusy(false) }` with no `catch`.
@@ -104,13 +160,20 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
         // so the form no longer asks a taxonomy question whose only
         // consumer was a column nothing renders.
         specialties,
-        city: form.city.trim(),
+        city: city.trim(),
         area: form.area,
         areaLabel: isOtherArea ? form.areaLabel.trim() : undefined,
         // Undefined, not 0 or 10 — an omitted radius is what lets the
         // platform default apply at approval.
         deliveryRadiusKm: form.deliveryRadiusKm ? Number(form.deliveryRadiusKm) : undefined,
         description: form.description.trim(),
+        // Empty stays undefined all the way down: "didn't say" is a state
+        // the admin screens render, and it is not the same as zero.
+        instagramUrl: form.instagramUrl.trim() || undefined,
+        websiteUrl: form.websiteUrl.trim() || undefined,
+        fssaiNumber: sellsFood && form.fssaiNumber.trim() ? form.fssaiNumber.trim() : undefined,
+        yearsMaking: form.yearsMaking ? Number(form.yearsMaking) : undefined,
+        capacityPerDay: form.capacityPerDay ? Number(form.capacityPerDay) : undefined,
       };
       const created = await createSellerApplication(input);
       setApplication(created);
@@ -212,48 +275,43 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
           </div>
 
           <div className={styles.formGrid}>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Business / maker name</span>
-              <input
-                className={styles.input}
-                value={form.businessName}
-                onChange={(event) => set("businessName", event.target.value)}
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Contact name</span>
-              <input
-                className={styles.input}
-                value={form.contactName}
-                onChange={(event) => set("contactName", event.target.value)}
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Email</span>
-              <input
-                type="email"
-                className={styles.input}
-                value={form.email}
-                onChange={(event) => set("email", event.target.value)}
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Phone</span>
-              <input
-                type="tel"
-                className={styles.input}
-                value={form.phone}
-                onChange={(event) => set("phone", event.target.value)}
-              />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>City</span>
-              <input
-                className={styles.input}
-                value={form.city}
-                onChange={(event) => set("city", event.target.value)}
-              />
-            </label>
+            <TextField
+              label="Business / maker name"
+              help="The name buyers will see on your storefront."
+              value={form.businessName}
+              onChange={(v) => set("businessName", v)}
+              onBlur={() => touch("businessName")}
+              error={touched.businessName ? fieldErrors.businessName : null}
+              required
+            />
+            <TextField
+              label="Your name"
+              value={form.contactName}
+              onChange={(v) => set("contactName", v)}
+              onBlur={() => touch("contactName")}
+              error={touched.contactName ? fieldErrors.contactName : null}
+              required
+            />
+            <TextField
+              label="Email"
+              type="email"
+              help="We send your sign-in details here."
+              value={form.email}
+              onChange={(v) => set("email", v)}
+              onBlur={() => touch("email")}
+              error={touched.email ? fieldErrors.email : null}
+              required
+            />
+            <TextField
+              label="Mobile number"
+              type="tel"
+              help="Someone from the team may call you about your application."
+              value={form.phone}
+              onChange={(v) => set("phone", v)}
+              onBlur={() => touch("phone")}
+              error={touched.phone ? fieldErrors.phone : null}
+              required
+            />
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Which area do you work from?</span>
               <select
@@ -273,6 +331,14 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                 ))}
                 <option value={OTHER_AREA}>Somewhere else</option>
               </select>
+              {/* The city used to be a second box, and the two disagreed
+                  constantly. The area decides where the kitchen sits for
+                  every buyer's distance filter, so it is the one asked. */}
+              <span className={styles.fieldHelp}>
+                {derivedCity
+                  ? `We'll list you in ${derivedCity}.`
+                  : "This is what places you on the map for nearby buyers."}
+              </span>
             </label>
 
             {/*
@@ -296,6 +362,14 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                     to the list for when we open — you won&rsquo;t be able to start selling until
                     then.
                   </span>
+                  {/* Only here. Inside the tricity the city comes from the
+                      area; outside it, nothing can derive it. */}
+                  <span className={styles.fieldLabel}>City or town</span>
+                  <input
+                    className={styles.input}
+                    value={form.city}
+                    onChange={(event) => set("city", event.target.value)}
+                  />
                 </label>
               )}
             </div>
@@ -379,6 +453,72 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
             </div>
           </div>
 
+          {/*
+            Where we can see the work, and how much of it there is (M32).
+            Everything here is optional — a form that demands proof before
+            it will take an application turns away the person who has none
+            yet — but between them these are what turn "somebody applied"
+            into "somebody an admin can make a decision about".
+          */}
+          <div className={styles.formGrid}>
+            <TextField
+              label="Instagram"
+              placeholder="@your.kitchen"
+              help="The fastest way for us to see what you make."
+              value={form.instagramUrl}
+              onChange={(v) => set("instagramUrl", v)}
+              onBlur={() => touch("instagramUrl")}
+              error={touched.instagramUrl ? fieldErrors.instagramUrl : null}
+            />
+            <TextField
+              label="Website or shop link"
+              placeholder="yourshop.com"
+              value={form.websiteUrl}
+              onChange={(v) => set("websiteUrl", v)}
+              onBlur={() => touch("websiteUrl")}
+              error={touched.websiteUrl ? fieldErrors.websiteUrl : null}
+            />
+            <TextField
+              label="Years making this"
+              inputMode="numeric"
+              placeholder="e.g. 3"
+              value={form.yearsMaking}
+              onChange={(v) => set("yearsMaking", v.replace(/\D/g, "").slice(0, 2))}
+            />
+            <TextField
+              label="Orders a day you can take"
+              inputMode="numeric"
+              placeholder="e.g. 10"
+              help="A rough number. You can change it any time."
+              value={form.capacityPerDay}
+              onChange={(v) => set("capacityPerDay", v.replace(/\D/g, "").slice(0, 4))}
+            />
+          </div>
+
+          {/*
+            Asked only of somebody who says they make food, and the only
+            legitimate branch on a specialty (CLAUDE.md, M22): a specialty
+            may decide what a form *asks*, never what a HomeKrafter can
+            reach. Asking a candle maker for a food licence reads as a
+            requirement they cannot meet.
+
+            `aria-live` because the trigger is a chip several rows up.
+          */}
+          <div aria-live="polite">
+            {sellsFood && (
+              <TextField
+                label="FSSAI licence number"
+                inputMode="numeric"
+                placeholder="14 digits"
+                help="If you have one. We check it before we show a verified badge — leave it blank if you are still applying for yours."
+                value={form.fssaiNumber}
+                onChange={(v) => set("fssaiNumber", v)}
+                onBlur={() => touch("fssaiNumber")}
+                error={touched.fssaiNumber ? fieldErrors.fssaiNumber : null}
+              />
+            )}
+          </div>
+
           <Textarea
             label="Tell us a bit about it"
             rows={4}
@@ -403,5 +543,76 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
         </Card>
       )}
     </section>
+  );
+}
+
+/**
+ * One labelled text field with help text and an inline error.
+ *
+ * Local to this form rather than a `components/ui` primitive: there is no
+ * `Input` primitive in the design system today, and inventing one here
+ * would mean either adopting it in the other thirty forms in the same
+ * change or leaving a primitive that one screen uses. The standardisation
+ * this form needed was *within itself* — nine boxes that each declared
+ * their own label markup.
+ *
+ * The error is wired with `aria-describedby` and `aria-invalid`, so it is
+ * announced rather than merely coloured.
+ */
+function TextField({
+  label,
+  value,
+  onChange,
+  onBlur,
+  error,
+  help,
+  type = "text",
+  inputMode,
+  placeholder,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  error?: string | null;
+  help?: string;
+  type?: string;
+  inputMode?: "numeric";
+  placeholder?: string;
+  required?: boolean;
+}) {
+  const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const describedBy = [help ? `${id}-help` : null, error ? `${id}-error` : null]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <label className={styles.field}>
+      <span className={styles.fieldLabel}>
+        {label}
+        {required ? "" : " (optional)"}
+      </span>
+      <input
+        className={styles.input}
+        type={type}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        value={value}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy || undefined}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+      />
+      {help && (
+        <span id={`${id}-help`} className={styles.fieldHelp}>
+          {help}
+        </span>
+      )}
+      {error && (
+        <span id={`${id}-error`} className={styles.fieldError}>
+          {error}
+        </span>
+      )}
+    </label>
   );
 }

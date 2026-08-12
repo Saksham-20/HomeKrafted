@@ -15,6 +15,13 @@ export function mapSellerApplication(app: SellerApplication) {
     areaLabel: app.areaLabel ?? undefined,
     deliveryRadiusKm: app.deliveryRadiusKm ?? undefined,
     description: app.description,
+    // M32 — everything the standardised form added. All nullable: an
+    // application filed before it existed simply didn't say.
+    instagramUrl: app.instagramUrl ?? undefined,
+    websiteUrl: app.websiteUrl ?? undefined,
+    fssaiNumber: app.fssaiNumber ?? undefined,
+    yearsMaking: app.yearsMaking ?? undefined,
+    capacityPerDay: app.capacityPerDay ?? undefined,
     status: app.status,
     decisionNote: app.decisionNote ?? undefined,
     createdAt: app.createdAt.toISOString(),

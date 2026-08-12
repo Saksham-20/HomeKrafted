@@ -249,6 +249,20 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
             <Field label="Area" value={application.areaLabel ?? application.area} />
             <Field label="Applied" value={formatDate(application.createdAt)} />
             <Field label="Status" value={application.status} />
+            {/* M32 — absent on anything filed before the form asked. */}
+            {application.yearsMaking !== undefined && (
+              <Field label="Years making" value={String(application.yearsMaking)} />
+            )}
+            {application.capacityPerDay !== undefined && (
+              <Field label="Orders a day" value={String(application.capacityPerDay)} />
+            )}
+            {application.fssaiNumber && (
+              <Field label="FSSAI (unverified)" value={application.fssaiNumber} mono />
+            )}
+            {application.instagramUrl && (
+              <Field label="Instagram" value={application.instagramUrl} />
+            )}
+            {application.websiteUrl && <Field label="Website" value={application.websiteUrl} />}
           </div>
           {/* Free text from a public form: rendered as text, never markup. */}
           <p className={styles.bio}>{application.description}</p>

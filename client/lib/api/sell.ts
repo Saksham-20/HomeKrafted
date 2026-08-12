@@ -71,6 +71,24 @@ export interface CreateSellerApplicationInput {
    */
   deliveryRadiusKm?: number;
   description: string;
+  /**
+   * M32 — the standardised form's extra questions. All optional, and all
+   * carried onto `VendorProfile` at approval rather than left in a queue
+   * row nobody reads again.
+   *
+   * Photos were the obvious alternative and were deliberately not built:
+   * `POST /uploads` is authenticated and `/sell` is public, so collecting
+   * images would mean opening an anonymous upload route — a new abuse
+   * surface on the one endpoint that writes files to disk. A link points
+   * at work they have already published.
+   */
+  instagramUrl?: string;
+  websiteUrl?: string;
+  /** Asked only of applicants who make food. Never a verification — the badge is admin-only (M16). */
+  fssaiNumber?: string;
+  /** Absent means "didn't say", which is not the same as zero. */
+  yearsMaking?: number;
+  capacityPerDay?: number;
 }
 
 /**

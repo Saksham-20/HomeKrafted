@@ -155,4 +155,54 @@ export class CreateSellerApplicationDto {
   @IsString()
   @MinLength(1)
   description!: string;
+
+  // -------------------------------------------------------------------
+  // M32 — the standardised form's extra questions.
+  //
+  // Every one is optional, and every one is *checked in the service*
+  // rather than by a regex decorator, because the message is the product
+  // on a public form (see `SellerApplicationsService.normalize`). The
+  // decorators here only cap length, which is a storage concern.
+  //
+  // `businessName`/`contactName`/`phone` above keep their loose
+  // decorators for the same reason: a `@Matches()` failure produces
+  // "businessName must match /^.../", and a home cook on a phone can do
+  // nothing with that.
+  // -------------------------------------------------------------------
+
+  /** Instagram handle or profile URL — `@kitchen`, `instagram.com/kitchen` and a full URL all work. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  instagramUrl?: string;
+
+  /** Their shop or portfolio, with or without a protocol. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  websiteUrl?: string;
+
+  /**
+   * FSSAI licence, asked only of applicants who make food and stored only
+   * for them. Never a verification: the badge has exactly one write path
+   * (`PATCH /admin/sellers/:id/verification`) and this is not it (M16).
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  fssaiNumber?: string;
+
+  /** Years making this. Absent means "didn't say", which is not zero. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(80)
+  yearsMaking?: number;
+
+  /** Roughly how many orders a day they can take — becomes `VendorProfile.capacityPerDay`. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  capacityPerDay?: number;
 }

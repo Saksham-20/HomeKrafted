@@ -510,6 +510,13 @@ export interface SellerApplication {
   deliveryRadiusKm?: number;
   description: string;
   status: SellerApplicationStatus;
+  /** M32 — the standardised form's extra questions. Absent on anything filed before it existed. */
+  instagramUrl?: string;
+  websiteUrl?: string;
+  /** Asked only of food applicants. Recorded, never verified here — the badge is admin-only (M16). */
+  fssaiNumber?: string;
+  yearsMaking?: number;
+  capacityPerDay?: number;
   /** Set when an admin rejects or waitlists — shown back to the applicant. */
   decisionNote?: string;
   createdAt: ISODateString;

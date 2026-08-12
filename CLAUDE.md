@@ -161,7 +161,20 @@ narrowing a request value breaks native clients.
 - **A specialty may decide what a form *asks*, never what a HomeKrafter
   can *reach*.** `makesFood()` gates the FSSAI question, because asking a
   candle maker for a food licence reads as a requirement they can't meet.
-  That is the only legitimate branch.
+  That is the only legitimate branch — and since M32 it gates storage
+  too: a licence typed by a non-food applicant is not recorded.
+- **`businessName` is the storefront name, and it is validated (M32).**
+  It becomes `Vendor.name` and `Seller.displayName`, so it is on every
+  product card and every order; as a bare `MinLength(1)` string it let
+  two production storefronts be named after somebody's email address.
+  Rules live in `server/src/seller-applications/application-fields.ts`
+  (authority) mirrored **looser** in `client/lib/sell/application-fields.ts`
+  — same direction as the two identifier parsers, and for the same
+  reason. They check *shape*, never taste: "Abc" is a poor name and a
+  valid one. The `/sell` form asks no city — it is derived from the area,
+  which is the field that decides anything — and its optional
+  Instagram/website/FSSAI/capacity answers are carried onto
+  `VendorProfile` at approval, the licence **unverified**.
 
 **Naming:** user-facing copy says **HomeKrafter(s)**. Code keeps `seller`
 — `role: "seller"`, `/seller/*` routes, `Seller` type, DB columns —

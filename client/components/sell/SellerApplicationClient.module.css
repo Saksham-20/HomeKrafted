@@ -281,3 +281,14 @@
   text-transform: uppercase;
   color: var(--hk-muted-2);
 }
+
+/*
+  An inline field error (M32). Terracotta is the marketplace's refusal
+  colour and reads AA on white at this size — the same value
+  `UserDetailClient` and `ReviewForm` use for the identical job.
+*/
+.fieldError {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hk-terracotta);
+}

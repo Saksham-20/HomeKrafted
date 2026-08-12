@@ -168,6 +168,18 @@ through the real application flow is not:
    issued** — a password is on the row, unused. **Signed in** — they
    chose their own, and we hold nothing that opens the account.
 
+**The `/sell` form asks more, and refuses less usefully (M32).** It now
+checks as you go: an email address typed into "Business / maker name"
+says so under the box, and so does a phone number — that field becomes
+the storefront name on every product card, and two live storefronts are
+named after somebody's email because it used to accept anything. The city
+question is gone; it is derived from the area you pick, which is the
+field that actually decides where buyers see you. New optional questions:
+Instagram, website, years making, orders a day, and — only if you say you
+make food — an FSSAI number. Everything optional can be left blank; the
+licence is recorded, never verified (a verified badge is still an admin
+decision).
+
 **The approval queue flags people who already have an account (M32).**
 Somebody who does not hear back and applies again leaves a second row in
 the queue. Approving it has always failed — one account per person — but
