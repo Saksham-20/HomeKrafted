@@ -25,7 +25,11 @@ M32 reverses it, and keeps the substance.
 - **They disappear the moment that kitchen signs in and picks their own
   password**, which is also what flips the row to "Signed in". That state
   is trustworthy precisely because it is not a flag somebody remembered
-  to set — it is the absence of a credential.
+  to set — it is the absence of a credential. **The control goes with
+  them**: an onboarded row offers no way to mint a password at all, so
+  the one path that would hand an admin a working credential for an
+  account already in use does not exist on the screen. A locked-out
+  kitchen is helped with "Resend invite", which sends a link to *them*.
 - **A three-way onboarding filter**, above the type filters, because
   "who have we approved but never actually got online" is the list with
   work attached and was previously unanswerable. Three states, not two:

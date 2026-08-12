@@ -31,6 +31,12 @@ export interface SellerSignInDetailsProps {
  * panel stops showing one at exactly the moment it stops being true.
  * That is also what makes the `onboarded` state trustworthy — it is not a
  * flag somebody remembered to set, it is the absence of a credential.
+ *
+ * **It is never rendered for a HomeKrafter who has signed in.** The row
+ * drops the control at that point, so there is no "create a new password
+ * for an account already in use" path here at all — a locked-out kitchen
+ * is helped with "Resend invite", which sends a link to them instead of
+ * handing a working credential to whoever is looking at the screen.
  */
 export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsProps) {
   const [issued, setIssued] = useState<string | null>(null);
@@ -41,7 +47,6 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
   // The freshly issued one wins: this component does not refetch, so
   // after "Create another" the row's copy is a render behind.
   const password = issued ?? signIn.temporaryPassword;
-  const onboarded = signIn.status === "onboarded" && !issued;
   const noCredentials = signIn.status === "no_credentials" && !issued;
 
   async function reissue() {
@@ -96,31 +101,6 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
         </p>
         <Button variant="ghost-gold" size="sm" onClick={reissue} disabled={busy}>
           {busy ? "Creating…" : "Create sign-in details"}
-        </Button>
-        {error && (
-          <p className={styles.error} role="alert">
-            {error}
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  if (onboarded) {
-    return (
-      <div className={styles.panel}>
-        <p className={styles.lead}>
-          <strong>Signed in and set up.</strong> They chose their own password
-          {signIn.claimedAt ? ` on ${formatDate(signIn.claimedAt)}` : ""}, so the
-          temporary one is gone — we no longer hold anything that opens this
-          account.
-        </p>
-        <p className={styles.note}>
-          If they are locked out, create new sign-in details below. That replaces
-          their password, so only do it when they have asked.
-        </p>
-        <Button variant="ghost-gold" size="sm" onClick={reissue} disabled={busy}>
-          {busy ? "Creating…" : "Create new sign-in details"}
         </Button>
         {error && (
           <p className={styles.error} role="alert">

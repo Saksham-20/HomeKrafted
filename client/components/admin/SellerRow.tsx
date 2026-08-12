@@ -59,17 +59,23 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
         >
           {verifying ? "Close" : "Verify"}
         </Button>
-        {/* Only for an account that can actually be signed in to — the
-            endpoint refuses a suspended or unapproved one, and offering a
-            control that can only fail is worse than not offering it. */}
-        {!suspended && seller.signIn && (
+        {/* Only while they have not arrived. Once a HomeKrafter has
+            signed in and chosen their own password the control disappears
+            from the row entirely: an admin has no business minting a
+            credential for an account whose owner is already using it, and
+            a button that is almost never the right thing to press is one
+            somebody eventually presses. A genuinely locked-out kitchen
+            goes through "Resend invite", which sends a link to them
+            rather than handing a password to whoever is at the screen.
+            The endpoint also refuses a suspended account. */}
+        {!suspended && pending && (
           <Button
             variant="ghost-gold"
             size="sm"
             onClick={() => setSignIn((open) => !open)}
             aria-expanded={signIn}
           >
-            {signIn ? "Close" : pending ? "Sign-in details" : "Sign-in"}
+            {signIn ? "Close" : "Sign-in details"}
           </Button>
         )}
         <Button
@@ -81,7 +87,7 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
         </Button>
       </span>
       {verifying && <SellerVerificationPanel sellerId={seller.id} />}
-      {signIn && !suspended && seller.signIn && (
+      {signIn && !suspended && pending && seller.signIn && (
         <SellerSignInDetails sellerId={seller.id} signIn={seller.signIn} />
       )}
     </Card>

@@ -156,8 +156,11 @@ through the real application flow is not:
    password**, shown on the approval banner and on the HomeKrafter's row
    under **Sign-in details**, so an admin can simply read them out. They
    stay visible until used. The moment that kitchen signs in and chooses
-   their own password, the temporary one is deleted and the row flips to
-   "Signed in".
+   their own password, the temporary one is deleted, the row flips to
+   "Signed in", and the **Sign-in details** button disappears from that
+   row for good. If such a HomeKrafter is genuinely locked out, use
+   **Resend invite** — that sends a set-password link to them, rather
+   than giving whoever is at the admin screen a working password.
 6. **The filter above the list has three states**, and they are worth
    knowing apart. **No sign-in yet** — no password exists at all, so
    there is nothing to read out; every HomeKrafter approved before M32 is
