@@ -36,6 +36,9 @@ export default function robots(): MetadataRoute.Robots {
         // indexing.
         "/forgot-password",
         "/reset-password",
+        // M32 — behind a login, and only ever renders for an account
+        // that owes us a password. Nothing to index.
+        "/set-password",
         // Corporate quotes (M20). Same reasoning as `/reset-password`, and
         // more so: the token in the path is a bearer credential for a
         // five-figure commitment, and the page contains another company's

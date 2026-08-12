@@ -16,6 +16,7 @@ const PUBLIC_USER_SELECT = {
   suspended: true,
   emailVerified: true,
   phoneVerified: true,
+  mustChangePassword: true,
 } as const;
 
 const DEFAULT_USER_PAGE_SIZE = 25;

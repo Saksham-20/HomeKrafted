@@ -36,6 +36,30 @@ export interface Seller {
    */
   rating?: number;
   reviewCount?: number;
+  /**
+   * Where this HomeKrafter is between "approved" and "actually using the
+   * site", plus the credentials to get them there (M32).
+   *
+   * Admin surfaces only — `GET /admin/sellers` attaches it; nothing on
+   * the buyer side ever sees it.
+   */
+  signIn?: SellerSignInState;
+}
+
+/** The onboarding half of a HomeKrafter's record, as the admin panel reads it (M32). */
+export interface SellerSignInState {
+  /** `awaiting` — issued details, not yet used. `onboarded` — chose their own password. */
+  status: "awaiting" | "onboarded";
+  /** What they type in the one sign-in box: their email, or their number if that is all we have. */
+  username: string | null;
+  /**
+   * Present **only** while it is still the account's real password. The
+   * server nulls it the moment its owner chooses their own, so this going
+   * away is the signal that they have arrived — never a stale secret.
+   */
+  temporaryPassword: string | null;
+  issuedAt?: ISODateString | null;
+  claimedAt?: ISODateString | null;
 }
 
 /**

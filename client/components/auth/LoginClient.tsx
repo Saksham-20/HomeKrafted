@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
+import { SET_PASSWORD_PATH, sessionMustChangePassword } from "@/lib/auth/must-change-password";
 import { guessIdentifierKind, type IdentifierKind } from "@/lib/auth/identifier";
 import { SocialSignIn } from "./SocialSignIn";
 import type { SocialConfig } from "@/lib/api/auth";
@@ -158,6 +159,12 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
    */
   function redirectForRole(resultRole: UserRole) {
     setNavigating(true);
+    // A password an admin issued has to be replaced before anything else
+    // (M32), and that outranks even an explicit `?next=`: the server
+    // answers 403 on every other route, so honouring the return-to here
+    // would land somebody on a page that cannot load. `/set-password`
+    // sends them on afterwards.
+    if (sessionMustChangePassword()) return router.push(SET_PASSWORD_PATH);
     const requested = returnToForRole(
       safeReturnTo(new URLSearchParams(window.location.search).get(RETURN_TO_PARAM)),
       resultRole,

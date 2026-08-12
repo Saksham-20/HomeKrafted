@@ -1,4 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
@@ -28,6 +34,23 @@ import { PrismaService } from '../../prisma/prisma.service';
  * price of the guarantee; a TTL cache in front of it would reintroduce
  * exactly the staleness window being closed here.
  */
+/**
+ * The only routes reachable while `User.mustChangePassword` is set (M32).
+ *
+ * Deliberately tiny, and matched on the full path so nothing is opened by
+ * accident: the account must be able to *replace* the credential, read
+ * enough of itself to render the screen that does it, and get out. Every
+ * other endpoint — the seller portal, the wallet, payout details — waits
+ * until the password its owner chose is the only one that works.
+ *
+ * `/auth/refresh` and `/auth/logout` are `@Public()` and never reach this
+ * guard, so they are not listed.
+ */
+const PASSWORD_CHANGE_EXEMPT = new Set([
+  '/api/v1/auth/password/change',
+  '/api/v1/users/me',
+]);
+
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
@@ -66,7 +89,7 @@ export class JwtAuthGuard implements CanActivate {
     // swallowed and relabelled "Invalid or expired access token".
     const account = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: { suspended: true },
+      select: { suspended: true, mustChangePassword: true },
     });
     if (!account) {
       // A token signed for a user who no longer exists. Same answer as a
@@ -75,6 +98,17 @@ export class JwtAuthGuard implements CanActivate {
     }
     if (account.suspended) {
       throw new UnauthorizedException('This account has been suspended. Contact support.');
+    }
+    // A password an admin issued is a working credential in two people's
+    // hands, so the account does nothing else until its owner replaces it
+    // (M32). Enforced here rather than in the UI: a rotation a client can
+    // skip is decoration. `mustChangePassword` rides along on the lookup
+    // this guard was already making, so it costs no extra query.
+    if (account.mustChangePassword && !PASSWORD_CHANGE_EXEMPT.has(request.path)) {
+      throw new ForbiddenException({
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        message: 'Set your own password before continuing.',
+      });
     }
 
     const user: RequestUser = {

@@ -504,6 +504,50 @@ model User {
   /// Only set for the email+password auth flow; null for phone-OTP-only or
   /// social-only accounts.
   passwordHash      String?
+  /// The credential in `passwordHash` was issued *to* this person by
+  /// somebody else, and must be replaced before the account can be used
+  /// (M32).
+  ///
+  /// Set when an admin mints a temporary password for a newly approved
+  /// HomeKrafter — the only case where a second person has ever known a
+  /// working credential for this account. It is enforced server-side in
+  /// `JwtAuthGuard`, not merely prompted for in the UI: a forced rotation
+  /// that a client can skip is decoration, and the whole point is that
+  /// the admin-known password stops working the moment its owner arrives.
+  /// Cleared by `POST /auth/password/change`, which also revokes every
+  /// other session — including any the admin might hold.
+  mustChangePassword Boolean       @default(false)
+  /// The temporary password an admin issued, **in the clear**, so the
+  /// admin panel can keep showing it until its owner replaces it (M32).
+  ///
+  /// **This is a deliberate, bounded exception to "never store a
+  /// password", and it must stay bounded.** It exists because no email or
+  /// SMS provider is configured, so the only working onboarding channel
+  /// is an admin reading credentials out loud — possibly days after
+  /// approval, possibly more than once. A hash cannot be read out.
+  ///
+  /// Three rules keep the exception small, and removing any one of them
+  /// turns this into a plaintext password store:
+  /// 1. **It is only ever a credential its owner has not used yet.** The
+  ///    moment they set their own password it is `null`ed, here and in
+  ///    every other path that writes `passwordHash` (change, reset).
+  /// 2. **It is never the account's only defence.** `mustChangePassword`
+  ///    rides with it, so the value stops working at first sign-in.
+  /// 3. **It never leaves the admin surface.** No public payload, no
+  ///    notification, no audit row.
+  ///
+  /// Retire the whole field once SendGrid/Twilio keys exist: with real
+  /// delivery the invite link is strictly better and nothing needs to be
+  /// legible to a human.
+  tempPassword       String?
+  /// When the credential above was issued — drives "approved but never
+  /// signed in" in the admin queue. Kept after `tempPassword` is cleared
+  /// so the onboarding history survives.
+  tempPasswordIssuedAt DateTime?
+  /// First time this account replaced an issued credential with its own
+  /// (M32) — i.e. the moment it really onboarded, as opposed to the
+  /// moment an admin approved it.
+  credentialsClaimedAt DateTime?
   /// Has the address/number been proved to belong to this person (M25)?
   ///
   /// **Not a sign-in gate, deliberately.** OTP delivery needs Twilio and

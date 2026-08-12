@@ -211,6 +211,8 @@ export interface AdminSellersQuery {
   specialty?: SellerSpecialty;
   q?: string;
   page?: number;
+  /** M32 — `awaiting`: issued sign-in details, never used. `onboarded`: chose their own password. */
+  onboarding?: "awaiting" | "onboarded";
 }
 
 export interface AdminSellersPage {
@@ -225,12 +227,14 @@ export async function getAllSellers(query: AdminSellersQuery = {}): Promise<Admi
     const q = query.q?.trim().toLowerCase();
     const items = sellers
       .filter((s) => !query.specialty || s.specialties.includes(query.specialty))
-      .filter((s) => !q || s.displayName.toLowerCase().includes(q));
+      .filter((s) => !q || s.displayName.toLowerCase().includes(q))
+      .filter((s) => !query.onboarding || s.signIn?.status === query.onboarding);
     return { items, page: 1, pageSize: items.length, total: items.length };
   }
   const params = new URLSearchParams();
   if (query.specialty) params.set("specialty", query.specialty);
   if (query.q) params.set("q", query.q);
+  if (query.onboarding) params.set("onboarding", query.onboarding);
   if (query.page && query.page > 1) params.set("page", String(query.page));
   const qs = params.toString();
   return http.get<AdminSellersPage>(`/admin/sellers${qs ? `?${qs}` : ""}`);
@@ -316,6 +320,11 @@ export interface ApproveSellerApplicationResult {
    * applicable", not "delivered".
    */
   invite?: InviteDeliveryReport;
+  /**
+   * Sign-in details for the account just created (M32) — optional for the
+   * same reason `invite` is: mock mode has no server to mint one.
+   */
+  signIn?: TemporarySignInDetails;
 }
 
 /**
@@ -327,6 +336,49 @@ export interface ApproveSellerApplicationResult {
  * `Seller` row (`docs/API.md`'s "Sellers + the onboarding approval queue"),
  * a real fix over the mock's synthetic id.
  */
+/** What `POST /admin/sellers/:id/temp-password` hands back — once (M32). */
+export interface TemporarySignInDetails {
+  email: string | null;
+  phone: string | null;
+  displayName: string;
+  /**
+   * Plaintext, and this is the **only** time it exists anywhere. The
+   * server stores an argon2 hash; nothing re-reads this. Losing it means
+   * issuing a new one, which is a button, not a problem.
+   */
+  temporaryPassword: string;
+}
+
+/**
+ * `POST /admin/sellers/:id/temp-password` — sign-in details an admin can
+ * read out over the phone to a HomeKrafter the invite never reached
+ * (SendGrid and Twilio are unset, so it reaches nobody today).
+ *
+ * Errors are **not** swallowed here, unlike `approveSellerApplication`
+ * below: the caller has to be able to tell "suspended, refused" from
+ * "here is the password", because the difference is whether a kitchen can
+ * open their shop this morning.
+ */
+export async function issueSellerTemporaryPassword(
+  sellerId: string,
+): Promise<TemporarySignInDetails> {
+  if (isMockMode()) {
+    // A fixed, obviously-fake value: mock mode has no server to hash
+    // anything, and a *plausible* password here would invite somebody to
+    // try it against the real site.
+    const seller = sellers.find((s) => s.id === sellerId);
+    return {
+      email: `${seller?.displayName.toLowerCase().replace(/\W+/g, ".") ?? "kitchen"}@example.test`,
+      phone: null,
+      displayName: seller?.displayName ?? "HomeKrafter",
+      temporaryPassword: "MOCK-MODE-NOT-A-REAL-PASSWORD",
+    };
+  }
+  return http.post<TemporarySignInDetails>(
+    `/admin/sellers/${encodeURIComponent(sellerId)}/temp-password`,
+  );
+}
+
 export async function approveSellerApplication(
   applicationId: string,
 ): Promise<ApproveSellerApplicationResult | undefined> {

@@ -52,6 +52,12 @@ export interface User {
    * filter today.
    */
   suspended?: boolean;
+  /**
+   * The password on this account was set by an admin (a newly approved
+   * HomeKrafter given sign-in details over the phone) and must be
+   * replaced before the account can be used — M32. Absent means no.
+   */
+  mustChangePassword?: boolean;
 }
 
 export interface Address {

@@ -49,6 +49,17 @@ export interface SessionUser {
    */
   emailVerified?: boolean;
   phoneVerified?: boolean;
+  /**
+   * The password on this account was issued by an admin and has to be
+   * replaced before anything else works (M32).
+   *
+   * Optional for the same reason as the two above — a session persisted
+   * before M32 has no such field, and a missing value must read as "no",
+   * never as "yes", or every returning user is sent to a password screen
+   * they do not need. The server enforces the real thing regardless
+   * (`JwtAuthGuard`); this only decides where the browser goes.
+   */
+  mustChangePassword?: boolean;
 }
 
 export interface StoredSession {
@@ -192,5 +203,6 @@ export function toAppUser(sessionUser: SessionUser): User {
     referralCode: sessionUser.referralCode,
     role: sessionUser.role,
     suspended: sessionUser.suspended,
+    mustChangePassword: sessionUser.mustChangePassword,
   };
 }

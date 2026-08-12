@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
+import { SET_PASSWORD_PATH, sessionMustChangePassword } from "@/lib/auth/must-change-password";
 import { ApiError } from "@/lib/api/http";
 import styles from "./AdminLoginClient.module.css";
 
@@ -32,6 +33,13 @@ export function AdminLoginClient() {
   const [error, setError] = useState<string | undefined>(undefined);
 
   function goToDashboard() {
+    // Same rule as the consumer form (M32): an issued password is
+    // replaced before anything else, and the server refuses every other
+    // route until it is, so this outranks `?next=`.
+    if (sessionMustChangePassword()) {
+      router.push(SET_PASSWORD_PATH);
+      return;
+    }
     // The gate sends `?next=` when it turns somebody away from a deep
     // admin URL. Validated and role-checked in `lib/auth/return-to.ts` —
     // this screen only ever signs in an admin, so anything same-origin

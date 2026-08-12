@@ -40,6 +40,22 @@
   flex-shrink: 0;
 }
 
+/* "Approved, but has never signed in" (M32). Gold rather than terracotta:
+   this is a job still to do, not something that has gone wrong — the
+   kitchen is waiting on us to finish onboarding them. `--hk-gold-text-sm`
+   because 11px gold fails AA on the tint; see CLAUDE.md's gold rule. */
+.awaitingPill {
+  padding: 3px 8px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--hk-gold-text-sm);
+  white-space: nowrap;
+}
+
 .actions {
   display: flex;
   gap: var(--hk-s2);

@@ -97,6 +97,25 @@ export async function resetPassword(
   );
 }
 
+/**
+ * `POST /auth/password/change` — an authenticated password change (M32).
+ *
+ * Authed, unlike the two above: it proves identity with the session plus
+ * the current password rather than a token from an email. It is the way
+ * out of `mustChangePassword`, so it is one of the only two routes the
+ * server will answer while that flag is set.
+ *
+ * Returns a **fresh token pair**: the change revokes every existing
+ * session, including one an admin may have opened with the temporary
+ * password, so the caller has to swap to these or find itself signed out.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<AuthResultDto> {
+  return http.post<AuthResultDto>("/auth/password/change", { currentPassword, newPassword });
+}
+
 /** `POST /auth/register` — email + password sign-up. */
 export async function registerWithEmail(
   name: string,

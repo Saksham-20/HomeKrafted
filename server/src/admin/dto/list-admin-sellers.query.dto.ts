@@ -1,5 +1,5 @@
 import { SellerSpecialty } from '@prisma/client';
-import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 /** Query for `GET /admin/sellers`. */
 export class ListAdminSellersQueryDto {
@@ -20,6 +20,20 @@ export class ListAdminSellersQueryDto {
   @IsString()
   @MaxLength(120)
   q?: string;
+
+  /**
+   * Where this HomeKrafter is between "approved" and "actually using the
+   * site" (M32).
+   *
+   * `awaiting` — issued sign-in details they have not used yet. This is
+   * the queue that matters: an approved kitchen sitting here is one
+   * nobody has finished onboarding, and it is invisible without a
+   * filter.
+   * `onboarded` — has chosen their own password.
+   */
+  @IsOptional()
+  @IsIn(['awaiting', 'onboarded'])
+  onboarding?: 'awaiting' | 'onboarded';
 
   @IsOptional()
   @IsInt()

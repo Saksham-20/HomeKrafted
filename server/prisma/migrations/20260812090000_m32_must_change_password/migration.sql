@@ -1,0 +1,13 @@
+-- M32: a credential somebody else issued has to be replaced on first use.
+--
+-- Additive and safe against a live database: one boolean with a default,
+-- and no backfill.
+--
+-- **No backfill is the point.** Every existing account either chose its
+-- own password or has none at all (an approved HomeKrafter is minted
+-- without one), so nobody's credential is currently known to a second
+-- person and nobody should be interrupted. The flag is set going
+-- forward, only by `POST /admin/sellers/:id/temp-password`, which is the
+-- one path that hands a working password to somebody who is not its
+-- owner.
+ALTER TABLE "User" ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false;

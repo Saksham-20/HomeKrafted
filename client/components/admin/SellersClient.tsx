@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api/http";
 import {
   approveSellerApplication,
   type InviteDeliveryReport,
+  type TemporarySignInDetails,
   getAllSellers,
   getPendingSellerApplications,
   rejectSellerApplication,
@@ -39,6 +40,22 @@ const TYPE_FILTERS: { value: SellerSpecialty | "all"; label: string }[] = [
   ...SPECIALTY_GROUPS.flatMap((group) =>
     group.values.map((value) => ({ value, label: SPECIALTY_LABELS[value] })),
   ),
+];
+
+type OnboardingFilter = "all" | "awaiting" | "onboarded";
+
+/**
+ * Approved is not the same as arrived (M32).
+ *
+ * An account exists from the moment an admin clicks approve, but until
+ * somebody signs in and chooses a password, that kitchen is a row in a
+ * table and nothing else. "Not signed in yet" is the list with work
+ * attached — every one of them is a phone call somebody still owes.
+ */
+const ONBOARDING_FILTERS: { value: OnboardingFilter; label: string }[] = [
+  { value: "all", label: "Everyone" },
+  { value: "awaiting", label: "Not signed in yet" },
+  { value: "onboarded", label: "Signed in" },
 ];
 
 /**
@@ -76,7 +93,10 @@ export function SellersClient() {
    * in-app notification, to an inbox behind the login they could not pass.
    */
   const [inviteWarning, setInviteWarning] = useState<InviteDeliveryReport | null>(null);
+  /** Sign-in details from the approval that just happened (M32). */
+  const [approvedSignIn, setApprovedSignIn] = useState<TemporarySignInDetails | null>(null);
   const [typeFilter, setTypeFilter] = useState<SellerSpecialty | "all">("all");
+  const [onboardingFilter, setOnboardingFilter] = useState<OnboardingFilter>("all");
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(0);
   const [page, setPage] = useState(1);
@@ -92,7 +112,11 @@ export function SellersClient() {
     let cancelled = false;
     (async () => {
       const [sellerPage, pending] = await Promise.all([
-        getAllSellers({ specialty: typeFilter === "all" ? undefined : typeFilter, page }),
+        getAllSellers({
+          specialty: typeFilter === "all" ? undefined : typeFilter,
+          onboarding: onboardingFilter === "all" ? undefined : onboardingFilter,
+          page,
+        }),
         getPendingSellerApplications(),
       ]);
       if (cancelled) return;
@@ -105,7 +129,7 @@ export function SellersClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, role, typeFilter, page, reloadToken]);
+  }, [ready, role, typeFilter, onboardingFilter, page, reloadToken]);
 
   /**
    * All three actions used to be a bare `await` + `refetch()` with no
@@ -145,11 +169,19 @@ export function SellersClient() {
 
   async function handleApprove(applicationId: string) {
     setInviteWarning(null);
+    setApprovedSignIn(null);
     let report: InviteDeliveryReport | undefined;
+    let signIn: TemporarySignInDetails | undefined;
     await run(async () => {
       const result = await approveSellerApplication(applicationId);
       report = result?.invite;
+      signIn = result?.signIn;
     }, "Couldn't approve that application. Try again.");
+    // The credentials, surfaced at the moment of approval rather than a
+    // click away (M32) — this is when the admin is most likely to be
+    // about to ring them. They also stay on the HomeKrafter's own row
+    // until used, so closing this loses nothing.
+    if (signIn) setApprovedSignIn(signIn);
     // Absent in mock mode, where nothing is sent — that is not a failure.
     if (report && !report.reached) setInviteWarning(report);
   }
@@ -192,6 +224,29 @@ export function SellersClient() {
             {actionError}
           </p>
         )}
+        {approvedSignIn && (
+          <div className={styles.inviteWarning} role="status">
+            <p className={styles.inviteWarningLead}>
+              Approved. Here is how {approvedSignIn.displayName} signs in.
+            </p>
+            <p className={styles.inviteWarningBody}>
+              Read these out to them. They stay on this HomeKrafter&apos;s row
+              until they sign in and choose their own password — nothing else on
+              the site works for them until they do.
+            </p>
+            <code className={styles.inviteLink}>
+              {approvedSignIn.email ?? approvedSignIn.phone} ·{" "}
+              {approvedSignIn.temporaryPassword}
+            </code>
+            <button
+              type="button"
+              className={styles.inviteDismiss}
+              onClick={() => setApprovedSignIn(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {inviteWarning && (
           <div className={styles.inviteWarning} role="status">
             <p className={styles.inviteWarningLead}>
@@ -220,6 +275,23 @@ export function SellersClient() {
 
       {tab === "sellers" ? (
         <>
+          {/* Onboarding first: "who have we approved but not actually got
+              online" is the question with work attached, and it was
+              unanswerable before M32. Type is the browsing filter and
+              stays below it. */}
+          <div className={styles.chipRow} role="tablist" aria-label="Filter by onboarding">
+            {ONBOARDING_FILTERS.map((f) => (
+              <Chip
+                key={f.value}
+                label={f.label}
+                selected={onboardingFilter === f.value}
+                onClick={() => {
+                  setOnboardingFilter(f.value);
+                  setPage(1);
+                }}
+              />
+            ))}
+          </div>
           <div className={styles.chipRow} role="tablist" aria-label="Filter by type">
             {TYPE_FILTERS.map((f) => (
               <Chip key={f.value} label={f.label} selected={typeFilter === f.value} onClick={() => {

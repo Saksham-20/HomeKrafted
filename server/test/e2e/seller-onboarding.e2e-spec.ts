@@ -75,17 +75,37 @@ describe('an approved HomeKrafter can sign in', () => {
     return { phone, email };
   }
 
-  it('provisions an account with no password, by design', async () => {
-    // Not a bug in itself — an admin should never set someone's password.
-    // It is only a lockout when phone sign-in isn't offered.
+  /**
+   * **This reverses the M21 rule, deliberately (M32).**
+   *
+   * Approval used to leave `passwordHash: null` on the reasoning that an
+   * admin must never set somebody's password. That reasoning assumed the
+   * invite link arrives — and it does not, because no SendGrid or Twilio
+   * key is configured, so the link degrades to a line in the server log.
+   * The rule was therefore protecting a principle by leaving every
+   * approved kitchen with an account and no door.
+   *
+   * What replaces it keeps the substance of the rule: the issued password
+   * is force-rotated at first sign-in (`mustChangePassword`, enforced in
+   * `JwtAuthGuard`), so the admin's copy stops working the moment its
+   * owner arrives, and it is cleared from the database at that point.
+   * Restore the old behaviour once real provider keys exist.
+   */
+  it('provisions an account with issued sign-in details, forced to rotate', async () => {
     const { email } = await applyAndApprove();
     const user = await h.prisma.user.findUnique({ where: { email } });
     expect(user!.role).toBe('seller');
-    expect(user!.passwordHash).toBeNull();
+    expect(user!.passwordHash).not.toBeNull();
+    expect(user!.mustChangePassword).toBe(true);
+    // Readable to the admin panel until claimed — and only until then.
+    expect(user!.tempPassword).toBeTruthy();
+    expect(user!.credentialsClaimedAt).toBeNull();
+    // The account is still phone-first; using the password or the emailed
+    // link is what adds `email`.
     expect(user!.authProviders).toEqual(['phone']);
   });
 
-  it('refuses every password, because there is none to match', async () => {
+  it('refuses a password that is not the one issued', async () => {
     const { email } = await applyAndApprove();
     await h
       .api()

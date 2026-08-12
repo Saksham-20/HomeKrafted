@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
@@ -51,6 +51,18 @@ export class AdminSellersController {
    * otherwise unfixable now that a duplicate application is correctly
    * refused.
    */
+  /**
+   * Sign-in details an admin can read out over the phone, for a kitchen
+   * the invite email never reached. Returns the password **once** — it is
+   * stored only as a hash, and the account must replace it at first
+   * sign-in. See `AdminSellersService.issueTemporaryPassword`.
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post(':id/temp-password')
+  issueTemporaryPassword(@CurrentUser() admin: RequestUser, @Param('id') id: string) {
+    return this.sellersService.issueTemporaryPassword(admin.userId, id);
+  }
+
   @Post(':id/resend-invite')
   resendInvite(@CurrentUser() admin: RequestUser, @Param('id') id: string) {
     return this.sellersService.resendInvite(admin.userId, id);

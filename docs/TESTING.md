@@ -152,13 +152,33 @@ through the real application flow is not:
    with the link shown so it can be handed over by hand. That is the
    expected state today, not a bug. `POST /admin/sellers/:id/resend-invite`
    re-sends and burns the previous link.
+5. **M32 — approval also issues a username and a short temporary
+   password**, shown on the approval banner and on the HomeKrafter's row
+   under **Sign-in details**, so an admin can simply read them out. They
+   stay visible until used. The moment that kitchen signs in and chooses
+   their own password, the temporary one is deleted and the row flips to
+   "Signed in" — which is what the **Not signed in yet / Signed in**
+   filter above the list is counting.
 
-The approved account has **no password at the moment of approval** — an
-admin never sets one, and must not be able to. So a one-time code is also
-always a valid way in: the sign-in form is one field, and `/auth/continue`
-answers **409** for an account with no password, which the form turns into
-the code route automatically. "Use a code instead" is visible before any
-failure, deliberately.
+**What to check on the forced change (M32).** Sign in with an issued
+password: you should land on `/set-password`, not the dashboard, and
+every other page should refuse you (the API answers `403
+PASSWORD_CHANGE_REQUIRED` — that is the gate working, not a bug). After
+saving a new password you continue straight into `/seller` without
+signing in again, the old password stops working, and the admin panel no
+longer shows one.
+
+Approval used to leave the account with **no** password at all, on the
+rule that an admin must never set one. M32 reversed that, because with no
+provider keys the link reaches nobody and the rule was leaving every real
+kitchen with an account and no door. The substance is preserved by the
+forced rotation above: the admin's copy stops working the moment its
+owner arrives. Restore the old behaviour once SendGrid/Twilio are set.
+
+A one-time code also remains a valid way in: the sign-in form is one
+field, and `/auth/continue` answers **409** for an account with no
+password, which the form turns into the code route automatically. "Use a
+code instead" is visible before any failure, deliberately.
 
 Two ways this has actually broken, both worth re-checking if a newly
 approved kitchen cannot reach `/seller`: before M17 the form offered only

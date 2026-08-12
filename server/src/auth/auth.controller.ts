@@ -27,6 +27,9 @@ import { SocialLoginDto } from './dto/social-login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RequestUser } from '../common/types/jwt-payload.type';
 
 /**
  * Brute-force budget for the auth routes, from `THROTTLE_AUTH_LIMIT` /
@@ -118,6 +121,29 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
     await this.authService.resetPassword(dto.token, dto.password);
     return { message: 'Password updated. Sign in with your new password.' };
+  }
+
+  /**
+   * Change the password of the account you are signed in as.
+   *
+   * Not `@Public()` — this is the one password path that proves identity
+   * with a session plus the current password rather than with a token
+   * from an email. It is also the exit from `mustChangePassword`, so it
+   * is on `JwtAuthGuard`'s tiny exempt list; everything else stays shut
+   * until it succeeds.
+   *
+   * Returns a fresh token pair: the change revokes every existing
+   * session, including any opened with an admin-issued temporary
+   * password, and the caller has to swap to tokens that outlive it.
+   */
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  @Post('password/change')
+  async changePassword(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<AuthResult> {
+    return this.authService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
   }
 
   @Public()

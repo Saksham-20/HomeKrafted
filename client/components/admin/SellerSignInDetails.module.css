@@ -1,0 +1,88 @@
+/* Sign-in details for one approved HomeKrafter (M32). Same disclosure
+   footprint as `SellerVerificationPanel` — it opens under the same row —
+   but a single column, because there is nothing to compare here. */
+.panel {
+  padding: var(--hk-s4);
+  margin-top: var(--hk-s2);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-lg);
+  background: var(--hk-surface-3);
+}
+
+.lead {
+  margin: 0 0 var(--hk-s3);
+  font-size: 13px;
+  color: var(--hk-ink-2);
+  max-width: 62ch;
+}
+
+/* The gold tint marks the moment the password is on screen — the one
+   state on this panel that is worth a second look before clicking away. */
+.credentials {
+  padding: var(--hk-s3);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  border-radius: var(--hk-r-sm);
+}
+
+.list {
+  margin: 0 0 var(--hk-s3);
+  display: grid;
+  gap: var(--hk-s2);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) 1fr;
+  gap: var(--hk-s3);
+  align-items: baseline;
+}
+
+.key {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* `--hk-gold-text-sm`, never `--hk-gold`: 11px gold text fails AA on
+     this tint. See CLAUDE.md's gold rule. */
+  color: var(--hk-gold-text-sm);
+}
+
+.value {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--hk-ink);
+  word-break: break-word;
+}
+
+/* Monospace and selectable, for the same reason the invite link is: this
+   is a live credential somebody is about to read out character by
+   character, and an ambiguous glyph costs a support call. */
+.secret {
+  margin: 0;
+  font-family: var(--hk-font-mono);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--hk-ink);
+  user-select: all;
+  word-break: break-all;
+}
+
+.note {
+  margin: 0 0 var(--hk-s3);
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+  max-width: 62ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.error {
+  margin: var(--hk-s3) 0 0;
+  font-size: 13px;
+  color: var(--hk-terracotta-text);
+}

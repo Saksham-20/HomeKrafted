@@ -45,7 +45,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof body === 'string') {
         message = body;
       } else if (typeof body === 'object' && body !== null) {
-        const b = body as { message?: string | string[]; error?: string };
+        const b = body as { message?: string | string[]; error?: string; code?: string };
         if (Array.isArray(b.message)) {
           message = b.message.join('; ');
           code = 'VALIDATION_ERROR';
@@ -53,6 +53,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
           message = b.message;
         } else if (b.error) {
           message = b.error;
+        }
+        // A handler may name its own code by throwing `{ code, message }`
+        // — `PASSWORD_CHANGE_REQUIRED` is the first (M32). Without this
+        // the status default wins and every 403 looks alike, which is no
+        // use to a client that has to route one of them somewhere
+        // specific. Applied last so it beats the status-derived default.
+        if (typeof b.code === 'string' && b.code.length > 0) {
+          code = b.code;
         }
       }
     } else if (exception instanceof Error) {

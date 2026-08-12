@@ -3,6 +3,94 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M32] — A door somebody can actually open — 2026-08-12
+
+An approved HomeKrafter could not sign in. Approval minted an account
+with no credential and emailed a set-password link — and with SendGrid
+and Twilio unset, that link goes to a line in the server log. The rule
+that produced this ("an admin must never set a HomeKrafter's password")
+was protecting a real principle by leaving every real kitchen locked out.
+
+M32 reverses it, and keeps the substance.
+
+### What an admin sees
+
+- **Approval now issues a username and a short temporary password**
+  (`Aa2b-Cd3e-…`, sixteen characters in four groups, drawn from an
+  alphabet with no `O`/`0` or `I`/`l`/`1`) — because the thing it has to
+  survive is being read down a phone to a home cook.
+- **They stay on the HomeKrafter's row, under "Sign-in details", until
+  they are used.** Not a one-time reveal: the onboarding call rarely
+  happens the minute approval does.
+- **They disappear the moment that kitchen signs in and picks their own
+  password**, which is also what flips the row to "Signed in". That state
+  is trustworthy precisely because it is not a flag somebody remembered
+  to set — it is the absence of a credential.
+- **A "Not signed in yet / Signed in" filter**, above the type filters,
+  because "who have we approved but never actually got online" is the
+  list with work attached and was previously unanswerable.
+
+### What the HomeKrafter sees
+
+Signing in with an issued password lands on `/set-password`, not the
+dashboard. Saving continues straight into the portal — no second sign-in
+— because the change returns a fresh token pair.
+
+### Why this is not "an admin can log in as a kitchen"
+
+That was **already** possible before M32: `resendInvite` hands the same
+admin a working set-password link whenever delivery is stubbed. This
+replaces an unaudited capability with an audited one, and adds three
+things that did not exist:
+
+- **Forced rotation, enforced server-side.** `JwtAuthGuard` answers
+  403 `PASSWORD_CHANGE_REQUIRED` on every route except the change screen
+  and `GET /users/me` while `mustChangePassword` is set. A rotation a
+  client can skip is decoration. It costs no extra query — the guard was
+  already reading that row to check suspension.
+- **The admin's copy dies on arrival.** Changing the password revokes
+  every existing session, including one an admin opened with it, and
+  refuses a "new" password equal to the old one — which would otherwise
+  clear the flag while leaving their copy working.
+- **An audit row** (`seller.temp_password_issued`) that never contains
+  the password, the same rule the approve row already applied to the
+  invite link.
+
+### The tradeoff, stated plainly
+
+`User.tempPassword` stores a password **in the clear** until it is
+claimed. That is the price of it being readable aloud a day later, and it
+is bounded three ways: it is only ever a credential its owner has not
+used, every path that sets a real password nulls it in the same statement
+(change *and* the emailed reset link), and it never leaves the admin
+surface. **Retire the column once SendGrid/Twilio keys exist** — with real
+delivery the link is strictly better and nothing needs to be legible to a
+human.
+
+### Also
+
+- `POST /auth/password/change` — the first authenticated password change
+  the platform has had. Requires the current password even though the
+  caller holds a session.
+- The error filter now honours a handler's own `code`, so
+  `PASSWORD_CHANGE_REQUIRED` is distinguishable from any other 403
+  instead of every 403 looking alike.
+- The invite link is deliberately **not** burned when a password is
+  issued. An earlier draft did, on "two ways in is one too many" — wrong
+  here: the link goes to the kitchen's own inbox and the password goes
+  via an admin, so they are two routes to one person. Killing the link
+  would break the case where their email works.
+
+### Tests
+
+`server/test/e2e/temp-password.e2e-spec.ts` (15 cases) covers the whole
+lifecycle: the password is never stored in the clear once claimed, never
+in the audit row, every other route is refused until rotation, the
+admin's copy stops working, and an already-open admin session is revoked.
+`seller-onboarding.e2e-spec.ts`'s "provisions an account with no
+password, by design" is rewritten rather than deleted — the reversal is
+recorded where the old rule was asserted.
+
 ## [M31] — The skeleton was the wait — 2026-08-11
 
 Sign-in and sign-up performance, planned from two exploration passes and

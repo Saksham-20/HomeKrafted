@@ -92,6 +92,7 @@ import {
   refreshSession,
   registerWithEmail,
   continueWithPassword as apiContinueWithPassword,
+  changePassword as apiChangePassword,
   requestOtpCode,
   socialLogin,
   verifyOtpCode,
@@ -236,6 +237,8 @@ export interface AuthContextValue {
   switchToSelling: () => void;
   /** Re-fetches `GET /users/me` and updates the stored snapshot — called after a Profile edit. No-op for admin (mock) sessions. */
   refreshUser: () => Promise<void>;
+  /** Replace the signed-in account's password; resolves to its role so the caller can route on. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<UserRole>;
   signOut: () => void;
 }
 
@@ -640,6 +643,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSellerModeState("selling");
   }
 
+  /**
+   * Replace the current password, and swap to the session that survives
+   * it (M32).
+   *
+   * The server revokes every existing token as part of the change — the
+   * whole point, since an admin-issued password may have been used to
+   * open one — and hands back a fresh pair. `completeRealSignIn` is what
+   * stores them, so this is a sign-in as far as the client is concerned,
+   * which is also what clears `mustChangePassword` out of the stored
+   * session and lets the gates open.
+   */
+  async function changePassword(currentPassword: string, newPassword: string): Promise<UserRole> {
+    const result = await apiChangePassword(currentPassword, newPassword);
+    return completeRealSignIn(result);
+  }
+
   async function refreshUser() {
     if (mock || role === undefined) return;
     try {
@@ -754,6 +773,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switchToShopping,
     switchToSelling,
     refreshUser,
+    changePassword,
     signOut,
   };
 

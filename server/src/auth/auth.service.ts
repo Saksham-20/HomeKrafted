@@ -116,6 +116,10 @@ export type PublicUser = Pick<
   | 'suspended'
   | 'emailVerified'
   | 'phoneVerified'
+  // M32. The client reads this to send somebody straight to the
+  // set-a-password screen; the server does not trust it to — see
+  // `JwtAuthGuard`, which refuses every other route regardless.
+  | 'mustChangePassword'
 >;
 
 /**
@@ -415,13 +419,108 @@ export class AuthService {
       }),
       this.prisma.user.update({
         where: { id: stored.userId },
-        data: { passwordHash, authProviders },
+        data: {
+          passwordHash,
+          authProviders,
+          // The other way an issued credential dies (M32): somebody who
+          // uses the emailed link rather than the temporary password has
+          // still chosen their own, so the admin panel must stop showing
+          // one — and the forced-change gate must let them through.
+          mustChangePassword: false,
+          tempPassword: null,
+          credentialsClaimedAt: stored.user.credentialsClaimedAt ?? new Date(),
+        },
       }),
       this.prisma.refreshToken.updateMany({
         where: { userId: stored.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       }),
     ]);
+  }
+
+  /**
+   * An authenticated password change — and the way an admin-issued
+   * temporary credential is retired (M32).
+   *
+   * Three things happen together, and the third is the point:
+   * 1. the current password is verified, so holding a session is not
+   *    enough to take the account over;
+   * 2. `mustChangePassword` is cleared, which is what lets the account
+   *    out of the gate `JwtAuthGuard` holds it in;
+   * 3. **every existing session is revoked, and the caller is handed a
+   *    fresh one.** A temporary password was known to an admin, so any
+   *    session opened with it — including one the admin opened — has to
+   *    die the moment its owner chooses their own. Revoking the lot and
+   *    re-issuing is what makes that true without bouncing the person who
+   *    just set the password back to the sign-in form; they swap to the
+   *    returned tokens and carry on.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<AuthResult> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Account no longer exists');
+    this.assertNotSuspended(user);
+
+    if (!user.passwordHash) {
+      // Nothing to compare against. This account signs in by code, so the
+      // way to *gain* a password is the reset link, which proves the
+      // address or number instead.
+      throw new BadRequestException(
+        'This account does not have a password yet. Use the emailed link to set one.',
+      );
+    }
+
+    const valid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!valid) {
+      throw new UnauthorizedException('That password does not match this account.');
+    }
+
+    // Refusing a no-op change matters more here than it looks: the whole
+    // reason this screen is forced is that somebody else knows the old
+    // password, so "changing" it to itself would clear the flag while
+    // leaving that person's credential working.
+    if (await argon2.verify(user.passwordHash, newPassword)) {
+      throw new BadRequestException('Choose a password you have not used for this account before.');
+    }
+
+    const passwordHash = await argon2.hash(newPassword, PASSWORD_HASH_OPTIONS);
+
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          // The issued credential is gone the moment its owner replaces
+          // it — this is what makes the admin panel stop showing it, and
+          // what keeps the plaintext column a short-lived exception
+          // rather than a password store.
+          tempPassword: null,
+          credentialsClaimedAt: user.credentialsClaimedAt ?? new Date(),
+          // They have just proved they hold whatever channel the
+          // credential was handed over on, and an account that signs in
+          // with a password is no longer phone-only — same reasoning as
+          // `resetPassword`.
+          authProviders:
+            user.authProviders.includes('email') || !user.email
+              ? user.authProviders
+              : [...user.authProviders, 'email' as const],
+        },
+        include: SELLER_ID_INCLUDE,
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+
+    // Issued after the revocation above, so the new pair is the only one
+    // alive. Without this the caller would have just locked themselves
+    // out with their own password change.
+    return this.issueSession(updated, sellerIdOf(updated));
   }
 
   // ---------------------------------------------------------------------
@@ -967,6 +1066,7 @@ export class AuthService {
       suspended: user.suspended,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }

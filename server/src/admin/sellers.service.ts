@@ -1,6 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, Seller, SellerApplication, SellerApplicationCategory, SellerSpecialty, VendorType } from '@prisma/client';
+import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
+import { PASSWORD_HASH_OPTIONS } from '../auth/hashing';
+import { generateTemporaryPassword } from './temp-password.util';
 import { areaById } from '../common/geo';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
 import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
@@ -81,6 +84,33 @@ function mapSeller(seller: Seller, vendorName?: string) {
   };
 }
 
+/**
+ * Where one HomeKrafter stands between "approved" and "using the site",
+ * and the credentials to get them there if they are not (M32).
+ *
+ * `temporaryPassword` is present **only** while it is still the account's
+ * password — the moment its owner chooses their own it is `null`ed in the
+ * database, so this returns nothing rather than a stale secret. That is
+ * the whole reason the panel can show it persistently without it becoming
+ * a permanent credential store.
+ */
+function mapSignInState(user: {
+  email: string | null;
+  phone: string | null;
+  mustChangePassword: boolean;
+  tempPassword: string | null;
+  tempPasswordIssuedAt: Date | null;
+  credentialsClaimedAt: Date | null;
+}) {
+  return {
+    status: user.mustChangePassword ? ('awaiting' as const) : ('onboarded' as const),
+    username: user.email ?? user.phone,
+    temporaryPassword: user.mustChangePassword ? user.tempPassword : null,
+    issuedAt: user.tempPasswordIssuedAt?.toISOString() ?? null,
+    claimedAt: user.credentialsClaimedAt?.toISOString() ?? null,
+  };
+}
+
 function mapApplication(app: SellerApplication) {
   return {
     id: app.id,
@@ -116,6 +146,24 @@ export interface ApproveSellerApplicationResult {
    * open. Carries `fallbackLink` **only** when nothing was delivered.
    */
   invite: InviteDeliveryReport;
+  /**
+   * The sign-in details issued alongside the invite (M32) — a username
+   * and a short temporary password an admin can read out, since no
+   * provider key is set and the link reaches nobody.
+   *
+   * Also readable later from the HomeKrafter's row, until they replace
+   * it. See `User.tempPassword` for why the plaintext exists at all and
+   * when to retire it.
+   */
+  signIn: TemporarySignInDetails;
+}
+
+/** What an admin needs in order to get a new HomeKrafter signed in (M32). */
+export interface TemporarySignInDetails {
+  email: string | null;
+  phone: string | null;
+  displayName: string;
+  temporaryPassword: string;
 }
 
 /**
@@ -160,11 +208,28 @@ export class AdminSellersService {
       const contains = { contains: query.q, mode: 'insensitive' as const };
       where.OR = [{ displayName: contains }, { vendor: { name: contains } }];
     }
+    // "Has this kitchen actually arrived?" — expressed as a filter on the
+    // account, since the evidence is a password they chose themselves
+    // (M32). `awaiting` is the working queue; `onboarded` is the receipt.
+    if (query.onboarding === 'awaiting') where.user = { mustChangePassword: true };
+    if (query.onboarding === 'onboarded') where.user = { mustChangePassword: false };
 
     const [sellers, total] = await Promise.all([
       this.prisma.seller.findMany({
         where,
-        include: { vendor: { select: { name: true } } },
+        include: {
+          vendor: { select: { name: true } },
+          user: {
+            select: {
+              email: true,
+              phone: true,
+              mustChangePassword: true,
+              tempPassword: true,
+              tempPasswordIssuedAt: true,
+              credentialsClaimedAt: true,
+            },
+          },
+        },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -172,7 +237,15 @@ export class AdminSellersService {
       this.prisma.seller.count({ where }),
     ]);
 
-    return { items: sellers.map((s) => mapSeller(s, s.vendor?.name)), page, pageSize, total };
+    return {
+      items: sellers.map((s) => ({
+        ...mapSeller(s, s.vendor?.name),
+        signIn: mapSignInState(s.user),
+      })),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async getSellerById(id: string) {
@@ -531,6 +604,26 @@ export class AdminSellersService {
       phone: application.phone,
     });
 
+    // And a password, issued in the same breath (M32).
+    //
+    // This reverses the M21 rule that approval mints an account with no
+    // credential at all. That rule was right when the invite link was
+    // expected to arrive; it is not right today, when no provider key is
+    // set and the link reaches nobody, because it left every approved
+    // kitchen with an account and no door. An admin now has something
+    // short enough to read down a phone, on the row, from the moment
+    // approval happens.
+    //
+    // The safety properties are the ones documented on
+    // `issueTemporaryPassword` and on `User.tempPassword`: forced
+    // rotation at first sign-in, cleared the moment the owner chooses
+    // their own, never in an audit row or a public payload. Revisit once
+    // SendGrid/Twilio exist — with real delivery, the link is better and
+    // this should go back to being nothing.
+    const signIn = await this.issueTemporaryPassword(adminUserId, result.seller.id, {
+      audit: false,
+    });
+
     // Kept, but it is now the second copy rather than the only one. It is
     // what they find waiting once the invite has got them inside.
     await this.notifications.notify({
@@ -569,6 +662,10 @@ export class AdminSellersService {
       // present only when nothing was delivered, and is what an admin
       // passes on by hand.
       invite,
+      // The credentials themselves, so the admin has something to read
+      // out the moment approval lands rather than hunting for a button.
+      // They also stay on the HomeKrafter's row until claimed.
+      signIn,
     };
   }
 
@@ -661,6 +758,118 @@ export class AdminSellersService {
     });
 
     return { invite };
+  }
+
+  /**
+   * Mints a temporary password for an approved HomeKrafter and returns it
+   * to the admin **once** (M32).
+   *
+   * This exists because the invite link cannot be delivered: SendGrid and
+   * Twilio are unset in production, so `sendApprovalInvite` degrades to a
+   * logged stub and the only way a real kitchen gets in is an admin
+   * reading something out over the phone. A link is 200 characters of
+   * base16; a password is sixteen characters in four groups. That is the
+   * whole difference, and it is the difference between an onboarding call
+   * that works and one that doesn't.
+   *
+   * **Why this does not reopen "an admin must never set a HomeKrafter's
+   * password" (CLAUDE.md).** That rule protects against an admin holding
+   * a working credential for an account that can change payout details.
+   * Three things keep that true here, and none may be removed:
+   *
+   * 1. **The password is never stored.** Only its argon2 hash is written;
+   *    the plaintext exists in one HTTP response and nowhere else — not
+   *    in the audit row, not in a column, not in a log line.
+   * 2. **It dies on first use.** `mustChangePassword` is set, and
+   *    `JwtAuthGuard` refuses every route except the change-password
+   *    screen until the owner replaces it. The admin's copy stops working
+   *    the moment the real HomeKrafter arrives.
+   * 3. **It is deliberate and audited.** Approval still mints an account
+   *    with no password at all — an admin has to choose this, on the
+   *    record, per account.
+   *
+   * Worth stating plainly: between minting and first use, an admin can
+   * sign in as this HomeKrafter. That was **already** true before this
+   * endpoint — `resendInvite` returns a working set-password link to the
+   * same admin whenever delivery is stubbed — so this does not add a
+   * capability, it adds a forced rotation and an audit trail to one that
+   * existed. Revisit the whole shape once real provider keys are set.
+   */
+  async issueTemporaryPassword(
+    adminUserId: string,
+    sellerId: string,
+    options: { audit?: boolean } = {},
+  ) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: sellerId },
+      include: { user: { select: { id: true, email: true, phone: true, suspended: true } } },
+    });
+    if (!seller) throw new NotFoundException('HomeKrafter not found');
+    if (seller.status !== 'approved') {
+      throw new ConflictException('Only an approved HomeKrafter has an account to sign in to.');
+    }
+    if (seller.user.suspended) {
+      throw new ConflictException(
+        'This account is suspended. Un-suspend it before issuing sign-in details.',
+      );
+    }
+
+    const temporaryPassword = generateTemporaryPassword();
+    const passwordHash = await argon2.hash(temporaryPassword, PASSWORD_HASH_OPTIONS);
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: seller.userId },
+        data: {
+          passwordHash,
+          mustChangePassword: true,
+          // Kept legible until its owner replaces it, so the admin can
+          // read it out again tomorrow — see the field's doc comment for
+          // why that exception is bounded and when to retire it.
+          tempPassword: temporaryPassword,
+          tempPasswordIssuedAt: new Date(),
+        },
+      }),
+      // Any session already open on this account dies with the old
+      // credential — including one an admin opened with a previous
+      // temporary password.
+      this.prisma.refreshToken.updateMany({
+        where: { userId: seller.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+    // The invite link is deliberately **left alive**. An earlier draft
+    // burned it here, on "two working ways in is one too many" — which is
+    // wrong on this flow: the link goes to the HomeKrafter's own inbox
+    // and the password goes through an admin, so they are two routes to
+    // the same person, not a widened attack surface. Killing the link
+    // would break the good case (their email works) to tidy up the bad
+    // one. Both are single-use in effect: the link consumes itself, and
+    // the password is force-rotated at first sign-in.
+
+    // Skipped when this runs as part of approval, which writes its own
+    // row a moment later — two entries for one admin action reads as two
+    // actions.
+    if (options.audit !== false) {
+      await this.auditLog.log({
+        actorId: adminUserId,
+        action: 'seller.temp_password_issued',
+        targetType: 'Seller',
+        targetId: sellerId,
+        // Never the password itself. Same rule as the approve audit row,
+        // which deliberately omits the invite link.
+        metadata: { userId: seller.userId, mustChangePassword: true },
+      });
+    }
+
+    return {
+      // The identifier half of "sign-in details" — an admin reading this
+      // out needs both, and the account may be phone-only.
+      email: seller.user.email,
+      phone: seller.user.phone,
+      temporaryPassword,
+      displayName: seller.displayName,
+    };
   }
 
   private async uniqueVendorSlug(tx: Prisma.TransactionClient, name: string): Promise<string> {
