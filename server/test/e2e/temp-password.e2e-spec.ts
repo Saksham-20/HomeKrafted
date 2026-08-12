@@ -289,6 +289,115 @@ describe('admin-issued sign-in details (M32)', () => {
     });
   });
 
+  /**
+   * Three states, not two — and the third is the one that matters.
+   *
+   * `mustChangePassword` alone answers "have they replaced what we gave
+   * them", which reads `false` both for somebody who arrived and chose a
+   * password *and* for somebody who was never given one. Run against
+   * production and all thirteen existing kitchens came back "onboarded"
+   * without a single sign-in between them: the list with the most work
+   * attached was reporting as the list with none.
+   */
+  describe('the admin list separates never-issued from never-used from arrived', () => {
+    const stateOf = async (adminActor: { token: string }, sellerId: string) => {
+      const res = await h
+        .api()
+        .get(`${API_PREFIX}/admin/sellers?pageSize=100`)
+        .set({ Authorization: `Bearer ${adminActor.token}` })
+        .expect(200);
+      return res.body.items.find((s: { id: string }) => s.id === sellerId)?.signIn;
+    };
+
+    it('reports no_credentials for an account that has no password at all', async () => {
+      const admin = await createActor(h, 'admin');
+      const seller = await approvedKitchen();
+
+      const signIn = await stateOf(admin, seller.id);
+      expect(signIn.status).toBe('no_credentials');
+      expect(signIn.temporaryPassword).toBeNull();
+    });
+
+    it('reports awaiting once details are issued, with the password readable', async () => {
+      const admin = await createActor(h, 'admin');
+      const seller = await approvedKitchen();
+      const password: string = (await issue(admin, seller.id).expect(200)).body.temporaryPassword;
+
+      const signIn = await stateOf(admin, seller.id);
+      expect(signIn.status).toBe('awaiting');
+      expect(signIn.temporaryPassword).toBe(password);
+    });
+
+    it('reports onboarded with nothing readable once they choose their own', async () => {
+      const admin = await createActor(h, 'admin');
+      const seller = await approvedKitchen();
+      const user = await h.prisma.user.findUnique({ where: { id: seller.userId } });
+      const password: string = (await issue(admin, seller.id).expect(200)).body.temporaryPassword;
+
+      const session = await h
+        .api()
+        .post(`${API_PREFIX}/auth/login`)
+        .send({ email: user!.email, password })
+        .expect(200);
+      await h
+        .api()
+        .post(`${API_PREFIX}/auth/password/change`)
+        .set({ Authorization: `Bearer ${session.body.accessToken}` })
+        .send({ currentPassword: password, newPassword: 'my-own-password-99' })
+        .expect(200);
+
+      const signIn = await stateOf(admin, seller.id);
+      expect(signIn.status).toBe('onboarded');
+      expect(signIn.temporaryPassword).toBeNull();
+      expect(signIn.claimedAt).toBeTruthy();
+    });
+
+    it('filters to each state, and the three are disjoint', async () => {
+      const admin = await createActor(h, 'admin');
+      const bearer = { Authorization: `Bearer ${admin.token}` };
+
+      const untouched = await approvedKitchen();
+      const issued = await approvedKitchen();
+      await issue(admin, issued.id).expect(200);
+      const arrived = await approvedKitchen();
+      const arrivedUser = await h.prisma.user.findUnique({ where: { id: arrived.userId } });
+      const password: string = (await issue(admin, arrived.id).expect(200)).body.temporaryPassword;
+      const session = await h
+        .api()
+        .post(`${API_PREFIX}/auth/login`)
+        .send({ email: arrivedUser!.email, password })
+        .expect(200);
+      await h
+        .api()
+        .post(`${API_PREFIX}/auth/password/change`)
+        .set({ Authorization: `Bearer ${session.body.accessToken}` })
+        .send({ currentPassword: password, newPassword: 'my-own-password-99' })
+        .expect(200);
+
+      const idsFor = async (onboarding: string) => {
+        const res = await h
+          .api()
+          .get(`${API_PREFIX}/admin/sellers?pageSize=100&onboarding=${onboarding}`)
+          .set(bearer)
+          .expect(200);
+        return res.body.items.map((s: { id: string }) => s.id);
+      };
+
+      expect(await idsFor('no_credentials')).toEqual([untouched.id]);
+      expect(await idsFor('awaiting')).toEqual([issued.id]);
+      expect(await idsFor('onboarded')).toEqual([arrived.id]);
+    });
+
+    it('refuses a state nobody defined', async () => {
+      const admin = await createActor(h, 'admin');
+      await h
+        .api()
+        .get(`${API_PREFIX}/admin/sellers?onboarding=maybe`)
+        .set({ Authorization: `Bearer ${admin.token}` })
+        .expect(400);
+    });
+  });
+
   describe('nobody else is disturbed', () => {
     it('leaves an ordinary account free to use the site', async () => {
       const shopper = await createActor(h, 'consumer');

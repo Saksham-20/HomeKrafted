@@ -211,8 +211,8 @@ export interface AdminSellersQuery {
   specialty?: SellerSpecialty;
   q?: string;
   page?: number;
-  /** M32 — `awaiting`: issued sign-in details, never used. `onboarded`: chose their own password. */
-  onboarding?: "awaiting" | "onboarded";
+  /** M32 — `awaiting`: issued details, never used. `onboarded`: chose their own password. `no_credentials`: no password at all. */
+  onboarding?: "awaiting" | "onboarded" | "no_credentials";
 }
 
 export interface AdminSellersPage {

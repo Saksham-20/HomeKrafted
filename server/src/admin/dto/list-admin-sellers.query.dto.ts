@@ -30,10 +30,13 @@ export class ListAdminSellersQueryDto {
    * nobody has finished onboarding, and it is invisible without a
    * filter.
    * `onboarded` — has chosen their own password.
+   * `no_credentials` — approved before M32 (or since reset to nothing):
+   * an account with no password at all, so no way in exists yet. This is
+   * the most actionable list of the three.
    */
   @IsOptional()
-  @IsIn(['awaiting', 'onboarded'])
-  onboarding?: 'awaiting' | 'onboarded';
+  @IsIn(['awaiting', 'onboarded', 'no_credentials'])
+  onboarding?: 'awaiting' | 'onboarded' | 'no_credentials';
 
   @IsOptional()
   @IsInt()

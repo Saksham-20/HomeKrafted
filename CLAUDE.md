@@ -857,6 +857,17 @@ had a test, and none was visible from reading the happy path.
   `PASSWORD_CHANGE_REQUIRED` on every route but the change screen), the
   plaintext is deleted the moment its owner picks their own, and the act
   is audited. **Restore the original rule once SendGrid/Twilio exist.**
+
+  **Onboarding state is three-valued, and `mustChangePassword` alone
+  cannot express it.** That flag is `false` both for a kitchen that
+  arrived and chose a password *and* for one that was never given a
+  credential, so the two-state version reported all thirteen existing
+  production HomeKrafters as "onboarded" with zero sign-ins between them.
+  `mapSignInState` reads `passwordHash` too: `awaiting` (issued, unused) ·
+  `onboarded` (has a password of their own) · `no_credentials` (none at
+  all — pre-M32, and the list with the most work attached). Any new
+  surface answering "has this kitchen actually got online" owes the same
+  three-way split.
   Everything below still holds: A one-time code therefore remains a first-class sign-in and
   **any surface offering to sign a HomeKrafter in must offer it**:
   removing it gives every real kitchen "Incorrect email or password" for a

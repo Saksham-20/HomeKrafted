@@ -26,9 +26,15 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
   const suspended = seller.status === "suspended";
   const [verifying, setVerifying] = useState(false);
   const [signIn, setSignIn] = useState(false);
-  // "Approved, but nobody has ever signed in" — the state that is
-  // invisible without saying so, and the reason the filter exists (M32).
+  // Two ways of not having arrived yet, and they need different work
+  // (M32). `awaiting` — details were issued and nobody has used them, so
+  // somebody owes a phone call. `no_credentials` — no password exists at
+  // all, so there is nothing to read out: every HomeKrafter approved
+  // before M32 sits here, and until an admin issues details they cannot
+  // sign in by any route the panel offers.
   const awaiting = seller.signIn?.status === "awaiting";
+  const noCredentials = seller.signIn?.status === "no_credentials";
+  const pending = awaiting || noCredentials;
   return (
     <Card padding="sm" className={styles.row}>
       <div className={styles.body}>
@@ -41,6 +47,7 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
       </div>
       <span className={styles.badges}>
         {awaiting && <span className={styles.awaitingPill}>Not signed in yet</span>}
+        {noCredentials && <span className={styles.awaitingPill}>No sign-in yet</span>}
         <StatusPill status={seller.status} />
       </span>
       <span className={styles.actions}>
@@ -62,7 +69,7 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
             onClick={() => setSignIn((open) => !open)}
             aria-expanded={signIn}
           >
-            {signIn ? "Close" : awaiting ? "Sign-in details" : "Sign-in"}
+            {signIn ? "Close" : pending ? "Sign-in details" : "Sign-in"}
           </Button>
         )}
         <Button

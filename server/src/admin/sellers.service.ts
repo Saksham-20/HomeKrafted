@@ -97,13 +97,26 @@ function mapSeller(seller: Seller, vendorName?: string) {
 function mapSignInState(user: {
   email: string | null;
   phone: string | null;
+  passwordHash: string | null;
   mustChangePassword: boolean;
   tempPassword: string | null;
   tempPasswordIssuedAt: Date | null;
   credentialsClaimedAt: Date | null;
 }) {
+  // Three states, not two. `no_credentials` is every HomeKrafter approved
+  // before M32: they have an account and have never had a password, so
+  // calling them "onboarded" — which two states forced — would report the
+  // people most in need of a phone call as the ones needing nothing.
+  // Found by running this against production, where all thirteen existing
+  // kitchens came back "onboarded" and none of them had ever signed in.
+  const status = user.mustChangePassword
+    ? ('awaiting' as const)
+    : user.passwordHash
+      ? ('onboarded' as const)
+      : ('no_credentials' as const);
+
   return {
-    status: user.mustChangePassword ? ('awaiting' as const) : ('onboarded' as const),
+    status,
     username: user.email ?? user.phone,
     temporaryPassword: user.mustChangePassword ? user.tempPassword : null,
     issuedAt: user.tempPasswordIssuedAt?.toISOString() ?? null,
@@ -212,7 +225,12 @@ export class AdminSellersService {
     // account, since the evidence is a password they chose themselves
     // (M32). `awaiting` is the working queue; `onboarded` is the receipt.
     if (query.onboarding === 'awaiting') where.user = { mustChangePassword: true };
-    if (query.onboarding === 'onboarded') where.user = { mustChangePassword: false };
+    if (query.onboarding === 'onboarded') {
+      where.user = { mustChangePassword: false, passwordHash: { not: null } };
+    }
+    if (query.onboarding === 'no_credentials') {
+      where.user = { mustChangePassword: false, passwordHash: null };
+    }
 
     const [sellers, total] = await Promise.all([
       this.prisma.seller.findMany({
@@ -223,6 +241,7 @@ export class AdminSellersService {
             select: {
               email: true,
               phone: true,
+              passwordHash: true,
               mustChangePassword: true,
               tempPassword: true,
               tempPasswordIssuedAt: true,

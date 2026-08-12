@@ -42,6 +42,7 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
   // after "Create another" the row's copy is a render behind.
   const password = issued ?? signIn.temporaryPassword;
   const onboarded = signIn.status === "onboarded" && !issued;
+  const noCredentials = signIn.status === "no_credentials" && !issued;
 
   async function reissue() {
     if (busy) return;
@@ -78,6 +79,31 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
       // convenience that failed rather than a failure.
       setCopied(false);
     }
+  }
+
+  if (noCredentials) {
+    return (
+      <div className={styles.panel}>
+        <p className={styles.lead}>
+          <strong>No way in yet.</strong> This account has no password, so
+          nothing an admin can read out will open it. Every HomeKrafter
+          approved before sign-in details existed is in this state — they were
+          approved, and then nobody could hand them anything.
+        </p>
+        <p className={styles.note}>
+          Creating details below gives them a temporary password to use once.
+          They choose their own the moment they sign in.
+        </p>
+        <Button variant="ghost-gold" size="sm" onClick={reissue} disabled={busy}>
+          {busy ? "Creating…" : "Create sign-in details"}
+        </Button>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
   }
 
   if (onboarded) {

@@ -42,7 +42,7 @@ const TYPE_FILTERS: { value: SellerSpecialty | "all"; label: string }[] = [
   ),
 ];
 
-type OnboardingFilter = "all" | "awaiting" | "onboarded";
+type OnboardingFilter = "all" | "awaiting" | "onboarded" | "no_credentials";
 
 /**
  * Approved is not the same as arrived (M32).
@@ -54,7 +54,8 @@ type OnboardingFilter = "all" | "awaiting" | "onboarded";
  */
 const ONBOARDING_FILTERS: { value: OnboardingFilter; label: string }[] = [
   { value: "all", label: "Everyone" },
-  { value: "awaiting", label: "Not signed in yet" },
+  { value: "no_credentials", label: "No sign-in yet" },
+  { value: "awaiting", label: "Details issued" },
   { value: "onboarded", label: "Signed in" },
 ];
 

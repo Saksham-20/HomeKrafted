@@ -157,8 +157,13 @@ through the real application flow is not:
    under **Sign-in details**, so an admin can simply read them out. They
    stay visible until used. The moment that kitchen signs in and chooses
    their own password, the temporary one is deleted and the row flips to
-   "Signed in" — which is what the **Not signed in yet / Signed in**
-   filter above the list is counting.
+   "Signed in".
+6. **The filter above the list has three states**, and they are worth
+   knowing apart. **No sign-in yet** — no password exists at all, so
+   there is nothing to read out; every HomeKrafter approved before M32 is
+   here, and their row offers "Create sign-in details". **Details
+   issued** — a password is on the row, unused. **Signed in** — they
+   chose their own, and we hold nothing that opens the account.
 
 **What to check on the forced change (M32).** Sign in with an issued
 password: you should land on `/set-password`, not the dashboard, and

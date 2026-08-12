@@ -26,9 +26,17 @@ M32 reverses it, and keeps the substance.
   password**, which is also what flips the row to "Signed in". That state
   is trustworthy precisely because it is not a flag somebody remembered
   to set — it is the absence of a credential.
-- **A "Not signed in yet / Signed in" filter**, above the type filters,
-  because "who have we approved but never actually got online" is the
-  list with work attached and was previously unanswerable.
+- **A three-way onboarding filter**, above the type filters, because
+  "who have we approved but never actually got online" is the list with
+  work attached and was previously unanswerable. Three states, not two:
+  **No sign-in yet** (no password exists at all — nothing to read out),
+  **Details issued** (a password is waiting on the row, unused), **Signed
+  in**. The two-state version shipped first and was wrong in production:
+  `mustChangePassword` is `false` both for somebody who arrived and chose
+  a password and for somebody who was never given one, so all thirteen
+  existing kitchens reported "onboarded" without a single sign-in between
+  them — the list needing the most work reporting as the list needing
+  none.
 
 ### What the HomeKrafter sees
 
@@ -83,10 +91,13 @@ human.
 
 ### Tests
 
-`server/test/e2e/temp-password.e2e-spec.ts` (15 cases) covers the whole
+`server/test/e2e/temp-password.e2e-spec.ts` (20 cases) covers the whole
 lifecycle: the password is never stored in the clear once claimed, never
 in the audit row, every other route is refused until rotation, the
 admin's copy stops working, and an already-open admin session is revoked.
+Five of them pin the three onboarding states and assert the filters are
+disjoint — the two-state bug was invisible to every test that only ever
+looked at one seller.
 `seller-onboarding.e2e-spec.ts`'s "provisions an account with no
 password, by design" is rewritten rather than deleted — the reversal is
 recorded where the old rule was asserted.

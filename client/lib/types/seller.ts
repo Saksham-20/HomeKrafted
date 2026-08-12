@@ -48,8 +48,14 @@ export interface Seller {
 
 /** The onboarding half of a HomeKrafter's record, as the admin panel reads it (M32). */
 export interface SellerSignInState {
-  /** `awaiting` — issued details, not yet used. `onboarded` — chose their own password. */
-  status: "awaiting" | "onboarded";
+  /**
+   * `awaiting` — issued details, not yet used.
+   * `onboarded` — chose their own password.
+   * `no_credentials` — no password at all, so no way in exists yet. Every
+   * HomeKrafter approved before M32 is here, and they are the list with
+   * the most work attached.
+   */
+  status: "awaiting" | "onboarded" | "no_credentials";
   /** What they type in the one sign-in box: their email, or their number if that is all we have. */
   username: string | null;
   /**
