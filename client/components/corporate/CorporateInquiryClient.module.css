@@ -31,6 +31,20 @@
   line-height: 1.6;
 }
 
+/* "Browse the corporate gifting picks →" — the browse half of the single
+   corporate entry (M35). */
+.browseLink {
+  color: var(--hk-pine);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--hk-border);
+  text-underline-offset: 3px;
+}
+
+.browseLink:hover {
+  text-decoration-color: currentColor;
+}
+
 .formCard {
   display: flex;
   flex-direction: column;

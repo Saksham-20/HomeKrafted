@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { Building2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -100,6 +101,16 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
         <p className={styles.subtitle}>
           Curated hampers at volume — festive kits, onboarding boxes, client thank-yous. Tell us
           what you need and our team will put a proposal together.
+        </p>
+        {/* The browse half of the M35 single corporate entry: this page is
+            THE way in (the home occasion grid no longer carries a second
+            "Corporate" tile), so the buyer who wants to see options before
+            filling in a form needs the guide named here. */}
+        <p className={styles.subtitle}>
+          Want to see options first?{" "}
+          <Link href="/guides/corporate-gifting-picks" className={styles.browseLink}>
+            Browse the corporate gifting picks →
+          </Link>
         </p>
       </div>
 

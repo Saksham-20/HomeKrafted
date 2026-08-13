@@ -6,6 +6,7 @@ import { getSnackCategoryFilters, getSnacks } from "@/lib/api";
 import { getChannelRule } from "@/lib/channel";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { SnacksClient } from "@/components/snacks/SnacksClient";
+import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Snacks.module.css";
 
@@ -55,6 +56,7 @@ export default async function SnacksPage() {
             you&rsquo;ll get order updates right in the chat. Full meals &amp; live tracking
             are on the app.
           </p>
+          <KitchenCrossLinks current="/snacks" />
         </div>
       </section>
       <div className="container">

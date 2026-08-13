@@ -4,6 +4,7 @@ import { getBuyerCoords } from "@/lib/location/server";
 import { getCategories, getFoodProducts, getOccasions, getVendors } from "@/lib/api";
 import { LocationBar } from "@/components/location/LocationBar";
 import { ShopClient } from "./ShopClient";
+import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
 
@@ -83,6 +84,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             one, and gives the only route back to the prompt — see
             `LocationBar`. */}
         <LocationBar />
+        <KitchenCrossLinks current="/shop" />
       </div>
       <ShopClient
         products={products}

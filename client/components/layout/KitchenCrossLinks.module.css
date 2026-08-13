@@ -1,0 +1,35 @@
+.rail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13.5px;
+  margin-top: var(--hk-s3);
+}
+
+.lead {
+  color: var(--hk-muted);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.divider {
+  color: var(--hk-muted);
+}
+
+.link {
+  color: var(--hk-pine);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: var(--hk-border);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--hk-dur) var(--hk-ease);
+}
+
+.link:hover {
+  text-decoration-color: currentColor;
+}

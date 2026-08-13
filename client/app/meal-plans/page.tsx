@@ -5,6 +5,7 @@ import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { getBuyerCoords } from "@/lib/location/server";
 import { getMealPlans } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./MealPlans.module.css";
 
@@ -63,6 +64,7 @@ export default async function MealPlansPage() {
           <li>Skip a day and the meal is owed back to you, not lost.</li>
           <li>Pause when you travel. Cancel whenever.</li>
         </ul>
+        <KitchenCrossLinks current="/meal-plans" />
       </header>
 
       {plans.length === 0 ? (
