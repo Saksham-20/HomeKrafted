@@ -106,7 +106,7 @@ export const aboutContent: AboutContent = {
       body: "HomeKrafters selling food give us their FSSAI registration when they apply. Once it has been checked, the storefront says so — and until then it doesn't, because a badge nobody verified is worse than no badge.",
     },
     {
-      title: "The maker is paid for the work",
+      title: "The HomeKrafter is paid for the work",
       body: "An order goes to one kitchen, not to a fulfilment queue. The person who cooked it is the person the money is for.",
     },
   ],
@@ -133,7 +133,7 @@ export const aboutContent: AboutContent = {
       // Live since M20 — `/gifts`, in the nav, with its own catalogue.
       // The "soon" chip outlived the thing it was waiting for.
       title: "Handicrafts & art",
-      body: "Candles, ceramics, prints and hand-poured soap from makers in the tricity — posted anywhere in India, since a craft gift does not need to be near you.",
+      body: "Candles, ceramics, prints and hand-poured soap from HomeKrafters in the tricity — posted anywhere in India, since a craft gift does not need to be near you.",
     },
   ],
 

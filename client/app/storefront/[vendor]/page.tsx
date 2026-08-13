@@ -169,7 +169,7 @@ export default async function StorefrontPage({ params }: StorefrontPageProps) {
         <ReviewList
           reviews={reviews}
           title={`Reviews (${reviews.length})`}
-          emptyLabel="No reviews yet for this maker."
+          emptyLabel="No reviews yet for this HomeKrafter."
         />
       </section>
     </>
