@@ -13,7 +13,9 @@ export interface MakerCardProps {
 }
 
 /**
- * One kitchen on the home page's "Meet the Hands Behind the Flavours" rail.
+ * One kitchen on the home page's "The hands behind it all" rail (renamed
+ * from "Meet the Hands Behind the Flavours" — "flavours" was food-biased
+ * over a maker set that includes craft sellers, the M28 parity rule).
  *
  * This replaced a rail of *products* with a rail of *people* (M20, client
  * copy). That is the whole point of the change: on a platform whose thesis

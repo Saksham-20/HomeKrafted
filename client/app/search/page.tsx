@@ -100,7 +100,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             changes as HomeKrafters cook.
           </p>
           <Link href="/shop" className={styles.emptyCta}>
-            Browse everything
+            Browse homemade food
           </Link>
         </div>
       ) : (

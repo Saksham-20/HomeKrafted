@@ -220,7 +220,7 @@ export default async function Home() {
             Thoughtful handcrafted gifts for every occasion
           </h2>
           <Link href="/collections" className={styles.viewAll}>
-            View all →
+            All occasions →
           </Link>
         </div>
         <div className={styles.occasionGrid}>
@@ -232,9 +232,9 @@ export default async function Home() {
 
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Explore Homemade Favourites</h2>
+          <h2 className={styles.sectionTitle}>Shop by category</h2>
           <Link href="/shop" className={styles.viewAll}>
-            View all →
+            All categories →
           </Link>
         </div>
         {/* `hk-scroll` is the scrollbar tint for a horizontal rail — see
@@ -258,7 +258,7 @@ export default async function Home() {
       {makers.length > 0 && (
         <section className={clsx("container", styles.section)}>
           <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>Meet the Hands Behind the Flavours</h2>
+            <h2 className={styles.sectionTitle}>The hands behind it all</h2>
             <Link href="/shop" className={styles.viewAll}>
               All products →
             </Link>
@@ -280,10 +280,10 @@ export default async function Home() {
         <div className={styles.sectionHead}>
           <div>
             <span className={styles.reelsEyebrow}>Reels</span>
-            <h2 className={styles.sectionTitle}>Homemade on Your Feed</h2>
+            <h2 className={styles.sectionTitle}>Watch it being made</h2>
           </div>
           <Link href="/shop" className={styles.viewAll}>
-            Shop what you see →
+            Browse the shop →
           </Link>
         </div>
         <ReelsRailClient reels={reels} vendors={vendors} />
