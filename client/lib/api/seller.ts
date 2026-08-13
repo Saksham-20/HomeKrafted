@@ -45,6 +45,7 @@ import type {
   ProductTag,
   Review,
   Seller,
+  SellerSpecialty,
   Snack,
   SnackCategory,
   SnackOrder,
@@ -654,6 +655,46 @@ export async function updateSellerStorefront(
 
   try {
     return await http.patch<Vendor>("/seller/storefront", input);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Rewrite what the signed-in HomeKrafter makes (`PATCH
+ * /seller/specialties`, M33).
+ *
+ * The owner's ask: somebody registered for food should be able to take on
+ * gifting and the other categories **under the same account**, rather than
+ * filing a second application. Access was never the obstacle — one supply
+ * role has had every portal module since M12 and `specialties` is
+ * discovery metadata that must never gate anything — but until now there
+ * was no route to change the tags after approval, so the `/sell` form's
+ * promise that "you can change this later" was false.
+ *
+ * The full set is sent, not a delta: the UI is chips, so the user's intent
+ * is the final selection, and dropping a category has to work as well as
+ * adding one.
+ *
+ * Returns the stored list, so callers re-render from what the server saved
+ * rather than what they hoped it saved.
+ */
+export async function updateSellerSpecialties(
+  specialties: SellerSpecialty[],
+): Promise<SellerSpecialty[] | undefined> {
+  if (isMockMode()) {
+    const seller = sellers[0];
+    if (!seller) return undefined;
+    seller.specialties = specialties;
+    return seller.specialties;
+  }
+
+  try {
+    const result = await http.patch<{ specialties: SellerSpecialty[] }>(
+      "/seller/specialties",
+      { specialties },
+    );
+    return result.specialties;
   } catch {
     return undefined;
   }

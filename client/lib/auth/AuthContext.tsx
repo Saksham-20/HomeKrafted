@@ -237,6 +237,8 @@ export interface AuthContextValue {
   switchToSelling: () => void;
   /** Re-fetches `GET /users/me` and updates the stored snapshot — called after a Profile edit. No-op for admin (mock) sessions. */
   refreshUser: () => Promise<void>;
+  /** Re-read the signed-in HomeKrafter's `Seller` record after something in the portal changed it — see the implementation for why one fetch per session stopped being enough. */
+  refreshSeller: () => Promise<void>;
   /** Replace the signed-in account's password; resolves to its role so the caller can route on. */
   changePassword: (currentPassword: string, newPassword: string) => Promise<UserRole>;
   signOut: () => void;
@@ -711,6 +713,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [mock, signedIn, role, activeSessionUserId]);
 
+  /**
+   * Re-read `GET /seller/me` (M33).
+   *
+   * The effect above runs once per session, which was right while nothing
+   * could change a `Seller` row from inside the portal. `PATCH
+   * /seller/specialties` can, and `specialties` is read on screens other
+   * than the one that edits it — `/seller/profile` decides whether to ask
+   * for an FSSAI number by it, `/seller/orders` decides whether to show
+   * the snack queue. Without this, adding "Homemade food" left those
+   * screens describing the previous business until a full reload.
+   *
+   * Best-effort, like `refreshUser`: a failed refresh leaves the
+   * last-known record in place rather than blanking a portal.
+   */
+  async function refreshSeller() {
+    if (mock || !signedIn || role !== "seller" || !activeSessionUserId) return;
+    try {
+      const record = await getMySeller();
+      setRealSeller({ userId: activeSessionUserId, seller: record });
+    } catch {
+      // best-effort — see above
+    }
+  }
+
   // Keyed by the user it was fetched for, and read only when that still
   // matches — so a record can never survive into the next account's
   // session, which clearing it in the effect would have risked doing a
@@ -773,6 +799,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     switchToShopping,
     switchToSelling,
     refreshUser,
+    refreshSeller,
     changePassword,
     signOut,
   };

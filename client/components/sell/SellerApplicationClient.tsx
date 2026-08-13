@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { Store } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -24,6 +25,7 @@ import {
   websiteError,
 } from "@/lib/sell/application-fields";
 import { createSellerApplication, type CreateSellerApplicationInput } from "@/lib/api";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import type { SellerApplication } from "@/lib/types";
 import type { SellerBenefit, SellerStep } from "@/lib/data";
@@ -84,6 +86,11 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [application, setApplication] = useState<SellerApplication | null>(null);
+
+  // Whether the visitor is already an approved HomeKrafter — see the
+  // notice this drives, inside the form card.
+  const { role, seller } = useAuth();
+  const alreadySelling = role === "seller" && !!seller;
 
   function set<K extends keyof typeof EMPTY_FORM>(key: K, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -273,6 +280,30 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
             <Store size={20} strokeWidth={1.6} aria-hidden="true" />
             <span>Apply to sell</span>
           </div>
+
+          {/*
+            M33 — the other half of "register for gifting under the same
+            account". An approved HomeKrafter who wants to add a category
+            arrives here, because this is the page that is signposted
+            everywhere as how you start selling, and filling it in a second
+            time is exactly the wrong move: it produces a duplicate
+            application for an admin to reconcile (M31 added duplicate
+            flagging because these accumulate) and, if approved, a second
+            `Vendor` that splits one kitchen's reviews, followers and
+            payouts in two.
+
+            Told, not blocked. The form still works — somebody may be
+            applying on behalf of a different business, and a hard
+            redirect would strand them with no way through.
+          */}
+          {alreadySelling && (
+            <p className={styles.alreadySelling}>
+              You already sell on Homekrafted. To add gifting or another category, don&rsquo;t
+              apply again — open{" "}
+              <Link href="/seller/profile">what you make, in your profile</Link>. It is the same
+              account, and it takes effect straight away.
+            </p>
+          )}
 
           <div className={styles.formGrid}>
             <TextField

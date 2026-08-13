@@ -163,6 +163,20 @@ narrowing a request value breaks native clients.
   candle maker for a food licence reads as a requirement they can't meet.
   That is the only legitimate branch — and since M32 it gates storage
   too: a licence typed by a non-food applicant is not recorded.
+- **A HomeKrafter edits their own tags, and it is not a second
+  registration (M33).** `PATCH /seller/specialties` is the only route that
+  changes `Seller.specialties` after approval — one account takes on
+  gifting, or drops sweets, from **/seller/profile → "What you make"**.
+  It is a **full replacement**, because a bag that only grows is a filter
+  that stops meaning anything. It grants nothing (access has never read
+  this field) and re-queues nothing (a tag is not a listing; every listing
+  still enters the M22 queue on its own). Don't answer "let them sell
+  gifts too" with a second application — that mints a **second `Vendor`**
+  and splits one kitchen's reviews, followers and payouts in two. A
+  withdrawn tag (`laundry`/`cleaning`) may be **kept but never newly
+  added**; refusing the whole payload for carrying one would lock legacy
+  partners out of the screen. `Vendor.type` is re-derived in the same
+  transaction, or the column disagrees with its own input.
 - **`businessName` is the storefront name, and it is validated (M32).**
   It becomes `Vendor.name` and `Seller.displayName`, so it is on every
   product card and every order; as a bare `MinLength(1)` string it let

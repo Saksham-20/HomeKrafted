@@ -292,3 +292,26 @@
   line-height: 1.45;
   color: var(--hk-terracotta);
 }
+
+/*
+ * "You already sell here" (M33). Shown to an approved HomeKrafter who
+ * lands on the apply form wanting to add a category — the right move is
+ * `/seller/profile`, not a second application. Pine tint rather than a
+ * warning colour: nothing has gone wrong, there is just a shorter way.
+ */
+.alreadySelling {
+  margin: 0 0 var(--hk-s4);
+  padding: 12px 14px;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-pine-tint);
+  border: 1px solid var(--hk-border);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-2);
+}
+
+.alreadySelling a {
+  color: var(--hk-pine);
+  font-weight: 600;
+  text-decoration: underline;
+}

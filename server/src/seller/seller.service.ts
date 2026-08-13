@@ -1,6 +1,15 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Seller } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Seller, SellerSpecialty } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  isWithdrawnSpecialty,
+  vendorTypeForSpecialties,
+} from '../seller-applications/specialty-taxonomy';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { UpdateStorefrontDto } from './dto/update-storefront.dto';
@@ -119,6 +128,79 @@ export class SellerService {
       },
     });
     return mapVendor(updated);
+  }
+
+  // -------------------------------------------------------------------
+  // What they make (M33)
+  // -------------------------------------------------------------------
+
+  /**
+   * Rewrite the caller's own `specialties`, and re-derive `Vendor.type`
+   * with them.
+   *
+   * The owner's ask was that a HomeKrafter registered for food be able to
+   * take on gifting and the other categories under the same account. That
+   * is already true of *access* — one supply role, every portal module,
+   * since M12 — so nothing here grants anything. What was missing was the
+   * ability to change the tags at all after approval: they were written
+   * once from the application form and no route on any surface could
+   * touch them again, which meant a kitchen that started making candles
+   * was undiscoverable as one.
+   *
+   * Three things this deliberately does not do:
+   *
+   * - **It does not create a second account, application or approval.**
+   *   A second application for the same person is a duplicate an admin
+   *   then has to reconcile against the first (M31 added duplicate
+   *   flagging precisely because those pile up), and approving it would
+   *   mint a second `Vendor` — splitting one kitchen's reviews, rating,
+   *   followers and payouts across two storefronts.
+   * - **It does not re-open moderation.** A tag is not a listing. Every
+   *   individual listing still enters the M22 review queue on its own
+   *   merits, which is the gate that actually protects a buyer; making a
+   *   HomeKrafter wait for an admin before they can *describe* themselves
+   *   protects nobody.
+   * - **It does not touch verification.** `fssaiVerified` and the rest
+   *   stay exactly where they are and remain admin-only (M16). Adding
+   *   `homemade_food` makes the FSSAI question start being asked; it does
+   *   not answer it.
+   *
+   * `Vendor.type` is recomputed because approval derives it from these
+   * same tags (`AdminSellersService.approveApplication`), and leaving it
+   * frozen would mean the column disagrees with its own input the moment
+   * anybody edits. It is still rendered on no screen — see
+   * `specialty-taxonomy.ts`.
+   */
+  async updateSpecialties(
+    seller: Seller & { vendorId: string },
+    specialties: SellerSpecialty[],
+  ): Promise<SellerSpecialty[]> {
+    // Withdrawn tags may be kept, never newly taken on. `laundry` on an
+    // existing row is what makes that partner's old bookings render, so
+    // refusing the whole payload for carrying one would lock those
+    // HomeKrafters out of this screen entirely.
+    const added = specialties.filter((s) => !seller.specialties.includes(s));
+    const withdrawn = added.filter(isWithdrawnSpecialty);
+    if (withdrawn.length > 0) {
+      throw new BadRequestException(
+        `Homekrafted no longer offers ${withdrawn.join(' or ')}, so it cannot be added.`,
+      );
+    }
+
+    // One transaction: the tags and the type they derive from must not be
+    // able to end up describing different things.
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.seller.update({
+        where: { id: seller.id },
+        data: { specialties },
+      }),
+      this.prisma.vendor.update({
+        where: { id: seller.vendorId },
+        data: { type: vendorTypeForSpecialties(specialties) },
+      }),
+    ]);
+
+    return updated.specialties;
   }
 
   // -------------------------------------------------------------------

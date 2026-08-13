@@ -232,6 +232,35 @@
   background: linear-gradient(to top, var(--hk-bg) 70%, transparent);
 }
 
+/* ---- What you make (M33) -------------------------------------------- */
+
+.specialtyGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  margin-top: var(--hk-s4);
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+/*
+ * Deliberately not `.actions`: that one is the page's sticky save bar,
+ * and a second element pinned to the bottom of the viewport would put two
+ * competing save buttons over each other on a phone. This card saves in
+ * place, where the chips are.
+ */
+.specialtyActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s5);
+}
+
 .status {
   font-size: 13px;
   color: var(--hk-ink-3);

@@ -6,6 +6,7 @@ import { SellerService } from './seller.service';
 import { SellerListingsService } from './listings.service';
 import { SellerPayoutsService } from './payouts.service';
 import { UpdateStorefrontDto } from './dto/update-storefront.dto';
+import { UpdateSellerSpecialtiesDto } from './dto/update-specialties.dto';
 
 /**
  * `@Roles('seller')` at the class level — the whole `/seller/*` surface
@@ -58,5 +59,25 @@ export class SellerController {
   async updateStorefront(@CurrentUser() user: RequestUser, @Body() dto: UpdateStorefrontDto) {
     const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.sellerService.updateStorefront(seller.vendorId, dto);
+  }
+
+  /**
+   * What this HomeKrafter makes (M33) — the one route that can change
+   * `Seller.specialties` after approval. See
+   * `SellerService.updateSpecialties` for why this is not a second
+   * application, and `UpdateSellerSpecialtiesDto` for why it replaces the
+   * whole set rather than appending.
+   *
+   * Returns the stored list so the caller re-renders from what was saved
+   * rather than what it sent.
+   */
+  @Patch('specialties')
+  async updateSpecialties(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: UpdateSellerSpecialtiesDto,
+  ) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    const specialties = await this.sellerService.updateSpecialties(seller, dto.specialties);
+    return { specialties };
   }
 }

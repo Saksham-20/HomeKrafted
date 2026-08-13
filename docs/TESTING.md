@@ -746,6 +746,19 @@ that is written. Worth checking:
   drop off, and the trust score with it — a changed licence has not been
   checked. An admin has to look again.
 - Kitchen photos drag/drop or click to upload, up to 12.
+- **"What you make"** (M33), the first card on the page. Tick a second
+  category — say a food kitchen adding **Candles & fragrance** — and save.
+  It saves on its own button, separately from the profile below it. Things
+  to check: no second application and no approval wait; the tag shows on
+  your storefront and in the buyer-side filters straight away; and if you
+  tick **Homemade food** on a craft-only account, the **FSSAI licence
+  number** field appears further down the same page the moment you save
+  (untick every food category and it goes again). Adding a category
+  doesn't publish anything — each individual listing still goes through
+  the review queue.
+- Visit **/sell** while signed in as a HomeKrafter. It should tell you
+  you're already selling and point at Profile, rather than inviting a
+  second application. The form still works if you genuinely want one.
 
 > The trust score is never shown as a bare number to buyers. What they
 > see is a tier ("Trusted kitchen") and every check behind it, met and

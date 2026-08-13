@@ -6,6 +6,7 @@ import { BadgeCheck, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CapacityMeter } from "@/components/ui/CapacityMeter";
+import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { PhotoUpload } from "@/components/ui/PhotoUpload";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -20,11 +21,17 @@ import {
   removeSellerBlackout,
   removeSellerPhoto,
   updateSellerProfile,
+  updateSellerSpecialties,
   type SellerProfileInput,
 } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import type { OwnVendorProfile, VendorBlackout, VendorPhoto } from "@/lib/types";
-import { makesFood } from "@/lib/types";
+import type {
+  OwnVendorProfile,
+  SellerSpecialty,
+  VendorBlackout,
+  VendorPhoto,
+} from "@/lib/types";
+import { makesFood, SPECIALTY_GROUPS, SPECIALTY_LABELS } from "@/lib/types";
 import styles from "./SellerProfileClient.module.css";
 
 const DAYS = [
@@ -126,7 +133,7 @@ function num(value: string): number | undefined {
  * changed licence has not been checked.
  */
 export function SellerProfileClient() {
-  const { ready, seller, sellerDataReady } = useAuth();
+  const { ready, seller, sellerDataReady, refreshSeller } = useAuth();
   const [profile, setProfile] = useState<OwnVendorProfile | undefined>();
   // Only for the "view live storefront" link — the slug isn't on the
   // session's `seller` claim, and `/seller/storefront` already owns this
@@ -143,6 +150,28 @@ export function SellerProfileClient() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [unavailable, setUnavailable] = useState(false);
+
+  /**
+   * What they make (M33), which saves on its own button rather than with
+   * the profile below it.
+   *
+   * Two reasons it is separate. It writes a different row — `Seller`, not
+   * `VendorProfile` — through a different endpoint, so bundling it into
+   * the profile save would mean one button that half-succeeds. And it is
+   * the answer the FSSAI question below depends on: ticking "Homemade
+   * food" has to make that field appear *now*, not after saving a page
+   * whose licence field was not on screen when they started.
+   *
+   * `draft` is `undefined` until something is ticked, so the chips render
+   * from the account until the moment the HomeKrafter disagrees with it —
+   * no seeding effect, and nothing to clobber when the record refreshes
+   * underneath.
+   */
+  const [savedSpecialties, setSavedSpecialties] = useState<SellerSpecialty[] | undefined>();
+  const [specialtyDraft, setSpecialtyDraft] = useState<SellerSpecialty[] | undefined>();
+  const [savingSpecialties, setSavingSpecialties] = useState(false);
+  const [specialtiesSaved, setSpecialtiesSaved] = useState(false);
+  const [specialtiesError, setSpecialtiesError] = useState<string | undefined>();
 
   // Fires as soon as we know a HomeKrafter is signed in: this screen's
   // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
@@ -182,6 +211,59 @@ export function SellerProfileClient() {
   }, [sellerDataReady, seller]);
 
   const photoUrls = useMemo(() => photos.map((photo) => photo.url), [photos]);
+
+  // The account's list, or the one the last save returned. The local copy
+  // wins because mock mode mutates the seed record in place — `seller`
+  // keeps its object identity, so reading through it alone would show the
+  // previous answer until a reload.
+  const currentSpecialties = savedSpecialties ?? seller?.specialties ?? [];
+  const selectedSpecialties = specialtyDraft ?? currentSpecialties;
+  const specialtiesDirty =
+    specialtyDraft !== undefined &&
+    (specialtyDraft.length !== currentSpecialties.length ||
+      specialtyDraft.some((s) => !currentSpecialties.includes(s)));
+
+  /**
+   * A tag the account carries that no group offers — `laundry` or
+   * `cleaning` on a partner who predates the M19 withdrawal.
+   *
+   * It is named rather than hidden, because it is still in
+   * `selectedSpecialties` and still gets sent on save. A chip row that
+   * silently omits part of the answer looks like the answer.
+   */
+  const retiredSpecialties = selectedSpecialties.filter(
+    (s) => !SPECIALTY_GROUPS.some((group) => group.values.includes(s)),
+  );
+
+  function toggleSpecialty(option: SellerSpecialty) {
+    setSpecialtyDraft((current) => {
+      const base = current ?? currentSpecialties;
+      return base.includes(option)
+        ? base.filter((x) => x !== option)
+        : [...base, option];
+    });
+    setSpecialtiesSaved(false);
+    setSpecialtiesError(undefined);
+  }
+
+  async function saveSpecialties() {
+    if (specialtyDraft === undefined) return;
+    setSavingSpecialties(true);
+    setSpecialtiesError(undefined);
+    const result = await updateSellerSpecialties(specialtyDraft);
+    setSavingSpecialties(false);
+    if (!result) {
+      setSpecialtiesError("That did not save. Pick at least one and try again.");
+      return;
+    }
+    setSavedSpecialties(result);
+    setSpecialtyDraft(undefined);
+    setSpecialtiesSaved(true);
+    // So every other portal screen reading `specialties` — the snack
+    // queue on `/seller/orders`, above all — stops describing the
+    // business this kitchen used to be.
+    void refreshSeller();
+  }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => (current ? { ...current, [key]: value } : current));
@@ -289,8 +371,13 @@ export function SellerProfileClient() {
    *
    * `specialties` decides what the form *asks*, never what they can
    * *reach* — every portal module stays available to everyone.
+   *
+   * Read off `currentSpecialties`, not `seller`, so that saving "Homemade
+   * food" in the card above makes the licence field appear in the same
+   * interaction. Off the *saved* list rather than the draft, though: a
+   * half-ticked chip row must not flash a licence field on and off.
    */
-  const sellsFood = makesFood(seller?.specialties ?? []);
+  const sellsFood = makesFood(currentSpecialties);
 
   const verifications = [
     { key: "identity", label: "Identity", done: profile.identityVerified },
@@ -336,6 +423,81 @@ export function SellerProfileClient() {
             </ul>
           </>
         )}
+      </Card>
+
+      {/*
+        M33, owner brief: "if someone has registered for food, he/she can
+        register for gifting partner and other categories under the same
+        account".
+
+        There is no second registration to build, and building one would
+        have been the wrong answer. One HomeKrafter account has had every
+        portal module since M12 and `specialties` has never been allowed
+        to gate anything, so this kitchen could already list a candle — a
+        second application would only have produced a duplicate for an
+        admin to reconcile and a second `Vendor` splitting its own
+        reviews, followers and payouts. What was genuinely missing was
+        this: the tags were written once at approval and nothing could
+        change them afterwards, which is why `/sell` has been promising
+        "you can change this later" to every applicant since M22 without
+        it being true.
+      */}
+      <Card className={styles.section} padding="lg">
+        <h2 className={styles.sectionTitle}>What you make</h2>
+        <p className={styles.hint}>
+          This is how buyers find you, and you can change it whenever your kitchen does. Adding a
+          category needs no new application and no approval — it is the same account, the same
+          storefront and the same payouts. Every individual listing is still reviewed on its own
+          before it goes live.
+        </p>
+
+        {SPECIALTY_GROUPS.map((group) => (
+          <div key={group.label} className={styles.specialtyGroup}>
+            <span className={styles.label}>{group.label}</span>
+            <div className={styles.chipRow}>
+              {group.values.map((option) => (
+                <Chip
+                  key={option}
+                  label={SPECIALTY_LABELS[option]}
+                  selected={selectedSpecialties.includes(option)}
+                  onClick={() => toggleSpecialty(option)}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {retiredSpecialties.length > 0 && (
+          <p className={styles.hint}>
+            Your account also carries{" "}
+            {retiredSpecialties.map((s) => SPECIALTY_LABELS[s]).join(" and ")}, from a service
+            Homekrafted no longer runs. It stays on your account so your old bookings still open,
+            and it cannot be added back.
+          </p>
+        )}
+
+        {selectedSpecialties.length === 0 && (
+          <p className={styles.hint}>
+            Pick at least one — an untagged storefront turns up in no filter.
+          </p>
+        )}
+
+        {/* Its own save, not the page's — see the state block's comment. */}
+        <div className={styles.specialtyActions}>
+          <Button
+            variant="secondary"
+            onClick={saveSpecialties}
+            disabled={!specialtiesDirty || selectedSpecialties.length === 0 || savingSpecialties}
+          >
+            {savingSpecialties ? "Saving…" : "Save what you make"}
+          </Button>
+          <span className={styles.status} role="status" aria-live="polite">
+            {specialtiesError ??
+              (specialtiesSaved && !specialtiesDirty
+                ? "Saved. Buyers can find you under these now."
+                : "")}
+          </span>
+        </div>
       </Card>
 
       <Card className={styles.section} padding="lg">

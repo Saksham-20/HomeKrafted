@@ -3,6 +3,114 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M33] — Tiles that show something, and one account that can grow — 2026-08-13
+
+Owner brief (Homekrafted website changes, 2026-08-13). Four of the six
+items; the two that depend on artwork are unstarted, see below.
+
+### Removed
+
+- **The announcement bar.** The pine strip above the header ("Cooked this
+  morning in a home kitchen near you · Chandigarh · Mohali · Panchkula ·
+  Zirakpur · Freshly prepared · No preservatives") is gone, along with
+  `AnnouncementBar`, `announcementItems`, `AnnouncementItem` and
+  `getAnnouncementItems()`. It cost 38px of every page on a phone and 102px
+  when it wrapped (M26-013), repeated what the hero already says, and its
+  lead line was a claim about food sitting above a page that also sells
+  candles. `ConsumerChrome` now takes two slots, not three.
+- A stale `getTrustStats()` row in `docs/API.md`, for a function M28
+  deleted.
+
+### Changed
+
+- **Occasion tiles draw an occasion, not a letter.** The home row rendered
+  `Occasion.initial` in a gold ring: eight circles reading "A B B C D H T
+  W", two of them colliding on B. Ten hand-authored two-tone marks now
+  live in `components/ui/icons/CraftIcon.tsx` — rings, a pram, a cake, a
+  briefcase, a diya, a house, an envelope, hearts, a rakhi, a crescent —
+  and `/collections` uses the same set so the two surfaces agree about
+  what Diwali looks like. **Unknown slugs still render the letter ring**:
+  occasions are admin-editable, and a new one must never come up blank.
+- **Category tiles with no photograph draw a mark instead of the hatch.**
+  The four craft categories seeded in M22 (`candles-home`,
+  `handmade-jewellery`, `art-prints`, `personalised-gifts`) have no
+  `imageSrc`, so `ImageSlot`'s diagonal-hatch placeholder was rendering
+  four near-invisible circles under eight real photographs — the entire
+  non-food half of the marketplace looking like a failed page load. A
+  photo still wins whenever one exists; `ImageSlot`'s own placeholder is
+  untouched, because the hatch is right in an upload slot and wrong in a
+  shopfront. No imagery was generated (`CLAUDE.md`).
+- **The home category row is one line, and shows only photographed
+  categories** (both owner instructions, after seeing the marks —
+  artwork for the four is being produced). It was a wrapping grid, which
+  put a five-tile orphan on a second row. Now a horizontal rail
+  (`.categoryRail`) with the `background-attachment: local` edge fade, so
+  the row visibly continues instead of clipping flush — the failure
+  `globals.css` records for the portal nav strip. The filter is on
+  `imageSrc`, not a list of slugs, so **a tile returns on its own** when
+  art lands. Every category stays reachable via "View all", `?category=`
+  and search. The drawn mark stays in `CategoryTile`: it is what any
+  surface renders when a photograph is genuinely absent, and it is why
+  that case degrades to something deliberate.
+
+### Fixed
+
+- **The profile completion meter asked a candle maker for a food
+  licence.** M22 established that FSSAI is only ever *asked of* somebody
+  who makes food; the verification card and the profile editor honoured
+  that and `VendorProfileService.completion` did not, so a craft-only
+  HomeKrafter was told in plain words that their profile was incomplete
+  until they produced a licence they cannot get. Invisible until now,
+  because nothing could make an existing account craft-only. The section
+  is dropped for a non-food kitchen, and `percent` became a fraction of
+  the sections that **apply** rather than a sum against a hardcoded 100 —
+  otherwise the obvious fix caps a candle maker at 95% forever, which is
+  the same insult with a different number. Both pinned in `trust.spec.ts`.
+- Gold accents inside the new category marks use the darkened ramp on the
+  tinted circle: `--hk-gold` is 2.85:1 there, under the 3.0 non-text
+  floor. `--hk-craft-accent` makes it a per-surface override rather than
+  one value that has to be wrong somewhere.
+
+### Added
+
+- **`PATCH /seller/specialties`** — a HomeKrafter registered for food can
+  take on gifting and the other categories **under the same account**,
+  from a new "What you make" card at the top of `/seller/profile`. Access
+  was never the obstacle (one supply role, every module, since M12); the
+  tags were simply written once at approval with no route to change them,
+  which is why `/sell` had been telling applicants "you can change this
+  later" since M22 without it being true.
+  - Full replacement, not an append — dropping a category has to work too.
+  - Not a second application, deliberately: that produces a duplicate for
+    an admin to reconcile and, on approval, a **second `Vendor`** that
+    splits one kitchen's reviews, followers and payouts.
+  - Grants nothing and re-queues nothing. Every listing still enters the
+    M22 review queue individually.
+  - `Vendor.type` is re-derived in the same transaction. Withdrawn tags
+    (`laundry`/`cleaning`) may be kept but never newly added.
+  - `refreshSeller()` on `AuthContext`, so `/seller/orders` and the FSSAI
+    question stop describing the previous business without a reload.
+- `/sell` tells an already-approved HomeKrafter to use Profile instead.
+  Told, not blocked — the form still submits, in case they are applying
+  for a genuinely different business.
+- `ALL_SPECIALTIES` + `isWithdrawnSpecialty()` in `specialty-taxonomy.ts`;
+  `CreateSellerApplicationDto` now validates against the shared list
+  rather than a second hand-maintained copy of the same enum.
+
+### Not done — needs artwork or a decision
+
+- **The hero.** The brief replaces it with one of two banner images (dark
+  neon, or cream with a four-badge trust strip). Both bake their text into
+  a raster image, which loses the headline to screen readers and crawlers
+  and goes soft on a phone, and neither can be produced here — generating
+  imagery is ruled out by `CLAUDE.md`. Rebuilding either in CSS is ~half a
+  day once the direction is picked; the dark variant also needs a
+  deliberate exception to "white-first, warmth accent-only". Left
+  untouched rather than removed, because removing it with nothing in its
+  place is strictly worse.
+- **The "Welcome Chef" poster** on the maker rail — same problem, deferred
+  by the owner.
+
 ## [M32] — A door somebody can actually open — 2026-08-12
 
 An approved HomeKrafter could not sign in. Approval minted an account

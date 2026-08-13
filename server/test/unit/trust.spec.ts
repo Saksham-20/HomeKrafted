@@ -33,12 +33,21 @@ const achievements = (p: VendorProfile | null, s: VendorStats): Achievement[] =>
       achievements(p: VendorProfile | null, s: VendorStats): Achievement[];
     }
   ).achievements(p, s);
-const completion = (p: VendorProfile | null, photos: number): CompletionSummary =>
+/** `makesFood` defaults to true — every case written before M33 was a food kitchen. */
+const completion = (
+  p: VendorProfile | null,
+  photos: number,
+  makesFood = true,
+): CompletionSummary =>
   (
     service as unknown as {
-      completion(p: VendorProfile | null, photos: number): CompletionSummary;
+      completion(
+        p: VendorProfile | null,
+        photos: number,
+        makesFood: boolean,
+      ): CompletionSummary;
     }
-  ).completion(p, photos);
+  ).completion(p, photos, makesFood);
 
 function profileOf(partial: Partial<VendorProfile>): VendorProfile {
   return {
@@ -315,6 +324,40 @@ describe("completion — the seller's own nudge", () => {
     // waiting on us.
     const c = completion(profileOf({ fssaiNumber: '12345678901234' }), 0);
     expect(c.missing.map((m) => m.key)).not.toContain('fssai');
+  });
+
+  /*
+   * M33. A food licence is only ever *asked of* somebody who makes food
+   * (M22) — the verification card and the profile editor already honoured
+   * that, this meter did not, and it told a candle maker in plain words
+   * that their profile was incomplete until they produced one. Invisible
+   * until M33, because nothing could make an existing account craft-only
+   * before `PATCH /seller/specialties`.
+   */
+  it('never asks a craft-only HomeKrafter for a food licence', () => {
+    const c = completion(null, 0, false);
+    expect(c.missing.map((m) => m.key)).not.toContain('fssai');
+    expect(c.missing).toHaveLength(8);
+  });
+
+  it('lets a craft-only HomeKrafter reach 100% without one', () => {
+    // The bug this guards is the obvious fix for the one above: drop a
+    // 5-point section from a hardcoded /100 and a candle maker is capped
+    // at 95% forever, which is the same insult with a different number.
+    const filled = profileOf({
+      tagline: 'Hand-poured soy candles',
+      story: 'I started in 2019...',
+      knownFor: ['Candles'],
+      workingDays: [1, 2, 3],
+      opensAt: '09:00',
+      prepTimeMins: 120,
+      hygieneNote: 'Sealed and boxed',
+      cancellationPolicy: 'Free until packed',
+      returnPolicy: 'Seven days',
+    });
+    expect(completion(filled, 2, false).percent).toBe(100);
+    // The same profile on a food kitchen is still short its licence.
+    expect(completion(filled, 2, true).percent).toBe(95);
   });
 
   it('weights story and photos above a tagline', () => {

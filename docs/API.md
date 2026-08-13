@@ -1022,8 +1022,9 @@ filtered client-side).
 |---|---|---|
 | `GET /seller/me` | **M17.** The caller's own `Seller` record (`+ vendorName`, `vendorSlug`), resolved from their session — there is no id parameter. Added because the web client had no way to read it and was resolving the signed-in kitchen from **mock data**, falling back to a demo record for every real HomeKrafter. |
 | `GET /seller/dashboard` | any | Shape branches on `seller.type` — maker: `{ todayOrdersCount, todayRevenue, pendingPayoutAmount, lowStockCount, rating, reviewCount }` (mirrors `SellerDashboardSnapshot`); laundry: `{ todayPickupsCount, todayDeliveriesCount, weekEarnings, pendingPayoutAmount, rating, reviewCount }` (`PartnerDashboardSnapshot`); snack: `{ incomingOrdersCount, menuSize, earnings, pendingPayoutAmount }` (`SnackDashboardSnapshot`). `pendingPayoutAmount` is computed live (see Payouts below), not read off a stale field. |
-| `GET /seller/storefront` | `maker` only | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param) — `403` for laundry/snack. |
-| `PATCH /seller/storefront` | `maker` only | Body: `{ bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. |
+| `GET /seller/storefront` | any | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param). The "maker only" 403 this used to carry went in M12 — one supply role, every module. |
+| `PATCH /seller/storefront` | any | Body: `{ bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. |
+| `PATCH /seller/specialties` | any | **M33.** Body: `{ specialties: SellerSpecialty[] }` → `{ specialties }`. The only route that can change `Seller.specialties` after approval, so a HomeKrafter approved for food can take on gifting **under the same account** rather than filing a second application. Full replacement, not an append — dropping a category has to work too. `400` on an empty list, and on newly adding a withdrawn tag (`laundry`/`cleaning`); one already on the row is kept, so a legacy partner is not locked out of the screen. Re-derives `Vendor.type` in the same transaction. Grants nothing: access has never depended on `specialties` (M12), and every listing still enters the M22 review queue individually. |
 
 ### Analytics (M16 — `server/src/seller/analytics.controller.ts`)
 
@@ -1550,6 +1551,7 @@ one at all, it's always resolved from the JWT).
 | `requestSellerPayout(sellerId, amount)` | `Payout` | `POST /seller/payouts/request` — **shape change**: no `amount` param anymore, the real endpoint computes it server-side (never trust a client-submitted payout amount). |
 | `getSellerReviews(vendorId)` | `Review[]` | `GET /seller/reviews` |
 | `replySellerReview(reviewId, body)` | `Review \| undefined` | `POST /seller/reviews/:id/reply` |
+| `updateSellerSpecialties(specialties)` | `SellerSpecialty[] \| undefined` | `PATCH /seller/specialties` — **M33.** What the signed-in HomeKrafter makes, rewritten from `/seller/profile`. |
 | `updateSellerStorefront(vendorId, input)` | `Vendor \| undefined` | `PATCH /seller/storefront` — **fixes a flagged mock limitation**: the mock's doc comment noted a storefront edit never reached the server-rendered `/storefront/[vendor]` page because both sides mutated separate in-memory module instances; the real endpoint writes the DB row every render reads from, so this is now a real fix, not just documented as one. |
 | `getPartnerBookings(partnerId)` / `getPartnerBooking(partnerId, id)` | `LaundryBooking[]` / `LaundryBooking \| undefined` | `GET /seller/bookings` / `GET /seller/bookings/:id` |
 | `advancePartnerBookingStatus(bookingId)` | `LaundryBooking \| undefined` | `POST /seller/bookings/:id/advance` |
@@ -1597,10 +1599,9 @@ refund) and just show up in the next `GET /wallet/transactions` poll.
 | `getHamperBoxes()` | `HamperBox[]` | `GET /api/v1/hamper/boxes` — **real as of M8.1** (`server/src/catalog/hamper-boxes.controller.ts`) |
 | `getMealPromo()` | `MealPromo` | Static promo content; likely stays a config object, not an endpoint |
 | `getPrimaryNav()` | `NavLink[]` | Site chrome config, not domain data — may just stay client-side content |
-| `getAnnouncementItems()` | `AnnouncementItem[]` | Same as above |
 | `getFooterColumns()` | `FooterColumn[]` | Same as above |
 | `getBrandBlurb()` | `string` | Same as above |
-| `getTrustStats()` | `TrustStat[]` | Same as above |
+| `getHomePromoBands()` | `HomePromoBandContent[]` | Site chrome config, admin-editable via `/admin/collections` |
 | `getCart()` | `Cart` | `GET /api/v1/cart` — **real as of M8.1**, see "Commerce (M8.1)" above for the actual (richer) response shape |
 | `getCartCount()` | `number` | Derived client-side from `getCart()` once real; kept separate today only for the header badge |
 | `getCurrentUser()` | `User` | `GET /api/v1/users/me` — **real as of M8.0**, see "Users & addresses" above; swaps at M8.4 |

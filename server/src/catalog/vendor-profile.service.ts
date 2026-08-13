@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Vendor, VendorPhoto, VendorProfile } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { supplyMix } from '../seller-applications/specialty-taxonomy';
 
 /**
  * M16 (H5) — the HomeKrafter profile behind `/storefront/[vendor]`,
@@ -161,14 +162,23 @@ export class VendorProfileService {
    */
   async ownProfile(vendorId: string) {
     const publicPart = await this.publicProfile(vendorId);
-    const profile = await this.prisma.vendorProfile.findUnique({ where: { vendorId } });
+    const [profile, seller] = await Promise.all([
+      this.prisma.vendorProfile.findUnique({ where: { vendorId } }),
+      // Only for `makesFood` below — the completion meter must not ask a
+      // candle maker for a food licence (M22).
+      this.prisma.seller.findFirst({ where: { vendorId }, select: { specialties: true } }),
+    ]);
     return {
       ...publicPart,
       fssaiNumber: optional(profile?.fssaiNumber ?? null),
       fssaiExpiry: profile?.fssaiExpiry?.toISOString(),
       verifiedAt: profile?.verifiedAt?.toISOString(),
       verificationNote: optional(profile?.verificationNote ?? null),
-      completion: this.completion(profile, publicPart.photos.length),
+      completion: this.completion(
+        profile,
+        publicPart.photos.length,
+        supplyMix(seller?.specialties ?? []).makesFood,
+      ),
     };
   }
 
@@ -346,8 +356,27 @@ export class VendorProfileService {
    * reads before ordering, not by field count — a story and kitchen
    * photos move a purchase decision; a YouTube link does not, so social
    * links are one small section rather than four fields.
+   *
+   * **`makesFood` drops the FSSAI section entirely for a craft-only
+   * HomeKrafter (M33).** M22 established that a food licence is only ever
+   * *asked of* somebody who makes food — asking a candle maker for one
+   * reads as a requirement they cannot meet, on the screen that decides
+   * whether they finish setting up. The verification card and the
+   * profile editor both honoured that; this meter did not, so a candle
+   * maker was told in plain words that their profile was incomplete until
+   * they supplied a food licence. It was invisible until M33, because
+   * until then nothing could make an existing account craft-only.
+   *
+   * The percentage is therefore a **fraction of the sections that apply**,
+   * not a sum of fixed weights. Dropping a 5-point section from a
+   * hardcoded /100 would cap a craft maker at 95% forever, which is the
+   * same bug wearing a different number.
    */
-  private completion(profile: VendorProfile | null, photoCount: number): CompletionSummary {
+  private completion(
+    profile: VendorProfile | null,
+    photoCount: number,
+    makesFood: boolean,
+  ): CompletionSummary {
     const sections: { key: string; label: string; done: boolean; weight: number }[] = [
       { key: 'tagline', label: 'A one-line tagline', done: Boolean(profile?.tagline), weight: 10 },
       { key: 'story', label: 'Your story', done: Boolean(profile?.story), weight: 20 },
@@ -382,19 +411,26 @@ export class VendorProfileService {
         done: Boolean(profile?.cancellationPolicy) && Boolean(profile?.returnPolicy),
         weight: 10,
       },
-      {
-        key: 'fssai',
-        label: 'Your FSSAI licence number',
-        // Submitted is enough here — verification is the admin's job, and
-        // a seller must not be stuck at 95% waiting on us.
-        done: Boolean(profile?.fssaiNumber),
-        weight: 5,
-      },
+      ...(makesFood
+        ? [
+            {
+              key: 'fssai',
+              label: 'Your FSSAI licence number',
+              // Submitted is enough here — verification is the admin's job,
+              // and a seller must not be stuck at 95% waiting on us.
+              done: Boolean(profile?.fssaiNumber),
+              weight: 5,
+            },
+          ]
+        : []),
     ];
 
-    const percent = sections.reduce((sum, s) => sum + (s.done ? s.weight : 0), 0);
+    const total = sections.reduce((sum, s) => sum + s.weight, 0);
+    const earned = sections.reduce((sum, s) => sum + (s.done ? s.weight : 0), 0);
     return {
-      percent,
+      // Rounded, so a full craft profile reads 100 and not 99.99. `total`
+      // is 100 for a food kitchen, so nothing changes for them.
+      percent: total === 0 ? 0 : Math.round((earned / total) * 100),
       missing: sections.filter((s) => !s.done).map((s) => ({ key: s.key, label: s.label })),
     };
   }

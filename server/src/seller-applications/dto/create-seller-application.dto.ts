@@ -13,12 +13,14 @@ import {
 } from 'class-validator';
 import { SellerApplicationCategory, SellerSpecialty } from '@prisma/client';
 import { TRICITY_AREAS } from '../../common/geo';
+import { ALL_SPECIALTIES } from '../specialty-taxonomy';
 
 const CATEGORIES: SellerApplicationCategory[] = ['home_chef', 'maker', 'baker', 'artist', 'other'];
 
 /**
- * `laundry` and `cleaning` are **still accepted** even though M19 removed
- * their chips from the `/sell` form.
+ * `specialties` validates against `ALL_SPECIALTIES`
+ * (`../specialty-taxonomy.ts`), which includes `laundry` and `cleaning`
+ * even though M19 removed their chips from the `/sell` form.
  *
  * The ask was to take them off the form, and this API is shared with the
  * native apps (see CLAUDE.md) with no versioning or deprecation policy
@@ -30,32 +32,11 @@ const CATEGORIES: SellerApplicationCategory[] = ['home_chef', 'maker', 'baker', 
  * The Prisma `SellerSpecialty` enum keeps them too — seeded rows carry
  * them, and dropping enum members needs a destructive migration for
  * nothing a user sees.
+ *
+ * `PATCH /seller/specialties` is the one place that does refuse them, and
+ * for a different reason — see `isWithdrawnSpecialty`. That endpoint is
+ * new (M33), so it narrows nothing.
  */
-const SPECIALTIES: SellerSpecialty[] = [
-  // Food
-  'homemade_food',
-  'bakery',
-  'pickles_preserves',
-  'snacks',
-  'sweets',
-  'beverages',
-  // Everything else homemade (M22). Before this, `crafts` was the only
-  // non-food value on a marketplace that sells everything homemade — so a
-  // candle maker, a potter and a jeweller all submitted the same tag.
-  'candles',
-  'ceramics',
-  'textiles',
-  'jewellery',
-  'art_prints',
-  'bath_body',
-  'stationery',
-  'home_decor',
-  'personalised',
-  'crafts',
-  // Withdrawn module, still accepted — see the comment above.
-  'laundry',
-  'cleaning',
-];
 
 /**
  * A real tricity area, or the literal `'other'`.
@@ -106,7 +87,7 @@ export class CreateSellerApplicationDto {
 
   /** What they make. Becomes `Seller.specialties` on approval — discovery only, never access. Now also the source of `category` and `Vendor.type`. */
   @ArrayNotEmpty()
-  @IsIn(SPECIALTIES, { each: true })
+  @IsIn(ALL_SPECIALTIES, { each: true })
   specialties!: SellerSpecialty[];
 
   @IsString()

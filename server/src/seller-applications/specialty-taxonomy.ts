@@ -23,6 +23,43 @@ import { SellerApplicationCategory, SellerSpecialty, VendorType } from '@prisma/
  * `CreateSellerApplicationDto`) — but nobody has to send it.
  */
 
+/**
+ * Every value the enum carries, in the order a form should offer them.
+ *
+ * The single list. `CreateSellerApplicationDto` and
+ * `UpdateSellerSpecialtiesDto` both validate against this rather than
+ * keeping a copy each — two hand-maintained lists of the same enum drift
+ * the first time somebody adds a member to one of them, and the symptom
+ * is a 400 on a value the schema accepts.
+ */
+export const ALL_SPECIALTIES: SellerSpecialty[] = [
+  // Food
+  'homemade_food',
+  'bakery',
+  'pickles_preserves',
+  'snacks',
+  'sweets',
+  'beverages',
+  // Everything else homemade (M22). Before this, `crafts` was the only
+  // non-food value on a marketplace that sells everything homemade — so a
+  // candle maker, a potter and a jeweller all submitted the same tag.
+  'candles',
+  'ceramics',
+  'textiles',
+  'jewellery',
+  'art_prints',
+  'bath_body',
+  'stationery',
+  'home_decor',
+  'personalised',
+  'crafts',
+  // Withdrawn module (M19), still accepted on the application endpoint —
+  // see `CreateSellerApplicationDto`. Not offerable to a HomeKrafter
+  // choosing new tags; see `isWithdrawnSpecialty`.
+  'laundry',
+  'cleaning',
+];
+
 /** Specialties that describe food. Everything else is treated as craft. */
 const FOOD_SPECIALTIES: ReadonlySet<SellerSpecialty> = new Set<SellerSpecialty>([
   'homemade_food',
@@ -42,6 +79,19 @@ const SERVICE_SPECIALTIES: ReadonlySet<SellerSpecialty> = new Set<SellerSpecialt
   'laundry',
   'cleaning',
 ]);
+
+/**
+ * Belongs to the withdrawn module, so it can never be **newly** taken on.
+ *
+ * A HomeKrafter who already carries one keeps it — the tag is what makes
+ * their existing bookings render — but `PATCH /seller/specialties` refuses
+ * to add one that is not already there. Offering a service the platform
+ * does not run is worse than not offering it: somebody would tick it,
+ * wait, and get no bookings, and nothing on the site would explain why.
+ */
+export function isWithdrawnSpecialty(specialty: SellerSpecialty): boolean {
+  return SERVICE_SPECIALTIES.has(specialty);
+}
 
 export interface SupplyMix {
   makesFood: boolean;
