@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Briefcase, CalendarHeart, MessageCircle, UtensilsCrossed } from "lucide-react";
+import { ArrowUpRight, Briefcase, Gift, MessageCircle, UtensilsCrossed } from "lucide-react";
 import type { NavLink } from "@/lib/data";
 import styles from "./QuickEntryRow.module.css";
 
@@ -19,7 +19,8 @@ export interface QuickEntryRowProps {
  * rendered as a ~32px stub on production. The three that left
  * (Occasions, Meal plans, Corporate & bulk) did not go to the footer —
  * they came here, joined by Snacks on WhatsApp, which had never been in
- * the nav at all. A tile in the first screenful that says who a thing is
+ * the nav at all. (M35 later traded Occasions back into the nav for
+ * Gift Hampers, whose one-item catalogue had been holding a top-3 slot.) A tile in the first screenful that says who a thing is
  * for beats a 90px nav link that only names it, which is the shape every
  * marketplace this size converges on.
  *
@@ -35,8 +36,8 @@ export interface QuickEntryRowProps {
  *   `ProductCard`: React's `onClick` on a div never fires for Enter or
  *   Space, and a link buys open-in-new-tab for free.
  */
-const ICONS: Record<string, typeof CalendarHeart> = {
-  "/collections": CalendarHeart,
+const ICONS: Record<string, typeof Gift> = {
+  "/hamper": Gift,
   "/meal-plans": UtensilsCrossed,
   "/corporate": Briefcase,
   "/snacks": MessageCircle,

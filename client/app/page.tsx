@@ -124,8 +124,15 @@ export default async function Home() {
 
   // The tile grid stays at eight — it is a glance, not an index. The hub
   // (`/collections`, new in M16) is where every occasion lives, which is
-  // what "View all" now actually means.
-  const occasionTiles = occasions.slice(0, 8);
+  // what "All occasions" now actually means.
+  //
+  // Corporate is excluded here, not from the data (M35): the quick-entry
+  // strip's "Corporate & bulk" tile is THE corporate entry on this page,
+  // and a second tile four sections apart sent the same buyer to a
+  // different destination (the occasion listing vs the inquiry form).
+  // The occasion itself still exists — /collections lists it, and the
+  // corporate guide hangs off it.
+  const occasionTiles = occasions.filter((o) => o.slug !== "corporate").slice(0, 8);
 
   /**
    * The category rail shows only categories that have a real photograph

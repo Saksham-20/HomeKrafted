@@ -49,7 +49,13 @@ export interface FooterColumn {
 export const primaryNav: NavLink[] = [
   { label: "Homemade Food", href: "/shop" },
   { label: "Handcrafted Gifts", href: "/gifts" },
-  { label: "Gift Hampers", href: "/hamper" },
+  // M35: this slot held "Gift Hampers" while /hamper listed exactly one
+  // product — a top-3 nav destination has to carry a catalogue worth the
+  // slot. Occasions is one (every occasion, every guide), and the label
+  // is narrower, so the search field's budget only gains. Hampers moved
+  // to the quick-entry strip; put them back here when the catalogue is
+  // deep enough to deserve it (~6+ live hampers).
+  { label: "Occasions", href: "/collections" },
 ];
 
 /**
@@ -66,7 +72,9 @@ export const primaryNav: NavLink[] = [
  *   to the bottom to find out whether we do that.
  * - **Meal plans** (M21) — the one product on the site that *recurs*: a
  *   cycle is ₹960–₹3,900 and renews.
- * - **Occasions** — the gifting hub, and the seasonal countdown's home.
+ * - **Gift Hampers** (M35) — traded nav slots with Occasions: a one-item
+ *   catalogue does not earn a top-3 link, but it still needs a
+ *   first-screen door while the catalogue grows.
  * - **Snacks on WhatsApp** — a different ordering flow entirely, and
  *   until M34 it was in *neither* nav, only the footer and the drawer.
  *
@@ -76,7 +84,7 @@ export const primaryNav: NavLink[] = [
  * check that before adding one.
  */
 export const secondaryNav: NavLink[] = [
-  { label: "Occasions", href: "/collections" },
+  { label: "Gift Hampers", href: "/hamper" },
   { label: "Meal plans", href: "/meal-plans" },
   { label: "Corporate & bulk", href: "/corporate" },
   { label: "Snacks on WhatsApp", href: "/snacks" },
@@ -91,9 +99,9 @@ export const secondaryNav: NavLink[] = [
 export const quickEntryDetail: Record<string, { title: string; blurb: string }> = {
   // Two lines at the tile's desktop width — a third line turns the strip
   // into four paragraphs and it stops being something you scan.
-  "/collections": {
-    title: "Shop by occasion",
-    blurb: "Diwali, weddings and thank-yous.",
+  "/hamper": {
+    title: "Gift hampers",
+    blurb: "Packed and priced by one kitchen.",
   },
   "/meal-plans": {
     title: "Daily meal plans",
@@ -119,6 +127,7 @@ export const footerColumns: FooterColumn[] = [
       { label: "Homemade Food", href: "/shop" },
       { label: "Handcrafted Gifts", href: "/gifts" },
       { label: "Gift Hampers", href: "/hamper" },
+      { label: "Occasions", href: "/collections" },
       { label: "Meal plans", href: "/meal-plans" },
       { label: "Snacks on WhatsApp", href: "/snacks" },
       { label: "Corporate & bulk", href: "/corporate" },
