@@ -67,8 +67,7 @@
   border: 1px solid var(--hk-pine);
   border-radius: var(--hk-r-pill);
   background: var(--hk-pine);
-  /* Copy on solid pine — the same token the announcement bar and the
-     wallet balance card use. */
+  /* Copy on solid pine — the same token the wallet balance card uses. */
   color: var(--hk-on-pine);
   font-size: 14px;
   font-weight: 600;

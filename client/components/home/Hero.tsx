@@ -30,10 +30,11 @@ import styles from "./Hero.module.css";
  * **There is no trust-stat strip, deliberately.** It read "200+ home
  * chefs · 0 preservatives · 48 hr freshly made" — a SaaS trust bar whose
  * first figure nobody could substantiate and whose third contradicted the
- * announcement bar's "cooked this morning" two rows above it. A claim that
- * cannot be checked is worse than no claim on a page whose entire pitch is
- * that you can trust a stranger's kitchen. Don't reintroduce one; if a
- * number is ever wanted here, derive it from the catalogue.
+ * announcement bar's "cooked this morning" (that bar is itself gone as of
+ * M33). A claim that cannot be checked is worse than no claim on a page
+ * whose entire pitch is that you can trust a stranger's kitchen. Don't
+ * reintroduce one; if a number is ever wanted here, derive it from the
+ * catalogue.
  */
 export function Hero() {
   return (

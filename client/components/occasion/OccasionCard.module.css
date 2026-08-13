@@ -22,6 +22,14 @@
 
 /* Same gold-ring glyph as the home tile — the hub is a longer view of
    the same thing, not a different visual language. */
+/* The mark (M33) — see `CraftIcon`. 46px of ring becomes 40px of icon
+   plus the whitespace the art already carries inside its own viewBox. */
+.icon {
+  flex-shrink: 0;
+  color: var(--hk-pine);
+}
+
+/* Fallback only — an admin-created occasion with no art. */
 .ring {
   display: grid;
   place-items: center;

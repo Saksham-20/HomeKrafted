@@ -11,6 +11,45 @@
   padding: 0;
 }
 
+/*
+ * The no-photograph mark (M33). Takes the same circular footprint as the
+ * photo it stands in for — `aspect-ratio` over the full tile width, not a
+ * fixed pixel box — so a row that mixes photographed and un-photographed
+ * categories keeps one baseline at every viewport.
+ *
+ * Pine tint rather than the canvas: on `--hk-surface` the circle needs an
+ * edge to exist at all, and a filled tint gives the mark the visual mass a
+ * photograph has without a border ring competing with the art inside it.
+ */
+.mark {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  /* `--hk-gold` measures 2.85:1 on this tint, under the 3.0 non-text
+     floor; the darkened ramp is 4.63:1. See `CraftIcon`'s GOLD. */
+  --hk-craft-accent: var(--hk-gold-text-sm);
+  display: grid;
+  place-items: center;
+  transition: background var(--hk-dur) var(--hk-ease);
+}
+
+/*
+ * Scaled as a fraction of the circle rather than left at `CraftIcon`'s
+ * pixel default: the circle is fluid (it is the grid column's full width),
+ * so a fixed 46px mark shrinks to a dot beside a photograph on a wide
+ * viewport and crowds the edge on a narrow one.
+ */
+.mark svg {
+  width: 46%;
+  height: auto;
+}
+
+.tile:hover .mark {
+  background: var(--hk-gold-tint);
+}
+
 .label {
   font-size: 14px;
   font-weight: 500;

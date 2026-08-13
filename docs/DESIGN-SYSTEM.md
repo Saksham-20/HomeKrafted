@@ -65,7 +65,7 @@ list and per-var rationale; the short version:
 
 | Var | Hex | Use |
 |---|---|---|
-| `--hk-on-pine` | `#EADFC9` | copy on solid `--hk-pine` (announcement bar, tag chips, dark badges, PromoBand dark, WalletBalanceCard) |
+| `--hk-on-pine` | `#EADFC9` | copy on solid `--hk-pine` (tag chips, dark badges, PromoBand dark, WalletBalanceCard) |
 | `--hk-gold-text-sm` | `#8A6A16` | gold-family text at small sizes on white/gold-tint (wallet chip, cashback lines, `ghost-gold` button label) |
 | `--hk-footer-ink` | `#C7D3C5` | body copy on solid `--hk-pine-deep` (footer + any dark-pine surface) |
 | `--hk-footer-ink-2` | `#A9BCAE` | link list on the same surfaces |

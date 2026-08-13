@@ -71,6 +71,54 @@ export const categories: Category[] = [
     imageSrc: "/images/categories/hampers.jpg",
     productCount: 7,
   },
+  /*
+   * The craft half (M33). These four are real rows in production —
+   * `server/prisma/seed-crafts.ts` has seeded them since M22 — but they
+   * had never been mirrored here, so mock mode showed a food-only
+   * marketplace and nobody working offline saw half the catalogue.
+   *
+   * They carry **no `imageSrc`, on purpose**: no photograph exists for
+   * them, and inventing one is ruled out (`CLAUDE.md`). `CategoryTile`
+   * draws a mark instead of `ImageSlot`'s hatch placeholder, and mock
+   * mode is where that path is easiest to look at. `sortOrder` continues
+   * from the seed's numbering so both modes order the row identically.
+   */
+  {
+    id: "ct9",
+    slug: "candles-home",
+    name: "Candles & Home",
+    imagePlaceholder: "CANDLES & HOME",
+    productCount: 4,
+    group: "craft",
+    sortOrder: 10,
+  },
+  {
+    id: "ct10",
+    slug: "handmade-jewellery",
+    name: "Handmade Jewellery",
+    imagePlaceholder: "JEWELLERY",
+    productCount: 2,
+    group: "craft",
+    sortOrder: 11,
+  },
+  {
+    id: "ct11",
+    slug: "art-prints",
+    name: "Art & Prints",
+    imagePlaceholder: "ART & PRINTS",
+    productCount: 1,
+    group: "craft",
+    sortOrder: 12,
+  },
+  {
+    id: "ct12",
+    slug: "personalised-gifts",
+    name: "Personalised Gifts",
+    imagePlaceholder: "PERSONALISED",
+    productCount: 1,
+    group: "craft",
+    sortOrder: 13,
+  },
 ];
 
 export function getCategoryBySlug(slug: string): Category | undefined {

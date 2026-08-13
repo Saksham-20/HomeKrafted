@@ -71,8 +71,10 @@ Two cross-cutting modules sit beside this stack, not inside it:
 `app/layout.tsx` is the composition root: it loads the three font
 families, imports `styles/tokens.css` then `styles/globals.css` (import
 order matters — see `docs/DESIGN-SYSTEM.md`), and wraps every route in
-`AnnouncementBar` → `Header` → `{children}` → `Footer`
-(`components/layout/`). `Header` is a server component that fetches
+`Header` → `{children}` → `Footer` (`components/layout/`). (There was an
+`AnnouncementBar` above the header until M33 — removed on owner
+instruction; see `ConsumerChrome`'s doc comment.) `Header` is a server
+component that fetches
 wallet balance / cart count / nav via `lib/api`, then hands plain props to
 `HeaderClient` (`"use client"`) for the interactive bits (hamburger,
 `MobileDrawer` open state) — data-fetching stays server-side; only actual

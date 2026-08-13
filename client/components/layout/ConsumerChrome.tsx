@@ -4,16 +4,15 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 export interface ConsumerChromeProps {
-  announcementBar: ReactNode;
   header: ReactNode;
   footer: ReactNode;
   children: ReactNode;
 }
 
 /**
- * Hides the consumer `AnnouncementBar`/`Header`/`Footer` on the role
- * surfaces (`/seller/*` now, `/admin/*` from M11) — those get their own
- * shell (`components/seller/SellerShell.tsx`), not the shopper chrome.
+ * Hides the consumer `Header`/`Footer` on the role surfaces (`/seller/*`
+ * now, `/admin/*` from M11) — those get their own shell
+ * (`components/seller/SellerShell.tsx`), not the shopper chrome.
  *
  * There's only one root layout (`app/layout.tsx`) in this app, so without
  * this gate every route — including `/seller/*` — would render inside
@@ -21,18 +20,21 @@ export interface ConsumerChromeProps {
  * route group would also solve this, but touches ~40 existing route
  * files for no behavioural gain; a client-side pathname check here is
  * the smaller, lower-risk diff and keeps the consumer app's file layout
- * completely untouched. `AnnouncementBar`/`Header`/`Footer` are async
- * server components — passed in as `children`-style props (React renders
- * server components server-side regardless of whether this client
- * component chooses to output them), so this stays a client component
- * without dragging their data-fetching into the client bundle.
+ * completely untouched. `Header`/`Footer` are async server components —
+ * passed in as `children`-style props (React renders server components
+ * server-side regardless of whether this client component chooses to
+ * output them), so this stays a client component without dragging their
+ * data-fetching into the client bundle.
+ *
+ * There was a third slot above the header until M33: a pine
+ * `AnnouncementBar` strip of value props ("Cooked this morning in a home
+ * kitchen near you · Chandigarh · Mohali · Panchkula · Zirakpur · Freshly
+ * prepared · No preservatives"). Removed on owner instruction. It cost
+ * 38px of every page on a phone and up to 102px when it wrapped (M26-013),
+ * said nothing the hero does not, and its "cooked this morning" line was
+ * a claim about food sitting above a page that also sells candles.
  */
-export function ConsumerChrome({
-  announcementBar,
-  header,
-  footer,
-  children,
-}: ConsumerChromeProps) {
+export function ConsumerChrome({ header, footer, children }: ConsumerChromeProps) {
   const pathname = usePathname();
   /**
    * `/corporate/quote/*` joins the role surfaces (M20), for a different
@@ -60,7 +62,6 @@ export function ConsumerChrome({
 
   return (
     <>
-      {announcementBar}
       {header}
       {children}
       {footer}

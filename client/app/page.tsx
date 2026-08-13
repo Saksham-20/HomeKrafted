@@ -127,6 +127,28 @@ export default async function Home() {
   // what "View all" now actually means.
   const occasionTiles = occasions.slice(0, 8);
 
+  /**
+   * The category rail shows only categories that have a real photograph
+   * (M33, owner instruction — artwork for the rest is being produced).
+   *
+   * A filter on `imageSrc` rather than a hardcoded list of slugs, so the
+   * tiles come back **on their own** the moment art lands: set
+   * `Category.imageSrc` and the category reappears here with no code
+   * change. A slug list would need editing again and would silently
+   * exclude any category added later.
+   *
+   * The rail is not the only way in — every category is still reachable
+   * through "View all" (`/shop`), its own `?category=` listing, and search,
+   * so this hides a tile rather than a part of the catalogue.
+   *
+   * `CategoryTile`'s drawn mark is deliberately kept. It is what the tile
+   * renders wherever a photograph is genuinely missing (the primitives
+   * gallery today, and this rail again the moment a category ships
+   * without art), and it is the reason a missing image degrades to
+   * something deliberate instead of an invisible hatch placeholder.
+   */
+  const photographedCategories = categories.filter((category) => category.imageSrc);
+
   // Organization + WebSite structured data, on the home page only —
   // stating it once site-wide is what the spec expects, and repeating it
   // per route just bloats every document. `SearchAction` is what lets a
@@ -201,8 +223,10 @@ export default async function Home() {
             View all →
           </Link>
         </div>
-        <div className={styles.categoryGrid}>
-          {categories.map((category) => (
+        {/* `hk-scroll` is the scrollbar tint for a horizontal rail — see
+            `styles/globals.css`. */}
+        <div className={clsx(styles.categoryRail, "hk-scroll")}>
+          {photographedCategories.map((category) => (
             <CategoryTileLink key={category.id} category={category} />
           ))}
         </div>

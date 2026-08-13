@@ -60,10 +60,78 @@
   gap: var(--hk-s3);
 }
 
-.categoryGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+/*
+ * One line, scrolled sideways (M33, owner instruction: "only keep one
+ * line here for the categories").
+ *
+ * It was `repeat(auto-fill, minmax(140px, 1fr))`, which wrapped: twelve
+ * categories over seven columns left a five-tile orphan row that read as
+ * a layout accident rather than a second row of anything.
+ *
+ * **A rail rather than a shorter list.** The obvious alternative is to
+ * cap the row the way the occasion grid caps at eight — but categories
+ * are ordered `sortOrder` then name, and the four craft categories are
+ * deliberately last (`seed-crafts.ts` numbers them 10–13, so craft lands
+ * after food rather than interleaving). Cutting the row to what fits
+ * would therefore cut *exactly* the non-food half, one commit after
+ * making it visible. Everything stays reachable here; nothing is ranked
+ * out of existence by a viewport width.
+ *
+ * Same shape as `ReelsRailClient` further down the page, minus the arrow
+ * buttons: these tiles are short and the partially-visible next tile is
+ * the affordance, so the rail needs no client component to scroll it.
+ */
+.categoryRail {
+  display: flex;
   gap: var(--hk-s4);
+  overflow-x: auto;
+  /* Breathing room for the scrollbar, so it never overlaps a label. */
+  padding-bottom: var(--hk-s2);
+
+  /*
+   * The edge fade, so the row visibly continues.
+   *
+   * Without it the container clips the overflowing tile dead flush and
+   * the rail reads as a complete row of eight — the exact failure
+   * `styles/globals.css` records for the portal nav strip, where the
+   * fifth item was cut off "with nothing to say the rest existed".
+   *
+   * `background-attachment: local` is what makes each fade disappear
+   * exactly when there is nothing further to reach that way, with no JS
+   * and no scroll listener. Same trick as `.hk-strip-fade`, **not** that
+   * class: it is gated to `max-width: 780px` (the shells are a vertical
+   * sidebar above it) and this rail is horizontal at every width, it is
+   * painted for `--hk-surface` where this sits on the canvas, and it
+   * hides the scrollbar where here the scrollbar is wanted on a desktop
+   * pointer. Three differences is a different recipe, not a widened one —
+   * which is what that file's own note asks for.
+   */
+  background:
+    linear-gradient(to right, var(--hk-bg) 30%, rgba(244, 243, 240, 0)) left center,
+    linear-gradient(to left, var(--hk-bg) 30%, rgba(244, 243, 240, 0)) right center,
+    linear-gradient(to right, rgba(29, 43, 35, 0.1), rgba(244, 243, 240, 0)) left center,
+    linear-gradient(to left, rgba(29, 43, 35, 0.1), rgba(244, 243, 240, 0)) right center;
+  background-repeat: no-repeat;
+  background-size: 2.5em 100%, 2.5em 100%, 0.9em 100%, 0.9em 100%;
+  background-attachment: local, local, scroll, scroll;
+
+  /* Momentum scrolling on iOS; without it the rail feels stuck. */
+  -webkit-overflow-scrolling: touch;
+}
+
+.categoryRail > * {
+  /* No shrink: a flex item's default `min-width: auto` would squeeze
+     twelve tiles into the line instead of overflowing it, which is the
+     wrapped row again with narrower tiles. */
+  flex: 0 0 140px;
+}
+
+@media (max-width: 640px) {
+  .categoryRail > * {
+    /* Three-and-a-bit tiles on a 390px phone — enough to read as a row
+       that continues, rather than two tiles and a guess. */
+    flex-basis: 108px;
+  }
 }
 
 /* `.featuredGrid` and `.servicesGrid` were deleted here in M29.

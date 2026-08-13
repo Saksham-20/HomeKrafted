@@ -1,5 +1,6 @@
 import Link from "next/link";
 import clsx from "clsx";
+import { CraftIcon, occasionArt } from "@/components/ui/icons/CraftIcon";
 import type { Occasion } from "@/lib/types";
 import { countdownLabel } from "@/lib/occasions";
 import styles from "./OccasionCard.module.css";
@@ -19,15 +20,24 @@ export interface OccasionCardProps {
  * `days` is passed in rather than derived here: everything time-dependent
  * is computed once by the page (CLAUDE.md — a component that recomputes
  * "today" during hydration is how React #418 happened in M12).
+ *
+ * The mark follows `OccasionTile` (M33) so the home row and the hub don't
+ * disagree about what Diwali looks like, and falls back to the initial
+ * ring for the same reason: admin-created occasions have no art.
  */
 export function OccasionCard({ occasion, days, className }: OccasionCardProps) {
   const soon = days !== undefined && days <= 14;
+  const art = occasionArt(occasion.slug);
 
   return (
     <Link href={`/collections/${occasion.slug}`} className={clsx(styles.card, className)}>
-      <span className={styles.ring} aria-hidden="true">
-        {occasion.initial}
-      </span>
+      {art ? (
+        <CraftIcon art={art} size={40} className={styles.icon} />
+      ) : (
+        <span className={styles.ring} aria-hidden="true">
+          {occasion.initial}
+        </span>
+      )}
       <span className={styles.body}>
         <span className={styles.head}>
           <span className={styles.name}>{occasion.name}</span>

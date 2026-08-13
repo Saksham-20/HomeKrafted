@@ -1,7 +1,6 @@
 import type { Address, Cart, HamperBox, MealPromo, User } from "@/lib/types";
 import {
   addresses,
-  announcementItems,
   brandBlurb,
   currentUser,
   demoAddress,
@@ -12,7 +11,6 @@ import {
   mealPromo,
   mockCart,
   primaryNav,
-  type AnnouncementItem,
   type FooterColumn,
   type HomePromoBandContent,
   type NavLink,
@@ -32,10 +30,6 @@ export async function getMealPromo(): Promise<MealPromo> {
 
 export async function getPrimaryNav(): Promise<NavLink[]> {
   return primaryNav;
-}
-
-export async function getAnnouncementItems(): Promise<AnnouncementItem[]> {
-  return announcementItems;
 }
 
 export async function getFooterColumns(): Promise<FooterColumn[]> {

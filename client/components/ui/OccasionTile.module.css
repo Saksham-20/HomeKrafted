@@ -21,6 +21,17 @@
   background: var(--hk-gold-tint);
 }
 
+/*
+ * The mark (M33). `color` is what `CraftIcon`'s `currentColor` stroke
+ * resolves against — the gold accents inside each piece of art set their
+ * own stroke from the token and are unaffected by this.
+ */
+.icon {
+  color: var(--hk-pine);
+  flex-shrink: 0;
+}
+
+/* Fallback only — an admin-created occasion with no art. See OccasionTile.tsx. */
 .ring {
   width: 40px;
   height: 40px;

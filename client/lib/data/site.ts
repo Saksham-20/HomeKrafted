@@ -1,6 +1,6 @@
 /**
- * Site-chrome content: header nav, announcement bar, footer columns and
- * the home page's trust strip. Not part of the Prisma-bound domain model
+ * Site-chrome content: header nav, footer columns and the home page's
+ * promo bands. Not part of the Prisma-bound domain model
  * in `lib/types` — this is copy/config, seeded here so components stay
  * data-driven instead of hardcoding strings.
  */
@@ -13,12 +13,6 @@ export interface NavLink {
 export interface FooterColumn {
   title: string;
   links: NavLink[];
-}
-
-export interface AnnouncementItem {
-  text: string;
-  /** Gold mono treatment for the lead item, per the design system. */
-  emphasis?: boolean;
 }
 
 /**
@@ -59,12 +53,6 @@ export const primaryNav: NavLink[] = [
   // column, still a real route, and is not something anyone arrives
   // intending to buy.
   { label: "Meal plans", href: "/meal-plans" },
-];
-
-export const announcementItems: AnnouncementItem[] = [
-  { text: "✦ Cooked this morning in a home kitchen near you", emphasis: true },
-  { text: "Chandigarh · Mohali · Panchkula · Zirakpur" },
-  { text: "Freshly prepared · No preservatives" },
 ];
 
 export const brandBlurb =

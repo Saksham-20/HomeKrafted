@@ -3,7 +3,6 @@ import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
 import "@/styles/tokens.extend.css";
-import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ConsumerChrome } from "@/components/layout/ConsumerChrome";
@@ -93,9 +92,8 @@ export default function RootLayout({
     >
       <body>
         {/* First thing in the tab order (M16). A keyboard user landing on
-            any page otherwise has to tab through the announcement bar,
-            the whole header and the nav before reaching the content —
-            on every page, every time. */}
+            any page otherwise has to tab through the whole header and the
+            nav before reaching the content — on every page, every time. */}
         <a className="hk-skip-link" href="#main-content">
           Skip to content
         </a>
@@ -107,11 +105,7 @@ export default function RootLayout({
             <WalletProvider>
               <CartProvider>
                 <WishlistProvider>
-                  <ConsumerChrome
-                    announcementBar={<AnnouncementBar />}
-                    header={<Header />}
-                    footer={<Footer />}
-                  >
+                  <ConsumerChrome header={<Header />} footer={<Footer />}>
                     {/* `tabIndex={-1}` so the skip link can actually move
                       focus here — a <main> isn't focusable otherwise, and
                       the link would scroll without moving the caret. */}
