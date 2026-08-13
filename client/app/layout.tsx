@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans, Kaushan_Script } from "next/font/google";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
 import "@/styles/tokens.extend.css";
@@ -36,6 +36,16 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-plex-mono",
+  display: "swap",
+});
+
+// Kaushan Script — the hero's "to the world" brush line ONLY (owner-supplied
+// hero design, 2026-08-13). Not part of the handoff type ramp; don't reach
+// for it anywhere else without a design decision. Single weight.
+const kaushan = Kaushan_Script({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-script",
   display: "swap",
 });
 
@@ -88,7 +98,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable}`}
+      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} ${kaushan.variable}`}
     >
       <body>
         {/* First thing in the tab order (M16). A keyboard user landing on
