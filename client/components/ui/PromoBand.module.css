@@ -9,6 +9,9 @@
 }
 
 .dark {
+  /* Focus rings on this surface, not the page's `--hk-pine` (1.23:1 here).
+     See `styles/globals.css`. Inherits to every control inside. */
+  --hk-focus-ring: var(--hk-gold-bright);
   background: linear-gradient(120deg, var(--hk-pine), var(--hk-pine-grad-a));
   color: var(--hk-on-pine);
 }

@@ -85,7 +85,7 @@
 }
 
 .input:focus-visible {
-  outline: 2px solid var(--hk-pine);
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 1px;
 }
 

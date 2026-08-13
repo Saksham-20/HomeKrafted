@@ -79,12 +79,12 @@
 }
 
 .range:focus-visible::-webkit-slider-thumb {
-  outline: 2px solid var(--hk-pine);
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 2px;
 }
 
 .range:focus-visible::-moz-range-thumb {
-  outline: 2px solid var(--hk-pine);
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 2px;
 }
 

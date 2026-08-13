@@ -127,10 +127,11 @@ p {
   text-wrap: pretty;
 }
 
-:focus-visible {
-  outline: 2px solid var(--hk-pine);
-  outline-offset: 2px;
-}
+/* The focus floor lives once, further down this file — next to
+   `.hk-dark-surface`, which is the half that makes it visible on the
+   footer. This duplicate declaration was dead weight (identical, and
+   overridden by its own copy), and keeping it would mean the ring colour
+   had two homes and one of them silently did nothing. */
 
 /* Thin warm scrollbar for horizontally-scrolling rails (chip rows, tabs).
    Thumb colour is var(--hk-scrollbar) (styles/tokens.extend.css),
@@ -306,11 +307,38 @@ main:focus {
 
 /* Everything below assumes a visible focus ring exists. Components style
    their own `:focus-visible`; this is the floor for anything that
-   doesn't. */
+   doesn't.
+
+   **The colour comes from `--hk-focus-ring`, which dark surfaces
+   override** (`.hk-dark-surface` below). It was a flat `--hk-pine`
+   (#234233), which measures **1.23:1 on `--hk-pine-deep`** (#1B3327)
+   against WCAG 2.2 SC 1.4.11's 3:1 for a focus indicator — so on the
+   footer, which is on every consumer page, a keyboard user lost the ring
+   entirely for the last fifteen links of every page on the site. Found
+   in the 2026-08-13 design audit; the ten dark containers are listed on
+   `.hk-dark-surface`. */
 :focus-visible {
-  outline: 2px solid var(--hk-pine);
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 2px;
 }
+
+/* **How a dark surface fixes its own ring.** Any container painted
+   `--hk-pine-deep` or the pine gradient sets
+
+     --hk-focus-ring: var(--hk-gold-bright);
+
+   in its own rule, right next to the background that causes the problem
+   — so changing the background puts the fix in front of whoever changes
+   it. The variable inherits, so one declaration covers every control
+   inside. Gold-bright measures 8.27:1 on pine-deep, 6.75:1 on pine and
+   4.78:1 on the gradient's light stop, all clear of the 3:1 floor.
+
+   The seven containers doing this today: `Footer.footer`,
+   `SellerShell.topbar`, `AdminShell.topbar`, `PromoBand.dark`,
+   `WalletBalanceCard.card`, `ReelViewer.player`, `gallery.darkWrap`.
+
+   A dark *button on a light page* needs none of this — `outline-offset`
+   puts its ring on the page behind it, where pine is 11:1. */
 
 @media (prefers-reduced-motion: reduce) {
   .hk-skip-link {
