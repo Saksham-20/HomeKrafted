@@ -128,13 +128,14 @@ export const footerColumns: FooterColumn[] = [
   {
     title: "Help",
     links: [
+      // One label per destination: this column listed "Shipping &
+      // returns", "FAQ" and "Support" as three links to the same
+      // /support page, and repeated "Cancellation & refunds" from the
+      // legal row below it (2026-08-13 review, R4).
       { label: "About us", href: "/about" },
       { label: "Track order", href: "/account/orders" },
-      { label: "Shipping & returns", href: "/support" },
-      { label: "FAQ", href: "/support" },
-      { label: "Support", href: "/support" },
+      { label: "Help & FAQ", href: "/support" },
       { label: "Contact us", href: "/contact" },
-      { label: "Cancellation & refunds", href: "/refunds" },
     ],
   },
   {
