@@ -15,6 +15,8 @@ export interface MobileDrawerProps {
   open: boolean;
   onClose: () => void;
   navItems: NavLink[];
+  /** The non-catalogue ways in (M34). The desktop row dropped these to make the search field typable; the drawer keeps them, or the footer becomes the only route to /corporate and /meal-plans on a phone. */
+  secondaryItems: NavLink[];
   /** Undefined while `useWallet()` is still hydrating (see `HeaderClient`) — renders "…" instead of a misleading ₹0. */
   walletBalance: number | undefined;
   /** Present only for a signed-in seller currently in shopping mode — `HeaderClient`'s `sellerModePill` hides below ~1190px (`.hideOnMobile`), so this is the only way to reach the dual-mode toggle on mobile (M8.5, same reasoning as the Wishlist entry below). */
@@ -27,7 +29,14 @@ export interface MobileDrawerProps {
  * wishlist/account icons below ~1190px, so this is the only way to reach
  * them on small screens.
  */
-export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchToSelling }: MobileDrawerProps) {
+export function MobileDrawer({
+  open,
+  onClose,
+  navItems,
+  secondaryItems,
+  walletBalance,
+  onSwitchToSelling,
+}: MobileDrawerProps) {
   const { count: wishlistCount } = useWishlist();
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -114,6 +123,25 @@ export function MobileDrawer({ open, onClose, navItems, walletBalance, onSwitchT
               key={item.href + item.label}
               href={item.href}
               className={styles.navItem}
+              onClick={onClose}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* The second group (M34). Set quieter than the catalogue links
+            above and labelled, because these are flows rather than
+            things to browse — but they are in the same panel at the same
+            tap size, which is the point: the desktop row lost them, the
+            phone did not. */}
+        <nav className={styles.secondaryList} aria-label="More ways to order">
+          <span className={styles.secondaryHeading}>More ways to order</span>
+          {secondaryItems.map((item) => (
+            <Link
+              key={item.href + item.label}
+              href={item.href}
+              className={styles.secondaryItem}
               onClick={onClose}
             >
               {item.label}

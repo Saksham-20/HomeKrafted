@@ -110,6 +110,42 @@
   background: var(--hk-surface-3);
 }
 
+/*
+ * The second nav group (M34) — the flows the desktop row gave up so the
+ * search field could be typable. Quieter type than `.navItem`, same 44px
+ * target: these are a step down in the hierarchy, not a step down in
+ * reachability.
+ */
+.secondaryList {
+  display: flex;
+  flex-direction: column;
+  padding: var(--hk-s2) 0 0;
+}
+
+.secondaryHeading {
+  padding: var(--hk-s3) var(--hk-s4) var(--hk-s2);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+.secondaryItem {
+  display: flex;
+  align-items: center;
+  padding: var(--hk-s4);
+  font-size: 15px;
+  color: var(--hk-ink-2);
+  border-bottom: 1px solid var(--hk-divider);
+  min-height: 44px;
+}
+
+.secondaryItem:hover {
+  color: var(--hk-gold-text-sm);
+  background: var(--hk-surface-3);
+}
+
 .divider {
   border-top: 1px solid var(--hk-border);
   margin: var(--hk-s2) 0;

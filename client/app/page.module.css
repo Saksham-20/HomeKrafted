@@ -8,6 +8,15 @@
   padding-block: var(--hk-s5) 0;
 }
 
+/*
+ * The quick-entry strip (M34) sits between the hero and the first
+ * catalogue section, tighter than a `.section` on both sides: it belongs
+ * to the hero as a set of ways in, not to the browse content below.
+ */
+.quickEntry {
+  padding-block: var(--hk-s5) 0;
+}
+
 .sectionHead {
   display: flex;
   align-items: baseline;

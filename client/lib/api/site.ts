@@ -11,6 +11,7 @@ import {
   mealPromo,
   mockCart,
   primaryNav,
+  secondaryNav,
   type FooterColumn,
   type HomePromoBandContent,
   type NavLink,
@@ -30,6 +31,11 @@ export async function getMealPromo(): Promise<MealPromo> {
 
 export async function getPrimaryNav(): Promise<NavLink[]> {
   return primaryNav;
+}
+
+/** The non-catalogue ways in (M34) — home's quick-entry strip and the drawer's second group. See `secondaryNav`'s doc comment for why these are not desktop nav links. */
+export async function getSecondaryNav(): Promise<NavLink[]> {
+  return secondaryNav;
 }
 
 export async function getFooterColumns(): Promise<FooterColumn[]> {

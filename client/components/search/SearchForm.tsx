@@ -54,11 +54,12 @@ export function SearchForm({
     onSubmitted?.();
   }
 
-  // Escape gives the field back. In the header the `pill` variant expands
-  // over the nav on focus (`Header.module.css`), so without this a
-  // keyboard user could open it and have no way to close it again short
-  // of tabbing all the way out — the same complaint as a dialog with no
-  // dismiss. Blur is enough: the expansion is driven by `:focus-within`.
+  // Escape leaves the field. It was load-bearing while the header pill
+  // expanded over the nav on focus (a keyboard user could open it with no
+  // way to close it); M34 deleted that expansion, so this is now the
+  // ordinary search-field convention rather than a dismiss — kept because
+  // Escape leaving a search box is what people expect, and because the
+  // drawer's `block` variant never had the expansion either.
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") event.currentTarget.blur();
   }

@@ -16,7 +16,8 @@ export interface FooterColumn {
 }
 
 /**
- * Header primary nav — collapses into <MobileDrawer> under ~1120px.
+ * Header primary nav — the **catalogue** destinations, and only those.
+ * Collapses into <MobileDrawer> under ~1190px.
  *
  * M20 renames rather than re-routes. "Shop" became **Homemade Food**
  * because the site now sells two different things and "Shop" no longer
@@ -26,34 +27,87 @@ export interface FooterColumn {
  *
  * "Snacks" is gone from the top level — it is a *category* of homemade
  * food in the client's structure, not a peer of it. `/snacks` still
- * exists and is still linked from the footer and the home page, because
- * it is a genuinely different ordering flow (WhatsApp, no cart).
+ * exists and is still linked from the footer, the drawer and the home
+ * page, because it is a genuinely different ordering flow (WhatsApp, no
+ * cart).
+ *
+ * **M34 cut this row from six items to three, and the three that left
+ * went to `secondaryNav` — not to the footer.** Six links plus a search
+ * field plus a wallet chip plus three icons is nine targets competing in
+ * a row that has 1092px, and the thing that lost was the search field:
+ * it rendered as a ~32px stub that read "Sear…" (measured on production,
+ * 2026-08-13). Marketplaces this shape — Zomato, Swiggy — keep two or
+ * three destinations up here and let the landing page carry the rest,
+ * where a tile can say what a thing *is* instead of naming it in 90px.
+ *
+ * The rule for adding an item back: **is it a catalogue you browse?** If
+ * it is a flow, an occasion hub or an enquiry, it belongs in
+ * `secondaryNav`, which is more visible on the home page than a seventh
+ * nav link would be. And re-measure against 1092px — see
+ * `Header.module.css` and `e2e/tests/header-capacity.spec.ts`.
  */
 export const primaryNav: NavLink[] = [
   { label: "Homemade Food", href: "/shop" },
   { label: "Handcrafted Gifts", href: "/gifts" },
   { label: "Gift Hampers", href: "/hamper" },
-  { label: "Occasions", href: "/collections" },
-  // M19 (WS3a). One corporate order is ₹5k–₹50k against ₹120 for a thali,
-  // and it was reachable only from the footer — the least-read part of the
-  // page — while the enquiry form and the whole quote funnel behind it sat
-  // finished. A buyer sourcing fifty Diwali hampers is not scrolling to
-  // the bottom to find out whether we do that.
-  { label: "Corporate & bulk", href: "/corporate" },
-  // M21 (audit). Same argument the line above makes, applied to the one
-  // product on the site that *recurs*: `/meal-plans` and
-  // `/meal-plans/[slug]` shipped in M20 on top of M19's whole
-  // subscription engine — wallet debit, delivery rows, skip/pause/cancel —
-  // and were reachable only from the footer and the mobile drawer. A
-  // cycle is ₹960–₹3,900 and renews; a thali is ₹120.
-  //
-  // It replaces **About** rather than joining the row: the nav fits
-  // exactly six items at the 1120px breakpoint (see
-  // `Header.module.css`), and About is already in the footer's Help
-  // column, still a real route, and is not something anyone arrives
-  // intending to buy.
-  { label: "Meal plans", href: "/meal-plans" },
 ];
+
+/**
+ * The four ways *in* that are not a catalogue — rendered as the home
+ * page's quick-entry strip directly under the hero (`QuickEntryRow`),
+ * and as the drawer's second nav group.
+ *
+ * **This is a promotion, not a demotion.** Each of these was argued into
+ * the desktop nav on the grounds that the footer was too buried to reach
+ * it, and every one of those arguments still holds:
+ *
+ * - **Corporate & bulk** (M19 WS3a) — one order is ₹5k–₹50k against ₹120
+ *   for a thali. A buyer sourcing fifty Diwali hampers is not scrolling
+ *   to the bottom to find out whether we do that.
+ * - **Meal plans** (M21) — the one product on the site that *recurs*: a
+ *   cycle is ₹960–₹3,900 and renews.
+ * - **Occasions** — the gifting hub, and the seasonal countdown's home.
+ * - **Snacks on WhatsApp** — a different ordering flow entirely, and
+ *   until M34 it was in *neither* nav, only the footer and the drawer.
+ *
+ * A 90px nav link is a worse answer to "reach it sooner" than a tile in
+ * the first screenful that names the thing and says who it is for. If a
+ * fifth entry is ever added, the strip wraps to two rows on desktop —
+ * check that before adding one.
+ */
+export const secondaryNav: NavLink[] = [
+  { label: "Occasions", href: "/collections" },
+  { label: "Meal plans", href: "/meal-plans" },
+  { label: "Corporate & bulk", href: "/corporate" },
+  { label: "Snacks on WhatsApp", href: "/snacks" },
+];
+
+/**
+ * Copy for the home page's quick-entry strip. Keyed by `secondaryNav`
+ * href so the two cannot drift into different destinations, and kept
+ * apart from `secondaryNav` itself because the drawer wants the bare
+ * label while the strip wants a sentence saying who it is for.
+ */
+export const quickEntryDetail: Record<string, { title: string; blurb: string }> = {
+  // Two lines at the tile's desktop width — a third line turns the strip
+  // into four paragraphs and it stops being something you scan.
+  "/collections": {
+    title: "Shop by occasion",
+    blurb: "Diwali, weddings and thank-yous.",
+  },
+  "/meal-plans": {
+    title: "Daily meal plans",
+    blurb: "Lunch from one kitchen, every day.",
+  },
+  "/corporate": {
+    title: "Corporate & bulk",
+    blurb: "Fifty hampers, quoted by a person.",
+  },
+  "/snacks": {
+    title: "Snacks on WhatsApp",
+    blurb: "Today's menu, ordered in a message.",
+  },
+};
 
 export const brandBlurb =
   "Home-cooked food, fresh bakes and small-batch pickles from real home kitchens across Chandigarh, Mohali, Panchkula and Zirakpur.";

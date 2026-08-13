@@ -16,7 +16,10 @@ import { MobileDrawer } from "./MobileDrawer";
 import styles from "./Header.module.css";
 
 export interface HeaderClientProps {
+  /** The catalogue destinations — the only ones the desktop row renders (M34). */
   navItems: NavLink[];
+  /** The non-catalogue ways in; drawer-only up here, since the desktop row has no width for them. See `secondaryNav` in `lib/data/site.ts`. */
+  secondaryItems: NavLink[];
 }
 
 /**
@@ -39,7 +42,7 @@ export interface HeaderClientProps {
  * itself) and offers the reverse switch back to their dashboard — see
  * `SellerShell`'s matching "Switch to shopping" for the other direction.
  */
-export function HeaderClient({ navItems }: HeaderClientProps) {
+export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { count: cartCount } = useCart();
@@ -178,6 +181,7 @@ export function HeaderClient({ navItems }: HeaderClientProps) {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         navItems={navItems}
+        secondaryItems={secondaryItems}
         walletBalance={walletReady ? walletBalance : undefined}
         onSwitchToSelling={isSeller ? handleSwitchToSelling : undefined}
       />

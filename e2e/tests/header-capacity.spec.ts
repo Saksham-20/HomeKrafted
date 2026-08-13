@@ -19,13 +19,20 @@ import { skipLocationPrompt } from '../fixtures/location';
  * measured 0px wide for every role at every width from 1190 to 1920: it
  * looked like a search box, focused like one, and could not be typed in.
  *
- * The fix keeps every nav label, the wallet chip and all three icons. The
- * search **slot** holds a 38px place in the flex line and the **form**
- * leaves the line on focus, overlaying the nav at 420px — so the row is
- * back inside its budget and the field is genuinely typable. Both halves
- * are asserted here, because either one alone is the bug: a field that
- * fits but cannot be typed in, or a typable field that shoves the cart
- * off the screen.
+ * The first fix (M21) kept all six nav labels and made the field expand
+ * over the nav on focus, holding a 38px place in the line at rest. It
+ * worked, and it still shipped a 38px circle that claimed to be a search
+ * box.
+ *
+ * **M34 paid for the field out of the nav instead.** `primaryNav` carries
+ * three catalogue items; the other three moved to the home page's
+ * quick-entry strip, which is more visible than a 90px nav link. That
+ * frees ~287px, the slot gets ~325–370px depending on role, and the field
+ * is typable where it stands — so the expansion is deleted and this file
+ * asserts the field is **already** usable, with no interaction. Both
+ * halves still matter, because either alone is the bug: a field that fits
+ * but cannot be typed in, or a typable field that shoves the cart off the
+ * screen.
  *
  * **Why this file asserts per-child geometry rather than page overflow.**
  * That same `overflow-x: hidden` is why `documentElement.scrollWidth`
@@ -145,68 +152,46 @@ for (const role of ROLES) {
     });
 
     /**
-     * The collapsed control is a real target, not a decoration.
+     * The field is typable **at rest** — no click, no focus, no
+     * expansion. This is the assertion the whole M34 nav cut exists to
+     * make true, and it is the one that fails the moment somebody adds
+     * nav items back until the row is over budget again.
      *
-     * 36px rather than the 38px floor `.searchSlot` sets, so sub-pixel
-     * layout rounding cannot make this flap. What it is really guarding is
-     * the drop *below* 24px — WCAG 2.2's pointer floor — which is where
-     * the field sat (0–34px, and 0px of input) before the slot existed.
+     * 200px against the slot's 210px floor so sub-pixel rounding cannot
+     * make it flap, and 120px of actual `<input>` because a pill that
+     * measures right with a zero-width field inside it is the original
+     * bug wearing the fix's clothes.
      */
-    test('leaves a tappable search control in the row', async ({ page }) => {
+    test('carries a typable search field with no interaction', async ({ page }) => {
       await page.goto('/');
       await settled(page);
 
       const geo = await headerGeometry(page);
-      expect(geo.formWidth).toBeGreaterThanOrEqual(36);
+      expect(
+        geo.formWidth,
+        'the search pill is back to a stub — the row is over budget again, cut the nav rather than hiding the field',
+      ).toBeGreaterThanOrEqual(200);
+      expect(geo.inputWidth, 'the pill is wide but the input inside it is not').toBeGreaterThanOrEqual(120);
     });
 
     /**
-     * The whole point: the magnifier is a `<label>`, so clicking it puts
-     * the caret in the field, and `:focus-within` expands the field over
-     * the nav to a width somebody can actually read what they typed in.
-     * 300px is well under the 420px it opens to and well over the 171px
-     * the row could never give it inline.
+     * The magnifier is a `<label>`, so clicking it puts the caret in the
+     * field. Post-M34 that must *not* resize anything: a field that jumps
+     * width on focus is the deleted expansion coming back by accident.
      */
-    test('expands to a typable field when the magnifier is clicked', async ({ page }) => {
+    test('focuses on the magnifier without resizing the row', async ({ page }) => {
       await page.goto('/');
       await settled(page);
 
+      const before = await headerGeometry(page);
       await searchForm(page).locator('label').click();
+      const after = await headerGeometry(page);
 
-      await expect
-        .poll(async () => (await headerGeometry(page)).formWidth, {
-          message: 'the search field never expanded on focus',
-        })
-        .toBeGreaterThanOrEqual(300);
-
-      const geo = await headerGeometry(page);
-      expect(geo.inputFocused, 'clicking the magnifier did not focus the input').toBe(true);
-      // Belt and braces: an expanded pill with a zero-width input inside
-      // it would satisfy the width check and still be the original bug.
-      expect(geo.inputWidth).toBeGreaterThanOrEqual(120);
-    });
-
-    /**
-     * Keyboard parity, both directions. Tabbing to the field has to open
-     * it — a keyboard user who cannot see 420px of field is typing into a
-     * 38px circle — and Escape has to give the row back, or the only way
-     * out of an overlay covering the nav is to tab through the whole
-     * strip. Same reasoning as the dismiss on any of our dialogs.
-     */
-    test('opens on keyboard focus and closes on Escape', async ({ page }) => {
-      await page.goto('/');
-      await settled(page);
-
-      const input = searchForm(page).locator('input[type="search"]');
-      await input.focus();
-      await expect.poll(async () => (await headerGeometry(page)).formWidth).toBeGreaterThanOrEqual(300);
-
-      await input.press('Escape');
-      await expect
-        .poll(async () => (await headerGeometry(page)).formWidth, {
-          message: 'Escape left the search field open over the nav',
-        })
-        .toBeLessThan(300);
+      expect(after.inputFocused, 'clicking the magnifier did not focus the input').toBe(true);
+      expect(
+        Math.abs(after.formWidth - before.formWidth),
+        'the field changed width on focus — the M34 expansion has been reintroduced',
+      ).toBeLessThanOrEqual(2);
     });
 
     test('searches what was typed', async ({ page }) => {

@@ -161,41 +161,47 @@
  * role at every viewport width from 1190 to 1920**. It looked like a
  * search box, focused like one, and could not be typed in.
  *
- * **The row cannot hold a typable field inline, so the field expands over
- * the row instead.** Capacity here is fixed — `.container` caps this row
- * at 1180px at every viewport width, which is 1092px of content after
- * 44px of padding each side. Measured 2026-08-11 with the mode switch
- * icon-only and all three gaps tightened above:
+ * **M34 solved this by cutting the nav, not by hiding the field.**
+ * Capacity here is fixed — `.container` caps this row at 1180px at every
+ * viewport width, which is 1092px of content after 44px of padding each
+ * side. Widening a breakpoint buys nothing; the only levers are what is
+ * in the row.
+ *
+ * What it was, with six nav items (measured 2026-08-11):
  *
  *   logo 115.5 + nav 630.5 + 2 row gaps 52 = 798
- *   shopper actions, less search:  wallet 95.8 + 3 icons 114 + 4 gaps 32 = 241.8
- *   HomeKrafter actions, less search: + switch 38 + a fifth gap 8 = 254.6
- *   → the slot gets 1092 − 1039.8 = **52.2px** as a shopper,
- *                   1092 − 1054.6 = **37.4px** as a HomeKrafter (so the
- *                   38px floor below is the binding constraint there),
- *               and 1092 − 1008.6 = **83.4px** signed out.
+ *   shopper actions, less search: wallet 95.8 + 3 icons 114 + 4 gaps 32 = 241.8
+ *   → the slot got 1092 − 1039.8 = **52.2px** as a shopper, 37.4px as a
+ *     HomeKrafter, 83.4px signed out — against the 171px a typable field
+ *     needs (120px of input plus 51px of pill chrome: 24 padding, 2
+ *     border, 17 icon, 8 gap). Roughly 130px short, so the field held a
+ *     38px place in the line and expanded over the nav on focus.
  *
- * A typable field needs 171px of that — 120px of input plus 51px of the
- * pill's own chrome (24 padding, 2 border, 17 icon, 8 gap) — so inline it
- * is roughly 130px short, and forcing it inline does not create the
- * space, it pushes the cart icon off the screen (the bug above). Hence
- * the split: the **slot** keeps a 38px place in the flex line, and the
- * **form** leaves the line on focus and overlays the nav at 420px. No
- * product content is removed and nothing else in the row moves.
+ * What it is now: `primaryNav` carries **three** items (see its doc
+ * comment — the other three moved to the home page's quick-entry strip,
+ * which is more visible than a 90px nav link, not less). The three
+ * dropped labels plus their gaps were ~287px, so:
  *
- * **38px is the floor because 24px is the floor.** Below 24px the
- * collapsed control fails WCAG 2.2's pointer target, and 38px is what
- * every other icon in this row already is, so the run reads as one set.
- * The HomeKrafter row was offering only 22.4px at the gaps this file
- * carried an hour earlier — the last two steps (nav 13→12, actions 10→8)
- * are what bought the difference, and the figures above are after them. */
+ *   logo 115.5 + nav ~343 + 2 row gaps 52 = ~510.5
+ *   → the slot gets ~**340px** as a shopper, ~325px as a HomeKrafter,
+ *     ~371px signed out. All three clear 171px, so the field is typable
+ *     where it stands and the expansion is deleted.
+ *
+ * **The nav is no longer full, and that is the budget to spend
+ * carefully.** A fourth item costs roughly 100px of a ~170px surplus; a
+ * fifth puts the row back under the typable floor and the search stub
+ * comes back. Re-measure against **1092px**, not 1180px, and check
+ * `e2e/tests/header-capacity.spec.ts`, which asserts the field is
+ * genuinely typable rather than merely present. */
 .searchSlot {
-  /* The positioning context for the expansion below — without this the
-     focused form would anchor to the page, not to this slot. */
   position: relative;
   flex: 1 1 auto;
-  min-width: 38px;
-  max-width: 240px;
+  /* 210px is `SearchForm.module.css`'s own floor — the width at which the
+     field is genuinely typable rather than an icon pretending to be one.
+     It is affordable now (see the M34 arithmetic above); it was not
+     before, which is the whole reason the expansion existed. */
+  min-width: 210px;
+  max-width: 300px;
 }
 
 .searchPill {
@@ -220,27 +226,17 @@
     box-shadow var(--hk-dur) var(--hk-ease);
 }
 
-/* Scoped to the range where the pill actually exists — below 1191px the
-   slot is hidden and the drawer's full-width `block` variant is the
-   search, so an overlay here would be styling something invisible. */
-@media (min-width: 1191px) {
-  .searchSlot:focus-within .searchPill {
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    /* 420px is a comfortable field and always fits: anchored to the right
-       of a row whose content is 1092px, it reaches back to roughly the
-       middle of the nav and never past the container's left edge. The
-       `min()` keeps that true if the breakpoint above is ever lowered. */
-    width: min(420px, calc(100vw - 160px));
-    /* Opaque, and above the nav labels it now covers — the nav is earlier
-       in the DOM, so without this the labels read through the field. */
-    z-index: 3;
-    background: var(--hk-surface);
-    box-shadow: var(--hk-shadow-card);
-  }
-}
+/*
+ * **The focus expansion is gone (M34), and deleting it was the point of
+ * the nav cut.** Until now the field held a 38px place in the flex line
+ * and went `position: absolute` over the nav at 420px on focus, because
+ * the row could not seat a typable field inline. That worked, and it
+ * still asked the visitor to trust that a 38px circle was a search box.
+ * With three nav items instead of six the slot gets ~325px, the field is
+ * typable where it stands, and an overlay would now be motion for its
+ * own sake. If a future change puts the row back over capacity, fix the
+ * row — do not bring this back to hide it.
+ */
 
 .walletChip {
   display: flex;

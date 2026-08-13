@@ -9,7 +9,8 @@ import { MakerCard } from "@/components/home/MakerCard";
 import { WayCard } from "@/components/home/WayCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
-import { waysToOrder } from "@/lib/data";
+import { QuickEntryRow } from "@/components/home/QuickEntryRow";
+import { quickEntryDetail, waysToOrder } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import {
   getCategories,
@@ -18,6 +19,7 @@ import {
   getOccasions,
   getProducts,
   getReels,
+  getSecondaryNav,
   getVendors,
 } from "@/lib/api";
 import { currentSeasonalOccasion } from "@/lib/occasions";
@@ -62,7 +64,7 @@ function renderPromoTitle(title: string) {
  * — see `getHomePromoBands`.
  */
 export default async function Home() {
-  const [occasions, categories, allProducts, vendors, promoBands, reels, collections] =
+  const [occasions, categories, allProducts, vendors, promoBands, reels, collections, quickEntries] =
     await Promise.all([
       getOccasions(),
       getCategories(),
@@ -71,6 +73,7 @@ export default async function Home() {
       getHomePromoBands(),
       getReels(),
       getCollections(),
+      getSecondaryNav(),
     ]);
 
   const ways = waysToOrder;
@@ -189,6 +192,17 @@ export default async function Home() {
     <>
       <script {...jsonLdProps(siteJsonLd)} />
       <Hero />
+
+      {/*
+        M34 — the ways in that the desktop nav gave up so its search field
+        could be typable, plus Snacks on WhatsApp, which was never in the
+        nav at all. Directly under the hero on purpose: this is the
+        "what are you here for" row, and it has to be in the first
+        screenful to do the job the nav links were doing.
+      */}
+      <section className={clsx("container", styles.quickEntry)}>
+        <QuickEntryRow items={quickEntries} detail={quickEntryDetail} />
+      </section>
 
       {seasonal && (
         <section className={clsx("container", styles.seasonal)}>

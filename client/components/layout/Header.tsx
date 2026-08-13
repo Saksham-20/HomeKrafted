@@ -1,4 +1,4 @@
-import { getPrimaryNav } from "@/lib/api";
+import { getPrimaryNav, getSecondaryNav } from "@/lib/api";
 import { HeaderClient } from "./HeaderClient";
 
 /**
@@ -10,7 +10,12 @@ import { HeaderClient } from "./HeaderClient";
  * doesn't touch this component.
  */
 export async function Header() {
-  const navItems = await getPrimaryNav();
+  // Two lists since M34: the desktop row shows only `navItems` (the three
+  // catalogues), while the drawer shows both groups — a phone has the
+  // room the 1092px desktop row does not, and dropping the secondary
+  // group there would leave the footer as the only way to reach
+  // /corporate or /meal-plans on mobile.
+  const [navItems, secondaryItems] = await Promise.all([getPrimaryNav(), getSecondaryNav()]);
 
-  return <HeaderClient navItems={navItems} />;
+  return <HeaderClient navItems={navItems} secondaryItems={secondaryItems} />;
 }
