@@ -22,8 +22,11 @@ import styles from "./Hero.module.css";
  * If the strip ever goes, something concrete has to come back under the
  * lede.
  *
- * **"Handkrafted" in the gifts CTA is the brand spelling from the comp**,
- * not a typo — same K as Homekrafted/HomeKrafter.
+ * **The gifts CTA says "handcrafted", not the comp's "handkrafted".** The
+ * brand-K spelling appeared exactly once on the whole site, next to a nav
+ * and a /gifts H1 that both spell it with a C — used once, a brand
+ * spelling is indistinguishable from a typo (2026-08-13 design review,
+ * cross-model). If the K ever comes back it comes back everywhere.
  *
  * **There is still no trust-stat strip, deliberately.** The promise strip
  * states what the platform does (made at home, packed with care), not
@@ -118,7 +121,7 @@ export function Hero() {
                 <span className={styles.ctaLabel}>
                   Order
                   <br />
-                  handkrafted gifts
+                  handcrafted gifts
                 </span>
                 <span className={styles.ctaArrow} aria-hidden="true">
                   <ArrowRight />
