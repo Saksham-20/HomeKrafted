@@ -19,7 +19,7 @@ import styles from "./Hub.module.css";
 export const revalidate = 60;
 
 export const metadata = pageMetadata({
-  title: "Gifts by occasion",
+  title: "Occasions",
   description:
     "What is coming up, and what to send. Diwali, Raksha Bandhan, weddings and everyday thank-yous, from home kitchens across the Chandigarh tricity.",
   path: "/collections",
@@ -65,7 +65,7 @@ export default async function OccasionHubPage() {
         reads as broken, not as empty.
       */}
       <section className={clsx("container", styles.intro)}>
-        <p className={styles.eyebrow}>Gifts by occasion</p>
+        <p className={styles.eyebrow}>Occasions</p>
         <h1 className={styles.title}>
           {upcoming.length > 0 ? <>What&rsquo;s coming up</> : <>Gifts by occasion</>}
         </h1>
