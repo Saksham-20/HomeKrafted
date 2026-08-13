@@ -54,13 +54,35 @@ export default async function OccasionHubPage() {
 
   return (
     <div className={styles.page}>
+      {/*
+        The heading follows the page's own contents (2026-08-13 design
+        audit). Every section here is conditional, but the title and lede
+        were not: with no dated occasion close enough to list — which is
+        exactly what production showed, because rolling the dates forward
+        is a manual admin job — the page announced "What's coming up",
+        promised "what is close, and what is worth ordering now", and
+        then showed nothing of the kind. A promise with nothing under it
+        reads as broken, not as empty.
+      */}
       <section className={clsx("container", styles.intro)}>
         <p className={styles.eyebrow}>Gifts by occasion</p>
-        <h1 className={styles.title}>What&rsquo;s coming up</h1>
+        <h1 className={styles.title}>
+          {upcoming.length > 0 ? <>What&rsquo;s coming up</> : <>Gifts by occasion</>}
+        </h1>
         <p className={styles.lede}>
-          Home kitchens work to their own lead times — a jar of pickle is not a same-day purchase
-          and a festival order is not a next-day one. This is what is close, and what is worth
-          ordering now.
+          {upcoming.length > 0 ? (
+            <>
+              Home kitchens work to their own lead times — a jar of pickle is not a same-day
+              purchase and a festival order is not a next-day one. This is what is close, and what
+              is worth ordering now.
+            </>
+          ) : (
+            <>
+              Home kitchens work to their own lead times — a jar of pickle is not a same-day
+              purchase and a festival order is not a next-day one. Pick the occasion you are
+              buying for and order with room to spare.
+            </>
+          )}
         </p>
       </section>
 
