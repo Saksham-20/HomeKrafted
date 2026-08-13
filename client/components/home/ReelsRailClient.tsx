@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Reel, Vendor } from "@/lib/types";
+import { scrollBehavior } from "@/lib/motion";
 import { ReelCard } from "./ReelCard";
 import { ReelViewer } from "./ReelViewer";
 import styles from "./ReelsRailClient.module.css";
@@ -38,7 +39,12 @@ export function ReelsRailClient({ reels, vendors }: ReelsRailClientProps) {
   const scrollBy = (direction: 1 | -1) => {
     const rail = railRef.current;
     if (!rail) return;
-    rail.scrollBy({ left: direction * Math.max(rail.clientWidth * 0.8, 220), behavior: "smooth" });
+    // `behavior: "smooth"` ignores the reduced-motion media query — see
+    // `lib/motion.ts`. The rail still moves; it just jumps instead of gliding.
+    rail.scrollBy({
+      left: direction * Math.max(rail.clientWidth * 0.8, 220),
+      behavior: scrollBehavior(),
+    });
   };
 
   if (reels.length === 0) return null;

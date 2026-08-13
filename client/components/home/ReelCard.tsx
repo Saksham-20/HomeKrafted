@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { Heart, Play } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCount } from "@/lib/format";
+import { prefersReducedMotion } from "@/lib/motion";
 import type { Reel } from "@/lib/types";
 import styles from "./ReelCard.module.css";
 
@@ -46,7 +47,7 @@ export function ReelCard({ reel, authorName, onOpen }: ReelCardProps) {
     if (!video) return;
 
     // Honour reduced-motion: no unprompted autoplay, poster only.
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (prefersReducedMotion()) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {

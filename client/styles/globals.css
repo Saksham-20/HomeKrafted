@@ -340,8 +340,33 @@ main:focus {
    A dark *button on a light page* needs none of this — `outline-offset`
    puts its ring on the page behind it, where pine is 11:1. */
 
+/*
+ * **Reduced motion is honoured site-wide here, not per component.**
+ *
+ * Six modules opted in individually (`PhotoUpload`, `ImageUpload`,
+ * `PreOrderPicker`, `LocationPrompt`, `RouteSkeleton`, and the skip link
+ * below); roughly seventy did not, including the drawer's slide, the reel
+ * viewer's fade and every hover transform on the site. Asking each new
+ * module to remember is how that ratio happened, so the floor moves here
+ * and a component only writes its own rule when it needs to do something
+ * *other* than stop.
+ *
+ * Near-zero rather than `none` so anything keyed on a transition still
+ * completes — nothing in the tree listens for `transitionend` today
+ * (checked), and this keeps that from becoming a trap later.
+ *
+ * `scroll-behavior: auto` is the CSS half of the same promise. The JS
+ * half is `lib/motion.ts#prefersReducedMotion`, which the two
+ * `scrollTo`/`scrollBy` call sites read — `behavior: "smooth"` in script
+ * ignores this media query entirely.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .hk-skip-link {
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

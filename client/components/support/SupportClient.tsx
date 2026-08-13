@@ -9,6 +9,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { apiErrorMessage, createSupportTicket, type CreateSupportTicketInput } from "@/lib/api";
 import { getAutoReply } from "@/lib/support/autoReply";
+import { scrollBehavior } from "@/lib/motion";
 import { MyTickets } from "./MyTickets";
 import type { SupportChannel, SupportTicket } from "@/lib/types";
 import styles from "./SupportClient.module.css";
@@ -91,7 +92,12 @@ function ChatWidget({ greeting }: { greeting: string }) {
   const threadRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
+    // See `lib/motion.ts` — a scripted smooth scroll is not covered by the
+    // reduced-motion media query, and this one fires on every new message.
+    threadRef.current?.scrollTo({
+      top: threadRef.current.scrollHeight,
+      behavior: scrollBehavior(),
+    });
   }, [messages, typing]);
 
   function handleSend() {
