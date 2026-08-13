@@ -40,18 +40,22 @@ export function Hero() {
       <div className="container">
         <div className={styles.grid}>
           <div className={styles.copy}>
-            <span className={styles.eyebrow}>
-              Home kitchens &bull; Chandigarh, Mohali &amp; Panchkula
+            {/* Grouped so the heart centres on the eyebrow rather than on
+                the column — see `.eyebrowGroup`. */}
+            <span className={styles.eyebrowGroup}>
+              <span className={styles.eyebrow}>
+                Home kitchens &bull; Chandigarh, Mohali &amp; Panchkula
+              </span>
+              {/* Small gold heart under the eyebrow — decoration from the comp. */}
+              <svg
+                className={styles.heart}
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M12 21c-4.8-3.5-8.6-6.8-9.8-10A5.6 5.6 0 0 1 7.4 3.6c1.9 0 3.6 1 4.6 2.6a5.4 5.4 0 0 1 4.6-2.6 5.6 5.6 0 0 1 5.2 7.4C20.6 14.2 16.8 17.5 12 21Z" />
+              </svg>
             </span>
-            {/* Small gold heart under the eyebrow — decoration from the comp. */}
-            <svg
-              className={styles.heart}
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path d="M12 21c-4.8-3.5-8.6-6.8-9.8-10A5.6 5.6 0 0 1 7.4 3.6c1.9 0 3.6 1 4.6 2.6a5.4 5.4 0 0 1 4.6-2.6 5.6 5.6 0 0 1 5.2 7.4C20.6 14.2 16.8 17.5 12 21Z" />
-            </svg>
             <h1 className={styles.heading}>
               <span className="hk-sr-only">From home to the world</span>
               <span aria-hidden="true" className={styles.headingLine}>
@@ -153,6 +157,7 @@ export function Hero() {
               src="/images/site/hero-hamper.jpg"
               size="1200×1200"
               sizes="(max-width: 900px) 100vw, 50vw"
+              className={styles.photo}
               priority
             />
           </div>

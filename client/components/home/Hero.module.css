@@ -37,11 +37,31 @@
   color: var(--hk-pine);
 }
 
+/*
+ * The eyebrow and its heart, grouped so the heart can centre under the
+ * line it belongs to. The group is `align-items: center` and shrinks to
+ * the eyebrow's width (`.copy` is `align-items: flex-start`), which is
+ * what makes "centred" mean centred on the eyebrow rather than on the
+ * column.
+ *
+ * The first version pinned the heart with `margin-left: 108px` — the
+ * measured distance to the middle of "Home kitchens • Chandigarh, Mohali
+ * & Panchkula" at one font size and one viewport. Any copy edit to that
+ * line moved the text and left the heart behind, silently, and it had to
+ * be hidden below 560px because it did not survive reflow. It survives
+ * now, so it stays visible at every width.
+ */
+.eyebrowGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .heart {
   width: 13px;
   height: 13px;
   fill: var(--hk-gold);
-  margin: 8px 0 0 108px;
+  margin-top: var(--hk-s2);
 }
 
 .heading {
@@ -97,7 +117,7 @@
 .scriptRow {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--hk-s3);
   margin: 0.08em 0 0 0.55em;
 }
 
@@ -140,7 +160,7 @@
 }
 
 .lede {
-  font-size: 16.5px;
+  font-size: 16px;
   line-height: 1.6;
   color: var(--hk-ink-3);
   max-width: 460px;
@@ -162,8 +182,8 @@
 .ctaCard {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px 12px 18px;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
   border: 1.6px solid var(--hk-gold);
   border-radius: var(--hk-r-lg);
   background: rgba(255, 255, 255, 0.55);
@@ -224,13 +244,13 @@
 .point {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--hk-s2);
 }
 
 .point + .point {
   border-left: 1px solid var(--hk-gold-border);
-  margin-left: 16px;
-  padding-left: 16px;
+  margin-left: var(--hk-s4);
+  padding-left: var(--hk-s4);
 }
 
 .pointIcon {
@@ -242,7 +262,7 @@
 }
 
 .pointLabel {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: 0.06em;
@@ -256,16 +276,27 @@
  * pinned to the hero's top, right and bottom edges — those three sides
  * end at layout boundaries, so they need no fade — and only its LEFT
  * edge dissolves into the cream stage where it meets the copy. No
- * radial vignette. The grid's second column is what reserves the
- * horizontal room; this wrapper escapes the container to reach the
- * viewport edge.
+ * radial vignette.
+ *
+ * **The left edge tracks the copy column, not the viewport.** It was
+ * `width: min(50%, 780px)`, which is a fraction of the *full-bleed
+ * viewport* while the copy beside it is a fraction of `.container`,
+ * capped at 1180px — two systems that agree at 1180 and diverge
+ * monotonically above it. Measured: ~240px of cream between the copy and
+ * the photo at 1180, ~485px at 1920, so the hero got emptier the bigger
+ * the screen.
+ *
+ * The `calc` is the container's left edge `(100vw - 1180px) / 2`, plus
+ * its 44px padding, plus the copy column's share — so the photo starts
+ * just past the copy at every width above 1180. `max()` with 50% keeps it
+ * off the copy below that, where the container is narrower than its cap.
  */
 .imageWrap {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(50%, 780px);
+  left: max(50%, calc((100vw - 1180px) / 2 + 568px));
 }
 
 /*
@@ -273,8 +304,15 @@
  * `inset: 0` fixes both dimensions, which makes the slot's inline
  * `aspect-ratio` moot on desktop; `object-fit: cover` on the image does
  * the cropping.
+ *
+ * Reached through `ImageSlot`'s own `className` prop rather than a bare
+ * `> div` descendant selector: that selector was `.slot`'s internals, so
+ * wrapping the slot in anything would have dropped the mask, the
+ * full-bleed positioning and the chrome-strip silently, with no type
+ * error and no failing test. Two classes so it beats `.slot`'s single
+ * one whatever order the stylesheets land in.
  */
-.imageWrap > div {
+.imageWrap .photo {
   position: absolute;
   inset: 0;
   border-radius: 0;
@@ -291,12 +329,13 @@
   /* Back in flow when stacked; the slot keeps its own aspect ratio. */
   .imageWrap {
     position: static;
+    left: auto;
     width: 100%;
     max-width: 560px;
     margin: 0 auto;
   }
 
-  .imageWrap > div {
+  .imageWrap .photo {
     position: relative;
     inset: auto;
     -webkit-mask-image: none;
@@ -322,9 +361,15 @@
   }
 }
 
+/*
+ * The heart used to be hidden here too, because its hardcoded 108px
+ * offset did not survive reflow. It centres on the eyebrow now (see
+ * `.eyebrowGroup`), so it stays. `.sparks` is still dropped: it hangs
+ * half an em off the left of the heading and there is no bleed room for
+ * it at phone widths.
+ */
 @media (max-width: 560px) {
-  .sparks,
-  .heart {
+  .sparks {
     display: none;
   }
 
@@ -334,7 +379,9 @@
   }
 }
 
-@media (max-width: 480px) {
+/* 420, the small-phone rail (M29). Was 480, which is not a rail and sat
+   60px from one; the two-line CTA labels fit side by side down to here. */
+@media (max-width: 420px) {
   .ctaRow {
     flex-direction: column;
     align-items: stretch;
