@@ -50,8 +50,7 @@
   white-space: nowrap;
 }
 
-/* Reels section head — the only section with an eyebrow above its title,
-   so the label sits in the same mono/gold treatment as .servicesEyebrow.
+/* Reels section head — the only section with an eyebrow above its title.
    See ProductCard.maker — small gold text takes the AA-safe shade. */
 .reelsEyebrow {
   display: block;
@@ -178,38 +177,6 @@
   }
 }
 
-.servicesIntro {
-  text-align: center;
-  margin-bottom: var(--hk-s6);
-}
-
-/* See ProductCard.maker — small gold text takes the AA-safe shade. */
-.servicesEyebrow {
-  font-family: var(--hk-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
-}
-
-.servicesTitle {
-  font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 29px;
-  color: var(--hk-ink);
-  margin-top: var(--hk-s2);
-}
-
-/*
-  The app-install panel sits full width beneath the two craft cards rather
-  than as a third peer in the grid: it is a different component class from
-  `CraftCard` and will never match its height, which is what made the old
-  two-row layout look accidental.
-*/
-.servicesPanel {
-  margin-top: var(--hk-s5);
-}
-
 /*
   M20 — "Meet the Hands Behind the Flavours".
 
@@ -229,22 +196,27 @@
   }
 }
 
+/*
+  Phones get a horizontal snap rail, not a stack (M35). Stacked, the four
+  cards were ~4 full screens of scroll on a 390px viewport — the longest
+  stretch of the page by far — and every section after them paid for it.
+  A rail keeps all four kitchens one swipe away at the cost usual for
+  rails: the fourth card starts off-screen. 82% width leaves a peek of
+  the next card so the rail reads as scrollable without instruction.
+*/
 @media (max-width: 560px) {
   .makersGrid {
-    grid-template-columns: 1fr;
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--hk-s2);
+  }
+
+  .makersGrid > * {
+    flex: 0 0 82%;
+    scroll-snap-align: start;
   }
 }
 
-/* "Homemade, Your Way" — four ways to order, 2x2 then stacked. */
-.waysGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--hk-s5);
-}
-
-@media (max-width: 780px) {
-  .waysGrid {
-    grid-template-columns: 1fr;
-  }
-}
 

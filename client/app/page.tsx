@@ -6,11 +6,10 @@ import { OccasionTileLink } from "@/components/home/OccasionTileLink";
 import { SeasonalBand } from "@/components/home/SeasonalBand";
 import { CategoryTileLink } from "@/components/home/CategoryTileLink";
 import { MakerCard } from "@/components/home/MakerCard";
-import { WayCard } from "@/components/home/WayCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
 import { QuickEntryRow } from "@/components/home/QuickEntryRow";
-import { quickEntryDetail, waysToOrder } from "@/lib/data";
+import { quickEntryDetail } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import {
   getCategories,
@@ -75,8 +74,6 @@ export default async function Home() {
       getCollections(),
       getSecondaryNav(),
     ]);
-
-  const ways = waysToOrder;
 
   /**
    * The four kitchens behind "Meet the Hands Behind the Flavours", each
@@ -263,7 +260,7 @@ export default async function Home() {
               All products →
             </Link>
           </div>
-          <div className={styles.makersGrid}>
+          <div className={clsx(styles.makersGrid, "hk-scroll")}>
             {makers.map(({ vendor, bestseller, bestsellerPrice }) => (
               <MakerCard
                 key={vendor.id}
@@ -306,27 +303,16 @@ export default async function Home() {
       </section>
 
       {/*
-        M20 — "Homemade, Your Way", replacing the M19 two-card services
-        grid. That grid was itself a repair after laundry was pulled out of
-        a hard-coded three-card row and left a hole, which is exactly why
-        this one renders from `waysToOrder` in `lib/data/site.ts`: the next
-        thing that goes away should be a deleted array entry, not a layout
-        bug someone has to notice.
+        M35 — "Homemade, Your Way" (M20) is gone, and the app panel is the
+        whole closing section. Each of its four cards re-pitched a
+        destination this page already offers once: bulk and WhatsApp had
+        quick-entry tiles, food had the hero CTA, and the app card
+        rendered directly above the install panel that *is* the app pitch
+        — the same CTA twice, adjacent. One pitch per destination per
+        page; the quick-entry row under the hero is the "ways in" module.
       */}
       <section className={clsx("container", styles.section)}>
-        <div className={styles.servicesIntro}>
-          <span className={styles.servicesEyebrow}>More from Homekrafted</span>
-          <h2 className={styles.servicesTitle}>Homemade, Your Way</h2>
-        </div>
-        <div className={styles.waysGrid}>
-          {ways.map((way) => (
-            <WayCard key={way.id} way={way} />
-          ))}
-        </div>
-        <div className={styles.servicesPanel}>
-          <AppInstallPanel />
-        </div>
-
+        <AppInstallPanel />
       </section>
     </>
   );
