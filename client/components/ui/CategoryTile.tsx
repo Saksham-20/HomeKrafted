@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import Link from "next/link";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { CraftIcon, categoryArt, giftArt } from "@/components/ui/icons/CraftIcon";
 import type { Category } from "@/lib/types";
@@ -6,6 +7,13 @@ import styles from "./CategoryTile.module.css";
 
 export interface CategoryTileProps {
   category: Category;
+  /**
+   * Where the tile goes. When set the tile renders as a real `<Link>` —
+   * the M22 rule: a card that navigates is a link, not a button. See
+   * `OccasionTile` for the M35 history.
+   */
+  href?: string;
+  /** Button-mode fallback — the primitives gallery, or a future picker context. */
   onClick?: () => void;
   className?: string;
 }
@@ -34,13 +42,9 @@ export interface CategoryTileProps {
  * right thing in a seller-portal upload slot, where the hatch reads as
  * "this is where your photo goes". This is a shopfront.
  */
-export function CategoryTile({ category, onClick, className }: CategoryTileProps) {
-  return (
-    <button
-      type="button"
-      className={clsx(styles.tile, className)}
-      onClick={onClick}
-    >
+export function CategoryTile({ category, href, onClick, className }: CategoryTileProps) {
+  const inner = (
+    <>
       {category.imageSrc ? (
         <ImageSlot
           ratio="1/1"
@@ -59,6 +63,20 @@ export function CategoryTile({ category, onClick, className }: CategoryTileProps
         </span>
       )}
       <span className={styles.label}>{category.name}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={clsx(styles.tile, className)}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className={clsx(styles.tile, className)} onClick={onClick}>
+      {inner}
     </button>
   );
 }

@@ -2,9 +2,9 @@ import Link from "next/link";
 import clsx from "clsx";
 import { PromoBand } from "@/components/ui/PromoBand";
 import { Hero } from "@/components/home/Hero";
-import { OccasionTileLink } from "@/components/home/OccasionTileLink";
+import { OccasionTile } from "@/components/ui/OccasionTile";
 import { SeasonalBand } from "@/components/home/SeasonalBand";
-import { CategoryTileLink } from "@/components/home/CategoryTileLink";
+import { CategoryTile } from "@/components/ui/CategoryTile";
 import { MakerCard } from "@/components/home/MakerCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
@@ -229,7 +229,11 @@ export default async function Home() {
         </div>
         <div className={styles.occasionGrid}>
           {occasionTiles.map((occasion) => (
-            <OccasionTileLink key={occasion.id} occasion={occasion} />
+            <OccasionTile
+              key={occasion.id}
+              occasion={occasion}
+              href={`/collections/${occasion.slug}`}
+            />
           ))}
         </div>
       </section>
@@ -245,7 +249,11 @@ export default async function Home() {
             `styles/globals.css`. */}
         <div className={clsx(styles.categoryRail, "hk-scroll")}>
           {photographedCategories.map((category) => (
-            <CategoryTileLink key={category.id} category={category} />
+            <CategoryTile
+              key={category.id}
+              category={category}
+              href={`/shop?category=${category.slug}`}
+            />
           ))}
         </div>
       </section>

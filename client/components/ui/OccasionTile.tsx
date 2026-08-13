@@ -1,10 +1,20 @@
 import clsx from "clsx";
+import Link from "next/link";
 import { CraftIcon, occasionArt } from "@/components/ui/icons/CraftIcon";
 import type { Occasion } from "@/lib/types";
 import styles from "./OccasionTile.module.css";
 
 export interface OccasionTileProps {
   occasion: Occasion;
+  /**
+   * Where the tile goes. When set the tile renders as a real `<Link>` —
+   * the M22 rule: a card that navigates is a link, not a button. The
+   * home page's tiles were `<button>` + `router.push` until M35, which
+   * meant no middle-click, no open-in-new-tab and nothing for a crawler
+   * to follow, on the eight most prominent links below the hero.
+   */
+  href?: string;
+  /** Button-mode fallback — the primitives gallery, or a future picker context. */
   onClick?: () => void;
   className?: string;
 }
@@ -24,15 +34,11 @@ export interface OccasionTileProps {
  * in `CraftIcon`. An unknown occasion renders exactly what every occasion
  * used to; it never renders an empty tile.
  */
-export function OccasionTile({ occasion, onClick, className }: OccasionTileProps) {
+export function OccasionTile({ occasion, href, onClick, className }: OccasionTileProps) {
   const art = occasionArt(occasion.slug);
 
-  return (
-    <button
-      type="button"
-      className={clsx(styles.tile, className)}
-      onClick={onClick}
-    >
+  const inner = (
+    <>
       {art ? (
         <CraftIcon art={art} size={40} className={styles.icon} />
       ) : (
@@ -41,6 +47,20 @@ export function OccasionTile({ occasion, onClick, className }: OccasionTileProps
         </span>
       )}
       <span className={styles.label}>{occasion.name}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link href={href} className={clsx(styles.tile, className)}>
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" className={clsx(styles.tile, className)} onClick={onClick}>
+      {inner}
     </button>
   );
 }
