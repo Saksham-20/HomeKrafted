@@ -688,8 +688,10 @@ which days are busy.
 
 ### Occasions and gift guides (M16)
 
-- **[Gifts by occasion](https://homekrafted.in/collections)** is new — the
-  home page's "Shop by occasion → View all" used to dump you on `/shop`.
+- **[Occasions](https://homekrafted.in/collections)** is new — the
+  home page's occasion grid's "View all" used to dump you on `/shop`.
+  Since M35 it also holds the third desktop nav slot (it swapped with
+  Gift Hampers, which moved to the home quick-entry strip).
   It has three parts: **Coming up** (dated occasions, soonest first, with
   a countdown), **Gift guides**, and **Any time of year** (birthdays,
   thank-yous — no date, so no countdown).
@@ -699,7 +701,7 @@ which days are busy.
   [/guides/first-time-gifting](https://homekrafted.in/guides/first-time-gifting).
   Guides do not have to belong to an occasion — that one deliberately
   doesn't.
-- The **home page** shows a seasonal band above "Shop by occasion" when
+- The **home page** shows a seasonal band above the occasion grid when
   the nearest dated occasion is within six weeks. If nothing is close, the
   band is absent — that is correct, not a missing element.
 

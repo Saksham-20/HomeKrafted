@@ -334,14 +334,17 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   and it still shipped a 38px circle claiming to be a search box (the
   2026-08-13 design audit measured it rendering as "Sear…" on
   production). `primaryNav` now carries **three catalogue items**
-  (Homemade Food · Handcrafted Gifts · Gift Hampers); Occasions, Meal
-  plans and Corporate & bulk moved to **`secondaryNav`**, which renders
-  as the home page's quick-entry strip under the hero (`QuickEntryRow`)
-  and as the drawer's second group — joined there by Snacks on WhatsApp,
-  which had never been in the nav at all. That is a promotion: a tile in
-  the first screenful saying who a thing is for beats a 90px link that
-  only names it. The freed ~287px goes to the slot (~325–370px by role,
-  210px floor), so the field is typable at rest.
+  (Homemade Food · Handcrafted Gifts · **Occasions** — M35 traded this
+  slot: it was Gift Hampers, but /hamper listed one product and a top-3
+  slot has to carry a catalogue; hampers return when ~6+ are live); Gift
+  Hampers, Meal plans and Corporate & bulk live in **`secondaryNav`**,
+  which renders as the home page's quick-entry strip under the hero
+  (`QuickEntryRow`) and as the drawer's second group — joined there by
+  Snacks on WhatsApp, which had never been in the nav at all. That is a
+  promotion: a tile in the first screenful saying who a thing is for
+  beats a 90px link that only names it. The freed ~287px goes to the
+  slot (~325–370px by role, 210px floor), so the field is typable at
+  rest.
 
   Three rules. **The drawer keeps both groups** — dropping the secondary
   one there would leave the footer as the only route to `/corporate` on a

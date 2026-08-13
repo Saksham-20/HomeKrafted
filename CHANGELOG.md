@@ -3,6 +3,96 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M35] — One name per destination, one pitch per page — 2026-08-13
+
+A second `/design-review` pass the same day, this time with the owner's
+lens — repetition, naming, navigation clarity, landing layout — and a
+competitor study (shef.com, fnp.com, swaaad.com rendered; Swiggy/Zomato
+bot-blocked, benchmarked from known patterns). Verdict: the visual layer
+was done; the debt was editorial and structural. Codex ran as the
+outside voice on the source and agreed on every P1. Audit + refinement
+plan: `~/.gstack/projects/Saksham-20-HomeKrafted/designs/design-audit-20260813/`.
+
+### Removed
+
+- **"Homemade, Your Way" is gone from the home page.** Its four cards
+  each re-pitched a destination the page already offers: bulk and
+  WhatsApp had quick-entry tiles, food had the hero CTA, and the app
+  card rendered directly above the app-install panel — the same CTA
+  twice, adjacent. With the promo bands, six destinations were pitched
+  2–3× per pageview (~10 full-width CTA cards on a phone).
+  `waysToOrder`/`WayToOrder`/`WayCard` deleted outright; the app panel
+  closes the page alone. Home is 8 sections, down from 10.
+- **The home occasion grid no longer shows a "Corporate" tile.** It
+  competed with the quick-entry "Corporate & bulk" tile and sent the
+  same buyer somewhere different (occasion listing vs inquiry form).
+  /corporate is THE entry, and it now offers "Browse the corporate
+  gifting picks →" beside the quote form. The occasion itself still
+  exists in /collections.
+
+### Changed
+
+- **The third nav slot is Occasions, not Gift Hampers.** /hamper held a
+  top-3 nav position while listing exactly one product. Hampers moved to
+  the quick-entry strip (new tile: "Gift hampers — packed and priced by
+  one kitchen"); they return to the nav when the catalogue is ~6+ deep.
+  Footer gains an Occasions link. The header-capacity contract only
+  gains — "Occasions" is narrower.
+- **One name per destination.** /shop was "Homemade Food" (nav), "Shop"
+  (breadcrumbs), "Homemade Foods" (H1) and "Shop homemade foods"
+  (title) at once — now "Homemade Food" everywhere. /collections was
+  "Occasions" / "Shop by occasion" / "Gifts by occasion" — the label is
+  "Occasions" everywhere. The hero's one-off brand-K ("handkrafted")
+  reverted to "handcrafted"; used once, a brand spelling reads as a
+  typo. Consumer copy stops drifting between maker/home chef/
+  HomeKrafter — the person is a **HomeKrafter**, the place is a **home
+  kitchen**.
+- **Home headings say what each section is.** "Explore Homemade
+  Favourites" → "Shop by category", "Homemade on Your Feed" → "Watch it
+  being made", and "Meet the Hands Behind the Flavours" → "The hands
+  behind it all" ("flavours" was food-biased over a maker set that
+  includes craft — the M28 parity rule). "View all →" ×2 →
+  "All occasions →" / "All categories →"; reels' "Shop what you see →"
+  promised a deep link it never was and is now "Browse the shop →".
+- **The makers section is a snap rail on phones.** Four stacked cards
+  were ~4 full screens of a 390px viewport; now an 82%-width rail with
+  next-card peek, same pattern as the category rail.
+- **Footer Help column: one label per URL.** "Shipping & returns" /
+  "FAQ" / "Support" were three links to /support; now one "Help & FAQ".
+  The duplicate "Cancellation & refunds" (also in the legal row) is
+  gone. Services column gains Occasions.
+
+### Fixed
+
+- **Home occasion + category tiles are real links.** Both rails
+  navigated via `<button>` + `router.push` — no middle-click, no
+  open-in-new-tab, nothing for a crawler, on the twelve most prominent
+  targets under the hero (the M22 stretched-link rule; ProductCard had
+  it right all along). The primitives take `href` and render `<Link>`;
+  the two client wrapper components are deleted.
+- **The three food surfaces name each other.** Meal plans and Snacks
+  were quick-entry tiles that render only on the home page, so /shop had
+  no route to them but the footer. Each food page now carries one
+  "Also from home kitchens" line (`KitchenCrossLinks`) — the 1092px
+  header stays untouched.
+
+### Checked, no change needed
+
+- **Signed-out add-to-cart already keeps the visitor's place.** The 401
+  path redirects to `/login?next=<page>` (`withReturnTo` in
+  `lib/api/http.ts`) and `LoginClient` honours it — verified live. The
+  remaining gap is a guest cart (auth at checkout, the
+  shef/Zomato-standard flow); that is a `/spec`-scale backlog item, not
+  a polish fix.
+
+### Deferred to ops (no code)
+
+The four trust blemishes visible on production need the admin panel or
+data, not a deploy: the laundry vendor listed as the dinner kitchen on
+/meal-plans, two /gifts storefronts named after a personal email, the
+4.9·204-vs-Reviews(2) aggregate mismatch, and photo coverage for
+meal-plan cards and guide covers.
+
 ## [M34] — A hero that carries the brand, and a nav that stops competing with it — 2026-08-13
 
 The owner-supplied hero comp, then a full `/design-review` of the live
