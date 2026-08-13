@@ -131,6 +131,48 @@ that is where a 500 on checkout lives.
 
 ---
 
+## Follow-ups from the M34 design review (2026-08-13)
+
+Three of these are **not code** — they are production data an operator
+fixes in the admin panel, and they will not go away by deploying
+anything.
+
+### Two live storefronts are named after somebody's email address
+**What:** `/gifts` shows `JASHANPREETSINGH3105@GMAIL.C…` as the maker
+line on two listings (Handmade Concrete Diyas, Heart Floral Candle).
+**Why it matters:** that line is the brand on every product card and
+every order, on a marketplace whose whole pitch is trusting a named
+stranger — and it publishes a personal email address on a public page.
+**Why not fixed here:** M32's `businessName` validation blocks new ones;
+these predate it, and renaming a real storefront is an operator decision
+about somebody's business, not a code change. Fix via `/admin/sellers`.
+
+### Product trust numbers disagree with themselves
+**What:** `/product/ragi-almond-cookies` shows "4.9 · 204 reviews" above
+a tab reading "Reviews (2)".
+**Why it matters:** a seeded aggregate against real rows. On a platform
+selling verifiable trust, a number a visitor can check and disprove in
+one click is worse than a low one.
+**Fix:** re-run `ReviewAggregatesService`'s recompute on production. The
+machinery is right; the seeded values are stale.
+
+### Add-to-cart signs you out of your own context
+**What:** adding to cart while signed out returns 401 and hard-redirects
+to `/login`, losing the product page.
+**Why not now:** structural — either a guest cart or a return-to
+redirect, both bigger than a style fix. It was the single biggest drain
+in the review's goodwill walk (finished 60/100), and even Zomato defers
+the login to checkout. Worth ranking into
+`docs/PRODUCTION-AUDIT.md` rather than doing in passing.
+
+### Noted, not fixed: three polish items
+`PromoBand`'s H3s (32px) visually outrank section H2s (27px) — display
+licence, left alone. Desktop nav links are 24px-tall targets — desktop
+pointer context, and the drawer's are 44px. No current-section indicator
+in the desktop nav — breadcrumbs cover the listing routes.
+
+---
+
 ## Standing backlog (from `docs/PRODUCTION-AUDIT.md`)
 
 Listed here only so this file is not read as the complete picture. The

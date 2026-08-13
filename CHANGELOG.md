@@ -3,6 +3,99 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M34] — A hero that carries the brand, and a nav that stops competing with it — 2026-08-13
+
+The owner-supplied hero comp, then a full `/design-review` of the live
+site with two outside voices (Codex on the source, a Claude subagent on
+consistency patterns). Design score **A−**, AI slop score **A** — no
+blacklist pattern anywhere, which is worth recording because it is rare.
+Five findings fixed in code, three deferred to ops/data, three noted as
+polish.
+
+### Added
+
+- **The hero, rebuilt to the comp.** "From home to the world" keeps the
+  M31 copy and takes the comp's treatment: the "o" of *home* is a pine
+  roundel holding a house mark, "to the world" is a Kaushan Script brush
+  line in the darkened gold, and the heart, sparkle and paper-plane
+  doodles are inline SVG. Two gold-outlined CTA cards (icon · two-line
+  label · arrow chip) and a four-point promise strip — made at home ·
+  freshly made everyday · packed with care · delivered anywhere in India
+  — replace the old buttons and the slowness note. The hamper photo is
+  full-bleed on desktop, pinned to the hero's top, right and bottom, with
+  only its **left** edge mask-faded into a cream stage (owner
+  instruction: merge from the left, no vignette). The stage is a
+  hero-scoped exception to the white-first rule; every text token on it
+  clears AA on the deepest stop (`--hk-gold-text-sm` 4.63:1). Kaushan
+  Script is hero-only — not part of the handoff type ramp.
+- **`QuickEntryRow`** — the home page's quick-entry strip, four tiles
+  under the hero for the ways in that are not a catalogue.
+- **`lib/motion.ts`** — `prefersReducedMotion()` / `scrollBehavior()`,
+  the JS half of honouring the media query.
+
+### Changed
+
+- **The desktop nav is three items, not six.** Six links plus search plus
+  a wallet chip plus three icons is nine targets in a 1092px row, and the
+  loser was the search field: on production it rendered as a ~32px stub
+  reading "Sear…", typable only after clicking it open. Occasions, Meal
+  plans and Corporate & bulk moved to `secondaryNav` → the quick-entry
+  strip and the drawer's second group, joined by Snacks on WhatsApp,
+  which had never been in the nav at all. The freed ~287px goes to the
+  search slot, so the field is typable at rest and **M21's focus
+  expansion is deleted** rather than kept as decoration. The drawer still
+  carries all six.
+- **`/collections` stops promising a countdown it has none of.** Every
+  section there was conditional; the title and lede were not, so with no
+  dated occasion close enough to list — production's actual state — the
+  page announced "What's coming up" and then showed none. Both now follow
+  the page's contents.
+
+### Fixed
+
+- **The focus ring was invisible on every dark surface, sitewide.** The
+  global floor was `--hk-pine` on `--hk-pine-deep`: **1.23:1**, against
+  WCAG 2.2 SC 1.4.11's 3:1. The footer is on every consumer page, so a
+  keyboard user lost the ring for the last fifteen links of every page on
+  the site; same on both portal topbars, the dark PromoBand, the wallet
+  card, the reel viewer and the gallery strip. Seven containers now set
+  `--hk-focus-ring: var(--hk-gold-bright)` (8.27:1) beside their own
+  background, and the 42 components that hardcoded the pine outline read
+  the variable so they stay correct if they ever land on dark. Verified
+  by keyboard on the live footer.
+- **`prefers-reduced-motion` is honoured site-wide.** Six modules opted
+  in; ~70 did not, including the drawer slide, the reel viewer fade and
+  every hover transform. Also the two scripted `scrollTo`/`scrollBy` call
+  sites, which the media query never covered at all.
+- **Hero hygiene, in the file this milestone had just written** — both
+  outside voices landed on it. Five raw spacing values → `--hk-s*`; a
+  `16.5px` lede that was unique in the tree → 16px; the promise strip off
+  `10.5px`, a size otherwise used only for admin-tooling timestamps →
+  12px; the heart off a hardcoded `margin-left: 108px` (the measured
+  offset into the eyebrow, which any copy edit would have silently
+  broken) and onto a shrink-wrap group, so it survives reflow and no
+  longer hides on phones; the CTA breakpoint 480 → the 420 rail; and the
+  photo's width off `min(50%, 780px)`, which diverged from the
+  container-based copy column as the screen grew (~240px of cream at
+  1180, ~485px at 1920). `.imageWrap > div` → `ImageSlot`'s `className`
+  prop, so wrapping the slot can no longer drop the mask silently.
+- A duplicate, silently-overridden `:focus-visible` block in
+  `globals.css`.
+
+### Deferred (not code)
+
+- **Two live storefronts display a raw email address as the maker name**
+  on `/gifts`. M32 validation blocks new ones; these predate it. Rename
+  via the admin panel — it is the brand on every card, and it publishes a
+  personal address.
+- **Product trust numbers disagree**: "4.9 · 204 reviews" against a
+  "Reviews (2)" tab. Seeded aggregate vs real rows; re-run the aggregates
+  on production.
+- **Add-to-cart while signed out bounces to `/login`** and drops the
+  visitor's context (401). Structural — guest cart or a return-to
+  redirect — and the biggest single drain in the goodwill walk
+  (60/100 finishing).
+
 ## [M33] — Tiles that show something, and one account that can grow — 2026-08-13
 
 Owner brief (Homekrafted website changes, 2026-08-13). Four of the six

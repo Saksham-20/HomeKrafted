@@ -326,18 +326,31 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   box, which rendered a 0px-wide input for every role from 1190 to 1920**
   — it looked like a search box and could not be typed in. Raising the
   breakpoint fixes nothing: `.container` caps the row at 1180px at *any*
-  screen width, so capacity above 1190 is a constant. A typable field
-  needs 171px the row cannot spare, so **the search expands on focus**
-  instead — `.searchSlot` holds a 38px place in the flex line and the form
-  goes `position: absolute` over the nav at 420px (`:focus-within`,
-  ≥1191px only; Escape or blur closes it). The slot is what stops the
-  wallet and icons jumping when the form leaves the flow. **Nothing was
-  removed to pay for it**: the mode-switch chip went icon-only (147→38px)
-  and the nav/actions/row gaps went 16→12, 12→8, 34→26, leaving the slot
-  83px signed out, 52px as a shopper and 38px as a HomeKrafter — all
-  inside 1092px. **The nav is full**: adding a seventh item means taking
-  one out, and re-measure **against 1092px, not 1180px**. Pinned by
-  `e2e/tests/header-capacity.spec.ts`.
+  screen width, so capacity above 1190 is a constant.
+
+  **M34 paid for the field by cutting the nav, and deleted the expansion
+  that had been hiding the problem.** M21's fix kept all six labels and
+  made the form go `position: absolute` over the nav on focus; it worked,
+  and it still shipped a 38px circle claiming to be a search box (the
+  2026-08-13 design audit measured it rendering as "Sear…" on
+  production). `primaryNav` now carries **three catalogue items**
+  (Homemade Food · Handcrafted Gifts · Gift Hampers); Occasions, Meal
+  plans and Corporate & bulk moved to **`secondaryNav`**, which renders
+  as the home page's quick-entry strip under the hero (`QuickEntryRow`)
+  and as the drawer's second group — joined there by Snacks on WhatsApp,
+  which had never been in the nav at all. That is a promotion: a tile in
+  the first screenful saying who a thing is for beats a 90px link that
+  only names it. The freed ~287px goes to the slot (~325–370px by role,
+  210px floor), so the field is typable at rest.
+
+  Three rules. **The drawer keeps both groups** — dropping the secondary
+  one there would leave the footer as the only route to `/corporate` on a
+  phone. **A new nav item must be a catalogue you browse**; a flow, a hub
+  or an enquiry goes in `secondaryNav`. And **re-measure against 1092px,
+  not 1180px**: a fourth item costs ~100px of a ~170px surplus, a fifth
+  puts the row back under the typable floor. Pinned by
+  `e2e/tests/header-capacity.spec.ts`, which now asserts the field works
+  with **no interaction** and does not resize on focus.
 - **Five breakpoint rails, by convention (M29): 420 · 560 · 640 · 780 ·
   900.** Roughly: 420 small phone, 560 phone, 640 large phone (and where
   fixed CTA bars engage), 780 shell/sidebar collapse, 900 two-pane goes
@@ -838,6 +851,28 @@ silently override another — the same reason `Product.isAvailable` and
   class. Don't copy a local one into a module — three had already been
   duplicated, and a recipe that gets one property wrong (`display: none`
   hides it from assistive tech too) fails invisibly.
+- **A focus ring on a dark surface reads `--hk-focus-ring` (M34).** The
+  global floor was a flat `--hk-pine`, which is **1.23:1 on
+  `--hk-pine-deep`** — so on the footer, which is on every consumer page,
+  a keyboard user lost the ring entirely for the last fifteen links of
+  every page on the site, and the same held on both portal topbars, the
+  dark PromoBand, the wallet card and the reel viewer. Every container
+  painted pine-deep or the pine gradient now sets `--hk-focus-ring:
+  var(--hk-gold-bright)` in its own rule, next to the background that
+  causes it; the variable inherits, so one line covers everything inside.
+  Two rules: **write the ring as `var(--hk-focus-ring, var(--hk-pine))`**,
+  never the bare token, so a component that later lands on a dark surface
+  stays visible — all 42 that hardcoded it were converted — and **a dark
+  button on a light page needs none of this**, because `outline-offset`
+  puts its ring on the page behind it.
+- **`prefers-reduced-motion` is honoured globally (M34), so a component
+  writes its own rule only to do something other than stop.** Six modules
+  had opted in individually and about seventy had not, including the
+  drawer slide and every hover transform. The CSS floor is in
+  `globals.css`; the JS half is **`lib/motion.ts`**, and it is not
+  optional — `element.scrollTo({ behavior: "smooth" })` is a script
+  instruction and ignores the media query completely, so any scripted
+  scroll takes `scrollBehavior()` rather than a literal.
 - **A dialog owes three things**, not one: move focus in on open, trap
   Tab at both ends, restore focus to whatever opened it. `aria-modal`
   without them is a claim the page doesn't honour. **Use
