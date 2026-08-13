@@ -37,7 +37,7 @@ function toQuery(params: Record<string, string | string[] | undefined>): string 
  * initial selection.
  */
 export const metadata: Metadata = pageMetadata({
-  title: "Shop homemade foods",
+  title: "Homemade Food",
   description:
     "Small-batch pickles, sweets, bakes and snacks from home kitchens across Chandigarh, Mohali, Panchkula and Zirakpur. Filter by category, occasion, diet and distance.",
   path: "/shop",
@@ -73,9 +73,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     <>
       <div className={clsx("container", styles.breadcrumbWrap)}>
         <span className={styles.breadcrumb}>
-          Home / Shop / <span className={styles.breadcrumbCurrent}>Homemade Foods</span>
+          Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
         </span>
-        <h1 className={styles.title}>Homemade Foods</h1>
+        <h1 className={styles.title}>Homemade Food</h1>
         <p className={styles.subtitle}>
           {products.length} small-batch products from home kitchens across India
         </p>

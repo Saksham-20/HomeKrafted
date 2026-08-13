@@ -108,7 +108,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <script {...jsonLdProps(productJsonLd)} />
       <div className={clsx("container", styles.breadcrumbWrap)}>
         <span className={styles.breadcrumb}>
-          Home / Shop{category ? ` / ${category.name}` : ""} /{" "}
+          Home / Homemade Food{category ? ` / ${category.name}` : ""} /{" "}
           <span className={styles.breadcrumbCurrent}>{product.name}</span>
         </span>
       </div>
