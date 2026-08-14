@@ -586,6 +586,19 @@ export class AdminSellersService {
       fssaiExpiry: profile?.fssaiExpiry?.toISOString(),
       verifiedAt: profile?.verifiedAt?.toISOString(),
       verificationNote: profile?.verificationNote ?? undefined,
+      // The pickup address (M36b) — one of exactly two surfaces allowed
+      // to read it, this one and the HomeKrafter's own portal. Here
+      // because an operator arranging a collection, or checking an
+      // address before verifying it, has no other way to see it. It is
+      // absent from every buyer-facing payload by construction; see
+      // `test/unit/vendor-privacy.spec.ts`.
+      pickup: {
+        addressLine1: profile?.pickupAddressLine1 ?? undefined,
+        addressLine2: profile?.pickupAddressLine2 ?? undefined,
+        landmark: profile?.pickupLandmark ?? undefined,
+        pincode: profile?.pickupPincode ?? undefined,
+        phone: profile?.pickupPhone ?? undefined,
+      },
     };
   }
 
@@ -976,6 +989,19 @@ export class AdminSellersService {
         websiteUrl: application.websiteUrl,
         fssaiNumber: application.fssaiNumber,
         capacityPerDay: application.capacityPerDay,
+        // The pickup address (M36b) — where a rider collects, carried off
+        // the application so it is not stranded on a queue row nobody
+        // reads again. **Private**: no public mapper reads these columns,
+        // and `vendor-privacy.spec.ts` fails the build if one starts to.
+        // The applicant was told buyers never see this.
+        pickupAddressLine1: application.addressLine1,
+        pickupAddressLine2: application.addressLine2,
+        pickupLandmark: application.landmark,
+        // Their listing pincode is the natural default for where a rider
+        // goes; a kitchen that collects from somewhere else edits it in
+        // the portal.
+        pickupPincode: application.pincode,
+        pickupPhone: application.pickupPhone,
       };
       if (Object.values(profileFromApplication).some((v) => v !== null && v !== undefined)) {
         await tx.vendorProfile.create({

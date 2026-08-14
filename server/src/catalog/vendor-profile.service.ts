@@ -174,6 +174,27 @@ export class VendorProfileService {
       fssaiExpiry: profile?.fssaiExpiry?.toISOString(),
       verifiedAt: profile?.verifiedAt?.toISOString(),
       verificationNote: optional(profile?.verificationNote ?? null),
+      // The pickup address (M36b).
+      //
+      // **`ownProfile` is not `publicProfile`** — that distinction is the
+      // whole reason these two methods are separate, and it is what makes
+      // it safe to return an address here. This is the HomeKrafter's own
+      // record of where a rider collects, and they must be able to read
+      // and correct it: an address they cannot check is one that is wrong
+      // the day they move.
+      //
+      // Never lift these into `publicProfile` or `PublicVendorProfile`.
+      // The buyer gets `Vendor.location`, a coarse area label, and that
+      // is deliberate — see `test/unit/vendor-privacy.spec.ts`, which
+      // fails the build if the public catalog surface starts reading
+      // these columns.
+      pickup: {
+        addressLine1: optional(profile?.pickupAddressLine1 ?? null),
+        addressLine2: optional(profile?.pickupAddressLine2 ?? null),
+        landmark: optional(profile?.pickupLandmark ?? null),
+        pincode: optional(profile?.pickupPincode ?? null),
+        phone: optional(profile?.pickupPhone ?? null),
+      },
       completion: this.completion(
         profile,
         publicPart.photos.length,

@@ -72,6 +72,18 @@ export interface CreateSellerApplicationInput {
   /** Required when `area` is `"other"`: the locality they typed. Pre-M36 only. */
   areaLabel?: string;
   /**
+   * The pickup address (M36b) — where a rider collects. `addressLine1` is
+   * required by the server; the rest are genuinely optional.
+   *
+   * This is somebody's home address, collected under an explicit on-form
+   * promise that buyers never see it. Don't render it on any buyer-facing
+   * surface.
+   */
+  addressLine1?: string;
+  addressLine2?: string;
+  landmark?: string;
+  pickupPhone?: string;
+  /**
    * How far they'll deliver, km. **Omit it and it stays null**, which is
    * what lets `PlatformSetting.defaultDeliveryRadiusKm` apply at approval —
    * before M19 the column defaulted to 10 and the platform value was
@@ -131,6 +143,10 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
         ...(input.area ? { area: input.area } : {}),
         ...(input.pincode ? { pincode: input.pincode } : {}),
         areaLabel: input.areaLabel,
+        addressLine1: input.addressLine1,
+        addressLine2: input.addressLine2,
+        landmark: input.landmark,
+        pickupPhone: input.pickupPhone,
         deliveryRadiusKm: input.deliveryRadiusKm,
         description: input.description,
         instagramUrl: input.instagramUrl,
@@ -152,11 +168,19 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
     category: input.category ?? categoryForSpecialties(input.specialties),
     specialties: input.specialties,
     area: input.area,
+    pincode: input.pincode,
     areaLabel: input.areaLabel,
+    addressLine1: input.addressLine1,
+    addressLine2: input.addressLine2,
+    landmark: input.landmark,
+    pickupPhone: input.pickupPhone,
     deliveryRadiusKm: input.deliveryRadiusKm,
     city: input.city,
     description: input.description,
-    status: input.area === "other" ? "waitlisted" : "new",
+    // Mirrors the server (M36): only a legacy `area === "other"`
+    // application is waitlisted. A pincode application never is — that is
+    // the whole point of it, and mock mode must not teach otherwise.
+    status: !input.pincode && input.area === "other" ? "waitlisted" : "new",
     createdAt: new Date().toISOString(),
   };
   sellerApplications.push(application);

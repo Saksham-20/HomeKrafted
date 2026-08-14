@@ -315,3 +315,55 @@
   font-weight: 600;
   text-decoration: underline;
 }
+
+/*
+  The pickup address (M36b).
+
+  Spans both columns of `.formGrid` and stacks its own fields, because
+  these four belong together: they are one answer to one question ("where
+  does a rider go"), and splitting them across the two-column flow put a
+  landmark beside an unrelated box. The tinted card is what makes the
+  grouping — and the promise closing it — read as a unit rather than four
+  more inputs.
+*/
+.addressGroup {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s4);
+  background: var(--hk-surface-2);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+}
+
+/*
+  "Buyers never see this."
+
+  Directly under the fields, not in a policy page — this is the moment
+  somebody hesitates over typing their home address, so it is the moment
+  the answer has to be on screen. Pine rather than a warning colour:
+  nothing is wrong, we are telling them something reassuring.
+
+  The claim is enforced in `server/test/unit/vendor-privacy.spec.ts`. If
+  this copy is ever edited to promise something broader, go and make that
+  true first.
+*/
+.privacyNote {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  margin: 0;
+  padding: var(--hk-s3);
+  background: var(--hk-pine-tint);
+  border-radius: var(--hk-r-sm);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+}
+
+.privacyNote svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--hk-pine);
+}

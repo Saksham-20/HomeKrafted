@@ -519,6 +519,21 @@ export interface SellerApplication {
   pincode?: string;
   /** The locality they typed, present only on a pre-M36 `"other"` row. */
   areaLabel?: string;
+  /**
+   * Where a rider collects — the applicant's **home address** (M36b).
+   *
+   * **Never shown to a buyer, and the form promises exactly that.** It
+   * appears only on admin screens and on the HomeKrafter's own portal.
+   * The public vendor payload has no address field at all; the buyer sees
+   * `Vendor.location`, a coarse area label ("Sector 35, Chandigarh"),
+   * which is a different thing on purpose. `server/test/unit/
+   * vendor-privacy.spec.ts` fails the build if that stops being true.
+   */
+  addressLine1?: string;
+  addressLine2?: string;
+  landmark?: string;
+  /** A second number for the rider, if the account's phone isn't the one at the door. */
+  pickupPhone?: string;
   /** How far they'll deliver, km. Editable later from storefront settings. */
   deliveryRadiusKm?: number;
   description: string;

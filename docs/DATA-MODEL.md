@@ -231,6 +231,22 @@ place the Prisma model deviates from the literal TS shape). All ids are
   a curated area would write a wrong one onto a real storefront and look
   authoritative.
 
+  **M36b — the pickup address, and why it is a separate field.**
+  `SellerApplication.addressLine1/addressLine2/landmark/pickupPhone` are
+  collected on `/sell` and carried onto `VendorProfile.pickup*` at
+  approval. They are a home cook's **home address**, asked for under an
+  explicit on-form promise that buyers never see them.
+
+  That promise is structural, not editorial. `Vendor.location` — the
+  public storefront line — stays a coarse area label ("Sector 35,
+  Chandigarh") and must never be merged with these; `PublicVendorProfile`
+  has no address field at all; and `vendor-privacy.spec.ts` fails the
+  build if `src/catalog`'s public region reads the columns. Two surfaces
+  may render them: the admin verification panel, which owns the
+  `addressVerified` flag and previously could not show the address it was
+  verifying, and the HomeKrafter's own profile, because an address they
+  cannot see is one they cannot notice is wrong.
+
   The new `Seller.userId` is a synthetic placeholder id (no
   real account exists yet for an application-origin seller) — flagged in
   code rather than silently wrong; M8's real onboarding must create the

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Store } from "lucide-react";
+import { Lock, Store } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -48,6 +48,15 @@ const EMPTY_FORM = {
    * application nobody could ever approve.
    */
   pincode: "",
+  /**
+   * Where a rider collects (M36b). The form promises, in as many words,
+   * that buyers never see this — and that promise is enforced server-side
+   * (`vendor-privacy.spec.ts`), not just written here.
+   */
+  addressLine1: "",
+  addressLine2: "",
+  landmark: "",
+  pickupPhone: "",
   /**
    * Kept as a string because it comes off a `<select>`; parsed on submit.
    * **Empty means "they didn't say"**, which is what lets the platform
@@ -148,6 +157,10 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
     // is perfectly valid. The server checks existence again and answers
     // with a message naming the pincode.
     isPincodeShape(form.pincode) &&
+    // Mirrors the server's check so the button doesn't enable into a 400.
+    // Length only — "shape, never taste", the same line every other field
+    // on this form holds.
+    form.addressLine1.trim().length >= 6 &&
     // At least one specialty: it is how buyers find them at all.
     specialties.length > 0 &&
     form.description.trim().length > 0 &&
@@ -180,6 +193,10 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
         // pincode; the server prefers India Post's district over it.
         city: city.trim(),
         pincode: form.pincode.trim(),
+        addressLine1: form.addressLine1.trim(),
+        addressLine2: form.addressLine2.trim() || undefined,
+        landmark: form.landmark.trim() || undefined,
+        pickupPhone: form.pickupPhone.trim() || undefined,
         // Undefined, not 0 or 10 — an omitted radius is what lets the
         // platform default apply at approval.
         deliveryRadiusKm: form.deliveryRadiusKm ? Number(form.deliveryRadiusKm) : undefined,
@@ -411,6 +428,90 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                   "Wherever you are in India. This is what places you on the map for nearby buyers."}
               </span>
             </label>
+
+            {/*
+              The pickup address (M36b).
+
+              Two things make this different from every other box on the
+              form. It is somebody's **home address** — the single most
+              sensitive thing we ask a home cook for — and it is the one
+              answer whose usefulness depends entirely on being precise,
+              because a rider has to find the door.
+
+              So the reassurance sits directly under the fields rather
+              than in a privacy policy nobody opens, and it is **true**:
+              no public payload carries these columns, and
+              `server/test/unit/vendor-privacy.spec.ts` fails the build if
+              that changes. A promise like this made only in copy is one
+              somebody deletes by accident in six months.
+            */}
+            <div className={styles.addressGroup}>
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  Where should we collect from?
+                </span>
+                <input
+                  className={styles.input}
+                  value={form.addressLine1}
+                  onChange={(event) => set("addressLine1", event.target.value)}
+                  onBlur={() => touch("addressLine1")}
+                  autoComplete="address-line1"
+                  placeholder="House / shop number and street"
+                  aria-describedby="pickup-privacy"
+                  required
+                />
+                {touched.addressLine1 && form.addressLine1.trim().length < 6 && (
+                  <span className={styles.fieldError}>
+                    Add the house or shop number and the street, so a rider can find you.
+                  </span>
+                )}
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Area or colony (optional)</span>
+                <input
+                  className={styles.input}
+                  value={form.addressLine2}
+                  onChange={(event) => set("addressLine2", event.target.value)}
+                  autoComplete="address-line2"
+                  placeholder="Sector, phase, colony"
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Landmark (optional)</span>
+                <input
+                  className={styles.input}
+                  value={form.landmark}
+                  onChange={(event) => set("landmark", event.target.value)}
+                  placeholder="e.g. opposite the gurudwara"
+                />
+              </label>
+
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>
+                  A different number for pickups (optional)
+                </span>
+                <input
+                  className={styles.input}
+                  type="tel"
+                  value={form.pickupPhone}
+                  onChange={(event) => set("pickupPhone", event.target.value)}
+                  autoComplete="tel"
+                  placeholder="Only if it isn\u2019t the number above"
+                />
+              </label>
+
+              <p id="pickup-privacy" className={styles.privacyNote}>
+                <Lock size={14} strokeWidth={2} aria-hidden="true" />
+                <span>
+                  <strong>Buyers never see this.</strong>{" "}
+                  Your address and exact location are used only to arrange pickups. On
+                  your storefront, shoppers see just your area \u2014 something like
+                  \u201cSector 35, Chandigarh\u201d \u2014 never your street or house number.
+                </span>
+              </p>
+            </div>
 
             {/*
               Progressive disclosure, and deliberately NOT pre-filled with the

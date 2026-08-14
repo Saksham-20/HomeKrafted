@@ -3,6 +3,52 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M36b] — A pickup address, and a promise kept in code — 2026-08-14
+
+The application asked where a HomeKrafter is, but never where a rider
+should actually go. `Vendor.location` is a coarse area label by design,
+so nothing on file could dispatch a courier to a door.
+
+### Added
+
+- **`/sell` asks for the pickup address** — house/street, area, landmark
+  and an optional second phone. Only line 1 is required, and it is
+  checked in the service so the message names the box; a landmark is
+  genuinely optional, because demanding one makes a real village address
+  unfillable.
+- **The reassurance sits under the fields, not in a privacy policy.**
+  "Buyers never see this" is the sentence somebody needs at the moment
+  they hesitate over typing their home address, and this is a home cook's
+  home address.
+
+### Enforced
+
+- **That promise is kept in code, not in copy.** `VendorProfile.pickup*`
+  is readable on exactly two surfaces — the admin verification panel,
+  which owns `addressVerified` and until now could not show the address
+  it was verifying, and the HomeKrafter's own `/seller/profile`, because
+  an address they cannot see is one they cannot notice is wrong. The
+  buyer payload has no address field at all.
+- **`server/test/unit/vendor-privacy.spec.ts` fails the build on a
+  leak.** It scans `src/catalog` — the public browse surface — and
+  asserts `mapVendor`'s output shape carries nothing address-shaped even
+  when handed the columns directly. `vendor-profile.service.ts` is
+  scanned **by region**, since it holds both `publicProfile` and the
+  seller-only `ownProfile`; both halves were mutation-tested by
+  introducing a real leak and confirming the failure.
+- This is the same exposure M25's EXIF strip exists to prevent — a phone
+  photo of a home kitchen carried GPS, and publishing it published a home
+  cook's address. This is that address, typed in directly, so it is the
+  more dangerous copy.
+
+### Notes
+
+- Every column is nullable and **nothing is backfilled**. The 13 existing
+  HomeKrafters applied before the form asked; NULL reads as "we never
+  asked them", and both screens say so rather than rendering an empty
+  address. Nothing is inferred from `Vendor.location`, which is not an
+  address anybody could drive to.
+
 ## [M36] — Approve works, and the supply side is national — 2026-08-14
 
 Started as "clicking Approve does nothing on the admin queue". The visible

@@ -198,6 +198,18 @@ Those older rows still exist and still show the out-of-area warning, and
 they now carry an **area picker on the row itself** so you can resolve and
 then approve them.
 
+**The form now asks where a rider should collect from (M36b), and
+promises buyers never see it.** Under the pincode there is an address
+block — house/street, area, landmark, and an optional second phone —
+closed by a note saying shoppers see only your area, never your street.
+Worth checking that the promise holds: open any storefront while signed
+out and you will find the area label ("Sector 35, Chandigarh") and no
+address anywhere. The address appears in exactly two places, both behind
+a login: the admin verification panel and the HomeKrafter's own
+**/seller/profile → "Where we collect from"**. A HomeKrafter approved
+before this shipped has none on file, and both screens say so rather
+than showing an empty box.
+
 **Applying is national; delivering is not.** Approving a HomeKrafter in
 Jaipur works and is meant to. Whether buyers there can order is a separate
 setting (`Serviced areas` under `/admin/settings`, currently the tricity),

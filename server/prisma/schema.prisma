@@ -1026,6 +1026,21 @@ model SellerApplication {
   /// Captures expansion demand without promising delivery there. Retained
   /// for pre-M36 rows; a pincode application has no use for it.
   areaLabel        String?
+  /// Where a rider will collect from — the applicant's **home address**
+  /// (M36). Carried onto `VendorProfile.pickupAddress*` at approval.
+  ///
+  /// **Private, and the form says so out loud.** It is never in a public
+  /// payload: `mapSellerApplication` is admin-only, `mapVendor` never
+  /// reads the profile columns this becomes, and `vendor-privacy.spec.ts`
+  /// fails the build if that changes. Asking a home cook for their home
+  /// address and then publishing it is the failure this whole cluster of
+  /// comments exists to prevent.
+  addressLine1     String?
+  addressLine2     String?
+  landmark         String?
+  /// A second number for the rider, when the account's phone is not the
+  /// one at the door.
+  pickupPhone      String?
   /// How far they're willing to deliver, in km. **Nullable on purpose**
   /// (M19): with a non-null default of 10, `approveApplication`'s
   /// `deliveryRadiusKm || defaultRadiusKm` always saw a truthy 10 and the
@@ -1322,6 +1337,43 @@ model VendorProfile {
   /// How the kitchen handles hygiene — gloves, sealed packing, FSSAI
   /// practices. The single most asked question about home food.
   hygieneNote         String?
+
+  // --- Pickup address: PRIVATE, never public (M36) -----------------------
+  //
+  // Where a rider collects the order. This is a home cook's **home
+  // address**, and the `/sell` form promises in as many words that it is
+  // never shown to buyers. That promise is enforced in code, not just
+  // written: `mapVendor` — the one mapper behind every public vendor
+  // payload — does not read these, and `vendor-privacy.spec.ts` fails the
+  // build if it ever does.
+  //
+  // Three rules if you touch this.
+  //
+  // **Never merge it into `Vendor.location`.** That field is the
+  // storefront's public address line ("Sector 35, Chandigarh"); it is
+  // deliberately coarse, and copying a house number into it publishes
+  // exactly what this promises not to.
+  //
+  // **Never add it to `VendorProfileService`'s public projection.** The
+  // buyer needs a verified fact, not an identifier — the same rule
+  // `fssaiNumber` already follows.
+  //
+  // **It is the same exposure M25's EXIF strip exists to prevent.** A
+  // phone photo of a home kitchen carried GPS and publishing it published
+  // a home cook's address; this is that address, typed in directly.
+  pickupAddressLine1 String?
+  pickupAddressLine2 String?
+  /// "Opposite the gurudwara" — India addresses by landmark, and a rider
+  /// finds a house this way when the line above is not enough.
+  pickupLandmark     String?
+  /// Six digits. Kept alongside `Vendor.pincode` rather than derived from
+  /// it: the storefront's pincode is where they are *listed*, this is
+  /// where a rider actually goes, and for a shared kitchen or a second
+  /// unit they are not the same.
+  pickupPincode      String?
+  /// Optional second number for the rider, when the account's phone is
+  /// not the one at the door.
+  pickupPhone        String?
 
   // --- Verification: admin writes only ----------------------------------
   /// As submitted by the HomeKrafter. Present + `fssaiVerified` false means

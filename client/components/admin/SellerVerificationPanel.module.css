@@ -109,3 +109,53 @@
     grid-template-columns: 1fr;
   }
 }
+
+/*
+  The pickup address (M36b) — internal, and styled to look it.
+
+  Deliberately plainer than the trust-facing blocks around it: this is an
+  operational detail an admin reads to arrange a collection or to check
+  what they are about to mark verified, not a credential the panel is
+  awarding. `--hk-surface-2` rather than a tint keeps it from reading as
+  a badge.
+*/
+.pickup {
+  margin-top: var(--hk-s3);
+  padding: var(--hk-s3);
+  background: var(--hk-surface-2);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-sm);
+}
+
+.pickupHeading {
+  margin: 0 0 var(--hk-s2);
+  font-family: var(--hk-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+.pickupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hk-ink);
+}
+
+.pickupLandmark {
+  color: var(--hk-ink-2);
+}
+
+/* Says out loud what the code enforces — an operator reading this should
+   know the address is not on the storefront, so they never hesitate to
+   use it or wrongly assume a buyer already has it. */
+.pickupNote {
+  margin: var(--hk-s2) 0 0;
+  font-size: 11.5px;
+  color: var(--hk-muted);
+}

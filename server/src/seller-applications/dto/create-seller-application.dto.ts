@@ -136,6 +136,44 @@ export class CreateSellerApplicationDto {
   @Matches(PINCODE_SHAPE, { message: 'Enter a 6-digit pincode' })
   pincode?: string;
 
+  // -------------------------------------------------------------------
+  // Pickup address (M36b) — where a rider collects.
+  //
+  // **This is the applicant's home address, and the form promises it is
+  // never shown to buyers.** That promise is kept in code: these land on
+  // `VendorProfile.pickup*`, which no public mapper reads, and
+  // `vendor-privacy.spec.ts` fails the build if one starts to.
+  //
+  // Required in practice — the service refuses an application without
+  // `addressLine1` — but declared optional here so a pre-M36b native
+  // client sending neither still gets the service's written message
+  // instead of a decorator's.
+  // -------------------------------------------------------------------
+
+  /** House/flat number, building, street. The line a rider navigates by. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  addressLine1?: string;
+
+  /** Area, colony, sector. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  addressLine2?: string;
+
+  /** "Opposite the gurudwara" — India addresses by landmark, and it is often what actually finds the door. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  landmark?: string;
+
+  /** A second number for the rider, if the account's phone is not the one at the door. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  pickupPhone?: string;
+
   /**
    * The locality they typed, required only when `area === 'other'`.
    *

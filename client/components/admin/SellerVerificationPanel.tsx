@@ -95,6 +95,18 @@ export function SellerVerificationPanel({ sellerId, onChanged }: SellerVerificat
     }
   }
 
+  /**
+   * Rendered only when something was actually collected. Every
+   * HomeKrafter approved before M36b has no address on file — that is
+   * "we never asked", not "they have none", and an empty card claiming
+   * otherwise would be worse than no card.
+   */
+  const pickup =
+    profile.pickup &&
+    (profile.pickup.addressLine1 || profile.pickup.landmark || profile.pickup.phone)
+      ? profile.pickup
+      : null;
+
   return (
     <div className={styles.panel}>
       <div className={styles.evidence}>
@@ -119,6 +131,34 @@ export function SellerVerificationPanel({ sellerId, onChanged }: SellerVerificat
             <dd>{profile.verifiedAt ? formatDate(profile.verifiedAt) : "Never reviewed"}</dd>
           </div>
         </dl>
+        {/*
+          The pickup address (M36b).
+
+          Here rather than on the storefront card because this panel owns
+          the `addressVerified` flag — an admin asked to verify an address
+          has to be able to read it, and before this the one thing that
+          screen could not show was the address it was verifying.
+
+          It is one of exactly two surfaces allowed to render this. The
+          applicant was told buyers never see it, and
+          `server/test/unit/vendor-privacy.spec.ts` keeps that true by
+          failing the build if the public catalog surface reads these
+          columns.
+        */}
+        {pickup && (
+          <div className={styles.pickup}>
+            <h4 className={styles.pickupHeading}>Pickup address</h4>
+            <address className={styles.pickupBody}>
+              {[pickup.addressLine1, pickup.addressLine2].filter(Boolean).join(", ")}
+              {pickup.landmark ? <span className={styles.pickupLandmark}>{pickup.landmark}</span> : null}
+              {pickup.pincode ? <span className={styles.pickupLandmark}>{pickup.pincode}</span> : null}
+              {pickup.phone ? <span className={styles.pickupLandmark}>{pickup.phone}</span> : null}
+            </address>
+            <p className={styles.pickupNote}>
+              Internal only — buyers see the storefront&rsquo;s area, never this.
+            </p>
+          </div>
+        )}
         <Link className={styles.storefrontLink} href={`/storefront/${profile.vendorSlug}`} target="_blank">
           Open their storefront →
         </Link>

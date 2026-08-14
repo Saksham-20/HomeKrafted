@@ -379,6 +379,18 @@ export function SellerProfileClient() {
    */
   const sellsFood = makesFood(currentSpecialties);
 
+  /**
+   * Only rendered when something was collected. Every HomeKrafter
+   * approved before M36b has none on file — "we never asked" rather than
+   * "they have none" — and the card says that in its own words instead
+   * of showing an empty address.
+   */
+  const pickup =
+    profile.pickup &&
+    (profile.pickup.addressLine1 || profile.pickup.landmark || profile.pickup.phone)
+      ? profile.pickup
+      : null;
+
   const verifications = [
     { key: "identity", label: "Identity", done: profile.identityVerified },
     { key: "address", label: "Address", done: profile.addressVerified },
@@ -538,6 +550,41 @@ export function SellerProfileClient() {
               Changing this clears an existing verification — a new number has to be checked again.
             </span>
           </label>
+        )}
+      </Card>
+
+      {/*
+        Where a rider collects (M36b).
+
+        Read-only here on purpose. The address decides where a courier is
+        dispatched, so changing it mid-cycle is an operational event
+        rather than a profile edit — the same reasoning that keeps
+        verification admin-only just above. Showing it, though, is not
+        optional: an address a HomeKrafter cannot see is one they cannot
+        notice is wrong, and it is wrong the day they move.
+      */}
+      <Card className={styles.section} padding="lg">
+        <h2 className={styles.sectionTitle}>Where we collect from</h2>
+        {pickup ? (
+          <>
+            <address className={styles.pickupAddress}>
+              {[pickup.addressLine1, pickup.addressLine2].filter(Boolean).join(", ")}
+              {pickup.landmark ? <span>{pickup.landmark}</span> : null}
+              {pickup.pincode ? <span>{pickup.pincode}</span> : null}
+              {pickup.phone ? <span>Pickup number: {pickup.phone}</span> : null}
+            </address>
+            <p className={styles.hint}>
+              <strong>Shoppers never see this.</strong>{" "}
+              It is used only to arrange pickups. On your storefront they see your area
+              only. Moved, or got the address wrong? Message support and we will change
+              it \u2014 a courier may already be routing to it.
+            </p>
+          </>
+        ) : (
+          <p className={styles.hint}>
+            We don&rsquo;t have a pickup address for you yet. Message support and we will
+            add one \u2014 it is what a courier needs to find you, and shoppers never see it.
+          </p>
         )}
       </Card>
 

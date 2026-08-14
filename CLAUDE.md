@@ -503,6 +503,21 @@ and every valid Indian pincode is approvable.
 - **GeoNames is CC-BY 4.0.** The footer credit linking to geonames.org is
   a **licence condition**, not a courtesy. Remove the table and remove the
   credit together; keep the table and the credit is not optional.
+- **The pickup address is private, and that promise is enforced (M36b).**
+  `/sell` asks for the address a rider collects from — a home cook's
+  **home address** — and says on the form that buyers never see it.
+  `VendorProfile.pickup*` is readable on exactly **two** surfaces: the
+  admin verification panel (which owns `addressVerified`, so it has to
+  show the address it is verifying) and the HomeKrafter's own
+  `/seller/profile`. The buyer gets `Vendor.location`, a coarse area
+  label, and nothing more. `server/test/unit/vendor-privacy.spec.ts`
+  fails the build if `src/catalog`'s public region reads those columns —
+  it scans `vendor-profile.service.ts` **by region**, because that file
+  holds both `publicProfile` and the seller-only `ownProfile`. Never
+  merge the address into `Vendor.location`, and never add it to
+  `PublicVendorProfile`. This is the same exposure M25's EXIF strip
+  exists to prevent, except typed in directly rather than hidden in a
+  photo.
 - **Nothing is backfilled.** Pre-M36 rows keep their `area` and approve
   exactly as before; their `pincode` is NULL, which correctly reads as
   "they signed up before we asked". Guessing a pincode from a curated area

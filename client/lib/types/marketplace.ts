@@ -169,6 +169,24 @@ export interface VendorBlackout {
   reason?: string;
 }
 
+/**
+ * Where a rider collects (M36b) — the HomeKrafter's own address.
+ *
+ * **Present only on `OwnVendorProfile` and `AdminSellerProfile`**, never
+ * on `VendorProfile` (the public storefront shape). That split is the
+ * whole design: a buyer sees `Vendor.location`, a coarse area label, and
+ * the `/sell` form promises in as many words that they see nothing more.
+ * `server/test/unit/vendor-privacy.spec.ts` fails the build if the public
+ * catalog surface starts reading these.
+ */
+export interface PickupAddress {
+  addressLine1?: string;
+  addressLine2?: string;
+  landmark?: string;
+  pincode?: string;
+  phone?: string;
+}
+
 /** The seller's own view — adds what only they (and an admin) should see. */
 export interface OwnVendorProfile extends VendorProfile {
   fssaiNumber?: string;
@@ -176,6 +194,8 @@ export interface OwnVendorProfile extends VendorProfile {
   verifiedAt?: ISODateString;
   verificationNote?: string;
   completion: VendorProfileCompletion;
+  /** Never rendered on a buyer-facing surface — see `PickupAddress`. */
+  pickup?: PickupAddress;
 }
 
 /** What the admin verification panel reads — the seller's own view plus who it belongs to. */

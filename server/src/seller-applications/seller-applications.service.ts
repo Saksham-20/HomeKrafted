@@ -69,10 +69,6 @@ export class SellerApplicationsService {
       else websiteUrl = website.url || null;
     }
 
-    // Only asked of somebody who says they make food, and only stored for
-    // them: a candle maker who typed something into a box that should not
-    // have been shown does not get a food licence recorded against their
-    // name.
     // Where they are (M36). Shape is the DTO's job; this is existence,
     // and the two get different messages because they are different
     // problems to the person typing: a typo they can fix by retyping,
@@ -99,6 +95,41 @@ export class SellerApplicationsService {
       });
     }
 
+    // Where a rider collects (M36b). Required, because a pickup address
+    // that "usually" exists is one a rider cannot be dispatched to — but
+    // checked here rather than by a decorator so the message names the
+    // box and says what to put in it, like every other field on this
+    // public form.
+    //
+    // Only line 1 is compulsory. A landmark and a second line genuinely
+    // are optional, and demanding them would turn a real address in a
+    // village into an unfillable form.
+    const addressLine1 = dto.addressLine1?.trim() ?? '';
+    if (!addressLine1) {
+      problems.push({
+        field: 'addressLine1',
+        message: 'Add the address a rider should collect from — house or shop number, and the street.',
+      });
+    } else if (addressLine1.length < 6) {
+      // "A" or "12" is not an address anybody can drive to. Shape only,
+      // never taste — the same line `checkBusinessName` holds.
+      problems.push({
+        field: 'addressLine1',
+        message: 'That looks too short to find. Include the house or shop number and the street.',
+      });
+    }
+
+    let pickupPhone: string | null = null;
+    if (dto.pickupPhone?.trim()) {
+      const parsed = normalizePhone(dto.pickupPhone);
+      if ('error' in parsed) problems.push({ field: 'pickupPhone', message: parsed.error });
+      else pickupPhone = parsed.phone;
+    }
+
+    // Only asked of somebody who says they make food, and only stored for
+    // them: a candle maker who typed something into a box that should not
+    // have been shown does not get a food licence recorded against their
+    // name.
     const { makesFood } = supplyMix(dto.specialties);
     let fssaiNumber: string | null = null;
     if (makesFood && dto.fssaiNumber?.trim()) {
@@ -123,6 +154,10 @@ export class SellerApplicationsService {
       websiteUrl,
       fssaiNumber,
       pincode,
+      addressLine1,
+      addressLine2: dto.addressLine2?.trim() || null,
+      landmark: dto.landmark?.trim() || null,
+      pickupPhone,
     };
   }
 
@@ -151,6 +186,12 @@ export class SellerApplicationsService {
         city: clean.pincode ? (lookupPincode(clean.pincode)?.district ?? dto.city) : dto.city,
         area: dto.area ?? null,
         pincode: clean.pincode,
+        // The pickup address. Private by contract — see the schema doc
+        // comment; the form promises buyers never see it.
+        addressLine1: clean.addressLine1,
+        addressLine2: clean.addressLine2,
+        landmark: clean.landmark,
+        pickupPhone: clean.pickupPhone,
         areaLabel: dto.area === OTHER_AREA ? dto.areaLabel : null,
         // No `?? 10` (M19). It used to be here, and combined with the
         // column's own `@default(10)` it meant `approveApplication`'s
