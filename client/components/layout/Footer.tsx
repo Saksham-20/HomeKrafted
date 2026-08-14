@@ -43,6 +43,20 @@ export async function Footer() {
           <Link href="/privacy">Privacy</Link>
           <Link href="/refunds">Cancellation &amp; refunds</Link>
           <Link href="/contact">Contact</Link>
+          {/*
+            **A licence condition, not a credit we chose to give.** The
+            pincode table behind the location fields is GeoNames data
+            under CC-BY 4.0, which obliges a visible attribution linking
+            to geonames.org on a page a visitor can reach. It is in the
+            footer because that is the only element on every page.
+
+            If `server/src/common/pincodes.json` is ever removed, remove
+            this with it. While the table is in use, this link is not
+            optional and must not be dropped in a tidy-up of the footer.
+          */}
+          <a href="https://www.geonames.org" rel="noopener noreferrer" target="_blank">
+            Pincode data © GeoNames
+          </a>
         </span>
       </div>
     </footer>

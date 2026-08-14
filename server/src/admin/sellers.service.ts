@@ -5,7 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PASSWORD_HASH_OPTIONS } from '../auth/hashing';
 import { generateTemporaryPassword } from './temp-password.util';
 import { areaById } from '../common/geo';
+import { lookupPincode, seedCoordsForPincode } from '../common/pincodes';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
+import { SetVendorCoordsDto } from './dto/set-vendor-coords.dto';
 import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
@@ -134,9 +136,11 @@ function mapApplication(app: SellerApplication) {
     category: app.category,
     specialties: app.specialties,
     city: app.city,
-    area: app.area,
+    area: app.area ?? undefined,
+    pincode: app.pincode ?? undefined,
     // Surfaced so an admin can see an out-of-area applicant *before*
     // clicking approve, rather than discovering it from the refusal.
+    // Pre-M36 rows only — a pincode application is never out of area.
     areaLabel: app.areaLabel ?? undefined,
     deliveryRadiusKm: app.deliveryRadiusKm ?? undefined,
     description: app.description,
@@ -166,6 +170,26 @@ export interface ApproveSellerApplicationResult {
    * open. Carries `fallbackLink` **only** when nothing was delivered.
    */
   invite: InviteDeliveryReport;
+  /**
+   * Set when the new storefront was planted on a pincode centroid that
+   * may be well off (M36) — absent when the coordinates came from a
+   * curated area, or from a pincode with a single post office.
+   *
+   * Surfaced in the response for the same reason `invite` is: the admin
+   * who just clicked approve is the only person positioned to fix it,
+   * and they are looking at this screen right now. Silence here would
+   * mean a kitchen quietly sitting up to 12 km from where it is, visible
+   * to the wrong neighbourhood and invisible to its own, with nothing
+   * anywhere saying so.
+   */
+  placement?: {
+    lat: number;
+    lng: number;
+    /** How far apart this pincode's post offices are — the size of the possible error. */
+    spreadKm: number;
+    pincode: string;
+    label: string;
+  };
   /**
    * The sign-in details issued alongside the invite (M32) — a username
    * and a short temporary password an admin can read out, since no
@@ -709,6 +733,116 @@ export class AdminSellersService {
     });
   }
 
+  /**
+   * Where a new `Vendor` gets planted, and how much to trust the point.
+   *
+   * Two sources, in priority order, and the order is the whole design.
+   *
+   * **A curated `TRICITY_AREAS` entry wins** when the application carries
+   * one. Those 21 coordinates are hand-checked and beat the bundled
+   * pincode table by 1–5 km inside the launch city, where almost every
+   * live kitchen is. Preferring the pincode "for consistency" would make
+   * the existing catalogue's coordinates measurably worse.
+   *
+   * **Otherwise the pincode's centroid**, flagged with how far off it
+   * could be. Only 44% of Indian pincodes have a centroid worth trusting;
+   * the median pincode's post offices are 12.4 km apart. So this is a
+   * *seed* for the admin to confirm, and `confident` is how the screen
+   * knows whether to say so. `Vendor.lat`/`lng` decides which buyers can
+   * see a kitchen at all, so an unchecked 12 km error hides a real
+   * storefront from its own neighbourhood.
+   *
+   * Returns `null` only for a pre-M36 row whose `area` no longer resolves
+   * and which has no pincode — the one case that still cannot be
+   * approved as-is.
+   */
+  private resolvePlacement(application: SellerApplication): {
+    lat: number;
+    lng: number;
+    /** What goes on `Vendor.location`, the storefront's address line. */
+    label: string;
+    /** What goes on `Vendor.area` — a curated area id, or the pincode. */
+    areaKey: string;
+    pincode: string | null;
+    /** False when the coordinates are a pincode centroid an admin should check. */
+    confident: boolean;
+    spreadKm: number;
+  } | null {
+    const curated = application.area ? areaById(application.area) : undefined;
+    if (curated) {
+      return {
+        lat: curated.lat,
+        lng: curated.lng,
+        label: `${curated.label}, ${curated.city}`,
+        areaKey: application.area!,
+        pincode: application.pincode,
+        confident: true,
+        spreadKm: 0,
+      };
+    }
+
+    if (application.pincode) {
+      const record = lookupPincode(application.pincode);
+      const seed = seedCoordsForPincode(application.pincode);
+      if (record && seed) {
+        return {
+          lat: seed.lat,
+          lng: seed.lng,
+          label: `${record.district}, ${record.state}`,
+          areaKey: application.pincode,
+          pincode: application.pincode,
+          confident: seed.trustworthy,
+          spreadKm: seed.spreadKm,
+        };
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Move a HomeKrafter's kitchen to its real coordinates (M36).
+   *
+   * The other half of approving a pincode application. The seed centroid
+   * is right for fewer than half of India's pincodes, and this column is
+   * the one that decides whether a buyer three streets away can see this
+   * storefront — so an admin who can see the storefront is wrong has to
+   * be able to fix it. Without this, approving nationally would mean
+   * planting kitchens up to 12 km from where they are and having no way
+   * back.
+   *
+   * Audited with before/after, because a coordinate change silently
+   * changes who can buy from someone.
+   */
+  async setVendorCoords(adminUserId: string, sellerId: string, dto: SetVendorCoordsDto) {
+    const seller = await this.prisma.seller.findUnique({
+      where: { id: sellerId },
+      include: { vendor: true },
+    });
+    if (!seller?.vendor) throw new NotFoundException('Seller not found');
+
+    const before = { lat: seller.vendor.lat, lng: seller.vendor.lng };
+
+    await this.prisma.vendor.update({
+      where: { id: seller.vendor.id },
+      data: {
+        lat: dto.lat,
+        lng: dto.lng,
+        ...(dto.location ? { location: dto.location } : {}),
+      },
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'vendor.set_coords',
+      targetType: 'Vendor',
+      targetId: seller.vendor.id,
+      metadata: { before, after: { lat: dto.lat, lng: dto.lng }, sellerId },
+    });
+
+    return this.getSellerDetail(sellerId);
+  }
+
   async approveApplication(adminUserId: string, applicationId: string): Promise<ApproveSellerApplicationResult> {
     const application = await this.prisma.sellerApplication.findUnique({ where: { id: applicationId } });
     if (!application) throw new NotFoundException('Seller application not found');
@@ -730,11 +864,17 @@ export class AdminSellersService {
     //
     // Placed before the transaction opens: cheaper than a rollback, and it
     // matches the status checks above.
-    const resolvedArea = areaById(application.area);
-    if (!resolvedArea) {
-      const where = application.areaLabel ?? application.area;
+    //
+    // **M36: a pincode application always resolves.** The refusal below
+    // survives only for pre-M36 rows, which carry an `area` and no
+    // pincode. New applications cannot reach it — that is the whole
+    // point: an unapprovable application was a real home cook stuck on a
+    // waitlist no screen could move them off.
+    const placement = this.resolvePlacement(application);
+    if (!placement) {
+      const where = application.areaLabel ?? application.area ?? 'their location';
       throw new ConflictException(
-        `Cannot approve: "${where}" is not a serviced area. Assign a tricity area to this application before approving.`,
+        `Cannot approve: "${where}" is not a serviced area. Assign an area to this application before approving.`,
       );
     }
 
@@ -785,11 +925,10 @@ export class AdminSellersService {
         await tx.loyaltyAccount.create({ data: { userId: user.id } });
       }
 
-      // The applicant's chosen tricity area decides where their kitchen sits
-      // on the map, which is what every buyer's distance filter measures
-      // against. Guaranteed to resolve — the guard above refuses anything
-      // that doesn't, so there is no centroid fallback here any more.
-      const area = resolvedArea;
+      // Where the kitchen sits on the map — what every buyer's distance
+      // filter measures against. See `resolvePlacement`: a curated area
+      // when there is one, otherwise the pincode's centroid, which the
+      // admin is prompted to confirm when `confident` is false.
       const vendorSlug = await this.uniqueVendorSlug(tx, application.businessName);
       const vendor = await tx.vendor.create({
         data: {
@@ -799,10 +938,11 @@ export class AdminSellersService {
           bio: application.description,
           avatarPlaceholder: `${application.businessName} — AVATAR`,
           bannerPlaceholder: `${application.businessName} — BANNER`,
-          location: `${area.label}, ${area.city}`,
-          area: application.area,
-          lat: area.lat,
-          lng: area.lng,
+          location: placement.label,
+          area: placement.areaKey,
+          pincode: placement.pincode,
+          lat: placement.lat,
+          lng: placement.lng,
           // M16 (M5): the platform default when an application didn't
           // state one, rather than a constant nobody could change.
           deliveryRadiusKm: application.deliveryRadiusKm || defaultRadiusKm,
@@ -924,6 +1064,20 @@ export class AdminSellersService {
       // present only when nothing was delivered, and is what an admin
       // passes on by hand.
       invite,
+      // Only when the point is worth checking — a curated area, or a
+      // pincode with one post office, is not. Reporting every approval as
+      // needing review would train the admin to dismiss the one that does.
+      ...(placement.confident
+        ? {}
+        : {
+            placement: {
+              lat: placement.lat,
+              lng: placement.lng,
+              spreadKm: placement.spreadKm,
+              pincode: placement.pincode ?? '',
+              label: placement.label,
+            },
+          }),
       // The credentials themselves, so the admin has something to read
       // out the moment approval lands rather than hunting for a button.
       // They also stay on the HomeKrafter's row until claimed.

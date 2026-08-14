@@ -70,7 +70,66 @@ describe('get', () => {
     expect(Object.keys(await service.get()).sort()).toEqual([
       'commissionPct',
       'defaultDeliveryRadiusKm',
+      'servicedPincodePrefixes',
     ]);
+  });
+});
+
+/**
+ * The launch gate (M36). Supply is national; delivery is not. This
+ * setting is the seam, and every case here is a way the seam could
+ * quietly move to the wrong side.
+ */
+describe('servicedPincodePrefixes', () => {
+  it('defaults to the tricity when nothing is stored', async () => {
+    const { service } = serviceWith([]);
+    expect(await service.getServicedPincodePrefixes()).toEqual([
+      '160',
+      '1401',
+      '1403',
+      '1341',
+      '1346',
+    ]);
+  });
+
+  it('fails OPEN on an empty value, so a misconfiguration shows the catalogue', async () => {
+    // The direction matters more than the parsing. A blank setting that
+    // read as "we service nowhere" would empty every buyer's catalogue,
+    // and it would look like low traffic rather than an outage — nobody
+    // would find it. Same reasoning as CLAUDE.md's "location is never a
+    // gate".
+    const { service } = serviceWith([{ key: 'servicedPincodePrefixes', value: '' }]);
+    expect(await service.getServicedPincodePrefixes()).toEqual([]);
+  });
+
+  it('tolerates spacing and drops anything that is not a prefix', async () => {
+    const { service } = serviceWith([
+      { key: 'servicedPincodePrefixes', value: ' 160 , 302 ,, abc, 12345678 ' },
+    ]);
+    expect(await service.getServicedPincodePrefixes()).toEqual(['160', '302']);
+  });
+
+  it('refuses a malformed prefix on the way IN, where it can still be reported', async () => {
+    // The parser above silently drops junk, which is right for reading a
+    // row that is already stored and wrong for accepting one. An admin
+    // who typos a prefix while opening Jaipur must be told, or the city
+    // simply never opens and looks like nobody there is ordering.
+    const { service, prisma } = serviceWith([]);
+    await expect(
+      service.update('admin-1', { servicedPincodePrefixes: '160, jaipur' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts and normalises a valid list', async () => {
+    const { service, prisma } = serviceWith([]);
+    await service.update('admin-1', { servicedPincodePrefixes: ' 160 , 302 ' });
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.platformSetting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ key: 'servicedPincodePrefixes', value: '160,302' }),
+      }),
+    );
   });
 });
 

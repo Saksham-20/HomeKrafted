@@ -246,7 +246,12 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
             <Field label="Business name" value={application.businessName} />
             <Field label="Contact" value={application.contactName} />
             <Field label="City" value={application.city} />
-            <Field label="Area" value={application.areaLabel ?? application.area} />
+            {/* Pincode since M36; the older two survive for rows filed
+                before it, where they are all there is. */}
+            <Field
+              label={application.pincode ? "Pincode" : "Area"}
+              value={application.pincode ?? application.areaLabel ?? application.area ?? "—"}
+            />
             <Field label="Applied" value={formatDate(application.createdAt)} />
             <Field label="Status" value={application.status} />
             {/* M32 — absent on anything filed before the form asked. */}

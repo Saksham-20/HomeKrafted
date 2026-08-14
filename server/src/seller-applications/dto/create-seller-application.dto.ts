@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -50,6 +51,17 @@ const CATEGORIES: SellerApplicationCategory[] = ['home_chef', 'maker', 'baker', 
 export const OTHER_AREA = 'other';
 const AREA_IDS = [...TRICITY_AREAS.map((a) => a.id), OTHER_AREA];
 
+/**
+ * Six digits, and Indian pincodes never begin with zero.
+ *
+ * Shape only. Whether the pincode *exists* is checked in the service,
+ * against the bundled India Post table, so the applicant gets "we don't
+ * recognise that pincode" rather than a decorator's
+ * `"pincode must match /^[1-9]\d{5}$/"`. Same rule the M32 fields follow:
+ * on a public form the message is the product.
+ */
+const PINCODE_SHAPE = /^[1-9]\d{5}$/;
+
 /** `POST /seller-applications` — the public `/sell` form submission (M9). */
 export class CreateSellerApplicationDto {
   @IsString()
@@ -94,9 +106,35 @@ export class CreateSellerApplicationDto {
   @MinLength(1)
   city!: string;
 
-  /** Tricity area id, or `'other'` — decides where the kitchen sits for the buyer distance filter. */
+  /**
+   * **Legacy since M36, and still accepted.**
+   *
+   * A tricity area id, or `'other'`. The form no longer sends it — it was
+   * a closed list of 21 curated areas, so everyone outside the tricity
+   * answered `'other'`, and `'other'` was unapprovable. Kept optional
+   * rather than removed for the reason `category` was (see above): this
+   * API is shared with native apps and has no versioning policy, so
+   * refusing a value a shipped client still sends is a breaking change.
+   *
+   * When both arrive, `pincode` wins — it is the field with resolution.
+   */
+  @IsOptional()
   @IsIn(AREA_IDS)
-  area!: string;
+  area?: string;
+
+  /**
+   * Where they work from (M36). **Any valid Indian pincode**, which is
+   * what makes the supply side national.
+   *
+   * Optional in the DTO only so a pre-M36 native client sending `area`
+   * still validates; `SellerApplicationsService.create` requires one of
+   * the two and refuses a request carrying neither. Making it required
+   * here would 400 those clients on a field they have never heard of.
+   */
+  @IsOptional()
+  @IsString()
+  @Matches(PINCODE_SHAPE, { message: 'Enter a 6-digit pincode' })
+  pincode?: string;
 
   /**
    * The locality they typed, required only when `area === 'other'`.

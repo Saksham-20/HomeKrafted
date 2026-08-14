@@ -3,6 +3,102 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M36] — Approve works, and the supply side is national — 2026-08-14
+
+Started as "clicking Approve does nothing on the admin queue". The visible
+symptom was one bug; underneath it were three, and the third was the
+reason a real HomeKrafter in Faridabad could never be approved by anybody.
+
+### Fixed
+
+- **`approveSellerApplication` swallowed its own refusals, and so did
+  fifteen other mutations.** `lib/api/admin.ts` ended
+  `try { … } catch { return undefined }`, which turns a rejected promise
+  into a resolved one. The server refuses an approval on purpose in three
+  cases and each 409 carries the sentence saying what to do next; the
+  admin screen's error banner, `aria-live` region and correct `catch`
+  **never fired once**. Approve looked like a dead button. All sixteen
+  wrappers now let the refusal through — every caller already had a
+  `catch`, so nothing else had to change. Two of the sixteen were
+  `issueRefund` and `adjustWallet`; `adjustWallet` keeps its documented
+  "insufficient balance is not an exception" contract by testing for a
+  402 and rethrowing the rest, instead of absorbing everything.
+  `client/lib/silent-failure.spec.ts` now covers `lib/api` itself, which
+  the previous two rules explicitly exempted.
+- **The `'other'` waitlist had no exit in the browser.**
+  `PATCH /admin/sellers/applications/:id/area` shipped in M19 and nothing
+  in the client ever called it. The out-of-area warning named a fix that
+  could not be carried out from any screen. The row now carries the area
+  picker next to the warning, and Approve is disabled on any row whose
+  placement the server will refuse — matching its guard exactly rather
+  than re-deriving it from `areaLabel`.
+- **The queue's outcome banner rendered off-screen.** It sits above a
+  queue longer than one screen, so an admin deciding the ninth
+  application never saw it. It is scrolled into view now, for errors, the
+  temporary password, and the invite warning alike.
+- **Every M32 application field was discarded in production.** The `/sell`
+  form collected and validated Instagram, website, FSSAI, years making
+  and capacity, `CreateSellerApplicationInput` declared them and the DTO
+  accepted them — and the real-mode POST body did not include them. They
+  had been dropped on the floor since M32, which is why no queue row ever
+  showed the evidence links `ApplicationRow` has always been able to
+  render. These are the fields an admin vets a stranger's kitchen on.
+
+### Changed
+
+- **`/sell` asks for a pincode, and works anywhere in India.** One field
+  replaces a dropdown of 21 curated tricity areas whose "Somewhere else"
+  option revealed two more inputs and filed an application nobody could
+  approve. `SellerApplication.pincode` is validated against a bundled
+  19,238-row India Post table; `city` is derived from India Post's
+  district. The typed pincode echoes back "Panchkula, Haryana" as
+  confirmation — the only one available on a form with no address lookup.
+  `area` stays accepted and nullable so pre-M36 rows and native clients
+  keep working, and **no pincode application is ever waitlisted**.
+- **A pincode is an identity, not a coordinate.** Measured over the whole
+  GeoNames dump: only **44%** of Indian pincodes have a trustworthy
+  centroid, the median pincode's post offices are **12.4 km** apart
+  (p90 66 km), 134109 lands ~11 km from Panchkula Sector 8, and 160055
+  spans Mohali *and* Rupnagar. So the centroid **seeds** `Vendor.lat`/
+  `lng` and never sets it unchecked: approval returns `placement` when
+  the point is wide enough to matter, the admin screen says so and links
+  to the record, and `PATCH /admin/sellers/:id/coords` corrects it
+  (audited; there is deliberately no seller-facing equivalent). The 21
+  curated `TRICITY_AREAS` coordinates are **kept** — they beat the dump
+  by 1–5 km in the launch city — and still win when an application has
+  one.
+- **`servicedPincodePrefixes` is the launch gate, and it gates buyers
+  only.** Seeded to the tricity. It must never gate an application, an
+  approval or a HomeKrafter's portal, or the waitlist is back under a new
+  name; and it **fails open**, because an empty catalogue cannot be told
+  apart from a broken site by the visitor or by us.
+
+### Added
+
+- `server/src/common/pincodes.ts` + generated `pincodes.json`, with
+  `scripts/build-pincodes.mjs` committed so the table is reproducible.
+  `spreadKm` is emitted per pincode so callers can ask how much to trust
+  a centroid instead of assuming.
+- `GET /pincodes/:pincode` (public) — district, state, `serviced`, and
+  how approximate the centroid is. `serviced` selects **copy, not
+  visibility**.
+- `PATCH /admin/sellers/:id/coords` — admin only, with no seller-facing
+  counterpart. A HomeKrafter moving their own pin changes who can buy
+  from them, which is the same class of self-granted advantage as setting
+  their own verification badge, and unlike the badge it would be
+  invisible on every screen.
+- Tests: `server/test/unit/pincodes.spec.ts` (9 cases, including a
+  coordinates-are-actually-in-India guard against a column shift) and
+  five `servicedPincodePrefixes` cases in `settings.spec.ts` covering the
+  fail-open direction.
+
+### Legal
+
+- **GeoNames is CC-BY 4.0**, so the footer now credits it with a link to
+  geonames.org. That is a licence condition: if the pincode table is ever
+  removed, remove the credit with it; while it is in use, the credit is
+  not optional.
+
 ## [M35] — One name per destination, one pitch per page — 2026-08-13
 
 A second `/design-review` pass the same day, this time with the owner's

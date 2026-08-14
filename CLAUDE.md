@@ -464,7 +464,49 @@ to undo by accident:
   `server/src/common/geo.ts`) because client/ and server/ are separate
   packages. They MUST stay identical — a kitchen's coords come from the
   server's table at approval, a buyer's from the client's; drift silently
-  mis-sorts distance.
+  mis-sorts distance. **Do not delete these in favour of pincodes (M36):**
+  the 21 curated coordinates are hand-checked and beat the pincode table
+  by 1–5 km inside the launch city, where almost every live kitchen is.
+
+## Supply is national, delivery is not (M36) — read before touching location
+
+`SellerApplication.area` was a closed list of 21 tricity areas plus the
+literal `'other'`, and **`'other'` could not be approved**. A home cook in
+Faridabad was accepted by the public form, filed as a waitlist entry, and
+no screen in the product could move them off it — the endpoint to do it
+(`PATCH /admin/sellers/applications/:id/area`, M19) existed and nothing in
+the browser ever called it. The form now asks one question, a **pincode**,
+and every valid Indian pincode is approvable.
+
+- **A pincode is an identity, not a coordinate.** `server/src/common/
+  pincodes.json` (19,238 rows, GeoNames) is authoritative for **district
+  and state**. Its **centroid is trustworthy for only 44% of pincodes** —
+  the median pincode's post offices are 12.4 km apart, 134109 lands ~11 km
+  from Panchkula Sector 8, and 160055 spans Mohali *and* Rupnagar. Never
+  write it straight onto `Vendor.lat`/`lng`: that column decides which
+  buyers can see a kitchen at all, so a 12 km error hides a real storefront
+  from its own neighbourhood. Approval seeds it and flags
+  `placement` when it is approximate; an admin corrects it via
+  `PATCH /admin/sellers/:id/coords`. `spreadKm` is the honesty field —
+  ask it rather than assuming.
+- **`servicedPincodePrefixes` gates buyers, never supply.** It selects
+  **copy, not visibility** (the "location is never a gate" rule above still
+  holds — an empty page can't be told apart from a broken site, by the
+  visitor or by us). It must never gate an application, an approval, or a
+  HomeKrafter's portal; the moment it does, the waitlist is back under a
+  new name. It **fails open**: an empty or missing value means no gate.
+- **The pincode table is server-only.** 1.8 MB, never shipped to the
+  browser — that is also what stops it becoming a third mirrored copy of
+  the `geo.ts` hazard. `client/lib/pincode.ts` checks **shape only** and is
+  deliberately **looser** than the server, same direction and same reason
+  as the two identifier parsers (M17).
+- **GeoNames is CC-BY 4.0.** The footer credit linking to geonames.org is
+  a **licence condition**, not a courtesy. Remove the table and remove the
+  credit together; keep the table and the credit is not optional.
+- **Nothing is backfilled.** Pre-M36 rows keep their `area` and approve
+  exactly as before; their `pincode` is NULL, which correctly reads as
+  "they signed up before we asked". Guessing a pincode from a curated area
+  would write a wrong one onto a real storefront and look authoritative.
 - **Server Components can't read `localStorage`.** `/shop` and `/snacks`
   read the `hk_loc` cookie via `getBuyerCoords()`. Any new server-rendered
   listing page must do the same or it will silently ignore the filter.
@@ -570,6 +612,21 @@ paragraphs over appending new ones.
   report posted to the API would be blocked by the very fault it reports.
   Every 5xx also carries an 8-hex `reference`, in the body, the
   `X-Request-Id` header and the log line.
+- **A `lib/api` mutation must never swallow its own refusal (M36).**
+  Sixteen wrappers ended `catch { return undefined }`, which turns a
+  rejected promise into a resolved one and makes every `catch` built on
+  top of it unreachable. `approveSellerApplication` was one: the server
+  refuses an approval on purpose in three cases, each carrying the
+  sentence saying what to do next, and the admin screen's error banner,
+  `aria-live` region and correct `catch` **never fired once** — Approve
+  looked like a dead button for months. Two of the sixteen were
+  `issueRefund` and `adjustWallet`. Reads may answer `undefined` for "no
+  such thing"; a **write** that reports nothing has discarded the only
+  explanation anybody was going to get. A wrapper that must absorb one
+  specific outcome narrows the catch and rethrows the rest — see
+  `adjustWallet`, which keeps its documented "insufficient balance is not
+  an exception" contract by testing for a 402. Pinned by
+  `client/lib/silent-failure.spec.ts`, which now covers `lib/api` itself.
 - **New loading state or buyer-facing status label:** take the words from
   `lib/kitchen-copy.ts` (M28), don't write "Loading…". Three rules live
   there and each is a trap: **never pick a line randomly** (server and

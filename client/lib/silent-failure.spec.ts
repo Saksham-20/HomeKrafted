@@ -83,6 +83,66 @@ describe("an await inside try/finally", () => {
  * something on the server* must contain a `catch`. The verbs are the
  * naming convention `lib/api` already follows.
  */
+/**
+ * The same failure one layer lower — in `lib/api` itself.
+ *
+ * The two rules above exempt `lib/api` on the reasoning that a transport
+ * wrapper is *supposed* to let the error through to its caller. That was
+ * the intent and not the code: sixteen mutation wrappers ended
+ * `catch { return undefined }`, which does the opposite. A refusal was
+ * converted into a resolved promise carrying `undefined`, so every
+ * `catch` built on top of them — including the ones the rules above
+ * exist to enforce — was unreachable.
+ *
+ * **The bug this exists to catch.** `approveSellerApplication` swallowed
+ * its 409. The server refuses an approval on purpose in three cases and
+ * each one carries the sentence explaining what to do next; the admin
+ * screen had an error banner, an `aria-live` region and a correct
+ * `catch`, and none of them ever fired. Clicking Approve on a waitlisted
+ * HomeKrafter looked exactly like clicking a dead button, with the
+ * explanation discarded one layer below the code trying to display it.
+ * Two of the sixteen were `issueRefund` and `adjustWallet`.
+ *
+ * The rule applies only to **mutations**. A read may legitimately answer
+ * `undefined` for "no such thing" — that is how a missing product becomes
+ * a 404 page. A write that reports nothing has thrown the only
+ * explanation anybody was going to get.
+ *
+ * A wrapper that genuinely must absorb one specific outcome still can:
+ * narrow the catch and rethrow the rest, the way `adjustWallet` now keeps
+ * its documented "insufficient balance is not an exception" contract by
+ * testing for a 402. That passes this rule, because it re-throws.
+ */
+describe("a lib/api mutation wrapper", () => {
+  const API_ROOT = join(CLIENT_ROOT, "lib", "api");
+
+  /** Same verbs as below, plus the ones the admin surfaces added later. */
+  const MUTATION_VERB =
+    /^(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance|request|apply|follow|unfollow|set|assign|issue|resend|refund|adjust|takedown|hide|feature|unfeature|flag|verify)[A-Z]/;
+
+  /** `catch { return undefined }` and its equivalents — no rethrow, nothing said. */
+  const SWALLOW = /catch\s*(?:\([^)]*\))?\s*\{\s*return\s+(?:undefined|null|\[\]|\{\})?\s*;?\s*\}/;
+
+  it("never turns a refusal into a resolved promise", () => {
+    const offenders: string[] = [];
+
+    for (const file of sourceFiles(API_ROOT)) {
+      const source = stripComments(readFileSync(file, "utf8"));
+      // Split at each exported function so a swallow is attributed to the
+      // function it actually sits in, not to anything else in the file.
+      for (const block of source.split(/(?=export\s+(?:async\s+)?function\s)/)) {
+        const name = /^export\s+(?:async\s+)?function\s+(\w+)/.exec(block)?.[1];
+        if (!name || !MUTATION_VERB.test(name)) continue;
+        if (SWALLOW.test(block)) {
+          offenders.push(`${file.replace(CLIENT_ROOT + "/", "")} → ${name}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("a component that mutates server state", () => {
   const files = SCANNED_DIRS.flatMap((dir) => sourceFiles(join(CLIENT_ROOT, dir)));
 

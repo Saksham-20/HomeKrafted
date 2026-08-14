@@ -494,17 +494,30 @@ export interface SellerApplication {
   specialties?: SellerSpecialty[];
   city: string;
   /**
-   * Tricity area id from `lib/geo.ts#TRICITY_AREAS`, or the literal
-   * `"other"`. Decides the coordinates the new kitchen is created at,
-   * which is what every buyer's distance filter measures against.
+   * **Legacy since M36** — a tricity area id from
+   * `lib/geo.ts#TRICITY_AREAS`, or the literal `"other"`.
    *
-   * `"other"` makes the application a **waitlist entry**: the server
-   * refuses to approve any area it can't resolve, until an admin assigns a
-   * real one. Never let it fall back to a city centroid — that placed
-   * out-of-area kitchens ~0 km from every buyer.
+   * The form stopped asking: it was a closed list of 21 curated areas, so
+   * every applicant outside the tricity answered `"other"`, and
+   * `"other"` could not be approved — a real home cook could sit on a
+   * waitlist that no screen could move them off. Present on rows filed
+   * before M36, absent on everything since.
    */
-  area: string;
-  /** The locality they typed, present only when `area` is `"other"`. */
+  area?: string;
+  /**
+   * Where they work from (M36) — six digits, any Indian pincode. This is
+   * what made the supply side national: every valid pincode is
+   * approvable, so nobody is waitlisted for living outside the launch
+   * city.
+   *
+   * It is **not** the source of the kitchen's coordinates. The bundled
+   * pincode table's centroid is trustworthy for only 44% of India's
+   * pincodes, and those coordinates decide which buyers can see a
+   * storefront at all — so an admin confirms the point at approval. See
+   * `server/src/common/pincodes.ts`.
+   */
+  pincode?: string;
+  /** The locality they typed, present only on a pre-M36 `"other"` row. */
   areaLabel?: string;
   /** How far they'll deliver, km. Editable later from storefront settings. */
   deliveryRadiusKm?: number;

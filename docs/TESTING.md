@@ -173,12 +173,43 @@ checks as you go: an email address typed into "Business / maker name"
 says so under the box, and so does a phone number — that field becomes
 the storefront name on every product card, and two live storefronts are
 named after somebody's email because it used to accept anything. The city
-question is gone; it is derived from the area you pick, which is the
+question is gone; it is derived from where you say you are, which is the
 field that actually decides where buyers see you. New optional questions:
 Instagram, website, years making, orders a day, and — only if you say you
 make food — an FSSAI number. Everything optional can be left blank; the
 licence is recorded, never verified (a verified badge is still an admin
 decision).
+
+**You can now apply from anywhere in India (M36).** The form asks for a
+**pincode** instead of picking from a list of twenty-one Chandigarh,
+Mohali, Panchkula and Zirakpur areas. Type six digits and it echoes back
+the district and state — "134109" should show *Panchkula, Haryana* — which
+is the only way to catch a transposed pair on a form with no address
+lookup. A pincode we don't recognise says so and names it; a valid one we
+simply couldn't check (our API being down) still lets you submit, because
+the server checks it again.
+
+**What changed underneath, and why it matters for testing.** Before M36,
+anyone outside those 21 areas picked "Somewhere else", which filed the
+application as **waitlisted** — and waitlisted applications could not be
+approved by anybody, from any screen. If you tested this before and found
+Approve did nothing on such a row, that was the bug, not your session.
+Those older rows still exist and still show the out-of-area warning, and
+they now carry an **area picker on the row itself** so you can resolve and
+then approve them.
+
+**Applying is national; delivering is not.** Approving a HomeKrafter in
+Jaipur works and is meant to. Whether buyers there can order is a separate
+setting (`Serviced areas` under `/admin/settings`, currently the tricity),
+and a buyer outside it still sees the whole catalogue — we tell them we
+don't deliver there yet rather than showing an empty page.
+
+**Approving someone outside the tricity may ask you to check the map.**
+For a pincode covering a wide area, approval says *"Check where we put
+them on the map"* and links to their record. This is not an error — the
+kitchen is live — but a pincode's centre can be ten kilometres or more
+from a specific kitchen, and that distance decides which buyers see them
+at all. Open the record and set the exact spot.
 
 **The approval queue flags people who already have an account (M32).**
 Somebody who does not hear back and applies again leaves a second row in

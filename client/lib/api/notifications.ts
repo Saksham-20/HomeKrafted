@@ -43,9 +43,5 @@ export async function setNotificationRead(id: string, read: boolean): Promise<No
     if (notification) notification.read = read;
     return notification;
   }
-  try {
-    return await http.patch<Notification>(`/notifications/${encodeURIComponent(id)}/read`, { read });
-  } catch {
-    return undefined;
-  }
+  return http.patch<Notification>(`/notifications/${encodeURIComponent(id)}/read`, { read });
 }

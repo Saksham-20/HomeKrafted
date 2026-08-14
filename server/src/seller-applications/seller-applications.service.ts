@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { lookupPincode } from '../common/pincodes';
 import { CreateSellerApplicationDto, OTHER_AREA } from './dto/create-seller-application.dto';
 import { mapSellerApplication } from './seller-applications.mapper';
 import { categoryForSpecialties, supplyMix } from './specialty-taxonomy';
@@ -72,6 +73,32 @@ export class SellerApplicationsService {
     // them: a candle maker who typed something into a box that should not
     // have been shown does not get a food licence recorded against their
     // name.
+    // Where they are (M36). Shape is the DTO's job; this is existence,
+    // and the two get different messages because they are different
+    // problems to the person typing: a typo they can fix by retyping,
+    // versus a pincode we genuinely don't hold, which retyping won't fix.
+    //
+    // One of `pincode`/`area` is required rather than `pincode` alone —
+    // a pre-M36 native client still sends only `area`, and 400ing it on a
+    // field it has never heard of would break a shipped app.
+    let pincode: string | null = null;
+    if (dto.pincode?.trim()) {
+      const value = dto.pincode.trim();
+      if (!lookupPincode(value)) {
+        problems.push({
+          field: 'pincode',
+          message: `We don't recognise the pincode ${value}. Check it against the address you post from.`,
+        });
+      } else {
+        pincode = value;
+      }
+    } else if (!dto.area) {
+      problems.push({
+        field: 'pincode',
+        message: 'Enter the 6-digit pincode you work from.',
+      });
+    }
+
     const { makesFood } = supplyMix(dto.specialties);
     let fssaiNumber: string | null = null;
     if (makesFood && dto.fssaiNumber?.trim()) {
@@ -95,6 +122,7 @@ export class SellerApplicationsService {
       instagramUrl,
       websiteUrl,
       fssaiNumber,
+      pincode,
     };
   }
 
@@ -115,8 +143,14 @@ export class SellerApplicationsService {
         // asking). An older native app that still sends one is honoured.
         category: dto.category ?? categoryForSpecialties(dto.specialties),
         specialties: dto.specialties,
-        city: dto.city,
-        area: dto.area,
+        // Derived from the pincode when we have one — India Post's own
+        // district beats what somebody types in a hurry, and the M32 form
+        // already stopped asking for a city on the same reasoning (the
+        // field that decides anything is the location field, not a free
+        // text label next to it).
+        city: clean.pincode ? (lookupPincode(clean.pincode)?.district ?? dto.city) : dto.city,
+        area: dto.area ?? null,
+        pincode: clean.pincode,
         areaLabel: dto.area === OTHER_AREA ? dto.areaLabel : null,
         // No `?? 10` (M19). It used to be here, and combined with the
         // column's own `@default(10)` it meant `approveApplication`'s
@@ -126,11 +160,18 @@ export class SellerApplicationsService {
         // approval intact.
         deliveryRadiusKm: dto.deliveryRadiusKm,
         description: dto.description,
-        // An area nobody can deliver to is a waitlist entry, not a queue
-        // entry. Setting it here rather than leaving it `new` keeps the
-        // approval queue honest: an admin filtering for pending work
-        // shouldn't see rows that cannot be approved as-is.
-        ...(dto.area === OTHER_AREA ? { status: 'waitlisted' as const } : {}),
+        // The waitlist, which now only a pre-M36 client can land on.
+        //
+        // It exists because an area nobody could deliver to was not a
+        // queue entry, and an admin filtering for pending work should not
+        // see rows that cannot be approved as-is. **A pincode application
+        // is never waitlisted**: every valid Indian pincode is
+        // approvable, which is the entire point of M36. Whether we
+        // currently *deliver* there is a separate question, answered by
+        // `servicedPincodePrefixes` on the buyer side, and it must never
+        // be answered here — gating supply on the launch city is the bug
+        // this milestone removes.
+        ...(!clean.pincode && dto.area === OTHER_AREA ? { status: 'waitlisted' as const } : {}),
       },
     });
     return mapSellerApplication(application);

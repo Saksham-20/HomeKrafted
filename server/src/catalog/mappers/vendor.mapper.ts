@@ -16,6 +16,7 @@ export function mapVendor(vendor: Vendor, isFollowing?: boolean) {
     // kitchen is, and `client/lib/types` marks these required — omitting
     // them handed the client `undefined` for fields it type-guarantees.
     area: vendor.area,
+    pincode: vendor.pincode ?? undefined,
     lat: vendor.lat,
     lng: vendor.lng,
     deliveryRadiusKm: vendor.deliveryRadiusKm,

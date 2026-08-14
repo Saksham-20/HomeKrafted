@@ -1004,18 +1004,27 @@ model SellerApplication {
   /// What they intend to offer. Carried onto `Seller.specialties` on approval.
   specialties      SellerSpecialty[]
   city             String
-  /// Tricity area id from `server/src/common/geo.ts#TRICITY_AREAS`, or the
-  /// literal `"other"`. Decides the coordinates the new Vendor is created
-  /// with, which is what buyers' distance filter measures against.
+  /// **Legacy since M36 — new applications carry `pincode` instead.**
   ///
-  /// **An area that does not resolve makes the application unapprovable**
-  /// (M19). `approveApplication` refuses it rather than falling back to the
-  /// tricity centroid — that fallback planted every out-of-area kitchen at
-  /// Chandigarh's exact centre, so it sorted as ~0 km from every buyer and
-  /// passed every radius filter. An admin assigns a real area first.
-  area             String
+  /// A tricity area id from `server/src/common/geo.ts#TRICITY_AREAS`, or
+  /// the literal `"other"`. Nullable now because the `/sell` form stopped
+  /// asking: it was a closed list of 21 curated areas, so every applicant
+  /// outside the tricity answered `"other"`, and `"other"` could not be
+  /// approved. Rows written before M36 keep their value and still approve
+  /// exactly as they did.
+  area             String?
+  /// Where they are (M36) — six digits, resolved through
+  /// `server/src/common/pincodes.ts`. This is what made supply national:
+  /// any valid Indian pincode is approvable, so nobody lands on a
+  /// waitlist that no screen can move them off.
+  ///
+  /// It supplies the **district and state**, which are reliable, and a
+  /// **seed** coordinate, which is not — an admin confirms the map pin at
+  /// approval. See `Vendor.lat`.
+  pincode          String?
   /// Free text, required when `area` is `"other"`: the locality they typed.
-  /// Captures expansion demand without promising delivery there.
+  /// Captures expansion demand without promising delivery there. Retained
+  /// for pre-M36 rows; a pincode application has no use for it.
   areaLabel        String?
   /// How far they're willing to deliver, in km. **Nullable on purpose**
   /// (M19): with a non-null default of 10, `approveApplication`'s
@@ -1177,12 +1186,31 @@ model Vendor {
   bannerSrc         String?
   /// Human-readable address line shown on the storefront ("Sector 35, Chandigarh").
   location          String
-  /// Tricity area this kitchen sits in — the value a buyer picks in the
-  /// manual area picker when they decline the browser location prompt.
+  /// The coarsest location key we hold for this kitchen.
+  ///
+  /// A curated `TRICITY_AREAS` id where one applies — that is what a buyer
+  /// picks in the manual area picker when they decline the browser
+  /// location prompt — and the **pincode** for a HomeKrafter outside the
+  /// curated areas (M36, when supply went national). Read for text search
+  /// and display only; nothing filters on it, which is why one column can
+  /// carry both without breaking anything. Distance filtering has always
+  /// used `lat`/`lng`.
   area              String
+  /// Where they said they are (M36). Six digits, resolvable through
+  /// `server/src/common/pincodes.ts`. **Not** the source of `lat`/`lng` —
+  /// see below.
+  pincode           String?
   /// Kitchen coordinates. Distance to a buyer is computed with haversine
   /// (`server/src/common/geo.ts`); a listing is shown when that distance is
   /// within `deliveryRadiusKm`.
+  ///
+  /// **Confirmed by an admin at approval, never taken raw from a pincode.**
+  /// The bundled pincode table's centroid is trustworthy for only 44% of
+  /// India's pincodes — the median pincode's post offices are 12.4 km
+  /// apart — and this column decides which buyers can see this kitchen at
+  /// all. A 12 km error here hides a real storefront from its own
+  /// neighbourhood. `seedCoordsForPincode` gives the admin a starting
+  /// point to adjust; it is not an answer.
   lat               Float
   lng               Float
   /// How far this HomeKrafter is willing to deliver. They control it from

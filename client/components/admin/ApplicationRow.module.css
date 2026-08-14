@@ -84,13 +84,51 @@
   just needs one more decision before it can be approved.
 */
 .outOfArea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
   font-size: 12.5px;
   color: var(--hk-gold-text-sm);
   background: var(--hk-gold-tint);
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-sm);
-  padding: 6px 10px;
+  padding: 8px 10px;
   margin-top: 2px;
+}
+
+.outOfAreaText {
+  display: block;
+}
+
+/* The fix, next to the warning that names it — an admin should never have
+   to leave the row to act on what the row just told them. */
+.assignRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hk-s2);
+}
+
+/* 16px is the floor for any text control (M29): iOS Safari zooms the page
+   on a focused input smaller than that and never zooms back out. The
+   global rule in globals.css enforces it anyway; stated here so nobody
+   "tidies" this to 13px to match the row's other text. */
+.assignSelect {
+  flex: 1;
+  min-width: 180px;
+  max-width: 280px;
+  font-family: var(--hk-font-body);
+  font-size: 16px;
+  color: var(--hk-ink);
+  background: var(--hk-card);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-sm);
+  padding: 6px 8px;
+}
+
+.assignSelect:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
 }
 
 /*

@@ -6,6 +6,7 @@ import { AdminSellersService } from './sellers.service';
 import { SetSellerStatusDto } from './dto/set-seller-status.dto';
 import { SetVerificationDto } from './dto/set-verification.dto';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
+import { SetVendorCoordsDto } from './dto/set-vendor-coords.dto';
 import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
 
 /**
@@ -108,5 +109,19 @@ export class AdminSellersController {
   @Patch(':id/status')
   setStatus(@CurrentUser() admin: RequestUser, @Param('id') id: string, @Body() dto: SetSellerStatusDto) {
     return this.sellersService.setSellerStatus(admin.userId, id, dto.status);
+  }
+
+  /**
+   * Move a kitchen to its real coordinates — the correction step for a
+   * pincode centroid that was not close enough. See `SetVendorCoordsDto`
+   * for why this is admin-only and audited.
+   */
+  @Patch(':id/coords')
+  setCoords(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: SetVendorCoordsDto,
+  ) {
+    return this.sellersService.setVendorCoords(admin.userId, id, dto);
   }
 }

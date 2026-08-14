@@ -23,6 +23,32 @@ export interface PlatformSettings {
    * state one. Read by `AdminSellersService.approveApplication`.
    */
   defaultDeliveryRadiusKm: number;
+  /**
+   * Where Homekrafted currently *sells*, as comma-separated pincode
+   * prefixes — `"160,1401,1403,1341,1346"` is the Chandigarh tricity.
+   *
+   * **This is the launch gate, and it is buyer-facing only (M36.)**
+   * Supply is national from M36: any valid Indian pincode can apply and
+   * be approved, because the alternative is telling a home cook in
+   * Faridabad to wait for a city launch that has no date. Demand is not
+   * national, because delivery is not. This setting is the seam between
+   * those two facts.
+   *
+   * Three rules.
+   *
+   * **It must never gate an application, an approval, or a HomeKrafter's
+   * own portal.** The moment it does, this is the 21-area waitlist again
+   * wearing a different name, and the whole point of M36 is gone.
+   *
+   * **Prefixes, not a list of pincodes.** The tricity is 68 pincodes and
+   * a city is often hundreds; a prefix list stays legible to the admin
+   * who has to edit it, and `160` genuinely means "Chandigarh".
+   *
+   * **Empty means no gate, not no service.** See
+   * `getServicedPincodePrefixes` — a misconfiguration must show the
+   * catalogue, never hide it.
+   */
+  servicedPincodePrefixes: string;
 }
 
 /**
@@ -45,6 +71,8 @@ export type PublicPlatformSettings = Pick<
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionPct: 10,
   defaultDeliveryRadiusKm: 10,
+  /** The Chandigarh tricity: Chandigarh, Mohali, Kharar, Zirakpur, Panchkula, Ambala. */
+  servicedPincodePrefixes: '160,1401,1403,1341,1346',
 };
 
 @Injectable()
@@ -69,7 +97,30 @@ export class AdminSettingsService {
         byKey.get('defaultDeliveryRadiusKm'),
         DEFAULT_SETTINGS.defaultDeliveryRadiusKm,
       ),
+      servicedPincodePrefixes:
+        byKey.get('servicedPincodePrefixes') ?? DEFAULT_SETTINGS.servicedPincodePrefixes,
     };
+  }
+
+  /**
+   * The launch gate, parsed — or an empty list meaning "no gate".
+   *
+   * **An empty list opens the catalogue; it does not close it.** A
+   * misconfigured, blank or deleted setting must show a buyer everything
+   * rather than nothing, for the same reason `Location is never a gate`
+   * (CLAUDE.md): a visitor who cannot see anything has no way to tell a
+   * deliberate "we don't deliver here yet" from a site that is broken,
+   * and the failure is invisible to us because it looks like low
+   * traffic. Failing open is also the direction that matches the rest of
+   * this product — declining the location prompt returns the full
+   * catalogue, it does not return nothing.
+   */
+  async getServicedPincodePrefixes(): Promise<string[]> {
+    const { servicedPincodePrefixes } = await this.get();
+    return servicedPincodePrefixes
+      .split(',')
+      .map((p) => p.trim())
+      .filter((p) => /^\d{1,6}$/.test(p));
   }
 
   /**
@@ -102,6 +153,23 @@ export class AdminSettingsService {
       if (patch.defaultDeliveryRadiusKm < 1 || patch.defaultDeliveryRadiusKm > 100) {
         throw new BadRequestException('Default delivery radius must be between 1 and 100 km');
       }
+    }
+    if (patch.servicedPincodePrefixes !== undefined) {
+      // Checked on the way in, because the parser on the way out silently
+      // drops anything malformed. Dropping a typo'd prefix would quietly
+      // stop serving a city the admin believes they just opened — the
+      // failure would look like "nobody in Jaipur is ordering".
+      const entries = patch.servicedPincodePrefixes
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+      const bad = entries.filter((p) => !/^\d{1,6}$/.test(p));
+      if (bad.length > 0) {
+        throw new BadRequestException(
+          `Serviced areas must be pincode prefixes of 1–6 digits, comma separated. Not valid: ${bad.join(', ')}`,
+        );
+      }
+      patch = { ...patch, servicedPincodePrefixes: entries.join(',') };
     }
 
     const writes = Object.entries(patch)

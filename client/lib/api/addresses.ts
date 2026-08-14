@@ -55,11 +55,7 @@ export async function updateAddress(
     Object.assign(address, patch);
     return address;
   }
-  try {
-    return await http.patch<Address>(`/users/me/addresses/${encodeURIComponent(id)}`, patch);
-  } catch {
-    return undefined;
-  }
+  return http.patch<Address>(`/users/me/addresses/${encodeURIComponent(id)}`, patch);
 }
 
 /** Removes an address. If it was the default and others remain, the server promotes another to default. */

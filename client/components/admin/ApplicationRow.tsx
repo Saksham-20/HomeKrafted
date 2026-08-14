@@ -1,7 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
 import { formatDate } from "@/lib/format";
+import { areaById, areasByCity } from "@/lib/geo";
 import type { SellerApplication } from "@/lib/types";
 import styles from "./ApplicationRow.module.css";
 
@@ -17,6 +21,11 @@ export interface ApplicationRowProps {
   application: SellerApplication;
   onApprove: (applicationId: string) => void;
   onReject: (applicationId: string) => void;
+  /**
+   * Resolve a waitlisted application to a real serviced area. The server
+   * moves the row back to `reviewing`, so approving is the next click.
+   */
+  onAssignArea: (applicationId: string, area: string) => void;
   /** True while any queue mutation is in flight — disables both buttons on every row, since one refetch reloads them all. */
   busy?: boolean;
 }
@@ -32,13 +41,34 @@ export interface ApplicationRowProps {
  * a permanent rejection with no way back. Reject now asks first — the
  * lightest possible guard, and the one the corporate screen already uses.
  */
-export function ApplicationRow({ application, onApprove, onReject, busy }: ApplicationRowProps) {
+export function ApplicationRow({
+  application,
+  onApprove,
+  onReject,
+  onAssignArea,
+  busy,
+}: ApplicationRowProps) {
   // They are already a HomeKrafter, so this application cannot be
   // approved — `Seller.userId` is unique and the server refuses it. Said
   // here, before the button, for the same reason the out-of-area warning
   // is: a queue full of rows that look decidable and are not wastes the
   // one screen where a click sends a real person a welcome message.
   const duplicate = application.existingSeller;
+
+  /*
+    The exact condition `approveApplication` refuses on — resolvability,
+    not the literal string `'other'`. Matching the server's guard rather
+    than re-deriving it from `areaLabel` also covers legacy rows written
+    before the area field existed, typos, and any id later removed from
+    the area table: all of those are equally unapprovable, and until this
+    was added all of them showed a fully enabled Approve button.
+
+    **A pincode application is never unapprovable** (M36) — that is the
+    whole point of it, so it short-circuits first. Only pre-M36 rows,
+    which carry an area and no pincode, can still land here.
+  */
+  const unservicedArea = !application.pincode && !areaById(application.area ?? "");
+  const [pickedArea, setPickedArea] = useState("");
 
   function handleReject() {
     const confirmed = window.confirm(
@@ -53,7 +83,11 @@ export function ApplicationRow({ application, onApprove, onReject, busy }: Appli
       <div className={styles.body}>
         <span className={styles.title}>{application.businessName}</span>
         <span className={styles.meta}>
-          {CATEGORY_LABEL[application.category]} · {application.city} · {application.contactName} ·{" "}
+          {CATEGORY_LABEL[application.category]} · {application.city}
+          {/* Where they actually are (M36) — an admin ringing somebody in
+              Faridabad should know that before they pick up, and the city
+              alone no longer says it now that applications are national. */}
+          {application.pincode ? ` ${application.pincode}` : ""} · {application.contactName} ·{" "}
           {formatDate(application.createdAt)}
         </span>
         {duplicate && (
@@ -71,10 +105,60 @@ export function ApplicationRow({ application, onApprove, onReject, busy }: Appli
           Rendered as plain text — `areaLabel` is free text from a public
           endpoint.
         */}
-        {application.areaLabel && (
+        {unservicedArea && (
           <span className={styles.outOfArea}>
-            Outside the tricity — applicant typed &ldquo;{application.areaLabel}&rdquo;. Assign a
-            serviced area before approving.
+            <span className={styles.outOfAreaText}>
+              {application.areaLabel ? (
+                <>
+                  Outside our serviced areas — applicant typed &ldquo;{application.areaLabel}&rdquo;.
+                  Assign the nearest serviced area to approve them.
+                </>
+              ) : (
+                <>
+                  &ldquo;{application.area}&rdquo; is not a serviced area, so this cannot be
+                  approved as-is. Assign one to approve them.
+                </>
+              )}
+            </span>
+            {/*
+              The control that makes the warning actionable (M36). The
+              endpoint behind it has existed since M19 and nothing in the
+              browser ever called it, so this warning named a fix that
+              could not be carried out from any screen — a real kitchen
+              sat unapprovable with the reason printed next to a dead
+              button.
+            */}
+            <span className={styles.assignRow}>
+              <label className="hk-sr-only" htmlFor={`assign-area-${application.id}`}>
+                Serviced area for {application.businessName}
+              </label>
+              <select
+                id={`assign-area-${application.id}`}
+                className={styles.assignSelect}
+                value={pickedArea}
+                onChange={(event) => setPickedArea(event.target.value)}
+                disabled={busy}
+              >
+                <option value="">Choose a serviced area…</option>
+                {areasByCity().map((group) => (
+                  <optgroup key={group.city} label={group.city}>
+                    {group.areas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onAssignArea(application.id, pickedArea)}
+                disabled={busy || !pickedArea}
+              >
+                Assign area
+              </Button>
+            </span>
           </span>
         )}
         <span className={styles.description}>{application.description}</span>
@@ -125,9 +209,15 @@ export function ApplicationRow({ application, onApprove, onReject, busy }: Appli
           variant="primary"
           size="sm"
           onClick={() => onApprove(application.id)}
-          disabled={busy || Boolean(duplicate)}
+          disabled={busy || Boolean(duplicate) || unservicedArea}
           aria-busy={busy || undefined}
-          title={duplicate ? "This applicant already has a HomeKrafter account" : undefined}
+          title={
+            duplicate
+              ? "This applicant already has a HomeKrafter account"
+              : unservicedArea
+                ? "Assign a serviced area first — the server refuses an area it cannot resolve"
+                : undefined
+          }
         >
           {busy ? "Working…" : "Approve"}
         </Button>

@@ -24,8 +24,19 @@ export interface Vendor {
   bannerSrc?: string;
   /** Human-readable address line, e.g. "Sector 35, Chandigarh". */
   location: string;
-  /** Tricity area id from `lib/geo.ts#TRICITY_AREAS`. */
+  /**
+   * The coarsest location key we hold — a curated `lib/geo.ts` area id
+   * where one applies, otherwise the pincode (M36, when supply went
+   * national). Read for search and display; nothing filters on it.
+   */
   area: string;
+  /** Where they said they are (M36). Absent for kitchens approved before it was asked. */
+  pincode?: string;
+  /**
+   * Kitchen coordinates — what every distance filter measures against,
+   * and therefore what decides which buyers see this storefront at all.
+   * Confirmed by an admin, never taken raw from a pincode centroid.
+   */
   lat: number;
   lng: number;
   /** How far this kitchen delivers. Buyers outside it don't see its items. */

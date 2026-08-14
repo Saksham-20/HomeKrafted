@@ -53,15 +53,23 @@ export interface CreateSellerApplicationInput {
   category?: SellerApplicationCategory;
   /** What they make — becomes `Seller.specialties` once approved, and the source of the derived category. */
   specialties: SellerSpecialty[];
+  /**
+   * **Derived from the pincode server-side since M36** — India Post's
+   * district beats what somebody types in a hurry. Still sent so a
+   * pre-M36 client keeps working.
+   */
   city: string;
   /**
-   * Tricity area id, or the literal `"other"` — sets where their kitchen
-   * sits for the buyer distance filter. `"other"` files the application as
-   * a **waitlist** entry that cannot be approved until an admin assigns a
-   * real area.
+   * **Legacy since M36.** A tricity area id, or the literal `"other"`.
+   * The form no longer sends it; the endpoint still accepts it.
    */
-  area: string;
-  /** Required when `area` is `"other"`: the locality they typed. */
+  area?: string;
+  /**
+   * Where they work from (M36) — any valid Indian pincode. One of this
+   * or `area` is required; the server refuses a submission with neither.
+   */
+  pincode?: string;
+  /** Required when `area` is `"other"`: the locality they typed. Pre-M36 only. */
   areaLabel?: string;
   /**
    * How far they'll deliver, km. **Omit it and it stays null**, which is
@@ -117,10 +125,19 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
         ...(input.category ? { category: input.category } : {}),
         specialties: input.specialties,
         city: input.city,
-        area: input.area,
+        // Both optional since M36 and one of them required by the server:
+        // `pincode` is what the form sends now, `area` is what a native
+        // client built before M36 still sends.
+        ...(input.area ? { area: input.area } : {}),
+        ...(input.pincode ? { pincode: input.pincode } : {}),
         areaLabel: input.areaLabel,
         deliveryRadiusKm: input.deliveryRadiusKm,
         description: input.description,
+        instagramUrl: input.instagramUrl,
+        websiteUrl: input.websiteUrl,
+        fssaiNumber: input.fssaiNumber,
+        yearsMaking: input.yearsMaking,
+        capacityPerDay: input.capacityPerDay,
       },
       { auth: false },
     );
@@ -168,5 +185,27 @@ export async function setSellerApplicationStatus(
   const application = sellerApplications.find((a) => a.id === id);
   if (!application) return undefined;
   application.status = status;
+  return application;
+}
+
+/**
+ * The mock half of `lib/api/admin.ts#assignApplicationArea` — an admin
+ * resolving a waitlisted application to a real serviced area.
+ *
+ * Mirrors `AdminSellersService.assignApplicationArea` in the two ways
+ * that matter. The row moves back to `reviewing`, because leaving it
+ * `waitlisted` would fix the data and still hide it from the admin who
+ * just fixed it. And `areaLabel` is **kept**, not cleared: it is what
+ * the applicant actually said about where they are, and an admin
+ * overriding it with a nearby area shouldn't erase the original claim.
+ */
+export async function setSellerApplicationArea(
+  id: string,
+  area: string,
+): Promise<SellerApplication | undefined> {
+  const application = sellerApplications.find((a) => a.id === id);
+  if (!application) return undefined;
+  application.area = area;
+  application.status = "reviewing";
   return application;
 }

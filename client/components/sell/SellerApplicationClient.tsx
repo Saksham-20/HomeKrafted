@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
-import { areaById, areasByCity } from "@/lib/geo";
+import { isPincodeShape } from "@/lib/pincode";
+import { usePincodeLookup } from "@/lib/use-pincode-lookup";
 import {
   SPECIALTY_GROUPS,
   SPECIALTY_LABELS,
@@ -41,11 +42,12 @@ const EMPTY_FORM = {
   contactName: "",
   email: "",
   phone: "",
-  city: "",
-  /** Tricity area id, or "other" — it's what places the kitchen on the map. */
-  area: "",
-  /** The locality they type when area is "other". */
-  areaLabel: "",
+  /**
+   * Where they work from (M36) — any Indian pincode. Replaced a dropdown
+   * of 21 tricity areas whose "Somewhere else" option filed an
+   * application nobody could ever approve.
+   */
+  pincode: "",
   /**
    * Kept as a string because it comes off a `<select>`; parsed on submit.
    * **Empty means "they didn't say"**, which is what lets the platform
@@ -64,9 +66,6 @@ const EMPTY_FORM = {
   yearsMaking: "",
   capacityPerDay: "",
 };
-
-/** The value that turns the area picker into a free-text waitlist entry. */
-const OTHER_AREA = "other";
 
 const RADIUS_OPTIONS = [3, 5, 8, 10, 15, 20, 30];
 
@@ -96,19 +95,29 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  const isOtherArea = form.area === OTHER_AREA;
   const sellsFood = makesFood(specialties);
 
   /**
-   * The city is *derived* from the area, not asked twice (M32).
+   * Where they work from — **a pincode, anywhere in India (M36).**
    *
-   * Both boxes existed and disagreed constantly — somebody in Sector 34
-   * typing "Mohali" produced an application whose city contradicted the
-   * coordinates every buyer's distance filter uses. The area is the field
-   * that decides something, so it is the field that is asked.
+   * This box used to be a dropdown of 21 curated tricity areas plus
+   * "somewhere else". "Somewhere else" filed a waitlist entry that
+   * `approveApplication` refused and no screen could resolve, so a real
+   * home cook in Faridabad applied, was accepted by the form, and could
+   * never be approved by anybody. A pincode has no such dead end: every
+   * valid one resolves, so every application is decidable.
+   *
+   * Whether we *deliver* to that pincode yet is a different question,
+   * and it is deliberately not asked here — gating who may apply on
+   * where we currently deliver is exactly the bug being removed. The
+   * lookup's `serviced` flag is ignored on this form.
+   *
+   * The city is still derived rather than asked (M32's rule, now with a
+   * better source): India Post's district beats a second box that
+   * disagrees with the first.
    */
-  const derivedCity = isOtherArea ? "" : (areaById(form.area)?.city ?? "");
-  const city = isOtherArea ? form.city : derivedCity;
+  const lookup = usePincodeLookup(form.pincode);
+  const city = lookup.data?.district ?? "";
 
   // Shown under a field once it has been left, not while it is being
   // typed: flagging "at least 2 characters" at the first keystroke is the
@@ -132,14 +141,14 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
     form.contactName.trim().length > 0 &&
     form.email.trim().length > 0 &&
     form.phone.trim().length > 0 &&
-    city.trim().length > 0 &&
-    // Area and at least one specialty are required: the first decides where
-    // the kitchen sits for every buyer's distance filter, the second is how
-    // buyers find them at all.
-    form.area.length > 0 &&
-    // Mirrors the server's `@ValidateIf(area === 'other')`. Without this the
-    // button enables, the POST 400s, and the applicant sees nothing happen.
-    (!isOtherArea || form.areaLabel.trim().length > 0) &&
+    // Shape only, and deliberately not "the lookup succeeded" (M36). The
+    // client stays looser than the server for the same reason the two
+    // identifier parsers do: a lookup that failed because our own API was
+    // unreachable must not disable the button on somebody whose pincode
+    // is perfectly valid. The server checks existence again and answers
+    // with a message naming the pincode.
+    isPincodeShape(form.pincode) &&
+    // At least one specialty: it is how buyers find them at all.
     specialties.length > 0 &&
     form.description.trim().length > 0 &&
     // Nothing typed may be *wrong* — an empty optional field is fine, a
@@ -167,9 +176,10 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
         // so the form no longer asks a taxonomy question whose only
         // consumer was a column nothing renders.
         specialties,
+        // Sent as a courtesy for a server that could not resolve the
+        // pincode; the server prefers India Post's district over it.
         city: city.trim(),
-        area: form.area,
-        areaLabel: isOtherArea ? form.areaLabel.trim() : undefined,
+        pincode: form.pincode.trim(),
         // Undefined, not 0 or 10 — an omitted radius is what lets the
         // platform default apply at approval.
         deliveryRadiusKm: form.deliveryRadiusKm ? Number(form.deliveryRadiusKm) : undefined,
@@ -343,67 +353,64 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
               error={touched.phone ? fieldErrors.phone : null}
               required
             />
+            {/*
+              One box, and it works anywhere in India (M36).
+
+              It replaced a dropdown of 21 tricity areas plus "Somewhere
+              else", where "Somewhere else" revealed two more inputs and
+              filed a waitlist entry that could never be approved. A home
+              cook outside Chandigarh was accepted by this form and then
+              stuck forever. A pincode has no such branch: every valid one
+              resolves, so there is one field, no conditional, and no dead
+              end.
+
+              Note what is NOT asked: whether we deliver there. Applying is
+              national; delivery is not yet. Mixing the two is the bug that
+              was removed.
+            */}
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>Which area do you work from?</span>
-              <select
+              <span className={styles.fieldLabel}>What&rsquo;s your pincode?</span>
+              <input
                 className={styles.input}
-                value={form.area}
-                onChange={(event) => set("area", event.target.value)}
-              >
-                <option value="">Choose your area…</option>
-                {areasByCity().map((group) => (
-                  <optgroup key={group.city} label={group.city}>
-                    {group.areas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-                <option value={OTHER_AREA}>Somewhere else</option>
-              </select>
-              {/* The city used to be a second box, and the two disagreed
-                  constantly. The area decides where the kitchen sits for
-                  every buyer's distance filter, so it is the one asked. */}
-              <span className={styles.fieldHelp}>
-                {derivedCity
-                  ? `We'll list you in ${derivedCity}.`
-                  : "This is what places you on the map for nearby buyers."}
+                value={form.pincode}
+                onChange={(event) =>
+                  // Digits only, capped at six: a pincode has no other
+                  // shape, so silently dropping the rest beats an error
+                  // message about a character we could simply not accept.
+                  set("pincode", event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                onBlur={() => touch("pincode")}
+                inputMode="numeric"
+                autoComplete="postal-code"
+                placeholder="e.g. 160017"
+                aria-describedby="pincode-help"
+                required
+              />
+              {/*
+                The echo is the only confirmation available on a form with
+                no address lookup — seeing "Panchkula, Haryana" catches a
+                transposed pair in a way re-reading six digits does not.
+                `aria-live` because it changes without any focus moving.
+              */}
+              <span id="pincode-help" className={styles.fieldHelp} aria-live="polite">
+                {lookup.loading && "Checking…"}
+                {lookup.data && `We'll list you in ${lookup.data.district}, ${lookup.data.state}.`}
+                {/* Their problem, phrased as theirs. */}
+                {lookup.unknown &&
+                  "We don't recognise that pincode. Check it against the address you post from."}
+                {/* Ours, and never phrased as theirs — see docs/ERROR-HANDLING.md.
+                    The application still submits: the server checks the
+                    pincode again, so a failed lookup must not block a
+                    valid applicant. */}
+                {lookup.unreachable &&
+                  "We couldn't check that pincode just now — you can still send your application."}
+                {!lookup.loading &&
+                  !lookup.data &&
+                  !lookup.unknown &&
+                  !lookup.unreachable &&
+                  "Wherever you are in India. This is what places you on the map for nearby buyers."}
               </span>
             </label>
-
-            {/*
-              Revealed only for "Somewhere else". Wrapped in `aria-live` so a
-              screen-reader user is told a new required field appeared — the
-              trigger is a <select> change, which announces nothing on its own.
-            */}
-            <div aria-live="polite" className={styles.field}>
-              {isOtherArea && (
-                <label>
-                  <span className={styles.fieldLabel}>Which city or town?</span>
-                  <input
-                    className={styles.input}
-                    value={form.areaLabel}
-                    placeholder="e.g. Model Town, Ludhiana"
-                    aria-describedby="area-label-help"
-                    onChange={(event) => set("areaLabel", event.target.value)}
-                  />
-                  <span id="area-label-help" className={styles.fieldHelp}>
-                    We don&rsquo;t deliver there yet. Tell us where you are and we&rsquo;ll add you
-                    to the list for when we open — you won&rsquo;t be able to start selling until
-                    then.
-                  </span>
-                  {/* Only here. Inside the tricity the city comes from the
-                      area; outside it, nothing can derive it. */}
-                  <span className={styles.fieldLabel}>City or town</span>
-                  <input
-                    className={styles.input}
-                    value={form.city}
-                    onChange={(event) => set("city", event.target.value)}
-                  />
-                </label>
-              )}
-            </div>
 
             {/*
               Progressive disclosure, and deliberately NOT pre-filled with the

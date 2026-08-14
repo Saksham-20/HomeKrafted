@@ -17,7 +17,43 @@ import {
   type NavLink,
 } from "@/lib/data";
 import { getMe, updateMe } from "./auth";
-import { http, isMockMode } from "./http";
+import { ApiError, http, isMockMode } from "./http";
+import { TRICITY_AREAS } from "@/lib/geo";
+import type { PincodeLookup } from "@/lib/pincode";
+
+/**
+ * One representative pincode per curated area, for mock mode only.
+ *
+ * **Not a lookup table and never to be grown into one.** The real table
+ * is 19,238 entries and lives on the server precisely so the browser
+ * never carries it; this exists so `/sell` can be filled in offline. A
+ * few of these codes genuinely cover several of the areas below — that
+ * is true of Chandigarh's sectors — and it does not matter, because
+ * nothing measures distance from it.
+ */
+const MOCK_PINCODES: Record<string, string> = {
+  "chd-sector-8": "160009",
+  "chd-sector-15": "160015",
+  "chd-sector-17": "160017",
+  "chd-sector-22": "160022",
+  "chd-sector-32": "160030",
+  "chd-sector-34": "160022",
+  "chd-sector-35": "160035",
+  "chd-sector-43": "160043",
+  "chd-sector-46": "160047",
+  "chd-manimajra": "160101",
+  "moh-phase-3b2": "160059",
+  "moh-phase-5": "160059",
+  "moh-phase-7": "160061",
+  "moh-sector-70": "160071",
+  "moh-kharar": "140301",
+  "pkl-sector-5": "134109",
+  "pkl-sector-9": "134113",
+  "pkl-sector-11": "134109",
+  "pkl-sector-20": "134116",
+  "zkp-vip-road": "140603",
+  "zkp-dhakoli": "140603",
+};
 import { getSessionUser, toAppUser, updateSessionUser } from "@/lib/auth/session";
 
 export async function getHamperBoxes(): Promise<HamperBox[]> {
@@ -108,4 +144,50 @@ export async function getDefaultAddress(): Promise<Address> {
 export async function getAddresses(): Promise<Address[]> {
   if (isMockMode()) return addresses;
   return http.get<Address[]>("/users/me/addresses");
+}
+
+// ---------------------------------------------------------------------------
+// Pincodes (M36) — `GET /pincodes/:pincode`
+// ---------------------------------------------------------------------------
+
+/**
+ * What and where a pincode is, and whether we deliver there yet.
+ *
+ * `undefined` means **India Post has no such pincode** — a real answer,
+ * not a failure, which is why the 404 is translated here rather than
+ * thrown. Everything else (a network fault, a 500) throws, so the caller
+ * can tell "you mistyped" from "we are broken" and say the right one.
+ * That distinction is the whole reason this wrapper exists; see
+ * `docs/ERROR-HANDLING.md`.
+ *
+ * Mock mode has no 19,238-entry table to consult, so it answers for the
+ * curated tricity areas only and treats anything else as unknown. That
+ * is honest about what offline mode can know, and it keeps `/sell`
+ * exercisable without a server.
+ */
+export async function lookupPincode(pincode: string): Promise<PincodeLookup | undefined> {
+  if (isMockMode()) {
+    const area = TRICITY_AREAS.find((a) => MOCK_PINCODES[a.id] === pincode.trim());
+    if (!area) return undefined;
+    return {
+      pincode: pincode.trim(),
+      district: area.city,
+      state: area.city === "Chandigarh" ? "Chandigarh" : "Punjab",
+      serviced: true,
+      spreadKm: 0,
+      approximate: false,
+    };
+  }
+
+  try {
+    return await http.get<PincodeLookup>(`/pincodes/${encodeURIComponent(pincode.trim())}`, {
+      auth: false,
+    });
+  } catch (err) {
+    // Only the "no such pincode" case. Anything else is ours and belongs
+    // to the caller — swallowing it would put "check your pincode" in
+    // front of somebody whose pincode is perfectly correct.
+    if (err instanceof ApiError && err.status === 404) return undefined;
+    throw err;
+  }
 }

@@ -10,6 +10,7 @@ import { NotificationProvidersModule } from '../notifications/providers/provider
 import { AdminAuditLogService } from './audit-log.service';
 import { AdminSettingsController } from './settings.controller';
 import { PublicSettingsController } from './public-settings.controller';
+import { PublicPincodesController } from './public-pincodes.controller';
 import { AdminSettingsService } from './settings.service';
 import { AdminExportsService } from './exports.service';
 import { AdminAuditController } from './audit.controller';
@@ -73,6 +74,9 @@ import { AdminCorporateService } from './corporate.service';
     // Unauthenticated, unlike everything else here — see the controller's
     // own doc comment for why it lives in this module.
     PublicSettingsController,
+    // Also unauthenticated, and here for the same reason: it reads the
+    // serviced-area setting this module owns.
+    PublicPincodesController,
     AdminDashboardController,
     AdminUsersController,
     AdminSellersController,

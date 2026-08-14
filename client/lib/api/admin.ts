@@ -45,7 +45,7 @@ import {
   users,
   vendors,
 } from "@/lib/data";
-import { areaById } from "@/lib/geo";
+import { areaById, TRICITY_CENTRE } from "@/lib/geo";
 
 /**
  * Mirror of `server/src/admin/sellers.service.ts#VENDOR_TYPE_BY_CATEGORY`.
@@ -71,6 +71,7 @@ import { getAllSnackOrders, getSellerPayouts, type SellerListingInput } from "./
 import {
   getSellerApplicationById,
   getSellerApplications as getSellerApplicationsMock,
+  setSellerApplicationArea,
   setSellerApplicationStatus,
 } from "./sell";
 import type {
@@ -192,12 +193,8 @@ export async function setUserSuspended(id: string, suspended: boolean): Promise<
     user.suspended = suspended;
     return user;
   }
-  try {
-    const updated = await http.patch<SessionUser>(`/admin/users/${encodeURIComponent(id)}`, { suspended });
-    return toAdminUser(updated);
-  } catch {
-    return undefined;
-  }
+  const updated = await http.patch<SessionUser>(`/admin/users/${encodeURIComponent(id)}`, { suspended });
+  return toAdminUser(updated);
 }
 
 // ---------------------------------------------------------------------------
@@ -322,10 +319,53 @@ export interface ApproveSellerApplicationResult {
    */
   invite?: InviteDeliveryReport;
   /**
+   * Present only when the new storefront was planted on a pincode
+   * centroid that could be well off (M36) — absent for a curated area or
+   * a single-post-office pincode, so its presence means "go and check
+   * this one" rather than "here are some coordinates".
+   *
+   * It matters because `Vendor.lat`/`lng` decides which buyers can see
+   * the kitchen at all: an unchecked 12 km error shows the storefront to
+   * the wrong neighbourhood and hides it from its own, and nothing else
+   * on any screen would ever say so.
+   */
+  placement?: ApprovedPlacement;
+  /**
    * Sign-in details for the account just created (M32) — optional for the
    * same reason `invite` is: mock mode has no server to mint one.
    */
   signIn?: TemporarySignInDetails;
+}
+
+/** An approved kitchen's coordinates, when they are approximate enough to be worth checking. */
+export interface ApprovedPlacement {
+  lat: number;
+  lng: number;
+  /** How far apart this pincode's post offices are — the size of the possible error. */
+  spreadKm: number;
+  pincode: string;
+  label: string;
+}
+
+/**
+ * `PATCH /admin/sellers/:id/coords` — move a kitchen to where it actually
+ * is (M36).
+ *
+ * The correction step for a pincode centroid that was not close enough.
+ * There is deliberately no seller-facing equivalent: a HomeKrafter moving
+ * their own pin changes who can buy from them, which is the same class of
+ * self-granted advantage as setting their own verification badge, and
+ * unlike the badge it would be invisible on every screen.
+ */
+export async function setVendorCoords(
+  sellerId: string,
+  coords: { lat: number; lng: number; location?: string },
+): Promise<AdminSellerDetail | undefined> {
+  if (isMockMode()) return getAdminSellerDetail(sellerId);
+  return http.patch<AdminSellerDetail>(
+    `/admin/sellers/${encodeURIComponent(sellerId)}/coords`,
+    coords,
+  );
 }
 
 /**
@@ -380,29 +420,53 @@ export async function issueSellerTemporaryPassword(
   );
 }
 
+/**
+ * Errors are **not** swallowed, for the same reason
+ * `issueSellerTemporaryPassword` doesn't swallow its own: the caller has
+ * to be able to tell a refusal from a success.
+ *
+ * This used to be `try { ... } catch { return undefined }`, and that one
+ * line defeated every guard built on top of it. The server refuses an
+ * approval on purpose in three cases — an area it cannot resolve, an
+ * applicant who already has a HomeKrafter account, an application already
+ * decided — and each 409 carries the sentence explaining what to do next.
+ * Swallowed, the rejected promise resolved instead, `SellersClient.run`
+ * took the success branch, refetched, and the row came back unchanged.
+ * An admin clicking Approve on a waitlisted application saw *nothing
+ * happen*, with no error anywhere, forever.
+ */
 export async function approveSellerApplication(
   applicationId: string,
 ): Promise<ApproveSellerApplicationResult | undefined> {
   if (!isMockMode()) {
-    try {
-      return await http.post<ApproveSellerApplicationResult>(
-        `/admin/sellers/applications/${encodeURIComponent(applicationId)}/approve`,
-      );
-    } catch {
-      return undefined;
-    }
+    return http.post<ApproveSellerApplicationResult>(
+      `/admin/sellers/applications/${encodeURIComponent(applicationId)}/approve`,
+    );
   }
 
   const application = await getSellerApplicationById(applicationId);
   if (!application) return undefined;
 
-  // Same guard the server enforces (M19): an area that doesn't resolve
+  // Same guard the server enforces: a placement that doesn't resolve
   // cannot become a kitchen. The mock used to fall back to
   // `TRICITY_CENTRE`, which planted an out-of-area vendor at Chandigarh's
   // exact centre — ~0 km from every buyer, passing every radius filter.
   // Mock and real must agree here, or mock mode teaches the wrong thing.
-  const resolvedArea = areaById(application.area);
-  if (!resolvedArea) return undefined;
+  //
+  // M36: a pincode application resolves through the server's table, which
+  // mock mode does not have. It places the kitchen at the tricity centre
+  // *for a pincode application only*, and that is sound here for the
+  // reason it was not before — the value is admitted to be approximate
+  // and the real path has an admin confirm it. Mock mode has no admin and
+  // no buyers.
+  const resolvedArea = application.area ? areaById(application.area) : undefined;
+  if (!resolvedArea && !application.pincode) return undefined;
+  const placement = resolvedArea ?? {
+    label: application.city,
+    city: application.city,
+    lat: TRICITY_CENTRE.lat,
+    lng: TRICITY_CENTRE.lng,
+  };
 
   const vendorId = nextVendorId();
   const vendor: Vendor = {
@@ -413,10 +477,11 @@ export async function approveSellerApplication(
     bio: application.description,
     avatarPlaceholder: `${application.businessName} — AVATAR`,
     bannerPlaceholder: `${application.businessName} — BANNER`,
-    location: `${resolvedArea.label}, ${resolvedArea.city}`,
-    area: application.area,
-    lat: resolvedArea.lat,
-    lng: resolvedArea.lng,
+    location: `${placement.label}, ${placement.city}`,
+    area: application.area ?? application.pincode ?? "",
+    pincode: application.pincode,
+    lat: placement.lat,
+    lng: placement.lng,
     deliveryRadiusKm: application.deliveryRadiusKm ?? 10,
     rating: 0,
     reviewCount: 0,
@@ -441,17 +506,41 @@ export async function approveSellerApplication(
   return { application: decided ?? application, seller, vendor };
 }
 
+/** Same rule as `approveSellerApplication`: a refusal must reach the caller. */
 export async function rejectSellerApplication(applicationId: string): Promise<SellerApplication | undefined> {
   if (!isMockMode()) {
-    try {
-      return await http.post<SellerApplication>(
-        `/admin/sellers/applications/${encodeURIComponent(applicationId)}/reject`,
-      );
-    } catch {
-      return undefined;
-    }
+    return http.post<SellerApplication>(
+      `/admin/sellers/applications/${encodeURIComponent(applicationId)}/reject`,
+    );
   }
   return setSellerApplicationStatus(applicationId, "rejected");
+}
+
+/**
+ * `PATCH /admin/sellers/applications/:id/area` — the way out of the
+ * `'other'` waitlist (M19 server-side, M36 client-side).
+ *
+ * The endpoint has existed since M19 and nothing in the browser called
+ * it, so the waitlist was a dead end from the one screen that could fix
+ * it: the public form accepts an out-of-area applicant,
+ * `approveApplication` refuses any area it cannot resolve, and there was
+ * no control anywhere to assign one. A real kitchen sat unapprovable.
+ *
+ * The server moves the row back to `reviewing`, so it stays in the queue
+ * and can be approved immediately afterwards.
+ */
+export async function assignApplicationArea(
+  applicationId: string,
+  area: string,
+  note?: string,
+): Promise<SellerApplication | undefined> {
+  if (isMockMode()) {
+    return setSellerApplicationArea(applicationId, area);
+  }
+  return http.patch<SellerApplication>(
+    `/admin/sellers/applications/${encodeURIComponent(applicationId)}/area`,
+    { area, note },
+  );
 }
 
 /** Suspend an active seller, or reactivate a suspended one — the same `Seller.status` field the 3 demo sellers and every admin-approved seller share. */
@@ -463,11 +552,7 @@ export async function setSellerStatus(sellerId: string, status: SellerStatus): P
     return seller;
   }
   if (status !== "approved" && status !== "suspended") return undefined;
-  try {
-    return await http.patch<Seller>(`/admin/sellers/${encodeURIComponent(sellerId)}/status`, { status });
-  } catch {
-    return undefined;
-  }
+  return http.patch<Seller>(`/admin/sellers/${encodeURIComponent(sellerId)}/status`, { status });
 }
 
 /**
@@ -516,14 +601,10 @@ export async function setSellerVerification(
   input: VerificationInput,
 ): Promise<AdminSellerProfile | undefined> {
   if (isMockMode()) return getAdminSellerProfile(sellerId);
-  try {
-    return await http.patch<AdminSellerProfile>(
-      `/admin/sellers/${encodeURIComponent(sellerId)}/verification`,
-      input,
-    );
-  } catch {
-    return undefined;
-  }
+  return http.patch<AdminSellerProfile>(
+    `/admin/sellers/${encodeURIComponent(sellerId)}/verification`,
+    input,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1177,11 +1258,7 @@ export async function getAllReviewsAdmin(): Promise<AdminReviewSummary[]> {
 /** Hides/unhides a review — mutates the shared `Review` object (mock mode), filtered by (or restored to) `getProductReviews`/`getVendorReviews` (`lib/api/reviews.ts`) on their next server-side read. Doesn't clear `flagged`: a moderator hiding a flagged review is expected to leave the flag as an audit trail of why it was hidden. */
 export async function moderateReview(reviewId: string, hidden: boolean): Promise<Review | undefined> {
   if (!isMockMode()) {
-    try {
-      return await http.patch<Review>(`/admin/catalog/reviews/${encodeURIComponent(reviewId)}/moderate`, { hidden });
-    } catch {
-      return undefined;
-    }
+    return http.patch<Review>(`/admin/catalog/reviews/${encodeURIComponent(reviewId)}/moderate`, { hidden });
   }
   const review = reviews.find((r) => r.id === reviewId);
   if (!review) return undefined;
@@ -1368,26 +1445,22 @@ export interface IssueRefundInput {
  */
 export async function issueRefund(input: IssueRefundInput): Promise<WalletTransaction | undefined> {
   if (!isMockMode()) {
-    try {
-      const result = await http.post<{ wallet: Wallet; balanceAfter: number; transactionId: string }>(
-        `/admin/wallet/${encodeURIComponent(input.userId)}/refund`,
-        { amount: input.amount, title: input.title, refType: input.refType, refId: input.refId },
-      );
-      return {
-        id: result.transactionId,
-        walletId: result.wallet.id,
-        direction: "credit",
-        category: "refund",
-        amount: input.amount,
-        balanceAfter: result.balanceAfter,
-        title: input.title,
-        refType: input.refType,
-        refId: input.refId,
-        createdAt: new Date().toISOString(),
-      };
-    } catch {
-      return undefined;
-    }
+    const result = await http.post<{ wallet: Wallet; balanceAfter: number; transactionId: string }>(
+      `/admin/wallet/${encodeURIComponent(input.userId)}/refund`,
+      { amount: input.amount, title: input.title, refType: input.refType, refId: input.refId },
+    );
+    return {
+      id: result.transactionId,
+      walletId: result.wallet.id,
+      direction: "credit",
+      category: "refund",
+      amount: input.amount,
+      balanceAfter: result.balanceAfter,
+      title: input.title,
+      refType: input.refType,
+      refId: input.refId,
+      createdAt: new Date().toISOString(),
+    };
   }
 
   const w = adminWalletsByUser[input.userId];
@@ -1454,8 +1527,15 @@ export async function adjustWallet(input: AdjustWalletInput): Promise<WalletTran
         title: `Admin adjustment — ${input.reason}`,
         createdAt: new Date().toISOString(),
       };
-    } catch {
-      return undefined;
+    } catch (err) {
+      // **Only** the documented case. This used to be a bare `catch`, so
+      // the "insufficient balance is not an exception" contract above was
+      // also quietly absorbing every other refusal — a malformed amount, a
+      // suspended wallet, a 500 — and handing the admin the same silent
+      // `undefined`. A rejected debit is an outcome; everything else is an
+      // error and belongs to the caller.
+      if (err instanceof ApiError && err.status === 402) return undefined;
+      throw err;
     }
   }
 
@@ -1611,11 +1691,7 @@ export async function updatePlatformSettings(
 ): Promise<PlatformSettings | undefined> {
   if (isMockMode())
       return { commissionPct: 10, defaultDeliveryRadiusKm: 10, ...patch };
-  try {
-    return await http.patch<PlatformSettings>("/admin/settings", patch);
-  } catch {
-    return undefined;
-  }
+  return http.patch<PlatformSettings>("/admin/settings", patch);
 }
 
 export type AdminExportKind = "orders" | "sellers" | "payouts";
@@ -1670,14 +1746,10 @@ export async function updateOccasion(
     if (input.imageSrc !== undefined) occasion.imageSrc = input.imageSrc;
     return occasion;
   }
-  try {
-    return await http.patch<Occasion>(
-      `/admin/collections/occasions/${encodeURIComponent(id)}`,
-      input,
-    );
-  } catch {
-    return undefined;
-  }
+  return http.patch<Occasion>(
+    `/admin/collections/occasions/${encodeURIComponent(id)}`,
+    input,
+  );
 }
 
 /** **Stays mock-only** — no server table/endpoint for home promo bands exists yet; see this file's header comment. */

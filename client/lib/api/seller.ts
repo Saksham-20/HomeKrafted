@@ -264,11 +264,7 @@ export async function updateSellerListing(
     return product;
   }
 
-  try {
-    return await http.patch<Product>(`/seller/listings/${encodeURIComponent(productId)}`, input);
-  } catch {
-    return undefined;
-  }
+  return http.patch<Product>(`/seller/listings/${encodeURIComponent(productId)}`, input);
 }
 
 export async function deleteSellerListing(vendorId: string, productId: string): Promise<void> {
@@ -653,11 +649,7 @@ export async function updateSellerStorefront(
     return vendor;
   }
 
-  try {
-    return await http.patch<Vendor>("/seller/storefront", input);
-  } catch {
-    return undefined;
-  }
+  return http.patch<Vendor>("/seller/storefront", input);
 }
 
 /**
@@ -689,15 +681,11 @@ export async function updateSellerSpecialties(
     return seller.specialties;
   }
 
-  try {
-    const result = await http.patch<{ specialties: SellerSpecialty[] }>(
-      "/seller/specialties",
-      { specialties },
-    );
-    return result.specialties;
-  } catch {
-    return undefined;
-  }
+  const result = await http.patch<{ specialties: SellerSpecialty[] }>(
+    "/seller/specialties",
+    { specialties },
+  );
+  return result.specialties;
 }
 
 // ---------------------------------------------------------------------------
@@ -754,11 +742,7 @@ export async function updateSellerProfile(
   vendorSlug?: string,
 ): Promise<OwnVendorProfile | undefined> {
   if (isMockMode()) return getOwnVendorProfile(vendorSlug ?? "anjalis-kitchen");
-  try {
-    return await http.patch<OwnVendorProfile>("/seller/profile", input);
-  } catch {
-    return undefined;
-  }
+  return http.patch<OwnVendorProfile>("/seller/profile", input);
 }
 
 export async function addSellerPhoto(input: {
@@ -778,11 +762,7 @@ export async function addSellerPhoto(input: {
 
 export async function removeSellerPhoto(photoId: string): Promise<VendorPhoto[] | undefined> {
   if (isMockMode()) return [];
-  try {
-    return await http.delete<VendorPhoto[]>(`/seller/profile/photos/${encodeURIComponent(photoId)}`);
-  } catch {
-    return undefined;
-  }
+  return http.delete<VendorPhoto[]>(`/seller/profile/photos/${encodeURIComponent(photoId)}`);
 }
 
 // --- Days off (M16, M2) ----------------------------------------------
@@ -812,13 +792,9 @@ export async function addSellerBlackout(
 
 export async function removeSellerBlackout(id: string): Promise<VendorBlackout[] | undefined> {
   if (isMockMode()) return [];
-  try {
-    return await http.delete<VendorBlackout[]>(
-      `/seller/profile/blackouts/${encodeURIComponent(id)}`,
-    );
-  } catch {
-    return undefined;
-  }
+  return http.delete<VendorBlackout[]>(
+    `/seller/profile/blackouts/${encodeURIComponent(id)}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1120,11 +1096,7 @@ export async function updateSellerMenuItem(
     return snack;
   }
 
-  try {
-    return await http.patch<Snack>(`/seller/menu/${encodeURIComponent(snackId)}`, input);
-  } catch {
-    return undefined;
-  }
+  return http.patch<Snack>(`/seller/menu/${encodeURIComponent(snackId)}`, input);
 }
 
 export async function deleteSellerMenuItem(sellerId: string, snackId: string): Promise<void> {

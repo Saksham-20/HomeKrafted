@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -9,8 +10,11 @@ import { SellerRow } from "./SellerRow";
 import { ApplicationRow } from "./ApplicationRow";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
+import { scrollBehavior } from "@/lib/motion";
 import {
   approveSellerApplication,
+  type ApprovedPlacement,
+  assignApplicationArea,
   type InviteDeliveryReport,
   type TemporarySignInDetails,
   getAllSellers,
@@ -96,6 +100,20 @@ export function SellersClient() {
   const [inviteWarning, setInviteWarning] = useState<InviteDeliveryReport | null>(null);
   /** Sign-in details from the approval that just happened (M32). */
   const [approvedSignIn, setApprovedSignIn] = useState<TemporarySignInDetails | null>(null);
+  /**
+   * Set when the approval just planted a storefront on a pincode centroid
+   * that may be well off (M36).
+   *
+   * Like `inviteWarning`, this is not an error — the kitchen exists and
+   * is live — but it is something only this admin, right now, is
+   * positioned to fix. `Vendor.lat`/`lng` decides which buyers can see
+   * the storefront at all, and a 12 km error there is invisible on every
+   * other screen: the storefront looks perfectly normal, it is simply
+   * being shown to the wrong neighbourhood.
+   */
+  const [placementWarning, setPlacementWarning] = useState<
+    (ApprovedPlacement & { sellerId: string }) | null
+  >(null);
   const [typeFilter, setTypeFilter] = useState<SellerSpecialty | "all">("all");
   const [onboardingFilter, setOnboardingFilter] = useState<OnboardingFilter>("all");
   const [total, setTotal] = useState(0);
@@ -143,6 +161,22 @@ export function SellersClient() {
    * (an application whose area can't be resolved to a real place), because
    * the refusal is the whole point and the admin would never see it.
    */
+  /**
+   * The banner the outcome of every queue action lands in.
+   *
+   * It sits above a queue that runs well past one screen, so an admin
+   * deciding the ninth application is nowhere near it. Until M36 that was
+   * academic — `approveSellerApplication` swallowed its own errors, so
+   * nothing was ever put in the banner to miss. Now that refusals arrive,
+   * the banner is scrolled to: a message rendered 800px above the button
+   * that caused it is the same as no message.
+   */
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  function revealNotice() {
+    noticeRef.current?.scrollIntoView({ block: "center", behavior: scrollBehavior() });
+  }
+
   async function run(action: () => Promise<unknown>, fallback: string) {
     // Refuse a second action while one is running. Approving a
     // HomeKrafter mints an account and fires an invite; doing it twice
@@ -156,6 +190,7 @@ export function SellersClient() {
       await refetch();
     } catch (err) {
       setActionError(err instanceof ApiError && err.message ? err.message : fallback);
+      revealNotice();
     } finally {
       setActionBusy(false);
     }
@@ -171,13 +206,22 @@ export function SellersClient() {
   async function handleApprove(applicationId: string) {
     setInviteWarning(null);
     setApprovedSignIn(null);
+    setPlacementWarning(null);
     let report: InviteDeliveryReport | undefined;
     let signIn: TemporarySignInDetails | undefined;
+    let placement: (ApprovedPlacement & { sellerId: string }) | undefined;
     await run(async () => {
       const result = await approveSellerApplication(applicationId);
       report = result?.invite;
       signIn = result?.signIn;
+      // Carried with the seller id so the warning can link straight at the
+      // record that needs fixing. A warning that says "go and find them"
+      // is a warning that gets dismissed.
+      placement = result?.placement
+        ? { ...result.placement, sellerId: result.seller.id }
+        : undefined;
     }, "Couldn't approve that application. Try again.");
+    if (placement) setPlacementWarning(placement);
     // The credentials, surfaced at the moment of approval rather than a
     // click away (M32) — this is when the admin is most likely to be
     // about to ring them. They also stay on the HomeKrafter's own row
@@ -185,12 +229,30 @@ export function SellersClient() {
     if (signIn) setApprovedSignIn(signIn);
     // Absent in mock mode, where nothing is sent — that is not a failure.
     if (report && !report.reached) setInviteWarning(report);
+    // Both of those are things an admin has to read and act on — the
+    // password to read down a phone, or the link nothing delivered — so
+    // the same "don't render it off-screen" rule applies as to an error.
+    if (signIn || (report && !report.reached) || placement) revealNotice();
   }
 
   async function handleReject(applicationId: string) {
     await run(
       () => rejectSellerApplication(applicationId),
       "Couldn't reject that application. Try again.",
+    );
+  }
+
+  /**
+   * Resolve a waitlisted application to a real serviced area, the way out
+   * of the `'other'` waitlist. The server moves the row back to
+   * `reviewing` and the refetch re-renders it approvable, so the admin's
+   * next click is Approve on the same row.
+   */
+  async function handleAssignArea(applicationId: string, area: string) {
+    if (!area) return;
+    await run(
+      () => assignApplicationArea(applicationId, area),
+      "Couldn't assign that area. Try again.",
     );
   }
 
@@ -219,7 +281,7 @@ export function SellersClient() {
         <Chip label={`Approval queue (${applications.length})`} selected={tab === "queue"} onClick={() => setTab("queue")} />
       </div>
 
-      <div aria-live="polite">
+      <div aria-live="polite" ref={noticeRef}>
         {actionError && (
           <p className={styles.actionError} role="alert">
             {actionError}
@@ -243,6 +305,30 @@ export function SellersClient() {
               type="button"
               className={styles.inviteDismiss}
               onClick={() => setApprovedSignIn(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {placementWarning && (
+          <div className={styles.inviteWarning} role="status">
+            <p className={styles.inviteWarningLead}>Check where we put them on the map.</p>
+            <p className={styles.inviteWarningBody}>
+              Pincode {placementWarning.pincode} ({placementWarning.label}) covers a wide area —
+              its post offices are up to {Math.round(placementWarning.spreadKm)} km apart, so we
+              may have placed this kitchen that far from where it really is. That decides which
+              buyers can see them at all. Open their record and set the exact spot.
+            </p>
+            <Link
+              className={styles.inviteLinkAction}
+              href={`/admin/sellers/${placementWarning.sellerId}`}
+            >
+              Open their record
+            </Link>
+            <button
+              type="button"
+              className={styles.inviteDismiss}
+              onClick={() => setPlacementWarning(null)}
             >
               Dismiss
             </button>
@@ -345,6 +431,7 @@ export function SellersClient() {
               application={application}
               onApprove={handleApprove}
               onReject={handleReject}
+              onAssignArea={handleAssignArea}
               busy={actionBusy}
             />
           ))}

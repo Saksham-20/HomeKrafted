@@ -21,7 +21,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | `LoyaltyAccount` | tier (`bronze`\|`silver`\|`gold`\|`platinum`), points, lifetimePoints | belongs to `User` |
 | `SupportTicket` (+`SupportMessage`) | subject, channel (`chat`\|`call`\|`email`), status, messages[] | belongs to `User` |
 | `CorporateInquiry` | companyName, contactName, estimatedQuantity, status | standalone (no user FK — inquiry may predate an account) |
-| `SellerApplication` (M7b; lifecycle extended M11a) | businessName, contactName, category (`maker`\|`baker`\|`artist`\|`other`), city, description, status (`new`\|`reviewing`\|`waitlisted`\|`approved`\|`rejected`) | standalone (no user FK — an application may predate an account); `/admin/sellers`' approval queue treats every non-terminal status as "pending" — see notes below |
+| `SellerApplication` (M7b; lifecycle extended M11a; **placement reworked M36**) | businessName, contactName, category (`maker`\|`baker`\|`artist`\|`other`), city, **`pincode`** (M36 — six digits, any Indian pincode; the field the form now asks and the reason supply is national), `area?` (**legacy** — the pre-M36 closed list of 21 tricity areas plus `"other"`, now nullable because the form stopped asking), description, status (`new`\|`reviewing`\|`waitlisted`\|`approved`\|`rejected`) | standalone (no user FK — an application may predate an account); `/admin/sellers`' approval queue treats every non-terminal status as "pending" — see notes below |
 
 ## Wallet (`lib/types/wallet.ts`)
 
@@ -206,7 +206,32 @@ place the Prisma model deviates from the literal TS shape). All ids are
   except `"other"`, which becomes a plain `"maker"` storefront — plus a
   new `approved`-status `Seller`, `type: "maker"`, pointing at that
   `Vendor`) or rejects (status → `rejected`, terminal, no `Seller`
-  created). The new `Seller.userId` is a synthetic placeholder id (no
+  created).
+
+  **M36 — placement, and why the waitlist went.** A submission used to
+  pick from 21 curated tricity areas or answer `"other"`, and `"other"`
+  filed a `waitlisted` row that `approveApplication` refused. The endpoint
+  that could resolve it (`PATCH /admin/sellers/applications/:id/area`) had
+  existed since M19 and **nothing in the browser ever called it**, so an
+  applicant outside Chandigarh was accepted by the public form and could
+  never be approved by anybody. `SellerApplication.pincode` replaces
+  `area` (now nullable, kept for pre-M36 rows and pre-M36 native clients),
+  and every valid Indian pincode is approvable.
+
+  Three consequences worth holding on to. **A pincode is an identity, not
+  a coordinate** — the bundled GeoNames table is authoritative for
+  district and state, but its centroid is trustworthy for only 44% of
+  pincodes (median internal spread 12.4 km), so `Vendor.lat`/`lng` is
+  *seeded* from it and confirmed by an admin through
+  `PATCH /admin/sellers/:id/coords`. **`Vendor.area` now carries two
+  kinds of value** — a curated area id where one applies, otherwise the
+  pincode; nothing filters on it (it is search and display only), which is
+  what lets one column do both. **Nothing was backfilled**: pre-M36 rows
+  keep their `area` and a NULL `pincode`, because guessing a pincode from
+  a curated area would write a wrong one onto a real storefront and look
+  authoritative.
+
+  The new `Seller.userId` is a synthetic placeholder id (no
   real account exists yet for an application-origin seller) — flagged in
   code rather than silently wrong; M8's real onboarding must create the
   `User` (invite/verification) before the `Seller` row, not synthesize an
