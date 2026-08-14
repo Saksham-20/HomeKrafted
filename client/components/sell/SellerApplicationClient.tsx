@@ -498,7 +498,7 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                   value={form.pickupPhone}
                   onChange={(event) => set("pickupPhone", event.target.value)}
                   autoComplete="tel"
-                  placeholder="Only if it isn\u2019t the number above"
+                  placeholder="Only if it isn’t the number above"
                 />
               </label>
 
@@ -507,8 +507,8 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                 <span>
                   <strong>Buyers never see this.</strong>{" "}
                   Your address and exact location are used only to arrange pickups. On
-                  your storefront, shoppers see just your area \u2014 something like
-                  \u201cSector 35, Chandigarh\u201d \u2014 never your street or house number.
+                  your storefront, shoppers see just your area — something like
+                  “Sector 35, Chandigarh” — never your street or house number.
                 </span>
               </p>
             </div>

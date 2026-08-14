@@ -579,7 +579,7 @@ export function SellerProfileClient() {
         <h2 className={styles.sectionTitle}>Where we collect from</h2>
         <p className={styles.hint}>
           <strong>Shoppers never see this.</strong>{" "}
-          It is used only to arrange pickups \u2014 on your storefront they see your
+          It is used only to arrange pickups — on your storefront they see your
           area, never your street or house number.
         </p>
         <div className={styles.grid}>
@@ -632,7 +632,7 @@ export function SellerProfileClient() {
           </label>
         </div>
         <p className={styles.hint}>
-          Moving? Change it here \u2014 but tell us too if you have orders out, because a
+          Moving? Change it here — but tell us too if you have orders out, because a
           courier may already be routing to the old one. Changing your address also
           clears the <strong>Kitchen address</strong> verification above, since we
           checked the old one; we will re-check the new address.
