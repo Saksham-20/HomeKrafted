@@ -90,6 +90,40 @@ export class SellerProfileService {
       }
     }
 
+    // The pickup address (M36c) — theirs to change, because people move.
+    //
+    // **Any change clears `addressVerified`**, exactly as a changed
+    // licence number clears `fssaiVerified` above, and for the same
+    // reason: an admin verified a specific address, and letting the badge
+    // survive an edit to the thing it verifies would be a seller setting
+    // their own badge through this endpoint. Re-verification is cheap;
+    // a badge that means nothing is not.
+    const PICKUP_FIELDS = [
+      'pickupAddressLine1',
+      'pickupAddressLine2',
+      'pickupLandmark',
+      'pickupPincode',
+      'pickupPhone',
+    ] as const;
+
+    let pickupChanged = false;
+    for (const field of PICKUP_FIELDS) {
+      if (dto[field] === undefined) continue;
+      // Empty string is a deliberate clear of an optional line, stored as
+      // NULL so "they removed it" and "they never gave it" read the same
+      // downstream — the same shape every other optional field here uses.
+      const next = dto[field]?.trim() ? dto[field]!.trim() : null;
+      if (next !== (existing?.[field] ?? null)) pickupChanged = true;
+      data[field] = next;
+    }
+    if (pickupChanged) {
+      data.addressVerified = false;
+      // Deliberately narrower than the FSSAI branch above, which also
+      // clears `verifiedAt`/`verificationNote`. Those are shared across
+      // all three badges, so wiping them here would erase the record of
+      // an identity check that is still perfectly valid.
+    }
+
     // `vendorId` is the key, not a writable column — it belongs in the
     // `create` payload and must not appear in `update`.
     const { vendorId: _vendorId, ...updatePayload } = data;

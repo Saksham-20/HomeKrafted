@@ -77,6 +77,31 @@ export class UpdateSellerProfileDto {
   /** 14 digits, the FSSAI format. Validated for shape only — whether it is *this* kitchen's licence is what the admin check is for. */
   @IsOptional() @Matches(/^\d{14}$/, { message: 'An FSSAI licence number is 14 digits' }) fssaiNumber?: string;
 
+  // -------------------------------------------------------------------
+  // Pickup address (M36c) — the HomeKrafter's own, and theirs to change.
+  //
+  // Editable here because people move, and an address a kitchen cannot
+  // correct is one that is wrong from the day they do. It was read-only
+  // when first shipped on the reasoning that a courier may already be
+  // routing to it; the answer to that is a warning in the UI, not a
+  // locked field somebody has to open a support ticket to fix.
+  //
+  // **Changing it clears `addressVerified`** — see `profile.service.ts`,
+  // which does exactly this for `fssaiNumber` and for the same reason:
+  // letting a verified badge survive an edit to the thing it verifies is
+  // the one way a seller could set their own badge through this
+  // endpoint.
+  //
+  // It stays private. These land on columns no public payload reads, and
+  // `test/unit/vendor-privacy.spec.ts` fails the build if that changes.
+  // -------------------------------------------------------------------
+
+  @IsOptional() @IsString() @MaxLength(200) pickupAddressLine1?: string;
+  @IsOptional() @IsString() @MaxLength(200) pickupAddressLine2?: string;
+  @IsOptional() @IsString() @MaxLength(200) pickupLandmark?: string;
+  @IsOptional() @Matches(/^[1-9]\d{5}$/, { message: 'Enter a 6-digit pincode' }) pickupPincode?: string;
+  @IsOptional() @IsString() @MaxLength(20) pickupPhone?: string;
+
   @IsOptional() @IsUrl() @MaxLength(300) instagramUrl?: string;
   @IsOptional() @IsUrl() @MaxLength(300) facebookUrl?: string;
   @IsOptional() @IsUrl() @MaxLength(300) youtubeUrl?: string;

@@ -3,6 +3,31 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M36c] — The address is theirs to change — 2026-08-14
+
+M36b shipped the pickup address read-only, reasoning that a courier might
+already be routing to it. That protected an edge case by leaving every
+kitchen that moves with a wrong address and a support ticket. The answer
+is a warning, not a locked field.
+
+### Changed
+
+- **`/seller/profile` → "Where we collect from" is editable**, alongside
+  the story, hours and policies a HomeKrafter already controls, and the
+  tags they already replace through `PATCH /seller/specialties` (M33).
+- **Changing any address line clears `addressVerified`** — the identical
+  rule `fssaiNumber` has followed since M16, and for the identical
+  reason: a badge that survives an edit to the thing it verifies is a
+  badge the seller set themselves. It clears **only** that flag;
+  `verifiedAt` and `verificationNote` are shared with the identity and
+  licence checks, and wiping them would erase the record of a check that
+  is still valid. The hint says the badge will be spent, because a
+  verification vanishing silently is worse than one you chose to spend.
+- Six cases in `server/test/unit/seller-profile-address.spec.ts`,
+  including the two that are easy to get backwards: resubmitting the same
+  address unchanged must **not** cost the badge, and clearing an optional
+  line must reach the column as NULL rather than `""`.
+
 ## [M36b] — A pickup address, and a promise kept in code — 2026-08-14
 
 The application asked where a HomeKrafter is, but never where a rider

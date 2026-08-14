@@ -210,6 +210,14 @@ a login: the admin verification panel and the HomeKrafter's own
 before this shipped has none on file, and both screens say so rather
 than showing an empty box.
 
+**A HomeKrafter can change their own address (M36c).** `/seller/profile`
+→ **Where we collect from** is editable. Worth testing the consequence:
+if their **Kitchen address** shows as verified, saving a changed address
+clears that badge, and the hint under the fields says so before you save.
+That is deliberate — we verified the old address, so the new one has to
+be checked again. Editing anything else on the page (a return policy,
+hours) leaves the badge alone.
+
 **Applying is national; delivering is not.** Approving a HomeKrafter in
 Jaipur works and is meant to. Whether buyers there can order is a separate
 setting (`Serviced areas` under `/admin/settings`, currently the tricity),

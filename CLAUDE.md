@@ -503,6 +503,17 @@ and every valid Indian pincode is approvable.
 - **GeoNames is CC-BY 4.0.** The footer credit linking to geonames.org is
   a **licence condition**, not a courtesy. Remove the table and remove the
   credit together; keep the table and the credit is not optional.
+- **A HomeKrafter edits their own profile, tags and address (M36c).**
+  Three separate write paths, and they must stay separate: `PATCH
+  /seller/profile` (story, hours, policies, **and the pickup address**),
+  `PATCH /seller/specialties` (the M33 tag replacement), and nothing at
+  all for verification — that is still admin-only. **Changing any pickup
+  line clears `addressVerified`**, exactly as changing `fssaiNumber`
+  clears `fssaiVerified`: a badge that survives an edit to the thing it
+  verifies is a badge the seller set themselves. It clears *only* that
+  flag, not the shared `verifiedAt`/`verificationNote`, which belong to
+  the identity and licence checks too. Pinned by
+  `server/test/unit/seller-profile-address.spec.ts`.
 - **The pickup address is private, and that promise is enforced (M36b).**
   `/sell` asks for the address a rider collects from — a home cook's
   **home address** — and says on the form that buyers never see it.

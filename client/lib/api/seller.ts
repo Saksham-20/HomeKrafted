@@ -704,6 +704,22 @@ export async function updateSellerSpecialties(
 // ---------------------------------------------------------------------------
 
 export interface SellerProfileInput {
+  /**
+   * Where a rider collects (M36c) — the HomeKrafter's own address, and
+   * theirs to change, because people move.
+   *
+   * **Changing any of these clears `addressVerified` server-side**, the
+   * same rule `fssaiNumber` follows: a badge that survives an edit to the
+   * thing it verifies is a badge the seller set themselves.
+   *
+   * Private. Never rendered on a buyer-facing surface — see
+   * `PickupAddress` in `lib/types/marketplace.ts`.
+   */
+  pickupAddressLine1?: string;
+  pickupAddressLine2?: string;
+  pickupLandmark?: string;
+  pickupPincode?: string;
+  pickupPhone?: string;
   tagline?: string;
   story?: string;
   knownFor?: string[];

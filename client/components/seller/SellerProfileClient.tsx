@@ -57,6 +57,12 @@ interface FormState {
   opensAt: string;
   closesAt: string;
   hygieneNote: string;
+  /** Where a rider collects (M36c). Private — buyers never see these. */
+  pickupAddressLine1: string;
+  pickupAddressLine2: string;
+  pickupLandmark: string;
+  pickupPincode: string;
+  pickupPhone: string;
   packagingNote: string;
   cancellationPolicy: string;
   returnPolicy: string;
@@ -85,6 +91,11 @@ function toForm(profile: OwnVendorProfile): FormState {
     opensAt: profile.opensAt ?? "",
     closesAt: profile.closesAt ?? "",
     hygieneNote: profile.hygieneNote ?? "",
+    pickupAddressLine1: profile.pickup?.addressLine1 ?? "",
+    pickupAddressLine2: profile.pickup?.addressLine2 ?? "",
+    pickupLandmark: profile.pickup?.landmark ?? "",
+    pickupPincode: profile.pickup?.pincode ?? "",
+    pickupPhone: profile.pickup?.phone ?? "",
     packagingNote: profile.packagingNote ?? "",
     cancellationPolicy: profile.cancellationPolicy ?? "",
     returnPolicy: profile.returnPolicy ?? "",
@@ -333,6 +344,14 @@ export function SellerProfileClient() {
       opensAt: text(form.opensAt),
       closesAt: text(form.closesAt),
       hygieneNote: text(form.hygieneNote),
+      // Sent as "" rather than undefined when cleared, so deleting a
+      // landmark actually removes it — the server maps empty to NULL.
+      // `text()` would drop it and the old value would survive the save.
+      pickupAddressLine1: form.pickupAddressLine1.trim(),
+      pickupAddressLine2: form.pickupAddressLine2.trim(),
+      pickupLandmark: form.pickupLandmark.trim(),
+      pickupPincode: form.pickupPincode.trim(),
+      pickupPhone: form.pickupPhone.trim(),
       packagingNote: text(form.packagingNote),
       cancellationPolicy: text(form.cancellationPolicy),
       returnPolicy: text(form.returnPolicy),
@@ -378,18 +397,6 @@ export function SellerProfileClient() {
    * half-ticked chip row must not flash a licence field on and off.
    */
   const sellsFood = makesFood(currentSpecialties);
-
-  /**
-   * Only rendered when something was collected. Every HomeKrafter
-   * approved before M36b has none on file — "we never asked" rather than
-   * "they have none" — and the card says that in its own words instead
-   * of showing an empty address.
-   */
-  const pickup =
-    profile.pickup &&
-    (profile.pickup.addressLine1 || profile.pickup.landmark || profile.pickup.phone)
-      ? profile.pickup
-      : null;
 
   const verifications = [
     { key: "identity", label: "Identity", done: profile.identityVerified },
@@ -554,38 +561,82 @@ export function SellerProfileClient() {
       </Card>
 
       {/*
-        Where a rider collects (M36b).
+        Where a rider collects (M36b, editable since M36c).
 
-        Read-only here on purpose. The address decides where a courier is
-        dispatched, so changing it mid-cycle is an operational event
-        rather than a profile edit — the same reasoning that keeps
-        verification admin-only just above. Showing it, though, is not
-        optional: an address a HomeKrafter cannot see is one they cannot
-        notice is wrong, and it is wrong the day they move.
+        It shipped read-only on the reasoning that a courier may already
+        be routing to it. That was protecting an edge case by leaving
+        every kitchen that moves with a wrong address and a support
+        ticket, so the answer is the warning below rather than a locked
+        field.
+
+        Changing any line clears `addressVerified` server-side — the same
+        rule `fssaiNumber` follows, and for the same reason: a badge that
+        survives an edit to the thing it verifies is a badge the seller
+        set themselves. The hint says so, because a verification silently
+        disappearing is worse than one you were told you were spending.
       */}
       <Card className={styles.section} padding="lg">
         <h2 className={styles.sectionTitle}>Where we collect from</h2>
-        {pickup ? (
-          <>
-            <address className={styles.pickupAddress}>
-              {[pickup.addressLine1, pickup.addressLine2].filter(Boolean).join(", ")}
-              {pickup.landmark ? <span>{pickup.landmark}</span> : null}
-              {pickup.pincode ? <span>{pickup.pincode}</span> : null}
-              {pickup.phone ? <span>Pickup number: {pickup.phone}</span> : null}
-            </address>
-            <p className={styles.hint}>
-              <strong>Shoppers never see this.</strong>{" "}
-              It is used only to arrange pickups. On your storefront they see your area
-              only. Moved, or got the address wrong? Message support and we will change
-              it \u2014 a courier may already be routing to it.
-            </p>
-          </>
-        ) : (
-          <p className={styles.hint}>
-            We don&rsquo;t have a pickup address for you yet. Message support and we will
-            add one \u2014 it is what a courier needs to find you, and shoppers never see it.
-          </p>
-        )}
+        <p className={styles.hint}>
+          <strong>Shoppers never see this.</strong>{" "}
+          It is used only to arrange pickups \u2014 on your storefront they see your
+          area, never your street or house number.
+        </p>
+        <div className={styles.grid}>
+          <label className={styles.field}>
+            <span className={styles.label}>House / shop number and street</span>
+            <input
+              className={styles.input}
+              value={form.pickupAddressLine1}
+              autoComplete="address-line1"
+              onChange={(event) => set("pickupAddressLine1", event.target.value)}
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>Area or colony</span>
+            <input
+              className={styles.input}
+              value={form.pickupAddressLine2}
+              autoComplete="address-line2"
+              onChange={(event) => set("pickupAddressLine2", event.target.value)}
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>Landmark</span>
+            <input
+              className={styles.input}
+              value={form.pickupLandmark}
+              placeholder="e.g. opposite the gurudwara"
+              onChange={(event) => set("pickupLandmark", event.target.value)}
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>Pincode</span>
+            <input
+              className={styles.input}
+              value={form.pickupPincode}
+              inputMode="numeric"
+              onChange={(event) =>
+                set("pickupPincode", event.target.value.replace(/\D/g, "").slice(0, 6))
+              }
+            />
+          </label>
+          <label className={styles.field}>
+            <span className={styles.label}>A different number for pickups</span>
+            <input
+              className={styles.input}
+              type="tel"
+              value={form.pickupPhone}
+              onChange={(event) => set("pickupPhone", event.target.value)}
+            />
+          </label>
+        </div>
+        <p className={styles.hint}>
+          Moving? Change it here \u2014 but tell us too if you have orders out, because a
+          courier may already be routing to the old one. Changing your address also
+          clears the <strong>Kitchen address</strong> verification above, since we
+          checked the old one; we will re-check the new address.
+        </p>
       </Card>
 
       <Card className={styles.section} padding="lg">
