@@ -44,7 +44,7 @@ export default function PrivacyPage() {
           you in and to tell you where your order is.
         </li>
         <li>
-          <strong>Delivery addresses</strong> you save, including the
+          <strong>Delivery addresses</strong>{" "}you save, including the
           recipient&rsquo;s name and phone when you send a gift.
         </li>
         <li>

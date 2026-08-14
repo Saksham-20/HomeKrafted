@@ -108,7 +108,7 @@ export function SettingsClient() {
             />
           </label>
           <p className={styles.help}>
-            <strong>Modelling only.</strong> Payouts are gross and settlement happens by hand, so
+            <strong>Modelling only.</strong>{" "}Payouts are gross and settlement happens by hand, so
             nothing deducts this today. It drives the commission line on Analytics, which exists so
             &ldquo;what would 12% have earned last quarter&rdquo; is answerable before anyone commits to a
             rate.
@@ -148,7 +148,7 @@ export function SettingsClient() {
           </label>
           <p className={styles.help}>
             Comma-separated. <code>160</code> covers all of Chandigarh; the default above is the
-            tricity. This changes what <strong>buyers</strong> are told — someone outside it still
+            tricity. This changes what <strong>buyers</strong>{" "}are told — someone outside it still
             sees the whole catalogue, they are just told we don&rsquo;t deliver to them yet.{" "}
             <strong>It does not affect who can apply or be approved.</strong> HomeKrafters can join
             from anywhere in India, which is deliberate: supply has to exist somewhere before it is

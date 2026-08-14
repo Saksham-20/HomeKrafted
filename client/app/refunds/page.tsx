@@ -45,7 +45,7 @@ export default function RefundsPage() {
         exception&rdquo; below.
       </p>
       <div className={styles.callout}>
-        <strong>Why the cut-off is where it is.</strong> Most of what we sell
+        <strong>Why the cut-off is where it is.</strong>{" "}Most of what we sell
         is cooked the morning it ships, in batches of a few. A cancellation
         after cooking has started isn&rsquo;t a restocking cost to a warehouse
         — it&rsquo;s a loss to one person&rsquo;s household.
@@ -69,7 +69,7 @@ export default function RefundsPage() {
         <li>The item was past, or too close to, its stated shelf life.</li>
       </ul>
       <p>
-        Because this is food, we generally <strong>cannot</strong> accept a
+        Because this is food, we generally <strong>cannot</strong>{" "}accept a
         return simply because you changed your mind, or because a dish was not
         to your taste. A home cook&rsquo;s recipe is not a defect. If a
         listing described something inaccurately, that is different — tell us,
@@ -89,7 +89,7 @@ export default function RefundsPage() {
         platform and does not expire.
       </p>
       <div className={styles.callout}>
-        <strong>Want it back on your card instead?</strong> Ask, and we will
+        <strong>Want it back on your card instead?</strong>{" "}Ask, and we will
         arrange it. Card refunds are processed through our payment provider
         and typically reach your bank in 5&ndash;7 working days. We do not do
         this automatically because most people would rather have the balance

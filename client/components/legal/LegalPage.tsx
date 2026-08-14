@@ -37,7 +37,7 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
         <div className={styles.banner} role="note">
           <AlertTriangle size={18} strokeWidth={1.8} aria-hidden="true" />
           <p>
-            <strong>This policy is not yet complete.</strong> Homekrafted&rsquo;s
+            <strong>This policy is not yet complete.</strong>{" "}Homekrafted&rsquo;s
             registered business details are still being finalised, so the
             company name, address and phone number below are placeholders.
             Everything describing how the service actually works is
