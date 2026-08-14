@@ -1675,10 +1675,28 @@ export interface PlatformSettings {
   commissionPct: number;
   /** Given to a new HomeKrafter whose application didn't state one. */
   defaultDeliveryRadiusKm: number;
+  /**
+   * Where Homekrafted currently *delivers*, as comma-separated pincode
+   * prefixes — `"160,1401,1403,1341,1346"` is the Chandigarh tricity
+   * (M36).
+   *
+   * **Buyer-facing only.** It selects copy, never visibility: someone
+   * outside it still sees the whole catalogue and is simply told we do
+   * not deliver there yet. It must never gate an application, an
+   * approval, or a HomeKrafter's portal — supply is national, and the
+   * moment this decides who may sell, the pre-M36 waitlist is back under
+   * a new name. An empty value means no gate at all.
+   */
+  servicedPincodePrefixes: string;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings | undefined> {
-  if (isMockMode()) return { commissionPct: 10, defaultDeliveryRadiusKm: 10 };
+  if (isMockMode())
+    return {
+      commissionPct: 10,
+      defaultDeliveryRadiusKm: 10,
+      servicedPincodePrefixes: "160,1401,1403,1341,1346",
+    };
   try {
     return await http.get<PlatformSettings>("/admin/settings");
   } catch {
@@ -1690,7 +1708,12 @@ export async function updatePlatformSettings(
   patch: Partial<PlatformSettings>,
 ): Promise<PlatformSettings | undefined> {
   if (isMockMode())
-      return { commissionPct: 10, defaultDeliveryRadiusKm: 10, ...patch };
+      return {
+        commissionPct: 10,
+        defaultDeliveryRadiusKm: 10,
+        servicedPincodePrefixes: "160,1401,1403,1341,1346",
+        ...patch,
+      };
   return http.patch<PlatformSettings>("/admin/settings", patch);
 }
 

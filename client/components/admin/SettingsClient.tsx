@@ -16,6 +16,7 @@ import styles from "./SettingsClient.module.css";
 interface Draft {
   commissionPct: string;
   defaultDeliveryRadiusKm: string;
+  servicedPincodePrefixes: string;
 }
 
 /**
@@ -45,6 +46,7 @@ export function SettingsClient() {
       setDraft({
         commissionPct: String(loaded.commissionPct),
         defaultDeliveryRadiusKm: String(loaded.defaultDeliveryRadiusKm),
+        servicedPincodePrefixes: loaded.servicedPincodePrefixes ?? "",
       });
     })();
     return () => {
@@ -69,6 +71,7 @@ export function SettingsClient() {
       const updated = await updatePlatformSettings({
         commissionPct: Number(draft.commissionPct),
         defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
+        servicedPincodePrefixes: draft.servicedPincodePrefixes.trim(),
       });
       if (!updated) {
         setMessage("That did not save. Commission must be 0–100%, radius 1–100 km.");
@@ -125,6 +128,31 @@ export function SettingsClient() {
           <p className={styles.help}>
             Given to a newly approved HomeKrafter whose application didn&rsquo;t state one. Existing
             kitchens keep whatever they already have — this is a starting value, not a cap.
+          </p>
+        </div>
+
+        {/*
+          Where we deliver — which is a different question from where
+          people may sign up to sell (M36). Applications are national;
+          this is not.
+        */}
+        <div className={styles.setting}>
+          <label className={styles.field}>
+            <span className={styles.label}>Serviced areas (pincode prefixes)</span>
+            <input
+              className={styles.input}
+              value={draft.servicedPincodePrefixes}
+              onChange={(event) => edit({ servicedPincodePrefixes: event.target.value })}
+              placeholder="160,1401,1403,1341,1346"
+            />
+          </label>
+          <p className={styles.help}>
+            Comma-separated. <code>160</code> covers all of Chandigarh; the default above is the
+            tricity. This changes what <strong>buyers</strong> are told — someone outside it still
+            sees the whole catalogue, they are just told we don&rsquo;t deliver to them yet.{" "}
+            <strong>It does not affect who can apply or be approved.</strong> HomeKrafters can join
+            from anywhere in India, which is deliberate: supply has to exist somewhere before it is
+            worth opening delivery there. Leave it empty to stop saying it altogether.
           </p>
         </div>
 
