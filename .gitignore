@@ -55,3 +55,16 @@ live-*.png
 
 # M26 QA sweep screenshots (local only)
 .qa-shots/
+
+# Screenshots of the live admin panel (M36).
+#
+# They are kept locally for review and MUST NOT be committed: the approval
+# queue shows real applicants — their names, their storefront names and at
+# least one full email address. This repository is public, so committing a
+# screenshot of that screen publishes a stranger's personal data
+# permanently.
+#
+# Same principle the pickup address follows in code (see
+# `server/test/unit/vendor-privacy.spec.ts`): the people who applied here
+# never agreed to be published.
+screenshots-m36/
