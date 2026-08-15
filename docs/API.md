@@ -696,31 +696,31 @@ explicitly **out of scope** for M8.2 and left for M8.3.
 
 ## Services (M8.3a — real, `server/src/{laundry,snacks,referrals,notifications,support,corporate}/`)
 
-### Laundry (`server/src/laundry/`)
+### Laundry (`server/src/laundry/`) — withdrawn (M19; browse removed M37)
 
-Services/availability are `@Public()` reads; bookings + subscriptions are
-owner-scoped (auth). Every booking's price is **server-authoritative**:
-`LaundryService.price` (read fresh from the DB inside the request's own
-transaction) × whichever quantity field matches the service's
-`pricingModel` (`estimatedWeightKg` for `per-kg`, `itemCount` for
-`per-item`, `estimatedHours` for `per-hour`), `Math.round`ed — the create
-DTO has no `price`/`unitPrice`/`estimatedTotal` field, so
-`ValidationPipe`'s `forbidNonWhitelisted` rejects any client-submitted
-amount outright.
+The module is **withdrawn**. M19 turned both create routes into `410
+Gone`; **M37 deleted the four `@Public()` browse routes**
+(`GET /laundry/services`, `/services/:slug`, `/availability/days`,
+`/availability/slots`) and the server-side create paths behind the 410
+stubs — a withdrawn module was still publishing a browsable price list.
+What remains is the obligation set: owner reads, subscription
+change/cancel, and the 410 stubs themselves (a native client built
+against this file deserves "retired", not "never existed").
+
+Booking payloads are **self-describing since M37**: every line carries
+`serviceName` + `unitLabel` and the booking carries `pickupSlotLabel` /
+`deliverySlotLabel`, because with the browse routes gone the row is the
+only place those names still reach a customer.
 
 | Endpoint | Auth | Notes |
 |---|---|---|
-| `GET /laundry/services` | `@Public()` | `LaundryService[]`. |
-| `GET /laundry/services/:slug` | `@Public()` | Single service. |
-| `GET /laundry/availability/days` | `@Public()` | `LaundryDay[]` — display-only availability, not booking state. |
-| `GET /laundry/availability/slots` | `@Public()` | `LaundrySlot[]`. |
 | `GET /laundry/bookings` | any authed role | Mine, newest first. |
 | `GET /laundry/bookings/:id` | any authed role | Owner-scoped — `404` (not `403`) if it exists but isn't mine. |
-| `POST /laundry/bookings` | any authed role | Body: `{ serviceId, estimatedWeightKg?/itemCount?/estimatedHours? (whichever matches the service), pickupSlot: {date, slotId}, deliverySlot: {date, slotId}, addressId, photos?, specialInstructions?, subscriptionId?, paymentMethod: "wallet"\|"razorpay"\|"cod" }`. `paymentMethod: "wallet"` debits the computed total + credits cashback **atomically with the booking insert** via `WalletService.postLedgerEntryTx` (the same M8.2 ledger primitive `OrdersService` uses) — insufficient balance → `402`, whole transaction (including the booking) rolls back. Unlike marketplace orders there's no `pending-payment` staging status for laundry (see `schema.prisma`'s `LaundryBookingStatus`), so the debit happens inline rather than via a separate `/pay` step. `razorpay`/`cod` create the booking with no wallet movement (settled at pickup / a future online-payment integration — out of scope here). Auto-assigns `partnerId` to the longest-standing approved HomeKrafter whose `specialties` include `laundry` (real pickup-address routing still pending). Supports `Idempotency-Key`. |
+| `POST /laundry/bookings` | any authed role | **`410 Gone`** (M19). The service-side create path was deleted in M37. |
 | `GET /laundry/subscriptions` | any authed role | Mine. |
 | `GET /laundry/subscriptions/:id` | any authed role | Owner-scoped. |
-| `POST /laundry/subscriptions` | any authed role | Body: `{ serviceId, plan, slotDay, slotId, nextPickup }`. |
-| `PATCH /laundry/subscriptions/:id` | any authed role | Partial patch (`active`, `plan`, `slotDay`, `slotId`, `nextPickup`). |
+| `POST /laundry/subscriptions` | any authed role | **`410 Gone`** (M19). |
+| `PATCH /laundry/subscriptions/:id` | any authed role | Partial patch (`active`, `plan`, `slotDay`, `slotId`, `nextPickup`) — changing or pausing what you already signed up for must keep working. |
 | `DELETE /laundry/subscriptions/:id` | any authed role | Soft-cancel (`active: false`, not a hard delete — bookings still reference it via `subscriptionId`). `204`. |
 
 ### Snacks (`server/src/snacks/`)

@@ -80,7 +80,6 @@ import {
   adminUser,
   currentUser,
   getSellerByUserId,
-  laundryPartnerUser,
   sellerUser,
   sellers,
   snackSellerUser,
@@ -119,9 +118,11 @@ import type { Seller, User, UserRole } from "@/lib/types";
  * Was `SellerType`, back when the three accounts were three different
  * roles. They're all the same role now — this key just picks which seeded
  * kitchen you land in, so the demo can show accounts with different
- * specialties and different items.
+ * specialties and different items. The `"laundry"` arm left in M37 with
+ * the withdrawn module's demo storefront; a stale stored value falls
+ * back to the maker.
  */
-export type DemoHomeKrafter = "maker" | "laundry" | "snack";
+export type DemoHomeKrafter = "maker" | "snack";
 
 const STORAGE_KEY = "hk_auth_v1";
 const ROLE_COOKIE = "hk_role";
@@ -290,8 +291,6 @@ function writeRoleCookie(role: UserRole | undefined) {
 /** The demo `User` record for each seller type — `resolveDemoSeller` looks the matching `Seller` up by whichever of these the signed-in `sellerType` points at. */
 function demoSellerUserFor(type: DemoHomeKrafter): User {
   switch (type) {
-    case "laundry":
-      return laundryPartnerUser;
     case "snack":
       return snackSellerUser;
     default:

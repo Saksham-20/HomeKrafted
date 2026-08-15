@@ -10,7 +10,7 @@ import { WalletService } from '../wallet/wallet.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { OrdersService } from '../orders/orders.service';
 import { mapOrder } from '../orders/order.mapper';
-import { mapLaundryBooking } from '../laundry/laundry.mapper';
+import { BOOKING_INCLUDE, mapLaundryBooking } from '../laundry/laundry.mapper';
 import { mapSnackOrder } from '../seller/mappers/snack-order.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
@@ -19,7 +19,6 @@ import { ListAdminOrdersQueryDto } from './dto/list-admin-orders.query.dto';
 export type AdminOrderType = 'marketplace' | 'laundry' | 'snack';
 
 const ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
-const BOOKING_INCLUDE = { lines: true } satisfies Prisma.LaundryBookingInclude;
 const SNACK_ORDER_INCLUDE = { items: true } satisfies Prisma.SnackOrderInclude;
 
 /** Frontend-hyphenated status string -> the Prisma enum's declared identifier, per order kind — the reverse of `order.mapper.ts#orderStatusToFrontend` etc. Used only by the admin status-override endpoint (a seller's own `advance` methods only ever step forward one stage, never take an arbitrary target). */

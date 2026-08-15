@@ -1,8 +1,13 @@
 import { API_BASE_URL, ApiError } from "./http";
 import { getAccessToken } from "@/lib/auth/session";
 
-/** Where the image is filed — must match `UploadPurpose` in `server/src/uploads/uploads.service.ts`. */
-export type UploadPurpose = "listing" | "menu" | "storefront" | "application" | "laundry";
+/**
+ * Where the image is filed — must match `UploadPurpose` in
+ * `server/src/uploads/uploads.service.ts`. `"laundry"` left this union in
+ * M37 (no screen can create a laundry photo any more); the server still
+ * accepts it so a native client built against the old set isn't broken.
+ */
+export type UploadPurpose = "listing" | "menu" | "storefront" | "application";
 
 export interface UploadedImage {
   /** What to persist and render. Relative (`/uploads/...`) on local-disk storage, absolute once a CDN driver is in use. */

@@ -917,10 +917,6 @@ function mockSellerAnalytics(days: number): SellerAnalytics {
   };
 }
 
-function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 // ---------------------------------------------------------------------------
 // M10b — Laundry partner: pickups (`LaundryBooking`s assigned via
 // `partnerId`), dashboard snapshot. Real mode: `GET/POST /seller/bookings*`
@@ -982,71 +978,10 @@ export async function advancePartnerBookingStatus(
   return http.post<LaundryBooking>(`/seller/bookings/${encodeURIComponent(bookingId)}/advance`);
 }
 
-export interface PartnerSlotInput {
-  pickupSlot: { date: string; slotId: string };
-  deliverySlot: { date: string; slotId: string };
-}
-
-/**
- * **Stays mock-only in every mode** — `docs/API.md`: "Not built in
- * M8.3b (not in the brief's scope) — still mock-only." In real mode this
- * mutates a mock-only booking object that isn't the one `getPartnerBooking`
- * just fetched from the server, so "Save slots" appears to succeed but the
- * next reload shows the original server-side slots — flagged here rather
- * than silently letting it look like a real write. A future milestone needs
- * a real `PATCH /seller/bookings/:id/slots` endpoint.
- */
-export async function updatePartnerBookingSlots(
-  bookingId: string,
-  input: PartnerSlotInput,
-): Promise<LaundryBooking | undefined> {
-  const placed = await getPlacedBookings();
-  const booking = [...seedLaundryBookings, ...placed].find((b) => b.id === bookingId);
-  if (!booking) return undefined;
-  booking.pickupSlot = input.pickupSlot;
-  booking.deliverySlot = input.deliverySlot;
-  return booking;
-}
-
-export interface PartnerDashboardSnapshot {
-  todayPickupsCount: number;
-  todayDeliveriesCount: number;
-  weekEarnings: number;
-  pendingPayoutAmount: number;
-  rating: number;
-  reviewCount: number;
-}
-
-/** Bookings whose `createdAt` falls within the trailing 7 days count toward "this week's earnings" — a simple mock proxy for a real settlement-period calculation. */
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-export async function getPartnerDashboard(seller: Seller): Promise<PartnerDashboardSnapshot> {
-  if (!isMockMode()) return http.get<PartnerDashboardSnapshot>("/seller/dashboard");
-
-  const [bookings, payoutList] = await Promise.all([
-    getPartnerBookings(seller.id),
-    getSellerPayouts(seller.id),
-  ]);
-
-  const today = todayISODate();
-  const now = Date.now();
-  const todayPickupsCount = bookings.filter((b) => b.pickupSlot.date === today).length;
-  const todayDeliveriesCount = bookings.filter((b) => b.deliverySlot.date === today).length;
-  const weekEarnings = bookings
-    .filter((b) => b.status !== "cancelled" && now - new Date(b.createdAt).getTime() <= WEEK_MS)
-    .reduce((sum, b) => sum + b.estimatedTotal, 0);
-
-  return {
-    todayPickupsCount,
-    todayDeliveriesCount,
-    weekEarnings,
-    pendingPayoutAmount: payoutList
-      .filter((p) => p.status === "pending")
-      .reduce((sum, p) => sum + p.amount, 0),
-    rating: seller.rating ?? 0,
-    reviewCount: seller.reviewCount ?? 0,
-  };
-}
+// `updatePartnerBookingSlots` and `getPartnerDashboard` left in M37 with
+// the withdrawn laundry module: the first was mock-only in every mode (a
+// "Save slots" that never reached the server), the second fed a
+// dashboard component the single-role merge had already orphaned.
 
 // ---------------------------------------------------------------------------
 // M10b — Snack seller: menu CRUD (`Snack`s scoped by `sellerId`). Real

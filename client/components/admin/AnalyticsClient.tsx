@@ -185,6 +185,9 @@ export function AnalyticsClient() {
           <Card className={styles.barChart}>
             {(Object.keys(ORDER_TYPE_LABEL) as AdminOrderType[]).map((type) => {
               const count = snapshot.ordersByType[type];
+              // Withdrawn module: only rendered while legacy bookings
+              // exist to count (the label map stays for those rows).
+              if (type === "laundry" && count === 0) return null;
               const pct = Math.round((count / maxOrderType) * 100);
               return (
                 <div key={type} className={styles.barRow}>

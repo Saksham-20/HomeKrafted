@@ -123,8 +123,8 @@ export function getLaundryStatusSteps(status: string): OrderHistoryStep[] {
   return LAUNDRY_PIPELINE.map((step, i) => ({ label: step.label, done: i <= index, current: i === index }));
 }
 
-/** `serviceName` is resolved by the caller (a join `OrdersService.history` does once, batched, rather than N+1 per booking) — falls back to a generic label if somehow missing. */
-export function toLaundryHistoryEntry(booking: LaundryBookingWithLines, serviceName: string | undefined) {
+/** The service name rides on the row itself since M37 (`BOOKING_INCLUDE` joins it) — the caller-side batched lookup this took as a parameter is gone with the browse routes. */
+export function toLaundryHistoryEntry(booking: LaundryBookingWithLines) {
   const mapped = mapLaundryBooking(booking);
   const status = bookingStatusToFrontend(booking.status);
   return {
@@ -136,7 +136,7 @@ export function toLaundryHistoryEntry(booking: LaundryBookingWithLines, serviceN
     statusRaw: status,
     steps: getLaundryStatusSteps(status),
     total: Number(booking.estimatedTotal),
-    summary: serviceName ?? 'Laundry service',
+    summary: booking.lines[0]?.service.name ?? 'Laundry service',
     cancelled: booking.status === 'cancelled',
     booking: mapped,
   };

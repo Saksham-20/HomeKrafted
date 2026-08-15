@@ -48,6 +48,14 @@ export interface LaundryHowItWorksStep {
 
 export interface LaundryLine {
   serviceId: ID;
+  /**
+   * Denormalised from the service row server-side (M37). With the
+   * laundry browse API gone, the booking payload is the only place a
+   * legacy line's service name still reaches a screen — optional because
+   * mock-seeded bookings predate the enrichment.
+   */
+  serviceName?: string;
+  unitLabel?: string;
   estimatedWeightKg?: number;
   itemCount?: number;
   estimatedHours?: number;
@@ -70,6 +78,9 @@ export interface LaundryBooking {
   lines: LaundryLine[];
   pickupSlot: { date: ISODateString; slotId: ID };
   deliverySlot: { date: ISODateString; slotId: ID };
+  /** Slot labels, denormalised server-side (M37) — same reasoning as `LaundryLine.serviceName`. */
+  pickupSlotLabel?: string;
+  deliverySlotLabel?: string;
   addressId: ID;
   /** Placeholder labels for dry-clean estimate photo uploads. */
   photos: string[];

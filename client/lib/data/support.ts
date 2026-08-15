@@ -15,4 +15,4 @@ export const SUPPORT_HOURS = "Mon–Sat, 9am–8pm IST";
 
 /** First message the mock chat widget shows before the shopper types anything. */
 export const SUPPORT_CHAT_GREETING =
-  "Hi! I'm the Homekrafted support bot. Ask me about an order, laundry pickup, refund, or wallet — or raise a ticket below for anything else.";
+  "Hi! I'm the Homekrafted support bot. Ask me about an order, refund, or wallet — or raise a ticket below for anything else.";

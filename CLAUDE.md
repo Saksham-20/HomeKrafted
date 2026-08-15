@@ -399,7 +399,7 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 | Marketplace | yes | full web checkout | yes | status only (no map/rider) |
 | Snacks | yes (menu) | **no** — WhatsApp only (`wa.me`), no cart/checkout on site | yes | WhatsApp status text |
 | Full meals | **no** — promo only, no menu/cart | app-only | yes (interest only) | app-only |
-| ~~Laundry~~ | **withdrawn (M19)** — `enabled: false`, `/laundry` 404s, `POST /laundry/bookings` and `/subscriptions` return 410 | | | |
+| ~~Laundry~~ | **withdrawn (M19; browse gone M37)** — `enabled: false`, `/laundry` 404s, the create routes return 410, and the four public browse reads are deleted. Owner reads + subscription change/cancel stay; booking payloads carry their own `serviceName`/slot labels so no screen needs the withdrawn catalogue | | | |
 
 `hasPreOrderOnWeb` is deliberately separate from `hasCheckoutOnWeb`:
 scheduling is information, not a transaction. Snacks/meals carry the

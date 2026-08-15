@@ -7,8 +7,8 @@ import { SellerPageHeader } from "./SellerPageHeader";
 import { PickupRow } from "./PickupRow";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getLaundryServices, getPartnerBookings } from "@/lib/api";
-import type { LaundryBooking, LaundryBookingStatus, LaundryService } from "@/lib/types";
+import { getPartnerBookings } from "@/lib/api";
+import type { LaundryBooking, LaundryBookingStatus } from "@/lib/types";
 import styles from "./PartnerPickupsClient.module.css";
 
 const FILTERS: { value: LaundryBookingStatus | "all"; label: string }[] = [
@@ -25,7 +25,6 @@ const FILTERS: { value: LaundryBookingStatus | "all"; label: string }[] = [
 export function PartnerPickupsClient() {
   const { seller, sellerDataReady } = useAuth();
   const [bookings, setBookings] = useState<LaundryBooking[]>([]);
-  const [services, setServices] = useState<LaundryService[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<LaundryBookingStatus | "all">("all");
@@ -39,13 +38,9 @@ export function PartnerPickupsClient() {
     let cancelled = false;
     (async () => {
       try {
-        const [list, serviceList] = await Promise.all([
-          getPartnerBookings(seller?.id ?? ""),
-          getLaundryServices(),
-        ]);
+        const list = await getPartnerBookings(seller?.id ?? "");
         if (cancelled) return;
         setBookings(list);
-        setServices(serviceList);
       } catch (error) {
         if (cancelled) return;
         if (!isForbidden(error)) throw error;
@@ -72,10 +67,9 @@ export function PartnerPickupsClient() {
     return <ModuleUnavailable module="Pickups" />;
   }
 
+  // Rides on the booking row itself since M37 (`LaundryLine.serviceName`).
   function serviceLabel(booking: LaundryBooking): string {
-    const first = booking.lines[0];
-    if (!first) return "—";
-    return services.find((s) => s.id === first.serviceId)?.name ?? "—";
+    return booking.lines[0]?.serviceName ?? "—";
   }
 
   return (

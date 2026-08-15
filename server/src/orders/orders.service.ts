@@ -543,16 +543,9 @@ export class OrdersService {
       this.laundryService.listBookingsForHistory(userId),
     ]);
 
-    const serviceIds = [...new Set(bookings.flatMap((b) => b.lines.map((l) => l.serviceId)))];
-    const services = serviceIds.length
-      ? await this.prisma.laundryService.findMany({ where: { id: { in: serviceIds } } })
-      : [];
-    const serviceNameById = new Map(services.map((s) => [s.id, s.name]));
-
     const orderEntries = orders.map((order) => toOrderHistoryEntry(order, mapOrder(order)));
-    const bookingEntries = bookings.map((booking) =>
-      toLaundryHistoryEntry(booking, serviceNameById.get(booking.lines[0]?.serviceId ?? '')),
-    );
+    // Service names ride on the rows themselves since M37 (`BOOKING_INCLUDE`).
+    const bookingEntries = bookings.map(toLaundryHistoryEntry);
 
     return [...orderEntries, ...bookingEntries].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),

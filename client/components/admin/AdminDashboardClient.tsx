@@ -112,7 +112,7 @@ export function AdminDashboardClient() {
       </div>
 
       <div className={styles.statGrid}>
-        <StatCard label="GMV (all modules)" value={formatCurrency(snapshot.gmvTotal)} hint="Marketplace + laundry + snacks" />
+        <StatCard label="GMV (all modules)" value={formatCurrency(snapshot.gmvTotal)} hint="Marketplace + snacks, plus legacy laundry" />
         <StatCard label="Orders today" value={String(snapshot.ordersTodayCount)} />
         <StatCard label="Orders total" value={String(snapshot.ordersTotalCount)} />
         <StatCard label="Users" value={String(snapshot.usersCount)} />
@@ -133,13 +133,21 @@ export function AdminDashboardClient() {
           label="Cooking homemade food"
           value={String(snapshot.activeBySpecialty?.homemade_food ?? 0)}
         />
-        <StatCard label="Offering laundry" value={String(snapshot.activeBySpecialty?.laundry ?? 0)} />
+        {/* Laundry is withdrawn (M19) — the card renders only while
+            legacy partners still carry the tag, and disappears at zero
+            rather than advertising a dead module forever. */}
+        {(snapshot.activeBySpecialty?.laundry ?? 0) > 0 && (
+          <StatCard label="Offering laundry (legacy)" value={String(snapshot.activeBySpecialty?.laundry ?? 0)} />
+        )}
       </div>
 
       <h2 className={styles.sectionTitle}>Orders by module</h2>
       <Card className={styles.barChart}>
         {(Object.keys(ORDER_TYPE_LABEL) as AdminOrderType[]).map((type) => {
           const count = snapshot.ordersByType[type];
+          // Withdrawn module: show the laundry bar only while legacy
+          // bookings exist to count (the label map stays for those rows).
+          if (type === "laundry" && count === 0) return null;
           const pct = Math.round((count / maxOrderCount) * 100);
           return (
             <div key={type} className={styles.barRow}>

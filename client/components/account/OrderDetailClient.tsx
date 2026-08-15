@@ -10,13 +10,11 @@ import { ReorderButton } from "./ReorderButton";
 import { OrderResolutionPanel } from "./OrderResolutionPanel";
 import {
   getAddressById,
-  getLaundryServices,
-  getLaundrySlots,
   getOrderHistoryEntry,
   type OrderHistoryEntry,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { Address, LaundryService, LaundrySlot } from "@/lib/types";
+import type { Address } from "@/lib/types";
 import { kitchenLoading } from "@/lib/kitchen-copy";
 import styles from "./OrderDetailClient.module.css";
 
@@ -40,8 +38,6 @@ const PAYMENT_LABEL: Record<string, string> = {
 export function OrderDetailClient({ id }: OrderDetailClientProps) {
   const [entry, setEntry] = useState<OrderHistoryEntry | null | undefined>(undefined);
   const [addresses, setAddresses] = useState<Record<string, Address>>({});
-  const [laundrySlots, setLaundrySlots] = useState<LaundrySlot[]>([]);
-  const [laundryServices, setLaundryServices] = useState<LaundryService[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,15 +46,9 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
         if (cancelled) return;
         setEntry(found ?? null);
 
-        // The laundry catalogues exist only to label a legacy booking's
-        // lines and slot — fetching them for every marketplace order
-        // (M37 fix) was two wasted round trips to a withdrawn module.
-        if (found?.kind === "laundry") {
-          const [slots, services] = await Promise.all([getLaundrySlots(), getLaundryServices()]);
-          if (cancelled) return;
-          setLaundrySlots(slots);
-          setLaundryServices(services);
-        }
+        // A legacy laundry booking labels itself (M37): service names and
+        // slot labels ride on the payload, so the withdrawn module's
+        // catalogue is never fetched here.
 
         const addressIds = new Set<string>();
         if (found?.order) {
@@ -237,12 +227,11 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
           <span className={styles.cardTitle}>Booking details</span>
           <div className={styles.itemRows}>
             {booking.lines.map((line, index) => {
-              const service = laundryServices.find((s) => s.id === line.serviceId);
               const qty = line.estimatedWeightKg ?? line.itemCount ?? line.estimatedHours ?? 0;
               return (
                 <div key={index} className={styles.itemRow}>
                   <span>
-                    {service?.name ?? "Service"} (est. {qty} {service?.unitLabel})
+                    {line.serviceName ?? "Service"} (est. {qty} {line.unitLabel})
                   </span>
                   <span>{formatCurrency(line.estimatedPrice)}</span>
                 </div>
@@ -251,15 +240,13 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
             <div className={styles.itemRow}>
               <span>Pickup</span>
               <span>
-                {formatDate(booking.pickupSlot.date)} ·{" "}
-                {laundrySlots.find((s) => s.id === booking.pickupSlot.slotId)?.label ?? ""}
+                {formatDate(booking.pickupSlot.date)} · {booking.pickupSlotLabel ?? ""}
               </span>
             </div>
             <div className={styles.itemRow}>
               <span>Delivery</span>
               <span>
-                {formatDate(booking.deliverySlot.date)} ·{" "}
-                {laundrySlots.find((s) => s.id === booking.deliverySlot.slotId)?.label ?? ""}
+                {formatDate(booking.deliverySlot.date)} · {booking.deliverySlotLabel ?? ""}
               </span>
             </div>
             {addresses[booking.addressId] && (

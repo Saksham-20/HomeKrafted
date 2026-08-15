@@ -224,7 +224,7 @@ export function SellerAnalyticsClient() {
               <Card className={styles.barChart}>
                 {topItems.length === 0 ? (
                   <p className={styles.chartNote}>
-                    No marketplace items sold in this window. Snack and laundry orders count towards
+                    No marketplace items sold in this window. WhatsApp snack orders count towards
                     your earnings but have no per-item breakdown.
                   </p>
                 ) : (

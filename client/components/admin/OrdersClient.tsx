@@ -90,7 +90,7 @@ export function OrdersClient() {
         title="Orders"
         subtitle={
           typeFilter === "all" && !debouncedQuery
-            ? `${total} order${total === 1 ? "" : "s"} across marketplace, laundry and snacks`
+            ? `${total} order${total === 1 ? "" : "s"} across marketplace and snacks`
             : `${total} order${total === 1 ? "" : "s"} match these filters`
         }
       />

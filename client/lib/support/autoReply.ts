@@ -18,9 +18,12 @@ const RULES: AutoReplyRule[] = [
       "I can help with that — you can track any order under Account → Orders. If it's running late, share your order number and I'll flag it for our team.",
   },
   {
+    // The keywords stay although the module is withdrawn (M19/M37):
+    // someone with an old booking will still ask about it, and an honest
+    // answer beats the bot pretending the word means nothing.
     keywords: ["laundry", "pickup", "pick up", "wash", "iron", "dry clean"],
     reply:
-      "For laundry pickups, live rider tracking is on the Homekrafted app. On the website you'll see a status line under Account → Orders.",
+      "Laundry is no longer offered on Homekrafted. Bookings you already made still show under Account → Orders — raise a ticket below if one needs attention.",
   },
   {
     keywords: ["refund", "cancel", "return"],

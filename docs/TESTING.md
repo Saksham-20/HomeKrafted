@@ -382,7 +382,12 @@ nothing to book. What to confirm instead:
   not a blank screen and not a redirect to home
 - A demo account with an **old booking still sees it** in
   `/account/orders`. Hiding a service must never erase what somebody
-  already paid for — if a past booking has vanished, report it.
+  already paid for — if a past booking has vanished, report it. The
+  booking detail names its services and slots without the old catalogue
+  (M37 — those labels now ride on the booking itself).
+- The support bot's greeting no longer offers laundry, but asking it
+  about a laundry pickup gets an honest "no longer offered" answer that
+  points at `/account/orders` (M37).
 
 ### 6. Snacks — including pre-order
 - **Snacks** page — browse the menu
