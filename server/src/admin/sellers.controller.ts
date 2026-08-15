@@ -47,15 +47,10 @@ export class AdminSellersController {
   }
 
   /**
-   * Re-send an approved HomeKrafter's sign-in link. Burns the previous
-   * one. The remedy for "the approval email never arrived", which is
-   * otherwise unfixable now that a duplicate application is correctly
-   * refused.
-   */
-  /**
    * Sign-in details an admin can read out over the phone, for a kitchen
    * the invite email never reached. Returns the password **once** — it is
-   * stored only as a hash, and the account must replace it at first
+   * stored only as a hash, so a lost password is re-issued (which revokes
+   * the old one), never re-read. The account must replace it at first
    * sign-in. See `AdminSellersService.issueTemporaryPassword`.
    */
   @HttpCode(HttpStatus.OK)
@@ -64,6 +59,12 @@ export class AdminSellersController {
     return this.sellersService.issueTemporaryPassword(admin.userId, id);
   }
 
+  /**
+   * Re-send an approved HomeKrafter's sign-in link. Burns the previous
+   * one. The remedy for "the approval email never arrived", which is
+   * otherwise unfixable now that a duplicate application is correctly
+   * refused.
+   */
   @Post(':id/resend-invite')
   resendInvite(@CurrentUser() admin: RequestUser, @Param('id') id: string) {
     return this.sellersService.resendInvite(admin.userId, id);

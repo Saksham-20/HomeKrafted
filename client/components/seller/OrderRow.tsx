@@ -2,23 +2,23 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { OrderStatusPill } from "./OrderStatusPill";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { Order } from "@/lib/types";
+import type { SellerOrder } from "@/lib/types";
 import styles from "./OrderRow.module.css";
 
 export interface OrderRowProps {
-  order: Order;
-  /** e.g. "Mango Thokku Pickle ×2" — this seller's line items only, computed by the caller (needs a product lookup OrderRow doesn't own). */
+  order: SellerOrder;
+  /** e.g. "Mango Thokku Pickle ×2" — already this seller's line items only (`describeSellerOrderItems`). */
   itemsLabel: string;
   href: string;
 }
 
 /**
  * Order list row — order number, placed date, this seller's items,
- * status pill, order total. Reused on `/seller` (recent orders preview)
- * and `/seller/orders` (the full list). The order `total` shown is the
- * whole order's total (a real multi-vendor marketplace order can span
- * more than one seller) rather than this seller's share — flagged here
- * since a real payouts reconciliation would need a per-line-item split.
+ * status pill, and this seller's own share (`itemsSubtotal`, M37).
+ * Reused on `/seller` (recent orders preview) and `/seller/orders` (the
+ * full list). The whole-order total is deliberately absent: a
+ * multi-vendor order's basket total was never this kitchen's number, and
+ * payouts are computed from the share shown here.
  */
 export function OrderRow({ order, itemsLabel, href }: OrderRowProps) {
   return (
@@ -32,7 +32,7 @@ export function OrderRow({ order, itemsLabel, href }: OrderRowProps) {
         </div>
         <div className={styles.right}>
           <OrderStatusPill status={order.status} />
-          <span className={styles.total}>{formatCurrency(order.total)}</span>
+          <span className={styles.total}>{formatCurrency(order.itemsSubtotal)}</span>
         </div>
       </Card>
     </Link>

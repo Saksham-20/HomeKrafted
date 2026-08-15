@@ -45,12 +45,20 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getOrderHistoryEntry(id), getLaundrySlots(), getLaundryServices()]).then(
-      async ([found, slots, services]) => {
+    getOrderHistoryEntry(id).then(
+      async (found) => {
         if (cancelled) return;
         setEntry(found ?? null);
-        setLaundrySlots(slots);
-        setLaundryServices(services);
+
+        // The laundry catalogues exist only to label a legacy booking's
+        // lines and slot — fetching them for every marketplace order
+        // (M37 fix) was two wasted round trips to a withdrawn module.
+        if (found?.kind === "laundry") {
+          const [slots, services] = await Promise.all([getLaundrySlots(), getLaundryServices()]);
+          if (cancelled) return;
+          setLaundrySlots(slots);
+          setLaundryServices(services);
+        }
 
         const addressIds = new Set<string>();
         if (found?.order) {

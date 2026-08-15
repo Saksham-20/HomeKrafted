@@ -153,20 +153,25 @@ through the real application flow is not:
    expected state today, not a bug. `POST /admin/sellers/:id/resend-invite`
    re-sends and burns the previous link.
 5. **M32 — approval also issues a username and a short temporary
-   password**, shown on the approval banner and on the HomeKrafter's row
-   under **Sign-in details**, so an admin can simply read them out. They
-   stay visible until used. The moment that kitchen signs in and chooses
-   their own password, the temporary one is deleted, the row flips to
-   "Signed in", and the **Sign-in details** button disappears from that
-   row for good. If such a HomeKrafter is genuinely locked out, use
-   **Resend invite** — that sends a set-password link to them, rather
-   than giving whoever is at the admin screen a working password.
+   password**, shown on the approval banner so an admin can read them
+   out. **M37 — it is shown exactly once.** Nothing stores the plaintext,
+   so note it down before leaving the page; afterwards the row says
+   "Issued ‹date›, not yet used" and offers **Re-issue**, which mints a
+   fresh password (killing the previous one and any open sessions) and
+   shows the new one — once. Do the onboarding call with the panel open,
+   or re-issue at the start of it. The moment that kitchen signs in and
+   chooses their own password, the row flips to "Signed in" and the
+   control disappears for good. If such a HomeKrafter is genuinely locked
+   out, use **Resend invite** — that sends a set-password link to them,
+   rather than giving whoever is at the admin screen a working password.
 6. **The filter above the list has three states**, and they are worth
    knowing apart. **No sign-in yet** — no password exists at all, so
    there is nothing to read out; every HomeKrafter approved before M32 is
    here, and their row offers "Create sign-in details". **Details
-   issued** — a password is on the row, unused. **Signed in** — they
-   chose their own, and we hold nothing that opens the account.
+   issued** — a credential exists and has not been used; the password
+   itself is not re-readable (M37 — re-issue if it was lost). **Signed
+   in** — they chose their own, and we hold nothing that opens the
+   account.
 
 **The `/sell` form asks more, and refuses less usefully (M32).** It now
 checks as you go: an email address typed into "Business / maker name"

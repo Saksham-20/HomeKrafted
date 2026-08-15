@@ -8,7 +8,7 @@ import { OrderRow } from "./OrderRow";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { describeSellerOrderItems, getSellerOrders } from "@/lib/api";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { OrderStatus, SellerOrder } from "@/lib/types";
 import styles from "./MakerOrdersClient.module.css";
 
 const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
@@ -24,7 +24,7 @@ const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
 /** `/seller/orders` for `type: "maker"` sellers (M10a) — orders containing at least one of this seller's products, filterable by fulfilment status, newest first. Rendered by `SellerOrdersClient` (M10b's type router) when `seller.type === "maker"`; otherwise unchanged from M10a. */
 export function MakerOrdersClient() {
   const { ready, seller } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
@@ -93,7 +93,7 @@ export function MakerOrdersClient() {
             <OrderRow
               key={order.id}
               order={order}
-              itemsLabel={seller?.vendorId ? describeSellerOrderItems(order, seller.vendorId) : "—"}
+              itemsLabel={describeSellerOrderItems(order)}
               href={`/seller/orders/${order.id}`}
             />
           ))}

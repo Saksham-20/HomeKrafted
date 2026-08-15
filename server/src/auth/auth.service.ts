@@ -424,10 +424,9 @@ export class AuthService {
           authProviders,
           // The other way an issued credential dies (M32): somebody who
           // uses the emailed link rather than the temporary password has
-          // still chosen their own, so the admin panel must stop showing
-          // one — and the forced-change gate must let them through.
+          // still chosen their own — the forced-change gate must let
+          // them through.
           mustChangePassword: false,
-          tempPassword: null,
           credentialsClaimedAt: stored.user.credentialsClaimedAt ?? new Date(),
         },
       }),
@@ -495,10 +494,8 @@ export class AuthService {
           passwordHash,
           mustChangePassword: false,
           // The issued credential is gone the moment its owner replaces
-          // it — this is what makes the admin panel stop showing it, and
-          // what keeps the plaintext column a short-lived exception
-          // rather than a password store.
-          tempPassword: null,
+          // it — from here on `claimedAt` is what tells the admin panel
+          // this kitchen really arrived.
           credentialsClaimedAt: user.credentialsClaimedAt ?? new Date(),
           // They have just proved they hold whatever channel the
           // credential was handed over on, and an account that signs in

@@ -429,7 +429,14 @@ everyone behind one office NAT shares a single budget:
 ```
 THROTTLE_LIMIT=120          # all routes, per THROTTLE_TTL_SECONDS
 THROTTLE_AUTH_LIMIT=20      # /auth/* only, per THROTTLE_AUTH_TTL_SECONDS
+THROTTLE_REVIEWS_LIMIT=5    # POST /reviews only, per minute (M37)
 ```
+
+Two more write endpoints carry their own fixed 5/min (`POST
+/seller-applications`, `POST /corporate-inquiries`), and the Next app
+throttles its own `/client-errors` beacon in-process (10 burst,
+10/minute per IP — `client/lib/rate-limit.ts`), so a script cannot write
+unbounded volume into the pm2 log.
 
 "Keyed on client IP" only became true in M23. nginx proxies to the API on
 localhost, so without `app.set('trust proxy', 1)` — added in

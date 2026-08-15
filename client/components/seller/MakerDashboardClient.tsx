@@ -15,7 +15,7 @@ import {
   type SellerDashboardSnapshot,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { Order } from "@/lib/types";
+import type { SellerOrder } from "@/lib/types";
 import styles from "./MakerDashboardClient.module.css";
 
 const QUICK_LINKS = [
@@ -40,7 +40,7 @@ const QUICK_LINKS = [
 export function MakerDashboardClient() {
   const { ready, seller } = useAuth();
   const [snapshot, setSnapshot] = useState<SellerDashboardSnapshot | undefined>(undefined);
-  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [recentOrders, setRecentOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export function MakerDashboardClient() {
     (async () => {
       const [snap, orders] = await Promise.all([
         getSellerDashboard(seller),
-        seller.vendorId ? getSellerOrders(seller.vendorId) : Promise.resolve<Order[]>([]),
+        seller.vendorId ? getSellerOrders(seller.vendorId) : Promise.resolve<SellerOrder[]>([]),
       ]);
       if (cancelled) return;
       setSnapshot(snap);
@@ -120,9 +120,7 @@ export function MakerDashboardClient() {
             <OrderRow
               key={order.id}
               order={order}
-              itemsLabel={
-                seller.vendorId ? describeSellerOrderItems(order, seller.vendorId) : "—"
-              }
+              itemsLabel={describeSellerOrderItems(order)}
               href={`/seller/orders/${order.id}`}
             />
           ))}

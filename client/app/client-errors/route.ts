@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clientKeyFrom, RateLimiter } from "@/lib/rate-limit";
 
 /**
  * Where a browser-side failure goes so a human finds out.
@@ -51,6 +52,16 @@ import { NextResponse } from "next/server";
 const MAX_FIELD = 300;
 const MAX_BODY_BYTES = 4_000;
 
+/**
+ * Volume cap (M37). The per-request payload was always bounded; the
+ * *number* of requests was not, so a script could write log lines as
+ * fast as it could POST — an unauthenticated write into the pm2 log.
+ * 10 burst / 10-per-minute per caller is far above what a genuinely
+ * broken page emits, and a refused beacon costs nothing: the visitor was
+ * never waiting on it.
+ */
+const limiter = new RateLimiter({ capacity: 10, refillPerMinute: 10 });
+
 /** One-line, newline-free, bounded. */
 function clean(value: unknown, max = MAX_FIELD): string | undefined {
   if (typeof value !== "string" || value.length === 0) return undefined;
@@ -59,6 +70,10 @@ function clean(value: unknown, max = MAX_FIELD): string | undefined {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!limiter.take(clientKeyFrom(request.headers.get("x-forwarded-for")), Date.now())) {
+    return NextResponse.json({ ok: false }, { status: 429 });
+  }
+
   let body: unknown;
   try {
     const raw = await request.text();

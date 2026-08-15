@@ -293,9 +293,10 @@ export function SellersClient() {
               Approved. Here is how {approvedSignIn.displayName} signs in.
             </p>
             <p className={styles.inviteWarningBody}>
-              Read these out to them. They stay on this HomeKrafter&apos;s row
-              until they sign in and choose their own password — nothing else on
-              the site works for them until they do.
+              Read these out now and note them down — the password is shown
+              only this once. If it&apos;s lost, re-issue from their row; the
+              old one stops working. Nothing else on the site works for them
+              until they sign in and choose their own.
             </p>
             <code className={styles.inviteLink}>
               {approvedSignIn.email ?? approvedSignIn.phone} ·{" "}

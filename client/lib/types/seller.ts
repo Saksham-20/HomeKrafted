@@ -59,11 +59,11 @@ export interface SellerSignInState {
   /** What they type in the one sign-in box: their email, or their number if that is all we have. */
   username: string | null;
   /**
-   * Present **only** while it is still the account's real password. The
-   * server nulls it the moment its owner chooses their own, so this going
-   * away is the signal that they have arrived — never a stale secret.
+   * No password rides here (M37). The plaintext exists only in the
+   * response of the issue/approve call itself — the row can say a
+   * credential was issued and when, never what it was. Lost means
+   * re-issued.
    */
-  temporaryPassword: string | null;
   issuedAt?: ISODateString | null;
   claimedAt?: ISODateString | null;
 }

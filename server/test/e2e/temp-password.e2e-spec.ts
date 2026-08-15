@@ -315,17 +315,44 @@ describe('admin-issued sign-in details (M32)', () => {
 
       const signIn = await stateOf(admin, seller.id);
       expect(signIn.status).toBe('no_credentials');
-      expect(signIn.temporaryPassword).toBeNull();
+      expect(signIn).not.toHaveProperty('temporaryPassword');
     });
 
-    it('reports awaiting once details are issued, with the password readable', async () => {
+    it('reports awaiting once details are issued — and never echoes the password again (M37)', async () => {
       const admin = await createActor(h, 'admin');
       const seller = await approvedKitchen();
       const password: string = (await issue(admin, seller.id).expect(200)).body.temporaryPassword;
 
-      const signIn = await stateOf(admin, seller.id);
+      // The list and the detail are the two surfaces that used to carry
+      // the plaintext. Scan the whole body, not a field: a regression that
+      // moves it somewhere else must still fail here.
+      const list = await h
+        .api()
+        .get(`${API_PREFIX}/admin/sellers?pageSize=100`)
+        .set({ Authorization: `Bearer ${admin.token}` })
+        .expect(200);
+      expect(JSON.stringify(list.body)).not.toContain(password);
+
+      const detail = await h
+        .api()
+        .get(`${API_PREFIX}/admin/sellers/${seller.id}/detail`)
+        .set({ Authorization: `Bearer ${admin.token}` })
+        .expect(200);
+      expect(JSON.stringify(detail.body)).not.toContain(password);
+
+      const signIn = list.body.items.find((s: { id: string }) => s.id === seller.id)?.signIn;
       expect(signIn.status).toBe('awaiting');
-      expect(signIn.temporaryPassword).toBe(password);
+      expect(signIn.issuedAt).toBeTruthy();
+      expect(signIn).not.toHaveProperty('temporaryPassword');
+
+      // Show-once is a display change, not a lockout: the issued
+      // credential itself still works.
+      const user = await h.prisma.user.findUnique({ where: { id: seller.userId } });
+      await h
+        .api()
+        .post(`${API_PREFIX}/auth/login`)
+        .send({ email: user!.email, password })
+        .expect(200);
     });
 
     it('reports onboarded with nothing readable once they choose their own', async () => {
@@ -348,7 +375,7 @@ describe('admin-issued sign-in details (M32)', () => {
 
       const signIn = await stateOf(admin, seller.id);
       expect(signIn.status).toBe('onboarded');
-      expect(signIn.temporaryPassword).toBeNull();
+      expect(signIn).not.toHaveProperty('temporaryPassword');
       expect(signIn.claimedAt).toBeTruthy();
     });
 

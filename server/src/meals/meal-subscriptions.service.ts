@@ -92,9 +92,16 @@ export class MealSubscriptionsService {
 
       // Capacity, enforced. `VendorProfile.capacityPerDay` has existed since
       // M16 and is checked nowhere; this is the first place a home cook's
-      // stated ceiling actually holds. Counted inside the transaction so two
-      // simultaneous subscribers cannot both take the last seat.
+      // stated ceiling actually holds.
+      //
+      // The plan row is locked first (M37): a transaction alone does not
+      // serialise count-then-insert under READ COMMITTED — two concurrent
+      // subscribers both count, both see a free seat, both insert. The
+      // loser of the lock blocks here and re-counts after the winner
+      // commits. Same pattern as `seller/payouts.service.ts` and
+      // `wallet.service.ts#postLedgerEntryTx`.
       if (plan.maxSubscribers !== null) {
+        await tx.$queryRaw`SELECT "id" FROM "MealPlan" WHERE "id" = ${plan.id} FOR UPDATE`;
         const taken = await tx.mealSubscription.count({
           where: { planId: plan.id, status: { in: ['active', 'paused'] } },
         });

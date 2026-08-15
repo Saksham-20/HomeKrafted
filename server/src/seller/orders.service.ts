@@ -1,10 +1,13 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { mapOrder } from '../orders/order.mapper';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
+import { mapOrderForSeller, SellerOrderWithRelations } from './mappers/seller-order.mapper';
 
-const SELLER_ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
+const SELLER_ORDER_INCLUDE = {
+  items: { include: { product: { select: { vendorId: true } } } },
+  shipments: true,
+} satisfies Prisma.OrderInclude;
 
 /**
  * The fulfilment pipeline a maker seller can advance an order through —
@@ -23,11 +26,14 @@ export function nextFulfillmentStatus(status: OrderStatus): OrderStatus | undefi
 
 /**
  * Maker order fulfilment — scoped to orders containing at least one item
- * from this seller's own vendor. Ownership check runs by first resolving
- * the vendor's own product ids, then requiring the order to reference one
- * of them; an order that exists but has none of this vendor's items 404s,
- * same "never confirm/deny another owner's resource" rule every other
- * owner-scoped module in this codebase follows.
+ * from this seller's own vendor. An order that exists but has none of
+ * this vendor's items 404s, same "never confirm/deny another owner's
+ * resource" rule every other owner-scoped module follows.
+ *
+ * Every response is the seller-scoped projection (`mapOrderForSeller`,
+ * M37): a participant in a multi-vendor order sees their own lines and
+ * destinations, never the other kitchens' items, the buyer's identity or
+ * the whole-order money.
  */
 @Injectable()
 export class SellerOrdersService {
@@ -37,20 +43,17 @@ export class SellerOrdersService {
   ) {}
 
   async list(vendorId: string) {
-    const productIds = await this.vendorProductIds(vendorId);
-    if (productIds.length === 0) return [];
-
     const orders = await this.prisma.order.findMany({
-      where: { items: { some: { productId: { in: productIds } } } },
+      where: { items: { some: { product: { vendorId } } } },
       include: SELLER_ORDER_INCLUDE,
       orderBy: { placedAt: 'desc' },
     });
-    return orders.map(mapOrder);
+    return orders.map((order) => mapOrderForSeller(order, vendorId));
   }
 
   async getOne(vendorId: string, orderId: string) {
     const order = await this.assertOwned(vendorId, orderId);
-    return mapOrder(order);
+    return mapOrderForSeller(order, vendorId);
   }
 
   async advance(vendorId: string, orderId: string) {
@@ -59,6 +62,25 @@ export class SellerOrdersService {
     if (!next) {
       throw new ConflictException(`Order is already at a terminal fulfillment status ("${order.status}")`);
     }
+
+    // A graded guard for orders shared between kitchens (M37).
+    // `confirmed` and `packed` describe the caller's own prep, so any
+    // participant may record them — that also closes the buyer's cancel
+    // window, which was already true. `shipped` and `delivered` are
+    // whole-order claims: `delivered` stamps `deliveredAt`, starts the
+    // return clock, and is the payout basis for *every* vendor's lines —
+    // so on a shared order those moves belong to an admin, who can see
+    // all of it. A missing product row (legacy hamper line) counts as
+    // another vendor's: the safe direction.
+    if (next === 'shipped' || next === 'delivered') {
+      const foreign = order.items.some((i) => i.product?.vendorId !== vendorId);
+      if (foreign) {
+        throw new ForbiddenException(
+          "This order also contains another HomeKrafter's items, so shipping and delivery are recorded for the whole order at once. The Homekrafted team updates it — mention the order number to support.",
+        );
+      }
+    }
+
     const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
@@ -75,27 +97,15 @@ export class SellerOrdersService {
     // delivered — and before M18 it was completely silent.
     void this.orderNotifications.notifyBuyerOfStatus(orderId, next);
 
-    return mapOrder(updated);
+    return mapOrderForSeller(updated, vendorId);
   }
 
-  /** "Mango Thokku Pickle ×2, ..." — this seller's line items only, mirrors `client/lib/api/seller.ts#describeSellerOrderItems`. */
-  describeItems(order: { items: { productId?: string; name: string; quantity: number }[] }, productIds: Set<string>): string {
-    const own = order.items.filter((item) => item.productId && productIds.has(item.productId));
-    if (own.length === 0) return '—';
-    return own.map((item) => `${item.name} ×${item.quantity}`).join(', ');
-  }
-
-  private async vendorProductIds(vendorId: string): Promise<string[]> {
-    const products = await this.prisma.product.findMany({ where: { vendorId }, select: { id: true } });
-    return products.map((p) => p.id);
-  }
-
-  private async assertOwned(vendorId: string, orderId: string) {
-    const productIds = await this.vendorProductIds(vendorId);
-    if (productIds.length === 0) throw new NotFoundException('Order not found');
-
-    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: SELLER_ORDER_INCLUDE });
-    const ownsAnItem = order?.items.some((item) => item.productId && productIds.includes(item.productId));
+  private async assertOwned(vendorId: string, orderId: string): Promise<SellerOrderWithRelations> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: SELLER_ORDER_INCLUDE,
+    });
+    const ownsAnItem = order?.items.some((item) => item.product?.vendorId === vendorId);
     if (!order || !ownsAnItem) {
       throw new NotFoundException('Order not found');
     }

@@ -36,6 +36,9 @@ describe('seller application intake (M32)', () => {
     city: 'Chandigarh',
     area: 'chd-sector-34',
     description: 'Punjabi thali cooked at home.',
+    // Required by the intake since M36b — the address a rider collects
+    // from. These specs predate it and 400'd on every submit.
+    addressLine1: '1203, Sector 34-A',
   };
 
   const submit = (body: Record<string, unknown> = {}) =>

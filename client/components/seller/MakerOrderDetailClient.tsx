@@ -16,13 +16,12 @@ import {
   FULFILLMENT_SEQUENCE,
   advanceSellerOrderStatus,
   getAddressById,
-  getProductById,
   getSellerOrder,
   nextFulfillmentStatus,
   apiErrorMessage,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { Address, Order, OrderStatus } from "@/lib/types";
+import type { Address, OrderStatus, SellerOrder } from "@/lib/types";
 import styles from "./MakerOrderDetailClient.module.css";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -42,19 +41,18 @@ export interface MakerOrderDetailClientProps {
 }
 
 /**
- * `/seller/orders/[id]` for `type: "maker"` sellers (M10a) — order
- * detail with a `StatusTimeline` over the fulfilment pipeline and an
- * "advance to next status" action. Items belonging to a *different*
- * vendor on the same order (a real multi-vendor marketplace order can
- * span sellers) render dimmed — visible for context, but not this
- * seller's to act on. Rendered by `SellerOrderDetailClient` (M10b's type
- * router) when `seller.type === "maker"`; otherwise unchanged from M10a.
+ * `/seller/orders/[id]` — order detail with a `StatusTimeline` over the
+ * fulfilment pipeline and an "advance to next status" action. Since M37
+ * the payload is the seller-scoped `SellerOrder`: only this kitchen's own
+ * line items arrive, and `itemsSubtotal` is their share rather than the
+ * buyer's total. On an order shared with another kitchen (`multiVendor`),
+ * `shipped`/`delivered` are recorded by the Homekrafted team — the button
+ * explains instead of offering a move that the server would 403.
  */
 export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps) {
   const { ready, seller } = useAuth();
-  const [order, setOrder] = useState<Order | undefined>(undefined);
+  const [order, setOrder] = useState<SellerOrder | undefined>(undefined);
   const [address, setAddress] = useState<Address | undefined>(undefined);
-  const [itemVendorIds, setItemVendorIds] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,15 +64,6 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
     if (found) {
       const addressId = found.shippingAddressIds[0];
       if (addressId) setAddress(await getAddressById(addressId));
-
-      const entries = await Promise.all(
-        found.items.map(async (item) => {
-          if (!item.productId) return [item.id, ""] as const;
-          const product = await getProductById(item.productId);
-          return [item.id, product?.vendorId ?? ""] as const;
-        }),
-      );
-      setItemVendorIds(Object.fromEntries(entries));
     }
     setLoading(false);
   }, [seller, orderId]);
@@ -87,10 +76,11 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
   }, [ready, seller, load]);
 
   async function handleAdvance() {
+    if (!seller?.vendorId) return;
     setAdvancing(true);
     setError(null);
     try {
-      await advanceSellerOrderStatus(orderId);
+      await advanceSellerOrderStatus(seller.vendorId, orderId);
       await load();
     } catch (err) {
       // A refused advance used to leave the button on "Updating…"
@@ -138,23 +128,25 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
       <div className={styles.grid}>
         <div>
           <Card className={styles.card}>
-            <h2 className={styles.cardTitle}>Items</h2>
-            {order.items.map((item) => {
-              const isOwn = seller?.vendorId ? itemVendorIds[item.id] === seller.vendorId : false;
-              return (
-                <div key={item.id} className={clsx(styles.itemRow, !isOwn && styles.otherVendor)}>
-                  <div>
-                    <div className={styles.itemName}>{item.name}</div>
-                    <div className={styles.itemMeta}>
-                      Qty {item.quantity}
-                      {!isOwn ? " · another HomeKrafter" : ""}
-                      {item.giftWrap ? " · gift wrapped" : ""}
-                    </div>
+            <h2 className={styles.cardTitle}>Your items</h2>
+            {order.items.map((item) => (
+              <div key={item.id} className={styles.itemRow}>
+                <div>
+                  <div className={styles.itemName}>{item.name}</div>
+                  <div className={styles.itemMeta}>
+                    Qty {item.quantity}
+                    {item.giftWrap ? " · gift wrapped" : ""}
                   </div>
-                  <span className={styles.itemPrice}>{formatCurrency(item.price * item.quantity)}</span>
                 </div>
-              );
-            })}
+                <span className={styles.itemPrice}>{formatCurrency(item.price * item.quantity)}</span>
+              </div>
+            ))}
+            {order.multiVendor && (
+              <p className={styles.itemMeta}>
+                Another HomeKrafter&apos;s items are also on this order — only yours are
+                listed here.
+              </p>
+            )}
           </Card>
 
           <Card className={clsx(styles.card, styles.cardSpaced)}>
@@ -166,11 +158,19 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
             ) : (
               <>
                 <StatusTimeline steps={steps} orientation="horizontal" />
-                {next && (
-                  <Button variant="primary" onClick={handleAdvance} disabled={advancing}>
-                    {advancing ? "Updating…" : `Mark as ${STATUS_LABEL[next]}`}
-                  </Button>
-                )}
+                {next &&
+                  (order.multiVendor && (next === "shipped" || next === "delivered") ? (
+                    <p className={styles.terminalNote}>
+                      This order also contains another HomeKrafter&apos;s items, so
+                      shipping and delivery are recorded for the whole order at once
+                      by the Homekrafted team. Mention order #{order.orderNumber} to
+                      support when your part is ready.
+                    </p>
+                  ) : (
+                    <Button variant="primary" onClick={handleAdvance} disabled={advancing}>
+                      {advancing ? "Updating…" : `Mark as ${STATUS_LABEL[next]}`}
+                    </Button>
+                  ))}
                 {error && (
                   <p className={styles.error} role="alert">
                     {error}
@@ -183,23 +183,19 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
 
         <div>
           <Card className={styles.card}>
-            <h2 className={styles.cardTitle}>Order summary</h2>
+            <h2 className={styles.cardTitle}>Your share</h2>
             <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Subtotal</span>
-              <span>{formatCurrency(order.subtotal)}</span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Shipping</span>
-              <span>{order.shippingFee > 0 ? formatCurrency(order.shippingFee) : "Free"}</span>
-            </div>
-            <div className={styles.metaRow}>
-              <span className={styles.metaLabel}>Total</span>
-              <span>{formatCurrency(order.total)}</span>
+              <span className={styles.metaLabel}>Your items</span>
+              <span>{formatCurrency(order.itemsSubtotal)}</span>
             </div>
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Payment</span>
               <span>{order.paymentMethod}</span>
             </div>
+            <p className={styles.itemMeta}>
+              This is the figure your payout is computed from — the buyer&apos;s
+              basket total isn&apos;t shown here.
+            </p>
           </Card>
 
           {address && (

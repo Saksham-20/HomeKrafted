@@ -57,19 +57,20 @@ every approved plan and deployed; these are what still stand between it
 and real customers, and each is the kind of thing a session will otherwise
 assume is already handled.
 
-- **An approved HomeKrafter can now be onboarded by hand (M32), and the
-  provider keys are still the real fix.** Approval issues a username and
-  a short temporary password, shown on the admin row under **Sign-in
-  details** until it is used, so an operator can read them down a phone.
-  It is force-rotated at first sign-in (`User.mustChangePassword`,
-  enforced in `JwtAuthGuard`), cleared from the database the moment its
-  owner chooses their own, and never written to an audit row. **This
-  reverses the M21 rule that an admin must never set a HomeKrafter's
-  password** — that rule assumed the invite arrives, and it does not.
-  `User.tempPassword` holds a plaintext credential until claimed;
-  read its doc comment before touching it, and retire the whole
-  mechanism once SendGrid/Twilio are set. The M21 machinery below still
-  exists and still runs alongside it.
+- **An approved HomeKrafter can now be onboarded by hand (M32; show-once
+  since M37), and the provider keys are still the real fix.** Approval
+  issues a username and a short temporary password, returned **once** in
+  the approve/issue response so an operator can read them down a phone —
+  **nothing stores the plaintext** (M37 dropped `User.tempPassword`; only
+  the argon2 hash exists). A lost password is re-issued from the row
+  ("Issued ‹date›, not yet used → Re-issue"), which rotates the hash and
+  revokes sessions — never re-read. It is force-rotated at first sign-in
+  (`User.mustChangePassword`, enforced in `JwtAuthGuard`) and never
+  written to an audit row. **This reverses the M21 rule that an admin
+  must never set a HomeKrafter's password** — that rule assumed the
+  invite arrives, and it does not. Retire the whole mechanism once
+  SendGrid/Twilio are set. The M21 machinery below still exists and still
+  runs alongside it.
 - **The invite link half (M21).** Approval now mints a single-use,
   7-day set-password link and sends it by **email and SMS**
   (`SellerInviteService`), so phone OTP is no longer the only door. What
@@ -1012,16 +1013,18 @@ All three shipped, were reviewed, and were manually tested. None of them
 had a test, and none was visible from reading the happy path.
 
 - **An approved HomeKrafter's password is issued *to* them, and dies on
-  first use (M32 — this reverses the rule below).** Approval mints the
-  account (`authProviders: ['phone']`) **and** a temporary password, shown
-  in the admin panel until claimed, because no provider key is set and
-  the invite link reaches nobody. The old rule — "an admin never sets a
-  credential, and must never be able to" — was protecting a principle by
-  leaving every real kitchen with an account and no door. What preserves
-  its substance: `mustChangePassword` is enforced in `JwtAuthGuard` (403
+  first use (M32 — this reverses the rule below; show-once since M37).**
+  Approval mints the account (`authProviders: ['phone']`) **and** a
+  temporary password, returned once in the approve/issue response and
+  stored only as a hash, because no provider key is set and the invite
+  link reaches nobody. The old rule — "an admin never sets a credential,
+  and must never be able to" — was protecting a principle by leaving
+  every real kitchen with an account and no door. What preserves its
+  substance: `mustChangePassword` is enforced in `JwtAuthGuard` (403
   `PASSWORD_CHANGE_REQUIRED` on every route but the change screen), the
-  plaintext is deleted the moment its owner picks their own, and the act
-  is audited. **Restore the original rule once SendGrid/Twilio exist.**
+  plaintext is never stored (a lost one is re-issued, not re-read), and
+  the act is audited. **Restore the original rule once SendGrid/Twilio
+  exist.**
 
   **Onboarding state is three-valued, and `mustChangePassword` alone
   cannot express it.** That flag is `false` both for a kitchen that

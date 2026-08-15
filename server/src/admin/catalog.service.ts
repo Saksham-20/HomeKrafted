@@ -71,15 +71,13 @@ export interface PaginatedCatalog {
 
 /**
  * Unscoped catalog + review moderation — every `Product` across every
- * vendor, every `Review` across every target. `hide`/`takedown` write the
- * same `moderationStatus: "hidden"` `ProductsService.list`'s public
- * `GET /products` already filters out (`where: { moderationStatus: {
- * not: 'hidden' } }`) — so a hidden product disappears from browse
- * immediately, verified live in this milestone's DoD. `getBySlug` still
- * resolves a hidden product (direct link/cart/order/wishlist lookups must
- * keep working — see `ProductsService.getBySlug`'s doc comment), so
- * "hidden" here means "delisted from browse", not "the row stopped
- * existing".
+ * vendor, every `Review` across every target. `hide`/`takedown` move a
+ * listing out of `PUBLICLY_LISTED` (`catalog/moderation.ts` — public
+ * browse filters on the `active` allowlist since M22, never a denylist),
+ * so a hidden product disappears from browse immediately. `getBySlug`
+ * still resolves a hidden product (direct link/cart/order/wishlist
+ * lookups must keep working — see `isDirectlyResolvable`), so "hidden"
+ * here means "delisted from browse", not "the row stopped existing".
  */
 @Injectable()
 export class AdminCatalogService {

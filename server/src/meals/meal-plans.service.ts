@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { distanceKm, formatDistanceKm } from '../common/geo';
+import { PUBLICLY_LISTED, isPubliclyListed } from '../catalog/moderation';
 import { ListMealPlansQueryDto } from './dto/list-meal-plans.query.dto';
 import { mapMealPlan } from './meals.mapper';
 
@@ -23,7 +24,7 @@ export class MealPlansService {
     const plans = await this.prisma.mealPlan.findMany({
       where: {
         isActive: true,
-        moderationStatus: 'active',
+        ...PUBLICLY_LISTED,
         mealType: query.mealType,
         diet: query.diet === 'non-veg' ? 'non_veg' : query.diet,
         ...(terms.length > 0
@@ -92,7 +93,7 @@ export class MealPlansService {
 
     // A hidden or withdrawn plan is a 404, not a 403. Telling an anonymous
     // caller that a plan exists but is hidden leaks a moderation decision.
-    if (!plan || !plan.isActive || plan.moderationStatus !== 'active') {
+    if (!plan || !plan.isActive || !isPubliclyListed(plan.moderationStatus)) {
       throw new NotFoundException('Meal plan not found');
     }
 

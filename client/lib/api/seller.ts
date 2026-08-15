@@ -45,6 +45,7 @@ import type {
   ProductTag,
   Review,
   Seller,
+  SellerOrder,
   SellerSpecialty,
   Snack,
   SnackCategory,
@@ -146,9 +147,7 @@ function slugify(name: string): string {
 
 export async function getSellerListings(vendorId: string): Promise<Product[]> {
   if (isMockMode()) return ensureListings(vendorId);
-  const listings = await http.get<Product[]>("/seller/listings");
-  await warmMyProductIds(vendorId, listings);
-  return listings;
+  return http.get<Product[]>("/seller/listings");
 }
 
 export async function getSellerListing(
@@ -293,53 +292,56 @@ function orderIncludesVendor(order: Order, vendorId: string): boolean {
 }
 
 /**
- * `describeSellerOrderItems` (below) needs to know which of a mixed-vendor
- * order's lines are *this* vendor's own — mock mode resolves that via
- * `lib/data`'s product table (`orderIncludesVendor`/`getProductByIdData`),
- * which only knows mock seed ids and can never match a real order's
- * Postgres-generated `productId`s. Real mode instead warms this small
- * per-vendor id cache every time `getSellerListings`/`getSellerOrders` runs
- * (both already fetch "my products" or are called right after a listings
- * fetch in every screen that also renders order descriptions) — best-effort:
- * if the cache isn't warm yet the first time `describeSellerOrderItems` runs,
- * it falls back to describing every line rather than a false "—".
+ * Mock-mode mirror of the server's `mapOrderForSeller` (M37): filter a
+ * buyer-shaped mock `Order` down to this vendor's own lines, sum their
+ * subtotal, and flag whether other kitchens share the order. Real mode
+ * receives this projection straight from `GET /seller/orders*`, so no
+ * client-side filtering (or product-id cache) exists there any more.
  */
-const myProductIdsCache = new Map<string, Set<string>>();
-
-async function warmMyProductIds(vendorId: string, listings?: Product[]): Promise<void> {
-  try {
-    const list = listings ?? (await http.get<Product[]>("/seller/listings"));
-    myProductIdsCache.set(vendorId, new Set(list.map((p) => p.id)));
-  } catch {
-    // best-effort only — see doc comment above
-  }
+function toSellerOrder(order: Order, vendorId: string): SellerOrder {
+  const own = order.items.filter(
+    (item) => item.productId && getProductByIdData(item.productId)?.vendorId === vendorId,
+  );
+  const ownAddressIds = new Set(own.map((i) => i.addressId));
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    items: own,
+    itemsSubtotal: Math.round(own.reduce((sum, i) => sum + i.price * i.quantity, 0) * 100) / 100,
+    shippingAddressIds: order.shippingAddressIds.filter((id) => ownAddressIds.has(id)),
+    shipments: order.shipments.filter((s) => ownAddressIds.has(s.addressId)),
+    gift: order.gift,
+    placedAt: order.placedAt,
+    cancelledAt: order.cancelledAt,
+    deliveredAt: order.deliveredAt,
+    paymentMethod: order.paymentMethod,
+    multiVendor: own.length !== order.items.length,
+  };
 }
 
-export async function getSellerOrders(vendorId: string): Promise<Order[]> {
+export async function getSellerOrders(vendorId: string): Promise<SellerOrder[]> {
   if (isMockMode()) {
     const placed = await getPlacedOrders();
     return [...seedOrders, ...placed]
       .filter((order) => orderIncludesVendor(order, vendorId))
-      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime())
+      .map((order) => toSellerOrder(order, vendorId));
   }
 
-  const [orders] = await Promise.all([
-    http.get<Order[]>("/seller/orders"),
-    myProductIdsCache.has(vendorId) ? Promise.resolve() : warmMyProductIds(vendorId),
-  ]);
-  return orders;
+  return http.get<SellerOrder[]>("/seller/orders");
 }
 
 export async function getSellerOrder(
   vendorId: string,
   orderId: string,
-): Promise<Order | undefined> {
+): Promise<SellerOrder | undefined> {
   if (isMockMode()) {
     const orders = await getSellerOrders(vendorId);
     return orders.find((o) => o.id === orderId);
   }
   try {
-    return await http.get<Order>(`/seller/orders/${encodeURIComponent(orderId)}`);
+    return await http.get<SellerOrder>(`/seller/orders/${encodeURIComponent(orderId)}`);
   } catch {
     return undefined;
   }
@@ -365,42 +367,31 @@ export function nextFulfillmentStatus(status: OrderStatus): OrderStatus | undefi
   return FULFILLMENT_SEQUENCE[index + 1];
 }
 
-export async function advanceSellerOrderStatus(orderId: string): Promise<Order | undefined> {
+export async function advanceSellerOrderStatus(
+  vendorId: string,
+  orderId: string,
+): Promise<SellerOrder | undefined> {
   if (isMockMode()) {
     const placed = await getPlacedOrders();
     const order = [...seedOrders, ...placed].find((o) => o.id === orderId);
     if (!order) return undefined;
     const next = nextFulfillmentStatus(order.status);
     if (next) order.status = next;
-    return order;
+    return toSellerOrder(order, vendorId);
   }
 
-  return http.post<Order>(`/seller/orders/${encodeURIComponent(orderId)}/advance`);
+  return http.post<SellerOrder>(`/seller/orders/${encodeURIComponent(orderId)}/advance`);
 }
 
 /**
- * "Mango Thokku Pickle ×2, Ragi Almond Cookies ×1" — this seller's line
- * items only, for the order-list rows. A mixed-vendor order can have items
- * outside this seller's catalog; those are left out on purpose (mock mode)
- * or best-effort filtered via `myProductIdsCache` (real mode — see that
- * cache's doc comment).
+ * "Mango Thokku Pickle ×2, Ragi Almond Cookies ×1" — for the order-list
+ * rows. A `SellerOrder`'s items are already only this seller's own (the
+ * server projects them since M37; mock mode filters in `toSellerOrder`),
+ * so there is nothing left to filter here.
  */
-export function describeSellerOrderItems(order: Order, vendorId: string): string {
-  if (isMockMode()) {
-    const own = order.items.filter((item) => {
-      if (!item.productId) return false;
-      return getProductByIdData(item.productId)?.vendorId === vendorId;
-    });
-    if (own.length === 0) return "—";
-    return own.map((item) => `${item.name} ×${item.quantity}`).join(", ");
-  }
-
-  const myIds = myProductIdsCache.get(vendorId);
-  const relevant = myIds
-    ? order.items.filter((item) => item.productId && myIds.has(item.productId))
-    : order.items;
-  if (relevant.length === 0) return "—";
-  return relevant.map((item) => `${item.name} ×${item.quantity}`).join(", ");
+export function describeSellerOrderItems(order: SellerOrder): string {
+  if (order.items.length === 0) return "—";
+  return order.items.map((item) => `${item.name} ×${item.quantity}`).join(", ");
 }
 
 // ---------------------------------------------------------------------------
@@ -478,7 +469,7 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
 
   const vendorId = seller.vendorId;
   const [orders, listings, payoutList, vendor] = await Promise.all([
-    vendorId ? getSellerOrders(vendorId) : Promise.resolve<Order[]>([]),
+    vendorId ? getSellerOrders(vendorId) : Promise.resolve<SellerOrder[]>([]),
     vendorId ? getSellerListings(vendorId) : Promise.resolve<Product[]>([]),
     getSellerPayouts(seller.id),
     vendorId ? getSellerVendor(vendorId) : Promise.resolve<Vendor | undefined>(undefined),
@@ -494,7 +485,7 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
 
   return {
     todayOrdersCount: todayOrders.length,
-    todayRevenue: todayOrders.reduce((sum, o) => sum + o.total, 0),
+    todayRevenue: todayOrders.reduce((sum, o) => sum + o.itemsSubtotal, 0),
     pendingPayoutAmount: payoutList
       .filter((p) => p.status === "pending")
       .reduce((sum, p) => sum + p.amount, 0),

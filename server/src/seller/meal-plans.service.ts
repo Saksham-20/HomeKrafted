@@ -246,11 +246,13 @@ export class SellerMealPlansService {
     }
   }
 
+  /** Capped like every sibling slug helper (M37) — the old unbounded loop was one adversarial run of same-named plans away from an endless query chain. */
   private async uniqueSlug(base: string): Promise<string> {
-    let slug = base;
-    for (let n = 2; await this.prisma.mealPlan.findUnique({ where: { slug } }); n += 1) {
-      slug = `${base}-${n}`;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = attempt === 0 ? base : `${base}-${Math.random().toString(36).slice(2, 7)}`;
+      const exists = await this.prisma.mealPlan.findUnique({ where: { slug: candidate } });
+      if (!exists) return candidate;
     }
-    return slug;
+    return `${base}-${Date.now()}`;
   }
 }

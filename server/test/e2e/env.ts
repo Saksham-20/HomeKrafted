@@ -28,6 +28,7 @@ process.env.CLIENT_ORIGIN = 'http://localhost:3000';
 // being removed, and one spec asserts the limiter still works.
 process.env.THROTTLE_LIMIT = '100000';
 process.env.THROTTLE_AUTH_LIMIT = '100000';
+process.env.THROTTLE_REVIEWS_LIMIT = '100000';
 
 // The fixed test OTP code, scoped to two numbers — the shape production
 // runs. Set here rather than in the spec because `otp-bypass.e2e-spec.ts`

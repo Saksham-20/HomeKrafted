@@ -171,12 +171,22 @@ describe('admin HomeKrafter detail (M32)', () => {
     expect(body.activity.lastOrderAt).toBeTruthy();
   });
 
-  it('reports the onboarding state, and the password only while it is unused', async () => {
+  it('reports the onboarding state, never the password (M37: show-once)', async () => {
     const { sellerId } = await approvedKitchen();
+
+    // The plaintext lives only in the response of the call that mints it.
+    const password: string = (
+      await h
+        .api()
+        .post(`${API_PREFIX}/admin/sellers/${sellerId}/temp-password`)
+        .set(bearer())
+        .expect(200)
+    ).body.temporaryPassword;
 
     const issued = await detail(sellerId);
     expect(issued.signIn.status).toBe('awaiting');
-    expect(issued.signIn.temporaryPassword).toBeTruthy();
+    expect(issued.signIn).not.toHaveProperty('temporaryPassword');
+    expect(JSON.stringify(issued)).not.toContain(password);
 
     const user = await h.prisma.user.findFirstOrThrow({
       where: { email: 'detail-kitchen@example.test' },
@@ -184,18 +194,18 @@ describe('admin HomeKrafter detail (M32)', () => {
     const session = await h
       .api()
       .post(`${API_PREFIX}/auth/login`)
-      .send({ email: user.email, password: issued.signIn.temporaryPassword })
+      .send({ email: user.email, password })
       .expect(200);
     await h
       .api()
       .post(`${API_PREFIX}/auth/password/change`)
       .set({ Authorization: `Bearer ${session.body.accessToken}` })
-      .send({ currentPassword: issued.signIn.temporaryPassword, newPassword: 'their-own-99' })
+      .send({ currentPassword: password, newPassword: 'their-own-99' })
       .expect(200);
 
     const after = await detail(sellerId);
     expect(after.signIn.status).toBe('onboarded');
-    expect(after.signIn.temporaryPassword).toBeNull();
+    expect(after.signIn).not.toHaveProperty('temporaryPassword');
   });
 
   it('404s an id that is not a HomeKrafter', async () => {
