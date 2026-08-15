@@ -451,6 +451,21 @@ to undo by accident:
   or a start date, so a Server Component can compute a window once and ship
   it as text (the M12 React #418 lesson). `bracketStart` is a label
   (`"12:30"` = 12:30–13:00), not an instant.
+- **Dated menus (M37): `MealPlanDayMenu` is the promise, `weeklyMenu` the
+  rotation.** A date's menu — and the buyer's skip of it — locks at
+  `PlatformSettings.menuLockTime` IST **the evening before**
+  (`meals/menu-lock.ts`, pure, takes `now`; lock state is computed on
+  read, never stored, no scheduler). Past the lock only the audited admin
+  override (`PUT /admin/catalog/meal-plans/:id/menus/:date`) may change
+  it, and it still notifies — the lock stops *silent* changes, not being
+  told. A *change* to a set date messages the subscribers scheduled for
+  it (`meals` category); a first-time set messages nobody. A 7-line
+  `weeklyMenu` reads Monday→Sunday as the per-date fallback; any other
+  count opts out — never invent weekday anchoring the data doesn't have.
+  A pause leaves locked rows `scheduled` (the kitchen already planned
+  them; they arrive). A blackout added after subscribe now cascades:
+  affected deliveries go `unavailable` with the reason, the meal moves to
+  the end of the cycle (owed, not lost), and the subscriber is told.
 - **Absence is not closure**, carried over from M16: no stated
   `workingDays` means open every day, and no `prepTimeMins` means the
   90-minute default, never zero.

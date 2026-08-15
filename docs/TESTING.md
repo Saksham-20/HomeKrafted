@@ -420,10 +420,20 @@ This is the one that moves real money, so be thorough. Open **/meal-plans**
 
 Then, from **/account/subscriptions**:
 
+- **Expand "See every meal".** Each upcoming meal should say **what food
+  arrives** (M37) when the kitchen has set that day's menu, or the
+  weekday line of a 7-line rotation. If the kitchen set tomorrow's menu,
+  it should be here — verbatim
 - **Skip a meal.** The meal should come back at the far end — your end date
   moves out by a day. You paid for N meals, you get N meals. If skipping
   loses you a meal, **that's a bug**
-- **Pause**, then **resume**. Your wallet balance must not move either way
+- **Try to skip tomorrow's meal after the lock** (default: after 8pm the
+  evening before). The Skip button should read **"Being planned"** and
+  refuse — the kitchen is already cooking against that list. Being told
+  no with the reason is correct; a silent dead button is a bug
+- **Pause**, then **resume**. Your wallet balance must not move either way.
+  If tomorrow's meal was already locked when you paused, it **still
+  arrives** — the confirmation message says so
 - **Cancel.** This also moves no money — a refund is something we do by
   hand, on purpose. The screen should say so rather than implying a refund
   is coming
@@ -507,6 +517,15 @@ Worth trying to break:
 - **If it says no delivery windows, that's the thing to check.** It means
   your opening hours (on **Profile**) don't overlap the meal — and nobody
   can subscribe until they do. It should say that in as many words
+- **Day-by-day menus (M37).** Edit a plan → below the form is
+  **"Day-by-day menus"**: the next 14 dates, each editable until it locks
+  at the platform's lock time the evening before (default 8pm; Admin →
+  Settings changes it). Set tomorrow's dishes and save — if anyone is
+  subscribed and scheduled for that date, the panel names how many, and
+  a *change* to an already-set day messages them ("Menu changed for…").
+  A locked day renders read-only saying so. Buyers see the set menus on
+  the plan page ("This week, dated") and against each meal on
+  /account/subscriptions
 - Set a **subscriber limit**, then have somebody subscribe up to it — the
   plan should show as full and stop taking people
 - Press the **power icon** on a plan. It should tell you plainly that the

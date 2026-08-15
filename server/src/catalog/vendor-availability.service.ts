@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MealBlackoutCascadeService } from '../meals/blackout-cascade.service';
 
 export interface VendorAvailability {
   vendorId: string;
@@ -45,7 +46,10 @@ export const DEFAULT_PREP_TIME_MINS = 90;
  */
 @Injectable()
 export class VendorAvailabilityService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blackoutCascade: MealBlackoutCascadeService,
+  ) {}
 
   async forVendor(vendorId: string): Promise<VendorAvailability> {
     const vendor = await this.prisma.vendor.findUnique({
@@ -96,6 +100,14 @@ export class VendorAvailabilityService {
       create: { vendorId, date: day, reason },
       update: { reason },
     });
+
+    // M37 — the day off reaches the meals already sold for it. Until now
+    // a blackout was consulted only when a schedule was *generated*, so
+    // existing subscribers' deliveries for the date stayed `scheduled`
+    // while the kitchen stayed shut. Awaited (not floated): the cascade
+    // is idempotent, and the seller deserves the failure if it breaks.
+    await this.blackoutCascade.applyBlackout(vendorId, day, reason);
+
     return this.listBlackouts(vendorId);
   }
 

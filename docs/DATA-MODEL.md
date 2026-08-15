@@ -616,6 +616,38 @@ nothing before laundry was withdrawn.
 - **`status` splits `paused` from `cancelled` because only one gives the
   seat back.** Somebody away for a week has not given up their tiffin.
 
+### Notes for M37 — dated menus + the menu lock
+
+- **`MealPlanDayMenu` is the difference between a rotation and a
+  promise.** `MealPlan.weeklyMenu` stays the undated marketing rotation a
+  browsing buyer reads; a `MealPlanDayMenu` row (`@@unique([planId,
+  date])`, `lines String[]`) is what a specific date actually serves,
+  which is what lets a subscriber answer "what arrives tomorrow" and lets
+  a kitchen change one day without re-marketing (or re-queueing) the
+  plan. A **7-line** `weeklyMenu` is read Monday→Sunday as the per-date
+  fallback; any other line count opts out — the field never had weekday
+  anchoring, and guessing one would show wrong dishes with confidence.
+- **Lock state is computed on read, never stored.** A date locks at
+  `PlatformSettings.menuLockTime` IST the evening before
+  (`meals/menu-lock.ts`, pure functions that take `now`). No scheduler
+  exists and none is needed: the seller editor, the buyer's skip and the
+  pause all ask the same pure function. Past the lock, the kitchen's
+  write is refused, the buyer's skip is a 409 ("this one will still be
+  delivered"), a pause leaves the locked rows `scheduled`, and only the
+  audited admin override (`meal_plan.menu_override`) can change the menu
+  — which still notifies the affected subscribers.
+- **A blackout now cascades (first writer of
+  `MealDeliveryStatus.unavailable`).** Adding a `VendorBlackoutDate`
+  marks that date's `scheduled` deliveries `unavailable` with the
+  kitchen's reason, appends a replacement past the cycle's end on the
+  buyer's own days (owed, not lost — the same mechanics as skip), moves
+  `endDate` with it, and tells the subscriber on the `meals` category.
+  Removing the blackout un-marks nothing: recorded facts stay, and the
+  replacement is already owed.
+- **`NotificationCategory.meals`** carries the subscription lifecycle
+  (created/paused/resumed/cancelled/skip confirmations) and menu-change
+  messages. Transactional — the non-promo default channels apply.
+
 ### Notes for M20 — the gifts vertical
 
 `Product.kind` (`food | craft`) and `Product.shippingScope`

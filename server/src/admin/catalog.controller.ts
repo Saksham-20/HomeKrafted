@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
@@ -6,6 +6,8 @@ import { AdminCatalogService } from './catalog.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { ModerateReviewDto } from './dto/moderate-review.dto';
+import { parseDateParam } from '../meals/day-menus.service';
+import { SetDayMenuDto } from '../meals/dto/set-day-menu.dto';
 
 /** Unscoped catalog + review moderation — any vendor's products, any target's reviews. */
 @Controller('admin/catalog')
@@ -54,6 +56,24 @@ export class AdminCatalogController {
   @Patch('meal-plans/:id/moderate')
   moderateMealPlan(@CurrentUser() admin: RequestUser, @Param('id') id: string, @Body() dto: ModerateProductDto) {
     return this.catalogService.moderateMealPlan(admin.userId, id, dto);
+  }
+
+  /**
+   * The emergency door past the menu lock (M37): a kitchen calls in sick
+   * after 8pm, support fixes tomorrow's menu here. Audited with
+   * before/after, and it still notifies the scheduled subscribers — the
+   * lock protects buyers from silent changes, not from being told.
+   */
+  @Put('meal-plans/:id/menus/:date')
+  overrideMealPlanDayMenu(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Param('date') dateParam: string,
+    @Body() dto: SetDayMenuDto,
+  ) {
+    const date = parseDateParam(dateParam);
+    if (!date) throw new BadRequestException('Date must look like 2026-08-20');
+    return this.catalogService.overrideMealPlanDayMenu(admin.userId, id, date, dto.lines);
   }
 
   @Get('reviews')

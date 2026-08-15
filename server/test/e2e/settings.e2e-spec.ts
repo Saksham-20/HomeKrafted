@@ -97,6 +97,22 @@ describe('platform settings', () => {
       expect(res.body.defaultDeliveryRadiusKm).toBe(8);
     });
 
+    it('round-trips the menu lock time, defaulting to 20:00 (M37)', async () => {
+      const before = await h.api().get(`${API_PREFIX}/admin/settings`).set(auth(admin)).expect(200);
+      expect(before.body.menuLockTime).toBe('20:00');
+
+      await update(admin, { menuLockTime: '18:30' }).expect(200);
+      const after = await h.api().get(`${API_PREFIX}/admin/settings`).set(auth(admin)).expect(200);
+      expect(after.body.menuLockTime).toBe('18:30');
+    });
+
+    it('refuses a menu lock time that is not a 24-hour clock time', async () => {
+      const res = await update(admin, { menuLockTime: '8pm' }).expect(400);
+      expect(res.body.error.message).toContain('24-hour');
+      // 25:99 parses the regex shape check but not the range.
+      await update(admin, { menuLockTime: '25:99' }).expect(400);
+    });
+
     it('leaves the other settings alone on a partial update', async () => {
       await update(admin, { commissionPct: 12, defaultDeliveryRadiusKm: 8 }).expect(200);
       await update(admin, { commissionPct: 15 }).expect(200);

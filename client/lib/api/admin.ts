@@ -1688,6 +1688,12 @@ export interface PlatformSettings {
    * a new name. An empty value means no gate at all.
    */
   servicedPincodePrefixes: string;
+  /**
+   * When a delivery date's meal menu (and a buyer's skip of it) closes:
+   * this time IST the evening before (M37). "20:00" means Tuesday's
+   * tiffin locks Monday 8pm.
+   */
+  menuLockTime: string;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings | undefined> {
@@ -1696,6 +1702,7 @@ export async function getPlatformSettings(): Promise<PlatformSettings | undefine
       commissionPct: 10,
       defaultDeliveryRadiusKm: 10,
       servicedPincodePrefixes: "160,1401,1403,1341,1346",
+      menuLockTime: "20:00",
     };
   try {
     return await http.get<PlatformSettings>("/admin/settings");
@@ -1712,6 +1719,7 @@ export async function updatePlatformSettings(
         commissionPct: 10,
         defaultDeliveryRadiusKm: 10,
         servicedPincodePrefixes: "160,1401,1403,1341,1346",
+        menuLockTime: "20:00",
         ...patch,
       };
   return http.patch<PlatformSettings>("/admin/settings", patch);

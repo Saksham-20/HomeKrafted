@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { MealPlanSubscribeClient } from "@/components/meals/MealPlanSubscribeClient";
 import { getMealPlan } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./MealPlanDetail.module.css";
 
@@ -120,6 +120,23 @@ export default async function MealPlanPage({
           )}
         </div>
       </div>
+
+      {plan.thisWeek && plan.thisWeek.length > 0 && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>This week, dated</h2>
+          <ul className={styles.menu}>
+            {plan.thisWeek.map((day) => (
+              <li key={day.date}>
+                <strong>{formatDate(day.date)}</strong> — {day.lines.join(", ")}
+              </li>
+            ))}
+          </ul>
+          <p className={styles.menuNote}>
+            Set by the kitchen for these exact dates. Each day&apos;s menu locks the
+            evening before, so what you see here is what arrives.
+          </p>
+        </section>
+      )}
 
       {plan.weeklyMenu.length > 0 && (
         <section className={styles.section}>

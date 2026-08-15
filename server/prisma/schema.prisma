@@ -67,6 +67,9 @@ enum NotificationCategory {
   wallet
   promo
   account
+  /// Meal-subscription lifecycle + dated-menu changes (M37). Transactional
+  /// — defaults follow the non-promo shape (whatsapp/email/inapp on).
+  meals
 }
 
 enum ReferralStatus {
@@ -2293,10 +2296,36 @@ model MealPlan {
   updatedAt DateTime @updatedAt
 
   subscriptions MealSubscription[]
+  dayMenus      MealPlanDayMenu[]
 
   @@index([vendorId])
   @@index([sellerId])
   @@index([mealType, isActive])
+}
+
+/// One date's actual menu for one plan (M37).
+///
+/// `weeklyMenu` stays the undated rotation a browsing buyer reads; a row
+/// here overrides it for a specific date, which is what lets a subscriber
+/// answer "what arrives tomorrow" and lets the kitchen change one day
+/// without re-marketing the plan. Lock state ("menus close at 20:00 the
+/// evening before") is computed on read from `PlatformSettings.menuLockTime`
+/// via `meals/menu-lock.ts` — never stored, so nothing needs a scheduler.
+model MealPlanDayMenu {
+  id     String   @id @default(cuid())
+  planId String
+  plan   MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  /// The delivery date this menu is for — UTC midnight as a calendar date,
+  /// same convention as `MealDelivery.scheduledFor`.
+  date   DateTime @db.Date
+  /// One dish/line per entry, the shape `weeklyMenu` already uses.
+  lines  String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, date])
+  @@index([date])
 }
 
 /// One buyer's prepaid run of meals from one plan.

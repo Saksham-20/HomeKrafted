@@ -10,6 +10,7 @@ import { ModerationNotice } from "./ModerationNotice";
 import type { ProductModerationStatus } from "@/lib/types";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { MealPlanForm } from "./MealPlanForm";
+import { DayMenuEditor } from "./DayMenuEditor";
 import {
   EMPTY_MEAL_PLAN_FORM,
   toMealPlanInput,
@@ -188,6 +189,12 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
           Cancel
         </Button>
       </div>
+
+      {/* M37 — dated menus save per-day, independently of the plan form
+          above: changing one date's dal must not re-submit (and re-queue)
+          the whole plan. Edit mode only: a plan that doesn't exist yet
+          has no dates to set. */}
+      {isEdit && planId && <DayMenuEditor planId={planId} />}
     </div>
   );
 }

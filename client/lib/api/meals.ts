@@ -1,6 +1,8 @@
 import type {
   CreateMealSubscriptionInput,
   MealPlan,
+  MealPlanDayMenus,
+  MealPlanDayMenuView,
   MealSubscription,
   SellerMealDelivery,
   SellerMealPlan,
@@ -162,5 +164,39 @@ export async function markMealDelivered(deliveryId: string): Promise<{ ok: true 
   return http.patch<{ ok: true }>(
     `/seller/meal-plans/deliveries/${encodeURIComponent(deliveryId)}/delivered`,
     {},
+  );
+}
+
+/**
+ * The next `days` dates' menus for one of my plans (M37): what is set,
+ * what falls back to the weekly rotation, which dates are locked, and how
+ * many subscribers each date reaches. Mock mode answers empty for the
+ * same reason every meals read does — a fabricated menu would be a fake
+ * commitment to cook.
+ */
+export async function getMyMealPlanDayMenus(
+  planId: string,
+  days = 14,
+): Promise<MealPlanDayMenus> {
+  if (isMockMode()) return { lockTime: "20:00", days: [] };
+  return http.get<MealPlanDayMenus>(`/seller/meal-plans/${encodeURIComponent(planId)}/menus`, {
+    query: { days },
+  });
+}
+
+/**
+ * Set one date's menu (M37). `lines: []` clears it back to the rotation.
+ * A locked date is refused server-side with the lock time in the message
+ * — never swallowed here (`lib/api` write rule): the refusal is the only
+ * thing telling the kitchen why tomorrow can't change.
+ */
+export async function setMyMealPlanDayMenu(
+  planId: string,
+  date: string,
+  lines: string[],
+): Promise<MealPlanDayMenuView> {
+  return http.put<MealPlanDayMenuView>(
+    `/seller/meal-plans/${encodeURIComponent(planId)}/menus/${encodeURIComponent(date)}`,
+    { lines },
   );
 }

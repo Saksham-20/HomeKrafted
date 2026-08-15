@@ -163,12 +163,12 @@ export function MealPlanForm({ values, onChange, listings, brackets }: MealPlanF
 
           <div className={styles.fieldWide}>
             <Textarea
-              label="Rotation"
+              label="Weekly rotation (fallback)"
               value={values.weeklyMenu}
               onChange={(event) => set("weeklyMenu", event.target.value)}
               rows={6}
               placeholder={"Mon — Rajma chawal\nTue — Kadhi pakora\nWed — Chole"}
-              hint={`One line each, up to ${MAX_MENU_LINES}. Buyers are told this is a guide, not a contract — home kitchens cook to what the market had that morning.`}
+              hint={`One line each, up to ${MAX_MENU_LINES}. Exactly 7 lines are read Monday to Sunday, and subscribers see that day's line — any other count is shown as a plain list. Buyers are told it's a guide; the day-by-day menus below the plan are the promise.`}
             />
           </div>
         </div>

@@ -41,4 +41,14 @@ export class UpdateSettingsDto {
   @IsString()
   @MaxLength(2000)
   servicedPincodePrefixes?: string;
+
+  /**
+   * When a delivery date's menu closes, IST, the evening before (M37).
+   * Shape (`HH:MM`) is checked in the service so the message can say
+   * "like 20:00" rather than reporting a failed regex.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  menuLockTime?: string;
 }

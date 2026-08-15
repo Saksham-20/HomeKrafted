@@ -127,7 +127,9 @@ export type NotificationCategory =
   | "snacks"
   | "wallet"
   | "promo"
-  | "account";
+  | "account"
+  /** M37 — meal-subscription lifecycle + dated-menu changes. */
+  | "meals";
 
 export interface Notification {
   id: ID;

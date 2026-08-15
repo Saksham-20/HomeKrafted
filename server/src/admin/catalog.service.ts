@@ -10,6 +10,7 @@ import { ModerationNotificationsService } from './moderation-notifications.servi
 import { ModerateProductDto } from './dto/moderate-product.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { moderationDecision, REFUSING_ACTIONS, type ModeratableKind } from '../catalog/moderation';
+import { MealPlanDayMenusService } from '../meals/day-menus.service';
 
 const DEFAULT_CATALOG_PAGE_SIZE = 25;
 
@@ -86,7 +87,42 @@ export class AdminCatalogService {
     private readonly auditLog: AdminAuditLogService,
     private readonly reviewAggregates: ReviewAggregatesService,
     private readonly moderationNotifications: ModerationNotificationsService,
+    private readonly dayMenus: MealPlanDayMenusService,
   ) {}
+
+  /**
+   * The audited path past the menu lock (M37) — same underlying write as
+   * the seller route (`MealPlanDayMenusService.setDayMenu`), with
+   * `enforceLock: false` and a before/after audit row. Subscribers
+   * scheduled for the date are still notified; the lock exists to stop
+   * *silent* changes, not to stop people being told.
+   */
+  async overrideMealPlanDayMenu(adminUserId: string, planId: string, date: Date, lines: string[]) {
+    const plan = await this.dayMenus.findPlan(planId);
+    const before = await this.prisma.mealPlanDayMenu.findUnique({
+      where: { planId_date: { planId, date } },
+      select: { lines: true },
+    });
+
+    const view = await this.dayMenus.setDayMenu(plan, date, lines, {
+      enforceLock: false,
+      now: new Date(),
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'meal_plan.menu_override',
+      targetType: 'MealPlan',
+      targetId: planId,
+      metadata: {
+        date: view.date,
+        before: before?.lines ?? null,
+        after: view.source === 'day' ? view.lines : null,
+      },
+    });
+
+    return view;
+  }
 
   /**
    * The review queue.

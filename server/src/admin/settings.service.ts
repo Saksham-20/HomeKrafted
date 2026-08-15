@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAuditLogService } from './audit-log.service';
+import { parseTimeLabel } from '../meals/meal-brackets';
+import { DEFAULT_MENU_LOCK_TIME } from '../meals/menu-lock';
 
 /**
  * The settings this platform actually has (M16, M5).
@@ -49,6 +51,14 @@ export interface PlatformSettings {
    * catalogue, never hide it.
    */
   servicedPincodePrefixes: string;
+  /**
+   * When a delivery date's menu (and a buyer's skip of it) closes: this
+   * time IST **the evening before** (M37). Read by
+   * `meals/menu-lock.ts`'s callers — the seller day-menu editor, buyer
+   * skip/pause, and the admin override screen. `"20:00"` means a Tuesday
+   * delivery locks Monday 8pm.
+   */
+  menuLockTime: string;
 }
 
 /**
@@ -73,6 +83,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   defaultDeliveryRadiusKm: 10,
   /** The Chandigarh tricity: Chandigarh, Mohali, Kharar, Zirakpur, Panchkula, Ambala. */
   servicedPincodePrefixes: '160,1401,1403,1341,1346',
+  menuLockTime: DEFAULT_MENU_LOCK_TIME,
 };
 
 @Injectable()
@@ -99,6 +110,7 @@ export class AdminSettingsService {
       ),
       servicedPincodePrefixes:
         byKey.get('servicedPincodePrefixes') ?? DEFAULT_SETTINGS.servicedPincodePrefixes,
+      menuLockTime: byKey.get('menuLockTime') ?? DEFAULT_SETTINGS.menuLockTime,
     };
   }
 
@@ -170,6 +182,11 @@ export class AdminSettingsService {
         );
       }
       patch = { ...patch, servicedPincodePrefixes: entries.join(',') };
+    }
+    if (patch.menuLockTime !== undefined) {
+      if (parseTimeLabel(patch.menuLockTime) === null) {
+        throw new BadRequestException('Menu lock must be a 24-hour time like 20:00');
+      }
     }
 
     const writes = Object.entries(patch)

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MealsModule } from '../meals/meals.module';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { SellerController } from './seller.controller';
@@ -43,7 +44,14 @@ import { OrdersModule } from '../orders/orders.module';
   // reuses that service rather than keeping a second copy of the rules.
   // `OrdersModule` for `OrderNotificationsService` — advancing an order
   // here has to tell the buyer, and that copy lives in one place.
-  imports: [IdempotencyModule, WhatsAppModule, CatalogModule, OrdersModule],
+  imports: [
+    IdempotencyModule,
+    WhatsAppModule,
+    CatalogModule,
+    OrdersModule,
+    // M37 — `MealPlanDayMenusService` for the dated-menu editor routes.
+    MealsModule,
+  ],
   controllers: [
     SellerController,
     SellerListingsController,

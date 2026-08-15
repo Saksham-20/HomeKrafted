@@ -17,6 +17,7 @@ interface Draft {
   commissionPct: string;
   defaultDeliveryRadiusKm: string;
   servicedPincodePrefixes: string;
+  menuLockTime: string;
 }
 
 /**
@@ -47,6 +48,7 @@ export function SettingsClient() {
         commissionPct: String(loaded.commissionPct),
         defaultDeliveryRadiusKm: String(loaded.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: loaded.servicedPincodePrefixes ?? "",
+        menuLockTime: loaded.menuLockTime ?? "20:00",
       });
     })();
     return () => {
@@ -72,6 +74,7 @@ export function SettingsClient() {
         commissionPct: Number(draft.commissionPct),
         defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: draft.servicedPincodePrefixes.trim(),
+        menuLockTime: draft.menuLockTime.trim(),
       });
       if (!updated) {
         setMessage("That did not save. Commission must be 0–100%, radius 1–100 km.");
@@ -153,6 +156,24 @@ export function SettingsClient() {
             <strong>It does not affect who can apply or be approved.</strong> HomeKrafters can join
             from anywhere in India, which is deliberate: supply has to exist somewhere before it is
             worth opening delivery there. Leave it empty to stop saying it altogether.
+          </p>
+        </div>
+
+        <div className={styles.setting}>
+          <label className={styles.field}>
+            <span className={styles.label}>Meal menu lock time</span>
+            <input
+              className={styles.input}
+              value={draft.menuLockTime}
+              onChange={(event) => edit({ menuLockTime: event.target.value })}
+              placeholder="20:00"
+            />
+          </label>
+          <p className={styles.help}>
+            A delivery date&rsquo;s menu closes at this time <strong>the evening before</strong>{" "}
+            (24-hour, IST). After it, the kitchen can&rsquo;t change that date and subscribers
+            can&rsquo;t skip it — an admin can still fix a genuine emergency from the plan&rsquo;s
+            catalog entry, and subscribers are told either way.
           </p>
         </div>
 

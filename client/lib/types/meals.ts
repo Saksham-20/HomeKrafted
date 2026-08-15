@@ -75,6 +75,12 @@ export interface MealPlan {
   /** The 30-minute windows this kitchen delivers this meal in, e.g. `["12:00", "12:30"]`. */
   brackets: string[];
   vendor?: MealPlanVendor;
+  /**
+   * The dated menus the kitchen has set for the next seven days (M37) —
+   * detail payload only, absent when none are set. `weeklyMenu` stays
+   * the undated rotation.
+   */
+  thisWeek?: { date: string; lines: string[] }[];
   /** Present only when the request carried buyer coordinates. */
   distanceKm?: number;
   distanceLabel?: string;
@@ -92,6 +98,18 @@ export interface MealDelivery {
   reason?: string;
   skippedAt?: ISODateString;
   deliveredAt?: ISODateString;
+  /**
+   * What actually arrives that day (M37): the kitchen's set day menu,
+   * else the weekday line of a 7-line `weeklyMenu`, else absent. Resolved
+   * server-side — never derived in the browser.
+   */
+  dish?: string;
+  /**
+   * Whether this date's menu (and your skip of it) has closed — past
+   * `menuLockTime` the evening before. **Server-computed**: deriving it
+   * from the browser clock is the React #418 trap.
+   */
+  locked?: boolean;
 }
 
 export interface MealSubscription {
@@ -186,4 +204,27 @@ export interface CreateMealSubscriptionInput {
   bracketStart: string;
   daysOfWeek: number[];
   mealCount: number;
+}
+
+/**
+ * One date's row in the seller day-menu editor (M37) —
+ * `GET /seller/meal-plans/:id/menus`.
+ */
+export interface MealPlanDayMenuView {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  lines: string[];
+  /** Set day menu, the weekly rotation's weekday line, or nothing. */
+  source: "day" | "template" | "none";
+  /** Past `menuLockTime` the evening before — read-only for the kitchen. */
+  locked: boolean;
+  lockAt: ISODateString;
+  /** Deliveries still scheduled that date — who a change reaches. */
+  scheduledCount: number;
+}
+
+export interface MealPlanDayMenus {
+  /** The platform lock time, e.g. `"20:00"`. */
+  lockTime: string;
+  days: MealPlanDayMenuView[];
 }

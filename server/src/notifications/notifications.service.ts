@@ -4,7 +4,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
 import { mapNotification, mapNotificationPreference } from './notifications.mapper';
 
-const ALL_CATEGORIES: NotificationCategory[] = ['order', 'laundry', 'snacks', 'wallet', 'promo', 'account'];
+const ALL_CATEGORIES: NotificationCategory[] = [
+  'order',
+  'laundry',
+  'snacks',
+  'wallet',
+  'promo',
+  'account',
+  // M37 — meal-subscription lifecycle + dated-menu changes. Lazy backfill
+  // below gives every existing user a row on their next prefs read.
+  'meals',
+];
 
 /**
  * Owner-scoped (auth). This service is still read/preferences-only — the

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MealsModule } from '../meals/meals.module';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { OrdersModule } from '../orders/orders.module';
@@ -11,7 +12,7 @@ import { AdminAuditLogService } from './audit-log.service';
 import { AdminSettingsController } from './settings.controller';
 import { PublicSettingsController } from './public-settings.controller';
 import { PublicPincodesController } from './public-pincodes.controller';
-import { AdminSettingsService } from './settings.service';
+import { SettingsModule } from './settings.module';
 import { AdminExportsService } from './exports.service';
 import { AdminAuditController } from './audit.controller';
 import { AdminUsersController } from './users.controller';
@@ -68,7 +69,12 @@ import { AdminCorporateService } from './corporate.service';
     // M20 — `EmailProviderService`, so sending a quote actually emails the
     // link. Without it `sentAt` would be a claim nothing backed up, and
     // the token — returned exactly once and never stored — would be lost.
+    // M37 — `MealPlanDayMenusService` for the audited menu-lock override.
+    MealsModule,
     NotificationProvidersModule,
+    // M37 — settings live in their own module so feature modules can
+    // read them without importing all of AdminModule (cycle risk).
+    SettingsModule,
   ],
   controllers: [
     // Unauthenticated, unlike everything else here — see the controller's
@@ -104,12 +110,7 @@ import { AdminCorporateService } from './corporate.service';
     AdminCollectionsService,
     AdminCorporateService,
     AdminDashboardService,
-    AdminSettingsService,
     AdminExportsService,
   ],
-  // Exported so `AdminSellersService` can read the default delivery
-  // radius at approval, and so a future non-admin reader of the feature
-  // flags has one place to get them.
-  exports: [AdminSettingsService],
 })
 export class AdminModule {}

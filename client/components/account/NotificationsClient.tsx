@@ -21,6 +21,7 @@ const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   laundry: "Laundry",
   snacks: "Snacks",
   wallet: "Wallet",
+  meals: "Meal plans",
   promo: "Promotions",
   account: "Account & security",
 };

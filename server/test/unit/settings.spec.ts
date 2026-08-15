@@ -70,6 +70,7 @@ describe('get', () => {
     expect(Object.keys(await service.get()).sort()).toEqual([
       'commissionPct',
       'defaultDeliveryRadiusKm',
+      'menuLockTime',
       'servicedPincodePrefixes',
     ]);
   });

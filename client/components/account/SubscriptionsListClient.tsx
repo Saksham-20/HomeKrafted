@@ -291,6 +291,12 @@ export function SubscriptionsListClient() {
                         <span className={clsx(styles.deliveryStatus, styles[`d_${delivery.status}`])}>
                           {DELIVERY_STATUS_COPY[delivery.status]}
                         </span>
+                        {/* M37 — what actually arrives that day: the
+                            kitchen's set day menu, else the rotation's
+                            weekday line. Server-resolved. */}
+                        {delivery.dish && delivery.status === "scheduled" && (
+                          <span className={styles.deliveryDish}>{delivery.dish}</span>
+                        )}
                         {/* The server has always sent a `reason` (e.g.
                             "Subscription paused") and nothing rendered it,
                             so a buyer saw a status and no explanation for
@@ -300,18 +306,30 @@ export function SubscriptionsListClient() {
                             {delivery.reason ?? DELIVERY_STATUS_NOTE[delivery.status]}
                           </span>
                         )}
-                        {delivery.status === "scheduled" && sub.status === "active" && (
-                          <button
-                            type="button"
-                            className={styles.skipButton}
-                            disabled={isBusy}
-                            onClick={() =>
-                              run(sub.id, () => skipMealDelivery(sub.id, delivery.id))
-                            }
-                          >
-                            Skip
-                          </button>
-                        )}
+                        {delivery.status === "scheduled" &&
+                          sub.status === "active" &&
+                          (delivery.locked ? (
+                            /* M37 — past the lock the kitchen is already
+                               planning this meal; the server refuses the
+                               skip, so the button doesn't pretend. */
+                            <span
+                              className={styles.deliveryLocked}
+                              title="Changes close the evening before, once the kitchen starts planning."
+                            >
+                              Being planned
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={styles.skipButton}
+                              disabled={isBusy}
+                              onClick={() =>
+                                run(sub.id, () => skipMealDelivery(sub.id, delivery.id))
+                              }
+                            >
+                              Skip
+                            </button>
+                          ))}
                       </li>
                     ))}
                   </ul>

@@ -87,7 +87,20 @@ export function mapMealPlan(plan: MealPlan, options: MapPlanOptions = {}) {
   };
 }
 
-export function mapMealDelivery(delivery: MealDelivery) {
+/**
+ * What a delivery row can additionally say when the caller resolved the
+ * plan's dated menus and the platform lock time (M37). Both are
+ * server-computed: the client never derives "locked" from its own clock
+ * (the M12 hydration lesson), and the dish resolution order — set day
+ * menu, else the 7-line weekly rotation's weekday line — lives in one
+ * place (`MealSubscriptionsService.dayContext`).
+ */
+export interface DeliveryDayContext {
+  dishFor: (date: Date) => string | undefined;
+  lockedFor: (date: Date) => boolean;
+}
+
+export function mapMealDelivery(delivery: MealDelivery, ctx?: DeliveryDayContext) {
   return {
     id: delivery.id,
     subscriptionId: delivery.subscriptionId,
@@ -98,6 +111,8 @@ export function mapMealDelivery(delivery: MealDelivery) {
     reason: delivery.reason ?? undefined,
     skippedAt: delivery.skippedAt?.toISOString(),
     deliveredAt: delivery.deliveredAt?.toISOString(),
+    dish: ctx?.dishFor(delivery.scheduledFor),
+    locked: ctx ? ctx.lockedFor(delivery.scheduledFor) : undefined,
   };
 }
 
@@ -105,6 +120,8 @@ export interface MapSubscriptionOptions {
   plan?: MealPlan | null;
   deliveries?: MealDelivery[];
   vendorName?: string;
+  /** M37 — lets each delivery carry its dish and lock state. */
+  dayContext?: DeliveryDayContext;
 }
 
 export function mapMealSubscription(
@@ -135,6 +152,6 @@ export function mapMealSubscription(
     createdAt: subscription.createdAt.toISOString(),
     plan: options.plan ? mapMealPlan(options.plan) : undefined,
     vendorName: options.vendorName,
-    deliveries: options.deliveries?.map(mapMealDelivery),
+    deliveries: options.deliveries?.map((d) => mapMealDelivery(d, options.dayContext)),
   };
 }

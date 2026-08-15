@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MealsModule } from '../meals/meals.module';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { VendorsController } from './vendors.controller';
@@ -20,6 +21,11 @@ import { VendorAvailabilityService } from './vendor-availability.service';
  * `PrismaService` instead (kept decoupled — see `ReviewsService`).
  */
 @Module({
+  // M37 — `MealsModule` for the blackout cascade: a kitchen's day off has
+  // to reach the meal deliveries already sold for that date. This is the
+  // import direction that forced settings out of AdminModule (see
+  // `admin/settings.module.ts`).
+  imports: [MealsModule],
   controllers: [
     ProductsController,
     VendorsController,
