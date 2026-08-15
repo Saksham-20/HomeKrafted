@@ -113,9 +113,12 @@ export class NotificationsService {
   }
 
   async listInbox(userId: string) {
+    // Latest 50 (M37) — the inbox only grows, and every order status
+    // change writes a row per channel. The client captions the cut.
     const rows = await this.prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
     return rows.map(mapNotification);
   }

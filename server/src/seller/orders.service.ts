@@ -42,13 +42,29 @@ export class SellerOrdersService {
     private readonly orderNotifications: OrderNotificationsService,
   ) {}
 
-  async list(vendorId: string) {
-    const orders = await this.prisma.order.findMany({
-      where: { items: { some: { product: { vendorId } } } },
-      include: SELLER_ORDER_INCLUDE,
-      orderBy: { placedAt: 'desc' },
-    });
-    return orders.map((order) => mapOrderForSeller(order, vendorId));
+  /**
+   * One page, newest first (M37). This read used to load a kitchen's
+   * entire order history — with relations — on every visit to
+   * `/seller/orders`, on a table that only grows.
+   */
+  async list(vendorId: string, page = 1, pageSize = 50) {
+    const where = { items: { some: { product: { vendorId } } } } as const;
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: SELLER_ORDER_INCLUDE,
+        orderBy: { placedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+    return {
+      items: orders.map((order) => mapOrderForSeller(order, vendorId)),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async getOne(vendorId: string, orderId: string) {

@@ -1248,11 +1248,28 @@ function resolveReviewTargetName(review: Review): string {
   return "Unknown service";
 }
 
-export async function getAllReviewsAdmin(): Promise<AdminReviewSummary[]> {
+export interface AdminReviewsPage {
+  items: AdminReviewSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** One page (M37 — the endpoint stopped returning every review ever written). */
+export async function getAllReviewsAdmin(page = 1): Promise<AdminReviewsPage> {
   if (!isMockMode()) {
-    return http.get<AdminReviewSummary[]>("/admin/catalog/reviews");
+    return http.get<AdminReviewsPage>("/admin/catalog/reviews", {
+      query: page > 1 ? { page: String(page) } : undefined,
+    });
   }
-  return reviews.map((review) => ({ ...review, targetName: resolveReviewTargetName(review) }));
+  const pageSize = 50;
+  const all = reviews.map((review) => ({ ...review, targetName: resolveReviewTargetName(review) }));
+  return {
+    items: all.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    pageSize,
+    total: all.length,
+  };
 }
 
 /** Hides/unhides a review — mutates the shared `Review` object (mock mode), filtered by (or restored to) `getProductReviews`/`getVendorReviews` (`lib/api/reviews.ts`) on their next server-side read. Doesn't clear `flagged`: a moderator hiding a flagged review is expected to leave the flag as an audit trail of why it was hidden. */

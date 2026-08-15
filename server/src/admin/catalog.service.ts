@@ -567,10 +567,23 @@ export class AdminCatalogService {
     }
   }
 
-  async listReviews() {
-    const reviews = await this.prisma.review.findMany({ orderBy: { createdAt: 'desc' } });
+  /** One page, newest first (M37) — this pulled every review ever written, with a name-resolution pass over all of them, on each visit to the moderation screen. */
+  async listReviews(page = 1, pageSize = 50) {
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.review.count(),
+    ]);
     const targetNames = await this.resolveTargetNames(reviews);
-    return reviews.map((r) => ({ ...mapReview(r), targetName: targetNames.get(`${r.targetType}:${r.targetId}`) ?? 'Unknown' }));
+    return {
+      items: reviews.map((r) => ({ ...mapReview(r), targetName: targetNames.get(`${r.targetType}:${r.targetId}`) ?? 'Unknown' })),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async moderateReview(adminUserId: string, id: string, hidden: boolean) {

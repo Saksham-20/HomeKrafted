@@ -27,6 +27,9 @@ const FILTERS: { value: Filter; label: string }[] = [
 export function CatalogReviewsClient() {
   const { ready, role } = useAuth();
   const [reviews, setReviews] = useState<AdminReviewSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
@@ -35,15 +38,17 @@ export function CatalogReviewsClient() {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const list = await getAllReviewsAdmin();
+      const result = await getAllReviewsAdmin(page);
       if (cancelled) return;
-      setReviews(list);
+      setReviews(result.items);
+      setTotal(result.total);
+      setPageSize(result.pageSize);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, page]);
 
   async function handleToggleHidden(reviewId: string, hidden: boolean) {
     setError(null);
@@ -77,7 +82,7 @@ export function CatalogReviewsClient() {
     <div>
       <AdminPageHeader
         title="Reviews"
-        subtitle={`${reviews.length} review${reviews.length === 1 ? "" : "s"} · ${flaggedCount} flagged`}
+        subtitle={`${total} review${total === 1 ? "" : "s"} · ${flaggedCount} flagged on this page`}
       />
       <CatalogTabs active="reviews" />
       {error && (
@@ -101,6 +106,26 @@ export function CatalogReviewsClient() {
           {filtered.map((review) => (
             <AdminReviewRow key={review.id} review={review} onToggleHidden={handleToggleHidden} />
           ))}
+        </div>
+      )}
+
+      {/* The flagged/hidden chips narrow the current page of 50; the
+          pager stays visible so a filtered view can reach older pages. */}
+      {total > pageSize && (
+        <div className={styles.pager}>
+          <Chip
+            label="Previous"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            selected={false}
+          />
+          <span className={styles.pagerLabel} aria-live="polite">
+            Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+          </span>
+          <Chip
+            label="Next"
+            onClick={() => setPage((current) => Math.min(Math.ceil(total / pageSize), current + 1))}
+            selected={false}
+          />
         </div>
       )}
     </div>

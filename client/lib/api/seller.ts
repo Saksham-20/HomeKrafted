@@ -323,16 +323,33 @@ function toSellerOrder(order: Order, vendorId: string): SellerOrder {
   };
 }
 
-export async function getSellerOrders(vendorId: string): Promise<SellerOrder[]> {
+export interface SellerOrdersPage {
+  items: SellerOrder[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** One page (M37 — the endpoint stopped returning a kitchen's entire history). Mock mode pages the seed/live merge the same way. */
+export async function getSellerOrders(vendorId: string, page = 1): Promise<SellerOrdersPage> {
+  const pageSize = 50;
   if (isMockMode()) {
     const placed = await getPlacedOrders();
-    return [...seedOrders, ...placed]
+    const all = [...seedOrders, ...placed]
       .filter((order) => orderIncludesVendor(order, vendorId))
       .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime())
       .map((order) => toSellerOrder(order, vendorId));
+    return {
+      items: all.slice((page - 1) * pageSize, page * pageSize),
+      page,
+      pageSize,
+      total: all.length,
+    };
   }
 
-  return http.get<SellerOrder[]>("/seller/orders");
+  return http.get<SellerOrdersPage>("/seller/orders", {
+    query: page > 1 ? { page: String(page) } : undefined,
+  });
 }
 
 export async function getSellerOrder(
@@ -340,8 +357,8 @@ export async function getSellerOrder(
   orderId: string,
 ): Promise<SellerOrder | undefined> {
   if (isMockMode()) {
-    const orders = await getSellerOrders(vendorId);
-    return orders.find((o) => o.id === orderId);
+    const { items } = await getSellerOrders(vendorId);
+    return items.find((o) => o.id === orderId);
   }
   try {
     return await http.get<SellerOrder>(`/seller/orders/${encodeURIComponent(orderId)}`);
@@ -471,15 +488,18 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
   if (!isMockMode()) return http.get<SellerDashboardSnapshot>("/seller/dashboard");
 
   const vendorId = seller.vendorId;
-  const [orders, listings, payoutList, vendor] = await Promise.all([
-    vendorId ? getSellerOrders(vendorId) : Promise.resolve<SellerOrder[]>([]),
+  const [ordersPage, listings, payoutList, vendor] = await Promise.all([
+    vendorId
+      ? getSellerOrders(vendorId)
+      : Promise.resolve<SellerOrdersPage>({ items: [], page: 1, pageSize: 50, total: 0 }),
     vendorId ? getSellerListings(vendorId) : Promise.resolve<Product[]>([]),
     getSellerPayouts(seller.id),
     vendorId ? getSellerVendor(vendorId) : Promise.resolve<Vendor | undefined>(undefined),
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const todayOrders = orders.filter((o) => o.placedAt.slice(0, 10) === today);
+  // Newest page is enough for a "today" count — mock mode only.
+  const todayOrders = ordersPage.items.filter((o) => o.placedAt.slice(0, 10) === today);
   const lowStockCount = listings.reduce(
     (count, product) =>
       count + product.weightOptions.filter((w) => w.stock < LOW_STOCK_THRESHOLD).length,

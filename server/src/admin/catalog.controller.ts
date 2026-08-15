@@ -6,6 +6,7 @@ import { AdminCatalogService } from './catalog.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { ModerateReviewDto } from './dto/moderate-review.dto';
+import { ListAdminReviewsQueryDto } from './dto/list-admin-reviews.query.dto';
 import { parseDateParam } from '../meals/day-menus.service';
 import { SetDayMenuDto } from '../meals/dto/set-day-menu.dto';
 
@@ -77,8 +78,8 @@ export class AdminCatalogController {
   }
 
   @Get('reviews')
-  listReviews() {
-    return this.catalogService.listReviews();
+  listReviews(@Query() query: ListAdminReviewsQueryDto) {
+    return this.catalogService.listReviews(query.page ?? 1, query.pageSize ?? 50);
   }
 
   @Patch('reviews/:id/moderate')

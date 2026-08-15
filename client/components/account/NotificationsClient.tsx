@@ -238,6 +238,10 @@ export function NotificationsClient() {
                 </button>
               );
             })}
+            {/* The server caps the inbox read at its latest 50 (M37). */}
+            {notifications.length >= 50 && (
+              <p className={styles.empty}>Showing your latest 50 notifications.</p>
+            )}
           </div>
         )}
       </Card>

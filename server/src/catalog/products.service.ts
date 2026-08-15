@@ -184,6 +184,13 @@ export class ProductsService {
         // lat/lng/deliveryRadiusKm, which the distance filter needs.
         vendor: { select: { lat: true, lng: true, deliveryRadiusKm: true } },
       },
+      // Candidate cap (M37): the in-memory distance/sort pass below needs
+      // the whole matching set, and without PostGIS that read is unbounded
+      // on a table that only grows. 500 slim rows is ~25 pages of the
+      // narrowest filter — far past what browsing reaches — and the cap
+      // turns a future 50k-listing catalogue from a heap problem into a
+      // slightly stale tail. Revisit with denormalised geo or PostGIS.
+      take: 500,
     });
 
     // "Near me": keep only kitchens whose own delivery radius reaches the

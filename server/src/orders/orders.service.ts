@@ -538,8 +538,16 @@ export class OrdersService {
    * `order-history.util.ts`'s doc comment on `toLaundryHistoryEntry`).
    */
   async history(userId: string) {
+    // Capped, not paged (M37): the account screen shows a scrolling list
+    // and 100 per stream is far past what anyone scrolls; a pager here
+    // would cost a UI nobody asked for. Documented in docs/API.md.
     const [orders, bookings] = await Promise.all([
-      this.prisma.order.findMany({ where: { userId }, include: ORDER_INCLUDE, orderBy: { placedAt: 'desc' } }),
+      this.prisma.order.findMany({
+        where: { userId },
+        include: ORDER_INCLUDE,
+        orderBy: { placedAt: 'desc' },
+        take: 100,
+      }),
       this.laundryService.listBookingsForHistory(userId),
     ]);
 

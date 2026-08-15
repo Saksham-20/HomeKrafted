@@ -719,3 +719,16 @@ new kind of subscription or a new snack meant a migration:
   and the two guesses are not symmetric. A vegetarian buyer relies on that
   label, so the wrong "veg" is harmful and the wrong "non-veg" is only
   unhelpful.
+
+## Indexes (M37 perf pass)
+
+Postgres does **not** index foreign-key columns automatically, and Prisma
+only creates indexes it is asked for. Until M37 twenty-eight FK columns
+(`CartItem.productId`, `OrderItem.addressId`, every `Hamper`/`Snack`/
+`Laundry` line table, `RazorpayOrder.orderId`, …) had none — every
+delete/update on the referenced row, and every join through one, was a
+sequential scan on tables that only grow. `20260815150000_m37_perf_indexes`
+adds all of them plus `SellerApplication @@index([status, createdAt])`
+(the admin queue's exact read). Each carries an `// M37 perf pass` comment
+in `schema.prisma`. Cold FK columns that only an admin's rare lookup ever
+touches (`decidedById`, `moderatedById`) were deliberately left unindexed.

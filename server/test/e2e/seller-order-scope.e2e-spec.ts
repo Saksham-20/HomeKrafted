@@ -102,10 +102,13 @@ describe('seller order scope + multi-vendor advance guard', () => {
 
     const res = await h.api().get(`${API_PREFIX}/seller/orders`).set(auth(actorB)).expect(200);
 
-    const ids = res.body.map((o: { id: string }) => o.id);
+    // Paged envelope since M37 — `{ items, page, pageSize, total }`.
+    expect(res.body.total).toBe(1);
+    const items = res.body.items as { id: string }[];
+    const ids = items.map((o) => o.id);
     expect(ids).toContain(shared.id);
     expect(ids).not.toContain(solo.id);
-    for (const order of res.body) {
+    for (const order of items) {
       expect(order).not.toHaveProperty('userId');
       expect(order).not.toHaveProperty('total');
     }

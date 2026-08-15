@@ -46,6 +46,11 @@ export class MealPlansService {
         _count: { select: { subscriptions: { where: { status: { in: ['active', 'paused'] } } } } },
       },
       orderBy: { pricePerMeal: 'asc' },
+      // Candidate cap before the in-memory distance pass (M37) — same
+      // tradeoff as `ProductsService.list`'s 500: without PostGIS the
+      // radius filter runs on the heap, so the read has to be bounded.
+      // 200 plans is far past the launch city's supply.
+      take: 200,
     });
 
     const buyer =

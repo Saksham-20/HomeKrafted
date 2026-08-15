@@ -970,6 +970,8 @@ model CorporateQuoteLine {
 
   @@index([quoteId])
   @@index([vendorId])
+  // M37 perf pass.
+  @@index([productId])
 }
 
 /// The one way in. Everyone who wants to sell fills this in at `/sell`; an
@@ -1058,6 +1060,9 @@ model SellerApplication {
   /// Set when an admin rejects or waitlists, shown back to the applicant.
   decisionNote     String?
   createdAt        DateTime                  @default(now())
+
+  /// M37 — the admin queue's exact read: new applications first, by age.
+  @@index([status, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -1164,6 +1169,9 @@ model RazorpayOrder {
   createdAt       DateTime             @default(now())
 
   @@index([userId])
+  // M37 perf pass.
+  @@index([orderId])
+  @@index([walletId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1417,6 +1425,8 @@ model VendorFollow {
   createdAt DateTime @default(now())
 
   @@unique([userId, vendorId])
+  // M37 perf pass — `followerCount` recomputes count by `vendorId`.
+  @@index([vendorId])
 }
 
 model Category {
@@ -1479,6 +1489,9 @@ model Collection {
   sortOrder Int     @default(0)
 
   products CollectionProduct[]
+
+  // M37 perf pass.
+  @@index([occasionId])
 }
 
 /// `Collection.productIds` (an ordered id array in the mock) becomes a real
@@ -1494,6 +1507,8 @@ model CollectionProduct {
   sortOrder    Int        @default(0)
 
   @@unique([collectionId, productId])
+  // M37 perf pass — `productId` is not the leading column of the unique above.
+  @@index([productId])
 }
 
 /// `dietary`/`tags` stay native Postgres enum arrays (small, fixed tag
@@ -1637,6 +1652,8 @@ model ProductOccasion {
   occasion   Occasion @relation(fields: [occasionId], references: [id], onDelete: Cascade)
 
   @@unique([productId, occasionId])
+  // M37 perf pass — `occasionId` is not the leading column of the unique above.
+  @@index([occasionId])
 }
 
 model ProductImage {
@@ -1693,6 +1710,11 @@ model CartItem {
   address   Address? @relation(fields: [addressId], references: [id])
 
   @@index([cartId])
+  // M37 perf pass — Postgres does not index FK columns automatically, so
+  // every delete/update on the referenced row was a sequential scan here.
+  @@index([productId])
+  @@index([hamperId])
+  @@index([addressId])
 }
 
 model Wishlist {
@@ -1712,6 +1734,8 @@ model WishlistItem {
   addedAt    DateTime @default(now())
 
   @@unique([wishlistId, productId])
+  // M37 perf pass — `productId` is not the leading column of the unique above.
+  @@index([productId])
 }
 
 model HamperBox {
@@ -1744,6 +1768,8 @@ model Hamper {
   orderItems OrderItem[]
 
   @@index([userId])
+  // M37 perf pass.
+  @@index([boxId])
 }
 
 model HamperItem {
@@ -1753,6 +1779,10 @@ model HamperItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int     @default(1)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([hamperId])
+  @@index([productId])
 }
 
 /// `OrderGift` (an embedded object in lib/types) flattens onto Order with a
@@ -1844,6 +1874,9 @@ model OrderItem {
   /// OrderItem end to end, so the seller portal got slower for each kitchen
   /// with every order anyone else placed.
   @@index([productId])
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([addressId])
+  @@index([hamperId])
 }
 
 model OrderShipment {
@@ -1929,6 +1962,9 @@ model LaundryBooking {
 
   @@index([userId])
   @@index([partnerId])
+  // M37 perf pass.
+  @@index([addressId])
+  @@index([subscriptionId])
 }
 
 model LaundryBookingLine {
@@ -1941,6 +1977,10 @@ model LaundryBookingLine {
   itemCount         Int?
   estimatedHours    Decimal?       @db.Decimal(6, 2)
   estimatedPrice    Decimal        @db.Decimal(10, 2)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([bookingId])
+  @@index([serviceId])
 }
 
 model LaundrySubscription {
@@ -1959,6 +1999,9 @@ model LaundrySubscription {
   bookings LaundryBooking[]
 
   @@index([userId])
+  // M37 perf pass.
+  @@index([serviceId])
+  @@index([slotId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2024,6 +2067,10 @@ model SnackListItem {
   name        String
   quantity    Int
   price       Decimal   @db.Decimal(10, 2)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([snackListId])
+  @@index([snackId])
 }
 
 /// M10b seller-side stand-in for a real inbound WhatsApp order — see
@@ -2055,6 +2102,10 @@ model SnackOrderItem {
   name         String
   quantity     Int
   price        Decimal    @db.Decimal(10, 2)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([snackOrderId])
+  @@index([snackId])
 }
 
 model MealPromo {
@@ -2312,6 +2363,8 @@ model MealPlan {
   @@index([vendorId])
   @@index([sellerId])
   @@index([mealType, isActive])
+  // M37 perf pass.
+  @@index([productId])
 }
 
 /// One date's actual menu for one plan (M37).
@@ -2393,6 +2446,8 @@ model MealSubscription {
 
   @@index([userId, status])
   @@index([planId, status])
+  // M37 perf pass.
+  @@index([addressId])
 }
 
 /// One scheduled meal. The kitchen's work queue and the buyer's receipt.
