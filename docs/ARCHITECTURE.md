@@ -352,6 +352,32 @@ explicitly out of this milestone's scope (would touch most of `orders/`,
 `laundry/`, `snacks/` for marginal proof value beyond the one demonstrated
 path).
 
+## Module map (current as of M37)
+
+What actually lives under `server/src/` — one Nest module per line,
+grouped by who calls it. (`common/`, `config/`, `prisma/`,
+`observability/` and `health/` are plumbing, not features.)
+
+| Module | Owns |
+|---|---|
+| `auth/` | JWT access+refresh, argon2 (`hashing.ts` owns the params), OTP, password reset + seller invite links, **verified** social sign-in (`social-token-verifier.ts`, jose + JWKS — needs client IDs to switch on), identifier parsing |
+| `users/` | Profile, addresses, notification-preference reads |
+| `catalog/` | Public browse: products (distance-filtered, moderation-allowlisted, candidate-capped), vendors (+ profile/photos/availability), categories, occasions, collections, hamper boxes |
+| `cart/` / `orders/` / `payments/` / `wallet/` | The money path: cart → order (`pending_payment` → `placed`), wallet ledger (`FOR UPDATE`, idempotency claims, `balanceAfter`), Razorpay order + verified webhook, unified `/orders/history` |
+| `meals/` | Meal plans, prepaid subscriptions (skip/pause/blackout, owed-not-lost), **dated menus + evening-before lock** (`menu-lock.ts`, pure), blackout cascade, delivery work queue |
+| `snacks/` | WhatsApp-ordered snacks: public menu, seller menu CRUD, snack orders |
+| `laundry/` | **Withdrawn** — owner reads + subscription change/cancel only; creates 410; browse deleted (M37) |
+| `reviews/` | Delivered-order-gated reviews, aggregates recomputed from rows |
+| `wishlist/` / `referrals/` | Wishlist; referral codes with delivered-order-gated rewards |
+| `seller/` | The whole HomeKrafter portal: resolve-own-record (`/seller/me` + commission rate), listings, orders (seller-scoped projection + graded multi-vendor guard), payouts (+ `payout-split.ts` commission engine), storefront/profile/specialties, meal-plan + menu editing, pickups (legacy), analytics |
+| `seller-applications/` | The public `/sell` form: national pincode intake, specialty taxonomy, field validation |
+| `admin/` | Everything unscoped: sellers (approve/verify/coords/temp passwords), catalog moderation, orders + refunds, payouts queue, wallet adjust, support/disputes, corporate, collections/occasions, analytics + exports, audit log, **settings** (`SettingsModule` — lifted out so Meals/Seller/Catalog can read `PlatformSettings` without a module cycle) |
+| `corporate/` | Corporate/bulk enquiries + token-linked quotes |
+| `support/` | Customer tickets + messages (admin side lives in `admin/`) |
+| `notifications/` | Inbox (capped 50), per-category channel prefs, `NotificationsDeliveryService.deliver()` — the one multi-channel door every feature notifies through |
+| `whatsapp/` | WhatsApp Cloud API driver + verified inbound webhook (env-gated → logged stub) |
+| `uploads/` | Magic-byte type checks, EXIF strip + re-encode (`image-pipeline.ts`), purpose-keyed storage driver |
+
 ## Security model
 
 Nothing in M0–M7 touched real user data or payments — it was a fully

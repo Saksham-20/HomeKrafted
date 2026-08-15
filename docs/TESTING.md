@@ -14,10 +14,13 @@ money moves, no real orders ship. Break things freely.
 guide. (Some web addresses still contain `/seller` — that's internal
 plumbing, not a mistake.)
 
-**Everything is Chandigarh tricity now.** Every kitchen sits in a real
-area — Chandigarh sectors, Mohali, Panchkula, Zirakpur — and you only see
-food from kitchens that deliver to *you*. The site asks for your area on
-your first visit.
+**Buying is Chandigarh tricity; selling is national (M36).** Every live
+kitchen sits in a real tricity area — Chandigarh sectors, Mohali,
+Panchkula, Zirakpur — and you only see food from kitchens that deliver
+to *you*. The site asks for your area on your first visit (skipping is
+fine — you still see everything, sorted rather than hidden). Applying to
+**sell**, though, works from any Indian pincode — see the `/sell`
+section further down; the two are different on purpose.
 
 > **Accounts were reset.** If you tested before 30 July, your old account,
 > orders and wallet balance are gone. Sign in again with the demo accounts

@@ -3,6 +3,86 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M37] — The reconciliation milestone — 2026-08-15
+
+A full product/security/architecture pass against the current product
+definition, shipped as seven independently green commits (M37a–M37g).
+Three owner decisions shaped it: temp passwords became show-once,
+commission became a real engine that ships switched off, and the one
+big build chosen was dated menus with a lock.
+
+### Security & correctness (M37a)
+
+- **Show-once temp passwords.** `User.tempPassword` (plaintext, readable
+  in every `GET /admin/sellers` payload) is dropped; the credential now
+  exists only in the issue/approve HTTP response, re-issued (rotate +
+  revoke sessions) if lost, never re-read.
+- **Seller order scope.** `GET /seller/orders*` returns a seller-scoped
+  projection — own items, own money, `multiVendor` flag — never the
+  buyer's identity or other kitchens' lines. Shipping/delivering a
+  shared order is admin-only (graded guard: any participant may still
+  confirm/pack).
+- Meal-capacity subscribe race closed with a `FOR UPDATE` lock; nine
+  in-app-only admin notifications moved to multi-channel `deliver()`;
+  review-submission and `/client-errors` throttles; RBAC structural
+  spec; `userId` removed from public review payloads; small-bug batch.
+
+### Dated menus (M37b)
+
+- **`MealPlanDayMenu`** — a date's actual menu over the `weeklyMenu`
+  rotation, editable per-plan by the kitchen, locked at
+  `PlatformSettings.menuLockTime` IST the evening before (pure
+  `menu-lock.ts`, computed on read, no scheduler). Past the lock only
+  the audited admin override writes, and changes (never first sets)
+  notify the subscribers scheduled for that date on the new `meals`
+  category. Skips respect the lock; a pause leaves locked rows
+  scheduled; a blackout added after subscribe now cascades — deliveries
+  marked `unavailable`, the meal owed at the end of the cycle, the
+  subscriber told.
+
+### Commission engine, off by default (M37c)
+
+- `commissionEnabled` (audited toggle, strict parse, ships **off**)
+  decides whether payout requests deduct `commissionPct`. The split is
+  computed once and stored per payout row; pending balances use
+  `COALESCE(grossAmount, amount)` so mixed eras never double-count. The
+  rate rides on `GET /seller/me`; the listing form shows "customer pays →
+  commission → you receive" live, the payout screen gets a breakdown
+  card, and every figure says "estimate" while the flag is off.
+
+### Laundry withdrawal finished (M37d)
+
+- The four public browse routes and both server-side create paths are
+  deleted (410 stubs stay). Booking payloads carry their own service
+  names and slot labels, so every remaining screen dropped its calls to
+  the withdrawn catalogue. Booking-flow components, the demo laundry
+  sign-in, and the "laundry pickup" support greeting are gone; the bot
+  now answers laundry questions with the withdrawal, honestly.
+
+### Performance (M37e)
+
+- 29 missing indexes (28 unindexed FK columns + the admin application
+  queue's composite). Unbounded reads bounded: seller orders and admin
+  reviews paged, notifications inbox capped at 50, order history at 100
+  per stream, distance-pass candidate caps on `/shop` and `/meal-plans`.
+
+### UX (M37f)
+
+- Admin dashboard needs-attention queue (+ error/Retry instead of an
+  eternal spinner); seller dashboard work strip (meals today, orders
+  awaiting) + capacity line; availability panel distinguishes failure
+  from empty; `/shop` zero-results names the filters and offers Clear
+  filters; empty occasion collections get a real empty state; mobile PDP
+  sticky add-to-cart; 44px hamburger.
+
+### Docs & truth (M37g)
+
+- README/PRD/ARCHITECTURE/API/TESTING brought to current truth — most
+  notably: **social sign-in has been verified since M27** (the standing
+  "account takeover" blocker was stale; the remaining gap is OAuth
+  client IDs), and the take-rate blocker is now "engine exists, flip is
+  a business decision".
+
 ## [M36c] — The address is theirs to change — 2026-08-14
 
 M36b shipped the pickup address read-only, reasoning that a courier might

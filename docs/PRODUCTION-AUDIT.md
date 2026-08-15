@@ -349,9 +349,12 @@ below.
 
 ### Phase 3 — growth
 
-17. Subscription system across snacks, meals, laundry and cleaning —
-    schedule, pause, skip, resume, recurring-order generation, seller
-    fulfilment tools, admin churn/MRR analytics. *(M1)*
+17. ◐ **Mostly shipped (M19 + M37).** Meal subscriptions: prepaid
+    cycles, skip/pause/resume (owed-not-lost), per-meal delivery rows, a
+    kitchen work queue — and **M37's dated menus with the
+    evening-before lock, change notifications and blackout cascade**.
+    Laundry/cleaning subscriptions are moot (module withdrawn M19).
+    Still open: admin churn/MRR analytics. *(M1)*
 18. Real support conversations. *(M6)*
 19. Lifecycle notifications against real providers. *(M7)*
 20. Commission/take-rate **collection** and featured placement. (M16

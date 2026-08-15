@@ -39,20 +39,20 @@ accounts).
   idea" isn't already a ranked item there.
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
-## Standing blockers (true as of 2026-08-06)
+## Standing blockers (true as of 2026-08-15)
 
-**Social sign-in is an account takeover, and it is deliberate for now.**
-`POST /auth/social/:provider` never verifies a Google/Apple id-token — it
-trusts a posted `email` and issues a session for whatever account matches,
-admin included. Confirmed against a running server during the 2026-08-06
-audit. The owner chose to **keep the endpoint and the buttons and add
-verification before launch**, on the grounds that there are no real
-accounts yet. Don't quietly delete it in a later session — that decision
-was already made the other way — and don't treat it as backlog: it is a
-hard launch gate in `docs/LAUNCH-READINESS.md` §0.4, and closing it needs
-a Google OAuth client ID and an Apple service ID that nobody has yet.
+**Social sign-in is verified since M27; the remaining gap is config.**
+`POST /auth/social/:provider` requires a real Google/Apple **id-token**,
+checked by `server/src/auth/social-token-verifier.ts` (jose + JWKS,
+issuer + audience allowlist, nonce, bounded age) — the pre-M27 "trusts a
+posted email" takeover is closed and pinned by tests. What's left is
+that **no Google OAuth client ID or Apple service ID is configured**:
+with the env unset the verifier registers no provider and the endpoint
+refuses every token, so the buttons can't work until someone creates
+those IDs (`docs/LAUNCH-READINESS.md` §0.4). Don't "fix" a failing
+social login by weakening the verifier — set the IDs.
 
-**The other three are not code.** The build is feature-complete against
+**These are not code.** The build is feature-complete against
 every approved plan and deployed; these are what still stand between it
 and real customers, and each is the kind of thing a session will otherwise
 assume is already handled.
