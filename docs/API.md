@@ -357,12 +357,30 @@ must stop assuming it. Every response also carries `kind`
 and `dietary` are meaningful at all.
 
 | `GET /products/:slug` | public | No `hidden` filter — a direct-link/cart/order/wishlist resolve must still work, matching `lib/api/products.ts#getProduct`'s doc comment. `404` if no product has that slug. |
-| `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. |
+| `GET /vendors` | public | `Vendor[]`. Optional `?q=` searches the HomeKrafter's name, bio and area — same term semantics as `GET /products?q=`. **M36: `lat`/`lng` are rounded to 2dp (~1.1 km) on every public payload** — see the note below. |
 | `GET /vendors/:slug` | public | `Vendor`; `404` if not found. `isFollowing` is always `undefined` here — this route is `@Public()`, so the global guard attaches no session and there is nobody to answer "am *I* following this" for. Use `GET /vendors/:slug/follow`. |
 | `GET /vendors/:slug/products` | public | `Product[]`, excludes `hidden` — same rule `lib/api/products.ts#getProductsByVendor` applies |
 | `GET /vendors/:slug/availability` | public | **M16 (M2).** `{ vendorId, prepTimeMins, workingDays[], blackouts[{date, reason?}], capacityPerDay? }` — what the pre-order picker needs to stop offering slots a kitchen can't cook. Public, because the picker runs before anyone signs in. Only blackouts **from today forward**; a past one is history and shipping it would grow the payload every year the kitchen stays open. `prepTimeMins` falls back to the platform's 90 when undeclared — never to zero, which would read as "instant". |
 | `GET /vendors/:slug/profile` | public | **M16.** The rich HomeKrafter profile — story, kitchen photos, hours, prep time, policies, plus computed `trust`, `achievements` and `stats`. Split from `GET /vendors/:slug` because that route answers every product card and every follow check and none of them need a return policy. Returns a fully-shaped **empty** profile for a kitchen that has filled in nothing, so the storefront never branches on absence; `404` only when the vendor itself is gone. **Never includes `fssaiNumber`** — see below. |
 | `GET /vendors/following` | any authed role | Storefronts the caller follows, newest follow first, each with `isFollowing: true`. **Declared above `:slug`** — Nest matches in declaration order, and the reverse would read `following` as a vendor slug. |
+
+**M36 — public coordinates are rounded, and the raw column is not.**
+`mapVendor` emits `lat`/`lng` at `PUBLIC_COORD_DP` (2 decimals, ~1.1 km)
+unless the caller passes `{ preciseLocation: true }`. Only two do: the
+admin approve response, which carries the `placement` warning telling the
+operator to correct the pin, and `GET /seller/storefront`, where a
+HomeKrafter is reading their own record.
+
+The reason is the pickup-address promise. `/sell` asks a home cook for
+their home address under an explicit on-form promise that buyers see only
+their area, and four decimals of latitude is that address by another
+route. It was moot while every vendor sat on one of 21 curated *area*
+centroids; M36 seeds coordinates from a pincode and adds `PATCH
+/admin/sellers/:id/coords` so an operator can set the exact spot — which
+is when the payload would start carrying it. Rounding costs the buyer
+nothing: radius filtering runs server-side against the unrounded column,
+and no client code computes a distance from the response. Pinned by
+`server/test/unit/vendor-privacy.spec.ts`.
 | `GET /vendors/:slug/follow` | any authed role | `{ following, followerCount }` for this caller. |
 | `POST /vendors/:slug/follow` | any authed role | Follows. Idempotent — a second press is the same state, not a `409`. Returns `{ following: true, followerCount }`. |
 | `DELETE /vendors/:slug/follow` | any authed role | Unfollows. Returns `{ following: false, followerCount }`. |

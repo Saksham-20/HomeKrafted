@@ -1084,7 +1084,10 @@ export class AdminSellersService {
     return {
       application: mapApplication(result.application),
       seller: mapSeller(result.seller, result.vendor.name),
-      vendor: mapVendor(result.vendor),
+      // Exact coordinates for the admin: this response carries the
+      // `placement` warning telling them to go and correct the pin, and a
+      // rounded starting point would be a worse one to correct from.
+      vendor: mapVendor(result.vendor, undefined, { preciseLocation: true }),
       // Surfaced so the admin screen can say "approved, but we could not
       // reach them" instead of a confident success. `fallbackLink` is
       // present only when nothing was delivered, and is what an admin

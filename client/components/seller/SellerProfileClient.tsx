@@ -24,6 +24,7 @@ import {
   updateSellerSpecialties,
   type SellerProfileInput,
 } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/errors";
 import { formatDate } from "@/lib/format";
 import type {
   OwnVendorProfile,
@@ -261,19 +262,28 @@ export function SellerProfileClient() {
     if (specialtyDraft === undefined) return;
     setSavingSpecialties(true);
     setSpecialtiesError(undefined);
-    const result = await updateSellerSpecialties(specialtyDraft);
-    setSavingSpecialties(false);
-    if (!result) {
-      setSpecialtiesError("That did not save. Pick at least one and try again.");
-      return;
+    try {
+      const result = await updateSellerSpecialties(specialtyDraft);
+      if (!result) {
+        setSpecialtiesError("That did not save. Pick at least one and try again.");
+        return;
+      }
+      setSavedSpecialties(result);
+      setSpecialtyDraft(undefined);
+      setSpecialtiesSaved(true);
+      // So every other portal screen reading `specialties` — the snack
+      // queue on `/seller/orders`, above all — stops describing the
+      // business this kitchen used to be.
+      void refreshSeller();
+    } catch (err) {
+      // M33 refuses a payload that newly adds a withdrawn tag, with a
+      // sentence saying which one. Swallowed, that read as a dead button.
+      setSpecialtiesError(
+        apiErrorMessage(err, "That did not save. Pick at least one and try again."),
+      );
+    } finally {
+      setSavingSpecialties(false);
     }
-    setSavedSpecialties(result);
-    setSpecialtyDraft(undefined);
-    setSpecialtiesSaved(true);
-    // So every other portal screen reading `specialties` — the snack
-    // queue on `/seller/orders`, above all — stops describing the
-    // business this kitchen used to be.
-    void refreshSeller();
   }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -302,28 +312,46 @@ export function SellerProfileClient() {
     const added = nextUrls.filter((url) => !photoUrls.includes(url));
     const removed = photos.filter((photo) => !nextUrls.includes(photo.url));
 
-    for (const photo of removed) {
-      const remaining = await removeSellerPhoto(photo.id);
-      if (remaining) setPhotos(remaining);
-    }
-    for (const url of added) {
-      const created = await addSellerPhoto({ url });
-      if (created) setPhotos((current) => [...current, created]);
+    // One failure must not abandon the rest of the batch *silently*.
+    // `removeSellerPhoto` throws since M36, and an uncaught rejection here
+    // stopped the loop mid-way: some photos gone, some still listed, and
+    // the widget showing neither state accurately.
+    try {
+      for (const photo of removed) {
+        const remaining = await removeSellerPhoto(photo.id);
+        if (remaining) setPhotos(remaining);
+      }
+      for (const url of added) {
+        const created = await addSellerPhoto({ url });
+        if (created) setPhotos((current) => [...current, created]);
+      }
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't update your photos. Try again."));
     }
   }
 
   async function handleAddBlackout() {
     if (!newBlackout.date) return;
-    const updated = await addSellerBlackout(newBlackout.date, newBlackout.reason.trim() || undefined);
-    if (updated) {
-      setBlackouts(updated);
-      setNewBlackout({ date: "", reason: "" });
+    try {
+      const updated = await addSellerBlackout(newBlackout.date, newBlackout.reason.trim() || undefined);
+      if (updated) {
+        setBlackouts(updated);
+        setNewBlackout({ date: "", reason: "" });
+      }
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't add that day off. Try again."));
     }
   }
 
   async function handleRemoveBlackout(id: string) {
-    const updated = await removeSellerBlackout(id);
-    if (updated) setBlackouts(updated);
+    try {
+      const updated = await removeSellerBlackout(id);
+      if (updated) setBlackouts(updated);
+    } catch (err) {
+      // Silently failing here leaves a day the kitchen believes they
+      // reopened still closed, and they find out from a missing order.
+      setError(apiErrorMessage(err, "Couldn't remove that day off. Try again."));
+    }
   }
 
   async function handleSave() {
@@ -364,15 +392,34 @@ export function SellerProfileClient() {
       websiteUrl: text(form.websiteUrl),
     };
 
-    const updated = await updateSellerProfile(input);
-    setSaving(false);
-    if (!updated) {
-      setError("That did not save. Check the FSSAI number is 14 digits and any links start with https://.");
-      return;
+    // `updateSellerProfile` stopped swallowing its own refusals in M36,
+    // which is right — but a bare `await` on an unswallowed wrapper is
+    // worse than the swallow was. The rejection skips `setSaving(false)`
+    // as well as the message, so the button stays on "Saving…" forever
+    // and the only trace is an unhandled rejection in a console nobody
+    // has open. `finally` implies `catch`, the rule
+    // `lib/silent-failure.spec.ts` exists to enforce.
+    try {
+      const updated = await updateSellerProfile(input);
+      if (!updated) {
+        setError("That did not save. Check the FSSAI number is 14 digits and any links start with https://.");
+        return;
+      }
+      setProfile(updated);
+      setPhotos(updated.photos);
+      setSaved(true);
+    } catch (err) {
+      // The server's own sentence where there is one — it names the field
+      // and what is wrong with it, which no fallback string can.
+      setError(
+        apiErrorMessage(
+          err,
+          "That did not save. Check the FSSAI number is 14 digits and any links start with https://.",
+        ),
+      );
+    } finally {
+      setSaving(false);
     }
-    setProfile(updated);
-    setPhotos(updated.photos);
-    setSaved(true);
   }
 
   const noStorefront = ready && !!seller && !seller.vendorId;

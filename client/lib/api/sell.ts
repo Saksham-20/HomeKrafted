@@ -55,10 +55,14 @@ export interface CreateSellerApplicationInput {
   specialties: SellerSpecialty[];
   /**
    * **Derived from the pincode server-side since M36** — India Post's
-   * district beats what somebody types in a hurry. Still sent so a
-   * pre-M36 client keeps working.
+   * district beats what somebody types in a hurry.
+   *
+   * Optional, and the form omits it rather than sending `""` when the
+   * pincode lookup did not settle: the server derives the real value and
+   * an empty string used to fail its `@MinLength(1)`, so an outage of our
+   * own lookup endpoint refused a valid application.
    */
-  city: string;
+  city?: string;
   /**
    * **Legacy since M36.** A tricity area id, or the literal `"other"`.
    * The form no longer sends it; the endpoint still accepts it.
@@ -136,7 +140,9 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
         // derives it otherwise.
         ...(input.category ? { category: input.category } : {}),
         specialties: input.specialties,
-        city: input.city,
+        // Same shape as `category`: sent only when there is one, never as
+        // an empty string the server would have to refuse.
+        ...(input.city ? { city: input.city } : {}),
         // Both optional since M36 and one of them required by the server:
         // `pincode` is what the form sends now, `area` is what a native
         // client built before M36 still sends.
@@ -175,7 +181,7 @@ export async function createSellerApplication(input: CreateSellerApplicationInpu
     landmark: input.landmark,
     pickupPhone: input.pickupPhone,
     deliveryRadiusKm: input.deliveryRadiusKm,
-    city: input.city,
+    city: input.city ?? "",
     description: input.description,
     // Mirrors the server (M36): only a legacy `area === "other"`
     // application is waitlisted. A pincode application never is — that is

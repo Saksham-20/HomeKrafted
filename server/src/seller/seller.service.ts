@@ -111,7 +111,11 @@ export class SellerService {
   async getStorefront(vendorId: string) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
-    return mapVendor(vendor);
+    // Exact coordinates: this is the HomeKrafter reading their own
+    // record, resolved through `resolveHomeKrafter` from their own
+    // session. Rounding here would show somebody their own kitchen in the
+    // wrong place. Every buyer-facing route takes the default.
+    return mapVendor(vendor, undefined, { preciseLocation: true });
   }
 
   async updateStorefront(vendorId: string, dto: UpdateStorefrontDto) {
@@ -127,7 +131,8 @@ export class SellerService {
         bannerSrc: dto.bannerSrc,
       },
     });
-    return mapVendor(updated);
+    // Their own record again — see `getStorefront`.
+    return mapVendor(updated, undefined, { preciseLocation: true });
   }
 
   // -------------------------------------------------------------------

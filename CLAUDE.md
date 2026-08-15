@@ -529,6 +529,23 @@ and every valid Indian pincode is approvable.
   `PublicVendorProfile`. This is the same exposure M25's EXIF strip
   exists to prevent, except typed in directly rather than hidden in a
   photo.
+- **An address is also a pair of coordinates, so `mapVendor` rounds them
+  (M36).** Withholding the address columns is only half the promise: the
+  public vendor payload carries `lat`/`lng`, and at four decimals that is
+  the front door to ~11 m. It was harmless while every vendor sat on one
+  of 21 curated *area* centroids; M36 seeds the column from a pincode and
+  adds `PATCH /admin/sellers/:id/coords`, whose approval banner tells the
+  operator to "set the exact spot" — so the leak arrives the first time an
+  admin does what the product asks. `mapVendor` now rounds to
+  `PUBLIC_COORD_DP` (2dp, ~1.1 km — the granularity of "Sector 35,
+  Chandigarh") **by default**, and the exact pin needs an explicit
+  `{ preciseLocation: true }`. Two callers pass it: the admin approve
+  response (which has to correct the pin) and `/seller/storefront` (a
+  HomeKrafter reading their own record). **The default is the safe one on
+  purpose** — a new call site added by somebody who never read this gets
+  the rounded value. The column keeps full precision; distance filtering
+  runs server-side against it, and nothing on the client computes a
+  distance from the response.
 - **Nothing is backfilled.** Pre-M36 rows keep their `area` and approve
   exactly as before; their `pincode` is NULL, which correctly reads as
   "they signed up before we asked". Guessing a pincode from a curated area

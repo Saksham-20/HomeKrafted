@@ -10,6 +10,7 @@ import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { adjustWallet, getUserById, issueRefund, getUserWallet, type AdminUserWallet } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/errors";
 import { formatCurrency } from "@/lib/format";
 import type { User, WalletTransaction } from "@/lib/types";
 import styles from "./AdminUserWalletDetailClient.module.css";
@@ -118,21 +119,32 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
     }
     setFormError(undefined);
     setSaving(true);
-    const txn = await issueRefund({
-      userId,
-      amount,
-      title: refundReason.trim() || "Admin-issued refund",
-      refType: "order",
-    });
-    setSaving(false);
-    if (!txn) {
-      setFormError("Couldn't issue that refund.");
-      return;
+    // `issueRefund` stopped swallowing its refusals in M36, and this is
+    // the screen where that mattered most: without a catch, a rejected
+    // refund skipped `setSaving(false)` too, so the button sat on its
+    // busy state with no message. On a money screen an admin reads that
+    // as "still working", waits, reloads, and tries again — which is how
+    // one refund becomes three.
+    try {
+      const txn = await issueRefund({
+        userId,
+        amount,
+        title: refundReason.trim() || "Admin-issued refund",
+        refType: "order",
+      });
+      if (!txn) {
+        setFormError("Couldn't issue that refund.");
+        return;
+      }
+      prependTxn(txn);
+      setRefundAmount("");
+      setRefundReason("");
+      setLastAction(`Refund of ${formatCurrency(amount)} issued.`);
+    } catch (err) {
+      setFormError(apiErrorMessage(err, "Couldn't issue that refund."));
+    } finally {
+      setSaving(false);
     }
-    prependTxn(txn);
-    setRefundAmount("");
-    setRefundReason("");
-    setLastAction(`Refund of ${formatCurrency(amount)} issued.`);
   }
 
   async function handleAdjust() {

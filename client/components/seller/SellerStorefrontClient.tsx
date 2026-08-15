@@ -11,6 +11,7 @@ import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerVendor, updateSellerStorefront } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/errors";
 import type { Vendor } from "@/lib/types";
 import styles from "./SellerStorefrontClient.module.css";
 
@@ -42,6 +43,8 @@ export function SellerStorefrontClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  /** What the server said when it refused. Rendered next to Save, like `/seller/profile`. */
+  const [error, setError] = useState<string | undefined>();
   const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
@@ -81,11 +84,21 @@ export function SellerStorefrontClient() {
   async function handleSave() {
     if (!seller?.vendorId) return;
     setSaving(true);
-    const updated = await updateSellerStorefront(seller.vendorId, form);
-    setVendor(updated);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setError(undefined);
+    // `updateSellerStorefront` stopped swallowing in M36. Without a catch
+    // a refusal skips `setSaving(false)` too, so the button sits on
+    // "Saving…" and the four fields that ride on every product card look
+    // saved when they are not.
+    try {
+      const updated = await updateSellerStorefront(seller.vendorId, form);
+      setVendor(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(apiErrorMessage(err, "That did not save. Try again."));
+    } finally {
+      setSaving(false);
+    }
   }
 
   const noStorefront = ready && !!seller && !seller.vendorId;
@@ -157,7 +170,12 @@ export function SellerStorefrontClient() {
           <Button variant="primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
           </Button>
-          {saved && <span className={styles.savedNote}>Saved.</span>}
+          {saved && !error && <span className={styles.savedNote}>Saved.</span>}
+          {error && (
+            <span className={styles.saveError} role="status" aria-live="polite">
+              {error}
+            </span>
+          )}
         </div>
       </Card>
     </div>

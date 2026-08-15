@@ -99,7 +99,21 @@ export class UpdateSellerProfileDto {
   @IsOptional() @IsString() @MaxLength(200) pickupAddressLine1?: string;
   @IsOptional() @IsString() @MaxLength(200) pickupAddressLine2?: string;
   @IsOptional() @IsString() @MaxLength(200) pickupLandmark?: string;
-  @IsOptional() @Matches(/^[1-9]\d{5}$/, { message: 'Enter a 6-digit pincode' }) pickupPincode?: string;
+  /**
+   * Six digits **or empty**, and the empty half is not cosmetic.
+   *
+   * `@IsOptional()` skips validation for `null`/`undefined` only — an
+   * empty string is validated like any other value. The portal sends
+   * every pickup field as a trimmed string precisely so that clearing one
+   * reaches the column as NULL (see `profile.service.ts`), so a bare
+   * `/^[1-9]\d{5}$/` rejected `""` and 400'd the whole request. Every
+   * HomeKrafter approved before M36b has no pincode on file, so their box
+   * renders empty and *any* profile save — a tagline, opening hours, a
+   * return policy — failed on a field they never touched.
+   */
+  @IsOptional()
+  @Matches(/^([1-9]\d{5})?$/, { message: 'Enter a 6-digit pincode' })
+  pickupPincode?: string;
   @IsOptional() @IsString() @MaxLength(20) pickupPhone?: string;
 
   @IsOptional() @IsUrl() @MaxLength(300) instagramUrl?: string;
