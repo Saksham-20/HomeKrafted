@@ -274,6 +274,9 @@ export class SellerService {
       incomingOrdersCount,
       menuSize,
       snackEarningsAgg,
+      mealsTodayCount,
+      ordersAwaitingCount,
+      profileCapacity,
     ] = await Promise.all([
       this.prisma.vendor.findUnique({
         where: { id: vendorId },
@@ -308,6 +311,22 @@ export class SellerService {
         where: { sellerId: seller.id, status: 'delivered' },
         _sum: { total: true },
       }),
+      // M37 — the two numbers a cook actually opens the portal for in the
+      // morning: meals owed today, and orders sitting un-actioned.
+      this.prisma.mealDelivery.count({
+        where: {
+          status: 'scheduled',
+          scheduledFor: { gte: utcDayStart, lt: utcDayEnd },
+          subscription: { plan: { vendorId } },
+        },
+      }),
+      this.prisma.order.count({
+        where: { status: 'placed', items: { some: { product: { vendorId } } } },
+      }),
+      this.prisma.vendorProfile.findUnique({
+        where: { vendorId },
+        select: { capacityPerDay: true },
+      }),
     ]);
 
     return {
@@ -329,6 +348,10 @@ export class SellerService {
       pendingPayoutAmount,
       rating: vendor ? Number(vendor.rating) : 0,
       reviewCount: vendor?.reviewCount ?? 0,
+      // M37 — today's work, front and centre.
+      mealsTodayCount,
+      ordersAwaitingCount,
+      capacityPerDay: profileCapacity?.capacityPerDay ?? undefined,
     };
   }
 }

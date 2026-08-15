@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
+import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
@@ -337,6 +338,17 @@ export function ShopClient({
 
   const activeCount = activeChips.length;
 
+  // One tap out of a filtered dead end (M37). State-setter resets — the
+  // debounced `router.replace` sync writes the cleared URL, same as any
+  // other filter change.
+  function clearFilters() {
+    setSelectedCategories(new Set());
+    setSelectedDietary(new Set());
+    setSelectedOccasions(new Set());
+    setPriceRange(priceBounds);
+    setPage(1);
+  }
+
   return (
     <section className={clsx("container", styles.layout)}>
       <button
@@ -458,7 +470,28 @@ export function ShopClient({
         </div>
 
         {pageItems.length === 0 ? (
-          <p className={styles.empty}>No products match your filters.</p>
+          /* The three-part empty state (M37): what happened, which
+             filters caused it, and the way out. A bare "no products"
+             over an active filter set reads as an empty catalogue. */
+          <div className={styles.empty}>
+            <p>
+              {activeCount > 0
+                ? `Nothing matches ${activeChips.map((chip) => chip.label).join(" + ")}${
+                    priceRange[0] !== priceBounds[0] || priceRange[1] !== priceBounds[1]
+                      ? " in this price range"
+                      : ""
+                  }.`
+                : "Nothing matches this view."}
+            </p>
+            <p>Every filter narrows the same catalogue — loosen one and the makers come back.</p>
+            {(activeCount > 0 ||
+              priceRange[0] !== priceBounds[0] ||
+              priceRange[1] !== priceBounds[1]) && (
+              <Button variant="secondary" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            )}
+          </div>
         ) : (
           <div className={styles.grid}>
             {pageItems.map((product, index) => (

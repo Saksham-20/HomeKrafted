@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import clsx from "clsx";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@/components/feedback/EmptyState";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import {
   getCollectionByOccasion,
@@ -85,7 +86,11 @@ export default async function CollectionPage({ params }: CollectionPageProps) {
 
       <section className={clsx("container", styles.section)}>
         {products.length === 0 ? (
-          <p className={styles.empty}>No products in this collection yet.</p>
+          <EmptyState
+            title={`Nothing is tagged for ${occasion.name} yet.`}
+            body="Makers tag their listings to occasions as they add them, so this fills in as the date gets closer. The full catalogue has everything they sell in the meantime."
+            action={{ href: "/shop", label: "Browse everything" }}
+          />
         ) : (
           <div className={styles.grid}>
             {products.map((product) => (

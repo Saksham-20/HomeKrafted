@@ -53,3 +53,34 @@
   font-size: 14px;
   color: var(--hk-muted);
 }
+
+/* M37 — today's work strip + capacity line. */
+.pendingStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s5);
+}
+
+.pendingLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px var(--hk-s4);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  border-radius: var(--hk-r-md);
+  font-size: 14px;
+  color: var(--hk-ink);
+  text-decoration: none;
+}
+
+.pendingLink strong {
+  font-family: var(--hk-font-display);
+}
+
+.capacityLine {
+  margin: calc(var(--hk-s3) * -1) 0 var(--hk-s5);
+  font-size: 13px;
+  color: var(--hk-muted);
+}

@@ -873,6 +873,19 @@ export interface AdminDashboardSnapshot {
   pendingPayoutsAmount: number;
   /** Real mode: server-side `Wallet.balance` aggregate (`server/src/admin/dashboard.service.ts`). Mock mode: sum of every seeded `Wallet` balance (`adminWalletsByUser`). */
   walletLiability: number;
+  /**
+   * The needs-attention queue (M37): everything waiting on an admin, as
+   * cheap counts — one dashboard row each, rendered only when non-zero.
+   * Optional so a pre-M37 server (or the mock) degrades to no list.
+   */
+  attention?: {
+    pendingApplications: number;
+    pendingListings: number;
+    supportWaiting: number;
+    payoutRequests: number;
+    corporateNew: number;
+    flaggedListings: number;
+  };
 }
 
 export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {

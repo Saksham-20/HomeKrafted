@@ -442,6 +442,11 @@ export interface SellerDashboardSnapshot {
   incomingOrdersCount?: number;
   menuSize?: number;
   snackEarnings?: number;
+  /** M37 — today's work: meals owed today, and orders sitting at `placed`. */
+  mealsTodayCount?: number;
+  ordersAwaitingCount?: number;
+  /** The kitchen's own stated daily ceiling (`VendorProfile.capacityPerDay`), when set. */
+  capacityPerDay?: number;
 }
 
 /**

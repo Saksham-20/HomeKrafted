@@ -125,7 +125,9 @@ export class AdminSupportService {
    * than a quietly wrong number, which is the one mercy of it — and the
    * reason a raw query needs a test that actually runs it.
    */
-  private async countAwaitingReply(): Promise<number> {
+  // Public since M37: the dashboard's needs-attention queue shows the
+  // same number, and a second implementation would drift from this one.
+  async countAwaitingReply(): Promise<number> {
     const rows = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) AS count
       FROM "SupportTicket" t

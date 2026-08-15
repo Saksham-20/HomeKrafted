@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getAdminDashboard, type AdminDashboardSnapshot, type AdminOrderType } from "@/lib/api";
+import { apiErrorMessage, getAdminDashboard, type AdminDashboardSnapshot, type AdminOrderType } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import styles from "./AdminDashboardClient.module.css";
 
@@ -42,25 +42,76 @@ export function AdminDashboardClient() {
    * the age is measured against the moment the figures were true.
    */
   const [loadedAt, setLoadedAt] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const snap = await getAdminDashboard();
-      if (cancelled) return;
-      setSnapshot(snap);
-      setLoadedAt(Date.now());
-      setLoading(false);
+      // A rejection used to leave this screen on its spinner forever —
+      // the panel's front door reporting nothing, wrongly, on the day
+      // something is actually broken (M37 fix).
+      try {
+        const snap = await getAdminDashboard();
+        if (cancelled) return;
+        setSnapshot(snap);
+        setLoadedAt(Date.now());
+        setError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setError(apiErrorMessage(caught, "Couldn't load the overview. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, reloadToken]);
+
+  if (error) {
+    return (
+      <div>
+        <AdminPageHeader title="Dashboard" subtitle="Platform-wide overview, unscoped across every HomeKrafter." />
+        <Card className={styles.callout}>
+          <span className={styles.calloutText} role="alert">
+            {error}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setLoading(true);
+              setError(null);
+              setReloadToken((n) => n + 1);
+            }}
+          >
+            Retry
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   if (!ready || loading || !snapshot) {
     return <div className={styles.loading}>Loading platform overview…</div>;
   }
+
+  // The needs-attention queue (M37): one row per thing waiting on an
+  // admin, rendered only when non-zero, each linking to the queue that
+  // clears it. Plain language — an operator is here to decide things.
+  const attention = snapshot.attention;
+  const attentionRows: { label: string; count: number; href: string }[] = attention
+    ? [
+        { label: "HomeKrafter applications to review", count: attention.pendingApplications, href: "/admin/sellers" },
+        { label: "Listings waiting for approval", count: attention.pendingListings, href: "/admin/catalog" },
+        { label: "Support tickets waiting on us", count: attention.supportWaiting, href: "/admin/support" },
+        { label: "Payout requests to settle", count: attention.payoutRequests, href: "/admin/payouts" },
+        { label: "New corporate enquiries", count: attention.corporateNew, href: "/admin/corporate" },
+        { label: "Flagged listings to look at", count: attention.flaggedListings, href: "/admin/catalog" },
+      ].filter((row) => row.count > 0)
+    : [];
 
   const maxOrderCount = Math.max(1, ...Object.values(snapshot.ordersByType));
 
@@ -68,19 +119,29 @@ export function AdminDashboardClient() {
     <div>
       <AdminPageHeader title="Dashboard" subtitle="Platform-wide overview, unscoped across every HomeKrafter." />
 
-      {snapshot.pendingApplicationsCount > 0 && (
-        <Card className={styles.callout}>
-          <span className={styles.calloutText}>
-            <strong>{snapshot.pendingApplicationsCount}</strong> HomeKrafter application
-            {snapshot.pendingApplicationsCount === 1 ? "" : "s"} awaiting review.
-          </span>
-          <Link href="/admin/sellers">
-            <Button variant="secondary" size="sm">
-              Review queue
-            </Button>
-          </Link>
-        </Card>
-      )}
+      {/* The needs-attention list (M37) replaces the single applications
+          callout: one row per thing waiting on an admin, or one line
+          saying the queue is clear. */}
+      <Card className={styles.callout}>
+        {attentionRows.length === 0 ? (
+          <span className={styles.calloutText}>Queue clear — nothing is waiting on you.</span>
+        ) : (
+          <ul className={styles.attentionList}>
+            {attentionRows.map((row) => (
+              <li key={row.label} className={styles.attentionRow}>
+                <span className={styles.calloutText}>
+                  <strong>{row.count}</strong> {row.label}
+                </span>
+                <Link href={row.href}>
+                  <Button variant="secondary" size="sm">
+                    Open
+                  </Button>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       {/* Moderation SLA (M27). Directly under the applications callout it
           explains: the count says a queue exists, this says how long

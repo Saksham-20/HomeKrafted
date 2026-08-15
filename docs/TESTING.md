@@ -472,7 +472,12 @@ accounts — if you see it, report it.
 - Open **Listings** (or **Menu**) → add an item, with a price and a photo
 - It should appear on **/shop** (or the Snacks menu) for shoppers in range
 - On the **Dashboard**, the "Today's menu" panel lists everything you sell
-  with an on/off switch
+  with an on/off switch. Above the stat cards, a work strip (M37) shows
+  "N meals to cook today" and "N orders waiting to be confirmed" when
+  either is non-zero, each linking to the screen that clears it; if the
+  profile states a daily capacity, a line compares today's load against
+  it. If loading your items fails, the panel now says so with a Retry —
+  it must never claim "you haven't added anything yet" over a hiccup.
 - Switch something **off** → it should vanish from the shopper side
   immediately. Switch it back on → it returns.
 - This is the thing a cook does every day, so be rough with it
@@ -652,6 +657,14 @@ Worth trying to break:
 ### 8. Admin panel
 Sign in as **admin** at https://homekrafted.in/admin/login
 
+- **Dashboard** — the top card is the needs-attention queue (M37): one
+  row per thing waiting on an admin (applications, listings to approve,
+  support tickets waiting on us, payout requests, new corporate
+  enquiries, flagged listings), each with an Open button; "Queue clear"
+  when nothing is. Also on `/shop` as a shopper: filter yourself into
+  zero results — the empty state names the filters and offers **Clear
+  filters**; and on a phone, a product page's Add to cart follows you in
+  a sticky bottom bar once the in-page button scrolls away.
 - **Users** — list, open a user, see their detail
 - **HomeKrafters** — review applications, approve/reject
 - **Orders** — every order across all HomeKrafters and all modules
