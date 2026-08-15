@@ -14,12 +14,22 @@ import { DEFAULT_MENU_LOCK_TIME } from '../meals/menu-lock';
  */
 export interface PlatformSettings {
   /**
-   * Homekrafted's take rate, as a percentage. **Modelling only today** —
-   * `Payout` amounts are gross and settlement happens by hand, so nothing
-   * deducts this. It drives the commission line on admin analytics and
-   * the estimate on the payout queue, both of which say so.
+   * Homekrafted's take rate, as a percentage. Deducted from payouts
+   * **only while `commissionEnabled` is on** (M37); while off it drives
+   * the modelled commission line on admin analytics and the estimates a
+   * HomeKrafter sees on their payout screen and listing form — all of
+   * which say which mode they are in.
    */
   commissionPct: number;
+  /**
+   * Whether payouts actually deduct `commissionPct` (M37). **Defaults to
+   * off, and flipping it is a business decision, not a code change** —
+   * the engine exists so the numbers are visible and honest everywhere
+   * before anybody commits to a rate. While off, every payout row stores
+   * gross with an applied rate of 0, and every surface says the figures
+   * are estimates.
+   */
+  commissionEnabled: boolean;
   /**
    * Delivery radius given to a new HomeKrafter whose application didn't
    * state one. Read by `AdminSellersService.approveApplication`.
@@ -80,6 +90,7 @@ export type PublicPlatformSettings = Pick<
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionPct: 10,
+  commissionEnabled: false,
   defaultDeliveryRadiusKm: 10,
   /** The Chandigarh tricity: Chandigarh, Mohali, Kharar, Zirakpur, Panchkula, Ambala. */
   servicedPincodePrefixes: '160,1401,1403,1341,1346',
@@ -104,6 +115,10 @@ export class AdminSettingsService {
 
     return {
       commissionPct: numberOr(byKey.get('commissionPct'), DEFAULT_SETTINGS.commissionPct),
+      // Strict equality with the stored string: anything that is not the
+      // literal 'true' — a stale row, a typo, a half-written value —
+      // reads as off, which is the direction that fails safe for money.
+      commissionEnabled: byKey.get('commissionEnabled') === 'true',
       defaultDeliveryRadiusKm: numberOr(
         byKey.get('defaultDeliveryRadiusKm'),
         DEFAULT_SETTINGS.defaultDeliveryRadiusKm,

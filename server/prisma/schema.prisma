@@ -2131,7 +2131,18 @@ model Payout {
   id          String       @id @default(cuid())
   sellerId    String
   seller      Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  /// The payable figure — net of commission when `commissionEnabled` was
+  /// on at request time, gross otherwise. The three columns below say
+  /// which, so every row explains its own arithmetic (M37).
   amount      Decimal      @db.Decimal(12, 2)
+  /// Delivered earnings before any deduction. Null on pre-M37 rows,
+  /// where `amount` was always gross.
+  grossAmount Decimal?     @db.Decimal(12, 2)
+  /// What was actually deducted — 0 when the flag was off, so a row from
+  /// a disabled era never looks like a 0% business decision was applied.
+  commissionAmount Decimal? @db.Decimal(12, 2)
+  /// The rate *applied* (0 when disabled), not the configured rate.
+  commissionPct Decimal?   @db.Decimal(5, 2)
   periodStart DateTime
   periodEnd   DateTime
   status      PayoutStatus @default(pending)

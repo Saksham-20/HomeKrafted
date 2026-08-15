@@ -165,10 +165,18 @@ describe('meal skip + pause under the menu lock', () => {
     }
     expect(rows).toHaveLength(deliveries.length);
 
-    // And the pause message said so, on the meals category.
-    const note = await h.prisma.notification.findFirst({
-      where: { userId: buyer.userId, category: 'meals', title: 'Meal plan paused' },
-    });
+    // And the pause message said so, on the meals category. Polled, not
+    // read once: delivery is fire-and-forget after the pause commits
+    // (`void deliver()`), so the row can land a beat after the 200 —
+    // pattern from `order-notifications.e2e-spec.ts#waitForNotifications`.
+    const deadline = Date.now() + 20_000;
+    let note: { body: string } | null = null;
+    while (!note && Date.now() < deadline) {
+      note = await h.prisma.notification.findFirst({
+        where: { userId: buyer.userId, category: 'meals', title: 'Meal plan paused' },
+      });
+      if (!note) await new Promise((resolve) => setTimeout(resolve, 25));
+    }
     expect(note).not.toBeNull();
     expect(note!.body).toContain('still arrive');
   });

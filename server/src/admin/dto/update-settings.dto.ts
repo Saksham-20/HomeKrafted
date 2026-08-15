@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * Platform settings (M16, M5). Every field optional — an admin changing
@@ -26,6 +27,16 @@ export class UpdateSettingsDto {
   @Min(1)
   @Max(100)
   defaultDeliveryRadiusKm?: number;
+
+  /**
+   * Whether payouts deduct the rate above (M37). `@BooleanField()` — the
+   * M17 rule: a bare `@IsBoolean()` under `enableImplicitConversion`
+   * reads the string "false" as true, which on a money switch is the
+   * worst possible coercion.
+   */
+  @IsOptional()
+  @BooleanField()
+  commissionEnabled?: boolean;
 
   /**
    * Comma-separated pincode prefixes Homekrafted currently delivers to —

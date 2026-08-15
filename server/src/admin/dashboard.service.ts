@@ -66,10 +66,11 @@ export interface AdminAnalyticsSnapshot {
   days: number;
   /**
    * Modelled platform take on the window's GMV at the configured
-   * `commissionPct`. **Nothing deducts this** — `Payout` amounts are
-   * gross and settlement is manual — so every surface that renders it
-   * says so. It exists because "what would a 12% take rate have earned"
-   * is a question the business needs answered before it can set one.
+   * `commissionPct` — a what-if over gross sales, **not** a sum of what
+   * was deducted. Whether payouts actually deduct the rate is
+   * `commissionEnabled` (M37, default off); either way this figure stays
+   * modelled, because "what would a 12% take rate have earned" is a
+   * question the business needs answered before it can change one.
    */
   commissionPct: number;
   modelledCommission: number;

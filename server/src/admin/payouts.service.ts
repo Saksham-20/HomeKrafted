@@ -21,6 +21,11 @@ function mapAdminPayout(payout: PayoutRow) {
     sellerEmail: payout.seller.user.email ?? undefined,
     sellerPhone: payout.seller.user.phone ?? undefined,
     amount: Number(payout.amount),
+    // M37 — the row's own arithmetic; absent on pre-M37 rows where
+    // `amount` was always gross.
+    grossAmount: payout.grossAmount !== null ? Number(payout.grossAmount) : undefined,
+    commissionAmount: payout.commissionAmount !== null ? Number(payout.commissionAmount) : undefined,
+    commissionPct: payout.commissionPct !== null ? Number(payout.commissionPct) : undefined,
     periodStart: payout.periodStart.toISOString().slice(0, 10),
     periodEnd: payout.periodEnd.toISOString().slice(0, 10),
     status: payout.status,

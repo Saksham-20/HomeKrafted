@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MealsModule } from '../meals/meals.module';
+import { SettingsModule } from '../admin/settings.module';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { SellerController } from './seller.controller';
@@ -51,6 +52,8 @@ import { OrdersModule } from '../orders/orders.module';
     OrdersModule,
     // M37 — `MealPlanDayMenusService` for the dated-menu editor routes.
     MealsModule,
+    // M37 — the commission rate on /seller/me + the payout split.
+    SettingsModule,
   ],
   controllers: [
     SellerController,

@@ -80,12 +80,21 @@ assume is already handled.
   over by hand. `POST /admin/sellers/:id/resend-invite` re-sends and burns
   the previous link. Until the keys are set, **this still caps supply
   growth**; it is now one afternoon of config and nothing else.
-- **The platform collects nothing.** `commissionPct` (default 10) exists
-  only as a modelled number on the admin analytics screen; nothing deducts
-  it, and `Payout.amount` is gross. Deliberate — a take rate is a business
-  decision, not a bug fix — so don't "fix" it in passing. Both the
-  `/admin/payouts` queue and `docs/LAUNCH-READINESS.md` §3b say so out
-  loud; keep it that way until someone decides.
+- **The commission engine exists; the switch is off (M37).**
+  `commissionEnabled` (PlatformSettings, default **false**, strict
+  `'true'` parse) decides whether a payout request deducts
+  `commissionPct`. The split is computed once at request time
+  (`server/src/seller/payout-split.ts`) and **stored on the row** —
+  `amount` stays the payable figure; `grossAmount`/`commissionAmount`/
+  `commissionPct` are its arithmetic, absent on pre-M37 rows where
+  `amount` was always gross. Pending balances subtract
+  `COALESCE(grossAmount, amount)` so flipping the flag never
+  double-counts. The rate rides on `GET /seller/me` (`commission:
+  { pct, enabled }`) — the listing form and payout screen compute from
+  it, **never a hardcoded percentage** — and every surface says
+  "estimate" while the flag is off. Flipping it is a business decision
+  (audited, on `/admin/settings`), not a bug fix — don't turn it on in
+  passing, and don't recalculate a payout already requested.
 - **The "Backed by" strip is unverified, and now carries the
   logos.** CUNA, ISB AIC and CGC-J VentureNest — `backedBy` in
   `lib/data/site.ts`, rendered by `components/about/AboutClient.tsx`

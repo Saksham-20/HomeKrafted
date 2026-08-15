@@ -281,24 +281,31 @@ means.
 
 ---
 
-## 3b. Take rate — the platform currently collects nothing ⛔
+## 3b. Take rate — the engine exists, the switch is off ⚠️
 
-`commissionPct` (default 10) exists **only** as a modelled number on the
-admin analytics screen. `admin/dashboard.service.ts` says it outright:
-"**Nothing deducts this** — `Payout` amounts are gross and settlement is
-manual." Combined with 5% cashback credited on every order and the ₹49
-flat shipping fee below the ₹999 threshold, the unit economics on a
-low-value item are not thin, they are inverted.
+**M37 built the commission engine; collecting is now one audited toggle,
+not a build.** `PlatformSettings.commissionEnabled` (default **off**)
+decides whether `POST /seller/payouts/request` deducts `commissionPct`;
+when it does, the split (`grossAmount`/`commissionAmount`/`commissionPct`)
+is stored on every payout row, the seller's payout screen and listing
+form show the arithmetic (estimates while off, and they say so), and the
+admin queue's warning flips from "these amounts are gross" to "new rows
+are net; old rows aren't recalculated". Mixed-era maths is safe: pending
+balances subtract `COALESCE(grossAmount, amount)`, so flipping the flag
+never re-offers already-deducted commission as payable.
 
-This is a commercial decision, not a bug, so no code here changes it. But
-it is a hard gate on anything recurring: a subscription that runs daily
-multiplies a per-order loss by the number of cycles. Two things follow.
+What remains is the commercial decision itself, and it is still a hard
+gate on anything recurring: with the flag off, 5% cashback on every order
+and the ₹49 flat shipping subsidy below ₹999 leave the unit economics on
+a low-value item inverted, and a daily subscription multiplies that per
+cycle.
 
-1. **Decide the take rate before recurring revenue ships.** Either deduct
-   commission when a payout is computed, or decide deliberately not to and
-   write down why.
-2. **Nobody should settle a payout believing a cut was taken.**
-   `Payout.amount` is gross. See `docs/DATA-MODEL.md`'s `Payout` row.
+1. **Decide the take rate before recurring revenue ships** — then flip
+   `commissionEnabled` on `/admin/settings` (audited), or decide
+   deliberately not to and write down why.
+2. **Nobody should settle a payout believing a cut was taken when it
+   wasn't.** A row without a split (or with `commissionAmount: 0`) is
+   gross — the queue says so on-screen.
 
 ## 4. Legal and commercial
 

@@ -266,7 +266,7 @@ platform settings.
 | **Delivery** | ✅ Correctly scoped — radius-based availability on web, logistics deferred to the apps. Consistent with the vision. |
 | **Scalability** | ⚠️ No caching layer, no image CDN, no pagination on several admin lists. Tests and CI landed in M17 (L4). Fine for launch volume, not for the second year. |
 | **Retention** | ❌ No reorder (H4), no subscriptions in the modules that need them most (M1), no follow (H3), no lifecycle email. |
-| **Monetisation** | ⚠️ Payout machinery exists; commission/take-rate is not modelled anywhere. Featured placement, promoted listings and hamper upsell are all unbuilt. |
+| **Monetisation** | ⚠️ Payout machinery exists, and M37 added the commission engine (split stored per payout, seller-facing transparency) behind `commissionEnabled`, default off — collecting is a toggle awaiting the business decision. Featured placement, promoted listings and hamper upsell are all unbuilt. |
 
 ---
 
@@ -355,8 +355,11 @@ below.
 18. Real support conversations. *(M6)*
 19. Lifecycle notifications against real providers. *(M7)*
 20. Commission/take-rate **collection** and featured placement. (M16
-    added the rate as a setting and models it against GMV; nothing
-    deducts it — payouts are gross and settlement is manual.)
+    added the rate as a setting and models it against GMV. **M37 built
+    the deduction engine** — split stored per payout row, transparency on
+    every seller surface — behind `commissionEnabled`, default **off**:
+    collecting is now one audited toggle, and the open item is the
+    business decision to flip it, plus featured placement.)
 21. ✅ **Test suite — shipped M17.** *(L4)* Was the largest single gap:
     every claim in M15/M16 had been verified by measurement against a
     live API, and none of it was guarded. Now 416 tests across three

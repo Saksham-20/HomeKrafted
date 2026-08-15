@@ -704,15 +704,36 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   phone number like `+91…` appears with a leading apostrophe. That is
   deliberate: a cell starting with `+` or `=` is treated as a formula by
   every spreadsheet, and the apostrophe is what stops one running.
-- **Settings** holds the commission rate and the default delivery radius.
-  Both used to be constants in source. Every change is written to the
-  audit log with its before and after.
+- **Settings** holds the commission rate (plus its on/off switch — M37,
+  below), the default delivery radius, the serviced-area prefixes and the
+  meal-menu lock time. Every change is written to the audit log with its
+  before and after.
 
-> The commission figure on Analytics is **modelling only** — payouts are
-> gross and settlement is manual, so nothing is being deducted. It is
-> there so "what would 12% have earned last quarter" is answerable.
-> Feature flags are deliberately *not* on the settings screen; the page
-> explains why.
+> While the commission switch is **off** (the shipped default), the rate
+> is estimates only — payouts are gross and settlement is manual, and
+> every screen showing a figure says so. Feature flags are deliberately
+> *not* on the settings screen; the page explains why.
+
+### Commission engine (M37)
+
+The platform can now actually deduct its take rate, behind a switch that
+ships **off**. To walk the whole loop:
+
+1. As a HomeKrafter with delivered orders, open **Payouts**: a breakdown
+   card shows unclaimed earnings, the commission at the configured rate
+   and the net — labelled *"estimate — nothing is deducted yet"*. The
+   listing editor shows the same arithmetic live under the price tiers
+   ("Customer pays ₹450 → commission (10%) ₹45 → you receive ₹405"),
+   with the inverse ("to take home X, price at Y").
+2. Request a payout: it arrives **gross**, and the admin queue's banner
+   says every figure is the full order value.
+3. As admin, **Settings → "Deduct commission from payouts"** on, save
+   (audited). The payouts banner flips: new rows arrive net.
+4. Request another payout as the HomeKrafter: the row now shows its own
+   split — gross − commission (rate) — on both the seller history and
+   the admin queue, and the amount to settle is the net. Rows from step
+   2 keep their gross figure untouched: nothing recalculates a request
+   already made.
 
 ### Pre-order and days off (M16)
 

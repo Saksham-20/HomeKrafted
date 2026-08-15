@@ -172,7 +172,13 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
         subtitle={isEdit ? values.name : "Create a new product for your storefront."}
       />
       <ModerationNotice status={review.status} note={review.note} />
-      <ListingForm values={values} onChange={setValues} categories={categories} occasions={occasions} />
+      <ListingForm
+        values={values}
+        onChange={setValues}
+        categories={categories}
+        occasions={occasions}
+        commission={seller?.commission}
+      />
       {error && (
         <p className={styles.error} role="alert">
           {error}

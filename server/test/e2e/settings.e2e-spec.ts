@@ -59,6 +59,7 @@ describe('platform settings', () => {
       const res = await publicSettings().expect(200);
 
       expect(res.body).not.toHaveProperty('commissionPct');
+      expect(res.body).not.toHaveProperty('commissionEnabled');
       expect(res.body).not.toHaveProperty('defaultDeliveryRadiusKm');
       // Belt and braces: the values themselves must not appear anywhere in
       // the payload under any key.
@@ -104,6 +105,23 @@ describe('platform settings', () => {
       await update(admin, { menuLockTime: '18:30' }).expect(200);
       const after = await h.api().get(`${API_PREFIX}/admin/settings`).set(auth(admin)).expect(200);
       expect(after.body.menuLockTime).toBe('18:30');
+    });
+
+    it('round-trips commissionEnabled, defaulting to off (M37)', async () => {
+      const before = await h.api().get(`${API_PREFIX}/admin/settings`).set(auth(admin)).expect(200);
+      // Off until an admin decides otherwise — flipping it is a business
+      // decision, and the engine ships dark.
+      expect(before.body.commissionEnabled).toBe(false);
+
+      await update(admin, { commissionEnabled: true }).expect(200);
+      const on = await h.api().get(`${API_PREFIX}/admin/settings`).set(auth(admin)).expect(200);
+      expect(on.body.commissionEnabled).toBe(true);
+
+      // The M17 boolean trap: `"false"` as a string must read as off, not
+      // as a truthy non-empty string.
+      await update(admin, { commissionEnabled: false }).expect(200);
+      const off = await h.api().get(`${API_PREFIX}/admin/settings`).set(auth(admin)).expect(200);
+      expect(off.body.commissionEnabled).toBe(false);
     });
 
     it('refuses a menu lock time that is not a 24-hour clock time', async () => {

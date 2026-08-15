@@ -46,6 +46,20 @@ export function PayoutRow({ payout, className }: PayoutRowProps) {
         {/* A refusal with no reason attached is worse than one that never
             happened — the admin has to give one, so show it. */}
         {isRejected && payout.note ? <span className={styles.note}>{payout.note}</span> : null}
+        {/*
+          The row's own arithmetic (M37) — shown only when a commission
+          was actually deducted. Pre-M37 rows and disabled-era rows have
+          no split (or a 0 deduction), and inventing one would misstate
+          what was paid.
+        */}
+        {payout.grossAmount !== undefined &&
+        payout.commissionAmount !== undefined &&
+        payout.commissionAmount > 0 ? (
+          <span className={styles.date}>
+            {formatCurrency(payout.grossAmount)} earned − {formatCurrency(payout.commissionAmount)}{" "}
+            commission ({payout.commissionPct}%)
+          </span>
+        ) : null}
       </div>
       <span className={styles.amount}>{formatCurrency(payout.amount)}</span>
     </div>

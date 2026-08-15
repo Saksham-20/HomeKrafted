@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Seller, SellerSpecialty } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdminSettingsService } from '../admin/settings.service';
 import {
   isWithdrawnSpecialty,
   vendorTypeForSpecialties,
@@ -30,7 +31,10 @@ import { SellerPayoutsService } from './payouts.service';
  */
 @Injectable()
 export class SellerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: AdminSettingsService,
+  ) {}
 
   /** Every `/seller/*` controller method calls this first — never accepts a `sellerId` from a route/body param. */
   async resolveSeller(user: RequestUser): Promise<Seller> {
@@ -79,10 +83,16 @@ export class SellerService {
     // shared `resolveSeller` seam is deliberately left alone: no other
     // controller needs the vendor, and widening it would put a join on
     // every `/seller/*` request instead of taking one off this one.
-    const seller = await this.prisma.seller.findUnique({
-      where: { id: user.sellerId },
-      include: { vendor: { select: { name: true, slug: true } } },
-    });
+    const [seller, settings] = await Promise.all([
+      this.prisma.seller.findUnique({
+        where: { id: user.sellerId },
+        include: { vendor: { select: { name: true, slug: true } } },
+      }),
+      // M37 — the rate the listing form does its "you receive ₹N" math
+      // with. Server-supplied on the record every portal screen already
+      // loads, so no component ever hardcodes a percentage.
+      this.settings.get(),
+    ]);
     if (!seller) {
       throw new ForbiddenException('No seller account is linked to this session');
     }
@@ -98,6 +108,7 @@ export class SellerService {
       createdAt: seller.createdAt.toISOString(),
       rating: seller.rating !== null ? Number(seller.rating) : undefined,
       reviewCount: seller.reviewCount ?? undefined,
+      commission: { pct: settings.commissionPct, enabled: settings.commissionEnabled },
     };
   }
 

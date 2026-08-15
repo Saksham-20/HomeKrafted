@@ -68,6 +68,7 @@ describe('get', () => {
       { key: 'hamperBuilderEnabled', value: 'true' },
     ]);
     expect(Object.keys(await service.get()).sort()).toEqual([
+      'commissionEnabled',
       'commissionPct',
       'defaultDeliveryRadiusKm',
       'menuLockTime',

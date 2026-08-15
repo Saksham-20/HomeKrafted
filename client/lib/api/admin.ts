@@ -1668,11 +1668,18 @@ export async function getCategoriesAdmin(): Promise<Category[]> {
 
 export interface PlatformSettings {
   /**
-   * The take rate. **Modelling only today** — payouts are gross and
-   * settlement is manual, so nothing deducts this. It drives the
-   * commission line on analytics, which says as much.
+   * The take rate. Deducted from payouts only while `commissionEnabled`
+   * is on (M37); off, it drives the modelled commission line on
+   * analytics and the estimates on the seller's payout screen and
+   * listing form.
    */
   commissionPct: number;
+  /**
+   * Whether payouts actually deduct the rate above (M37). Defaults off —
+   * flipping it is a business decision, and every screen says which mode
+   * it is in.
+   */
+  commissionEnabled: boolean;
   /** Given to a new HomeKrafter whose application didn't state one. */
   defaultDeliveryRadiusKm: number;
   /**
@@ -1700,6 +1707,7 @@ export async function getPlatformSettings(): Promise<PlatformSettings | undefine
   if (isMockMode())
     return {
       commissionPct: 10,
+      commissionEnabled: false,
       defaultDeliveryRadiusKm: 10,
       servicedPincodePrefixes: "160,1401,1403,1341,1346",
       menuLockTime: "20:00",
@@ -1717,6 +1725,7 @@ export async function updatePlatformSettings(
   if (isMockMode())
       return {
         commissionPct: 10,
+        commissionEnabled: false,
         defaultDeliveryRadiusKm: 10,
         servicedPincodePrefixes: "160,1401,1403,1341,1346",
         menuLockTime: "20:00",
@@ -2038,6 +2047,14 @@ export interface AdminPayout {
   sellerEmail?: string;
   sellerPhone?: string;
   amount: number;
+  /**
+   * The row's own arithmetic (M37); absent on pre-M37 rows, where
+   * `amount` was always gross — the queue must not invent a split for
+   * those.
+   */
+  grossAmount?: number;
+  commissionAmount?: number;
+  commissionPct?: number;
   periodStart: string;
   periodEnd: string;
   status: PayoutStatus;

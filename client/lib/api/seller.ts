@@ -90,7 +90,10 @@ export async function getSeller(sellerId: string): Promise<Seller | undefined> {
  * throughout their own portal.
  */
 export async function getMySeller(): Promise<Seller | undefined> {
-  if (isMockMode()) return sellers[0];
+  // Mock parity for the M37 commission block: the real record carries the
+  // platform rate so no screen hardcodes one; offline mode models the
+  // shipped default (10%, deduction off).
+  if (isMockMode()) return { ...sellers[0], commission: { pct: 10, enabled: false } };
   try {
     return await http.get<Seller>("/seller/me");
   } catch {
@@ -505,10 +508,57 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
 /** Live "requested payout" table, separate from the seed history — same split as `lib/api/orders.ts`'s `orders` vs. `lib/data/orders.ts#seedOrders` (mock mode only). */
 const livePayouts: Payout[] = [];
 
-interface SellerPayoutsPage {
+/**
+ * The commission block `GET /seller/payouts` computes beside the rows
+ * (M37). While `enabled` is false the figures are an *estimate at the
+ * configured rate* and a payout request pays `grossPending`; enabled,
+ * it pays `netPending`. `pendingBalance` on the page is always the
+ * figure a request would actually pay.
+ */
+export interface SellerPayoutCommission {
+  enabled: boolean;
+  pct: number;
+  grossPending: number;
+  commissionOnPending: number;
+  netPending: number;
+}
+
+export interface SellerPayoutsPage {
   items: Payout[];
   summary: SellerEarningsSummary;
   pendingBalance: number;
+  commission: SellerPayoutCommission;
+}
+
+/**
+ * The whole payouts screen in one call — rows, summary, and what a
+ * request would pay right now with its arithmetic. Mock mode derives the
+ * same shape from the seed ledger at the shipped defaults (10%, off).
+ */
+export async function getSellerPayoutsPage(sellerId: string): Promise<SellerPayoutsPage> {
+  if (isMockMode()) {
+    const items = await getSellerPayouts(sellerId);
+    const summary = await getSellerEarningsSummary(sellerId);
+    // The offline ledger has no delivered-order stream to compute an
+    // unclaimed balance from, so mock mode models the requested-pending
+    // figure as the requestable one (pre-M37 behaviour) and estimates the
+    // split at the shipped defaults (10%, deduction off).
+    const grossPending = summary.totalPending;
+    const commissionOnPending = Math.round(grossPending * 10) / 100;
+    return {
+      items,
+      summary,
+      pendingBalance: grossPending,
+      commission: {
+        enabled: false,
+        pct: 10,
+        grossPending,
+        commissionOnPending,
+        netPending: Math.round((grossPending - commissionOnPending) * 100) / 100,
+      },
+    };
+  }
+  return http.get<SellerPayoutsPage>("/seller/payouts");
 }
 
 export async function getSellerPayouts(sellerId: string): Promise<Payout[]> {

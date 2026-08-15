@@ -4,8 +4,10 @@ import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageUpload } from "@/components/ui/ImageUpload";
-import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag } from "@/lib/types";
+import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag, SellerCommission } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
+import { commissionBreakdown, priceForTarget } from "@/lib/commission";
+import { formatCurrency } from "@/lib/format";
 import styles from "./ListingForm.module.css";
 
 export interface ListingFormWeightRow {
@@ -110,6 +112,12 @@ export interface ListingFormProps {
   /** `group` absent reads as `"food"` — every category predating M20 was. */
   categories: { id: string; name: string; group?: ProductKind }[];
   occasions: { id: string; name: string }[];
+  /**
+   * The platform rate from `GET /seller/me` (M37) — drives the "you
+   * receive ₹N" line under the price tiers. Omitted by the admin editor,
+   * which is pricing on a kitchen's behalf and shows no earnings line.
+   */
+  commission?: SellerCommission;
 }
 
 /**
@@ -119,7 +127,7 @@ export interface ListingFormProps {
  * `/seller/listings/[id]` render this and only differ in how they submit
  * (`createSellerListing` vs. `updateSellerListing`, `lib/api/seller.ts`).
  */
-export function ListingForm({ values, onChange, categories, occasions }: ListingFormProps) {
+export function ListingForm({ values, onChange, categories, occasions, commission }: ListingFormProps) {
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     onChange({ ...values, [key]: value });
   }
@@ -165,6 +173,11 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
 
   const isCraft = values.kind === "craft";
   const categoriesForKind = categories.filter((c) => (c.group ?? "food") === values.kind);
+
+  // Earnings line inputs (M37): the default tier is the price on the
+  // product card, so that is the one the line explains.
+  const defaultRowPrice = Number(values.weightRows[values.defaultRowIndex]?.price) || 0;
+  const breakdown = commissionBreakdown(defaultRowPrice, commission?.pct ?? 0);
 
   /**
    * Switching kind can strand the chosen category on the other side of the
@@ -445,6 +458,25 @@ export function ListingForm({ values, onChange, categories, occasions }: Listing
           <Plus size={15} strokeWidth={2} aria-hidden="true" />
           Add weight tier
         </button>
+        {/*
+          The M37 earnings line: what the default tier's price works out
+          to after the platform's cut, at the server-supplied rate — never
+          a hardcoded percentage. Hidden when no rate rides in (the admin
+          editor) or no price is typed yet.
+        */}
+        {commission && defaultRowPrice > 0 ? (
+          <p className={styles.hint} aria-live="polite">
+            Customer pays {formatCurrency(breakdown.gross)} → commission ({commission.pct}%){" "}
+            {formatCurrency(breakdown.commission)} → you receive {formatCurrency(breakdown.net)}.
+            {commission.enabled ? "" : " Estimate — nothing is deducted yet."}
+            {commission.pct > 0 ? (
+              <>
+                {" "}To take home {formatCurrency(breakdown.gross)}, price at{" "}
+                {formatCurrency(priceForTarget(breakdown.gross, commission.pct))}.
+              </>
+            ) : null}
+          </p>
+        ) : null}
       </div>
 
       <div className={styles.section}>
