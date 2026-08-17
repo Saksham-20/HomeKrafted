@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Heart, Menu, ShoppingCart, Store, User, Wallet } from "lucide-react";
+import { Heart, Menu, ShieldCheck, ShoppingCart, Store, User, Wallet } from "lucide-react";
 import { SearchForm } from "@/components/search/SearchForm";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
@@ -50,6 +50,9 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
   const { count: wishlistCount } = useWishlist();
   const { role, ready: authReady, switchToShopping, switchToSelling } = useAuth();
   const isSeller = authReady && role === "seller";
+  // Admin has no persisted "mode" the way a seller does — `AdminShell`'s
+  // "View site" is a plain link out, so the way back is a plain link too.
+  const isAdmin = authReady && role === "admin";
 
   // This header only renders on a non-`/seller` route (see the doc
   // comment above) — a seller landing here (any way other than the
@@ -105,6 +108,23 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
             >
               <Store size={16} strokeWidth={1.7} />
             </button>
+          )}
+
+          {/* The admin mirror of the seller pill above, same reasoning for
+              being icon-only (the row has no width for a label) and the
+              same three-way discoverability: `title` tooltip here, the
+              labelled drawer row below 1190px, and `AdminShell`'s "View
+              site" on the other side. A `Link`, not a button — there is no
+              mode state to flip, `/admin` is just a place. */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={clsx(styles.sellerModePill, styles.hideOnMobile)}
+              aria-label="Switch to admin panel"
+              title="Switch to admin panel"
+            >
+              <ShieldCheck size={16} strokeWidth={1.7} />
+            </Link>
           )}
 
           {/* Was a `<Link href="/shop">` dressed as a search box — a dead
@@ -184,6 +204,7 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
         secondaryItems={secondaryItems}
         walletBalance={walletReady ? walletBalance : undefined}
         onSwitchToSelling={isSeller ? handleSwitchToSelling : undefined}
+        showAdminSwitch={isAdmin}
       />
     </header>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Heart, Store, User, Wallet, X } from "lucide-react";
+import { Heart, ShieldCheck, Store, User, Wallet, X } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
@@ -21,6 +21,8 @@ export interface MobileDrawerProps {
   walletBalance: number | undefined;
   /** Present only for a signed-in seller currently in shopping mode — `HeaderClient`'s `sellerModePill` hides below ~1190px (`.hideOnMobile`), so this is the only way to reach the dual-mode toggle on mobile (M8.5, same reasoning as the Wishlist entry below). */
   onSwitchToSelling?: () => void;
+  /** The admin mirror of `onSwitchToSelling` — true only for a signed-in admin. A plain link to `/admin` rather than a callback, because admin has no persisted mode to flip; same mobile reasoning (the header pill hides below ~1190px). */
+  showAdminSwitch?: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export function MobileDrawer({
   secondaryItems,
   walletBalance,
   onSwitchToSelling,
+  showAdminSwitch,
 }: MobileDrawerProps) {
   const { count: wishlistCount } = useWishlist();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -166,6 +169,14 @@ export function MobileDrawer({
               </span>
               <span className={styles.utilLabel}>Switch to selling</span>
             </button>
+          )}
+          {showAdminSwitch && (
+            <Link href="/admin" className={styles.utilItem} onClick={onClose}>
+              <span className={styles.utilIcon}>
+                <ShieldCheck size={19} strokeWidth={1.7} />
+              </span>
+              <span className={styles.utilLabel}>Switch to admin panel</span>
+            </Link>
           )}
           <Link href="/wallet" className={styles.utilItem} onClick={onClose}>
             <span className={styles.utilIcon}>

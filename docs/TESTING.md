@@ -133,6 +133,10 @@ A HomeKrafter account can also shop as a normal customer in the same
 session — look for "Switch to shopping" in the dashboard top bar. Worth
 testing both directions.
 
+An admin can do the same round trip: "View site" in the admin top bar
+goes to the shop, and the shop header shows a shield icon ("Switch to
+admin panel" on hover; a labelled row in the phone drawer) to come back.
+
 **Check the dashboard greets you as the right kitchen.** Signing in as
 `meera@meerassnackbox.example` must say *Meera's Snack Box*, not
 Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
