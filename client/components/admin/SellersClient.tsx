@@ -318,7 +318,9 @@ export function SellersClient() {
               Pincode {placementWarning.pincode} ({placementWarning.label}) covers a wide area —
               its post offices are up to {Math.round(placementWarning.spreadKm)} km apart, so we
               may have placed this kitchen that far from where it really is. That decides which
-              buyers can see them at all. Open their record and set the exact spot.
+              buyers can see them at all. They can fix it themselves — their profile asks them to
+              pin the kitchen from where they stand, and it is listed as a gap until they do. If
+              they do not sign in, open their record and set the exact spot.
             </p>
             <Link
               className={styles.inviteLinkAction}

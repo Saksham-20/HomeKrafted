@@ -849,6 +849,10 @@ export class AdminSellersService {
       data: {
         lat: dto.lat,
         lng: dto.lng,
+        // An admin placing the pin is a person vouching for it, the same
+        // as the kitchen's own GPS fix — the completion meter's "pin your
+        // kitchen" item is about *someone* having confirmed the seed.
+        pinConfirmedAt: new Date(),
         ...(dto.location ? { location: dto.location } : {}),
       },
     });

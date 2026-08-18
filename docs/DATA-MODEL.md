@@ -222,8 +222,13 @@ place the Prisma model deviates from the literal TS shape). All ids are
   a coordinate** — the bundled GeoNames table is authoritative for
   district and state, but its centroid is trustworthy for only 44% of
   pincodes (median internal spread 12.4 km), so `Vendor.lat`/`lng` is
-  *seeded* from it and confirmed by an admin through
-  `PATCH /admin/sellers/:id/coords`. **`Vendor.area` now carries two
+  *seeded* from it and confirmed by a person — an admin through
+  `PATCH /admin/sellers/:id/coords`, or since 2026-08-18 the kitchen
+  itself through `PATCH /seller/profile/coords` (a GPS fix,
+  plausibility-checked against its own pincode/area, clears
+  `addressVerified`, audited). `Vendor.pinConfirmedAt` records that
+  confirmation; NULL means the coordinates are still the approval seed,
+  which the profile completion meter names as a gap. **`Vendor.area` now carries two
   kinds of value** — a curated area id where one applies, otherwise the
   pincode; nothing filters on it (it is search and display only), which is
   what lets one column do both. **Nothing was backfilled**: pre-M36 rows

@@ -827,6 +827,25 @@ export async function updateSellerProfile(
   return http.patch<OwnVendorProfile>("/seller/profile", input);
 }
 
+/**
+ * The kitchen pins its own exact location (2026-08-18). Server-side it is
+ * plausibility-checked against their pincode/area, clears
+ * `addressVerified`, and is audited; a refused pin comes back as a 400
+ * whose sentence names the distance — so this **must not swallow** the
+ * rejection (the M36 rule: a write that reports nothing has discarded
+ * the only explanation anybody was going to get).
+ */
+export async function setSellerKitchenPin(input: {
+  lat: number;
+  lng: number;
+}): Promise<{ lat: number; lng: number; addressVerified: boolean }> {
+  if (isMockMode()) return { ...input, addressVerified: false };
+  return http.patch<{ lat: number; lng: number; addressVerified: boolean }>(
+    "/seller/profile/coords",
+    input,
+  );
+}
+
 export async function addSellerPhoto(input: {
   url: string;
   caption?: string;

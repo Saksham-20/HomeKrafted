@@ -512,8 +512,21 @@ and every valid Indian pincode is approvable.
   buyers can see a kitchen at all, so a 12 km error hides a real storefront
   from its own neighbourhood. Approval seeds it and flags
   `placement` when it is approximate; an admin corrects it via
-  `PATCH /admin/sellers/:id/coords`. `spreadKm` is the honesty field —
-  ask it rather than assuming.
+  `PATCH /admin/sellers/:id/coords`, **and since 2026-08-18 the kitchen
+  can pin itself** — `PATCH /seller/profile/coords` takes a GPS fix from
+  the person standing in the kitchen (a "Use my current location" button
+  on `/seller/profile`). That reverses M36's "no seller-facing coords
+  write" on the owner's decision; what it protected stays closed by
+  three guardrails: the pin must land inside the kitchen's own pincode
+  (centroid + `spreadKm` + 10 km; pre-M36 rows: 25 km of the curated
+  area, anchored to the *stated* place so moves can't accumulate), it
+  clears `addressVerified` (the M36c rule — admin re-verifies), and it
+  is audited (`vendor.set_coords_self`). `Vendor.pinConfirmedAt` records
+  that a person (kitchen or admin) vouched for the pin; NULL means
+  "still the approval seed", and the profile completion meter names that
+  as a gap. Buyers are untouched either way — `mapVendor` rounds every
+  public payload to ~1.1 km whoever set the pin. `spreadKm` is the
+  honesty field — ask it rather than assuming.
 - **`servicedPincodePrefixes` gates buyers, never supply.** It selects
   **copy, not visibility** (the "location is never a gate" rule above still
   holds — an empty page can't be told apart from a broken site, by the

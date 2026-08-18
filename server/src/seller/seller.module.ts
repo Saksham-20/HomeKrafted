@@ -27,6 +27,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { SellerAnalyticsController } from './analytics.controller';
 import { SellerAnalyticsService } from './analytics.service';
 import { OrdersModule } from '../orders/orders.module';
+import { AdminAuditLogService } from '../admin/audit-log.service';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -80,6 +81,10 @@ import { OrdersModule } from '../orders/orders.module';
     SellerPayoutsService,
     SellerProfileService,
     SellerAnalyticsService,
+    // For the self-set kitchen pin (`PATCH /seller/profile/coords`) —
+    // same stateless-two-instances reasoning as `SettingsModule`'s
+    // provider comment; its only dependency is the global PrismaService.
+    AdminAuditLogService,
   ],
 })
 export class SellerModule {}

@@ -230,6 +230,20 @@ That is deliberate — we verified the old address, so the new one has to
 be checked again. Editing anything else on the page (a return policy,
 hours) leaves the badge alone.
 
+**A HomeKrafter can pin their kitchen's exact spot (2026-08-18).**
+`/seller/profile` → **Your kitchen's exact spot** has a "Use my current
+location" button: the browser asks for location, and the fix becomes the
+kitchen's coordinates — the ones behind delivery-distance sorting. Things
+to test: the pin is **private** (open the storefront signed out; the page
+and its API payload only ever carry a ~1 km rounded point); saving a pin
+clears the **Kitchen address** verification, and the status line says so;
+a pin far from the kitchen's registered pincode is refused with the
+distance in the message (simulate with browser dev-tools sensor override
+— set a location in another city); denying the browser prompt shows an
+instruction, not a dead button; and until someone pins (or an admin sets
+coords), the profile completion meter lists "Pin your kitchen's exact
+spot" as missing.
+
 **Applying is national; delivering is not.** Approving a HomeKrafter in
 Jaipur works and is meant to. Whether buyers there can order is a separate
 setting (`Serviced areas` under `/admin/settings`, currently the tricity),

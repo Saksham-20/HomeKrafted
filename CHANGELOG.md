@@ -3,6 +3,39 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M38] — The kitchen pins itself — 2026-08-18
+
+**`PATCH /seller/profile/coords`** — a HomeKrafter sets their own exact
+coordinates from a GPS fix ("Use my current location" on
+`/seller/profile`), reversing M36's "no seller-facing coords write" on
+the owner's decision. The person standing in the kitchen beats a pincode
+centroid that is trustworthy for 44% of pincodes; what the old stance
+protected — a storefront quietly moving its pin to a busier
+neighbourhood — stays closed by three guardrails:
+
+- **Plausibility.** The pin must land inside the kitchen's own pincode
+  (centroid + measured `spreadKm` + 10 km margin; pre-M36 kitchens:
+  25 km of their curated area, anchored to the *stated* place so
+  repeated moves cannot walk a storefront anywhere). Outside that is a
+  400 naming the distance.
+- **The badge resets.** An accepted pin clears `addressVerified` in the
+  same transaction (the M36c rule) — an admin verified a place, not a
+  claim, and re-verifies.
+- **Audited** (`vendor.set_coords_self`), same trail as the admin
+  endpoint, which remains the unconstrained correction path.
+
+Buyer exposure is unchanged: `mapVendor` still rounds every public
+payload to ~1.1 km whoever set the pin. New `Vendor.pinConfirmedAt`
+(migration `20260818120000`) records that a person — the kitchen's fix
+or an admin correction — vouched for the coordinates; while it is NULL
+the profile completion meter names "Pin your kitchen's exact spot" as a
+gap, which is the first-login nudge for a newly approved kitchen.
+Deliberately **not** on the `/sell` form: an unauthenticated applicant's
+GPS is a claim nobody vetted, they are often not in the kitchen when
+applying, and a permission prompt on a public form costs conversions.
+Pinned by `server/test/unit/seller-own-coords.spec.ts` and the extended
+completion cases in `trust.spec.ts`.
+
 ## [M37] — The reconciliation milestone — 2026-08-15
 
 A full product/security/architecture pass against the current product

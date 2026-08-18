@@ -196,6 +196,19 @@ export interface OwnVendorProfile extends VendorProfile {
   completion: VendorProfileCompletion;
   /** Never rendered on a buyer-facing surface — see `PickupAddress`. */
   pickup?: PickupAddress;
+  /**
+   * Where the platform currently believes the kitchen is — the exact
+   * coordinates behind delivery-distance filtering, correctable via
+   * `PATCH /seller/profile/coords`. Own-view only, same rule as
+   * `pickup`: the public payload carries a ~1.1 km rounded point (M36).
+   */
+  pin?: {
+    lat: number;
+    lng: number;
+    pincode?: string;
+    /** When a person last vouched for the pin — the kitchen's own GPS fix or an admin correction. Absent = still the approval seed. */
+    confirmedAt?: ISODateString;
+  };
 }
 
 /** What the admin verification panel reads — the seller's own view plus who it belongs to. */

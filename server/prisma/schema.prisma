@@ -1217,6 +1217,13 @@ model Vendor {
   /// point to adjust; it is not an answer.
   lat               Float
   lng               Float
+  /// When a person last confirmed `lat`/`lng` is really the kitchen —
+  /// the HomeKrafter's own GPS pin (`PATCH /seller/profile/coords`,
+  /// 2026-08-18) or an admin correction (`PATCH /admin/sellers/:id/coords`).
+  /// NULL means the coordinates are still whatever approval seeded (a
+  /// pincode centroid or curated area point) and nobody has vouched for
+  /// them — which is what the profile completion meter nudges about.
+  pinConfirmedAt    DateTime?
   /// How far this HomeKrafter is willing to deliver. They control it from
   /// their storefront settings.
   deliveryRadiusKm  Int        @default(10)

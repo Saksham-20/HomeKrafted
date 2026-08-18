@@ -38,9 +38,12 @@ function serviceWith(existing: Record<string, unknown> | null) {
     ownProfile: jest.fn().mockResolvedValue({}),
   };
 
+  const auditLog = { log: jest.fn().mockResolvedValue(undefined) };
+
   const service = new SellerProfileService(
     prisma as never,
     vendorProfiles as never,
+    auditLog as never,
   );
 
   return { service, captured, prisma };
