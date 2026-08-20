@@ -5,6 +5,7 @@ import { Hero } from "@/components/home/Hero";
 import { OccasionTile } from "@/components/ui/OccasionTile";
 import { SeasonalBand } from "@/components/home/SeasonalBand";
 import { CategoryTile } from "@/components/ui/CategoryTile";
+import { ScrollRail } from "@/components/ui/ScrollRail";
 import { MakerCard } from "@/components/home/MakerCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
@@ -245,9 +246,9 @@ export default async function Home() {
             All categories →
           </Link>
         </div>
-        {/* `hk-scroll` is the scrollbar tint for a horizontal rail — see
-            `styles/globals.css`. */}
-        <div className={clsx(styles.categoryRail, "hk-scroll")}>
+        {/* `ScrollRail` owns the scrollbar, the edge fades and the arrows;
+            `.categoryRail` is only this rail's gap and tile sizing. */}
+        <ScrollRail label="categories" className={styles.categoryRail}>
           {photographedCategories.map((category) => (
             <CategoryTile
               key={category.id}
@@ -255,7 +256,7 @@ export default async function Home() {
               href={`/shop?category=${category.slug}`}
             />
           ))}
-        </div>
+        </ScrollRail>
       </section>
 
       {/*

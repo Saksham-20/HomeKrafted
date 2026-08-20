@@ -8,6 +8,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { CorporateModule } from '../corporate/corporate.module';
 import { NotificationProvidersModule } from '../notifications/providers/providers.module';
 import { AdminAuditLogService } from './audit-log.service';
+import { AdminAuditModule } from './audit.module';
 import { AdminSettingsController } from './settings.controller';
 import { PublicSettingsController } from './public-settings.controller';
 import { PublicPincodesController } from './public-pincodes.controller';
@@ -55,6 +56,10 @@ import { AdminCorporateService } from './corporate.service';
   // `CatalogModule` (M16) for `VendorProfileService` — the verification
   // panel shows the same trust/completion numbers the storefront does.
   imports: [
+    // Provides `AdminAuditLogService` to the eleven services here that
+    // still inject it directly. It is its own module so `WalletModule`
+    // and `OrdersModule` can import it too — see `audit.module.ts`.
+    AdminAuditModule,
     IdempotencyModule,
     WalletModule,
     OrdersModule,
@@ -91,7 +96,6 @@ import { AdminCorporateService } from './corporate.service';
     AdminSettingsController,
   ],
   providers: [
-    AdminAuditLogService,
     AdminUsersService,
     AdminSellersService,
     SellerInviteService,

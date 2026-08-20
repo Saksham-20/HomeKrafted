@@ -2,6 +2,7 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, Not
 import { Prisma, Wallet, WalletTransactionCategory, WalletTransactionDirection, WalletTransactionRefType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { AdminAuditLogService } from '../admin/audit-log.service';
 import { AdjustWalletDto } from './dto/adjust-wallet.dto';
 import { ListTransactionsQueryDto } from './dto/list-transactions.query.dto';
 import { SetAutoTopupDto } from './dto/set-auto-topup.dto';
@@ -71,6 +72,7 @@ export class WalletService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly idempotency: IdempotencyService,
+    private readonly auditLog: AdminAuditLogService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -177,7 +179,13 @@ export class WalletService {
   // ---------------------------------------------------------------------
 
   async adjust(adminUserId: string, dto: AdjustWalletDto, idempotencyKey?: string) {
-    return this.idempotency.run(adminUserId, 'wallet.adjust', idempotencyKey, async (tx) => {
+    // Set only on the pass that actually posts the ledger entry, so a
+    // retried request — which `IdempotencyService` answers from its stored
+    // response without re-running this callback — cannot write a second
+    // audit row for one adjustment.
+    let performed = false;
+
+    const result = await this.idempotency.run(adminUserId, 'wallet.adjust', idempotencyKey, async (tx) => {
       const wallet = await this.getOrCreateWalletTx(tx, dto.userId);
       const { balanceAfter, transactionId } = await this.postLedgerEntryTx(tx, {
         walletId: wallet.id,
@@ -187,12 +195,41 @@ export class WalletService {
         title: `Admin adjustment — ${dto.reason}`,
       });
       const updated = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id } });
+      performed = true;
       // `transactionId` included (M9 — closes the M8.4b-flagged shape
       // gap) so `client/lib/api/admin.ts#adjustWallet` no longer has to
       // synthesize a fake id for the `WalletTransaction` it hands back
       // to its caller.
       return { wallet: mapWallet(updated), balanceAfter, transactionId };
     });
+
+    // After the transaction, never inside it — the audit row records that
+    // the adjustment happened, so it must not survive one that rolled
+    // back. Same contract as `server/src/admin/**`.
+    //
+    // `POST /wallet/adjust` is `@Roles('admin')` and moves money into or
+    // out of somebody's balance, and until now it wrote no audit row,
+    // because `WalletModule` could not import the writer without a module
+    // cycle. `/admin/wallet/:userId/adjust` has always been audited.
+    // `reason` is included deliberately: for a debit clawing back an
+    // uncollected credit, that sentence is the only record of why a
+    // balance went down.
+    if (performed) {
+      await this.auditLog.log({
+        actorId: adminUserId,
+        action: 'wallet.adjust',
+        targetType: 'user',
+        targetId: dto.userId,
+        metadata: {
+          direction: dto.direction,
+          amount: dto.amount,
+          reason: dto.reason,
+          via: 'wallet.adjust',
+        },
+      });
+    }
+
+    return result;
   }
 
   // ---------------------------------------------------------------------

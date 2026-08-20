@@ -314,6 +314,21 @@ certbot --nginx -d homekrafted.in -d www.homekrafted.in \
 `docs/TESTING.md`. Re-running it on a live database will duplicate records.
 `scripts/deploy.sh` deliberately runs `migrate deploy` and never seeds.
 
+**It now refuses to run with `NODE_ENV=production` unless
+`SEED_ADMIN_PASSWORD` is set**, and refuses that too if it is the demo
+password. The line above is exactly how `admin@homekrafted.example` came
+to exist on production holding a credential that was readable in the
+public JS bundle — see `docs/LAUNCH-READINESS.md` §0.1. So:
+
+```bash
+SEED_ADMIN_PASSWORD='<a real password>' npx prisma db seed
+```
+
+Only the admin account reads it; the demo shopper and HomeKrafter logins
+in `docs/TESTING.md` are unchanged, and a development seed (`NODE_ENV`
+unset) needs no new variable at all. To fix an **already-seeded** admin,
+this is the wrong tool — use `scripts/rotate-admin.sh`.
+
 ## Backups, monitoring and log rotation
 
 Three cron-installed pieces. Each is one command, and each replaces

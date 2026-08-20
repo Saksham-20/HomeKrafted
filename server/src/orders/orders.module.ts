@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminAuditModule } from '../admin/audit.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
 import { WalletModule } from '../wallet/wallet.module';
@@ -8,7 +9,10 @@ import { OrdersService } from './orders.service';
 import { OrderNotificationsService } from './order-notifications.service';
 
 @Module({
-  imports: [WalletModule, IdempotencyModule, LaundryModule, NotificationsModule],
+  // `AdminAuditModule` rather than `AdminModule` — that would be a cycle.
+  // `POST /orders/:id/refund` is `@Roles('admin')`, so it owes an audit
+  // row like every other admin mutation.
+  imports: [AdminAuditModule, WalletModule, IdempotencyModule, LaundryModule, NotificationsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrderNotificationsService],
   // Exported for `PaymentsModule` — the Razorpay webhook transitions a

@@ -1,0 +1,99 @@
+.wrap {
+  position: relative;
+}
+
+.rail {
+  display: flex;
+  overflow-x: auto;
+  /* Momentum scrolling on iOS; without it the rail feels stuck. */
+  -webkit-overflow-scrolling: touch;
+
+  /* The bar itself is gone — the fades and arrows are the affordance.
+     See the component's doc comment for why that trade is safe here and
+     would not be safe on its own. */
+  scrollbar-width: none;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+  Edge fades, as a mask over the content rather than a gradient painted in
+  the surface colour — so a rail can sit on the canvas, a card, a tinted
+  band or a photograph without declaring which.
+
+  Each edge is applied only when there is something that way, which is
+  what makes the fade mean "there is more" instead of being permanent
+  furniture. Both-edges gets its own rule because two mask-images have to
+  be composed into one declaration, not stacked.
+*/
+.fadeStart {
+  mask-image: linear-gradient(to right, transparent, #000 2.5rem);
+}
+
+.fadeEnd {
+  mask-image: linear-gradient(to left, transparent, #000 2.5rem);
+}
+
+.fadeStart.fadeEnd {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 2.5rem,
+    #000 calc(100% - 2.5rem),
+    transparent
+  );
+}
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  box-shadow: var(--hk-shadow-card);
+  cursor: pointer;
+  transition: background var(--hk-dur) var(--hk-ease);
+}
+
+.arrow:hover {
+  background: var(--hk-surface-3);
+}
+
+.arrow:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+/* Pulled outside the rail so they sit in the section's gutter rather than
+   over the first and last item. */
+.arrowPrev {
+  left: calc(-1 * var(--hk-s5));
+}
+
+.arrowNext {
+  right: calc(-1 * var(--hk-s5));
+}
+
+/*
+  A coarse pointer scrolls the rail by swiping it, so the arrows would
+  only cover content. `display: none` rather than `visibility: hidden`,
+  so they leave the tab order with it.
+
+  Keyed on the pointer, not on a width breakpoint: a 1024px tablet is a
+  touch device and a 700px desktop window is not, and the old reels rule
+  (`max-width: 900px`) got both of those backwards.
+*/
+@media (hover: none) {
+  .arrow {
+    display: none;
+  }
+}

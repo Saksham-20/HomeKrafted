@@ -3,6 +3,84 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M37] — Two guards that were open, and the seed that opened them — 2026-08-15
+
+A gap audit against a Shopify-class storefront, plus the admin role model
+the platform does not have. The audit's own findings are ranked in
+`docs/SHOPIFY-PARITY.md`; what shipped here is the P0 tier — four
+defects, each in code that already existed and looked correct.
+
+None of these were found by a failing test. Each was found by asking what
+the *default* does when somebody forgets.
+
+### Fixed
+
+- **`RolesGuard` admitted any authenticated role on an undecorated
+  `/admin` route.** A handler with no `@Roles(...)` is allowed through —
+  right for the consumer surface, where most controllers carry no
+  decorator because any signed-in person may read their own cart, and
+  wrong for the admin surface, where it means a new controller that
+  forgets one is reachable by **every signed-in customer**. Nothing about
+  such a file looks wrong: the route works, the screen renders, review
+  passes. Now fail-closed under `/api/v1/admin` and unchanged everywhere
+  else. It **refuses** rather than inferring `@Roles('admin')` from the
+  path — a guard that guesses intent hides the missing decorator instead
+  of surfacing it — and does not override `@Public()`.
+- **`POST /orders/:id/refund` and `POST /wallet/adjust` wrote no audit
+  row.** Both are `@Roles('admin')`, both move money, and both sit
+  *outside* `server/src/admin/**`. `AdminModule` imports `WalletModule`
+  and `OrdersModule`, so neither could import the audit writer back
+  without a cycle — the accountability of a privileged action therefore
+  depended on which URL was used, since the in-module twins
+  (`/admin/orders/:type/:id/refund`, `/admin/wallet/:userId/adjust`) have
+  always been audited. `AdminAuditModule` provides
+  `AdminAuditLogService` alone, imports nothing but Prisma, and so can be
+  imported from anywhere. Both log **after the transaction commits** and
+  only on the pass that actually moves money, so an idempotent retry
+  cannot record a second refund.
+- **`prisma/seed.ts` minted a full admin holding the shared demo
+  password.** `docs/DEPLOY.md` runs the seed on a first production
+  deploy, which is how `admin@homekrafted.example` came to exist on the
+  live box — and until M17 that email *and* `Passw0rd!123` were compiled
+  into the public JavaScript bundle, because `AuthContext` is a client
+  module. The seed now **refuses to run** outside development unless
+  `SEED_ADMIN_PASSWORD` is set to something other than the demo password.
+  It fails loudly rather than substituting a random one, which would
+  leave an admin nobody can sign into. The password is resolved *before*
+  `clearTables()`, so a refusal cannot leave an emptied database.
+  Development is untouched — no `NODE_ENV` means the old behaviour
+  exactly, so the e2e fixtures and README walkthrough need no new setup.
+- **`scripts/rotate-admin.sh` hashed with `argon2.hash` bare** — the
+  library defaults (`m=65536, t=3, **p=4**`), four lanes on the box's one
+  core, rather than `src/auth/hashing.ts`'s parameters. It never
+  surfaced because `argon2.verify` reads m/t/p out of the stored digest,
+  so the result was a slow sign-in, not a broken one. Now reads the real
+  constants via `ts-node -T`, so it does not depend on `dist/` existing,
+  and aborts if hashing produces nothing rather than writing an empty
+  hash.
+
+### Added
+
+- `docs/SHOPIFY-PARITY.md` — the ranked queue. Five commerce primitives
+  are absent outright (variants beyond weight tiers, discounts, tax/GST,
+  shipping rates, gift cards), the admin role model is all-or-nothing,
+  and a set of deliberate non-gaps is recorded so a later session does
+  not "fix" the channel matrix, the location rule, or returns moving no
+  money.
+- `server/test/unit/roles-guard.spec.ts` — 15 cases asserting both halves
+  of the guard against each other. Losing either is a silent regression:
+  drop the fail-open half and every consumer route 403s, drop the
+  fail-closed half and the hole reopens with nothing failing.
+
+### Still open
+
+- **The live `admin@homekrafted.example` is unchanged.** The mechanism
+  that creates it is closed; the compromised credential is a row in the
+  production database and no commit can reach it. `LAUNCH-READINESS.md`
+  §0.1 stays ⛔ until `scripts/rotate-admin.sh` is run on the box.
+- Admin staff roles (P1) are designed in `SHOPIFY-PARITY.md` §3 and not
+  built — they need a schema migration.
+
 ## [M36c] — The address is theirs to change — 2026-08-14
 
 M36b shipped the pickup address read-only, reasoning that a courier might

@@ -7,6 +7,7 @@ import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { WalletService } from '../wallet/wallet.service';
 import { LaundryService } from '../laundry/laundry.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AdminAuditLogService } from '../admin/audit-log.service';
 import { OrderNotificationsService } from './order-notifications.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders.query.dto';
@@ -27,6 +28,7 @@ export class OrdersService {
     private readonly laundryService: LaundryService,
     private readonly notifications: NotificationsService,
     private readonly orderNotifications: OrderNotificationsService,
+    private readonly auditLog: AdminAuditLogService,
   ) {}
 
   /**
@@ -642,7 +644,14 @@ export class OrdersService {
    * double-credits even without a key.
    */
   async refundOrder(adminUserId: string, orderId: string, idempotencyKey?: string) {
-    return this.idempotency.run(adminUserId, 'orders.refund', idempotencyKey, async (tx) => {
+    // Set only on the pass that actually moves money. A replay — whether
+    // it short-circuits on `refundStatus === 'refunded'` below or never
+    // runs the callback at all because `IdempotencyService` returned a
+    // stored response — leaves this null, so a retried click cannot write
+    // a second audit row claiming a second refund.
+    let performed: { userId: string; orderNumber: string; amount: number } | null = null;
+
+    const result = await this.idempotency.run(adminUserId, 'orders.refund', idempotencyKey, async (tx) => {
       const order = await tx.order.findUnique({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Order not found');
 
@@ -672,8 +681,31 @@ export class OrdersService {
         data: { refundStatus: 'refunded' },
         include: ORDER_INCLUDE,
       });
+      performed = { userId: order.userId, orderNumber: order.orderNumber, amount };
       return mapOrder(updated);
     });
+
+    // After the transaction, never inside it — a rolled-back refund must
+    // not leave an audit row saying it happened. Same contract as every
+    // `AdminAuditLogService.log()` call in `server/src/admin/**`.
+    //
+    // This endpoint is `@Roles('admin')` and had been writing no audit row
+    // at all, because `OrdersModule` could not reach the writer without a
+    // module cycle. Its twin, `POST /admin/orders/:type/:id/refund`, has
+    // always been audited — so the same privileged action was accountable
+    // or not depending only on which URL was used.
+    if (performed) {
+      const { userId, orderNumber, amount } = performed;
+      await this.auditLog.log({
+        actorId: adminUserId,
+        action: 'order.refund',
+        targetType: 'order',
+        targetId: orderId,
+        metadata: { orderNumber, amount, refundedToUserId: userId, via: 'orders.refund' },
+      });
+    }
+
+    return result;
   }
 
   /**

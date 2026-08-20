@@ -16,6 +16,58 @@ const prisma = new PrismaClient();
 
 const DEMO_PASSWORD = 'Passw0rd!123';
 
+/**
+ * The seeded admin's password, and the one credential in this file that
+ * must never be the shared demo one outside development.
+ *
+ * **This exists because it already went wrong.** `docs/DEPLOY.md` runs
+ * this seed on a first production deploy, which minted
+ * `admin@homekrafted.example` as a full, unsuspended admin holding
+ * `DEMO_PASSWORD` — and until M17 that email *and* that password were
+ * compiled into the public JavaScript bundle, because `AuthContext` is a
+ * client module. Anyone who viewed source on the live site could read
+ * both. The bundle was fixed on 2026-08-02; the account was not, and
+ * `docs/LAUNCH-READINESS.md` §0.1 still carries it as an open launch
+ * gate.
+ *
+ * So the mechanism is closed here rather than left to a runbook step
+ * somebody has to remember: outside development the seed **refuses to
+ * run** unless `SEED_ADMIN_PASSWORD` is set to something that is not the
+ * demo password. Failing loudly is the entire point — a seed that
+ * silently substituted a random password would leave an admin account
+ * nobody can sign into, which is its own outage.
+ *
+ * Development is deliberately untouched: with `NODE_ENV` unset or
+ * `development`, this returns `DEMO_PASSWORD` exactly as before, so
+ * `npm run prisma:seed`, the e2e fixtures and `server/README.md`'s curl
+ * walkthrough all keep working with no new setup.
+ */
+function resolveAdminPassword(): string {
+  const override = process.env.SEED_ADMIN_PASSWORD;
+  const isDevelopment = (process.env.NODE_ENV ?? 'development') === 'development';
+
+  if (override) {
+    if (override === DEMO_PASSWORD) {
+      throw new Error(
+        'SEED_ADMIN_PASSWORD is the leaked demo password. Choose a different one — ' +
+          'see docs/LAUNCH-READINESS.md §0.1.',
+      );
+    }
+    return override;
+  }
+
+  if (!isDevelopment) {
+    throw new Error(
+      `Refusing to seed the admin account with the shared demo password while ` +
+        `NODE_ENV=${process.env.NODE_ENV}. Set SEED_ADMIN_PASSWORD to a real ` +
+        `password first. Rotating an already-seeded admin instead? Use ` +
+        `scripts/rotate-admin.sh. Background: docs/LAUNCH-READINESS.md §0.1.`,
+    );
+  }
+
+  return DEMO_PASSWORD;
+}
+
 async function clearTables(): Promise<void> {
   // Children before parents. FK defaults in the schema are Restrict for
   // required relations, so this order matters.
@@ -81,6 +133,11 @@ async function clearTables(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Resolved before anything is deleted. `clearTables()` drops every row
+  // this seed owns, so throwing after it would leave an empty database
+  // rather than the one the operator started with.
+  const adminPassword = resolveAdminPassword();
+
   console.log('Clearing existing data...');
   await clearTables();
 
@@ -88,6 +145,12 @@ async function main(): Promise<void> {
   // seeded demo account carries a legacy-cost digest, so QA login timings
   // measure the old cost plus a background re-hash write.
   const passwordHash = await argon2.hash(DEMO_PASSWORD, PASSWORD_HASH_OPTIONS);
+  // Hashed separately: outside development this is not `DEMO_PASSWORD`,
+  // and the admin is the one account where that difference matters.
+  const adminPasswordHash =
+    adminPassword === DEMO_PASSWORD
+      ? passwordHash
+      : await argon2.hash(adminPassword, PASSWORD_HASH_OPTIONS);
 
   // -------------------------------------------------------------------
   // Users (consumer, 3 sellers, 1 admin — admin has no frontend mock seed
@@ -161,7 +224,7 @@ async function main(): Promise<void> {
       id: 'user-admin-demo',
       name: 'Homekrafted Admin',
       email: 'admin@homekrafted.example',
-      passwordHash,
+      passwordHash: adminPasswordHash,
       avatarPlaceholder: 'ADMIN — AVATAR',
       authProviders: ['email'],
       createdAt: new Date('2022-08-15'),

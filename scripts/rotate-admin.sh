@@ -20,10 +20,24 @@ read -rsp "Confirm: " PW2; echo
 [ "$PW" != "Passw0rd!123" ] || { echo "That is the leaked demo password."; exit 1; }
 
 cd /var/www/homekrafted/HomeKrafted/server
-HASH=$(PW="$PW" node -e '
+# Hash with the server's own argon2 parameters, never `argon2.hash` bare.
+# `src/auth/hashing.ts` is the single source for them (M31); calling the
+# library bare here re-hashed at its defaults (m=65536, t=3, **p=4**),
+# which is four lanes on the box's one core — the exact cost that file
+# exists to have removed. Sign-in still worked, because `argon2.verify`
+# reads m/t/p out of the stored digest, so this was slow rather than
+# broken and nothing surfaced it.
+#
+# `ts-node -T` (transpile-only) reads the TypeScript source directly, so
+# this does not depend on `dist/` having been built or on its layout.
+# `ts-node` is already a dependency here — `npm run prisma:seed` runs the
+# same way.
+HASH=$(PW="$PW" npx ts-node -T -e '
   const argon2 = require("argon2");
-  argon2.hash(process.env.PW).then((h) => process.stdout.write(h));
+  const { PASSWORD_HASH_OPTIONS } = require("./src/auth/hashing");
+  argon2.hash(process.env.PW, PASSWORD_HASH_OPTIONS).then((h) => process.stdout.write(h));
 ')
+[ -n "$HASH" ] || { echo "Hashing failed — password not changed."; exit 1; }
 
 sudo -u postgres psql -d homekrafted -v ON_ERROR_STOP=1 \
   -c "UPDATE \"User\" SET \"passwordHash\" = \$\$${HASH}\$\$ WHERE email = \$\$${EMAIL}\$\$;"

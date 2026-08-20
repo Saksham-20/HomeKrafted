@@ -1,94 +1,162 @@
 .card {
+  /* Anchors the CTA's stretched `::after` overlay. */
+  position: relative;
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-xl);
-  padding: var(--hk-s6);
+  padding: var(--hk-s5);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--hk-s2);
+  gap: var(--hk-s3);
   height: 100%;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
 }
 
-.avatarWrap {
-  width: 88px;
-  margin-bottom: var(--hk-s2);
+.card:hover {
+  border-color: var(--hk-border-2);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  width: 100%;
+}
+
+/* `min-width: 0` so a long storefront name wraps inside the row instead
+   of forcing the card wider than its grid track. */
+.who {
+  min-width: 0;
 }
 
 .name {
   font-family: var(--hk-font-display);
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--hk-ink);
   margin: 0;
 }
 
+/*
+  Was uppercase mono with letter-spacing, which gave a street address more
+  visual weight than the kitchen's own name. It is a caption; it now looks
+  like one.
+*/
 .location {
-  font-family: var(--hk-font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--hk-ink-3);
-  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--hk-muted-2);
+  margin: 2px 0 0;
 }
 
-.story {
+/*
+  Clamped so four cards in a row square up regardless of how long each
+  kitchen's bio runs — the alternative is a ragged rail whose bestseller
+  rows never line up. Three lines is enough for the two sentences these
+  actually hold.
+*/
+.bio {
   font-size: 0.9rem;
   line-height: 1.55;
-  color: var(--hk-ink-2);
-  margin: var(--hk-s1) 0 0;
+  color: var(--hk-ink-3);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.bestseller {
+.pick,
+.pickEmpty {
+  width: 100%;
+  margin: var(--hk-s1) 0 0;
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-border);
+}
+
+.pick {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: var(--hk-s3) 0 0;
-  padding-top: var(--hk-s3);
-  border-top: 1px solid var(--hk-border);
-  width: 100%;
+  gap: var(--hk-s1);
 }
 
-.bestsellerLabel {
+/*
+  Ink, not `--hk-gold-text-sm`. Gold is the design system's eyebrow colour
+  and it is right where an eyebrow labels a section; on a card this small
+  it was one of two accents fighting each other. See `MakerCard.tsx`.
+*/
+.pickLabel {
   font-family: var(--hk-font-mono);
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  /* Gold at this size must be the darkened text ramp, never `--hk-gold`
-     itself — 3.6:1 on white fails AA below ~16px bold. */
-  color: var(--hk-gold-text-sm);
+  color: var(--hk-muted-2);
 }
 
-.bestsellerName {
-  font-size: 0.95rem;
+.pickRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+}
+
+.pickName {
+  font-size: 0.92rem;
   font-weight: 500;
+  line-height: 1.35;
   color: var(--hk-ink);
+  /* One line: this is a pointer to a listing, not the listing itself. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.bestsellerPrice {
+.pickPrice {
+  flex: none;
   font-family: var(--hk-font-mono);
-  font-size: 0.9rem;
-  color: var(--hk-terracotta);
+  font-size: 0.85rem;
+  color: var(--hk-ink-2);
 }
 
-.bestsellerEmpty {
-  margin: var(--hk-s3) 0 0;
-  padding-top: var(--hk-s3);
-  border-top: 1px solid var(--hk-border);
-  width: 100%;
+.pickEmpty {
   font-size: 0.85rem;
-  color: var(--hk-ink-3);
+  color: var(--hk-muted-2);
 }
 
 .cta {
   margin-top: auto;
   padding-top: var(--hk-s4);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 500;
   color: var(--hk-pine);
   text-decoration: none;
 }
 
+/* Covers the whole card, so the entire surface is clickable while the
+   destination stays a genuine URL (the `ProductCard` pattern, M22). */
+.cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
 .cta:hover {
   text-decoration: underline;
+}
+
+/* The ring belongs on the card, not on the handful of characters in the
+   link — the card is what the anchor actually covers. */
+.cta:focus-visible {
+  outline: none;
+}
+
+.card:has(.cta:focus-visible) {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
 }

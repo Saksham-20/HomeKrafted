@@ -70,6 +70,25 @@ the API uses, and refuses the leaked one. Then check `AdminAuditLog` for
 anything you did not do — as of 2026-08-02 it held a single legitimate
 entry (a seller-application approval on 2026-07-30).
 
+**The mechanism that creates this is closed; the live account still is
+not.** Two fixes landed on 2026-08-15, and neither one reaches the
+running database:
+
+- `prisma/seed.ts` now **refuses to run** outside development unless
+  `SEED_ADMIN_PASSWORD` is set to something other than the demo
+  password, so a fresh deploy can no longer mint this account. It fails
+  loudly rather than substituting a random password, which would leave
+  an admin nobody can sign into.
+- `scripts/rotate-admin.sh` was hashing with `argon2.hash` bare — the
+  library's defaults (`m=65536, t=3, p=4`), four lanes on a one-core
+  box — instead of `src/auth/hashing.ts`'s parameters. Sign-in still
+  worked, because `argon2.verify` reads the cost out of the digest, so
+  it was slow rather than broken.
+
+**This section stays ⛔ until somebody runs the rotation on the box.**
+Nothing in the repository can close it: the compromised credential is a
+row in the production database, not a line of code.
+
 ### 0.4 Social sign-in — the takeover class is closed ✅ (keys still needed to turn it on)
 
 **Fixed in code (M27), 2026-08-09.** `POST /auth/social/:provider` now

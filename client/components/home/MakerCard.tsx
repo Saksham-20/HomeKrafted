@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { MakerPortrait } from "@/components/home/MakerPortrait";
 import { formatCurrency } from "@/lib/format";
 import type { Product, Vendor } from "@/lib/types";
 import styles from "./MakerCard.module.css";
@@ -26,44 +26,61 @@ export interface MakerCardProps {
  * separate 1:1 fetch per vendor (M16 keeps it off `Vendor` precisely
  * because listing queries don't need it), and four extra round trips to
  * render four cards is not worth a slightly longer sentence.
+ *
+ * **Four things were quieted down when the mark landed.** The card was
+ * carrying gold on the bestseller eyebrow and terracotta on its price —
+ * two accent colours competing inside 300 pixels, above a pine link, over
+ * a repeated stock photograph. The eyebrow and price are now ink; the
+ * only colour left on the card is the link, and the mark's wash. The
+ * location dropped its uppercase mono, which shouted a street address
+ * louder than the kitchen's name. Terracotta prices remain the rule on
+ * *product* cards, where the price is the thing being decided on; here it
+ * is a footnote about one listing.
  */
 export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProps) {
   return (
     <article className={styles.card}>
-      <div className={styles.avatarWrap}>
-        <ImageSlot
-          ratio="1/1"
-          shape="circle"
-          label={vendor.avatarPlaceholder}
-          alt={`${vendor.name}, a home kitchen in ${vendor.location}`}
-          src={vendor.avatarSrc}
-          sizes="88px"
-          compact
-        />
+      <div className={styles.head}>
+        <MakerPortrait vendor={vendor} />
+        <div className={styles.who}>
+          <h3 className={styles.name}>{vendor.name}</h3>
+          <p className={styles.location}>{vendor.location}</p>
+        </div>
       </div>
 
-      <h3 className={styles.name}>{vendor.name}</h3>
-      <p className={styles.location}>{vendor.location}</p>
-      <p className={styles.story}>{vendor.bio}</p>
+      <p className={styles.bio}>{vendor.bio}</p>
 
       {bestseller ? (
-        <p className={styles.bestseller}>
-          <span className={styles.bestsellerLabel}>Their bestseller</span>
-          <span className={styles.bestsellerName}>{bestseller.name}</span>
-          {bestsellerPrice !== undefined && (
-            <span className={styles.bestsellerPrice}>{formatCurrency(bestsellerPrice)}</span>
-          )}
+        <p className={styles.pick}>
+          <span className={styles.pickLabel}>Their bestseller</span>
+          <span className={styles.pickRow}>
+            <span className={styles.pickName}>{bestseller.name}</span>
+            {bestsellerPrice !== undefined && (
+              <span className={styles.pickPrice}>{formatCurrency(bestsellerPrice)}</span>
+            )}
+          </span>
         </p>
       ) : (
         // A kitchen approved this morning has nothing listed yet. Say so
         // plainly rather than rendering an empty slot — the same rule M16
         // set for an empty HomeKrafter profile: a shorter card, not a
         // broken one.
-        <p className={styles.bestsellerEmpty}>Their first listings are on the way.</p>
+        <p className={styles.pickEmpty}>Their first listings are on the way.</p>
       )}
 
+      {/*
+        "See what they make" rather than "See their menu": one rail carries
+        food kitchens and craft sellers since M20, and a menu is something
+        only half of them have. Same reason the section stopped saying
+        "flavours" in M28.
+
+        A stretched link — its `::after` covers the card — so the whole
+        surface is the target and the destination is still a real URL.
+        Nothing else in the card is interactive, so there is nothing for
+        the overlay to swallow.
+      */}
       <Link href={`/storefront/${vendor.slug}`} className={styles.cta}>
-        Explore {vendor.name} →
+        See what they make <span aria-hidden="true">→</span>
       </Link>
     </article>
   );

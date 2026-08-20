@@ -1,10 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import clsx from "clsx";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useState } from "react";
 import type { Reel, Vendor } from "@/lib/types";
-import { scrollBehavior } from "@/lib/motion";
+import { ScrollRail } from "@/components/ui/ScrollRail";
 import { ReelCard } from "./ReelCard";
 import { ReelViewer } from "./ReelViewer";
 import styles from "./ReelsRailClient.module.css";
@@ -22,11 +20,12 @@ export interface ReelsRailClientProps {
  * stays a server component and passes the data in (same split as
  * `HamperBuilderClient`).
  *
- * Arrow buttons page the rail by roughly one viewport of cards and are
- * hidden on touch widths, where the native snap scroll is the interaction.
+ * The rail's own scrolling — hidden scrollbar, edge fades, arrow buttons
+ * that page it and disappear on a touch pointer — is `ScrollRail`. This
+ * component had its own copy of that until the category rail needed the
+ * same thing and it became the second of three.
  */
 export function ReelsRailClient({ reels, vendors }: ReelsRailClientProps) {
-  const railRef = useRef<HTMLDivElement>(null);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
@@ -36,54 +35,24 @@ export function ReelsRailClient({ reels, vendors }: ReelsRailClientProps) {
     [vendors],
   );
 
-  const scrollBy = (direction: 1 | -1) => {
-    const rail = railRef.current;
-    if (!rail) return;
-    // `behavior: "smooth"` ignores the reduced-motion media query — see
-    // `lib/motion.ts`. The rail still moves; it just jumps instead of gliding.
-    rail.scrollBy({
-      left: direction * Math.max(rail.clientWidth * 0.8, 220),
-      behavior: scrollBehavior(),
-    });
-  };
-
   if (reels.length === 0) return null;
 
   return (
     <>
-      <div className={styles.railWrap}>
-        <button
-          type="button"
-          className={clsx(styles.arrow, styles.arrowPrev)}
-          onClick={() => scrollBy(-1)}
-          aria-label="Scroll reels left"
-        >
-          <ChevronLeft size={18} strokeWidth={1.8} />
-        </button>
-
-        {/* A stable id so `e2e/tests/focus-traps.spec.ts` can address a reel
-            card without guessing at an accessible name — the whole card is
-            the button (`ReelCard`), and its label is the reel's own copy. */}
-        <div ref={railRef} id="hk-reels-rail" className={clsx(styles.rail, "hk-scroll")}>
-          {reels.map((reel, index) => (
-            <ReelCard
-              key={reel.id}
-              reel={reel}
-              authorName={authorNameFor(reel)}
-              onOpen={() => setOpenIndex(index)}
-            />
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className={clsx(styles.arrow, styles.arrowNext)}
-          onClick={() => scrollBy(1)}
-          aria-label="Scroll reels right"
-        >
-          <ChevronRight size={18} strokeWidth={1.8} />
-        </button>
-      </div>
+      {/* The `id` is a stable handle for `e2e/tests/focus-traps.spec.ts`, so
+          it can address a reel card without guessing at an accessible name —
+          the whole card is the button (`ReelCard`), and its label is the
+          reel's own copy. */}
+      <ScrollRail label="reels" id="hk-reels-rail" className={styles.rail}>
+        {reels.map((reel, index) => (
+          <ReelCard
+            key={reel.id}
+            reel={reel}
+            authorName={authorNameFor(reel)}
+            onOpen={() => setOpenIndex(index)}
+          />
+        ))}
+      </ScrollRail>
 
       <ReelViewer
         reels={reels}

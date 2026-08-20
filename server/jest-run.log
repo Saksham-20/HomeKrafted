@@ -1,0 +1,40 @@
+PASS test/unit/meal-brackets.spec.ts (340.821 s)
+PASS test/unit/vendor-privacy.spec.ts (353.53 s)
+PASS test/unit/seller-profile-address.spec.ts (249.309 s)
+PASS test/unit/settings.spec.ts (673.53 s)
+PASS test/unit/availability.spec.ts (678.102 s)
+PASS test/unit/trust.spec.ts (687.143 s)
+PASS test/unit/application-fields.spec.ts (414.133 s)
+PASS test/unit/roles-guard.spec.ts (858.201 s)
+PASS test/unit/specialty-taxonomy.spec.ts (302.397 s)
+PASS test/unit/geo-parity.spec.ts (112.813 s)
+PASS test/unit/referral-code.spec.ts (5.698 s)
+[31m[Nest] 20828  - [39m18/08/2026, 12:36:36 pm [31m  ERROR[39m [38;5;3m[GcsDriver] [39m[31mCould not store listing/seller-1/302aadba-f6cd-4044-9baf-474e04a7f376.webp in bucket test-bucket: Error: 403 does not have storage.objects.create access[39m
+[31m[Nest] 20828  - [39m18/08/2026, 12:36:39 pm [31m  ERROR[39m [38;5;3m[GcsDriver] [39m[31mCould not store listing/seller-1/b55078d4-565c-4ba4-a408-13f12365324d.webp in bucket test-bucket: Error: service-account@project.iam.gserviceaccount.com denied[39m
+[31m[Nest] 20828  - [39m18/08/2026, 12:36:44 pm [31m  ERROR[39m [38;5;3m[GcsDriver] [39m[31mCould not store listing/seller-1/7200424c-c2bf-49b7-97ce-27418b6b92ad.webp in bucket test-bucket: Error: service-account@project.iam.gserviceaccount.com denied[39m
+[33m[Nest] 20828  - [39m18/08/2026, 12:36:44 pm [33m   WARN[39m [38;5;3m[GcsDriver] [39m[33mFailed to remove listing/seller-1/abc.webp from the bucket: Error: 404 Not Found[39m
+[95m[Nest] 20828  - [39m18/08/2026, 12:36:44 pm [95m  DEBUG[39m [38;5;3m[PurposeRoutingDriver] [39m[95mRouting application/user-9 to local (sensitive purpose)[39m
+[95m[Nest] 20828  - [39m18/08/2026, 12:36:45 pm [95m  DEBUG[39m [38;5;3m[PurposeRoutingDriver] [39m[95mRouting application/user-9/abc.webp to local (sensitive purpose)[39m
+PASS test/unit/gcs-driver.spec.ts (1631.324 s)
+PASS test/unit/identifier.spec.ts (46.769 s)
+PASS test/unit/geo.spec.ts (69.099 s)
+FAIL test/unit/hashing.spec.ts (453.856 s)
+  ● argon2 parameters › still verifies a password hashed under the old library defaults
+
+    thrown: "Exceeded timeout of 5000 ms for a test.
+    Add a timeout value to this test to increase the timeout, if this is a long-running test. See https://jestjs.io/docs/api#testname-fn-timeout."
+
+    [0m [90m 37 |[39m   })[33m;[39m
+     [90m 38 |[39m
+    [31m[1m>[22m[39m[90m 39 |[39m   it([32m'still verifies a password hashed under the old library defaults'[39m[33m,[39m [36masync[39m () [33m=>[39m {
+     [90m    |[39m   [31m[1m^[22m[39m
+     [90m 40 |[39m     [90m// What every account created before M31 has stored.[39m
+     [90m 41 |[39m     [36mconst[39m legacy [33m=[39m [36mawait[39m argon2[33m.[39mhash(password)[33m;[39m
+     [90m 42 |[39m     expect(paramsOf(legacy))[33m.[39mtoBe([32m'm=65536,t=3,p=4'[39m)[33m;[39m[0m
+
+      at test/unit/hashing.spec.ts:39:3
+      at Object.<anonymous> (test/unit/hashing.spec.ts:14:1)
+
+PASS test/unit/csv.spec.ts (911.747 s)
+PASS test/unit/pincodes.spec.ts (1775 s)
+PASS test/unit/sentry-scrub.spec.ts (2754.477 s)
