@@ -704,6 +704,15 @@ export class OrdersService {
         targetId: orderId,
         metadata: { orderNumber, amount, refundedToUserId: userId, via: 'orders.refund' },
       });
+
+      // `void`, like every other notify call on a money path: a refund
+      // that has already been posted to the ledger must not be undone
+      // because a message failed to send (M18's rule).
+      //
+      // This endpoint told the buyer nothing until M39, while the
+      // admin-issued wallet refund did — so whether a refunded customer
+      // heard about it depended only on which admin screen was used.
+      void this.orderNotifications.notifyBuyerOfRefund(orderId, amount);
     }
 
     return result;

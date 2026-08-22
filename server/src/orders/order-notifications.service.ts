@@ -122,6 +122,49 @@ export class OrderNotificationsService {
   }
 
   /**
+   * Tell the buyer their money came back.
+   *
+   * **This was silent until M39.** `OrdersService.refundOrder` credited
+   * the wallet, set `refundStatus: 'refunded'` and told nobody — while
+   * the admin-issued wallet refund (`AdminWalletService`) did notify. So
+   * whether a refunded customer heard about it depended on which screen
+   * the admin happened to use, and the one that skipped the message is
+   * the one wired to the order.
+   *
+   * The amount is named because "your refund has been processed" is the
+   * message that generates the follow-up question. Where the money went
+   * is named too: it is a wallet credit, not a reversal to the card, and
+   * a buyer who expects their card statement to change will otherwise
+   * wait for something that is never coming.
+   *
+   * Craft-safe, per the `lib/kitchen-copy.ts` rule — one pipeline
+   * carries pickles and candles, so nothing here refers to cooking.
+   */
+  async notifyBuyerOfRefund(orderId: string, amount: number): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, userId: true, orderNumber: true },
+      });
+      if (!order) return;
+
+      await this.delivery.deliver({
+        userId: order.userId,
+        category: 'wallet',
+        title: `Refund for order ${order.orderNumber}`,
+        body:
+          `₹${amount.toFixed(2)} is back in your Homekrafted wallet. ` +
+          `It is ready to spend now — it does not return to the card or UPI you paid with. ` +
+          `See it at ${this.siteUrl()}/wallet`,
+        refType: 'order',
+        refId: order.id,
+      });
+    } catch (err) {
+      this.logger.warn(`Could not notify buyer of refund for order ${orderId}: ${String(err)}`);
+    }
+  }
+
+  /**
    * Tell each HomeKrafter with something in this order that it came in.
    *
    * One message per HomeKrafter, not per line — an order with three of

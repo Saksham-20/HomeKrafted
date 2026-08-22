@@ -1,8 +1,15 @@
 # Homekrafted — Shopify parity & admin RBAC backlog
 
-**Compiled:** 2026-08-15, against `main` @ `8df3624` (post-M35).
+**Compiled:** 2026-08-15 against `main` @ `8df3624` (post-M35);
+**re-verified 2026-08-18** against the merge of `origin/main` (M37/M38).
 **Scope:** consumer commerce surface, admin surface + RBAC, notification/email
 system.
+
+Rows marked "already fixed upstream" were re-checked in the merged tree
+rather than assumed — the merge shipped the commission engine and the
+`notify()`→`deliver()` conversion, which this document originally listed
+as open. `UserRole` is still `consumer | seller | admin` with no
+`StaffRole`, so §3 stands unbuilt.
 
 This is the **queue**. It ranks what is missing against a Shopify-class
 storefront, plus the admin role model the platform does not yet have.
@@ -49,15 +56,15 @@ each is a small diff against code that already exists.
 |---|---|---|---|
 | **P0.1** ✅ | `RolesGuard` fails open | Defect | **Fixed 2026-08-15.** Under `/admin` an undecorated handler is now refused rather than admitted; the consumer default is unchanged, because most consumer controllers legitimately carry no `@Roles`. Pinned by `server/test/unit/roles-guard.spec.ts`. |
 | **P0.2** ✅ | Two admin **mutations** wrote no audit row | Defect | **Fixed 2026-08-15.** `POST /orders/:id/refund` and `POST /wallet/adjust` now log. `AdminModule` imports `WalletModule`/`OrdersModule`, so neither could import the writer back — `AdminAuditModule` (`src/admin/audit.module.ts`) breaks the cycle by providing `AdminAuditLogService` alone. Both log **after commit** and only on the pass that moves money, so an idempotent retry logs nothing. `GET /users/:id` is a read and stays unlogged — the contract is *every mutation*, not every request. |
-| **P0.3** | `OrdersService.refundOrder` notifies nobody | Defect | Credits the wallet, sets `refundStatus: 'refunded'`, sends nothing. The admin-issued path does notify. |
-| **P0.4** | Money/lifecycle events are in-app only | Defect | Payout paid, support reply, verification, seller-approval welcome all use `notify()` (inbox row) not `deliver()` (fan-out). The approval welcome lands in an inbox **behind a login they may not have**. |
-| **P0.5** | Notification-preference default race | Defect | Opening `/account/notifications` first creates rows with email/WhatsApp **off**; receiving a notification first creates them **on**. |
+| **P0.3** ✅ | `OrdersService.refundOrder` notified nobody | Defect | **Fixed 2026-08-15.** `notifyBuyerOfRefund` names the amount and says the money is a **wallet credit, not a card reversal** — otherwise the buyer waits for a statement change that never comes. `void`-called, so a failed message cannot undo a posted refund. |
+| **P0.4** ✅ | Money/lifecycle events were in-app only | Defect | **Already fixed upstream** (merged 2026-08-18). Payouts, support, verification and the seller-approval welcome now all fan out through `deliver()`. Verified in the merged tree, not assumed. |
+| **P0.5** ✅ | Notification-preference default race | Defect | **Fixed 2026-08-15.** `getPreferences` backfilled with the schema's column defaults (in-app only) while `deliver()` used `defaultChannelsFor` (WhatsApp + email on). Same account, opposite settings, decided purely by which happened first. Both paths now read the one helper. |
 | **P1** | **Admin staff roles** | Feature | Explicitly requested. Design in §3. |
 | **P2.1** | Discount codes | Feature | Highest revenue lever absent. No promo field exists anywhere. |
 | **P2.2** | GST / tax | Compliance | Indian marketplace with **zero** tax modelling in the consumer flow. |
 | **P2.3** | Product variants (multi-axis) | Feature | A craft in three colours cannot be expressed except by abusing the weight label. |
 | **P3.1** | Shipping rates / zones | Feature | Flat ₹49, free at ₹999, hardcoded. |
-| **P3.2** | Commission collection | Business | Modelled, never deducted. `Payout.amount` is gross. Already in `CLAUDE.md` as a standing blocker. |
+| ~~P3.2~~ ✅ | Commission collection | Business | **Shipped upstream** (merged 2026-08-18). `Payout` now carries `grossAmount`, `commissionAmount` and `commissionPct`, and `SellerPayoutsService` splits against a `commissionEnabled` setting. What remains is a business decision to flip it on, not an engine to build. |
 | **P3.3** | Related products / upsell | Growth | A product page ends at reviews. |
 | **P4** | Lifecycle email + templates | Feature | **Deferred by owner (2026-08-15).** See §5. |
 | **P4.1** | Gift cards | Feature | No model. Wallet is the nearest analogue but is self-top-up only. |

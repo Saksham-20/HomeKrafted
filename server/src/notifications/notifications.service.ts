@@ -3,6 +3,7 @@ import { NotificationCategory } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
 import { mapNotification, mapNotificationPreference } from './notifications.mapper';
+import { defaultChannelsFor } from './notifications-delivery.service';
 
 const ALL_CATEGORIES: NotificationCategory[] = [
   'order',
@@ -38,12 +39,26 @@ export class NotificationsService {
     // Lazily backfill any category with no row yet — same "off/default
     // shape without writing until touched" pattern as
     // `WalletService.getAutoTopup`'s un-persisted default, except here
-    // every category realistically needs *a* row to read, so missing
-    // ones are created now with the schema's own column defaults.
+    // every category realistically needs *a* row to read.
+    //
+    // **The defaults come from `defaultChannelsFor`, not from the schema's
+    // column defaults (M39).** Those two disagree: the columns are
+    // in-app only, while `defaultChannelsFor` turns WhatsApp and email on
+    // for every transactional category. `NotificationsDeliveryService`
+    // creates missing rows with the latter, so which one a person got
+    // depended purely on what happened first — opening
+    // `/account/notifications` before ever receiving a notification
+    // silently opted them out of order emails they never chose to
+    // decline, while receiving one first opted them in. Same account,
+    // same categories, opposite settings, decided by ordering.
+    //
+    // Reading the shared helper is what keeps the two paths from drifting
+    // again; the schema defaults stay as they are, because changing a
+    // column default would not touch the rows already written under it.
     const missing = ALL_CATEGORIES.filter((c) => !byCategory.has(c));
     if (missing.length > 0) {
       await this.prisma.notificationPreference.createMany({
-        data: missing.map((category) => ({ userId, category })),
+        data: missing.map((category) => ({ userId, category, ...defaultChannelsFor(category) })),
         skipDuplicates: true,
       });
       const refreshed = await this.prisma.notificationPreference.findMany({ where: { userId } });

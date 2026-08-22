@@ -7,7 +7,7 @@ per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.
 
 A gap audit against a Shopify-class storefront, plus the admin role model
 the platform does not have. The audit's own findings are ranked in
-`docs/SHOPIFY-PARITY.md`; what shipped here is the P0 tier — four
+`docs/SHOPIFY-PARITY.md`; what shipped here is the P0 tier — six
 defects, each in code that already existed and looked correct.
 
 None of these were found by a failing test. Each was found by asking what
@@ -58,6 +58,27 @@ the *default* does when somebody forgets.
   constants via `ts-node -T`, so it does not depend on `dist/` existing,
   and aborts if hashing produces nothing rather than writing an empty
   hash.
+- **`POST /orders/:id/refund` told the buyer nothing.** It credited the
+  wallet and set `refundStatus: 'refunded'` in silence, while the
+  admin-issued wallet refund did notify — so whether a refunded customer
+  heard about it depended only on which screen the admin happened to use,
+  and the one wired to the order was the one that skipped the message.
+  `notifyBuyerOfRefund` names the amount and says the money is a **wallet
+  credit, not a reversal to the card** — a buyer told only that a refund
+  was "processed" waits for a statement change that never arrives. It is
+  `void`-called like every other notify on a money path (M18): a message
+  that fails must not roll back a refund already posted to the ledger.
+- **Notification defaults depended on which code path ran first.**
+  `getPreferences` backfilled missing rows from the schema's column
+  defaults (in-app only); `NotificationsDeliveryService` created them
+  from `defaultChannelsFor` (WhatsApp + email on for transactional
+  categories). So opening `/account/notifications` before ever receiving
+  a notification silently opted somebody out of order emails they never
+  chose to decline, while receiving one first opted them in — same
+  account, same categories, opposite settings, decided by ordering
+  alone. Both paths now read the one helper. The column defaults are
+  deliberately left as they are: changing a default does not touch rows
+  already written under it, so it would fix nothing and hide the seam.
 
 ### Added
 
