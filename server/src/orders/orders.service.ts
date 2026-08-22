@@ -752,13 +752,32 @@ export class OrdersService {
     }
   }
 
+  /**
+   * One `nextval`. Not a count.
+   *
+   * **What this replaced, and why it was worse than slow (M41).** This
+   * ran `tx.order.count()` — no predicate, so a full scan — up to five
+   * times, inside the order-create transaction, *after* the
+   * stock-decrement loop above had already taken row locks on
+   * `WeightOption`. Every checkout therefore paid a scan that grows with
+   * every order ever placed, while holding locks that serialise
+   * concurrent checkouts of the same product behind it.
+   *
+   * And it was racy. Two concurrent transactions both read count `N` and
+   * both build `HK{2100+N}`; the `findUnique` collision check ran inside
+   * the transaction and could not see the other's uncommitted row, so one
+   * of them hit the unique constraint on `Order.orderNumber`. Under load
+   * that is a 500 at checkout — on the one path where failing costs
+   * money.
+   *
+   * `nextval` is O(1) and concurrency-safe, and deliberately does not
+   * roll back: a rolled-back order leaves a gap rather than handing its
+   * number to the next buyer. Gaps are fine; collisions are not. The
+   * sequence is seeded above the highest existing `HK####` in
+   * `20260822120000_m41_order_number_sequence`.
+   */
   private async generateOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const count = await tx.order.count();
-      const candidate = `HK${2100 + count + attempt}`;
-      const exists = await tx.order.findUnique({ where: { orderNumber: candidate } });
-      if (!exists) return candidate;
-    }
-    return `HK${Date.now()}`;
+    const rows = await tx.$queryRaw<{ n: bigint }[]>`SELECT nextval('order_number_seq') AS n`;
+    return `HK${rows[0].n}`;
   }
 }

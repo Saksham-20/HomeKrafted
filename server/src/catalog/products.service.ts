@@ -184,12 +184,32 @@ export class ProductsService {
         // lat/lng/deliveryRadiusKm, which the distance filter needs.
         vendor: { select: { lat: true, lng: true, deliveryRadiusKm: true } },
       },
+      // **A capped read with no order is a nondeterministic read (M41).**
+      // `take: 500` shipped without an `orderBy`, and SQL does not promise
+      // an order it was not asked for — so *which* 500 rows of a matching
+      // 2,000 came back was up to the planner, and two identical requests
+      // could return different products. Every located buyer takes this
+      // path (`buyerCoords` disqualifies the SQL fast path above), so this
+      // was the browse page for anyone who shared their location.
+      //
+      // Ordering by the same keys as the fast path, final `id` included,
+      // for the reason stated there: the two paths must not disagree about
+      // ordering, or a page boundary shifts depending on which one served
+      // it.
+      //
+      // The honest tradeoff: the cap now keeps the 500 best-rated rather
+      // than an arbitrary 500, so a `price-asc` browse of a catalogue past
+      // the cap is biased toward well-rated listings rather than cheap
+      // ones. That is a defensible 500 instead of an arbitrary one — and
+      // the arbitrary version had the same bias problem plus irreproducible
+      // results. Revisit with denormalised geo or PostGIS.
+      orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { id: 'asc' }],
       // Candidate cap (M37): the in-memory distance/sort pass below needs
       // the whole matching set, and without PostGIS that read is unbounded
       // on a table that only grows. 500 slim rows is ~25 pages of the
       // narrowest filter — far past what browsing reaches — and the cap
       // turns a future 50k-listing catalogue from a heap problem into a
-      // slightly stale tail. Revisit with denormalised geo or PostGIS.
+      // slightly stale tail.
       take: 500,
     });
 

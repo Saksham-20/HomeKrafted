@@ -49,6 +49,14 @@ export interface AnalyticsDailyPoint {
   orderCount: number;
 }
 
+/**
+ * How many rows a leaderboard returns.
+ *
+ * Ten rather than the mock path's six: more than the screen has ever
+ * shown, still a bound. The point is that there is one.
+ */
+const LEADERBOARD_LIMIT = 10;
+
 export interface AnalyticsLeaderboardRow {
   key: string;
   name: string;
@@ -378,17 +386,63 @@ export class AdminDashboardService {
     });
   }
 
-  /** Top revenue-earners across all 3 seller types — makers attributed via their vendor's order-item lines (an order can span more than one vendor), laundry/snack via their own booking/order totals. */
+  /**
+   * Top revenue-earners across all 3 seller types — makers attributed via
+   * their vendor's order-item lines (an order can span more than one
+   * vendor), laundry/snack via their own booking/order totals.
+   *
+   * **Aggregated in SQL, and that is the point (M41).** This used to be
+   * `prisma.order.findMany({ include: { items: { include: { product } } } })`
+   * with **no `where`, no `take` and no `select`** — every order ever
+   * placed, with every one of its items, hydrated into Node heap on every
+   * load of `/admin/analytics`. Beside it, `laundryBooking.findMany` with
+   * no cap and a bare `snackOrder.findMany()`. Three growing tables read
+   * whole, on a 1 vCPU box with a 600 MB process ceiling, to render a
+   * leaderboard. It got slower every day the platform worked and would
+   * eventually stop being slow and start being an OOM.
+   *
+   * The three `GROUP BY`s below return one row per earner — a set bounded
+   * by how many HomeKrafters exist, not by how much they have sold — so
+   * the merge, sort and name lookup stay in Node where they are cheap and
+   * readable.
+   *
+   * Semantics preserved exactly: `revenue` is the sum of line totals, and
+   * `orderCount` counts **orders**, not items, which is why the maker
+   * query is `COUNT(DISTINCT "orderId")`. The old loop got that by
+   * collapsing each order's items into a per-vendor map before
+   * incrementing.
+   */
   private async computeSellerLeaderboard(): Promise<AnalyticsLeaderboardRow[]> {
-    const [orders, bookings, snackOrders] = await Promise.all([
-      this.prisma.order.findMany({ include: { items: { include: { product: { select: { vendorId: true } } } } } }),
-      this.prisma.laundryBooking.findMany({ where: { partnerId: { not: null } } }),
-      this.prisma.snackOrder.findMany(),
+    const [makerRows, laundryRows, snackRows] = await Promise.all([
+      this.prisma.$queryRaw<{ vendorId: string; revenue: unknown; orderCount: bigint }[]>`
+        SELECT p."vendorId"                              AS "vendorId",
+               SUM(oi."price" * oi."quantity")           AS "revenue",
+               COUNT(DISTINCT oi."orderId")              AS "orderCount"
+        FROM "OrderItem" oi
+        JOIN "Product" p ON p."id" = oi."productId"
+        WHERE oi."productId" IS NOT NULL
+        GROUP BY p."vendorId"
+      `,
+      this.prisma.$queryRaw<{ partnerId: string; revenue: unknown; orderCount: bigint }[]>`
+        SELECT "partnerId"              AS "partnerId",
+               SUM("estimatedTotal")    AS "revenue",
+               COUNT(*)                 AS "orderCount"
+        FROM "LaundryBooking"
+        WHERE "partnerId" IS NOT NULL
+        GROUP BY "partnerId"
+      `,
+      this.prisma.$queryRaw<{ sellerId: string; revenue: unknown; orderCount: bigint }[]>`
+        SELECT "sellerId"   AS "sellerId",
+               SUM("total") AS "revenue",
+               COUNT(*)     AS "orderCount"
+        FROM "SnackOrder"
+        GROUP BY "sellerId"
+      `,
     ]);
 
-    const vendorIds = [...new Set(orders.flatMap((o) => o.items.map((i) => i.product?.vendorId).filter((x): x is string => !!x)))];
-    const partnerIds = [...new Set(bookings.map((b) => b.partnerId).filter((x): x is string => !!x))];
-    const snackSellerIds = [...new Set(snackOrders.map((o) => o.sellerId))];
+    const vendorIds = makerRows.map((r) => r.vendorId);
+    const partnerIds = laundryRows.map((r) => r.partnerId);
+    const snackSellerIds = snackRows.map((r) => r.sellerId);
     const sellerIds = [...new Set([...partnerIds, ...snackSellerIds])];
 
     const [vendors, sellers] = await Promise.all([
@@ -399,44 +453,47 @@ export class AdminDashboardService {
     const sellerNameById = new Map(sellers.map((s) => [s.id, s.displayName]));
 
     const byKey = new Map<string, AnalyticsLeaderboardRow>();
-    const addRevenue = (key: string, name: string, type: 'maker' | 'laundry' | 'snack', amount: number) => {
+    const addRevenue = (
+      key: string,
+      name: string,
+      type: 'maker' | 'laundry' | 'snack',
+      amount: number,
+      orderCount: number,
+    ) => {
       const existing = byKey.get(key);
       if (existing) {
         existing.revenue += amount;
-        existing.orderCount += 1;
+        existing.orderCount += orderCount;
       } else {
-        byKey.set(key, { key, name, type, revenue: amount, orderCount: 1 });
+        byKey.set(key, { key, name, type, revenue: amount, orderCount });
       }
     };
 
-    for (const order of orders) {
-      const vendorTotals = new Map<string, number>();
-      for (const item of order.items) {
-        const vendorId = item.product?.vendorId;
-        if (!vendorId) continue;
-        vendorTotals.set(vendorId, (vendorTotals.get(vendorId) ?? 0) + Number(item.price) * item.quantity);
-      }
-      for (const [vendorId, amount] of vendorTotals) {
-        const name = vendorNameById.get(vendorId);
-        if (!name) continue;
-        addRevenue(`vendor:${vendorId}`, name, 'maker', amount);
-      }
-    }
-
-    for (const booking of bookings) {
-      if (!booking.partnerId) continue;
-      const name = sellerNameById.get(booking.partnerId);
+    for (const row of makerRows) {
+      const name = vendorNameById.get(row.vendorId);
       if (!name) continue;
-      addRevenue(`seller:${booking.partnerId}`, name, 'laundry', Number(booking.estimatedTotal));
+      addRevenue(`vendor:${row.vendorId}`, name, 'maker', Number(row.revenue), Number(row.orderCount));
     }
 
-    for (const order of snackOrders) {
-      const name = sellerNameById.get(order.sellerId);
+    for (const row of laundryRows) {
+      const name = sellerNameById.get(row.partnerId);
       if (!name) continue;
-      addRevenue(`seller:${order.sellerId}`, name, 'snack', Number(order.total));
+      addRevenue(`seller:${row.partnerId}`, name, 'laundry', Number(row.revenue), Number(row.orderCount));
     }
 
-    return Array.from(byKey.values()).sort((a, b) => b.revenue - a.revenue);
+    for (const row of snackRows) {
+      const name = sellerNameById.get(row.sellerId);
+      if (!name) continue;
+      addRevenue(`seller:${row.sellerId}`, name, 'snack', Number(row.revenue), Number(row.orderCount));
+    }
+
+    // Bounded on the way out too. The endpoint used to return every earner
+    // and `AnalyticsClient` maps the array straight to rows, so the screen
+    // grew a row per HomeKrafter forever; only the mock path capped it
+    // (`client/lib/api/admin.ts` slices to 6). A leaderboard has a length.
+    return Array.from(byKey.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, LEADERBOARD_LIMIT);
   }
 
   private async computeProductLeaderboard(): Promise<AnalyticsProductRow[]> {

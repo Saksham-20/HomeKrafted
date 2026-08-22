@@ -3,6 +3,73 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M41] — Three reads that grew with the business — 2026-08-22
+
+Performance work, except two of the three were correctness bugs that
+happened to also be slow. Verified against a throwaway Postgres 15
+cluster, not reasoned about.
+
+### Fixed
+
+- **Checkout generated its order number with `COUNT(*)` on the whole
+  `Order` table** — no predicate, up to five times, inside the
+  order-create transaction, after the stock-decrement loop had already
+  taken row locks on `WeightOption`. Every checkout paid a scan that
+  grows with every order ever placed, while holding locks that serialise
+  concurrent checkouts of the same product behind it.
+
+  It was also **racy**, which matters more than the scan. Two concurrent
+  transactions both read count `N` and both build `HK{2100+N}`; the
+  `findUnique` collision check runs inside the transaction and cannot see
+  the other's uncommitted row, so one of them violates the unique
+  constraint. Demonstrated on a scratch cluster: two open transactions
+  both computed `HK2104`. That is a 500 at checkout, on the one path
+  where failing costs money.
+
+  Now one `nextval` on a sequence: O(1), concurrency-safe, and
+  deliberately not transactional — a rolled-back order leaves a gap
+  rather than handing its number to the next buyer. Verified: two
+  uncommitted transactions got 2150 and 2151; a rollback skipped a number
+  rather than reusing it.
+
+  The seeding migration excludes the old `HK${Date.now()}` fallback rows
+  by regexp bound. Including one would have jumped the sequence to a
+  13-digit timestamp and every order number after it would have been 13
+  digits forever. Verified against a table seeded with one.
+
+- **`/shop` read 500 candidate rows with no `orderBy`.** SQL does not
+  promise an order it was not asked for, so *which* 500 of a matching
+  2,000 came back was the planner's choice and two identical requests
+  could return different products. Every located buyer takes this path —
+  `buyerCoords` disqualifies the SQL fast path — so this was the browse
+  page for anyone who shared their location. Now ordered on the same keys
+  as the fast path, `id` included, which the M23 composite index already
+  serves.
+
+- **`GET /admin/analytics` read three growing tables whole.**
+  `computeSellerLeaderboard` ran `order.findMany` with no `where`, no
+  `take` and no `select` — every order ever placed, with every item —
+  plus an uncapped `laundryBooking.findMany` and a bare
+  `snackOrder.findMany()`, all into Node heap on a box with a 600 MB
+  process ceiling. Three `GROUP BY`s now return one row per earner, a set
+  bounded by how many HomeKrafters exist rather than by how much they
+  have sold. The leaderboard is also capped on the way out; it previously
+  returned every earner and the client mapped the array straight to rows,
+  so the screen grew a row per HomeKrafter forever.
+
+  Semantics preserved exactly, including the two cases most likely to
+  break: two items from one vendor in a single order count as **one**
+  order (`COUNT(DISTINCT "orderId")`, matching the old per-order map),
+  and an order spanning two vendors counts for both. Checked against the
+  old algorithm's output on seeded data.
+
+### Deliberately not done
+
+`relationJoins` and `pg_trgm` were in this milestone's scope and are
+deferred. Both change query plans, neither can be honestly evaluated
+without production-shaped data, and this milestone's whole point was to
+stop guessing. They need a measured pass with `pg_stat_statements`.
+
 ## [M40] — The door an approved HomeKrafter could not open — 2026-08-22
 
 A HomeKrafter signs in, clicks "Go to my dashboard", and lands back on
