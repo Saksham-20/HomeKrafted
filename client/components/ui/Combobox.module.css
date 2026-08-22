@@ -1,0 +1,222 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+/* Selected values, above the field rather than inside it: a token strip
+   that grows inside an input pushes the caret around and makes the hit
+   target jump under the thumb on a phone. */
+.tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s1);
+  list-style: none;
+  margin: 0 0 2px;
+  padding: 0;
+}
+
+.token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: var(--hk-on-pine);
+  font-size: 12.5px;
+  line-height: 1.3;
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+.tokenRemove {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  padding: 0;
+  border-radius: var(--hk-r-pill);
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+  cursor: pointer;
+}
+
+.tokenRemove:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.tokenRemove:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.anchor {
+  position: relative;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  min-height: 44px;
+}
+
+.field:focus-within {
+  border-color: var(--hk-pine);
+}
+
+.fieldOpen {
+  border-color: var(--hk-pine);
+}
+
+.disabled {
+  background: var(--hk-surface-2);
+  opacity: 0.7;
+}
+
+/* 16px floor — iOS Safari zooms a focused control under it and never
+   zooms back out (CLAUDE.md). The global rule in `globals.css` would
+   raise this anyway; stating it here keeps the file honest. */
+.input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--hk-ink);
+}
+
+.input::placeholder {
+  color: var(--hk-muted);
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+.field:focus-within {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.toggle {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  align-self: stretch;
+  border: 0;
+  background: none;
+  color: var(--hk-muted);
+  cursor: pointer;
+}
+
+.list {
+  position: absolute;
+  z-index: 30;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  box-shadow: var(--hk-shadow-card);
+}
+
+/* `visibility: hidden` rather than `display: none` so nothing inside is
+   reachable by Tab while closed — the M16 rule about off-screen panels
+   applies to a collapsed listbox for the same reason. */
+.listHidden {
+  visibility: hidden;
+  pointer-events: none;
+  max-height: 0;
+  padding: 0;
+  border-width: 0;
+  box-shadow: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s2);
+  padding: 9px 10px;
+  border-radius: var(--hk-r-sm);
+  font-size: 14.5px;
+  color: var(--hk-ink);
+  cursor: pointer;
+}
+
+.active {
+  background: var(--hk-pine-tint);
+}
+
+.selected {
+  font-weight: 500;
+}
+
+.optionText {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hk-s2);
+  min-width: 0;
+}
+
+.optionLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optionHint {
+  font-size: 12px;
+  color: var(--hk-muted);
+  white-space: nowrap;
+}
+
+.create {
+  color: var(--hk-ink-2);
+  border-top: 1px solid var(--hk-divider);
+  border-radius: 0 0 var(--hk-r-sm) var(--hk-r-sm);
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
+.empty {
+  padding: 10px;
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin: 0;
+}
+
+/* Terracotta is the marketplace's refusal colour and clears AA on white
+   at this size. */
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+  margin: 0;
+}

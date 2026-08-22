@@ -4,6 +4,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminCollectionsService } from './collections.service';
 import { UpsertCollectionDto } from './dto/upsert-collection.dto';
+import { CreateOccasionDto } from './dto/create-occasion.dto';
 import { UpdateOccasionDto } from './dto/update-occasion.dto';
 
 /** Occasion `Collection` CMS — title/description/occasion + ordered product membership. */
@@ -25,6 +26,16 @@ export class AdminCollectionsController {
   @Get('occasions')
   listOccasions() {
     return this.collectionsService.listOccasions();
+  }
+
+  /**
+   * The only route in the product that creates an `Occasion` (M43), and
+   * it is under `/admin` on purpose — see `CreateOccasionDto`. Declared
+   * above `POST /` for the same declaration-order reason as the GET.
+   */
+  @Post('occasions')
+  createOccasion(@CurrentUser() admin: RequestUser, @Body() dto: CreateOccasionDto) {
+    return this.collectionsService.createOccasion(admin.userId, dto);
   }
 
   @Patch('occasions/:id')

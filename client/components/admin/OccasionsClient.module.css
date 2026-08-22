@@ -116,3 +116,51 @@
   color: var(--hk-terracotta);
   margin-bottom: var(--hk-s3);
 }
+
+/* --- Add form (M43) ------------------------------------------------- */
+
+.addRow {
+  display: flex;
+  margin-bottom: var(--hk-s4);
+}
+
+.addCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-bottom: var(--hk-s4);
+  border-color: var(--hk-gold-border);
+}
+
+.addTitle {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  color: var(--hk-ink);
+}
+
+.addGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hk-s4);
+}
+
+.addGrid .fieldWide {
+  grid-column: 1 / -1;
+}
+
+.subhint {
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+/* Terracotta again — a duplicate name is a refusal, not a caution. */
+.warn {
+  font-size: 12.5px;
+  color: var(--hk-terracotta-text);
+}
+
+@media (max-width: 780px) {
+  .addGrid {
+    grid-template-columns: 1fr;
+  }
+}

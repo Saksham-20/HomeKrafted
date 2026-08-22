@@ -208,3 +208,9 @@
   color: var(--hk-muted);
   padding-left: 26px;
 }
+
+/* M43 — the occasion picker replaced a chip wall; cap it so a full-width
+   form doesn't stretch a search field across the whole page. */
+.occasionPicker {
+  max-width: 460px;
+}

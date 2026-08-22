@@ -982,6 +982,26 @@ undo by accident:
 
 ## Occasions & guides (M16) — dates are set by a person
 
+- **Only an admin creates an occasion (M43), and the route is the gate.**
+  `POST /admin/collections/occasions` is the single writer; there is
+  deliberately no `/seller/*` equivalent, and
+  `server/test/unit/occasion-admin-only.spec.ts` fails the build if one
+  appears. A HomeKrafter *tags* a listing with an occasion — they do not
+  mint one. This is not permissions hygiene: occasions are a shared
+  vocabulary the whole catalogue browses by, and one anybody can add to
+  stops being one ("Diwali", "diwali " and "Deepavali" as three hub pages
+  splitting a festival's traffic, unmergeable). The **create row on
+  `<Combobox>` is a prop, not a permission** — withholding it hides a row
+  in a menu and nothing more. A duplicate name is a **409 naming the
+  existing occasion**, never a silent de-duplication: handing back the
+  existing row makes the admin believe the date and tagline they typed
+  were saved onto it.
+- **`components/ui/Combobox` is the searchable picker** (M43) — WAI-ARIA
+  editable combobox, list autocomplete, single or multi, no dependency.
+  Reach for it instead of a `<select>` or a chip wall wherever the list
+  grows over time. Focus stays on the input and the active row rides on
+  `aria-activedescendant`; don't reimplement that with a focusable list,
+  which is the version that breaks Enter and Space.
 - **`Occasion.celebratedOn` is an absolute date, not a recurrence rule.**
   Diwali, Raksha Bandhan and Karwa Chauth are lunisolar and land on a
   different Gregorian date every year. Never add a "repeats yearly" flag

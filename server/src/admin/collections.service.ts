@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapCollection, mapOccasion } from '../catalog/mappers/vendor.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { UpsertCollectionDto } from './dto/upsert-collection.dto';
+import { CreateOccasionDto } from './dto/create-occasion.dto';
 import { UpdateOccasionDto } from './dto/update-occasion.dto';
 
 function slugify(value: string): string {
@@ -11,6 +12,17 @@ function slugify(value: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+}
+
+/**
+ * The letter in the ring on an occasion tile. Takes the first letter that
+ * is actually a letter or a digit, so "'Tis the season" rings T rather
+ * than an apostrophe, and falls back to the first character for a name
+ * written in a script this regex has no opinion about.
+ */
+function initialOf(name: string): string {
+  const match = name.match(/[\p{L}\p{N}]/u);
+  return (match?.[0] ?? name.charAt(0)).toUpperCase();
 }
 
 const COLLECTION_INCLUDE = { products: { orderBy: { sortOrder: 'asc' as const } } };
@@ -126,6 +138,65 @@ export class AdminCollectionsService {
     return occasions.map(mapOccasion);
   }
 
+  /**
+   * Add a festival to the shared vocabulary (M43).
+   *
+   * **Admin-only, and the route is the gate.** This lives under
+   * `/api/v1/admin`, which `RolesGuard` treats as fail-closed; there is
+   * no seller-facing equivalent and there must not be one. A HomeKrafter
+   * tags a listing with an occasion; they do not mint one. The moment
+   * anybody can add, "Diwali", "diwali" and "Deepavali" become three hub
+   * pages splitting one festival's traffic, and nothing in the product
+   * can merge them back.
+   *
+   * A same-name occasion is refused rather than de-duplicated, because
+   * the two are not the same thing: silently handing back the existing
+   * row would make the admin think their date and tagline had been
+   * saved onto it.
+   */
+  async createOccasion(adminUserId: string, dto: CreateOccasionDto) {
+    const name = dto.name.trim().replace(/\s+/g, ' ');
+
+    // Case-insensitive: the duplicate that actually happens is "Onam"
+    // typed next to "onam", not a byte-identical one.
+    const clash = await this.prisma.occasion.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+    });
+    if (clash) {
+      throw new ConflictException(
+        `“${clash.name}” already exists — pick it from the list instead of adding it again.`,
+      );
+    }
+
+    const created = await this.prisma.occasion.create({
+      data: {
+        slug: await this.uniqueOccasionSlug(name),
+        name,
+        // The ring on every occasion tile. Derived rather than asked for:
+        // it is always the first letter, and a field for it is a field
+        // somebody gets to fill in wrong.
+        initial: initialOf(name),
+        celebratedOn: dto.celebratedOn ? new Date(dto.celebratedOn) : null,
+        tagline: dto.tagline?.trim() || null,
+        imageSrc: dto.imageSrc?.trim() || null,
+      },
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'occasion.create',
+      targetType: 'Occasion',
+      targetId: created.id,
+      metadata: {
+        name: created.name,
+        slug: created.slug,
+        celebratedOn: created.celebratedOn?.toISOString() ?? null,
+      },
+    });
+
+    return mapOccasion(created);
+  }
+
   async updateOccasion(adminUserId: string, id: string, dto: UpdateOccasionDto) {
     const existing = await this.prisma.occasion.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Occasion not found');
@@ -181,6 +252,16 @@ export class AdminCollectionsService {
   private async assertOccasionExists(occasionId: string): Promise<void> {
     const occasion = await this.prisma.occasion.findUnique({ where: { id: occasionId } });
     if (!occasion) throw new NotFoundException('Occasion not found');
+  }
+
+  private async uniqueOccasionSlug(name: string): Promise<string> {
+    const base = slugify(name) || 'occasion';
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = attempt === 0 ? base : `${base}-${attempt + 1}`;
+      const exists = await this.prisma.occasion.findUnique({ where: { slug: candidate } });
+      if (!exists) return candidate;
+    }
+    return `${base}-${Date.now()}`;
   }
 
   private async uniqueSlug(title: string): Promise<string> {

@@ -1822,6 +1822,52 @@ export async function updateOccasion(
   );
 }
 
+/**
+ * Add an occasion (M43).
+ *
+ * **Admin-only, and this wrapper is not what makes it so.** The route is
+ * `POST /admin/collections/occasions`, which sits under the path
+ * `RolesGuard` treats as fail-closed; there is no seller-facing
+ * equivalent and there must not be one. A HomeKrafter tags a listing
+ * with an occasion; they do not mint one.
+ *
+ * It throws rather than answering `undefined`. A duplicate name comes
+ * back as a 409 carrying the sentence that says which occasion already
+ * exists, and swallowing it would leave the combobox looking like a dead
+ * key (the M36 rule: a write that reports nothing has discarded the only
+ * explanation anybody was going to get).
+ */
+export interface CreateOccasionInput {
+  name: string;
+  celebratedOn?: string;
+  tagline?: string;
+  imageSrc?: string;
+}
+
+export async function createOccasion(input: CreateOccasionInput): Promise<Occasion> {
+  if (isMockMode()) {
+    const name = input.name.trim().replace(/\s+/g, " ");
+    const clash = occasions.find((o) => o.name.toLowerCase() === name.toLowerCase());
+    if (clash) {
+      throw new Error(
+        `\u201c${clash.name}\u201d already exists \u2014 pick it from the list instead of adding it again.`,
+      );
+    }
+    const created: Occasion = {
+      id: `oc-${Date.now().toString(36)}`,
+      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "occasion",
+      name,
+      initial: (name.match(/[\p{L}\p{N}]/u)?.[0] ?? name.charAt(0)).toUpperCase(),
+      celebratedOn: input.celebratedOn,
+      tagline: input.tagline,
+      imageSrc: input.imageSrc,
+    };
+    occasions.push(created);
+    return created;
+  }
+  return http.post<Occasion>("/admin/collections/occasions", input);
+}
+
 /** **Stays mock-only** — no server table/endpoint for home promo bands exists yet; see this file's header comment. */
 export async function updateHomePromoBand(
   id: string,

@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
+import { Combobox } from "@/components/ui/Combobox";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag, SellerCommission } from "@/lib/types";
@@ -128,17 +130,13 @@ export interface ListingFormProps {
  * (`createSellerListing` vs. `updateSellerListing`, `lib/api/seller.ts`).
  */
 export function ListingForm({ values, onChange, categories, occasions, commission }: ListingFormProps) {
+  const occasionOptions = useMemo(
+    () => occasions.map((o) => ({ value: o.id, label: o.name })),
+    [occasions],
+  );
+
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     onChange({ ...values, [key]: value });
-  }
-
-  function toggleOccasion(id: string) {
-    set(
-      "occasionIds",
-      values.occasionIds.includes(id)
-        ? values.occasionIds.filter((o) => o !== id)
-        : [...values.occasionIds, id],
-    );
   }
 
   function toggleDietary(tag: DietaryTag) {
@@ -302,18 +300,32 @@ export function ListingForm({ values, onChange, categories, occasions, commissio
         </div>
       </div>
 
+      {/*
+        A wall of chips (M43): fine at eleven occasions, unusable at
+        thirty, and there was nothing to type into. A searchable picker
+        replaces it — same selection, findable by name.
+
+        **No create row here, deliberately.** Occasions are a shared
+        vocabulary the whole catalogue browses by; one anybody can add to
+        stops being one, and "Diwali", "diwali" and "Deepavali" become
+        three hub pages splitting a festival's traffic. Admins add them
+        on `/admin/collections/occasions`. The gate is the server — that
+        route lives under `/api/v1/admin` — not this missing prop.
+      */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Occasions</h2>
-        <div className={styles.chipGroup}>
-          {occasions.map((o) => (
-            <Chip
-              key={o.id}
-              label={o.name}
-              selected={values.occasionIds.includes(o.id)}
-              onClick={() => toggleOccasion(o.id)}
-            />
-          ))}
-        </div>
+        <Combobox
+          label="Occasions this suits"
+          hideLabel
+          multiple
+          placeholder="Search occasions…"
+          value={values.occasionIds}
+          onChange={(next) => set("occasionIds", next)}
+          options={occasionOptions}
+          emptyMessage="No occasion by that name. Ask an admin to add it."
+          hint="Optional — it puts your listing on the occasion's page."
+          className={styles.occasionPicker}
+        />
       </div>
 
       {/* Food only. A candle has no dietary tags, and asking reads as a

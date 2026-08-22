@@ -3,6 +3,71 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M43] — A picker you can type into, and who gets to add to it — 2026-08-22
+
+Occasions were a wall of `Chip` toggles on the listing form and a native
+`<select>` in the admin CMS. Both read fine at eleven occasions and stop
+being usable at thirty — there is nothing to type into, no way to find
+"Karwa Chauth" except with your eyes, and on a phone the select is an
+opaque wheel. The wall is also what stopped anyone adding more: **no
+route in the product created an `Occasion` at all.** The seed was the
+only writer.
+
+### Added
+
+- **`components/ui/Combobox`** — a WAI-ARIA editable combobox with list
+  autocomplete, single or multi select, dependency-free. Focus never
+  leaves the input; the active row is carried by `aria-activedescendant`,
+  which is what makes the keyboard model work and what a
+  `role="button"` list would get wrong. Down/Up move and open, Alt+Down
+  opens without moving, Home/End jump, Enter commits the active row,
+  Escape closes and then clears, Tab leaves without committing, and
+  Backspace on an empty query removes the last chip. Result counts are
+  announced through a polite live region.
+- **`POST /admin/collections/occasions`** — the first and only route that
+  creates one. `slug` and `initial` are derived; a same-name occasion is
+  **409 with the existing name in the sentence**, not silently
+  de-duplicated; an absent date stores evergreen. Audited
+  (`occasion.create`).
+- **An add form on `/admin/collections/occasions`** — name, next date,
+  tagline and a drag-and-drop cover image. Collapsed by default: this
+  screen's daily job is rolling dates forward, and a form sitting open
+  above that list would make adding look like the thing you came for.
+
+### Changed
+
+- **The listing form's occasion chips are a searchable multi-select.**
+  Same selection, findable by name, selected values as removable chips.
+- **The collection editor's occasion `<select>` is a creatable
+  combobox** — an admin curating a Diwali guide before anyone has added
+  Diwali can add it inline, and the field then says what it inherited:
+  no date, so it shows under "any time of year" until one is set.
+
+### Creation is admin-only, and the route is what makes it so
+
+The create row is a **prop**, passed on admin screens and withheld on the
+HomeKrafter's listing form. A withheld prop hides a row in a menu and
+stops there, so it is not the gate. The gate is that the write route
+lives under `/api/v1/admin`, where `RolesGuard` is fail-closed, and that
+**no `/seller/*` route may write the table** —
+`server/test/unit/occasion-admin-only.spec.ts` fails the build if one
+ever does, while asserting the seller module still *reads* it so the
+guard cannot go vacuous.
+
+The reason is not permissions hygiene. Occasions are a shared vocabulary
+the whole catalogue browses by; one anybody can add to stops being one.
+"Diwali", "diwali " and "Deepavali" become three hub pages splitting a
+festival's traffic, and nothing in the product can merge them back.
+
+### Verified against a live server
+
+Seller token → **403**. Admin → creates with `slug: "onam"`,
+`initial: "O"`. Same name in a different case → **409** naming the
+existing occasion. A one-character name → **400**. Ten service unit tests
+cover the derivations and the refusals; the structural guard was
+mutation-tested by adding a write to `SellerListingsService` and watching
+it fail.
+
 ## [M42] — The last field that asked where a file lives — 2026-08-22
 
 Every image in the product has gone through `ImageUpload` since M14,

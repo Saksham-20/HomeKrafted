@@ -6,13 +6,15 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getCollectionsAdmin, getOccasionsAdmin, getProducts, upsertCollection } from "@/lib/api";
+import { formatDate } from "@/lib/format";
+import { createOccasion, getCollectionsAdmin, getOccasionsAdmin, getProducts, upsertCollection } from "@/lib/api";
 import type { Occasion, Product } from "@/lib/types";
 import styles from "./CollectionEditorClient.module.css";
 
@@ -45,6 +47,8 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
   // now, so it needs its own art and its own place in the running order.
   const [imageSrc, setImageSrc] = useState("");
   const [featured, setFeatured] = useState(false);
+  /** Name of an occasion created from this screen, so the hint can say what it inherited. */
+  const [newOccasion, setNewOccasion] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState("0");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,6 +87,16 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
       cancelled = true;
     };
   }, [ready, role, collectionId]);
+
+  const occasionOptions: ComboboxOption[] = useMemo(
+    () =>
+      occasions.map((o) => ({
+        value: o.id,
+        label: o.name,
+        hint: o.celebratedOn ? formatDate(o.celebratedOn) : "any time of year",
+      })),
+    [occasions],
+  );
 
   const productById = useMemo(() => new Map(allProducts.map((p) => [p.id, p])), [allProducts]);
   const availableToAdd = useMemo(
@@ -169,17 +183,47 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
             <span className={styles.label}>Title</span>
             <input className={styles.input} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Diwali Gifting Edit" />
           </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Occasion</span>
-            <select className={styles.select} value={occasionId} onChange={(event) => setOccasionId(event.target.value)}>
-              <option value="">No occasion</option>
-              {occasions.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className={styles.field}>
+            {/*
+              A searchable picker rather than a `<select>` (M43). The list
+              is short today and gets one entry longer every festival
+              somebody adds; a native select has nothing to type into, and
+              on a phone it is an opaque wheel.
+
+              `onCreate` is passed **here and not on the HomeKrafter's
+              listing form** — occasions are a shared vocabulary, and one
+              anybody can add to stops being one. The prop is the
+              affordance; the gate is that the route lives under
+              `/api/v1/admin`.
+            */}
+            <Combobox
+              label="Occasion"
+              placeholder="Search occasions…"
+              value={occasionId ? [occasionId] : []}
+              onChange={(next) => setOccasionId(next[0] ?? "")}
+              options={occasionOptions}
+              emptyMessage="No occasion by that name yet."
+              createNoun="occasion"
+              hint={
+                newOccasion
+                  ? `Added “${newOccasion}” with no date — it shows under “any time of year” until you set one on the Occasions tab.`
+                  : "Optional. Leave empty for a standalone gift guide."
+              }
+              onCreate={async (name) => {
+                const created = await createOccasion({ name });
+                setOccasions((current) =>
+                  [...current, created].sort((a, b) => a.name.localeCompare(b.name)),
+                );
+                setNewOccasion(created.name);
+                return { value: created.id, label: created.name };
+              }}
+            />
+            {occasionId && (
+              <button type="button" className={styles.clearOccasion} onClick={() => setOccasionId("")}>
+                Clear occasion
+              </button>
+            )}
+          </div>
           <label className={styles.field}>
             <span className={styles.label}>Running order</span>
             <input

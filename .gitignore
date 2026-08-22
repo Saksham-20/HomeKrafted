@@ -77,3 +77,8 @@ live-*.png
 # `server/test/unit/vendor-privacy.spec.ts`): the people who applied here
 # never agreed to be published.
 screenshots-m36/
+
+# Review screenshots taken for a milestone hand-off. Kept out of the
+# tree for the same reason as `.qa-shots/`: they are a few megabytes of
+# PNG that go stale the next time the UI moves.
+review-shots/

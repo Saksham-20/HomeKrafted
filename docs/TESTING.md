@@ -851,6 +851,36 @@ Admin: **Collections → Occasions** is where dates get set. Worth trying:
 > are lunisolar — they land on a different date every year — so there is
 > no "repeats yearly" setting to tick. Somebody rolls them forward.
 
+### Adding an occasion, and searching for one (M43)
+
+Until now nothing in the product could *create* an occasion — the list
+was whatever the seed put there. Two things changed.
+
+**Admin → Collections → Occasions → "Add an occasion".** Name, next date,
+tagline, drag-and-drop cover. Worth trying:
+
+- Type the name of one that already exists (any capitalisation). The
+  form warns before you submit, and the server refuses with the existing
+  name in the message if you get past it.
+- Leave the date empty. That is a real answer — it files under "any time
+  of year", the same as a birthday — and the field says so.
+- A one-character name is refused.
+
+**Everywhere occasions are picked is now a search box.** The
+HomeKrafter's **Add listing → Occasions** was a wall of chips; it is a
+picker you type into, with chosen ones as removable tags. Try the
+keyboard alone: ↓ opens, ↑/↓ move, Home/End jump, Enter picks, Esc
+closes, Backspace on an empty box removes the last tag.
+
+> **A HomeKrafter cannot add an occasion, deliberately.** Type a name
+> that does not exist on the listing form and it says so, with no "add
+> it" option — that is an admin's job. Occasions are the shared
+> vocabulary the whole catalogue browses by; if anyone could add one,
+> "Diwali", "diwali" and "Deepavali" would become three separate pages
+> splitting one festival's shoppers. The admin's collection editor
+> *does* offer to add one inline, because that is the same person who
+> owns the list.
+
 ### HomeKrafter profiles (M16)
 
 The storefront is now the page a buyer reads *before* deciding to trust
