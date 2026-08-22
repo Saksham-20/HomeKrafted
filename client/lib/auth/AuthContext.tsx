@@ -357,6 +357,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   >(undefined);
   /** Bumped by `retrySellerRecord` to re-run the `/seller/me` effect after a failure. */
   const [sellerReloadNonce, setSellerReloadNonce] = useState(0);
+  /**
+   * `${userId}:${nonce}` of the `/seller/me` fetch already in flight or
+   * done — so the hydrate prefetch (M48) and the effect below cannot both
+   * issue one, and a retry still can.
+   */
+  const sellerFetchKey = useRef<string | undefined>(undefined);
   const [sessionUser, setSessionUserState] = useState<SessionUser | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -397,7 +403,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const tokens = await refreshSession(persisted.refreshToken);
             updateTokens(tokens.accessToken, tokens.refreshToken);
           }
-          const me = await getMe();
+          // M48 — `GET /users/me` and `GET /seller/me` in parallel.
+          //
+          // They were sequential: hydrate awaited `getMe()`, set the
+          // role, and only then did the effect below fire `getMySeller()`.
+          // Nothing in the second call depends on the first — both need a
+          // valid access token and nothing else — so a HomeKrafter paid a
+          // full extra round trip of blank shell on every page load, which
+          // is a large part of "the dashboard takes too long to open".
+          //
+          // The prefetch is keyed and handed to the effect below rather
+          // than racing it, so the request still happens exactly once.
+          const wantsSeller = persisted.user?.role === "seller";
+          const [me, prefetchedSeller] = await Promise.all([
+            getMe(),
+            wantsSeller
+              ? getMySeller().then(
+                  (record) => ({ ok: true as const, record }),
+                  () => ({ ok: false as const, record: undefined }),
+                )
+              : Promise.resolve(undefined),
+          ]);
+
+          // Only if the server agrees this is still a HomeKrafter — the
+          // persisted snapshot is what decided to prefetch, and a role
+          // that changed since would otherwise seed a stale kitchen.
+          if (prefetchedSeller && me.role === "seller") {
+            sellerFetchKey.current = `${me.id}:0`;
+            setRealSeller(
+              prefetchedSeller.ok
+                ? { userId: me.id, seller: prefetchedSeller.record }
+                : { userId: me.id, failed: true },
+            );
+          }
+
           updateSessionUser(me);
           setSignedIn(true);
           setRole(me.role);
@@ -697,6 +736,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDemoHomeKrafter(undefined);
     setSellerModeState(undefined);
     setSessionUserState(undefined);
+    // M48 — so signing back in as the same HomeKrafter re-fetches rather
+    // than trusting a key from the session that just ended.
+    sellerFetchKey.current = undefined;
+    setRealSeller(undefined);
   }
 
   // Real sessions (consumer, seller, or admin) resolve their `User` snapshot
@@ -714,6 +757,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // role so a seller's kitchen can't linger after switching accounts.
   useEffect(() => {
     if (mock || !signedIn || role !== "seller" || !activeSessionUserId) return;
+    // Already fetched for this user at this retry count — the hydrate
+    // prefetch above got there first. Without this the parallel fetch
+    // would be a second request rather than a saved one.
+    const key = `${activeSessionUserId}:${sellerReloadNonce}`;
+    if (sellerFetchKey.current === key) return;
+    sellerFetchKey.current = key;
+
     let cancelled = false;
     void getMySeller().then(
       (record) => {

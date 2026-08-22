@@ -108,6 +108,7 @@ scripts/deploy.sh --api-only       # backend-only change
 | API (NestJS) | pm2 `homekrafted-api`, `server/dist/main.js` on :4000 |
 | Process config | `ecosystem.config.cjs` (in git) |
 | nginx | `/etc/nginx/sites-available/homekrafted` — :443 TLS for `homekrafted.in` **only**, a second :443 vhost 301ing `www` to the apex, :80 `default_server` redirecting to https on the apex; `/api/` and `/health` → :4000, everything else → :3000. See "One origin, and only one" below — this was wrong for months |
+| API compression | **gzip is applied by the Node process, not nginx** (M48) — `compression({ threshold: 1024 })` in `server/src/main.ts`. nginx gzips the web app but not the proxied API, and `/api/v1/products` was going out at 17 KB uncompressed. If you add `gzip_proxied` to the vhost the two do not fight; nginx passes an already-encoded body through. Check with `curl -sI -H 'Accept-Encoding: gzip' https://homekrafted.in/api/v1/products \| grep -i content-encoding` |
 | Uploaded images | `/var/lib/homekrafted/uploads`, served by nginx at `/uploads/` — **outside the git clone on purpose** |
 | Database | local Postgres 16, db and role both `homekrafted` |
 | Boot | `pm2 startup systemd` + `pm2 save`, so both apps come back after a reboot |

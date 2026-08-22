@@ -17,6 +17,7 @@ import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import compression from 'compression';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AppConfig } from './config/configuration';
@@ -50,6 +51,31 @@ async function bootstrap(): Promise<void> {
   app.set('trust proxy', 1);
 
   app.use(helmet());
+
+  /**
+   * Gzip every response big enough to be worth it (M48).
+   *
+   * **Measured on production before adding this**: `GET /api/v1/products`
+   * came back as 17,323 bytes with no `Content-Encoding` at all, and 4,237
+   * bytes gzipped — 4.1×. `/api/v1/vendors` was 25,835 against 5,868, 4.4×.
+   * Every catalogue read, every dashboard load and every order list was
+   * going over the wire whole. nginx compresses the *web* app's HTML and
+   * JS (verified), but not this proxied API, and JSON is the most
+   * compressible thing either of them serves.
+   *
+   * It lives here rather than in the nginx vhost deliberately: this box's
+   * config is edited by hand and has been wrong before (`docs/DEPLOY.md`'s
+   * "One origin, and only one"), and a compression setting that ships with
+   * the code cannot be lost by the next `certbot --nginx` rewrite. If
+   * nginx is later taught `gzip_proxied`, the two do not fight — nginx
+   * passes an already-encoded body through untouched.
+   *
+   * The CPU cost is the thing to keep an eye on, since this is a 1 vCPU
+   * box: level 6 on a 17 KB body is sub-millisecond, and `threshold`
+   * keeps it away from the small responses where the header overhead
+   * would cost more than the saving.
+   */
+  app.use(compression({ threshold: 1024 }));
 
   app.enableCors({
     origin: configService.get('clientOrigin', { infer: true }),

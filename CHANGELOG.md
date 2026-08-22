@@ -3,6 +3,60 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M48] — The API was sending everything uncompressed — 2026-08-22
+
+Measured against production before changing anything, because "the site
+lags" is a claim and not a diagnosis. Most of the front end came back
+healthy: nginx already gzips the HTML and the JS chunks, static chunks
+carry `max-age=31536000, immutable`, and TTFB on `/shop` was 0.26s.
+
+Then the API: `GET /api/v1/products` returned **17,323 bytes with no
+`Content-Encoding` at all**. Gzipped it is 4,237 — 4.1×. `/api/v1/vendors`
+was 25,835 against 5,868, 4.4×. nginx compresses the *web* app and not the
+proxied API, and JSON is the most compressible thing either of them
+serves. Every catalogue read, every dashboard load and every order list
+was going over the wire whole — which on mobile data is exactly what "the
+site lags" feels like.
+
+### Fixed
+
+- **The API gzips now.** `compression({ threshold: 1024 })` in
+  `main.ts`, so small responses skip it and pay no header overhead.
+  Verified locally: `/products` 8,694 → 2,215 bytes,
+  `/admin/catalog/products` 10,052 → 2,512, `/seller/listings` 3,268 →
+  1,121, and the two sub-kilobyte dashboards untouched.
+  It lives in the code rather than the nginx vhost on purpose: this box's
+  config is edited by hand, has been wrong before, and a setting that
+  ships with the repo cannot be lost to the next `certbot --nginx`
+  rewrite. If nginx is later taught `gzip_proxied` the two do not fight.
+- **`GET /users/me` and `GET /seller/me` now run in parallel.** They were
+  sequential — hydrate awaited the first, set the role, and only then did
+  an effect fire the second — and nothing in the second depends on the
+  first; both need a valid access token and nothing else. So a
+  HomeKrafter paid a full extra round trip of blank shell on every page
+  load. Verified by request timestamps: both now start at +0ms on a
+  reload. The saving is one network round trip, which is invisible on
+  localhost (~2ms) and is the whole point on the real box.
+
+### Measured and deliberately not changed
+
+Honest notes, so the next person does not redo the work:
+
+- **The home page ships 977 KiB of raw JS across 34 chunks**, of which
+  227 KiB is the framework. Lazy-loading `ReelViewer` behind
+  `next/dynamic` — a full-screen player most visitors never open — was
+  tried and **measured 4 KiB worse** (981 KiB, two extra chunks), so it
+  was reverted rather than shipped as a plausible-sounding no-op.
+- **CSS is already code-split** across 83 chunks; the 120 KiB one is the
+  shared layout bundle, ~20 KiB over the wire.
+- **Fonts**: four families, 24 woff2 files, 488 KiB, five preloaded.
+  Dropping Fraunces' explicit weight array (it is a variable font) and
+  un-preloading Kaushan both emitted a byte-identical build on this Next
+  version, so neither shipped.
+- **No listener or timer leaks.** Every `addEventListener` in the tree has
+  a matching `removeEventListener` in its cleanup; there are no
+  `setInterval`s.
+
 ## [M47] — Sub-admins: an operator sees the part of the panel they work — 2026-08-22
 
 Every admin held the whole panel. There was one role, and it reached the
