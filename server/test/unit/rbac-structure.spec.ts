@@ -96,6 +96,13 @@ function stripComments(source: string): string {
  * `export class` line — a method-level `@Roles` on one route would leave
  * every other route in the file open, which is not the guarantee.
  */
+function hasClassLevelScope(source: string): boolean {
+  const code = stripComments(source);
+  const classIndex = code.search(/export class \w+Controller/);
+  if (classIndex === -1) return false;
+  return /@RequireAdminScope\('\w+'\)/.test(code.slice(0, classIndex));
+}
+
 function hasClassLevelRoles(source: string, role: 'admin' | 'seller'): boolean {
   const code = stripComments(source);
   const classIndex = code.search(/export class \w+Controller/);
@@ -151,6 +158,20 @@ describe('rbac structure — every portal controller is role-gated at the class'
     expect(offenders).toEqual([]);
   });
 
+  /**
+   * M47 — sub-admins. A missing `@RequireAdminScope` is refused at
+   * runtime by `AdminScopeGuard`'s fail-closed path rule, which is the
+   * real protection; this makes it fail at build time instead, where it
+   * is a one-line fix rather than a 403 somebody hits in production.
+   */
+  it('every src/admin controller declares @RequireAdminScope on the class', () => {
+    const offenders = adminControllers
+      .filter((path) => !ADMIN_PUBLIC_ALLOWLIST.includes(fileName(path)))
+      .filter((path) => !hasClassLevelScope(readFileSync(path, 'utf8')))
+      .map(fileName);
+    expect(offenders).toEqual([]);
+  });
+
   it('the admin public allowlist names real files — a rename must be reconciled here', () => {
     const names = adminControllers.map(fileName);
     for (const allowed of ADMIN_PUBLIC_ALLOWLIST) {
@@ -168,6 +189,21 @@ describe('rbac structure — every portal controller is role-gated at the class'
 });
 
 describe('rbac structure — admin routes that live outside src/admin', () => {
+  /**
+   * M47. `AdminScopeGuard` covers these through the *role* rule rather
+   * than the path rule (they are not under `/api/v1/admin`), so a missing
+   * scope decorator here is refused at runtime too — but two of the three
+   * move money, and "refused at runtime" means an operator discovers it.
+   */
+  it.each(ADMIN_ROUTES_OUTSIDE_ADMIN)(
+    '$route also declares an admin scope',
+    ({ file, handler }) => {
+      const block = decoratorsAbove(readFileSync(join(SRC_ROOT, file), 'utf8'), handler);
+      expect(block).not.toBeNull();
+      expect(block).toMatch(/@RequireAdminScope\('\w+'\)/);
+    },
+  );
+
   it.each(ADMIN_ROUTES_OUTSIDE_ADMIN)(
     "$route carries a method-level @Roles('admin')",
     ({ file, handler }) => {

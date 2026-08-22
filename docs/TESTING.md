@@ -851,6 +851,35 @@ Admin: **Collections → Occasions** is where dates get set. Worth trying:
 > are lunisolar — they land on a different date every year — so there is
 > no "repeats yearly" setting to tick. Somebody rolls them forward.
 
+### Sub-admins (M47)
+
+Until now every admin held the whole panel — the user list, the money, the
+settings, the commission switch. An admin can now cover just part of it.
+
+**Admin → Users → open somebody → Admin access.** Tick *This person is an
+admin*, tick the sections they cover, save. Worth trying:
+
+- Give somebody **Catalog & collections** and **Support** only. Sign in as
+  them: the sidebar has three items, not thirteen, and they land on
+  Catalog rather than a dashboard they cannot read.
+- As that person, go to `/admin/payouts` directly. You get a card naming
+  the section and telling you who to ask — not a blank screen whose
+  requests all fail.
+- Try to give **yourself** a section. Refused: nobody edits their own
+  admin access, which is both the self-elevation guard and the
+  self-lockout guard.
+- Try to remove admin from the **only** account holding **Users & audit**.
+  Refused: that is the section that hands out sections, and losing the
+  last one leaves nobody who can grant it back.
+- Tick *is an admin* with no sections. Refused, with a sentence — an admin
+  with no sections can reach nothing.
+
+> **Hiding a menu item is not the security.** Every admin request is
+> checked on the server against the sections that account holds *right
+> now*, read fresh from the database — so removing somebody's Wallet &
+> payouts section takes effect on their very next click, not whenever
+> their session happens to expire.
+
 ### A HomeKrafter can run their own sale (M46)
 
 **HomeKrafter → Storefront → Run a sale.** Put in a percentage and,

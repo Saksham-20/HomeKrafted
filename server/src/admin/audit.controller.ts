@@ -1,10 +1,13 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { AdminAuditLogService } from './audit-log.service';
 
 /** `GET /admin/audit` — every admin mutation across this module, newest first. Optional `?targetType=`/`?actorId=` filters, `?page=`/`?pageSize=` pagination. */
 @Controller('admin/audit')
 @Roles('admin')
+// The audit log is who-did-what across the panel; it belongs with the people who can grant and revoke.
+@RequireAdminScope('users')
 export class AdminAuditController {
   constructor(private readonly auditLog: AdminAuditLogService) {}
 

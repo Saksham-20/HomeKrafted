@@ -3,6 +3,71 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M47] — Sub-admins: an operator sees the part of the panel they work — 2026-08-22
+
+Every admin held the whole panel. There was one role, and it reached the
+user list, the money, the settings and the commission switch equally — so
+the only way to give somebody the review queue was to give them everything
+next to it.
+
+### Added
+
+- **`AdminScope`** — `catalog · sellers · orders · support · finance ·
+  users · settings · analytics`. One value per *section* of the panel,
+  because a section is what an operator is actually handed ("you handle
+  the review queue", "you settle payouts"). A permission per endpoint
+  reads as more rigorous and is unusable: nobody holds thirty checkboxes
+  in their head, so in practice everybody gets all thirty ticked and the
+  system means nothing.
+- **`AdminScopeGuard`**, global, after `RolesGuard` — by the time it runs
+  the caller is already known to be an admin and all that is left is
+  *which* admin.
+- **`PATCH /admin/users/:id/admin-access`** and a **Admin access** card on
+  `/admin/users/[id]`.
+- **A trimmed sidebar, and a card instead of a broken page.** A sub-admin
+  sees only their sections; following a bookmark into one they do not hold
+  gets the section named and who to ask, rather than a screen whose every
+  request 403s. And because `/admin/login` sends everybody to `/admin`, an
+  operator without `analytics` is redirected to the first section they do
+  hold rather than landing on a dashboard they cannot read.
+
+### The decisions
+
+- **Scopes are read from the database, not the token.** Putting them in
+  the JWT saves a query and makes revocation take up to an access token's
+  lifetime to bite — so somebody whose `finance` scope was pulled five
+  minutes ago could still issue a refund. The admin surface carries almost
+  no traffic; one lookup by primary key is the right price for "revoked
+  means revoked".
+- **Empty means nothing, not everything** — and the migration backfills
+  every existing admin with the full set so that could be the safe
+  direction. "Empty is everything" hands the whole panel to any sub-admin
+  whose scopes somebody forgot to tick, and that failure does not announce
+  itself.
+- **Fail-closed on the path, exactly like `RolesGuard`.** An `/admin`
+  route with no `@RequireAdminScope` is refused rather than allowed, and
+  `rbac-structure.spec.ts` now fails the build on one — the runtime guard
+  is the protection, the spec makes it a one-line fix instead of a 403
+  somebody hits in production.
+- **The three admin-privileged routes that hang off consumer controllers
+  are covered too** — `POST /orders/:id/refund`, `POST /wallet/adjust`,
+  `GET /users/:id`. No path rule sees them and two of them move money, so
+  the guard also triggers on a handler-level `@Roles('admin')`.
+- **Hiding a nav link is a courtesy, never the gate.** If the client's map
+  ever disagrees with the server, the cost is a visible link that 403s
+  with a sentence — not access.
+
+### Four guardrails on granting
+
+An admin cannot change **their own** access (no self-elevation, no
+self-lockout). The **last admin holding `users`** cannot lose it, because
+that is the scope that grants scopes and losing the last one leaves a
+platform nobody can administer without a database console. An admin with
+**no sections** is refused with a sentence, rather than stored as an
+account that looks powerful and reaches nothing. And removing access
+**clears the scopes**, so no demoted row still lists sections. Eight unit
+tests, and all four verified against a live server.
+
 ## [M46] — A HomeKrafter can run their own sale — 2026-08-22
 
 The owner asked for HomeKrafter-set discounts. What existed was a

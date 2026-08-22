@@ -119,3 +119,64 @@
   color: var(--hk-terracotta);
   margin-bottom: var(--hk-s3);
 }
+
+/* --- Sub-admin access (M47) ------------------------------------------ */
+
+.accessLead {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  margin: 0 0 var(--hk-s3);
+  max-width: 62ch;
+}
+
+.accessToggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--hk-ink);
+  cursor: pointer;
+  margin-bottom: var(--hk-s3);
+}
+
+.accessToggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--hk-pine);
+}
+
+.accessLabel {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  margin-bottom: 8px;
+}
+
+.accessChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  margin-bottom: var(--hk-s3);
+}
+
+.accessHint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin: 0 0 var(--hk-s3);
+}
+
+.accessActions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.accessSaved {
+  font-size: 13px;
+  color: var(--hk-success);
+}

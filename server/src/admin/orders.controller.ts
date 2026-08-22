@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query }
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminOrdersService, AdminOrderType } from './orders.service';
 import { OrderStatusOverrideDto } from './dto/order-status-override.dto';
@@ -19,6 +20,7 @@ function parseType(type: string): AdminOrderType {
 /** Unscoped orders oversight — every marketplace `Order`, `LaundryBooking`, and `SnackOrder`, unified. */
 @Controller('admin/orders')
 @Roles('admin')
+@RequireAdminScope('orders')
 export class AdminOrdersController {
   constructor(private readonly ordersService: AdminOrdersService) {}
 

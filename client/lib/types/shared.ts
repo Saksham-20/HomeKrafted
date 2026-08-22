@@ -58,7 +58,41 @@ export interface User {
    * replaced before the account can be used — M32. Absent means no.
    */
   mustChangePassword?: boolean;
+  /**
+   * M47 — which parts of the admin panel this admin covers. Only
+   * meaningful when `role` is `"admin"`.
+   *
+   * The shell reads it to hide sections a sub-admin cannot reach. **It is
+   * not the gate** — `AdminScopeGuard` refuses every admin route
+   * regardless, and reads the database row rather than the token so a
+   * revoked scope bites immediately. Hiding a link is a courtesy; the
+   * server is what decides.
+   *
+   * An empty array means no access at all, not full access. Every admin
+   * predating M47 was backfilled with the whole set precisely so this
+   * could be the safe direction.
+   */
+  adminScopes?: AdminScope[];
 }
+
+/**
+ * A section of the admin panel (M47). One value per part an operator is
+ * actually handed — "you handle the review queue", "you settle payouts" —
+ * rather than a permission per endpoint, which reads as more rigorous and
+ * ends with everybody holding every checkbox.
+ *
+ * Mirrors the server's `AdminScope` enum. A drift costs a hidden nav item
+ * or a 403 with a clear sentence, never access.
+ */
+export type AdminScope =
+  | "catalog"
+  | "sellers"
+  | "orders"
+  | "support"
+  | "finance"
+  | "users"
+  | "settings"
+  | "analytics";
 
 export interface Address {
   id: ID;

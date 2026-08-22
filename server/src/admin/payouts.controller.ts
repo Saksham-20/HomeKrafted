@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { PayoutStatus } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { RejectPayoutDto, SettlePayoutDto } from './dto/settle-payout.dto';
 import { AdminPayoutsService } from './payouts.service';
@@ -13,6 +14,7 @@ import { ListAdminPayoutsQueryDto } from './dto/list-admin-payouts.query.dto';
  */
 @Controller('admin/payouts')
 @Roles('admin')
+@RequireAdminScope('finance')
 export class AdminPayoutsController {
   constructor(private readonly payouts: AdminPayoutsService) {}
 

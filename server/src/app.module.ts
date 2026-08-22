@@ -30,6 +30,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { SellerApplicationsModule } from './seller-applications/seller-applications.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { AdminScopeGuard } from './common/guards/admin-scope.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 @Module({
@@ -116,6 +117,9 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // M47 — sub-admin scopes. Last, so by the time it runs the caller is
+    // already known to be an admin and all that is left is *which* one.
+    { provide: APP_GUARD, useClass: AdminScopeGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })

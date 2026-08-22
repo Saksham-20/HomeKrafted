@@ -120,6 +120,11 @@ export type PublicUser = Pick<
   // set-a-password screen; the server does not trust it to — see
   // `JwtAuthGuard`, which refuses every other route regardless.
   | 'mustChangePassword'
+  // M47. The admin shell reads this to hide sections a sub-admin cannot
+  // reach; the server does not trust it to — `AdminScopeGuard` refuses
+  // every route regardless, and reads the row rather than the token so a
+  // revoked scope bites immediately.
+  | 'adminScopes'
 >;
 
 /**
@@ -1064,6 +1069,7 @@ export class AuthService {
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
       mustChangePassword: user.mustChangePassword,
+      adminScopes: user.adminScopes,
     };
   }
 }

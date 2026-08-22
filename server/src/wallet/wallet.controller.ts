@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdjustWalletDto } from './dto/adjust-wallet.dto';
 import { ListTransactionsQueryDto } from './dto/list-transactions.query.dto';
@@ -57,6 +58,9 @@ export class WalletController {
 
   @Post('adjust')
   @Roles('admin')
+  // M47 — money. See `AdminScopeGuard`'s note on admin-only routes that
+  // hang off consumer controllers.
+  @RequireAdminScope('finance')
   adjust(@CurrentUser() user: RequestUser, @Body() dto: AdjustWalletDto, @IdempotencyKey() key?: string) {
     return this.walletService.adjust(user.userId, dto, key);
   }

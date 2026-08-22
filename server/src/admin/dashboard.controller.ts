@@ -1,9 +1,11 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { AdminDashboardService } from './dashboard.service';
 
 @Controller('admin')
 @Roles('admin')
+@RequireAdminScope('analytics')
 export class AdminDashboardController {
   constructor(private readonly dashboardService: AdminDashboardService) {}
 

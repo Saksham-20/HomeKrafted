@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminCatalogService } from './catalog.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
@@ -15,6 +16,7 @@ import { SetDayMenuDto } from '../meals/dto/set-day-menu.dto';
 /** Unscoped catalog + review moderation — any vendor's products, any target's reviews. */
 @Controller('admin/catalog')
 @Roles('admin')
+@RequireAdminScope('catalog')
 export class AdminCatalogController {
   constructor(private readonly catalogService: AdminCatalogService) {}
 

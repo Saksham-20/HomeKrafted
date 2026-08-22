@@ -2,6 +2,7 @@ import { Body, Controller, Get, Header, Param, Patch, Query, Res } from '@nestjs
 import type { Response } from 'express';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminSettingsService } from './settings.service';
 import { AdminExportsService, type ExportKind } from './exports.service';
@@ -13,6 +14,7 @@ import { UpdateSettingsDto } from './dto/update-settings.dto';
  */
 @Controller('admin')
 @Roles('admin')
+@RequireAdminScope('settings')
 export class AdminSettingsController {
   constructor(
     private readonly settingsService: AdminSettingsService,

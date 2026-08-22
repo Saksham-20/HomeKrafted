@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import {
   CreateQuoteDto,
@@ -21,6 +22,8 @@ import { ListAdminInquiriesQueryDto } from './dto/list-admin-inquiries.query.dto
  */
 @Controller('admin/corporate-inquiries')
 @Roles('admin')
+// A corporate enquiry becomes an order; it is worked by whoever works orders.
+@RequireAdminScope('orders')
 export class AdminCorporateController {
   constructor(private readonly corporate: AdminCorporateService) {}
 

@@ -97,6 +97,7 @@ import type {
   SnackOrder,
   SupportTicket,
   SupportTicketStatus,
+  AdminScope,
   User,
   Vendor,
   VendorType,
@@ -186,6 +187,37 @@ export async function getUserById(id: string): Promise<User | undefined> {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Make somebody a sub-admin, change which sections they cover, or take it
+ * away (M47).
+ *
+ * One call rather than two, because they are one decision: an admin with
+ * no sections can reach nothing, so "is an admin" without "which
+ * sections" is an account that looks powerful and does nothing.
+ *
+ * Throws on refusal — the server has four guardrails and each one comes
+ * back with the sentence saying what to do instead (you cannot change
+ * your own access; this is the last admin who can grant access; pick at
+ * least one section). Swallowing them would leave the screen looking
+ * like a dead button, which is the M36 failure.
+ */
+export async function setAdminAccess(
+  userId: string,
+  input: { isAdmin: boolean; scopes: AdminScope[] },
+): Promise<User | undefined> {
+  if (isMockMode()) {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return undefined;
+    user.role = input.isAdmin ? "admin" : "consumer";
+    user.adminScopes = input.isAdmin ? input.scopes : [];
+    return user;
+  }
+  return http.patch<User>(
+    `/admin/users/${encodeURIComponent(userId)}/admin-access`,
+    input,
+  );
 }
 
 export async function setUserSuspended(id: string, suspended: boolean): Promise<User | undefined> {

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { IdempotencyKey } from '../common/decorators/idempotency-key.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -82,6 +83,9 @@ export class OrdersController {
   /** Admin-only — credits the order owner's wallet for the order total and marks it refunded. */
   @Post(':id/refund')
   @Roles('admin')
+  // M47 — money, so `finance`, even though this route hangs off a
+  // consumer controller and no path rule sees it.
+  @RequireAdminScope('finance')
   refund(@CurrentUser() user: RequestUser, @Param('id') id: string, @IdempotencyKey() key?: string) {
     return this.ordersService.refundOrder(user.userId, id, key);
   }

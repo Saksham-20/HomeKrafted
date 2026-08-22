@@ -27,6 +27,8 @@ export class UsersService {
       // M32 — `GET /users/me` is what a reload reads, so this is what
       // makes the forced password change survive one.
       mustChangePassword: user.mustChangePassword,
+      // M47 — the admin shell hides sections a sub-admin cannot reach.
+      adminScopes: user.adminScopes,
     };
   }
 

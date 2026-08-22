@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common
 import { SupportTicketStatus } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { SetTicketStatusDto, SupportReplyDto } from './dto/support-reply.dto';
 import { AdminSupportService } from './support.service';
@@ -18,6 +19,7 @@ function toDbStatus(status: string): SupportTicketStatus {
  */
 @Controller('admin/support/tickets')
 @Roles('admin')
+@RequireAdminScope('support')
 export class AdminSupportController {
   constructor(private readonly support: AdminSupportService) {}
 

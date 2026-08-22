@@ -752,6 +752,39 @@ paragraphs over appending new ones.
   affected `docs/*.md`, then report back with what changed and any
   decisions that need Opus's confirmation.
 
+## Sub-admins (M47) — sections, not permissions
+
+`User.adminScopes: AdminScope[]` — `catalog · sellers · orders · support ·
+finance · users · settings · analytics`, enforced by `AdminScopeGuard`
+(global, after `RolesGuard`) and declared with `@RequireAdminScope(...)`
+on every admin controller.
+
+- **A scope is a section of the panel**, because a section is what an
+  operator is actually handed. Per-endpoint permissions read as more
+  rigorous and end with everybody holding every checkbox. If a route
+  belongs to two sections it belongs to neither and needs its own.
+- **Empty means nothing, not everything.** The M47 migration backfilled
+  every existing admin with the full set so that could be the safe
+  direction — "empty is everything" hands the panel to any sub-admin whose
+  scopes somebody forgot to tick.
+- **Read from the database, never the token.** Revocation has to bite
+  immediately; a JWT claim would leave a pulled `finance` scope working
+  for the rest of an access token's life.
+- **Fail-closed on `/api/v1/admin`, same as `@Roles`** — a route with no
+  scope is refused, and `rbac-structure.spec.ts` fails the build on one.
+  The guard *also* fires on a handler-level `@Roles('admin')`, which is
+  what covers the three privileged routes hanging off consumer
+  controllers (two of them move money).
+- **Hiding a nav item is a courtesy, not the gate.** A drift between
+  `AdminShell`'s map and the server costs a visible link that 403s with a
+  sentence, never access.
+- **Granting has four guardrails** (`AdminUsersService.setAdminAccess`):
+  no self-change, the last `users` holder cannot lose it, an admin with no
+  sections is refused, and removing access clears the scopes. Each is a
+  400 with the sentence saying what to do instead.
+- **`users` is the scope that grants scopes** — hand it out last, and the
+  admin screen says so.
+
 ## A HomeKrafter's own sale (M46) — whose money it is
 
 `Vendor.discountPct` + `Vendor.discountEndsAt`, set through

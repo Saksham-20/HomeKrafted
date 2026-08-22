@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import { Address } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { PublicUser } from '../auth/auth.service';
 import { UsersService } from './users.service';
@@ -68,6 +69,8 @@ export class UsersController {
   }
 
   @Roles('admin')
+  // M47 — reading any account is the `users` section's business.
+  @RequireAdminScope('users')
   @Get(':id')
   getUserById(@Param('id') id: string): Promise<PublicUser> {
     return this.usersService.getMe(id);

@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicUser } from '../auth/auth.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { ListAdminUsersQueryDto } from './dto/list-admin-users.query.dto';
+import { SetAdminAccessDto } from './dto/set-admin-access.dto';
 
 const PUBLIC_USER_SELECT = {
   id: true,
@@ -17,6 +18,8 @@ const PUBLIC_USER_SELECT = {
   emailVerified: true,
   phoneVerified: true,
   mustChangePassword: true,
+  // M47 — the admin user screen shows and edits these.
+  adminScopes: true,
 } as const;
 
 const DEFAULT_USER_PAGE_SIZE = 25;
@@ -84,6 +87,94 @@ export class AdminUsersService {
   }
 
   /** Sets `User.suspended` — the same flag `AuthService` already gates login/refresh on, so a suspended user's next login/refresh attempt is rejected (`401`) even mid-session (existing access tokens still expire naturally on their own short TTL). */
+  /**
+   * Make somebody a sub-admin, change what they cover, or take it away
+   * (M47).
+   *
+   * Four guardrails, each of which exists because the failure it prevents
+   * is silent or irreversible:
+   *
+   * - **An admin cannot change their own access.** That is both the
+   *   self-lockout guard and the self-elevation guard: a `catalog`-only
+   *   operator must not be able to give themselves `finance`, and nobody
+   *   should be one mis-click from removing their own way back in.
+   * - **The last admin holding `users` cannot be demoted or have that
+   *   scope removed.** `users` is the scope that grants scopes, so losing
+   *   the last one leaves a platform nobody can administer without a
+   *   database console.
+   * - **An admin with no scopes is refused**, with a sentence. It is a
+   *   legal shape that produces an account which looks powerful and can
+   *   reach nothing, and the person doing it meant one of two other
+   *   things.
+   * - **Every change is audited with the before and after**, because "who
+   *   gave them finance" is the question this feature exists to be able
+   *   to answer.
+   */
+  async setAdminAccess(
+    adminUserId: string,
+    id: string,
+    dto: SetAdminAccessDto,
+  ): Promise<PublicUser> {
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('User not found');
+
+    if (id === adminUserId) {
+      throw new BadRequestException(
+        'You cannot change your own admin access. Ask another admin with the users scope.',
+      );
+    }
+
+    const nextIsAdmin = dto.isAdmin;
+    const nextScopes = nextIsAdmin ? dto.scopes : [];
+
+    if (nextIsAdmin && nextScopes.length === 0) {
+      throw new BadRequestException(
+        'Pick at least one section, or turn admin access off — an admin with no sections can reach nothing.',
+      );
+    }
+
+    // The `users` scope is what grants scopes. Losing the last one leaves
+    // nobody who can hand it back.
+    const losingUsersScope =
+      existing.role === 'admin' &&
+      existing.adminScopes.includes('users') &&
+      !(nextIsAdmin && nextScopes.includes('users'));
+    if (losingUsersScope) {
+      const others = await this.prisma.user.count({
+        where: { role: 'admin', adminScopes: { has: 'users' }, id: { not: id } },
+      });
+      if (others === 0) {
+        throw new BadRequestException(
+          'This is the last admin who can manage admin access. Give somebody else the users section first.',
+        );
+      }
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        role: nextIsAdmin ? 'admin' : 'consumer',
+        adminScopes: nextScopes,
+      },
+      select: PUBLIC_USER_SELECT,
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: nextIsAdmin ? 'user.admin_access_set' : 'user.admin_access_removed',
+      targetType: 'User',
+      targetId: id,
+      metadata: {
+        previousRole: existing.role,
+        previousScopes: existing.adminScopes,
+        role: updated.role,
+        scopes: nextScopes,
+      },
+    });
+
+    return updated;
+  }
+
   async setSuspended(adminUserId: string, id: string, suspended: boolean): Promise<PublicUser> {
     const existing = await this.prisma.user.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('User not found');

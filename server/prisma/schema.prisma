@@ -499,6 +499,40 @@ enum PayoutStatus {
 /// `userId`) collapse into a single Prisma-idiomatic 1:1 relation each,
 /// declared from the Wallet/LoyaltyAccount side — no redundant bidirectional
 /// FK. `authProviders`/`role`/etc. map straight across.
+/// M47 — what a *part-time* admin may reach.
+///
+/// One value per section of the admin panel, because that is the unit an
+/// operator is actually given: "you handle the review queue", "you settle
+/// payouts". A finer-grained permission (per endpoint, per verb) reads as
+/// more rigorous and is unusable — nobody can hold thirty checkboxes in
+/// their head, so in practice everybody gets all thirty ticked and the
+/// system means nothing.
+///
+/// **An admin with an empty list can reach nothing.** That is deliberate
+/// and it is the reason the M47 migration backfills every existing admin
+/// with the full set: the alternative — empty meaning "everything" —
+/// gives a newly created sub-admin the whole panel whenever somebody
+/// forgets to tick a box, which is the failure that does not announce
+/// itself.
+enum AdminScope {
+  /// Listings, the review queue, collections and occasions.
+  catalog
+  /// HomeKrafter applications, approval, verification, coordinates.
+  sellers
+  /// Order queue, status overrides, shipments.
+  orders
+  /// Tickets, disputes, returns.
+  support
+  /// Wallet adjustments, refunds, payouts. The money scope.
+  finance
+  /// The user list, suspension, and granting these scopes.
+  users
+  /// Platform settings, including the commission switch.
+  settings
+  /// Dashboard, analytics, reports, exports.
+  analytics
+}
+
 model User {
   id                String         @id @default(cuid())
   name              String
@@ -545,6 +579,21 @@ model User {
   authProviders     AuthProvider[]
   createdAt         DateTime       @default(now())
   role              UserRole       @default(consumer)
+  /// M47 — which parts of the admin panel this admin may reach.
+  ///
+  /// Only consulted when `role` is `admin`; ignored otherwise, so a
+  /// consumer with a stray value here gains nothing (the role check runs
+  /// first, and every admin route still carries `@Roles('admin')`).
+  ///
+  /// **Empty means nothing, not everything.** Every existing admin was
+  /// backfilled with the full set by the M47 migration precisely so this
+  /// could be the safe direction: "empty is everything" hands the whole
+  /// panel to any sub-admin whose scopes somebody forgot to tick, and
+  /// that failure does not announce itself.
+  ///
+  /// A `users`-scoped admin is the one who grants these — which makes it
+  /// the scope to hand out last.
+  adminScopes       AdminScope[]
   /// M11a admin suspend/reactivate flag — see lib/types/shared.ts's doc
   /// comment. Unlike the M0–M11a mock, this DOES gate sign-in for real
   /// once wired (auth.service checks it) — that's the real-backend upgrade

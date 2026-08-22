@@ -30,7 +30,7 @@
  *    token rather than a possibly-stale SSR cookie snapshot.
  */
 
-import type { User } from "@/lib/types";
+import type { AdminScope, User } from "@/lib/types";
 
 export interface SessionUser {
   id: string;
@@ -60,6 +60,20 @@ export interface SessionUser {
    * (`JwtAuthGuard`); this only decides where the browser goes.
    */
   mustChangePassword?: boolean;
+  /**
+   * Which parts of the admin panel this admin covers (M47).
+   *
+   * Optional for the same reason as the three above: a session persisted
+   * before M47 has no such field. **A missing value must read as "all
+   * sections", not "none"** — the opposite of the database column, and
+   * deliberately so. On the server, empty means no access, and every
+   * pre-M47 admin was backfilled with the full set so that could be the
+   * safe direction. Here the value is only deciding which nav links to
+   * draw, and the failure of guessing wrong is an operator staring at an
+   * empty sidebar after a deploy. The server refuses every route
+   * regardless.
+   */
+  adminScopes?: AdminScope[];
 }
 
 export interface StoredSession {
@@ -204,5 +218,6 @@ export function toAppUser(sessionUser: SessionUser): User {
     role: sessionUser.role,
     suspended: sessionUser.suspended,
     mustChangePassword: sessionUser.mustChangePassword,
+    adminScopes: sessionUser.adminScopes,
   };
 }

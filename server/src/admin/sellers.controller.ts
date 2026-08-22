@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { RequireAdminScope } from '../common/decorators/admin-scope.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminSellersService } from './sellers.service';
 import { SetSellerStatusDto } from './dto/set-seller-status.dto';
@@ -18,6 +19,7 @@ import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
  */
 @Controller('admin/sellers')
 @Roles('admin')
+@RequireAdminScope('sellers')
 export class AdminSellersController {
   constructor(private readonly sellersService: AdminSellersService) {}
 
