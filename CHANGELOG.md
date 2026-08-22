@@ -3,6 +3,55 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M49] — A wait that says so, once it has been a wait — 2026-08-22
+
+The ask was "skeleton loading with pulse if internet issues". Most of it
+already existed and was verified rather than rebuilt: `RouteSkeleton`
+already draws shape-matched blocks with a pulse that honours
+`prefers-reduced-motion`; checkout already has a `placing` state with a
+ref-based double-submit guard; and `/shop`'s filters are a client-side
+`useMemo` over an already-loaded list, so they are instant and adding a
+spinner to them would be theatre. The user's own framing — "intentional
+delays **only where needed**" — is what ruled that last one out.
+
+What was missing is the case where a load genuinely stalls and the
+skeleton says nothing about it.
+
+### Added
+
+- **"Still going — this one is taking longer than usual."** on every
+  route skeleton, after four seconds. Four, not one: a skeleton that
+  immediately apologises for itself makes every ordinary load feel broken.
+
+### It is CSS, and that is the finding
+
+The first version was a `"use client"` component with a `setTimeout`.
+Throttled to 8 kb/s — the exact case the line exists for — **it never
+appeared**: its own JavaScript chunk was queued behind everything else on
+the same slow connection, so the timer never started. A slow-connection
+notice that needs JavaScript to arrive cannot fire when the connection is
+what is slow.
+
+It is now a delayed CSS animation on a `<p>` inside the server-rendered
+fallback. Nothing to hydrate, nothing to download. Verified in the built
+output: the markup ships with `aria-hidden="true"` inside the skeleton,
+and the emitted rule is `visibility:hidden;opacity:0;animation:… 4s
+forwards`.
+
+- **`aria-hidden`** because the skeleton already carries one polite live
+  region announcing the wait; a second announcement of the same fact is
+  noise for somebody who is already being told.
+- **It does not blame the visitor's connection.** We cannot tell from
+  here whether the delay is their network, our box or a slow query, and
+  `docs/ERROR-HANDLING.md` exists because a message that names the wrong
+  party sends people to fix something that is not broken. The line says
+  what is true and stops.
+- **It reserves its space whether showing or not**, so nothing moves when
+  it arrives. A "we are still working" message that shoves the page down
+  as it lands is worse than no message.
+- **Reduced motion still gets the line** — the global rule collapses the
+  duration, not the delay, so it arrives without the fade.
+
 ## [M48] — The API was sending everything uncompressed — 2026-08-22
 
 Measured against production before changing anything, because "the site

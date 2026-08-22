@@ -752,6 +752,28 @@ paragraphs over appending new ones.
   affected `docs/*.md`, then report back with what changed and any
   decisions that need Opus's confirmation.
 
+## Loading feedback (M49) — and why the slow notice is CSS
+
+`RouteSkeleton` carries a line that appears after **four seconds**:
+"Still going — this one is taking longer than usual."
+
+- **It is a delayed CSS animation, never a `setTimeout`.** The first
+  version was a client component with a timer, and throttled to 8 kb/s —
+  the case it exists for — it never appeared, because its own JS chunk
+  was queued behind everything else on the same slow connection. A
+  slow-connection notice that needs JavaScript to arrive cannot fire when
+  the connection is what is slow.
+- **`aria-hidden`**: the skeleton already has one polite live region
+  announcing the wait, and a second announcement of the same fact is
+  noise.
+- **Never blame the visitor's connection.** We cannot tell from here
+  whether it is their network, our box or a slow query — same rule as
+  `docs/ERROR-HANDLING.md`'s "name the right party".
+- **It reserves its space either way**, so nothing shifts when it lands.
+- **Don't add spinners to `/shop`'s filters.** They are a client-side
+  `useMemo` over an already-loaded list — instant, so feedback there
+  would be theatre.
+
 ## Sub-admins (M47) — sections, not permissions
 
 `User.adminScopes: AdminScope[]` — `catalog · sellers · orders · support ·

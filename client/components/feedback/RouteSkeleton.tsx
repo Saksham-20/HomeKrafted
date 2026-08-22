@@ -55,6 +55,29 @@ export function RouteSkeleton({
           {label}
         </span>
       )}
+      {/*
+        M49 — "this is taking a while", but only once it has been.
+
+        **CSS, not a timer, and that is the finding rather than a
+        preference.** The first version was a `"use client"` component
+        with a `setTimeout`. Throttled to 8 kb/s — the case the line
+        exists for — it never appeared: its own JavaScript chunk was
+        queued behind everything else on the same slow connection, so the
+        timer never started. A slow-connection notice that needs
+        JavaScript to arrive cannot fire when the connection is what is
+        slow. A delayed animation ships inside the server-rendered
+        fallback and needs nothing.
+
+        `aria-hidden` because the skeleton already has one polite live
+        region announcing the wait; this is reassurance for somebody
+        watching a still screen, and a second announcement of the same
+        fact is noise. Under `prefers-reduced-motion` the global rule
+        collapses the duration but not the delay, so the line still
+        arrives — it just does not fade.
+      */}
+      <p className={styles.slow} aria-hidden="true">
+        Still going — this one is taking longer than usual.
+      </p>
       <div className={styles.head} aria-hidden="true">
         <span className={styles.eyebrowBar} />
         <span className={styles.titleBar} />

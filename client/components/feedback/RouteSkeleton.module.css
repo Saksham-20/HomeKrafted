@@ -109,3 +109,37 @@
     gap: var(--hk-s3);
   }
 }
+
+/*
+  M49 — the "this is taking a while" line.
+
+  Hidden until four seconds have passed, by a delayed animation rather
+  than a timer: this renders inside a server-rendered Suspense fallback,
+  and the JS that a `setTimeout` version needed is queued behind
+  everything else on exactly the connection the line exists for.
+
+  Four seconds, not one. A skeleton that immediately apologises for itself
+  makes every ordinary load feel broken.
+
+  Muted, not a warning colour: nothing has failed, and painting it as an
+  error makes a slow connection look like a broken site.
+*/
+.slow {
+  font-size: 13.5px;
+  color: var(--hk-muted);
+  /* A fixed gap, not a negative pull. The line reserves its space
+     whether it is showing or not, so nothing moves when it arrives — a
+     "we are still working" message that shoves the page down as it lands
+     is worse than no message. */
+  margin: 0 0 var(--hk-s4);
+  visibility: hidden;
+  opacity: 0;
+  animation: hkslowin 0.4s var(--hk-ease) 4s forwards;
+}
+
+@keyframes hkslowin {
+  to {
+    visibility: visible;
+    opacity: 1;
+  }
+}
