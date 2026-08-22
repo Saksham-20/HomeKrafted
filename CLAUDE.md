@@ -788,7 +788,13 @@ on every admin controller.
 - **Empty means nothing, not everything.** The M47 migration backfilled
   every existing admin with the full set so that could be the safe
   direction — "empty is everything" hands the panel to any sub-admin whose
-  scopes somebody forgot to tick.
+  scopes somebody forgot to tick. The cost is that **anything minting a
+  full admin outside the sub-admin screen must say so**, reading
+  `ALL_ADMIN_SCOPES` (`src/common/admin-scopes.ts`, derived from the
+  Prisma enum). The seed and the e2e harness did not, and a bare
+  `role: 'admin'` promotion produces an account that signs in, renders an
+  empty panel and 403s everywhere — which reads as a broken deploy.
+  Pinned by `test/unit/admin-scopes.spec.ts`.
 - **Read from the database, never the token.** Revocation has to bite
   immediately; a JWT claim would leave a pulled `finance` scope working
   for the rest of an access token's life.

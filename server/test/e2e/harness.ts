@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaClient, ProductModerationStatus, UserRole } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
+import { ALL_ADMIN_SCOPES } from '../../src/common/admin-scopes';
 
 /**
  * End-to-end harness — a real Nest app, a real Postgres database, real
@@ -224,7 +225,18 @@ export async function createActor(
   const userId: string = registered.body.user.id;
 
   if (role !== 'consumer') {
-    await h.prisma.user.update({ where: { id: userId }, data: { role } });
+    await h.prisma.user.update({
+      where: { id: userId },
+      data: {
+        role,
+        // An actor asked for `'admin'` stands for an ordinary operator, so
+        // it gets every section (M47). `adminScopes` is empty-means-
+        // nothing, which is the safe direction and means a bare role
+        // promotion produces an admin who 403s on the entire panel — the
+        // same trap the seed fell into.
+        ...(role === 'admin' ? { adminScopes: ALL_ADMIN_SCOPES } : {}),
+      },
+    });
   }
   if (options.sellerId) {
     await h.prisma.seller.update({ where: { id: options.sellerId }, data: { userId } });

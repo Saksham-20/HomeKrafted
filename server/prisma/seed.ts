@@ -11,6 +11,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PASSWORD_HASH_OPTIONS } from '../src/auth/hashing';
+import { ALL_ADMIN_SCOPES } from '../src/common/admin-scopes';
 
 const prisma = new PrismaClient();
 
@@ -230,6 +231,11 @@ async function main(): Promise<void> {
       createdAt: new Date('2022-08-15'),
       referralCode: 'HKADMIN',
       role: 'admin',
+      // Every section (M47). `adminScopes` is empty-means-nothing on
+      // purpose, so an admin minted anywhere but the sub-admin screen has
+      // to say what it covers — without this the demo operator signs in
+      // and 403s on the whole panel.
+      adminScopes: ALL_ADMIN_SCOPES,
     },
   });
 

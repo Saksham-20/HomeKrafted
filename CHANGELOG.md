@@ -3,6 +3,27 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M47a] — the seeded admin had no sections — 2026-08-22
+
+`User.adminScopes` is **empty-means-nothing** on purpose: an admin whose
+scopes somebody forgot to set reaches nothing rather than everything. The
+M47 migration backfilled every admin that already existed, so the rule was
+safe for production — and every path that *mints a new full admin* still
+had to say so, and two of them did not.
+
+`prisma/seed.ts` promoted its demo operator with `role: 'admin'` and
+stopped there, so a freshly seeded database produced an admin who signs
+in, renders an empty panel and 403s on every screen — which reads as a
+broken deploy rather than a missing column. `test/e2e/harness.ts` did the
+same, which turned **237 e2e tests into 403s at once** and is how this was
+found.
+
+`ALL_ADMIN_SCOPES` (`src/common/admin-scopes.ts`) is now the one
+definition of "a full admin", derived from the Prisma enum rather than
+typed out so a new section is covered the day it is added.
+`test/unit/admin-scopes.spec.ts` pins that, and pins that both the seed
+and the harness read it.
+
 ## [M49] — A wait that says so, once it has been a wait — 2026-08-22
 
 The ask was "skeleton loading with pulse if internet issues". Most of it
