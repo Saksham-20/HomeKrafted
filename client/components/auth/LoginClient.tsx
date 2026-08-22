@@ -297,12 +297,26 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
   if (ready && isSignedIn && !justCreated) {
     const signedInAsSeller = currentRole === "seller";
     const signedInAsAdmin = currentRole === "admin";
-    const homeHref = signedInAsSeller ? "/seller" : signedInAsAdmin ? "/admin" : "/account";
-    const homeLabel = signedInAsSeller
-      ? "Go to my dashboard"
-      : signedInAsAdmin
-        ? "Go to the admin panel"
-        : "Go to my account";
+    // **The return half of the M39 loop was here.** `redirectForRole`
+    // checks this before sending anybody anywhere; this card did not, and
+    // this card is the one a HomeKrafter reaches by reload, bookmark,
+    // Back, or by following the sign-in wall's own button. So the guarded
+    // door worked and the unguarded one next to it cycled forever.
+    const owesPassword = sessionMustChangePassword();
+    const homeHref = owesPassword
+      ? SET_PASSWORD_PATH
+      : signedInAsSeller
+        ? "/seller"
+        : signedInAsAdmin
+          ? "/admin"
+          : "/account";
+    const homeLabel = owesPassword
+      ? "Set my password"
+      : signedInAsSeller
+        ? "Go to my dashboard"
+        : signedInAsAdmin
+          ? "Go to the admin panel"
+          : "Go to my account";
 
     // Somebody who followed a "HomeKrafter sign in" link while a shopper
     // account is signed in — a shared computer, a HomeKrafter who also
@@ -315,16 +329,25 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
         <Card className={styles.signedInCard}>
           <span className={styles.eyebrow}>Already signed in</span>
           <h1 className={styles.title}>
-            {wrongAccount ? "That's a different account" : "You’re all set"}
+            {wrongAccount
+              ? "That's a different account"
+              : owesPassword
+                ? "One thing left"
+                : "You’re all set"}
           </h1>
           <p className={styles.subtitle}>
             {wrongAccount
               ? "You're signed in as a shopper. Sign out to use a HomeKrafter account."
-              : signedInAsSeller
-                ? "You're signed in to your Homekrafted HomeKrafter account."
-                : signedInAsAdmin
-                  ? "You're signed in to your Homekrafted admin account."
-                  : "You're signed in to your Homekrafted account."}
+              : owesPassword
+                ? // "You're all set" was actively false for this person: the
+                  // portal refuses every request until they replace the
+                  // password someone else chose for them.
+                  "Choose a password of your own, and your dashboard is ready."
+                : signedInAsSeller
+                  ? "You're signed in to your Homekrafted HomeKrafter account."
+                  : signedInAsAdmin
+                    ? "You're signed in to your Homekrafted admin account."
+                    : "You're signed in to your Homekrafted account."}
           </p>
           <div className={styles.signedInActions}>
             {wrongAccount ? (

@@ -1132,6 +1132,34 @@ had a test, and none was visible from reading the happy path.
   must never be emailed**. That credential would sit readable in an inbox
   forever, could not be rotated, and on this platform is the one that can
   change payout details.
+- **A failed request is never an answer, and `/seller/me` is where that
+  bit (M39).** `getMySeller`/`getSellerVendor` ended `catch { return
+  undefined }`. `/seller/me` is **not** in `PASSWORD_CHANGE_EXEMPT`, so
+  an admin-issued temporary password makes it answer **403
+  PASSWORD_CHANGE_REQUIRED** — on purpose, pinned by
+  `server/test/e2e/temp-password.e2e-spec.ts`. Swallowed, that 403 became
+  "this account has no kitchen", `SellerShell` rendered **"Sign in as a
+  HomeKrafter"** at somebody who had just typed the right password, and
+  its button returned to `/login`, whose "You're all set" card sent them
+  straight back. A closed loop with no sign-in form in it, and the same
+  swallow did it for a 500 or a dropped connection — which is why it
+  looked intermittent. Now: **404 alone returns `undefined`**, everything
+  else throws (`lib/api/seller-me-contract.spec.ts`); `AuthContext` keeps
+  `failed` apart from `answered` and exposes `sellerLoadFailed` +
+  `retrySellerRecord`; `SellerShell` has **four** states, and a failure
+  gets a retry, never a rejection. `http.ts` routes the code to
+  `/set-password` from wherever it lands — before M39 the client had
+  **zero** references to a code the server invents so a client can act on
+  it. Don't "fix" a future version of this by exempting `/seller/me`:
+  that disables the control instead of handling it.
+- **`/set-password` needs a way out for somebody who was never given
+  one.** It asks for "the password you were given"; a HomeKrafter who
+  signed in with a **one-time code** — the door that exists because the
+  invite reaches nobody — has none, and met an unfillable form with no
+  link off it. `resetPassword` already sets a password without the old
+  one and clears `mustChangePassword` (its own comment says the forced
+  gate must let them through), so the screen links to `/forgot-password`.
+  A route, not a new endpoint and not a weaker guard.
 - **One box decides its own type, and the two parsers are NOT twins.**
   `server/src/auth/identifier.util.ts` (libphonenumber-js, region `IN`) is
   the authority; `client/lib/auth/identifier.ts` only enables the button

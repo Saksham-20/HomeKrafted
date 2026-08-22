@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -154,6 +155,27 @@ export function SetPasswordClient() {
         <Button variant="primary" onClick={handleSubmit} disabled={!valid || busy}>
           {busy ? "Saving…" : "Save and continue"}
         </Button>
+
+        {/*
+          The way out for somebody who never had the password (M39).
+
+          This screen demands "the password you were given", and a
+          HomeKrafter who signed in with a **one-time code** — the door
+          that exists precisely because the invite reached nobody — does
+          not have one. They were routed here correctly and then met a
+          form they could not fill in, with no link off it: a worse dead
+          end than the loop, because the loop at least cycled.
+
+          `resetPassword` already sets a password without the old one and
+          clears `mustChangePassword` — its own comment says the forced
+          gate must let those people through. So the fix is a route, not
+          a new endpoint and not a weaker guard.
+        */}
+        <p className={styles.escape}>
+          Weren&rsquo;t given a password, or lost it?{" "}
+          <Link href="/forgot-password">Set one from scratch</Link>. If that doesn&rsquo;t reach
+          you, ask us to re-issue it.
+        </p>
 
         {error && (
           <p className={styles.error} role="alert">

@@ -172,6 +172,15 @@ export interface AuthContextValue {
    */
   sellerResolving: boolean;
   /**
+   * `GET /seller/me` was asked and could not answer — a 403, a 500, a
+   * dropped connection. **Not** the same as answering "no kitchen", and
+   * keeping the two apart is the whole of the M39 fix: a failure here
+   * used to render "Sign in as a HomeKrafter" at a signed-in HomeKrafter.
+   */
+  sellerLoadFailed: boolean;
+  /** Retry that fetch. What the shell's retry button calls. */
+  retrySellerRecord: () => void;
+  /**
    * True when a portal screen may fetch its own data.
    *
    * Real mode: as soon as we know a HomeKrafter is signed in — every
@@ -343,9 +352,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * demo record, so every genuine HomeKrafter saw another kitchen's name
    * and `vendorId` in their own portal.
    */
-  const [realSeller, setRealSeller] = useState<{ userId: string; seller?: Seller } | undefined>(
-    undefined,
-  );
+  const [realSeller, setRealSeller] = useState<
+    { userId: string; seller?: Seller; failed?: boolean } | undefined
+  >(undefined);
+  /** Bumped by `retrySellerRecord` to re-run the `/seller/me` effect after a failure. */
+  const [sellerReloadNonce, setSellerReloadNonce] = useState(0);
   const [sessionUser, setSessionUserState] = useState<SessionUser | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -704,13 +715,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (mock || !signedIn || role !== "seller" || !activeSessionUserId) return;
     let cancelled = false;
-    void getMySeller().then((record) => {
-      if (!cancelled) setRealSeller({ userId: activeSessionUserId, seller: record });
-    });
+    void getMySeller().then(
+      (record) => {
+        if (!cancelled) setRealSeller({ userId: activeSessionUserId, seller: record });
+      },
+      // **A failure is not an answer.** `getMySeller` now throws for
+      // everything but a 404, and the whole point is that `SellerShell`
+      // must not read a 403 or a dropped connection as "you are not a
+      // HomeKrafter" — that was the M39 loop. Recorded as `failed` so the
+      // shell can offer a retry instead of a rejection.
+      () => {
+        if (!cancelled) setRealSeller({ userId: activeSessionUserId, failed: true });
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [mock, signedIn, role, activeSessionUserId]);
+  }, [mock, signedIn, role, activeSessionUserId, sellerReloadNonce]);
+
+  /** Re-runs the effect above. The shell's retry button after a failed `/seller/me`. */
+  function retrySellerRecord() {
+    setRealSeller(undefined);
+    setSellerReloadNonce((n) => n + 1);
+  }
 
   /**
    * Re-read `GET /seller/me` (M33).
@@ -740,7 +767,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // matches — so a record can never survive into the next account's
   // session, which clearing it in the effect would have risked doing a
   // render late.
-  const sellerRecordResolved = !!realSeller && realSeller.userId === activeSessionUserId;
+  //
+  // **`failed` is deliberately NOT `resolved`.** A 403 or a dropped
+  // connection leaves the question unanswered; treating it as an answer
+  // is what made a working HomeKrafter see "Sign in as a HomeKrafter".
+  const sellerRecordAnswered =
+    !!realSeller && realSeller.userId === activeSessionUserId && !realSeller.failed;
+  const sellerRecordFailed =
+    !!realSeller && realSeller.userId === activeSessionUserId && realSeller.failed === true;
+  const sellerRecordResolved = sellerRecordAnswered;
   const ownSeller = sellerRecordResolved ? realSeller.seller : undefined;
 
   // A HomeKrafter session exists; whether their `Seller` row has arrived
@@ -748,7 +783,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // the fetch came back *empty* — that is an answer (a corrupt session),
   // not a pending state, and the shell must show the gate for it.
   const sellerSessionActive = signedIn && role === "seller" && !!activeSessionUserId;
-  const sellerResolving = !mock && sellerSessionActive && !sellerRecordResolved;
+  // Still in flight: not answered *and* not failed. Leaving a failure in
+  // this state would swap the old rejection screen for an equally wrong
+  // permanent skeleton — the shell needs to be able to offer a retry.
+  const sellerResolving =
+    !mock && sellerSessionActive && !sellerRecordAnswered && !sellerRecordFailed;
+  /** `GET /seller/me` was asked and could not answer. Distinct from "answered no". */
+  const sellerLoadFailed = !mock && sellerSessionActive && sellerRecordFailed;
 
   const seller: Seller | undefined =
     signedIn && role === "seller"
@@ -783,6 +824,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: signedIn ? role : undefined,
     seller,
     sellerResolving,
+    sellerLoadFailed,
+    retrySellerRecord,
     sellerDataReady,
     sellerMode: signedIn && role === "seller" ? sellerMode : undefined,
     isSignedIn: signedIn,

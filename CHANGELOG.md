@@ -3,6 +3,64 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M40] — The door an approved HomeKrafter could not open — 2026-08-22
+
+A HomeKrafter signs in, clicks "Go to my dashboard", and lands back on
+"Sign in as a HomeKrafter". Sometimes. Reported as intermittent, and it
+was — but not randomly: it depended on which account, and which door.
+
+### Fixed
+
+- **A 403 was being read as "you are not a HomeKrafter".** `/seller/me`
+  is not in the server's `PASSWORD_CHANGE_EXEMPT` set, so for the whole
+  life of an admin-issued temporary password (M32) it answers **403
+  PASSWORD_CHANGE_REQUIRED** — deliberately, and asserted since M32 in
+  `test/e2e/temp-password.e2e-spec.ts`. `getMySeller` ended
+  `catch { return undefined }`, so that refusal arrived at `AuthContext`
+  as a record that simply did not exist, `SellerShell` gated on the
+  falsy `seller`, and the person who had just typed the correct password
+  was shown a rejection. **404 alone returns `undefined` now**;
+  everything else throws.
+- **The loop's return edge.** `redirectForRole` has checked
+  `sessionMustChangePassword()` since M32. `LoginClient`'s "Already
+  signed in" card did not — and that card is what a HomeKrafter reaches
+  by reload, by bookmark, by Back, and by pressing the sign-in wall's own
+  button. So the guarded door worked and the unguarded one beside it
+  cycled forever. It now routes to `/set-password`, under a button that
+  says so and a heading that no longer claims "You're all set".
+- **Nothing in the client had ever heard of `PASSWORD_CHANGE_REQUIRED`.**
+  A repo-wide grep returned zero hits, for a code the server invents
+  precisely so a client can act on it. `http.ts` now sends that 403 to
+  `/set-password` from wherever it lands, and keeps the session, which is
+  valid and needed to authenticate the change.
+- **`/set-password` was a dead end for the people most likely to reach
+  it.** It asks for "the password you were given"; a HomeKrafter who
+  signed in with a **one-time code** — the door that exists because the
+  invite reaches nobody — has none, and the form had no link off it.
+  Worse than the loop, which at least cycled. `resetPassword` already
+  sets a password without the old one and clears the flag, so the screen
+  now offers it.
+- **A failure is no longer a permanent skeleton either.** `AuthContext`
+  keeps `failed` apart from `answered`; `SellerShell` has four states,
+  and a failed `/seller/me` gets a retry button rather than a rejection
+  or an endless spinner.
+
+### Why it looked intermittent
+
+Three independent reasons, which is why no single reproduction found it.
+**By account:** only `awaiting` HomeKrafters loop; anyone who has chosen
+their own password sails through. **By door:** signing in through the
+form hits the guarded redirect and lands correctly on `/set-password`;
+arriving with a live session hits the unguarded card. **At random:** the
+same swallow turned any transient failure — a 500, a timeout — into the
+same rejection screen, for anybody.
+
+### Tests
+
+`client/lib/api/seller-me-contract.spec.ts` — seven cases pinning that a
+404 answers and nothing else does. Mutation-tested: restoring the old
+`catch { return undefined }` fails three of them.
+
 ## [M39] — Two guards that were open, and the seed that opened them — 2026-08-15
 
 A gap audit against a Shopify-class storefront, plus the admin role model

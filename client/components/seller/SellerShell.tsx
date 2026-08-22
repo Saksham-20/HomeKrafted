@@ -101,8 +101,19 @@ export function SellerShell({ children }: { children: ReactNode }) {
   // always starts at item one, so `aria-current` points off-screen.
   const navRef = useScrollActiveIntoView(pathname);
   const router = useRouter();
-  const { ready, isSignedIn, role, user, seller, sellerResolving, switchToShopping, switchToSelling, signOut } =
-    useAuth();
+  const {
+    ready,
+    isSignedIn,
+    role,
+    user,
+    seller,
+    sellerResolving,
+    sellerLoadFailed,
+    retrySellerRecord,
+    switchToShopping,
+    switchToSelling,
+    signOut,
+  } = useAuth();
 
   // Keep the persisted `sellerMode` honest for anyone who lands on a
   // `/seller/*` page directly (bookmark, back/forward, a link elsewhere)
@@ -130,6 +141,39 @@ export function SellerShell({ children }: { children: ReactNode }) {
    * fetches (`sellerDataReady`), so they are safe to mount early, and in
    * real mode they can start fetching before `/seller/me` even lands.
    */
+  /*
+   * Four states now, not three (M39).
+   *
+   * `sellerResolving` split "hasn't answered" from "answered no". What it
+   * could not express is **"could not ask"** — and that is the state a
+   * real HomeKrafter was in. `/seller/me` 403s for the whole of an
+   * admin-issued temporary password (M32), `getMySeller` swallowed it,
+   * and the shell read the resulting `undefined` as an answered no. So
+   * the person who had just typed the right password was told to sign in
+   * as a HomeKrafter, and the button under it returned them to the login
+   * screen that had just sent them here.
+   *
+   * A failure gets a retry, never a rejection. The rejection is reserved
+   * for a question that was actually answered.
+   */
+  if (ready && sellerLoadFailed) {
+    return (
+      <section className={clsx("container", styles.gatePage)}>
+        <div className={styles.gateCard}>
+          <span className={styles.eyebrow}>HomeKrafter portal</span>
+          <h1 className={styles.gateTitle}>We couldn&rsquo;t load your kitchen</h1>
+          <p className={styles.gateCopy}>
+            Your account is fine &mdash; we just couldn&rsquo;t reach your kitchen&rsquo;s record
+            just now. Try again in a moment.
+          </p>
+          <Button variant="primary" onClick={retrySellerRecord}>
+            Try again
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
   if (ready && !sellerResolving && (!isSignedIn || role !== "seller" || !seller)) {
     return (
       <section className={clsx("container", styles.gatePage)}>

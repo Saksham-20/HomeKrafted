@@ -4,6 +4,16 @@ import { getSession } from "./session";
 export const SET_PASSWORD_PATH = "/set-password";
 
 /**
+ * The error code `JwtAuthGuard` returns for every route but the two it
+ * exempts, while `User.mustChangePassword` is set.
+ *
+ * Kept beside `SET_PASSWORD_PATH` because the code and the destination
+ * are one fact: this is what the server says, and that is where it means.
+ * The string must match `server/src/common/guards/jwt-auth.guard.ts`.
+ */
+export const PASSWORD_CHANGE_REQUIRED_CODE = "PASSWORD_CHANGE_REQUIRED";
+
+/**
  * Does the signed-in account still owe us a password of its own?
  *
  * Read from the stored session rather than from React state on purpose.

@@ -41,6 +41,10 @@
  * and the `catch` in `doFetch`.
  */
 
+import {
+  PASSWORD_CHANGE_REQUIRED_CODE,
+  SET_PASSWORD_PATH,
+} from "@/lib/auth/must-change-password";
 import { withReturnTo } from "@/lib/auth/return-to";
 import { clearSession, getAccessToken, getRefreshToken, updateTokens } from "@/lib/auth/session";
 import { classifyAndReport } from "@/lib/api/unreachable";
@@ -122,6 +126,27 @@ async function doRefresh(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * The server refuses every route but two while `User.mustChangePassword`
+ * is set (M32), and says so with a code it invents specifically so a
+ * client can act on it: `PASSWORD_CHANGE_REQUIRED`.
+ *
+ * Until M39 **nothing in this client had ever heard of that code** — a
+ * repo-wide grep returned zero hits. So the 403 surfaced as whatever
+ * each screen made of a failed request, and on the portal that was "you
+ * are not a HomeKrafter". Handling it here rather than screen by screen
+ * is deliberate: this is the one place every authed request passes
+ * through, and the answer is the same wherever it lands.
+ *
+ * Unlike `handleSessionExpired` this keeps the session — it is valid,
+ * and `/set-password` needs it to authenticate the change.
+ */
+function handlePasswordChangeRequired(): void {
+  if (!isBrowser()) return;
+  if (window.location.pathname.startsWith(SET_PASSWORD_PATH)) return;
+  window.location.href = SET_PASSWORD_PATH;
 }
 
 function handleSessionExpired(): void {
@@ -267,6 +292,13 @@ async function request<T>(
     const envelope = data as
       | { error?: { code?: string; message?: string; reference?: string } }
       | undefined;
+
+    // Send them to the one screen that can clear this, from wherever they
+    // hit it. Still throws below — the caller's own error handling runs,
+    // and the navigation is what actually resolves the state.
+    if (res.status === 403 && envelope?.error?.code === PASSWORD_CHANGE_REQUIRED_CODE && auth) {
+      handlePasswordChangeRequired();
+    }
     // The bare throttler says only "ThrottlerException: Too Many Requests",
     // which is not copy to put in front of somebody. The OTP caps write
     // their own message (they know the window) and it is kept.
