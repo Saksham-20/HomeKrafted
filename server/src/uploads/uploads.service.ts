@@ -14,7 +14,14 @@ import { processImage } from './image-pipeline';
 import { STORAGE_DRIVER, StorageDriver, StoredObject } from './storage/storage-driver.interface';
 
 /** Where an upload is filed. Not free-form: an unbounded value would let a caller write anywhere under the upload root. */
-export type UploadPurpose = 'listing' | 'menu' | 'storefront' | 'application' | 'laundry';
+export type UploadPurpose =
+  | 'listing'
+  | 'menu'
+  | 'storefront'
+  | 'application'
+  | 'laundry'
+  /** Admin-authored occasion/guide cover art (M42). Not seller content: it is platform merchandising, and only an admin route writes it. */
+  | 'collection';
 
 const PURPOSES: readonly UploadPurpose[] = [
   'listing',
@@ -22,6 +29,7 @@ const PURPOSES: readonly UploadPurpose[] = [
   'storefront',
   'application',
   'laundry',
+  'collection',
 ];
 
 export function isUploadPurpose(value: string): value is UploadPurpose {

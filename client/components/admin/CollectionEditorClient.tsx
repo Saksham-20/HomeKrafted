@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -114,17 +115,28 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
     }
     setError(undefined);
     setSaving(true);
-    await upsertCollection({
-      id: collectionId,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      occasionId: occasionId || undefined,
-      productIds,
-      imageSrc: imageSrc.trim() || undefined,
-      featured,
-      sortOrder: Number.isNaN(Number(sortOrder)) ? 0 : Number(sortOrder),
-    });
-    setSaving(false);
+    // The await was bare. `upsertCollection` rejects on any server refusal,
+    // and an unhandled rejection here skipped `setSaving(false)` as well as
+    // the navigation — so the button sat on "Saving…" for ever with nothing
+    // said, which reads as a hung app rather than a rejected save. Same
+    // shape as the M36 audit's finding about bare awaits on `lib/api`.
+    try {
+      await upsertCollection({
+        id: collectionId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        occasionId: occasionId || undefined,
+        productIds,
+        imageSrc: imageSrc.trim() || undefined,
+        featured,
+        sortOrder: Number.isNaN(Number(sortOrder)) ? 0 : Number(sortOrder),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We couldn't save that. Try again.");
+      return;
+    } finally {
+      setSaving(false);
+    }
     router.push("/admin/collections");
   }
 
@@ -178,15 +190,23 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
             />
             <span className={styles.hint}>Lower shows first on the occasion hub. Ties break on title.</span>
           </label>
-          <label className={styles.fieldWide}>
-            <span className={styles.label}>Cover image path</span>
-            <input
-              className={styles.input}
+          <div className={styles.fieldWide}>
+            {/*
+              This was a text input labelled "Cover image path", with
+              `/images/products/…` as its placeholder — a field that asked
+              an operator to know where files live on a server and to type
+              the path correctly, with no way to see whether they had. It
+              was the last one of its kind in the product; every other
+              image in the app has gone through `ImageUpload` since M14.
+            */}
+            <ImageUpload
               value={imageSrc}
-              placeholder="/images/products/…"
-              onChange={(event) => setImageSrc(event.target.value)}
+              onChange={setImageSrc}
+              purpose="collection"
+              label="Cover image"
+              hint="Shown on the occasion hub and at the top of the guide."
             />
-          </label>
+          </div>
           <label className={styles.checkbox}>
             <input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} />
             <span>Feature this guide on the occasion hub</span>

@@ -3,6 +3,60 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M42] — The last field that asked where a file lives — 2026-08-22
+
+Every image in the product has gone through `ImageUpload` since M14,
+except one. It survived four milestones of image work because nothing
+failed when it was wrong: a mistyped path renders the hatch placeholder,
+which looks like a missing asset rather than a mistake.
+
+### Fixed
+
+- **"Cover image path" is gone.** `CollectionEditorClient` had a text
+  input, placeholder `/images/products/…`, asking an operator to know the
+  server's folder layout and type it without a typo. It is an
+  `<ImageUpload>` now, under a new `collection` upload purpose added in
+  **both** files the closed set lives in.
+- **Its save could hang forever.** The `await upsertCollection(...)` was
+  bare, so a server refusal skipped `setSaving(false)` *and* the
+  navigation: the button sat on "Saving…" with nothing said. Same shape
+  the M36 audit found in six other call sites. Now try/catch/finally with
+  the server's own message.
+- **A blank `file.type` is no longer a rejection.** Both upload
+  components refused any file whose browser-reported type was not in the
+  allowlist — but several pickers and drag sources leave that string
+  empty on perfectly good images, and the server's byte sniffer is the
+  authority anyway. A blank type now falls through and lets the server
+  answer.
+- **HEIC says what to do about it.** "Use a JPEG, PNG, WebP or AVIF
+  image" tells a home cook holding a photo of their own food nothing they
+  can act on. It now names the format and gives the two ways out.
+
+### About HEIC, honestly
+
+The audit claimed iPhone photos are rejected outright. That is **not**
+quite right, and the difference matters: iOS transcodes HEIC to JPEG when
+the picker's `accept` list excludes it, which ours does — so camera-roll
+uploads already work. What fails is an explicit `.heic` from Files,
+AirDrop, or a Mac.
+
+Accepting HEIC properly was in this milestone's scope and is **not**
+done, because it cannot be done here: the pipeline re-encodes everything
+through sharp, and the installed sharp 0.33.5 / libvips 8.15.3 ships
+libheif with **AV1 only**. Probed directly — `heifsave` accepts `av1` and
+refuses `hevc`, which is what iPhones actually write. Accepting the
+upload would move the failure later and deeper, with a worse message. It
+needs a libvips built with libde265 on the box, which is a deploy
+decision, not a code one.
+
+### Tests
+
+`client/lib/image-input.spec.ts` — scans every `.tsx` under `app/` and
+`components/` for a text input bound to an image field. Mutation-tested:
+restoring the old input fails two of its three cases. Comments are
+stripped before scanning, for the reason `rbac-structure.spec.ts` learned
+the hard way.
+
 ## [M41] — Three reads that grew with the business — 2026-08-22
 
 Performance work, except two of the three were correctness bugs that

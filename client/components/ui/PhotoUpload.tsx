@@ -63,7 +63,11 @@ export function PhotoUpload({
       setError(null);
 
       const files = Array.from(fileList)
-        .filter((file) => ACCEPTED_IMAGE_TYPES.includes(file.type))
+        // A blank `file.type` passes through to the server, same as
+        // `ImageUpload` — the byte sniffer is the authority, and several
+        // pickers and drag sources leave the type empty on files that are
+        // perfectly good images.
+        .filter((file) => !file.type || ACCEPTED_IMAGE_TYPES.includes(file.type))
         .slice(0, remaining);
 
       if (files.length === 0) {

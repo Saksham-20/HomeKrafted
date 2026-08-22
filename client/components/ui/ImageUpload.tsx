@@ -13,6 +13,41 @@ import {
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import styles from "./ImageUpload.module.css";
 
+/**
+ * Why this file was refused, in words the person can act on.
+ *
+ * HEIC gets its own sentence because it is the one rejection a home cook
+ * meets through no fault of their own: it is the iPhone camera default,
+ * and "Use a JPEG, PNG, WebP or AVIF image" tells somebody holding a
+ * photo of their own food nothing they can do about it.
+ *
+ * We do not accept HEIC rather than transcode it, and that is a
+ * deployment fact rather than a preference: the pipeline re-encodes
+ * everything through sharp, and the prebuilt sharp binary on this box
+ * ships libheif with **AV1 only** — no HEVC, which is what iPhones
+ * actually write. Accepting the upload would mean failing later, deeper,
+ * with a worse message. Revisit if the box ever gets a libvips built with
+ * libde265.
+ *
+ * The common path is already fine: iOS transcodes HEIC to JPEG when the
+ * picker's `accept` list excludes it, which ours does. This message is
+ * for the narrower case — a `.heic` chosen from Files, AirDropped, or
+ * dragged from a Mac.
+ */
+function describeRejectedType(file: File): string {
+  const name = file.name.toLowerCase();
+  const isHeic =
+    file.type === "image/heic" ||
+    file.type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif");
+
+  if (isHeic) {
+    return "That's an iPhone HEIC photo, which we can't read yet. Pick it from your camera roll instead of Files, or set Settings › Camera › Formats to \u201cMost Compatible\u201d and take it again.";
+  }
+  return "Use a JPEG, PNG, WebP or AVIF image.";
+}
+
 export interface ImageUploadProps {
   /** Current image URL, or empty. Controlled — the parent owns the value. */
   value: string;
@@ -77,8 +112,16 @@ export function ImageUpload({
       if (!file || disabled) return;
       setError(null);
 
-      if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-        setError("Use a JPEG, PNG, WebP or AVIF image.");
+      // **An empty `file.type` is not a rejection.** The browser sets it
+      // from an OS type association, and several paths leave it blank —
+      // some Android pickers, some drag sources, a file with no extension.
+      // Refusing those here refused uploads the server would have accepted:
+      // the byte sniffer (`server/src/uploads/image-type.ts`) is the
+      // authority on what a file actually is, and it reads the bytes rather
+      // than a string the client supplied. So a blank type falls through
+      // and lets the server answer.
+      if (file.type && !ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+        setError(describeRejectedType(file));
         return;
       }
 

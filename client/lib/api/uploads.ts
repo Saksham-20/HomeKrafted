@@ -7,7 +7,14 @@ import { getAccessToken } from "@/lib/auth/session";
  * M37 (no screen can create a laundry photo any more); the server still
  * accepts it so a native client built against the old set isn't broken.
  */
-export type UploadPurpose = "listing" | "menu" | "storefront" | "application";
+/**
+ * Closed set, and it must match `server/src/uploads/uploads.service.ts`
+ * — the purpose decides the storage folder, so it can never be
+ * free-form. Adding one means adding it in both files.
+ *
+ * `collection` is admin-authored occasion/guide cover art (M42).
+ */
+export type UploadPurpose = "listing" | "menu" | "storefront" | "application" | "collection";
 
 export interface UploadedImage {
   /** What to persist and render. Relative (`/uploads/...`) on local-disk storage, absolute once a CDN driver is in use. */
