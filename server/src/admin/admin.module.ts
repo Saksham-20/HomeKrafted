@@ -8,7 +8,6 @@ import { ReviewsModule } from '../reviews/reviews.module';
 import { CatalogModule } from '../catalog/catalog.module';
 import { CorporateModule } from '../corporate/corporate.module';
 import { NotificationProvidersModule } from '../notifications/providers/providers.module';
-import { AdminAuditLogService } from './audit-log.service';
 import { AdminAuditModule } from './audit.module';
 import { SellerModule } from '../seller/seller.module';
 import { AdminSettingsController } from './settings.controller';
