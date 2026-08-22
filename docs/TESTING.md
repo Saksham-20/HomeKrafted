@@ -990,6 +990,34 @@ closes, Backspace on an empty box removes the last tag.
 > *does* offer to add one inline, because that is the same person who
 > owns the list.
 
+### A slow load says so, after four seconds (M49)
+
+Hard to trigger on a fast connection, and that is the point — you should
+normally never see this line.
+
+1. Open DevTools → **Network** → throttle to **Slow 3G**.
+2. Navigate to **Homemade Food** (`/shop`), **Search** or **Snacks**.
+3. The skeleton (grey card outlines with a slow pulse) appears at once,
+   with a line of kitchen copy above it — "Letting the dough rest…" or
+   similar.
+4. If the page has still not landed after **four seconds**, a second line
+   fades in under it: *"Still going — this one is taking longer than
+   usual."*
+
+What to check:
+
+- **It is not there before four seconds.** A skeleton that apologises for
+  itself immediately makes every ordinary load feel broken.
+- **Nothing on the page moves when it arrives.** The line's space is
+  reserved whether it is showing or not.
+- **It does not blame your connection.** We cannot tell from here whether
+  a delay is your network, our server or a slow query, so the copy says
+  what is true and stops. Report any wording that tells you to check your
+  internet.
+- Turn on **Reduce motion** (macOS: System Settings → Accessibility →
+  Display) and repeat: the pulse stops and the line arrives without a
+  fade, but it must still arrive.
+
 ### HomeKrafter profiles (M16)
 
 The storefront is now the page a buyer reads *before* deciding to trust
