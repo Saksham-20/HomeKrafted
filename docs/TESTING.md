@@ -851,6 +851,30 @@ Admin: **Collections → Occasions** is where dates get set. Worth trying:
 > are lunisolar — they land on a different date every year — so there is
 > no "repeats yearly" setting to tick. Somebody rolls them forward.
 
+### A HomeKrafter can run their own sale (M46)
+
+**HomeKrafter → Storefront → Run a sale.** Put in a percentage and,
+optionally, a last day. Worth trying:
+
+- Set 10% and look at the shop, the storefront and a product page. Every
+  one of that kitchen's listings shows the new price with the old one
+  crossed out and a "10% off" tag.
+- Put the same product in a cart. The line reads "₹224 each ~~₹249~~
+  maker's 10% sale" and the **subtotal is the discounted one** — the sale
+  is charged, not just displayed.
+- Try 80%. Refused: 50% is the ceiling.
+- Try a last day in the past. Refused, with a sentence saying what to do.
+- Set it back to 0. Everything returns to full price immediately.
+
+> **The sale comes out of the HomeKrafter's earnings, not our fee**, and
+> the card says so in rupees before the field. That is the honest
+> arrangement, and it is why there is a ceiling.
+
+Also: the product page's "earn ₹N wallet cashback" line used to be
+computed from a per-listing percentage that the checkout never honoured —
+a listing set to 20% advertised four times the cashback actually credited.
+It now shows the platform rate, which is what you will actually receive.
+
 ### Adding a product is four questions now (M45)
 
 **HomeKrafter → Listings → Add listing.** It no longer opens the twenty-field

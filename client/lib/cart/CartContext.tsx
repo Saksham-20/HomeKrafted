@@ -68,6 +68,14 @@ export interface CartLineInfo {
   isHamper: boolean;
   /** Stock cap for a product line — omitted (unbounded) for hamper lines. */
   maxQuantity?: number;
+  /**
+   * M46 — the price before the maker's storefront sale, when one applied.
+   * Server-resolved (`resolveCartLine`); the mock branch never sets it,
+   * because mock mode has no vendor discount to apply and inventing one
+   * here would make the offline cart disagree with the real one.
+   */
+  listUnitPrice?: number;
+  discountPct?: number;
 }
 
 export interface CartContextValue {
@@ -325,6 +333,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           lineTotal: line?.lineTotal ?? 0,
           isHamper: line?.isHamper ?? Boolean(item.hamperId),
           maxQuantity: line?.maxQuantity,
+          listUnitPrice: line?.listUnitPrice,
+          discountPct: line?.discountPct,
         };
       }
 

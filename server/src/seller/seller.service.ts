@@ -14,6 +14,8 @@ import {
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { UpdateStorefrontDto } from './dto/update-storefront.dto';
+import { SetDiscountDto } from './dto/set-discount.dto';
+import { MIN_VENDOR_DISCOUNT_PCT } from '../catalog/vendor-discount';
 import { SellerListingsService } from './listings.service';
 import { SellerPayoutsService } from './payouts.service';
 
@@ -143,6 +145,49 @@ export class SellerService {
       },
     });
     // Their own record again — see `getStorefront`.
+    return mapVendor(updated, undefined, { preciseLocation: true });
+  }
+
+  // -------------------------------------------------------------------
+  // Their own discount (M46)
+  // -------------------------------------------------------------------
+
+  /**
+   * Set or clear the caller's own storefront discount.
+   *
+   * **This is the HomeKrafter's money.** The percentage comes off what a
+   * buyer pays, and the commission split is computed on what was actually
+   * charged — so the kitchen funds the whole discount. The seller screen
+   * says that in those words before anything saves; the rule is repeated
+   * here because the next person to read this file will be the one
+   * tempted to make the platform absorb it, and that is a different
+   * feature with a budget attached.
+   *
+   * An end date in the past is refused rather than stored. Stored, it
+   * would read on every screen as "10% off until last Tuesday" — a
+   * discount that is simultaneously set and inert, which is the state
+   * that generates support tickets.
+   */
+  async setDiscount(vendorId: string, dto: SetDiscountDto) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const endsAt = dto.endsAt ? new Date(dto.endsAt) : null;
+    if (endsAt && endsAt.getTime() <= Date.now()) {
+      throw new BadRequestException('Pick an end date in the future, or leave it empty to run it until you turn it off.');
+    }
+
+    const updated = await this.prisma.vendor.update({
+      where: { id: vendorId },
+      data: {
+        // 0 is "off", and it clears the date with it: a stored end date
+        // on a zero discount is a fact about nothing that later reads as
+        // a discount waiting to start.
+        discountPct: dto.pct >= MIN_VENDOR_DISCOUNT_PCT ? dto.pct : null,
+        discountEndsAt: dto.pct >= MIN_VENDOR_DISCOUNT_PCT ? endsAt : null,
+      },
+    });
+
     return mapVendor(updated, undefined, { preciseLocation: true });
   }
 

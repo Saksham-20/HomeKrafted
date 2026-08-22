@@ -96,3 +96,13 @@
     margin-left: auto;
   }
 }
+
+/* M46 — the maker's own sale, on the line it applied to. */
+.wasPrice {
+  color: var(--hk-muted);
+}
+
+.saleNote {
+  margin-left: 6px;
+  color: var(--hk-terracotta-text);
+}

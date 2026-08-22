@@ -8,6 +8,7 @@ import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
+import { CASHBACK_RATE } from "@/lib/cart/pricing";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import type { Product } from "@/lib/types";
@@ -62,20 +63,48 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
 
   const weight =
     product.weightOptions.find((w) => w.sku === selectedSku) ?? product.weightOptions[0];
-  const cashback = weight ? Math.round((weight.price * product.cashbackPct) / 100) : 0;
+  /**
+   * M46 — three prices, two shown. `salePrice` is what the maker's
+   * storefront sale brings it to and is what the checkout actually
+   * charges (`resolveCartLine`); `price` is what it is struck through
+   * against. `mrp` — the per-product offer — is dropped while a
+   * storefront sale runs, because two crossed-out numbers beside one real
+   * one reads as a trick.
+   */
+  const payable = weight ? (weight.salePrice ?? weight.price) : 0;
+  const struckPrice = weight?.salePrice !== undefined ? weight.price : weight?.mrp;
+  const showStruck = Boolean(weight && struckPrice !== undefined && struckPrice > payable);
   const discountPct =
-    weight && weight.mrp > weight.price
+    product.discountPct ??
+    (weight && weight.mrp > weight.price
       ? Math.round(((weight.mrp - weight.price) / weight.mrp) * 100)
-      : 0;
+      : 0);
+
+  /**
+   * **The cashback shown here used to be a promise nothing kept.** It was
+   * `weight.price × product.cashbackPct`, a per-listing percentage the
+   * HomeKrafter typed into the listing form — and the checkout has always
+   * credited a flat platform rate on the whole subtotal
+   * (`server/src/common/pricing/pricing.util.ts#CASHBACK_RATE`, mirrored
+   * in `lib/cart/pricing.ts`). A listing set to 20% therefore advertised
+   * four times the cashback the buyer received, on the screen where they
+   * decide to buy.
+   *
+   * `cashbackPct` still exists on the column and still round-trips
+   * through the seller form's payload, so no data changes. It just stops
+   * being quoted as money. A HomeKrafter who wants to give buyers
+   * something has a real lever now — their own storefront sale (M46).
+   */
+  const cashback = Math.round(payable * CASHBACK_RATE);
 
   return (
     <div className={styles.panel}>
       {weight && (
         <div className={styles.priceRow}>
-          <span className={styles.price}>{formatCurrency(weight.price)}</span>
-          {weight.mrp > weight.price && (
+          <span className={styles.price}>{formatCurrency(payable)}</span>
+          {showStruck && struckPrice !== undefined && (
             <>
-              <span className={styles.mrp}>{formatCurrency(weight.mrp)}</span>
+              <span className={styles.mrp}>{formatCurrency(struckPrice)}</span>
               <span className={styles.discount}>{discountPct}% off</span>
             </>
           )}

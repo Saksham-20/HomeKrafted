@@ -725,6 +725,39 @@ export interface SellerStorefrontInput {
   bannerSrc?: string;
 }
 
+/**
+ * The HomeKrafter's own discount on their own listings (M46).
+ *
+ * **Its own call, not a field on `updateSellerStorefront`.** That one is
+ * bio, location and artwork; this one changes the price of everything the
+ * kitchen sells at once, and keeping them apart is what makes "who
+ * changed this, and when" a question with one answer.
+ *
+ * `pct: 0` turns it off — there is no separate delete, because "no
+ * discount" is a value of the field rather than the absence of a record.
+ * Throws on refusal (an end date in the past is a 400 with a sentence
+ * saying so); a write that reports nothing has thrown away the only
+ * explanation anybody was going to get (M36).
+ */
+export interface SellerDiscountInput {
+  pct: number;
+  /** Exclusive. Omit to run it until it is turned off. */
+  endsAt?: string;
+}
+
+export async function setSellerDiscount(
+  vendorId: string,
+  input: SellerDiscountInput,
+): Promise<Vendor | undefined> {
+  if (isMockMode()) {
+    const vendor = getVendorByIdData(vendorId);
+    if (!vendor) return undefined;
+    vendor.discount = input.pct > 0 ? { pct: input.pct, endsAt: input.endsAt } : undefined;
+    return vendor;
+  }
+  return http.put<Vendor>("/seller/discount", input);
+}
+
 export async function updateSellerStorefront(
   vendorId: string,
   input: SellerStorefrontInput,

@@ -28,7 +28,20 @@ export function CartLineRow({ info, onQtyChange, onRemove }: CartLineRowProps) {
       <div className={styles.body}>
         <span className={styles.name}>{info.name}</span>
         {info.weightLabel && <span className={styles.meta}>{info.weightLabel}</span>}
-        <span className={styles.unitPrice}>{formatCurrency(info.unitPrice)} each</span>
+        <span className={styles.unitPrice}>
+          {formatCurrency(info.unitPrice)} each
+          {/* M46 — what it was, and why it is less. Without the second
+              half a struck-through price reads as a mistake. */}
+          {info.listUnitPrice !== undefined && info.listUnitPrice > info.unitPrice && (
+            <>
+              {" "}
+              <s className={styles.wasPrice}>{formatCurrency(info.listUnitPrice)}</s>
+              {info.discountPct !== undefined && (
+                <span className={styles.saleNote}>maker&rsquo;s {info.discountPct}% sale</span>
+              )}
+            </>
+          )}
+        </span>
       </div>
 
       <div className={styles.qtyCol}>

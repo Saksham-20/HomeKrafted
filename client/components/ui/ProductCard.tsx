@@ -157,12 +157,31 @@ export function ProductCard({
           {weight ? ` · ${weight.label}` : null}
         </span>
         <div className={styles.priceRow}>
+          {/*
+            M46 — three prices exist on a discounted listing and only two
+            may be shown, or the card becomes a puzzle. `salePrice` is
+            what a buyer pays and `price` is what it is struck through
+            against; `mrp` (the per-product offer) is deliberately dropped
+            while a storefront discount runs, because two crossed-out
+            numbers next to one real one reads as a trick.
+
+            `salePrice` is computed server-side (`mapProduct`) so the card
+            and the checkout cannot disagree — this component never does
+            the arithmetic.
+          */}
           <span className={styles.priceGroup}>
             <span className={styles.price}>
-              {formatCurrency(weight?.price ?? 0)}
+              {formatCurrency(weight?.salePrice ?? weight?.price ?? 0)}
             </span>
-            {weight && weight.mrp > weight.price && (
-              <span className={styles.mrp}>{formatCurrency(weight.mrp)}</span>
+            {weight?.salePrice !== undefined ? (
+              <span className={styles.mrp}>{formatCurrency(weight.price)}</span>
+            ) : (
+              weight && weight.mrp > weight.price && (
+                <span className={styles.mrp}>{formatCurrency(weight.mrp)}</span>
+              )
+            )}
+            {product.discountPct !== undefined && (
+              <span className={styles.discountBadge}>{product.discountPct}% off</span>
             )}
           </span>
           <button

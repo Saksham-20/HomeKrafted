@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { activeDiscountPct, applyDiscount } from '../../catalog/vendor-discount';
 
 /**
  * Resolves a raw `CartItem` row (product-or-hamper polymorphic, see
@@ -39,6 +40,14 @@ export interface ResolvedLine {
   weightLabel?: string;
   unitPrice: number;
   lineTotal: number;
+  /**
+   * The price before the HomeKrafter's storefront discount (M46), present
+   * only when one applied. The cart strikes this through; `unitPrice` is
+   * what is actually charged.
+   */
+  listUnitPrice?: number;
+  /** The storefront discount that produced `unitPrice`, when one applied. */
+  discountPct?: number;
   isHamper: boolean;
   /** Stock cap for a product line — omitted (unbounded) for hamper lines. */
   maxQuantity?: number;
@@ -87,14 +96,27 @@ export async function resolveCartLine(db: Db, item: RawCartItem): Promise<Resolv
 
   const product = await db.product.findUnique({
     where: { id: item.productId },
-    include: { images: { orderBy: { sortOrder: 'asc' } }, weightOptions: true },
+    include: {
+      images: { orderBy: { sortOrder: 'asc' } },
+      weightOptions: true,
+      // M46 — the storefront discount is applied here, in the one place a
+      // line price is derived, so a cart preview and the order created
+      // from it can never disagree about it either.
+      vendor: { select: { discountPct: true, discountEndsAt: true } },
+    },
   });
   if (!product) {
     throw new NotFoundException(`Product ${item.productId} referenced by cart item ${item.id} not found`);
   }
 
   const weight = product.weightOptions.find((w) => w.sku === item.sku) ?? product.weightOptions[0];
-  const unitPrice = weight ? Number(weight.price) : 0;
+  const listUnitPrice = weight ? Number(weight.price) : 0;
+
+  // Read against a single `now` for the whole line rather than letting
+  // each helper call `new Date()` — a discount expiring mid-request would
+  // otherwise strike a price through and charge the full amount.
+  const discountPct = activeDiscountPct(product.vendor, new Date());
+  const unitPrice = applyDiscount(listUnitPrice, discountPct);
 
   return {
     id: item.id,
@@ -110,6 +132,7 @@ export async function resolveCartLine(db: Db, item: RawCartItem): Promise<Resolv
     weightLabel: weight?.label,
     unitPrice,
     lineTotal: unitPrice * item.quantity,
+    ...(discountPct > 0 ? { listUnitPrice, discountPct } : {}),
     isHamper: false,
     maxQuantity: weight?.stock,
   };

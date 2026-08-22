@@ -195,3 +195,16 @@
   color: var(--hk-success);
   border: 1px solid #b7d0bd;
 }
+
+/* M46 — the maker's own discount. Terracotta on its tint is the
+   marketplace's price colour; `--hk-terracotta-text` is the ramp that
+   clears AA there (the flat token is 3.77:1 on this background). */
+.discountBadge {
+  padding: 2px 7px;
+  border-radius: var(--hk-r-pill);
+  background: #f6e7e0;
+  color: var(--hk-terracotta-text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}

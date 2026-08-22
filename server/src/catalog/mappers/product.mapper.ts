@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { dietaryTagsToFrontend } from '../dietary-tag.util';
+import { activeDiscountPct, applyDiscount } from '../vendor-discount';
 
 /**
  * The include shape every catalog query needs to fully serialize a
@@ -11,6 +12,16 @@ export const PRODUCT_INCLUDE = {
   images: { orderBy: { sortOrder: 'asc' as const } },
   weightOptions: true,
   occasions: { include: { occasion: true } },
+  /**
+   * M46 — two columns, so every surface that shows a price can show the
+   * HomeKrafter's discount on it.
+   *
+   * A `select` rather than `true`: this rides on every catalog query, and
+   * pulling the whole vendor row would put a kitchen's `lat`/`lng` into
+   * the shape of a payload the M36 rounding rule exists to keep out of.
+   * Two integers cannot leak an address.
+   */
+  vendor: { select: { discountPct: true, discountEndsAt: true } },
 } satisfies Prisma.ProductInclude;
 
 export type ProductWithRelations = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
@@ -23,6 +34,10 @@ export function defaultPriceOf(product: ProductWithRelations): number {
 }
 
 export function mapProduct(product: ProductWithRelations) {
+  // One `now` for the whole product, so two weight tiers of the same
+  // listing cannot land on opposite sides of an expiry.
+  const discountPct = activeDiscountPct(product.vendor, new Date());
+
   return {
     id: product.id,
     slug: product.slug,
@@ -42,7 +57,21 @@ export function mapProduct(product: ProductWithRelations) {
       price: Number(w.price),
       mrp: Number(w.mrp),
       stock: w.stock,
+      /**
+       * M46. Present only while a discount is running, and computed
+       * **server-side** — the client never does this arithmetic, because
+       * the number a buyer is shown and the number they are charged have
+       * to come from the same place (the M15 refund lesson, and why
+       * `resolveCartLine` is the only price authority in the cart).
+       */
+      ...(discountPct > 0 ? { salePrice: applyDiscount(Number(w.price), discountPct) } : {}),
     })),
+    /**
+     * The HomeKrafter's storefront discount, when one is running (M46).
+     * Absent means no discount rather than zero, so a card can branch on
+     * its presence without knowing the rules.
+     */
+    ...(discountPct > 0 ? { discountPct } : {}),
     defaultWeightSku: product.defaultWeightSku,
     rating: Number(product.rating),
     reviewCount: product.reviewCount,

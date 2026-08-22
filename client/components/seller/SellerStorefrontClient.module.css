@@ -103,3 +103,94 @@
     width: 100%;
   }
 }
+
+/* --- Your own sale (M46) --------------------------------------------- */
+
+.discountTitle {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  color: var(--hk-ink);
+  margin: 0 0 6px;
+}
+
+.discountLead {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  margin: 0 0 10px;
+  max-width: 62ch;
+}
+
+/*
+  Not an error, and not styled as one — it is the fact somebody needs
+  before they type a number. The gold rule marks it as "read this" without
+  claiming something has gone wrong.
+*/
+.discountWarning {
+  border-left: 3px solid var(--hk-gold);
+  padding: 8px 0 8px 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-2);
+  margin: 0 0 var(--hk-s4);
+  max-width: 62ch;
+}
+
+.discountRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hk-s4);
+  max-width: 520px;
+}
+
+.discountField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.discountLabel {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.discountInput {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 11px 13px;
+  /* 16px floor — iOS Safari zooms below it and never zooms back. */
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 46px;
+}
+
+.discountInput:disabled {
+  background: var(--hk-surface-2);
+  color: var(--hk-muted);
+}
+
+.discountInput:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.discountHelp {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+}
+
+.discountLive {
+  margin: var(--hk-s3) 0 0;
+  font-size: 13.5px;
+  color: var(--hk-success);
+}
+
+@media (max-width: 560px) {
+  .discountRow {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1232,6 +1232,31 @@ model Vendor {
   followerCount     Int        @default(0)
   joinedAt          DateTime   @default(now())
 
+  /// M46 — a discount the HomeKrafter sets on their own listings, as a
+  /// whole percent off every product of theirs.
+  ///
+  /// **It is their money, not the platform's.** The percentage comes off
+  /// the price a buyer pays, so it comes off the kitchen's own take: the
+  /// commission split (`seller/payout-split.ts`) is computed on what was
+  /// actually charged. The seller screen says so in those words before
+  /// anything is saved, because a discount that quietly costs somebody
+  /// more than they expected is worse than no discount at all.
+  ///
+  /// NULL or 0 means no discount. Capped at `MAX_VENDOR_DISCOUNT_PCT`
+  /// (`catalog/vendor-discount.ts`) — a home cook is not in a position to
+  /// discount 90% of their own income, and a runaway value here would
+  /// reach every one of their listings at once.
+  discountPct       Int?
+  /// When the discount stops, exclusive. NULL means it runs until the
+  /// HomeKrafter turns it off — which is a real case ("everything is 10%
+  /// off, always"), so it is not treated as an unfinished date.
+  ///
+  /// **Nothing expires this row.** There is no scheduler; every read
+  /// asks `activeDiscountPct(vendor, now)`, so a lapsed discount stops
+  /// applying the moment the date passes rather than the next time some
+  /// job happens to run.
+  discountEndsAt    DateTime?
+
   products   Product[]
   seller     Seller?
   mealPlans  MealPlan[]

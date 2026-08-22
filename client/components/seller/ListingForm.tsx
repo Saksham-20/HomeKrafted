@@ -278,17 +278,21 @@ export function ListingForm({ values, onChange, categories, occasions, commissio
               ))}
             </select>
           </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Cashback %</span>
-            <input
-              className={styles.input}
-              type="number"
-              min={0}
-              max={100}
-              value={values.cashbackPct}
-              onChange={(event) => set("cashbackPct", event.target.value)}
-            />
-          </label>
+          {/*
+            The "Cashback %" box used to be here, and it was a promise
+            nothing kept (M46). Whatever a HomeKrafter typed was quoted on
+            the product page as "earn ₹N wallet cashback" while the
+            checkout credited a **flat platform rate on the whole
+            subtotal** — so a listing set to 20% advertised four times what
+            the buyer actually received, on the screen where they decide to
+            buy.
+
+            The column and the payload field stay, so existing values
+            round-trip and no native client breaks; it is simply no longer
+            asked for or quoted as money. A HomeKrafter who wants to give
+            buyers something now has a real lever: their own storefront
+            sale, on `/seller/storefront`.
+          */}
           <div className={styles.fieldWide}>
             <Textarea
               label="Description"

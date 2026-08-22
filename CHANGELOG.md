@@ -3,6 +3,75 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M46] — A HomeKrafter can run their own sale — 2026-08-22
+
+The owner asked for HomeKrafter-set discounts. What existed was a
+**"Cashback %" box on the listing form that nothing honoured**: whatever a
+kitchen typed there was quoted on the product page as "earn ₹N wallet
+cashback", while the checkout has always credited a flat platform rate on
+the whole subtotal. A listing set to 20% advertised **four times** what
+the buyer actually received, on the screen where they decide to buy.
+
+### Added
+
+- **`PUT /seller/discount`** and a **Run a sale** card on
+  `/seller/storefront`. A whole percentage off *everything that kitchen
+  makes*, optionally through a last day, off in one click.
+- **`Vendor.discountPct` / `Vendor.discountEndsAt`**, both nullable with no
+  default — every existing storefront reads as "no sale" without a
+  backfill.
+- **`catalog/vendor-discount.ts`** — `activeDiscountPct(vendor, now)` and
+  `applyDiscount(amount, pct)`, pure and clock-free (the M12 React #418
+  rule), with twelve unit tests.
+
+### The rules
+
+- **It is the kitchen's money, and the screen says so before the input.**
+  The percentage comes off what a buyer pays, and the commission split is
+  computed on what was actually charged — so the HomeKrafter funds the
+  whole sale. A worked example in rupees sits above the field, because a
+  percentage sign does not land the way "the buyer pays ₹225 and you are
+  paid on that" does.
+- **Nothing expires a row.** There is no scheduler: every read asks
+  `activeDiscountPct(vendor, now)`, so a lapsed sale stops the moment the
+  date passes rather than whenever a job next runs.
+- **50% is the ceiling**, and a value above it is a 400 rather than a
+  silent clamp. This reaches every one of a kitchen's listings at once, it
+  is their own income, and a mistyped digit is the failure that actually
+  happens.
+- **An end date in the past is refused.** Stored, it reads on every screen
+  as "10% off until last Tuesday" — set and inert at the same time.
+- **`discountEndsAt` is exclusive; the field says "last day".** The client
+  converts, both ways, so nobody has to reason about the boundary. (The
+  first version showed 1 September on a sale it also described as running
+  "through 31 August".)
+- **Three prices exist and only two are ever shown.** `salePrice` is what
+  a buyer pays, `price` is what it is struck through against, and `mrp` —
+  the per-product offer — is dropped while a storefront sale runs. Two
+  crossed-out numbers beside one real one reads as a trick.
+- **The arithmetic is server-side, once.** `resolveCartLine` is still the
+  only price authority in the cart, and `mapProduct` does the same sum for
+  the card — no client computes a discounted price, so a card and a
+  checkout cannot disagree. `OrderItem.price` already snapshots the
+  charged amount, so order history stays honest with no schema change.
+
+### Fixed
+
+- **The cashback quoted on a product page is now the one the buyer gets.**
+  It reads the platform rate, the same constant the checkout uses. The
+  "Cashback %" input is gone from the listing form (the column and the
+  payload field stay, so nothing breaks and no native client changes) —
+  a HomeKrafter who wants to give buyers something now has a lever that
+  works.
+
+### Verified against a live server
+
+Set 10% through 1 September → the product payload gains
+`discountPct: 10` and each tier a `salePrice` (₹249 → ₹224). A past end
+date → 400 with its sentence. 80% → 400 on the ceiling. Two jars in a real
+buyer's cart → line `unitPrice` 224, `listUnitPrice` 249, subtotal ₹448
+rather than ₹498 — the cart charges the sale price, not just displays it.
+
 ## [M45] — Listing a product in four questions — 2026-08-22
 
 The listing form asked about twenty things on one page, in our words

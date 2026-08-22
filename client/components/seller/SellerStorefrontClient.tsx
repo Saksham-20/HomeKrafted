@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { formatCurrency } from "@/lib/format";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getSellerVendor, updateSellerStorefront } from "@/lib/api";
+import { getSellerVendor, setSellerDiscount, updateSellerStorefront } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/api/errors";
 import type { Vendor } from "@/lib/types";
 import styles from "./SellerStorefrontClient.module.css";
@@ -36,6 +37,37 @@ interface FormState {
  * these four fields ride on every product card and a return policy has
  * no business in a listing query.
  */
+/**
+ * The ceiling, mirrored from `server/src/catalog/vendor-discount.ts`.
+ *
+ * Deliberately duplicated rather than fetched: it decides what the input
+ * *offers*, and the server is what decides what is *accepted* — the same
+ * looser-client rule the two identifier parsers follow (M17). A drift
+ * here costs one clear 400, never a locked-out seller.
+ */
+const MAX_DISCOUNT_PCT = 50;
+
+/**
+ * The inverse of `endsAtFromLastDay`. `discountEndsAt` is the exclusive
+ * instant the sale stops; the field says "last day of the sale", so it
+ * has to show the day *before* it. Slicing the ISO string straight into
+ * the input showed 1 September on a sale the same card described as
+ * running "through 31 August".
+ */
+function lastDayFromEndsAt(endsAt?: string): string {
+  if (!endsAt) return "";
+  const lastDay = new Date(endsAt);
+  lastDay.setDate(lastDay.getDate() - 1);
+  const year = lastDay.getFullYear();
+  const month = String(lastDay.getMonth() + 1).padStart(2, "0");
+  const day = String(lastDay.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Numbers in the "whose money is this" sentence. A worked example lands where a percentage sign does not. */
+const DISCOUNT_EXAMPLE_PCT = 10;
+const DISCOUNT_EXAMPLE_PRICE = 250;
+
 export function SellerStorefrontClient() {
   const { ready, seller, sellerDataReady } = useAuth();
   const [vendor, setVendor] = useState<Vendor | undefined>(undefined);
@@ -46,6 +78,16 @@ export function SellerStorefrontClient() {
   /** What the server said when it refused. Rendered next to Save, like `/seller/profile`. */
   const [error, setError] = useState<string | undefined>();
   const [unavailable, setUnavailable] = useState(false);
+
+  // M46 — the discount is its own form with its own save, because it is
+  // its own endpoint and its own kind of decision: the four fields above
+  // are how a storefront looks, and this one changes the price of
+  // everything in it.
+  const [discountPct, setDiscountPct] = useState("");
+  const [discountEnds, setDiscountEnds] = useState("");
+  const [discountSaving, setDiscountSaving] = useState(false);
+  const [discountSaved, setDiscountSaved] = useState(false);
+  const [discountError, setDiscountError] = useState<string | undefined>();
 
   useEffect(() => {
     // No `vendorId` means no storefront to edit (laundry partners, snack
@@ -68,6 +110,8 @@ export function SellerStorefrontClient() {
           avatarSrc: v.avatarSrc ?? "",
           bannerSrc: v.bannerSrc ?? "",
         });
+        setDiscountPct(v.discount ? String(v.discount.pct) : "");
+        setDiscountEnds(lastDayFromEndsAt(v.discount?.endsAt));
       } catch (error) {
         if (cancelled) return;
         if (!isForbidden(error)) throw error;
@@ -98,6 +142,41 @@ export function SellerStorefrontClient() {
       setError(apiErrorMessage(err, "That did not save. Try again."));
     } finally {
       setSaving(false);
+    }
+  }
+
+  /**
+   * The date input gives a calendar day and the seller reads it as "the
+   * last day of the sale". `discountEndsAt` is **exclusive**, so what is
+   * stored is midnight at the start of the following day. Converting here
+   * rather than labelling the field "ends before" is the whole point:
+   * nobody should have to reason about an exclusive boundary to run a
+   * sale.
+   */
+  function endsAtFromLastDay(lastDay: string): string | undefined {
+    if (!lastDay) return undefined;
+    const midnightAfter = new Date(`${lastDay}T00:00:00`);
+    midnightAfter.setDate(midnightAfter.getDate() + 1);
+    return midnightAfter.toISOString();
+  }
+
+  async function handleDiscountSave() {
+    if (!seller?.vendorId) return;
+    const pct = Number(discountPct) || 0;
+    setDiscountSaving(true);
+    setDiscountError(undefined);
+    try {
+      const updated = await setSellerDiscount(seller.vendorId, {
+        pct,
+        endsAt: pct > 0 ? endsAtFromLastDay(discountEnds) : undefined,
+      });
+      setVendor(updated);
+      setDiscountSaved(true);
+      setTimeout(() => setDiscountSaved(false), 2500);
+    } catch (err) {
+      setDiscountError(apiErrorMessage(err, "That did not save. Try again."));
+    } finally {
+      setDiscountSaving(false);
     }
   }
 
@@ -174,6 +253,89 @@ export function SellerStorefrontClient() {
           {error && (
             <span className={styles.saveError} role="status" aria-live="polite">
               {error}
+            </span>
+          )}
+        </div>
+      </Card>
+
+      {/*
+        M46 — your own sale, on your own things.
+
+        A separate card with its own save, because it is a separate
+        endpoint and a separate kind of decision: everything above is how
+        the storefront *looks*, and this changes what everything in it
+        *costs*. The sentence about whose money it is sits above the
+        input rather than under it, because it is the thing somebody needs
+        to know before they type a number, not after.
+      */}
+      <Card className={styles.card}>
+        <h2 className={styles.discountTitle}>Run a sale</h2>
+        <p className={styles.discountLead}>
+          Take a percentage off <strong>everything you make</strong>. Shoppers see the new price
+          with the old one crossed out, on every one of your listings at once.
+        </p>
+        <p className={styles.discountWarning}>
+          It comes out of what you earn, not out of our fee — a {DISCOUNT_EXAMPLE_PCT}% sale on a{" "}
+          {formatCurrency(DISCOUNT_EXAMPLE_PRICE)} jar means the buyer pays{" "}
+          {formatCurrency(Math.round((DISCOUNT_EXAMPLE_PRICE * (100 - DISCOUNT_EXAMPLE_PCT)) / 100))}{" "}
+          and you are paid on that. Set it back to 0 any time to stop.
+        </p>
+
+        <div className={styles.discountRow}>
+          <label className={styles.discountField}>
+            <span className={styles.discountLabel}>Percent off</span>
+            <input
+              className={styles.discountInput}
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={MAX_DISCOUNT_PCT}
+              value={discountPct}
+              onChange={(event) => setDiscountPct(event.target.value)}
+              placeholder="0"
+            />
+            <span className={styles.discountHelp}>
+              0 turns it off. {MAX_DISCOUNT_PCT}% is the most we allow.
+            </span>
+          </label>
+
+          <label className={styles.discountField}>
+            <span className={styles.discountLabel}>Last day of the sale</span>
+            <input
+              className={styles.discountInput}
+              type="date"
+              value={discountEnds}
+              onChange={(event) => setDiscountEnds(event.target.value)}
+              disabled={(Number(discountPct) || 0) <= 0}
+            />
+            <span className={styles.discountHelp}>
+              Leave it empty to run until you turn it off.
+            </span>
+          </label>
+        </div>
+
+        {vendor.discount && (
+          <p className={styles.discountLive} role="status">
+            Live now: {vendor.discount.pct}% off everything
+            {vendor.discount.endsAt
+              ? `, through ${new Date(new Date(vendor.discount.endsAt).getTime() - 86_400_000).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}`
+              : ", until you turn it off"}
+            .
+          </p>
+        )}
+
+        <div className={styles.actions}>
+          <Button variant="primary" onClick={handleDiscountSave} disabled={discountSaving}>
+            {discountSaving
+              ? "Saving…"
+              : (Number(discountPct) || 0) > 0
+                ? "Start the sale"
+                : "Turn the sale off"}
+          </Button>
+          {discountSaved && !discountError && <span className={styles.savedNote}>Saved.</span>}
+          {discountError && (
+            <span className={styles.saveError} role="status" aria-live="polite">
+              {discountError}
             </span>
           )}
         </div>

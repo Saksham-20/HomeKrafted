@@ -46,6 +46,15 @@ export interface Vendor {
   followerCount: number;
   isFollowing?: boolean;
   joinedAt: ISODateString;
+  /**
+   * M46 — the HomeKrafter's own discount on their own listings, when one
+   * is running. Absent means none, rather than `{ pct: 0 }`, so a banner
+   * branches on presence without knowing the expiry rule.
+   *
+   * It is the kitchen's money: the percentage comes off what a buyer
+   * pays, and commission is computed on what was actually charged.
+   */
+  discount?: { pct: number; endsAt?: ISODateString };
 }
 
 // ---------------------------------------------------------------------------
@@ -315,6 +324,17 @@ export interface WeightOption {
   price: number;
   mrp: number;
   stock: number;
+  /**
+   * M46 — `price` after the HomeKrafter's storefront discount, present
+   * only while one is running.
+   *
+   * **Computed server-side, never here.** The number a buyer is shown and
+   * the number they are charged have to come from the same place; the
+   * cart's authority is `resolveCartLine`, and this is the same
+   * arithmetic done once in `mapProduct` so a card cannot disagree with
+   * the checkout.
+   */
+  salePrice?: number;
 }
 
 export interface ProductImage {
@@ -415,6 +435,13 @@ export interface Product {
   storageInstructions?: string;
   madeIn?: string;
   /** See `ProductModerationStatus`'s doc comment. Absent reads as `"active"`. */
+  /**
+   * M46 — the maker's storefront discount, mirrored onto the product so a
+   * card can say "10% off" without loading the vendor. Present only while
+   * one is running; each `weightOptions[].salePrice` is the price it
+   * produced.
+   */
+  discountPct?: number;
   moderationStatus?: ProductModerationStatus;
   /**
    * The admin's reason for refusing, hiding or flagging — shown verbatim
@@ -493,6 +520,15 @@ export interface ServerCartLine extends CartItem {
   weightLabel?: string;
   /** Stock cap for a product line — absent (unbounded) for a hamper line. */
   maxQuantity?: number;
+  /**
+   * M46 — the price before the maker's storefront sale, present only when
+   * one applied. The row strikes this through; `unitPrice` is what is
+   * charged, and both come from `resolveCartLine` so the cart and the
+   * order created from it cannot disagree.
+   */
+  listUnitPrice?: number;
+  /** The storefront sale that produced `unitPrice`, when one applied. */
+  discountPct?: number;
   isHamper: boolean;
 }
 

@@ -1,4 +1,5 @@
 import { Vendor } from '@prisma/client';
+import { activeDiscountPct } from '../vendor-discount';
 
 /**
  * Decimal places a **public** payload rounds coordinates to (M36).
@@ -79,6 +80,22 @@ export function mapVendor(
     // `undefined` here rather than a wrong-looking `false`.
     isFollowing,
     joinedAt: vendor.joinedAt.toISOString(),
+    /**
+     * The HomeKrafter's own discount, when one is running (M46). Absent
+     * rather than zero, so a storefront banner branches on its presence
+     * without knowing the expiry rule.
+     *
+     * `endsAt` rides along because the storefront says *until when* — a
+     * sale with no visible deadline is not a sale, it is a price.
+     */
+    ...(activeDiscountPct(vendor, new Date()) > 0
+      ? {
+          discount: {
+            pct: activeDiscountPct(vendor, new Date()),
+            endsAt: vendor.discountEndsAt?.toISOString(),
+          },
+        }
+      : {}),
   };
 }
 

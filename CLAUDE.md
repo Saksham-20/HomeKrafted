@@ -752,6 +752,38 @@ paragraphs over appending new ones.
   affected `docs/*.md`, then report back with what changed and any
   decisions that need Opus's confirmation.
 
+## A HomeKrafter's own sale (M46) — whose money it is
+
+`Vendor.discountPct` + `Vendor.discountEndsAt`, set through
+`PUT /seller/discount` (its own route — `PATCH /seller/storefront` is bio,
+location and artwork; this changes the price of every listing at once).
+
+- **The kitchen funds it.** The percentage comes off what a buyer pays and
+  commission is computed on what was charged, so the HomeKrafter absorbs
+  all of it. The seller screen states that in rupees before the input. A
+  platform-funded discount is a different feature with a budget attached —
+  don't quietly turn this into one.
+- **`catalog/vendor-discount.ts` never reads the clock.** Every function
+  takes `now` (the M12 React #418 rule), nothing expires a row, and there
+  is no scheduler: a lapsed sale stops the instant the date passes.
+- **`discountEndsAt` is exclusive**, the seller field says "last day", and
+  the client converts both ways. Don't "simplify" that by relabelling the
+  field.
+- **50% ceiling, refused not clamped.** It reaches every listing at once
+  and it is somebody's income.
+- **Three prices, two shown.** `salePrice` (paid) struck against `price`;
+  `mrp` is dropped while a storefront sale runs. Two crossed-out numbers
+  beside one real one reads as a trick.
+- **No client computes a discounted price.** `resolveCartLine` for the
+  cart, `mapProduct` for the card — one sum, server-side, so a card and a
+  checkout cannot disagree.
+- **`Product.cashbackPct` is not money.** It was quoted on the product page
+  as wallet cashback while checkout credited a flat platform rate on the
+  subtotal, so a 20% listing advertised four times what was paid. The
+  page reads the platform rate now and the input is gone from the form;
+  the column stays so existing values round-trip. Don't re-add the field
+  without wiring it to the actual credit.
+
 ## Listing a product (M45) — two forms, one set of values
 
 `/seller/listings/new` opens the **guided flow**

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Put } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
@@ -6,6 +6,7 @@ import { SellerService } from './seller.service';
 import { SellerListingsService } from './listings.service';
 import { SellerPayoutsService } from './payouts.service';
 import { UpdateStorefrontDto } from './dto/update-storefront.dto';
+import { SetDiscountDto } from './dto/set-discount.dto';
 import { UpdateSellerSpecialtiesDto } from './dto/update-specialties.dto';
 
 /**
@@ -59,6 +60,24 @@ export class SellerController {
   async updateStorefront(@CurrentUser() user: RequestUser, @Body() dto: UpdateStorefrontDto) {
     const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.sellerService.updateStorefront(seller.vendorId, dto);
+  }
+
+  /**
+   * The caller's own discount on their own listings (M46).
+   *
+   * Its own route rather than a field on `PATCH storefront`, for the same
+   * reason the M36c write paths stay apart: that one is bio, location and
+   * artwork, and this one moves money on every listing at once.
+   *
+   * `PUT`, not `PATCH`: the body is the whole discount, and `{ pct: 0 }`
+   * is how it is turned off. A partial update here would mean somebody
+   * could change the percentage and leave a stale end date attached to
+   * it.
+   */
+  @Put('discount')
+  async setDiscount(@CurrentUser() user: RequestUser, @Body() dto: SetDiscountDto) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    return this.sellerService.setDiscount(seller.vendorId, dto);
   }
 
   /**
