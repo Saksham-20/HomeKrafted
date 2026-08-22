@@ -367,3 +367,10 @@
   margin-top: 2px;
   color: var(--hk-pine);
 }
+
+/* M45 — "What do you make?" is fourteen chips in three groups, not a
+   half-width box. Left in one column it sat beside the delivery-distance
+   disclosure and pulled a column of empty space down the page. */
+.fieldWide {
+  grid-column: 1 / -1;
+}

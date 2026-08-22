@@ -7,6 +7,7 @@ import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { ModerationNotice } from "./ModerationNotice";
+import { GuidedListingForm } from "./GuidedListingForm";
 import { SellerPageHeader } from "./SellerPageHeader";
 import {
   EMPTY_LISTING_FORM,
@@ -70,7 +71,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [occasions, setOccasions] = useState<Occasion[]>([]);
-  const [values, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
+  const [valuesState, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -79,6 +80,14 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     note?: string;
   }>({});
   const [error, setError] = useState<string | undefined>(undefined);
+  /**
+   * Guided is the default for a *new* listing and the long form for an
+   * edit. Somebody adding their first product is being asked to describe
+   * something they have never described before; somebody editing one has
+   * a specific field in mind and wants to see it, not walk four screens
+   * to reach it.
+   */
+  const [guided, setGuided] = useState(!productId);
 
   useEffect(() => {
     if (!ready || !seller?.vendorId) return;
@@ -110,8 +119,9 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     };
   }, [ready, seller, productId]);
 
-  async function handleSubmit() {
+  async function handleSubmit(override?: ListingFormValues) {
     if (!seller?.vendorId) return;
+    const values = override ?? valuesState;
     // `description` was missing from this list while the server requires
     // it, so submitting without one produced the raw class-validator
     // string "description must be longer than or equal to 1 characters" —
@@ -169,29 +179,75 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     <div>
       <SellerPageHeader
         title={isEdit ? "Edit listing" : "Add listing"}
-        subtitle={isEdit ? values.name : "Create a new product for your storefront."}
+        subtitle={
+          isEdit
+            ? valuesState.name
+            : guided
+              ? "Four questions, and you are done."
+              : "Create a new product for your storefront."
+        }
       />
       <ModerationNotice status={review.status} note={review.note} />
-      <ListingForm
-        values={values}
-        onChange={setValues}
-        categories={categories}
-        occasions={occasions}
-        commission={seller?.commission}
-      />
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
+
+      {guided ? (
+        <GuidedListingForm
+          values={valuesState}
+          onChange={setValues}
+          categories={categories}
+          occasions={occasions}
+          commission={seller?.commission}
+          onSubmit={(finished) => void handleSubmit(finished)}
+          saving={saving}
+          error={error}
+          onSwitchToFull={() => {
+            setError(undefined);
+            setGuided(false);
+          }}
+          submitLabel={isEdit ? "Save changes" : "Put it on my storefront"}
+        />
+      ) : (
+        <>
+          <ListingForm
+            values={valuesState}
+            onChange={setValues}
+            categories={categories}
+            occasions={occasions}
+            commission={seller?.commission}
+          />
+          {error && (
+            <p className={styles.error} role="alert">
+              {error}
+            </p>
+          )}
+          <div className={styles.actions}>
+            <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create listing"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => router.push("/seller/listings")}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+          </div>
+          {/* The way back. Somebody who switched to look for one field
+              should not have to leave and re-enter to get the guided
+              flow again — and both write the same values, so nothing is
+              lost either way. */}
+          {!isEdit && (
+            <p className={styles.switchBack}>
+              <button
+                type="button"
+                className={styles.switchLink}
+                onClick={() => setGuided(true)}
+              >
+                Take me through it question by question instead
+              </button>
+            </p>
+          )}
+        </>
       )}
-      <div className={styles.actions}>
-        <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save changes" : "Create listing"}
-        </Button>
-        <Button variant="secondary" onClick={() => router.push("/seller/listings")} disabled={saving}>
-          Cancel
-        </Button>
-      </div>
     </div>
   );
 }

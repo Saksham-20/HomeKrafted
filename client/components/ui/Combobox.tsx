@@ -28,6 +28,13 @@ export interface ComboboxProps {
   label: string;
   /** Visually hide the label, keeping it for assistive tech. */
   hideLabel?: boolean;
+  /**
+   * `micro` is the portal's mono uppercase field label, right on a dense
+   * screen of twenty fields. `plain` is a spoken question, for a screen
+   * that asks one thing at a time — mixing the two on one screen reads as
+   * two different forms stitched together.
+   */
+  labelTone?: "micro" | "plain";
   placeholder?: string;
   hint?: string;
   disabled?: boolean;
@@ -87,6 +94,7 @@ export function Combobox({
   multiple = false,
   label,
   hideLabel = false,
+  labelTone = "micro",
   placeholder,
   hint,
   disabled = false,
@@ -289,7 +297,13 @@ export function Combobox({
 
   return (
     <div className={clsx(styles.wrap, className)} ref={wrapRef}>
-      <label className={clsx(styles.label, hideLabel && "hk-sr-only")} htmlFor={inputId}>
+      <label
+        className={clsx(
+          labelTone === "plain" ? styles.labelPlain : styles.label,
+          hideLabel && "hk-sr-only",
+        )}
+        htmlFor={inputId}
+      >
         {label}
       </label>
 

@@ -91,6 +91,7 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
   const [form, setForm] = useState(EMPTY_FORM);
   const [specialties, setSpecialties] = useState<SellerSpecialty[]>(["homemade_food"]);
   const [radiusOpen, setRadiusOpen] = useState(false);
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [application, setApplication] = useState<SellerApplication | null>(null);
@@ -565,7 +566,7 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                 that sent a candle maker to "other" — and its only purpose
                 was to pick a `VendorType` that is rendered on no screen.
                 The server derives both from these chips now. */}
-            <div className={styles.field}>
+            <div className={clsx(styles.field, styles.fieldWide)}>
               <span className={styles.fieldLabel}>What do you make?</span>
               <span className={styles.fieldHelp}>
                 Pick everything that applies — it&rsquo;s how buyers find you. You can sell
@@ -601,7 +602,34 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
             it will take an application turns away the person who has none
             yet — but between them these are what turn "somebody applied"
             into "somebody an admin can make a decision about".
+
+            **Folded away by default (M45).** Optional or not, five more
+            boxes sitting open doubled the visible length of this form,
+            and length is what makes somebody close the tab. The trigger
+            says they are optional and says what they are for, so the
+            person who has an Instagram to show still finds it — the
+            person who has none is no longer looking at four fields they
+            cannot fill.
           */}
+          <div className={styles.field}>
+            <button
+              type="button"
+              className={styles.disclosureTrigger}
+              aria-expanded={extrasOpen}
+              aria-controls="application-extras"
+              onClick={() => setExtrasOpen((open) => !open)}
+            >
+              {extrasOpen
+                ? "Hide the optional questions"
+                : "Anything that shows us your work? (optional)"}
+            </button>
+            <span className={styles.fieldHelp}>
+              An Instagram, a website, how long you have been making it. None of it is
+              required — it just helps us decide faster.
+            </span>
+          </div>
+
+          <div id="application-extras" hidden={!extrasOpen}>
           <div className={styles.formGrid}>
             <TextField
               label="Instagram"
@@ -635,6 +663,7 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
               value={form.capacityPerDay}
               onChange={(v) => set("capacityPerDay", v.replace(/\D/g, "").slice(0, 4))}
             />
+          </div>
           </div>
 
           {/*

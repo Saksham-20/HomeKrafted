@@ -60,6 +60,12 @@
   outline-offset: 1px;
 }
 
+.labelPlain {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
 .anchor {
   position: relative;
 }

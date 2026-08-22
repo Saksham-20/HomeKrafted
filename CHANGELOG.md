@@ -3,6 +3,71 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M45] — Listing a product in four questions — 2026-08-22
+
+The listing form asked about twenty things on one page, in our words
+rather than a cook's: "weight tiers", "MRP", a column headed "Def.",
+"Ready-to-ship packaged food (vs. made-to-order)". It refused to save
+without a description *and* a label on every tier, and said so only after
+you pressed the button. None of that is wrong for somebody running twenty
+listings; all of it is a wall for somebody adding their first — which is
+the person this platform needs most.
+
+### Added
+
+- **A guided flow at `/seller/listings/new`**, four questions, one screen
+  each: *Show us what you made* (photo) → *What is it?* → *What does it
+  cost?* → *A few words about it*, ending on a live preview of the card a
+  shopper will see. Bigger targets, 17px inputs, a spoken question instead
+  of a mono uppercase field label, and a plain sentence when something is
+  missing rather than a class-validator string.
+- **Photo first, deliberately.** The research into how Swiggy and Zomato
+  onboard restaurants is blunt: they do not make partners type menus at
+  all — the restaurant sends photographs and somebody transcribes them.
+  We cannot staff that (M44's admin listing screen is the backstop where
+  we do), but the ordering transfers. A photograph is the one thing
+  somebody holding a phone in their kitchen can produce immediately, and
+  it is what actually sells the product.
+
+### The rules inside it
+
+- **Nothing is a silent zero.** `mrp` equals the price unless the cook
+  ticks "it is on offer" — leaving it at 0 renders a strikethrough
+  against nothing, and inflating it invents a discount nobody offered.
+  Stock is asked in plain words ("How many can you make right now?"), and
+  the size label falls back to "One" rather than blocking on a question a
+  lot of people cannot answer about a cake.
+- **The photo step does not block.** A photograph matters more than
+  anything else here and the step says so — but refusing to continue
+  without one strands somebody whose picture is on a camera in the other
+  room, and the honest cost of that is a listing never written at all.
+- **The long form is one link away from every step**, both directions,
+  and both write the same `ListingFormValues` — switching loses nothing.
+  A guided flow that hides capability is a worse product for the person
+  on their fortieth listing. Guided is the default for a *new* listing;
+  the long form is the default for an *edit*, where somebody has a
+  specific field in mind.
+
+### Also
+
+- **`/sell` lost half its visible length.** Instagram, website, years
+  making and daily capacity are folded behind one optional trigger.
+  Optional or not, five open boxes doubled the form, and length is what
+  makes somebody close the tab. The FSSAI question stays visible for food
+  makers, because it is a licence rather than a portfolio link.
+- **"What do you make?" spans both columns.** Fourteen chips in three
+  groups sat in one half of a two-column grid beside a one-line
+  disclosure, pulling a column of empty space down the page.
+- `Combobox` gained `labelTone` — the portal's mono micro-label, or a
+  spoken question for a screen that asks one thing at a time.
+
+### Verified
+
+Walked end to end in a real browser as a HomeKrafter: four steps, a
+blocked step showing plain English, and a listing that actually reached
+the catalogue ("Amla Murabba", ₹320, correctly `Waiting for approval` —
+the seller-side M22 gate is untouched).
+
 ## [M44] — The platform could not sell anything, and admin edits were thrown away — 2026-08-22
 
 Two gaps that look unrelated and are the same gap: nothing on the

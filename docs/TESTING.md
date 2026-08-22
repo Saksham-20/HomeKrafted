@@ -851,6 +851,35 @@ Admin: **Collections → Occasions** is where dates get set. Worth trying:
 > are lunisolar — they land on a different date every year — so there is
 > no "repeats yearly" setting to tick. Somebody rolls them forward.
 
+### Adding a product is four questions now (M45)
+
+**HomeKrafter → Listings → Add listing.** It no longer opens the twenty-field
+page. Four screens, one question each, photo first:
+
+- **Show us what you made** — the photo step. Press **Next** without one:
+  it lets you through, and says why you should go and get it anyway.
+- **What is it?** — press Next with nothing filled in. The message is a
+  sentence ("Give it a name — whatever you call it when somebody asks"),
+  not a validation string.
+- **What does it cost?** — one price, "how many can you make right now",
+  and an optional size. Leave the size empty and it is called "One". Tick
+  *it is on offer* to add a crossed-out higher price; leave it and there
+  is no fake discount.
+- **A few words about it** — description, plus optional dietary tags,
+  delivery, occasions, and a **preview of the card a shopper will see**.
+
+Then **Put it on my storefront**. It lands in Listings marked *Waiting for
+approval*, exactly as before — the review gate has not moved.
+
+> **The long form has not gone.** "Use the full form instead" is at the
+> bottom of every step and everything typed carries over; the way back is
+> under the long form. Editing an existing listing still opens the long
+> form first, because an edit usually means one specific field.
+
+The **/sell** application also got shorter: Instagram, website, years
+making and daily capacity are folded behind one optional trigger. The
+FSSAI question still shows for anyone who says they make food.
+
 ### An admin can list a product now (M44)
 
 Until this milestone the only way a product reached the catalogue was a

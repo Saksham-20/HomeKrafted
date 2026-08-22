@@ -1,0 +1,383 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+/* --- Progress -------------------------------------------------------- */
+
+.progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2) var(--hk-s4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.progressStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.progressDot {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  color: var(--hk-muted);
+}
+
+.progressCurrent {
+  color: var(--hk-ink);
+  font-weight: 500;
+}
+
+.progressCurrent .progressDot {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
+}
+
+.progressDone .progressDot {
+  border-color: var(--hk-pine);
+  color: var(--hk-pine);
+}
+
+/* Below the phone rail the labels stop fitting on one line and the strip
+   becomes four wrapped rows of text, which reads as a list rather than a
+   progress bar. Dots only. */
+@media (max-width: 640px) {
+  .progressLabel {
+    display: none;
+  }
+
+  .progress {
+    gap: var(--hk-s2);
+  }
+}
+
+/* --- The step card --------------------------------------------------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.stepCount {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  margin: 0;
+}
+
+.stepTitle {
+  font-family: var(--hk-font-display);
+  font-size: clamp(22px, 4vw, 27px);
+  line-height: 1.2;
+  color: var(--hk-ink);
+  margin: 0;
+}
+
+.stepTitle:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 4px;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.lead {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--hk-ink-3);
+  margin: 0;
+  max-width: 54ch;
+}
+
+.aside {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+  margin: 0;
+  max-width: 60ch;
+}
+
+.aside svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+/* --- Fields ---------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+/*
+  A question, not a form label. The rest of the portal uses the mono
+  uppercase micro-label, which is right on a dense table of twenty fields
+  and wrong here: this screen asks one thing at a time and the words are
+  the interface.
+*/
+.question {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.optional {
+  font-weight: 400;
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.bigInput {
+  width: 100%;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 12px 14px;
+  /* 17px, not the portal's 13.5px. This is the one screen where the
+     person typing may be doing it for the first time, on a phone, and
+     16px is the floor below which iOS Safari zooms and never returns
+     (CLAUDE.md). */
+  font-size: 17px;
+  font-family: inherit;
+  color: var(--hk-ink);
+  min-height: 50px;
+}
+
+.bigInput:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+  border-color: var(--hk-pine);
+}
+
+.moneyRow {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rupee {
+  position: absolute;
+  left: 13px;
+  color: var(--hk-muted);
+  pointer-events: none;
+}
+
+.moneyRow .bigInput {
+  padding-left: 38px;
+}
+
+.help {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+  max-width: 60ch;
+}
+
+/* --- Choices --------------------------------------------------------- */
+
+.choiceSet {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hk-s2);
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 14px 16px;
+  /* A deliberately large target. The people this flow exists for are
+     often on a phone with reading glasses off. */
+  min-height: 72px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  cursor: pointer;
+  transition: border-color var(--hk-dur) var(--hk-ease);
+}
+
+.choice:hover {
+  border-color: var(--hk-pine);
+}
+
+.choice:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.choiceOn {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+}
+
+.choiceTitle {
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.choiceHint {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hk-muted);
+}
+
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.checkRow input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--hk-pine);
+}
+
+@media (max-width: 560px) {
+  .choices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Preview --------------------------------------------------------- */
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-divider);
+}
+
+.previewLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.previewCard {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  max-width: 380px;
+}
+
+.previewName {
+  display: block;
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  color: var(--hk-ink);
+}
+
+.previewPrice {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--hk-terracotta);
+}
+
+.previewMrp {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--hk-muted);
+}
+
+/* --- Nav + errors ---------------------------------------------------- */
+
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-divider);
+}
+
+/* Terracotta is the marketplace's refusal colour and clears AA on white
+   at this size. */
+.issue {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--hk-terracotta);
+  margin: 0;
+}
+
+.escape {
+  font-size: 13.5px;
+  color: var(--hk-muted);
+  margin: 0;
+  text-align: center;
+}
+
+.escapeLink {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--hk-ink-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.escapeLink:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}

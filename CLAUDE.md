@@ -752,6 +752,32 @@ paragraphs over appending new ones.
   affected `docs/*.md`, then report back with what changed and any
   decisions that need Opus's confirmation.
 
+## Listing a product (M45) — two forms, one set of values
+
+`/seller/listings/new` opens the **guided flow**
+(`components/seller/GuidedListingForm.tsx`): four questions, one screen
+each, photo first. `ListingForm` — the twenty-field long form — is one
+link away from every step, and an **edit** opens it by default.
+
+- **Both write the same `ListingFormValues`.** Switching either way loses
+  nothing, and that is what makes the guided flow safe: it hides
+  questions, never capability. Don't fork the state shape.
+- **Photo first is a finding, not a preference.** Swiggy and Zomato do
+  not make partners type menus — the restaurant sends photographs and
+  somebody transcribes them (M44's admin listing screen is our backstop
+  for that). The transferable part is the ordering: a photo is the one
+  thing somebody in their kitchen can produce immediately.
+- **The photo step must not block.** Refusing to continue without one
+  strands somebody whose camera is in the other room, and the honest cost
+  is a listing never written.
+- **Nothing the guided flow skips may reach the server as a zero.**
+  `mrp` = price unless "on offer" is ticked (0 renders a strikethrough
+  against nothing; inflating it invents a discount), stock defaults from
+  a plain-words question, the size label falls back to `"One"`.
+- **Submit is handed the finished values**, not read from the parent's
+  state — the last step fills those defaults in and React has not
+  committed the `onChange` when submit runs.
+
 ## Known token gaps — centralized in `styles/tokens.extend.css` (M1)
 
 The prototype uses a few recurring colors for text/dividers sitting on

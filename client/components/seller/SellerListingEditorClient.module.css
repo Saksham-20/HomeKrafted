@@ -18,3 +18,27 @@
   color: var(--hk-terracotta);
   font-size: 13px;
 }
+
+/* M45 — the way back from the long form to the guided one. Both write the
+   same values, so switching either way loses nothing. */
+.switchBack {
+  margin-top: var(--hk-s4);
+  font-size: 13.5px;
+  color: var(--hk-muted);
+  text-align: center;
+}
+
+.switchLink {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--hk-ink-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.switchLink:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
