@@ -8,6 +8,17 @@ export interface MakerPortraitProps {
   vendor: Vendor;
   /** Rendered size in px. The drawing is vector, so this is the only knob. */
   size?: number;
+  /**
+   * Alt text for the *photo* branch. The caricature branch is always
+   * `aria-hidden` and ignores this.
+   *
+   * Defaults to a description naming the kitchen, which is right where
+   * the portrait stands alone. Pass `""` wherever the kitchen's name is
+   * the next node in the DOM — the storefront header, the search result,
+   * the following row — because there the description is read twice.
+   * That is `ImageSlot`'s own rule, not a new one.
+   */
+  alt?: string;
 }
 
 /** Shared by every caricature: head, neck, shoulders, and the barest face. */
@@ -75,8 +86,18 @@ const CARICATURES = [
 ];
 
 /**
- * The circle at the top of a maker card: their own picture where one
- * exists, a drawn caricature where it doesn't.
+ * The circle standing for a kitchen: their own picture where one exists,
+ * a drawn caricature where it doesn't.
+ *
+ * **Every surface that pictures a vendor goes through here.** It began on
+ * the home page's maker rail alone, which left the borrowed stock face
+ * (`lib/maker-portrait.ts#SHARED_STOCK_AVATARS`) still rendering on the
+ * storefront header, in search results and in the account's following
+ * list — the three places a buyer actually looks at *one named kitchen*,
+ * and so the three where showing a stranger's photograph is worst. Route
+ * a new vendor-avatar surface through this component rather than reading
+ * `vendor.avatarSrc` directly; `lib/vendor-avatar.spec.ts` fails the
+ * build on a raw read.
  *
  * The caricature is `aria-hidden`. It is not a picture of anybody and it
  * carries no information the card does not already state in words — the
@@ -84,7 +105,7 @@ const CARICATURES = [
  * noise, which is the case `ImageSlot`'s doc comment calls out as the one
  * where empty alt is correct rather than lazy.
  */
-export function MakerPortrait({ vendor, size = 68 }: MakerPortraitProps) {
+export function MakerPortrait({ vendor, size = 68, alt }: MakerPortraitProps) {
   const src = ownAvatarSrc(vendor.avatarSrc);
 
   // `size` is a genuinely dynamic value — the exception CLAUDE.md carves
@@ -98,7 +119,7 @@ export function MakerPortrait({ vendor, size = 68 }: MakerPortraitProps) {
           ratio="1/1"
           shape="circle"
           label={vendor.avatarPlaceholder}
-          alt={`${vendor.name}, a home kitchen in ${vendor.location}`}
+          alt={alt ?? `${vendor.name}, a home kitchen in ${vendor.location}`}
           src={src}
           sizes={`${size}px`}
           compact

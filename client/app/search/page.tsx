@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { SearchForm } from "@/components/search/SearchForm";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { SnackCard } from "@/components/ui/SnackCard";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { getBuyerCoords } from "@/lib/location/server";
 import { getVendors, search } from "@/lib/api";
@@ -137,15 +137,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     className={styles.makerCard}
                   >
                     <span className={styles.makerAvatar}>
-                      <ImageSlot
-                        ratio="1/1"
-                        shape="circle"
-                        label={vendor.avatarPlaceholder}
-                        src={vendor.avatarSrc}
-                        alt=""
-                        sizes="56px"
-                        compact
-                      />
+                      {/* Caricature rather than the shared stock face —
+                          see components/vendor/MakerPortrait. */}
+                      <MakerPortrait vendor={vendor} size={56} alt="" />
                     </span>
                     <span className={styles.makerText}>
                       <span className={styles.makerName}>{vendor.name}</span>

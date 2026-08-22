@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { FollowButton } from "./FollowButton";
 import { VerifiedBadges } from "./VerifiedBadges";
 import type { Vendor, VendorProfile } from "@/lib/types";
@@ -42,15 +43,11 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
       </div>
       <div className={styles.row}>
         <div className={styles.avatar}>
-          <ImageSlot
-            ratio="1/1"
-            shape="circle"
-            label={vendor.avatarPlaceholder}
-            alt={`${vendor.name} shop photo`}
-            src={vendor.avatarSrc}
-            sizes="88px"
-            compact
-          />
+          {/* Their photo where they have one, a caricature where they
+              don't — never the shared stock face a pre-M28 row still
+              carries. `alt=""` because the <h1> naming them is the next
+              node. */}
+          <MakerPortrait vendor={vendor} size={88} alt="" />
         </div>
         <div className={styles.details}>
           <h1 className={styles.name}>{vendor.name}</h1>

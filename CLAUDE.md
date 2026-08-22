@@ -251,7 +251,7 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
       layout/                 AnnouncementBar, Header (+HeaderClient), MobileDrawer, Footer
       placeholder/            ImageSlot — labelled placeholder, see below
       ui/                      ~26 primitives from handoff/design-system/components.md (M1)
-      product/ laundry/ snacks/ wallet/ account/   (M2+)
+      product/ laundry/ snacks/ wallet/ account/ vendor/   (M2+)
     lib/
       types/                  THE SCHEMA CONTRACT — domain types → Prisma in M8
         shared.ts wallet.ts marketplace.ts laundry.ts food.ts index.ts
@@ -798,6 +798,42 @@ since centralizing a single-use color doesn't pay for itself: ProductCard's
 TransactionRow's debit icon tint (`#f6e7e0`), StoreBadges' on-dark border
 (`#56493a`). See each component's `.module.css` for the inline rationale.
 
+## Vendor avatars — one component, and a guard (M38b)
+
+**Nothing reads `Vendor.avatarSrc` directly. Render
+`components/vendor/MakerPortrait`.** Ten seeded storefronts once pointed
+at one file, `/images/vendors/avatar.jpg`, so two different kitchens
+rendered under the same stock photograph of the same woman — on a
+platform whose whole pitch is that a real person made this. M28 stopped
+the seeds writing it; **the rows written before that day still hold it**
+and nothing has cleared the column.
+
+`lib/maker-portrait.ts#ownAvatarSrc` filters those rows back to "no
+picture"; `MakerPortrait` then draws one of six line-art caricatures,
+picked from the vendor's slug. Both are **pure and deterministic** —
+they render in Server Components, so a `Math.random()` pick would choose
+one face on the server and another on hydration (React #418, the M12
+lesson).
+
+The filter only works where it is called, and it shipped called from the
+home page's maker rail alone. That left the borrowed face on the
+**storefront header**, in **search**, in the **account following list**,
+and in the storefront's **OpenGraph image and `LocalBusiness` JSON-LD** —
+the WhatsApp share card and the thing Google indexes. Four surfaces, one
+column, none of them looking wrong.
+
+- **`client/lib/vendor-avatar.spec.ts` fails the build** on any read of
+  `avatarSrc` outside its allowlist, and separately asserts the storefront
+  route launders *both* its images. Three files are allowlisted, each with
+  its reason in the spec — a fourth entry is a claim you should have to
+  write down.
+- **The caricatures carry no skin tone, age or gender.** Outline in the
+  wash's own ink. The drawing says "a person makes this", which is the
+  true part, and stops there. Don't "improve" them into portraits.
+- **Clearing the column on those pre-M28 rows is the real fix**, and
+  `ownAvatarSrc` can go the day it happens. Until then it is the
+  difference between the grid being wrong and the grid being right.
+
 ## Image uploads (M14) — read before adding another photo field
 
 Never add a text input for an image path; that was the pre-M14 pattern and
@@ -1142,6 +1178,28 @@ had a test, and none was visible from reading the happy path.
 `cd client && npm test` · `cd server && npm test` · `cd server && npm run
 test:e2e` (needs `TEST_DATABASE_URL` — see `docs/TESTS.md`). CI runs all
 of it plus typecheck, lint and both builds.
+
+**Structural specs are a layer of their own, and they exist because each
+one caught a silent failure.** `vendor-privacy.spec.ts` (no public read of
+a pickup address), `rbac-structure.spec.ts` (every portal controller
+role-gated), `focus-trap.spec.ts`, `keyboard-activation.spec.ts`,
+`silent-failure.spec.ts`, `vendor-avatar.spec.ts`. They scan source text,
+so two rules: **strip comments before scanning** — this repo quotes
+decorators in prose constantly, and a scan that counts a comment as code
+fails *open*, which is how `rbac-structure.spec.ts` reported three
+ungated controllers as gated — and **keep the allowlist a registry with a
+stated reason per entry**, so a rename fails the build instead of
+silently widening it.
+
+**`RolesGuard`'s fail-closed rule only covers `/api/v1/admin`.** Three
+admin-privileged routes hang off controllers most of whose routes belong
+to the signed-in customer — `POST /orders/:id/refund`,
+`POST /wallet/adjust`, `GET /users/:id` — so they carry a *method-level*
+`@Roles('admin')` that neither the path rule nor a class-level scan sees.
+They are pinned by name in `rbac-structure.spec.ts`'s
+`ADMIN_ROUTES_OUTSIDE_ADMIN`. **Adding a privileged route to a mixed
+controller means adding it there too**; two of the three move money, and
+without the decorator every signed-in shopper can call them.
 
 Three layers: pure functions in `client/lib/**/*.spec.ts`, services with a
 stub Prisma in `server/test/unit/`, and **a real Nest app against a real

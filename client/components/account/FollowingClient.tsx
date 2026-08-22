@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { getFollowedVendors, unfollowVendor } from "@/lib/api";
 import type { Vendor } from "@/lib/types";
 import { kitchenLoading } from "@/lib/kitchen-copy";
@@ -81,15 +81,9 @@ export function FollowingClient() {
             <li key={vendor.id} className={styles.row}>
               <Link href={`/storefront/${vendor.slug}`} className={styles.rowLink}>
                 <span className={styles.avatar}>
-                  <ImageSlot
-                    ratio="1/1"
-                    shape="circle"
-                    label={vendor.avatarPlaceholder}
-                    src={vendor.avatarSrc}
-                    alt=""
-                    sizes="56px"
-                    compact
-                  />
+                  {/* Caricature rather than the shared stock face —
+                      see components/vendor/MakerPortrait. */}
+                  <MakerPortrait vendor={vendor} size={56} alt="" />
                 </span>
                 <span className={styles.text}>
                   <span className={styles.name}>{vendor.name}</span>

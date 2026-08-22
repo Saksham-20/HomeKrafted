@@ -30,6 +30,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# test-run output. `server/jest-run.log` was committed once (77c87af) and
+# every subsequent test run rewrote it into the diff — a build artefact is
+# not a reviewable change.
+*.log
+
+# Playwright MCP scratch output (console dumps + page snapshots). Written by
+# the browser tool on every run, referenced by nothing in the repo.
+.playwright-mcp/
+
 # env files (opt-in commit if ever needed)
 .env*
 # ...except the templates. These hold only placeholders (the API refuses to

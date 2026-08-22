@@ -14,6 +14,7 @@ import {
   getVendorReviews,
 } from "@/lib/api";
 import { describeSlot, firstAvailableSlot } from "@/lib/schedule";
+import { ownAvatarSrc } from "@/lib/maker-portrait";
 import { absoluteUrl, jsonLdProps, pageMetadata } from "@/lib/seo";
 import styles from "./Storefront.module.css";
 
@@ -35,7 +36,11 @@ export async function generateMetadata({ params }: StorefrontPageProps): Promise
     description:
       vendor.bio.length > 155 ? `${vendor.bio.slice(0, 152).trimEnd()}…` : vendor.bio,
     path: `/storefront/${vendor.slug}`,
-    image: vendor.bannerSrc ?? vendor.avatarSrc,
+    // `ownAvatarSrc`, not the raw column: a pre-M28 row still holds the
+    // shared stock portrait, and the share card for *this* kitchen is the
+    // worst place to put a stranger's face — it is what lands in a
+    // WhatsApp preview when somebody forwards their shop.
+    image: vendor.bannerSrc ?? ownAvatarSrc(vendor.avatarSrc),
   });
 }
 
@@ -76,7 +81,11 @@ export default async function StorefrontPage({ params }: StorefrontPageProps) {
     name: vendor.name,
     description: vendor.bio,
     url: absoluteUrl(`/storefront/${vendor.slug}`),
-    ...(vendor.avatarSrc ? { image: absoluteUrl(vendor.avatarSrc) } : {}),
+    // Same reason as the OG image above — and this one is read by Google,
+    // which will happily attach the borrowed face to their business.
+    ...(ownAvatarSrc(vendor.avatarSrc)
+      ? { image: absoluteUrl(ownAvatarSrc(vendor.avatarSrc)!) }
+      : {}),
     address: { "@type": "PostalAddress", addressLocality: vendor.location, addressCountry: "IN" },
     geo: { "@type": "GeoCoordinates", latitude: vendor.lat, longitude: vendor.lng },
     // M16. `knowsLanguage`, opening hours and price floor are real

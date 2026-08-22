@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MakerPortrait } from "@/components/home/MakerPortrait";
+import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { formatCurrency } from "@/lib/format";
 import type { Product, Vendor } from "@/lib/types";
 import styles from "./MakerCard.module.css";
