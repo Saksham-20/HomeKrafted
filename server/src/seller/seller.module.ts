@@ -86,5 +86,11 @@ import { AdminAuditLogService } from '../admin/audit-log.service';
     // provider comment; its only dependency is the global PrismaService.
     AdminAuditLogService,
   ],
+  // M44 — `AdminCatalogService` writes listings through this service so
+  // there is one owner of product creation and editing rather than two
+  // that drift. The import direction is one-way: `SellerModule` does not
+  // import `AdminModule` (it takes `AdminAuditLogService` directly), so
+  // this does not make a cycle.
+  exports: [SellerListingsService],
 })
 export class SellerModule {}

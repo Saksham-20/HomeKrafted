@@ -11,8 +11,17 @@ import { ModerateProductDto } from './dto/moderate-product.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { moderationDecision, REFUSING_ACTIONS, type ModeratableKind } from '../catalog/moderation';
 import { MealPlanDayMenusService } from '../meals/day-menus.service';
+import { SellerListingsService } from '../seller/listings.service';
+import { CreateAdminProductDto } from './dto/create-admin-product.dto';
+import { UpdateListingDto } from '../seller/dto/update-listing.dto';
 
 const DEFAULT_CATALOG_PAGE_SIZE = 25;
+
+/**
+ * The platform's own storefront. Seeded (`server/prisma/seed.ts`) and
+ * referenced by slug rather than id so it survives a reseed.
+ */
+const PLATFORM_VENDOR_SLUG = 'homekrafted';
 
 /**
  * How many pending items the unified queue returns at once. Not a page
@@ -88,6 +97,10 @@ export class AdminCatalogService {
     private readonly reviewAggregates: ReviewAggregatesService,
     private readonly moderationNotifications: ModerationNotificationsService,
     private readonly dayMenus: MealPlanDayMenusService,
+    // M44 — one owner of product writes. Named for the portal it was
+    // built for; the rules that differ for an admin are carried by
+    // `ListingWriteOptions`, not by a second copy of the write.
+    private readonly listings: SellerListingsService,
   ) {}
 
   /**
@@ -278,6 +291,109 @@ export class AdminCatalogService {
       total,
       pendingCount,
     };
+  }
+
+  /**
+   * The vendor an admin-authored listing belongs to when none is chosen
+   * (M44).
+   *
+   * The platform sells under its own storefront — "Homekrafted" — and
+   * that is a real `Vendor` row rather than a null `vendorId`, because
+   * every product card, order line, review aggregate and payout query in
+   * the codebase assumes a product has a maker. A nullable one would mean
+   * teaching all of them about a second case, and the first one missed
+   * renders "undefined" under somebody's photograph.
+   */
+  private async platformVendorId(): Promise<string> {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { slug: PLATFORM_VENDOR_SLUG },
+      select: { id: true },
+    });
+    if (!vendor) {
+      throw new NotFoundException(
+        `No vendor with the slug "${PLATFORM_VENDOR_SLUG}" exists, so there is nothing to list this under. Seed it, or pick a HomeKrafter to attribute the listing to.`,
+      );
+    }
+    return vendor.id;
+  }
+
+  /**
+   * Create a listing as an admin (M44).
+   *
+   * **Two jobs, one route.** The obvious one is the platform listing its
+   * own products, which is why `vendorId` defaults to Homekrafted. The
+   * one that matters more is *assisted onboarding*: the research into how
+   * Swiggy actually onboards restaurants found they do not make partners
+   * type menus — the restaurant sends photographs and somebody at Swiggy
+   * transcribes them. A home cook who cannot face a listing form is the
+   * normal case here, not the edge case, so an operator has to be able to
+   * list **on a HomeKrafter's behalf**, against that kitchen's own
+   * `vendorId`, or the product only serves the people who least need it.
+   *
+   * The listing goes live immediately rather than into the review queue,
+   * with the admin recorded in the moderation columns — see
+   * `initialAdminSubmission`.
+   */
+  async createProduct(adminUserId: string, dto: CreateAdminProductDto) {
+    const vendorId = dto.vendorId ?? (await this.platformVendorId());
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { id: true, name: true },
+    });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
+    const product = await this.listings.create(vendorId, dto, {
+      actor: 'admin',
+      moderatorUserId: adminUserId,
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'product.create',
+      targetType: 'Product',
+      targetId: product.id,
+      metadata: { name: product.name, vendorId, vendorName: vendor.name },
+    });
+
+    return product;
+  }
+
+  /**
+   * Edit any vendor's listing (M44).
+   *
+   * The screen for this shipped in M11b and **wrote nothing**: its client
+   * wrapper mutated an in-memory mock array and the page navigated away
+   * as though it had saved. An admin correcting a listing therefore
+   * watched their edit disappear on the next load, with no error to
+   * explain it.
+   *
+   * `SellerListingsService.update` scopes by `vendorId`, so the product's
+   * own vendor is resolved first and passed in — the scope check then
+   * passes trivially, and one method still owns every product write.
+   * `actor: 'admin'` is what stops the edit re-queueing: an operator
+   * fixing a typo must not take a live listing off sale to do it.
+   */
+  async updateProduct(adminUserId: string, productId: string, dto: UpdateListingDto) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: { id: true, vendorId: true },
+    });
+    if (!existing) throw new NotFoundException('Product not found');
+
+    const product = await this.listings.update(existing.vendorId, productId, dto, {
+      actor: 'admin',
+      moderatorUserId: adminUserId,
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'product.update',
+      targetType: 'Product',
+      targetId: productId,
+      metadata: { name: product.name, vendorId: existing.vendorId },
+    });
+
+    return product;
   }
 
   async getProduct(id: string) {

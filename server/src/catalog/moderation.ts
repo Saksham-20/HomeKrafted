@@ -132,6 +132,36 @@ export function initialSubmission(): { moderationStatus: 'pending'; submittedAt:
 }
 
 /**
+ * The write applied when an **admin** creates a listing (M44).
+ *
+ * A new listing normally lands in the queue (`initialSubmission`), which
+ * is the M22 gate. That gate exists so somebody other than the author
+ * looks at a listing before buyers do — and when the author *is* an
+ * admin, the review has happened by definition. Queueing it would put a
+ * listing in a queue for the person who just wrote it.
+ *
+ * It still records **who**, in the same columns an ordinary approval
+ * writes, so the audit reads the same either way: there is no listing on
+ * the platform that went live without a named admin attached.
+ * `submittedAt` is stamped as well, so the queue's ordering column is
+ * never null on a row that briefly appears in a filtered view.
+ */
+export function initialAdminSubmission(adminUserId: string): {
+  moderationStatus: 'active';
+  submittedAt: Date;
+  moderatedById: string;
+  moderatedAt: Date;
+} {
+  const now = new Date();
+  return {
+    moderationStatus: 'active',
+    submittedAt: now,
+    moderatedById: adminUserId,
+    moderatedAt: now,
+  };
+}
+
+/**
  * The buyer-facing reason a listing cannot be bought. Never names
  * `pending` or `rejected` to a buyer — that is the HomeKrafter's business
  * with the platform, not a shopper's, and "awaiting review" tells someone

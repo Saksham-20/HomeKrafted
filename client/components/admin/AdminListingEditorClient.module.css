@@ -38,3 +38,11 @@
   padding: var(--hk-s6);
   text-align: center;
 }
+
+/* M44 — the one question the seller's own form never asks: whose
+   storefront this lands on. Sits above the form rather than inside it so
+   `ListingForm` stays the same component both screens use. */
+.attribution {
+  margin-bottom: var(--hk-s4);
+  max-width: 520px;
+}

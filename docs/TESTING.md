@@ -851,6 +851,33 @@ Admin: **Collections → Occasions** is where dates get set. Worth trying:
 > are lunisolar — they land on a different date every year — so there is
 > no "repeats yearly" setting to tick. Somebody rolls them forward.
 
+### An admin can list a product now (M44)
+
+Until this milestone the only way a product reached the catalogue was a
+HomeKrafter typing it into their own portal — so **Homekrafted could not
+sell anything under its own name**, and nobody could help a kitchen that
+could not face the form.
+
+**Admin → Catalog → "New listing".** Worth trying:
+
+- Leave the storefront as **Homekrafted** and create something. It appears
+  in the shop **immediately** — an admin listing is not queued for review,
+  because the reviewer is the person who wrote it.
+- Change the storefront to a HomeKrafter and create another. It lands on
+  *their* storefront page, under their name, and counts towards their
+  payout. This is the "type it up for them" path.
+- Open any listing from the catalogue, change its name or description, and
+  save. **It stays live** — an admin edit does not send a listing back to
+  the queue. Make the same edit as the HomeKrafter in their own portal and
+  it *does* go back to "Waiting", which is the behaviour that should not
+  have changed.
+
+> **Admin edits used to be thrown away.** The edit screen has existed
+> since M11b, and it never saved: the page returned to the catalogue as
+> though it had worked and the change was gone on the next load, with no
+> error, because no request was ever made. If you tested this before and
+> concluded the form was broken, it was.
+
 ### Adding an occasion, and searching for one (M43)
 
 Until now nothing in the product could *create* an occasion — the list

@@ -606,6 +606,19 @@ flagged`, and **`pending` is the default** on `Product`, `MealPlan` and
 `Snack`. Pre-M22 rows stay `active`: an approval gate applied retroactively
 would delist a live catalogue and take every kitchen's income with it.
 
+- **An admin can list a product, and it does not go in the queue (M44).**
+  `POST /admin/catalog/products` defaults to the platform's own
+  **Homekrafted** vendor (`vd8`, resolved by slug) and takes a
+  HomeKrafter's `vendorId` to list *on their behalf* — their storefront,
+  their reviews, their payout. That second case is the point: Swiggy does
+  not make restaurants type their menus, and a home cook who cannot face
+  the form is the normal case here. Two rules ride on
+  `ListingWriteOptions` in `SellerListingsService`, which stays the one
+  owner of every product write: an admin-created listing goes straight to
+  `active` with that admin in `moderatedById` (queueing it would queue a
+  listing for its own author), and an **admin edit never re-queues** (an
+  operator fixing a typo must not take a live listing off sale). Neither
+  applies to `actor: 'seller'`, which is the default and must stay it.
 - **Filter on `PUBLICLY_LISTED` (`server/src/catalog/moderation.ts`), never
   on `{ not: 'hidden' }`.** Every public query was a denylist before M22,
   which was equivalent only while `hidden` was the one bad state. A

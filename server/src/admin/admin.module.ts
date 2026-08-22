@@ -10,6 +10,7 @@ import { CorporateModule } from '../corporate/corporate.module';
 import { NotificationProvidersModule } from '../notifications/providers/providers.module';
 import { AdminAuditLogService } from './audit-log.service';
 import { AdminAuditModule } from './audit.module';
+import { SellerModule } from '../seller/seller.module';
 import { AdminSettingsController } from './settings.controller';
 import { PublicSettingsController } from './public-settings.controller';
 import { PublicPincodesController } from './public-pincodes.controller';
@@ -67,6 +68,12 @@ import { AdminCorporateService } from './corporate.service';
     NotificationsModule,
     ReviewsModule,
     CatalogModule,
+    // M44 — for `SellerListingsService`, the one owner of product
+    // creation and editing, so the admin screens do not grow a second
+    // copy of the write that drifts from the seller's. One-way:
+    // `SellerModule` takes `AdminAuditLogService` directly rather than
+    // importing this module, so there is no cycle.
+    SellerModule,
     // M20 — for `CorporateQuotesService`. Quote *rules* live in the
     // corporate module beside the public accept path; only the admin
     // actions that drive them live here.

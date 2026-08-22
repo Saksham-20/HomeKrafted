@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -49,6 +51,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
  */
 export function CatalogClient() {
   const { ready, role } = useAuth();
+  const router = useRouter();
   const [products, setProducts] = useState<AdminProductSummary[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +153,16 @@ export function CatalogClient() {
             : `${total} listing${total === 1 ? "" : "s"} across every vendor`;
           return pendingCount > 0 ? `${pendingCount} waiting for review · ${scope}` : scope;
         })()}
+        actions={
+          /* M44 — until now nothing on the platform could list a product
+             except a HomeKrafter's own portal, so Homekrafted could not
+             sell anything under its own name and an operator could not
+             type a kitchen's products up for them. */
+          <Button variant="primary" size="sm" onClick={() => router.push("/admin/catalog/new")}>
+            <Plus size={15} strokeWidth={2} aria-hidden="true" />
+            New listing
+          </Button>
+        }
       />
       <CatalogTabs active="products" />
 

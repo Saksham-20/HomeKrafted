@@ -3,6 +3,66 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M44] — The platform could not sell anything, and admin edits were thrown away — 2026-08-22
+
+Two gaps that look unrelated and are the same gap: nothing on the
+platform could write a product except a HomeKrafter's own portal.
+
+### Added
+
+- **`POST /admin/catalog/products`** and a `/admin/catalog/new` screen.
+  The vendor defaults to **Homekrafted** — a real `Vendor` row (`vd8`),
+  not a null `vendorId`, because every product card, order line, review
+  aggregate and payout query assumes a product has a maker, and the first
+  one that missed the null case would render "undefined" under somebody's
+  photograph.
+- **Listing on a HomeKrafter's behalf.** The vendor picker is a searchable
+  combobox over every HomeKrafter; choosing one puts the listing on
+  *their* storefront — their reviews, their followers, their payout. This
+  is the point of the milestone, not a bonus: the research into how Swiggy
+  actually onboards restaurants found they do **not** make partners type
+  menus. The restaurant sends photographs and somebody at Swiggy
+  transcribes them. A home cook who cannot face a listing form is the
+  normal case here, so an operator has to be able to do the typing.
+
+### Fixed
+
+- **Every admin edit to a listing since M11b was silently discarded.**
+  `/admin/catalog/[id]` shipped a full edit form; `updateProductAdmin`
+  mutated an in-memory mock array **in both modes** and returned the
+  product, so the page navigated back to the catalogue as though it had
+  saved. There was no error, because there was no request. It now calls
+  `PATCH /admin/catalog/products/:id`.
+
+### One owner of product writes
+
+`AdminCatalogService` does not carry its own copy of the create/update
+logic; it calls `SellerListingsService` through a new `ListingWriteOptions`
+parameter. The two rules that differ are stated there rather than
+duplicated:
+
+- **An admin-created listing goes live immediately**
+  (`initialAdminSubmission`), with that admin written into
+  `moderatedById`/`moderatedAt`. The M22 queue exists so somebody other
+  than the author reviews a listing; when the author *is* an admin,
+  queueing it queues a listing for its own author.
+- **An admin edit does not re-queue.** An operator fixing a typo on a live
+  listing must not take a kitchen's product off sale to do it — the exact
+  failure `requeueOnEdit` avoids on the seller side.
+
+`SellerModule` now exports `SellerListingsService` and `AdminModule`
+imports it. One-way: `SellerModule` takes `AdminAuditLogService` directly
+rather than importing `AdminModule`, so there is no cycle.
+
+### Verified against a live server
+
+Seller token on the create route → **403**. Admin create → `vendorId: vd8`,
+`slug: "homekrafted-festive-sampler"`, `moderationStatus: "active"` with
+`moderatedAt` stamped. Admin edit of name *and* description → still
+`active` (no re-queue). The same material edit through
+`PATCH /seller/listings/:id` → **`pending`**, so the seller-side gate is
+untouched. Both admin writes audited as `product.create` / `product.update`.
+
 ## [M43] — A picker you can type into, and who gets to add to it — 2026-08-22
 
 Occasions were a wall of `Chip` toggles on the listing form and a native

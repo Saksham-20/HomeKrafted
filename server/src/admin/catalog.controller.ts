@@ -1,9 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminCatalogService } from './catalog.service';
 import { ModerateProductDto } from './dto/moderate-product.dto';
+import { CreateAdminProductDto } from './dto/create-admin-product.dto';
+import { UpdateListingDto } from '../seller/dto/update-listing.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { ModerateReviewDto } from './dto/moderate-review.dto';
 import { ListAdminReviewsQueryDto } from './dto/list-admin-reviews.query.dto';
@@ -24,6 +26,34 @@ export class AdminCatalogController {
   @Get('products/:id')
   getProduct(@Param('id') id: string) {
     return this.catalogService.getProduct(id);
+  }
+
+  /**
+   * Create a listing (M44). Defaults to the platform's own "Homekrafted"
+   * storefront; pass `vendorId` to list on a HomeKrafter's behalf, which
+   * is the assisted-onboarding path — see `AdminCatalogService`.
+   */
+  @Post('products')
+  createProduct(@CurrentUser() admin: RequestUser, @Body() dto: CreateAdminProductDto) {
+    return this.catalogService.createProduct(admin.userId, dto);
+  }
+
+  /**
+   * Full-record edit for any vendor's listing (M44). The screen for this
+   * shipped in M11b against a client wrapper that wrote to a mock array
+   * and returned; every admin edit since has been silently discarded.
+   *
+   * Declared above `:id/moderate`? No — Nest matches the more specific
+   * static segment regardless of order here, since `moderate` cannot
+   * collide with an id in the same position. Kept next to it for reading.
+   */
+  @Patch('products/:id')
+  updateProduct(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateListingDto,
+  ) {
+    return this.catalogService.updateProduct(admin.userId, id, dto);
   }
 
   @Patch('products/:id/moderate')

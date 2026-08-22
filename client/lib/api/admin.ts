@@ -7,18 +7,20 @@
  * byte-for-byte (module-level arrays, lost on reload) — see each function's
  * `if (isMockMode())` branch.
  *
- * **Two functions have no real backend and stay mock-only** (flagged, not
- * silently left half-working):
- * - `updateProductAdmin` — `server/src/admin/catalog.controller.ts` only
- *   exposes `PATCH .../moderate` (hide/unhide/flag/feature toggles), no
- *   generic full-record edit endpoint for a *different* vendor's listing
- *   (an admin token also can't call the maker-only `PATCH
- *   /seller/listings/:id` — that whole controller is `@Roles('seller')`).
- *   A future milestone needs a dedicated `PATCH /admin/catalog/products/:id`
- *   if full admin-side listing edits are wanted.
- * - `updateHomePromoBand`/`getHomePromoBands` — no home-promo-band table or
- *   endpoint exists server-side at all (`docs/API.md`'s "Site chrome & misc"
- *   still lists this as static/content, not domain data).
+ * **One pair of functions has no real backend and stays mock-only**
+ * (flagged, not silently left half-working):
+ * `updateHomePromoBand`/`getHomePromoBands` — no home-promo-band table or
+ * endpoint exists server-side at all (`docs/API.md`'s "Site chrome & misc"
+ * still lists this as static/content, not domain data).
+ *
+ * **`updateProductAdmin` used to be on that list and was not flagged
+ * loudly enough (M44).** It was mock-only *and* returned a product, so
+ * the admin listing editor navigated away as though it had saved. Every
+ * admin edit to a listing since M11b was silently discarded — the failure
+ * shape M36 found in sixteen other wrappers, except here the wrapper did
+ * not even reach the network. It now calls
+ * `PATCH /admin/catalog/products/:id`, and `createProductAdmin` is its
+ * sibling.
  *
  * `createSellerApplication` (`lib/api/sell.ts`, the public `/sell` form) also
  * has no real endpoint yet — out of this milestone's scope — so a real-mode
@@ -1215,15 +1217,85 @@ export async function moderateProduct(
 }
 
 /**
- * **Stays mock-only** — no real endpoint exists for a full admin-side
- * listing edit (only the moderate-action toggles above); see this file's
- * header comment. Mirrors `lib/api/seller.ts#updateSellerListing` exactly,
- * minus the `vendorId` scope.
+ * Create a listing as an admin (M44).
+ *
+ * Two jobs, and the second is the one that matters. The obvious one is
+ * the platform listing its own products — `vendorId` omitted means the
+ * "Homekrafted" storefront. The other is **assisted onboarding**: Swiggy
+ * does not make restaurants type their menus, it has people transcribe
+ * the photographs a restaurant sends. A home cook who cannot face a
+ * listing form is the normal case on this platform, not the edge case, so
+ * passing a HomeKrafter's `vendorId` lists it on *their* storefront —
+ * their reviews, their payout — with an operator doing the typing.
+ *
+ * Admin-authored listings skip the review queue and go live immediately,
+ * with the admin recorded in the moderation columns: the reviewer wrote
+ * it, so there is nobody left to review it.
+ */
+export interface AdminProductInput extends SellerListingInput {
+  /** Omit for the platform's own "Homekrafted" storefront. */
+  vendorId?: string;
+}
+
+export async function createProductAdmin(input: AdminProductInput): Promise<Product> {
+  if (isMockMode()) {
+    const id = `pr-admin-${Date.now()}`;
+    const product: Product = {
+      id,
+      slug: `${input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${id.slice(-5)}`,
+      vendorId: input.vendorId ?? "vd8",
+      name: input.name,
+      categoryId: input.categoryId,
+      occasionIds: input.occasionIds,
+      dietary: input.dietary,
+      images: [
+        {
+          placeholder: `${input.name} product photo`,
+          src: input.imagePath || undefined,
+          ratio: "1/1",
+        },
+      ],
+      weightOptions: input.weightOptions,
+      defaultWeightSku: input.defaultWeightSku || input.weightOptions[0]?.sku || "",
+      rating: 0,
+      reviewCount: 0,
+      tags: input.tags,
+      isPackaged: input.isPackaged,
+      isHamper: input.isHamper,
+      kind: input.kind,
+      shippingScope: input.shippingScope,
+      isSnack: input.isSnack,
+      cashbackPct: input.cashbackPct,
+      description: input.description,
+      moderationStatus: "active",
+    };
+    products.push(product);
+    return product;
+  }
+  return http.post<Product>("/admin/catalog/products", input);
+}
+
+/**
+ * Full-record edit for any vendor's listing.
+ *
+ * **This wrote nothing until M44.** It mutated the in-memory mock array
+ * in *both* modes and returned the product, so `AdminListingEditorClient`
+ * navigated back to the catalogue as though the save had worked. The edit
+ * was gone on the next load, with nothing said. An admin edit does not
+ * re-queue the listing — an operator fixing a typo must not take a live
+ * product off sale to do it.
  */
 export async function updateProductAdmin(
   productId: string,
   input: SellerListingInput,
 ): Promise<Product | undefined> {
+  if (!isMockMode()) {
+    return http.patch<Product>(
+      `/admin/catalog/products/${encodeURIComponent(productId)}`,
+      input,
+    );
+  }
+
   const product = products.find((p) => p.id === productId);
   if (!product) return undefined;
 

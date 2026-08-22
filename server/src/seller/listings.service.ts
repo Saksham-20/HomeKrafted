@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { Prisma, ProductTag } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
-import { initialSubmission, requeueOnEdit } from '../catalog/moderation';
+import { initialAdminSubmission, initialSubmission, requeueOnEdit } from '../catalog/moderation';
 import { dietaryTagsFromFrontend } from '../catalog/dietary-tag.util';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -13,6 +13,30 @@ function slugify(name: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+}
+
+/**
+ * Who is writing a listing, and therefore which review rules apply (M44).
+ *
+ * **`'seller'` is the default and must stay the default.** It puts a new
+ * listing in the M22 queue and re-queues a material edit — the gate that
+ * makes somebody other than the author look at a listing before buyers
+ * do.
+ *
+ * `'admin'` skips both, for two different reasons. A listing an admin
+ * *creates* has already been reviewed, by definition — queueing it would
+ * put a listing in a queue for the person who just wrote it. And an admin
+ * *edit* must not re-queue: an operator fixing a typo on a live listing
+ * would take a kitchen's product off sale to do it, which is exactly the
+ * failure `requeueOnEdit` exists to avoid on the seller side.
+ *
+ * Nothing about this widens who may call the endpoint. Both admin routes
+ * live under `/api/v1/admin`, where `RolesGuard` is fail-closed.
+ */
+export interface ListingWriteOptions {
+  actor?: 'seller' | 'admin';
+  /** Required when `actor` is `'admin'` — the moderation columns record who. */
+  moderatorUserId?: string;
 }
 
 /**
@@ -41,7 +65,7 @@ export class SellerListingsService {
     return mapProduct(product);
   }
 
-  async create(vendorId: string, dto: CreateListingDto) {
+  async create(vendorId: string, dto: CreateListingDto, options: ListingWriteOptions = {}) {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException('Category not found');
 
@@ -76,7 +100,13 @@ export class SellerListingsService {
         // M22 — explicit rather than leaning on the column default, because
         // a reader of this method needs to see that a new listing is not
         // live yet. `submittedAt` is what the admin queue orders on.
-        ...initialSubmission(),
+        //
+        // M44: an admin-authored listing goes straight to `active` with
+        // that admin recorded in the moderation columns. See
+        // `ListingWriteOptions`.
+        ...(options.actor === 'admin' && options.moderatorUserId
+          ? initialAdminSubmission(options.moderatorUserId)
+          : initialSubmission()),
         images: {
           create: [{ placeholder: `${dto.name} product photo`, src: dto.imagePath || undefined, ratio: '1/1', sortOrder: 0 }],
         },
@@ -89,7 +119,12 @@ export class SellerListingsService {
     return mapProduct(created);
   }
 
-  async update(vendorId: string, productId: string, dto: UpdateListingDto) {
+  async update(
+    vendorId: string,
+    productId: string,
+    dto: UpdateListingDto,
+    options: ListingWriteOptions = {},
+  ) {
     const existing = await this.assertOwned(vendorId, productId);
 
     if (dto.categoryId) {
@@ -110,7 +145,8 @@ export class SellerListingsService {
       this.assertDefaultSkuPresent({ weightOptions: dto.weightOptions, defaultWeightSku: dto.defaultWeightSku });
     }
 
-    const requeue = requeueOnEdit(
+    // M44 — an admin edit is a reviewed edit; see `ListingWriteOptions`.
+    const requeue = options.actor === 'admin' ? {} : requeueOnEdit(
       existing.moderationStatus,
       (dto.name !== undefined && dto.name !== existing.name) ||
         (dto.description !== undefined && dto.description !== existing.description) ||
