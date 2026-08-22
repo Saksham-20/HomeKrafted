@@ -2,9 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   getCategories,
-  getLaundryDays,
-  getLaundryServices,
-  getLaundrySlots,
   getMealPromo,
   getOccasions,
   getProducts,
@@ -60,20 +57,16 @@ export default async function GalleryPage() {
     products,
     vendors,
     snacks,
-    laundryServices,
     categories,
     occasions,
     wallet,
     transactions,
     topupOptions,
-    laundryDays,
-    laundrySlots,
     mealPromo,
   ] = await Promise.all([
     getProducts(),
     getVendors(),
     getSnacks(),
-    getLaundryServices(),
     getCategories(),
     getOccasions(),
     // `getWallet`/`getTransactions` are owner-scoped, and a Server
@@ -88,8 +81,6 @@ export default async function GalleryPage() {
       .then((page) => page.items)
       .catch(() => []),
     getTopupOptions(),
-    getLaundryDays(),
-    getLaundrySlots(),
     getMealPromo(),
   ]);
 
@@ -102,14 +93,11 @@ export default async function GalleryPage() {
       products={products}
       vendorNameById={vendorNameById}
       snacks={snacks}
-      laundryServices={laundryServices}
       categories={categories}
       occasions={occasions}
       wallet={wallet}
       transactions={transactions}
       topupOptions={topupOptions}
-      laundryDays={laundryDays}
-      laundrySlots={laundrySlots}
       mealPromo={mealPromo}
     />
   );

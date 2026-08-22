@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, SupportTicketStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { mapTicket, ticketStatusToFrontend, SupportTicketWithMessages } from '../support/support.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { ListAdminSupportQueryDto } from './dto/list-admin-support.query.dto';
@@ -48,8 +48,20 @@ export class AdminSupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationsDeliveryService,
   ) {}
+
+  /**
+   * Multi-channel per the account's preferences (M37 — support replies
+   * used to be in-app only, unread until the person happened to sign
+   * in). Failures are swallowed: the reply is already saved, and a
+   * messaging hiccup must not turn it into an error.
+   */
+  private async deliverQuietly(
+    input: Parameters<NotificationsDeliveryService['deliver']>[0],
+  ): Promise<void> {
+    await this.notifications.deliver(input).catch(() => undefined);
+  }
 
   /**
    * One page of the queue, plus the counts that head it.
@@ -113,7 +125,9 @@ export class AdminSupportService {
    * than a quietly wrong number, which is the one mercy of it — and the
    * reason a raw query needs a test that actually runs it.
    */
-  private async countAwaitingReply(): Promise<number> {
+  // Public since M37: the dashboard's needs-attention queue shows the
+  // same number, and a second implementation would drift from this one.
+  async countAwaitingReply(): Promise<number> {
     const rows = await this.prisma.$queryRaw<{ count: bigint }[]>`
       SELECT COUNT(*) AS count
       FROM "SupportTicket" t
@@ -160,7 +174,7 @@ export class AdminSupportService {
       targetId: id,
     });
 
-    await this.notifications.notify({
+    await this.deliverQuietly({
       userId: ticket.userId,
       category: 'account',
       title: 'Support replied',
@@ -191,7 +205,7 @@ export class AdminSupportService {
     // Resolution is the one status change worth telling someone about —
     // "we consider this done" is a claim they may want to argue with.
     if (status === 'resolved') {
-      await this.notifications.notify({
+      await this.deliverQuietly({
         userId: ticket.userId,
         category: 'account',
         title: 'Support ticket resolved',

@@ -1,22 +1,32 @@
-import { LaundryBooking, LaundryBookingLine, LaundryDay, LaundryService, LaundrySlot, LaundrySubscription } from '@prisma/client';
-
-export type LaundryBookingWithLines = LaundryBooking & { lines: LaundryBookingLine[] };
+import { LaundryBooking, LaundrySubscription, Prisma } from '@prisma/client';
 
 /**
- * Every Prisma enum below is declared with an underscore identifier
+ * The one include every booking read uses. The service and slot joins
+ * exist so the payload is self-describing (M37): with the laundry browse
+ * routes gone, a legacy booking is the only place its service's name and
+ * slot label still reach a customer — the row has to carry them itself.
+ */
+export const BOOKING_INCLUDE = {
+  lines: { include: { service: { select: { name: true, unitLabel: true } } } },
+  pickupSlot: { select: { label: true } },
+  deliverySlot: { select: { label: true } },
+} satisfies Prisma.LaundryBookingInclude;
+
+export type LaundryBookingWithLines = Prisma.LaundryBookingGetPayload<{
+  include: typeof BOOKING_INCLUDE;
+}>;
+
+/**
+ * The booking status enum is declared with underscore identifiers
  * (hyphens aren't valid Prisma enum members) and `@map`'d to the
  * hyphenated DB value — but the Prisma Client always returns the
  * declared identifier at runtime, not the mapped DB value (same
- * reasoning as `orders/order.mapper.ts#orderStatusToFrontend`). These
- * converters restore the exact hyphenated form
- * `client/lib/types/laundry.ts` expects.
+ * reasoning as `orders/order.mapper.ts#orderStatusToFrontend`). This
+ * converter restores the exact hyphenated form
+ * `client/lib/types/laundry.ts` expects. The service/day/slot mappers
+ * left with the browse routes in M37 — only bookings and subscriptions
+ * still cross the wire.
  */
-export function pricingModelToFrontend(model: LaundryService['pricingModel']): 'per-kg' | 'per-item' | 'per-hour' {
-  if (model === 'per_kg') return 'per-kg';
-  if (model === 'per_item') return 'per-item';
-  return 'per-hour';
-}
-
 export function bookingStatusToFrontend(status: LaundryBooking['status']): string {
   switch (status) {
     case 'picked_up':
@@ -30,29 +40,6 @@ export function bookingStatusToFrontend(status: LaundryBooking['status']): strin
   }
 }
 
-export function mapLaundryService(service: LaundryService) {
-  return {
-    id: service.id,
-    slug: service.slug,
-    name: service.name,
-    description: service.description,
-    pricingModel: pricingModelToFrontend(service.pricingModel),
-    price: Number(service.price),
-    unitLabel: service.unitLabel,
-    priceIsFrom: service.priceIsFrom,
-    priceLabel: service.priceLabel,
-    iconPlaceholder: service.iconPlaceholder ?? undefined,
-  };
-}
-
-export function mapLaundryDay(day: LaundryDay) {
-  return { id: day.id, day: day.day, date: day.date, isoDate: day.isoDate.toISOString() };
-}
-
-export function mapLaundrySlot(slot: LaundrySlot) {
-  return { id: slot.id, label: slot.label };
-}
-
 export function mapLaundryBooking(booking: LaundryBookingWithLines) {
   return {
     id: booking.id,
@@ -60,13 +47,17 @@ export function mapLaundryBooking(booking: LaundryBookingWithLines) {
     userId: booking.userId,
     lines: booking.lines.map((l) => ({
       serviceId: l.serviceId,
+      serviceName: l.service.name,
+      unitLabel: l.service.unitLabel,
       estimatedWeightKg: l.estimatedWeightKg !== null ? Number(l.estimatedWeightKg) : undefined,
       itemCount: l.itemCount ?? undefined,
       estimatedHours: l.estimatedHours !== null ? Number(l.estimatedHours) : undefined,
       estimatedPrice: Number(l.estimatedPrice),
     })),
     pickupSlot: { date: booking.pickupDate.toISOString().slice(0, 10), slotId: booking.pickupSlotId },
+    pickupSlotLabel: booking.pickupSlot.label,
     deliverySlot: { date: booking.deliveryDate.toISOString().slice(0, 10), slotId: booking.deliverySlotId },
+    deliverySlotLabel: booking.deliverySlot.label,
     addressId: booking.addressId,
     photos: booking.photos,
     specialInstructions: booking.specialInstructions ?? undefined,

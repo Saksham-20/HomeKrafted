@@ -39,29 +39,37 @@ export function AvailabilityPanel() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A failed source is not an empty source (M37): swallowing both into
+  // `[]` told a kitchen with forty listings "You haven't added anything
+  // yet" the moment the API hiccuped — over the panel that decides what
+  // they sell today.
+  const [failedSources, setFailedSources] = useState<string[]>([]);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || !seller) return;
     let cancelled = false;
     (async () => {
       try {
-        // Either source can legitimately be empty (or forbidden on an older
-        // account), so failures collapse to "nothing from that source"
-        // rather than emptying the whole panel.
+        const FAILED = "__failed__" as const;
         const [listings, menu] = await Promise.all([
-          getSellerListings(seller.vendorId).catch(() => []),
-          getSellerMenu(seller.id).catch(() => []),
+          getSellerListings(seller.vendorId).catch(() => FAILED),
+          getSellerMenu(seller.id).catch(() => FAILED),
         ]);
         if (cancelled) return;
+        const failures: string[] = [];
+        if (listings === FAILED) failures.push("storefront listings");
+        if (menu === FAILED) failures.push("WhatsApp menu");
+        setFailedSources(failures);
         setRows([
-          ...listings.map((p) => ({
+          ...(listings === FAILED ? [] : listings).map((p) => ({
             id: p.id,
             name: p.name,
             price: p.weightOptions.find((w) => w.sku === p.defaultWeightSku)?.price ?? 0,
             available: p.isAvailable !== false,
             kind: "listing" as const,
           })),
-          ...menu.map((snack) => ({
+          ...(menu === FAILED ? [] : menu).map((snack) => ({
             id: snack.id,
             name: snack.name,
             price: snack.price,
@@ -76,7 +84,7 @@ export function AvailabilityPanel() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [ready, seller, reloadToken]);
 
   async function toggle(row: Row) {
     if (!seller) return;
@@ -111,7 +119,9 @@ export function AvailabilityPanel() {
           <h2 className={styles.title}>Today&rsquo;s menu</h2>
           <p className={styles.sub}>
             {rows.length === 0
-              ? "You haven't added anything yet."
+              ? failedSources.length > 0
+                ? "Some of your items couldn't be loaded."
+                : "You haven't added anything yet."
               : `${liveCount} of ${rows.length} items are on sale right now.`}
           </p>
         </div>
@@ -122,11 +132,30 @@ export function AvailabilityPanel() {
 
       {error && <p className={styles.error}>{error}</p>}
 
-      {rows.length === 0 ? (
-        <p className={styles.empty}>
-          Add your first dish or jar from <Link href="/seller/listings/new">Listings</Link>, or put
-          today&rsquo;s specials on your <Link href="/seller/menu/new">WhatsApp menu</Link>.
+      {failedSources.length > 0 && (
+        <p className={styles.error} role="alert">
+          We couldn&rsquo;t load your {failedSources.join(" or ")} just now — those items exist,
+          they just aren&rsquo;t showing here.{" "}
+          <button
+            type="button"
+            className={styles.retryButton}
+            onClick={() => {
+              setLoading(true);
+              setReloadToken((n) => n + 1);
+            }}
+          >
+            Retry
+          </button>
         </p>
+      )}
+
+      {rows.length === 0 ? (
+        failedSources.length > 0 ? null : (
+          <p className={styles.empty}>
+            Add your first dish or jar from <Link href="/seller/listings/new">Listings</Link>, or
+            put today&rsquo;s specials on your <Link href="/seller/menu/new">WhatsApp menu</Link>.
+          </p>
+        )
       ) : (
         <ul className={styles.list}>
           {rows.map((row) => (

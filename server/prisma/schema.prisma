@@ -67,6 +67,9 @@ enum NotificationCategory {
   wallet
   promo
   account
+  /// Meal-subscription lifecycle + dated-menu changes (M37). Transactional
+  /// — defaults follow the non-promo shape (whatsapp/email/inapp on).
+  meals
 }
 
 enum ReferralStatus {
@@ -517,32 +520,10 @@ model User {
   /// Cleared by `POST /auth/password/change`, which also revokes every
   /// other session — including any the admin might hold.
   mustChangePassword Boolean       @default(false)
-  /// The temporary password an admin issued, **in the clear**, so the
-  /// admin panel can keep showing it until its owner replaces it (M32).
-  ///
-  /// **This is a deliberate, bounded exception to "never store a
-  /// password", and it must stay bounded.** It exists because no email or
-  /// SMS provider is configured, so the only working onboarding channel
-  /// is an admin reading credentials out loud — possibly days after
-  /// approval, possibly more than once. A hash cannot be read out.
-  ///
-  /// Three rules keep the exception small, and removing any one of them
-  /// turns this into a plaintext password store:
-  /// 1. **It is only ever a credential its owner has not used yet.** The
-  ///    moment they set their own password it is `null`ed, here and in
-  ///    every other path that writes `passwordHash` (change, reset).
-  /// 2. **It is never the account's only defence.** `mustChangePassword`
-  ///    rides with it, so the value stops working at first sign-in.
-  /// 3. **It never leaves the admin surface.** No public payload, no
-  ///    notification, no audit row.
-  ///
-  /// Retire the whole field once SendGrid/Twilio keys exist: with real
-  /// delivery the invite link is strictly better and nothing needs to be
-  /// legible to a human.
-  tempPassword       String?
-  /// When the credential above was issued — drives "approved but never
-  /// signed in" in the admin queue. Kept after `tempPassword` is cleared
-  /// so the onboarding history survives.
+  /// When a temporary password was last issued (M32, plaintext storage
+  /// removed in M37) — drives "approved but never signed in" in the admin
+  /// queue. The plaintext itself exists only in the HTTP response of the
+  /// issue/approve call; losing it means re-issuing, never re-reading.
   tempPasswordIssuedAt DateTime?
   /// First time this account replaced an issued credential with its own
   /// (M32) — i.e. the moment it really onboarded, as opposed to the
@@ -989,6 +970,8 @@ model CorporateQuoteLine {
 
   @@index([quoteId])
   @@index([vendorId])
+  // M37 perf pass.
+  @@index([productId])
 }
 
 /// The one way in. Everyone who wants to sell fills this in at `/sell`; an
@@ -1077,6 +1060,9 @@ model SellerApplication {
   /// Set when an admin rejects or waitlists, shown back to the applicant.
   decisionNote     String?
   createdAt        DateTime                  @default(now())
+
+  /// M37 — the admin queue's exact read: new applications first, by age.
+  @@index([status, createdAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -1183,6 +1169,9 @@ model RazorpayOrder {
   createdAt       DateTime             @default(now())
 
   @@index([userId])
+  // M37 perf pass.
+  @@index([orderId])
+  @@index([walletId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1228,6 +1217,13 @@ model Vendor {
   /// point to adjust; it is not an answer.
   lat               Float
   lng               Float
+  /// When a person last confirmed `lat`/`lng` is really the kitchen —
+  /// the HomeKrafter's own GPS pin (`PATCH /seller/profile/coords`,
+  /// 2026-08-18) or an admin correction (`PATCH /admin/sellers/:id/coords`).
+  /// NULL means the coordinates are still whatever approval seeded (a
+  /// pincode centroid or curated area point) and nobody has vouched for
+  /// them — which is what the profile completion meter nudges about.
+  pinConfirmedAt    DateTime?
   /// How far this HomeKrafter is willing to deliver. They control it from
   /// their storefront settings.
   deliveryRadiusKm  Int        @default(10)
@@ -1436,6 +1432,8 @@ model VendorFollow {
   createdAt DateTime @default(now())
 
   @@unique([userId, vendorId])
+  // M37 perf pass — `followerCount` recomputes count by `vendorId`.
+  @@index([vendorId])
 }
 
 model Category {
@@ -1498,6 +1496,9 @@ model Collection {
   sortOrder Int     @default(0)
 
   products CollectionProduct[]
+
+  // M37 perf pass.
+  @@index([occasionId])
 }
 
 /// `Collection.productIds` (an ordered id array in the mock) becomes a real
@@ -1513,6 +1514,8 @@ model CollectionProduct {
   sortOrder    Int        @default(0)
 
   @@unique([collectionId, productId])
+  // M37 perf pass — `productId` is not the leading column of the unique above.
+  @@index([productId])
 }
 
 /// `dietary`/`tags` stay native Postgres enum arrays (small, fixed tag
@@ -1656,6 +1659,8 @@ model ProductOccasion {
   occasion   Occasion @relation(fields: [occasionId], references: [id], onDelete: Cascade)
 
   @@unique([productId, occasionId])
+  // M37 perf pass — `occasionId` is not the leading column of the unique above.
+  @@index([occasionId])
 }
 
 model ProductImage {
@@ -1712,6 +1717,11 @@ model CartItem {
   address   Address? @relation(fields: [addressId], references: [id])
 
   @@index([cartId])
+  // M37 perf pass — Postgres does not index FK columns automatically, so
+  // every delete/update on the referenced row was a sequential scan here.
+  @@index([productId])
+  @@index([hamperId])
+  @@index([addressId])
 }
 
 model Wishlist {
@@ -1731,6 +1741,8 @@ model WishlistItem {
   addedAt    DateTime @default(now())
 
   @@unique([wishlistId, productId])
+  // M37 perf pass — `productId` is not the leading column of the unique above.
+  @@index([productId])
 }
 
 model HamperBox {
@@ -1763,6 +1775,8 @@ model Hamper {
   orderItems OrderItem[]
 
   @@index([userId])
+  // M37 perf pass.
+  @@index([boxId])
 }
 
 model HamperItem {
@@ -1772,6 +1786,10 @@ model HamperItem {
   productId String
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int     @default(1)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([hamperId])
+  @@index([productId])
 }
 
 /// `OrderGift` (an embedded object in lib/types) flattens onto Order with a
@@ -1863,6 +1881,9 @@ model OrderItem {
   /// OrderItem end to end, so the seller portal got slower for each kitchen
   /// with every order anyone else placed.
   @@index([productId])
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([addressId])
+  @@index([hamperId])
 }
 
 model OrderShipment {
@@ -1948,6 +1969,9 @@ model LaundryBooking {
 
   @@index([userId])
   @@index([partnerId])
+  // M37 perf pass.
+  @@index([addressId])
+  @@index([subscriptionId])
 }
 
 model LaundryBookingLine {
@@ -1960,6 +1984,10 @@ model LaundryBookingLine {
   itemCount         Int?
   estimatedHours    Decimal?       @db.Decimal(6, 2)
   estimatedPrice    Decimal        @db.Decimal(10, 2)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([bookingId])
+  @@index([serviceId])
 }
 
 model LaundrySubscription {
@@ -1978,6 +2006,9 @@ model LaundrySubscription {
   bookings LaundryBooking[]
 
   @@index([userId])
+  // M37 perf pass.
+  @@index([serviceId])
+  @@index([slotId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2043,6 +2074,10 @@ model SnackListItem {
   name        String
   quantity    Int
   price       Decimal   @db.Decimal(10, 2)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([snackListId])
+  @@index([snackId])
 }
 
 /// M10b seller-side stand-in for a real inbound WhatsApp order — see
@@ -2074,6 +2109,10 @@ model SnackOrderItem {
   name         String
   quantity     Int
   price        Decimal    @db.Decimal(10, 2)
+
+  // M37 perf pass — FK columns Postgres does not index on its own.
+  @@index([snackOrderId])
+  @@index([snackId])
 }
 
 model MealPromo {
@@ -2150,7 +2189,18 @@ model Payout {
   id          String       @id @default(cuid())
   sellerId    String
   seller      Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  /// The payable figure — net of commission when `commissionEnabled` was
+  /// on at request time, gross otherwise. The three columns below say
+  /// which, so every row explains its own arithmetic (M37).
   amount      Decimal      @db.Decimal(12, 2)
+  /// Delivered earnings before any deduction. Null on pre-M37 rows,
+  /// where `amount` was always gross.
+  grossAmount Decimal?     @db.Decimal(12, 2)
+  /// What was actually deducted — 0 when the flag was off, so a row from
+  /// a disabled era never looks like a 0% business decision was applied.
+  commissionAmount Decimal? @db.Decimal(12, 2)
+  /// The rate *applied* (0 when disabled), not the configured rate.
+  commissionPct Decimal?   @db.Decimal(5, 2)
   periodStart DateTime
   periodEnd   DateTime
   status      PayoutStatus @default(pending)
@@ -2315,10 +2365,38 @@ model MealPlan {
   updatedAt DateTime @updatedAt
 
   subscriptions MealSubscription[]
+  dayMenus      MealPlanDayMenu[]
 
   @@index([vendorId])
   @@index([sellerId])
   @@index([mealType, isActive])
+  // M37 perf pass.
+  @@index([productId])
+}
+
+/// One date's actual menu for one plan (M37).
+///
+/// `weeklyMenu` stays the undated rotation a browsing buyer reads; a row
+/// here overrides it for a specific date, which is what lets a subscriber
+/// answer "what arrives tomorrow" and lets the kitchen change one day
+/// without re-marketing the plan. Lock state ("menus close at 20:00 the
+/// evening before") is computed on read from `PlatformSettings.menuLockTime`
+/// via `meals/menu-lock.ts` — never stored, so nothing needs a scheduler.
+model MealPlanDayMenu {
+  id     String   @id @default(cuid())
+  planId String
+  plan   MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  /// The delivery date this menu is for — UTC midnight as a calendar date,
+  /// same convention as `MealDelivery.scheduledFor`.
+  date   DateTime @db.Date
+  /// One dish/line per entry, the shape `weeklyMenu` already uses.
+  lines  String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planId, date])
+  @@index([date])
 }
 
 /// One buyer's prepaid run of meals from one plan.
@@ -2375,6 +2453,8 @@ model MealSubscription {
 
   @@index([userId, status])
   @@index([planId, status])
+  // M37 perf pass.
+  @@index([addressId])
 }
 
 /// One scheduled meal. The kitchen's work queue and the buyer's receipt.

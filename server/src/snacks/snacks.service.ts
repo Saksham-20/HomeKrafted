@@ -38,7 +38,7 @@ export class SnacksService {
       where: {
         isSnack: true,
         isAvailable: true,
-        moderationStatus: 'active',
+        ...PUBLICLY_LISTED,
         ...(terms.length > 0
           ? {
               AND: terms.map((term) => ({

@@ -319,19 +319,3 @@
     grid-template-columns: 1fr;
   }
 }
-
-/*
-  The pickup address on the HomeKrafter's own profile (M36b). Read-only —
-  see the card's comment for why changing it is a support conversation
-  rather than a form field.
-*/
-.pickupAddress {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: var(--hk-s2);
-  font-style: normal;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--hk-ink);
-}

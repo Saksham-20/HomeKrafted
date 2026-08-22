@@ -86,7 +86,14 @@ export interface Review {
   id: ID;
   targetType: ReviewTargetType;
   targetId: ID;
-  userId: ID;
+  /**
+   * Absent from the server's public payload since M37 — a stable account
+   * id on an unauthenticated route let anybody cross-reference every
+   * review one buyer ever wrote. Mock data still sets it; nothing in the
+   * UI reads it (own-review detection uses the owner-scoped
+   * `GET /reviews/mine`).
+   */
+  userId?: ID;
   userName: string;
   rating: 1 | 2 | 3 | 4 | 5;
   title?: string;
@@ -120,7 +127,9 @@ export type NotificationCategory =
   | "snacks"
   | "wallet"
   | "promo"
-  | "account";
+  | "account"
+  /** M37 — meal-subscription lifecycle + dated-menu changes. */
+  | "meals";
 
 export interface Notification {
   id: ID;

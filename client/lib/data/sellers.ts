@@ -32,19 +32,11 @@ export const sellerUser: User = {
  * above. `AuthContext.signInAsSeller(type)` resolves to whichever of the
  * three this/`sellerUser` matches the requested `type`.
  */
-export const laundryPartnerUser: User = {
-  id: "user-seller-laundry-demo",
-  name: "Ravi Kumar",
-  email: "ravi@freshfoldlaundry.example",
-  phone: "+91 98220 11223",
-  avatarPlaceholder: "RAVI — AVATAR",
-  authProviders: ["phone", "email"],
-  createdAt: "2024-02-10",
-  walletId: "wallet-seller-laundry-demo",
-  loyaltyAccountId: "loyalty-seller-laundry-demo",
-  referralCode: "RAVI250",
-  role: "seller",
-};
+// `laundryPartnerUser` (Ravi Kumar, "Fresh Fold Laundry Co.") left in
+// M37 with the withdrawn module's demo sign-in arm — the seed laundry
+// bookings keep their dangling `partnerId: "sl2"` because history rows
+// referencing a retired partner are exactly the legacy case the module's
+// remaining reads exist for.
 
 export const snackSellerUser: User = {
   id: "user-seller-snack-demo",
@@ -78,17 +70,6 @@ export const sellers: Seller[] = [
     displayName: "Anjali's Kitchen",
     status: "approved",
     createdAt: "2023-11-02",
-  },
-  {
-    id: "sl2",
-    userId: laundryPartnerUser.id,
-    specialties: ["laundry", "cleaning"],
-    vendorId: "vd9",
-    displayName: "Fresh Fold Laundry Co.",
-    status: "approved",
-    createdAt: "2024-02-10",
-    rating: 4.7,
-    reviewCount: 214,
   },
   {
     id: "sl3",

@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PayoutStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { ListAdminPayoutsQueryDto } from './dto/list-admin-payouts.query.dto';
 
@@ -21,6 +21,11 @@ function mapAdminPayout(payout: PayoutRow) {
     sellerEmail: payout.seller.user.email ?? undefined,
     sellerPhone: payout.seller.user.phone ?? undefined,
     amount: Number(payout.amount),
+    // M37 — the row's own arithmetic; absent on pre-M37 rows where
+    // `amount` was always gross.
+    grossAmount: payout.grossAmount !== null ? Number(payout.grossAmount) : undefined,
+    commissionAmount: payout.commissionAmount !== null ? Number(payout.commissionAmount) : undefined,
+    commissionPct: payout.commissionPct !== null ? Number(payout.commissionPct) : undefined,
     periodStart: payout.periodStart.toISOString().slice(0, 10),
     periodEnd: payout.periodEnd.toISOString().slice(0, 10),
     status: payout.status,
@@ -60,7 +65,7 @@ export class AdminPayoutsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationsDeliveryService,
   ) {}
 
   /**
@@ -223,18 +228,26 @@ export class AdminPayoutsService {
     return payout;
   }
 
-  /** `NotificationsService.notify` already swallows its own failures — a settlement that happened out of band must not be undone by an inbox write. */
+  /**
+   * Multi-channel per the account's preferences (M37 — "your payout is
+   * on its way" used to be in-app only, which for money on the move is
+   * the one message most worth an SMS). Failures are swallowed: a
+   * settlement that happened out of band must not be undone by a
+   * message.
+   */
   private async notify(userId: string, title: string, body: string, payoutId: string): Promise<void> {
-    await this.notifications.notify({
-      userId,
-      category: 'wallet',
-      title,
-      body,
-      // `Notification.refType` is a free-form string (unlike
-      // `WalletTransaction.refType`'s enum), so this can name what it
-      // actually points at.
-      refType: 'payout',
-      refId: payoutId,
-    });
+    await this.notifications
+      .deliver({
+        userId,
+        category: 'wallet',
+        title,
+        body,
+        // `Notification.refType` is a free-form string (unlike
+        // `WalletTransaction.refType`'s enum), so this can name what it
+        // actually points at.
+        refType: 'payout',
+        refId: payoutId,
+      })
+      .catch(() => undefined);
   }
 }

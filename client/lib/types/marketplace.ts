@@ -196,6 +196,19 @@ export interface OwnVendorProfile extends VendorProfile {
   completion: VendorProfileCompletion;
   /** Never rendered on a buyer-facing surface — see `PickupAddress`. */
   pickup?: PickupAddress;
+  /**
+   * Where the platform currently believes the kitchen is — the exact
+   * coordinates behind delivery-distance filtering, correctable via
+   * `PATCH /seller/profile/coords`. Own-view only, same rule as
+   * `pickup`: the public payload carries a ~1.1 km rounded point (M36).
+   */
+  pin?: {
+    lat: number;
+    lng: number;
+    pincode?: string;
+    /** When a person last vouched for the pin — the kitchen's own GPS fix or an admin correction. Absent = still the approval seed. */
+    confirmedAt?: ISODateString;
+  };
 }
 
 /** What the admin verification panel reads — the seller's own view plus who it belongs to. */
@@ -636,4 +649,39 @@ export interface Order {
   /** When the HomeKrafter marked it delivered — what the 7-day return window counts from. */
   deliveredAt?: ISODateString;
   paymentMethod: PaymentMethod;
+}
+
+/**
+ * An order as the *seller* portal sees it (M37) — the projection
+ * `GET /seller/orders*` returns instead of the buyer's `Order`.
+ *
+ * A participant in a multi-vendor order gets their own line items and
+ * destinations, the gift text they may have to write, and the payment
+ * method. They never get the other kitchens' items, the buyer's `userId`,
+ * or the whole-order money — `itemsSubtotal` is their own lines only,
+ * which is also the figure payouts are computed from.
+ */
+export interface SellerOrder {
+  id: ID;
+  orderNumber: string;
+  status: OrderStatus;
+  /** This seller's own line items only. */
+  items: OrderItem[];
+  /** Σ price×quantity over `items` — this seller's share, not the order total. */
+  itemsSubtotal: number;
+  /** Distinct address ids across this seller's own items. */
+  shippingAddressIds: ID[];
+  shipments: OrderShipment[];
+  gift?: OrderGift;
+  placedAt: ISODateString;
+  cancelledAt?: ISODateString;
+  deliveredAt?: ISODateString;
+  paymentMethod: PaymentMethod;
+  /**
+   * Another kitchen's items share this order. When true, `shipped` and
+   * `delivered` are recorded by the Homekrafted team (admin override),
+   * not from the portal — the UI explains instead of offering a button
+   * that 403s.
+   */
+  multiVendor: boolean;
 }

@@ -540,21 +540,22 @@ export class OrdersService {
    * `order-history.util.ts`'s doc comment on `toLaundryHistoryEntry`).
    */
   async history(userId: string) {
+    // Capped, not paged (M37): the account screen shows a scrolling list
+    // and 100 per stream is far past what anyone scrolls; a pager here
+    // would cost a UI nobody asked for. Documented in docs/API.md.
     const [orders, bookings] = await Promise.all([
-      this.prisma.order.findMany({ where: { userId }, include: ORDER_INCLUDE, orderBy: { placedAt: 'desc' } }),
+      this.prisma.order.findMany({
+        where: { userId },
+        include: ORDER_INCLUDE,
+        orderBy: { placedAt: 'desc' },
+        take: 100,
+      }),
       this.laundryService.listBookingsForHistory(userId),
     ]);
 
-    const serviceIds = [...new Set(bookings.flatMap((b) => b.lines.map((l) => l.serviceId)))];
-    const services = serviceIds.length
-      ? await this.prisma.laundryService.findMany({ where: { id: { in: serviceIds } } })
-      : [];
-    const serviceNameById = new Map(services.map((s) => [s.id, s.name]));
-
     const orderEntries = orders.map((order) => toOrderHistoryEntry(order, mapOrder(order)));
-    const bookingEntries = bookings.map((booking) =>
-      toLaundryHistoryEntry(booking, serviceNameById.get(booking.lines[0]?.serviceId ?? '')),
-    );
+    // Service names ride on the rows themselves since M37 (`BOOKING_INCLUDE`).
+    const bookingEntries = bookings.map(toLaundryHistoryEntry);
 
     return [...orderEntries, ...bookingEntries].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),

@@ -14,7 +14,7 @@
  */
 
 import type { LaundryBooking, LaundryBookingStatus, Order, OrderStatus } from "@/lib/types";
-import { laundryServices, seedLaundryBookings, seedOrders } from "@/lib/data";
+import { seedOrders } from "@/lib/data";
 import { ORDER_STAGE_LABEL } from "@/lib/kitchen-copy";
 import { isMockMode } from "./http";
 import { getPlacedOrders } from "./orders";
@@ -167,8 +167,6 @@ function toOrderEntry(order: Order): OrderHistoryEntry {
 }
 
 function toBookingEntry(booking: LaundryBooking): OrderHistoryEntry {
-  const line = booking.lines[0];
-  const service = laundryServices.find((s) => s.id === line?.serviceId);
   return {
     id: booking.id,
     kind: "laundry",
@@ -177,7 +175,9 @@ function toBookingEntry(booking: LaundryBooking): OrderHistoryEntry {
     statusLabel: LAUNDRY_STATUS_LABEL[booking.status],
     steps: getLaundryStatusSteps(booking.status),
     total: booking.estimatedTotal,
-    summary: service?.name ?? "Laundry service",
+    // Denormalised onto the row (M37) — both the server payload and the
+    // mock seeds carry it, so no catalogue lookup here.
+    summary: booking.lines[0]?.serviceName ?? "Laundry service",
     cancelled: booking.status === "cancelled",
     booking,
   };
@@ -194,12 +194,14 @@ function toBookingEntry(booking: LaundryBooking): OrderHistoryEntry {
  * `seedLaundryBookings` mock arrays here would double them up.
  */
 export async function getOrderHistory(): Promise<OrderHistoryEntry[]> {
+  // `getPlacedBookings` covers the laundry seeds itself in mock mode
+  // since M37 (nothing can place a *new* booking any more), so only the
+  // orders half still concatenates a seed array here.
   const [liveOrders, liveBookings] = await Promise.all([getPlacedOrders(), getPlacedBookings()]);
   const entries: OrderHistoryEntry[] = isMockMode()
     ? [
         ...seedOrders.map(toOrderEntry),
         ...liveOrders.map(toOrderEntry),
-        ...seedLaundryBookings.map(toBookingEntry),
         ...liveBookings.map(toBookingEntry),
       ]
     : [...liveOrders.map(toOrderEntry), ...liveBookings.map(toBookingEntry)];

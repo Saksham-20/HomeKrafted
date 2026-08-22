@@ -87,11 +87,29 @@ describe('admin payouts', () => {
       expect(await h.prisma.walletTransaction.count()).toBe(walletRows);
     });
 
-    it('tells the HomeKrafter', async () => {
-      // The row is the only thing that tells them the transfer happened.
+    it('tells the HomeKrafter, on every default transactional channel (M37)', async () => {
+      // "Your payout is on its way" was in-app only until M37 — an inbox
+      // behind a login, for money on the move. It now goes through
+      // `deliver()`, which writes one row per channel the account's
+      // preferences enable (whatsapp + email + inapp by default;
+      // providers degrade to logged stubs without keys, the row is still
+      // the record of the attempt).
       const payout = await pendingPayout();
+      // WhatsApp needs a number on file — give the kitchen one, as any
+      // real account has (`sendOnChannel` skips a channel with no
+      // contact rather than failing it).
+      const seller = await h.prisma.seller.findUniqueOrThrow({ where: { id: sellerId } });
+      await h.prisma.user.update({
+        where: { id: seller.userId },
+        data: { phone: '+919845000111' },
+      });
+
       await pay(admin, payout.id, { reference: 'UTR1' }).expect(201);
-      expect(await h.prisma.notification.count()).toBeGreaterThan(0);
+
+      const rows = await h.prisma.notification.findMany({ where: { category: 'wallet' } });
+      expect(rows.length).toBeGreaterThan(0);
+      const channels = new Set(rows.map((r) => r.channel));
+      expect(channels).toEqual(new Set(['whatsapp', 'email', 'inapp']));
     });
   });
 

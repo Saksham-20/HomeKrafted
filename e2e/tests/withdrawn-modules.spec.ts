@@ -76,4 +76,22 @@ test.describe('a withdrawn module is not advertised to somebody who never used i
     const response = await page.goto('/laundry');
     expect(response?.status()).toBe(404);
   });
+
+  test('the support bot no longer offers laundry, but still answers about it honestly (M37)', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/support');
+
+    const main = page.locator('main');
+
+    // The greeting is the offer — it must not list a withdrawn service.
+    await expect(main).not.toContainText(/laundry pickup/i);
+
+    // But the keyword still answers, because somebody with an old booking
+    // will ask, and the honest reply is the withdrawal — not silence and
+    // not instructions for using a module that no longer exists.
+    const input = main.getByLabel('Type a message to support');
+    await input.fill('Where is my laundry pickup?');
+    await input.press('Enter');
+    await expect(main.getByText(/no longer offered/i)).toBeVisible({ timeout: 10_000 });
+  });
 });

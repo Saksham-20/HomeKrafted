@@ -2,6 +2,8 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import { Prisma, Seller } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
+import { AdminSettingsService } from '../admin/settings.service';
+import { computePayoutSplit } from './payout-split';
 import { mapPayout } from './mappers/payout.mapper';
 
 /**
@@ -20,21 +22,37 @@ export class SellerPayoutsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly idempotency: IdempotencyService,
+    private readonly settings: AdminSettingsService,
   ) {}
 
   async list(seller: Seller) {
-    const [rows, pendingBalance] = await Promise.all([
+    const [rows, grossPending, settings] = await Promise.all([
       this.prisma.payout.findMany({ where: { sellerId: seller.id }, orderBy: { periodEnd: 'desc' } }),
-      this.getPendingBalance(seller),
+      this.grossPending(seller),
+      this.settings.get(),
     ]);
 
     const totalPaid = rows.filter((p) => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0);
     const totalRequestedPending = rows.filter((p) => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0);
 
+    // What a payout request would actually pay right now, and its
+    // arithmetic (M37). While `commissionEnabled` is off the split is an
+    // *estimate at the configured rate* and `netPending === grossPending`;
+    // the client says which — this is the transparency /terms promised.
+    const split = computePayoutSplit(grossPending, settings.commissionPct, settings.commissionEnabled);
+    const estimate = computePayoutSplit(grossPending, settings.commissionPct, true);
+
     return {
       items: rows.map(mapPayout),
       summary: { totalPaid, totalPending: totalRequestedPending, lifetimeEarned: totalPaid + totalRequestedPending },
-      pendingBalance,
+      pendingBalance: split.amount,
+      commission: {
+        enabled: settings.commissionEnabled,
+        pct: settings.commissionPct,
+        grossPending: split.grossAmount,
+        commissionOnPending: settings.commissionEnabled ? split.commissionAmount : estimate.commissionAmount,
+        netPending: settings.commissionEnabled ? split.amount : estimate.amount,
+      },
     };
   }
 
@@ -65,16 +83,24 @@ export class SellerPayoutsService {
         throw new ConflictException('A payout request is already pending for this account');
       }
 
-      const [earnings, alreadyRequested, latestPayout] = await Promise.all([
+      const [earnings, alreadyRequestedGross, latestPayout, settings] = await Promise.all([
         this.computeDeliveredEarningsTx(tx, seller),
-        tx.payout.aggregate({ where: { sellerId: seller.id }, _sum: { amount: true } }),
+        this.sumRequestedGrossTx(tx, seller.id),
         tx.payout.findFirst({ where: { sellerId: seller.id }, orderBy: { periodEnd: 'desc' } }),
+        this.settings.get(),
       ]);
 
-      const pendingBalance = Math.max(0, Math.round((earnings - Number(alreadyRequested._sum.amount ?? 0)) * 100) / 100);
-      if (pendingBalance <= 0) {
+      const grossPending = Math.max(0, Math.round((earnings - alreadyRequestedGross) * 100) / 100);
+      if (grossPending <= 0) {
         throw new BadRequestException('No pending earnings to request a payout for');
       }
+
+      // The split is computed once, here, and stored on the row (M37):
+      // `amount` stays the payable figure, and the three columns beside
+      // it say what was deducted at what rate — so a payout from a
+      // disabled era reads gross/0/0 rather than looking like a 0% rate
+      // was ever decided.
+      const split = computePayoutSplit(grossPending, settings.commissionPct, settings.commissionEnabled);
 
       const periodStart = latestPayout ? new Date(latestPayout.periodEnd.getTime() + 24 * 60 * 60 * 1000) : seller.createdAt;
       const periodEnd = new Date();
@@ -82,7 +108,10 @@ export class SellerPayoutsService {
       const payout = await tx.payout.create({
         data: {
           sellerId: seller.id,
-          amount: pendingBalance,
+          amount: split.amount,
+          grossAmount: split.grossAmount,
+          commissionAmount: split.commissionAmount,
+          commissionPct: split.commissionPct,
           periodStart,
           periodEnd,
           status: 'pending',
@@ -92,13 +121,37 @@ export class SellerPayoutsService {
     });
   }
 
-  /** Non-tx read used by the dashboard + `GET /seller/payouts` — "how much would a payout request pay out right now". */
+  /** Non-tx read used by the dashboard + `GET /seller/payouts` — what a payout request would actually pay right now (net when commission is enabled). */
   async getPendingBalance(seller: Seller): Promise<number> {
-    const [earnings, alreadyRequested] = await Promise.all([
+    const [grossPending, settings] = await Promise.all([this.grossPending(seller), this.settings.get()]);
+    return computePayoutSplit(grossPending, settings.commissionPct, settings.commissionEnabled).amount;
+  }
+
+  /** Delivered earnings not yet claimed by any payout row, in gross terms. */
+  private async grossPending(seller: Seller): Promise<number> {
+    const [earnings, alreadyRequestedGross] = await Promise.all([
       this.computeDeliveredEarnings(seller),
-      this.prisma.payout.aggregate({ where: { sellerId: seller.id }, _sum: { amount: true } }),
+      this.sumRequestedGrossTx(this.prisma, seller.id),
     ]);
-    return Math.max(0, Math.round((earnings - Number(alreadyRequested._sum.amount ?? 0)) * 100) / 100);
+    return Math.max(0, Math.round((earnings - alreadyRequestedGross) * 100) / 100);
+  }
+
+  /**
+   * Σ of what previous payouts *claimed from gross earnings* — which is
+   * `grossAmount` on M37+ rows and `amount` on older rows, where amount
+   * was always gross. Comparing net `amount`s against gross earnings
+   * would double-count the deducted commission the moment the flag turns
+   * on, and re-offer it as payable.
+   */
+  private async sumRequestedGrossTx(
+    tx: Prisma.TransactionClient | PrismaService,
+    sellerId: string,
+  ): Promise<number> {
+    const rows = await tx.$queryRaw<{ total: number | null }[]>`
+      SELECT SUM(COALESCE("grossAmount", "amount"))::float8 AS total
+      FROM "Payout" WHERE "sellerId" = ${sellerId}
+    `;
+    return rows[0]?.total ?? 0;
   }
 
   private async computeDeliveredEarnings(seller: Seller): Promise<number> {

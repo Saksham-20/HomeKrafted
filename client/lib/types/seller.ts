@@ -37,6 +37,14 @@ export interface Seller {
   rating?: number;
   reviewCount?: number;
   /**
+   * The platform's take rate as it applies to this HomeKrafter (M37) —
+   * from `GET /seller/me`, so no screen ever hardcodes a percentage.
+   * While `enabled` is false nothing is deducted and every figure
+   * derived from `pct` is an estimate; the screens say which. Optional
+   * because the mock lookups and admin list rows don't carry it.
+   */
+  commission?: SellerCommission;
+  /**
    * Where this HomeKrafter is between "approved" and "actually using the
    * site", plus the credentials to get them there (M32).
    *
@@ -44,6 +52,12 @@ export interface Seller {
    * the buyer side ever sees it.
    */
   signIn?: SellerSignInState;
+}
+
+/** The platform's take rate + whether it is actually deducted (M37). */
+export interface SellerCommission {
+  pct: number;
+  enabled: boolean;
 }
 
 /** The onboarding half of a HomeKrafter's record, as the admin panel reads it (M32). */
@@ -59,11 +73,11 @@ export interface SellerSignInState {
   /** What they type in the one sign-in box: their email, or their number if that is all we have. */
   username: string | null;
   /**
-   * Present **only** while it is still the account's real password. The
-   * server nulls it the moment its owner chooses their own, so this going
-   * away is the signal that they have arrived — never a stale secret.
+   * No password rides here (M37). The plaintext exists only in the
+   * response of the issue/approve call itself — the row can say a
+   * credential was issued and when, never what it was. Lost means
+   * re-issued.
    */
-  temporaryPassword: string | null;
   issuedAt?: ISODateString | null;
   claimedAt?: ISODateString | null;
 }
@@ -90,6 +104,15 @@ export interface Payout {
   periodStart: ISODateString;
   periodEnd: ISODateString;
   status: PayoutStatus;
+  /**
+   * The row's own arithmetic (M37): what the period earned, what was
+   * deducted, and at what rate — `amount` stays the payable figure.
+   * Absent on pre-M37 rows, where `amount` was always gross; the UI must
+   * not invent a split for those.
+   */
+  grossAmount?: number;
+  commissionAmount?: number;
+  commissionPct?: number;
   paidAt?: ISODateString;
   /**
    * The bank/UPI reference the transfer moved under. Settlement happens

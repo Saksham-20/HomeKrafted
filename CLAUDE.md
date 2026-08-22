@@ -39,37 +39,38 @@ accounts).
   idea" isn't already a ranked item there.
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
-## Standing blockers (true as of 2026-08-06)
+## Standing blockers (true as of 2026-08-15)
 
-**Social sign-in is an account takeover, and it is deliberate for now.**
-`POST /auth/social/:provider` never verifies a Google/Apple id-token — it
-trusts a posted `email` and issues a session for whatever account matches,
-admin included. Confirmed against a running server during the 2026-08-06
-audit. The owner chose to **keep the endpoint and the buttons and add
-verification before launch**, on the grounds that there are no real
-accounts yet. Don't quietly delete it in a later session — that decision
-was already made the other way — and don't treat it as backlog: it is a
-hard launch gate in `docs/LAUNCH-READINESS.md` §0.4, and closing it needs
-a Google OAuth client ID and an Apple service ID that nobody has yet.
+**Social sign-in is verified since M27; the remaining gap is config.**
+`POST /auth/social/:provider` requires a real Google/Apple **id-token**,
+checked by `server/src/auth/social-token-verifier.ts` (jose + JWKS,
+issuer + audience allowlist, nonce, bounded age) — the pre-M27 "trusts a
+posted email" takeover is closed and pinned by tests. What's left is
+that **no Google OAuth client ID or Apple service ID is configured**:
+with the env unset the verifier registers no provider and the endpoint
+refuses every token, so the buttons can't work until someone creates
+those IDs (`docs/LAUNCH-READINESS.md` §0.4). Don't "fix" a failing
+social login by weakening the verifier — set the IDs.
 
-**The other three are not code.** The build is feature-complete against
+**These are not code.** The build is feature-complete against
 every approved plan and deployed; these are what still stand between it
 and real customers, and each is the kind of thing a session will otherwise
 assume is already handled.
 
-- **An approved HomeKrafter can now be onboarded by hand (M32), and the
-  provider keys are still the real fix.** Approval issues a username and
-  a short temporary password, shown on the admin row under **Sign-in
-  details** until it is used, so an operator can read them down a phone.
-  It is force-rotated at first sign-in (`User.mustChangePassword`,
-  enforced in `JwtAuthGuard`), cleared from the database the moment its
-  owner chooses their own, and never written to an audit row. **This
-  reverses the M21 rule that an admin must never set a HomeKrafter's
-  password** — that rule assumed the invite arrives, and it does not.
-  `User.tempPassword` holds a plaintext credential until claimed;
-  read its doc comment before touching it, and retire the whole
-  mechanism once SendGrid/Twilio are set. The M21 machinery below still
-  exists and still runs alongside it.
+- **An approved HomeKrafter can now be onboarded by hand (M32; show-once
+  since M37), and the provider keys are still the real fix.** Approval
+  issues a username and a short temporary password, returned **once** in
+  the approve/issue response so an operator can read them down a phone —
+  **nothing stores the plaintext** (M37 dropped `User.tempPassword`; only
+  the argon2 hash exists). A lost password is re-issued from the row
+  ("Issued ‹date›, not yet used → Re-issue"), which rotates the hash and
+  revokes sessions — never re-read. It is force-rotated at first sign-in
+  (`User.mustChangePassword`, enforced in `JwtAuthGuard`) and never
+  written to an audit row. **This reverses the M21 rule that an admin
+  must never set a HomeKrafter's password** — that rule assumed the
+  invite arrives, and it does not. Retire the whole mechanism once
+  SendGrid/Twilio are set. The M21 machinery below still exists and still
+  runs alongside it.
 - **The invite link half (M21).** Approval now mints a single-use,
   7-day set-password link and sends it by **email and SMS**
   (`SellerInviteService`), so phone OTP is no longer the only door. What
@@ -79,12 +80,21 @@ assume is already handled.
   over by hand. `POST /admin/sellers/:id/resend-invite` re-sends and burns
   the previous link. Until the keys are set, **this still caps supply
   growth**; it is now one afternoon of config and nothing else.
-- **The platform collects nothing.** `commissionPct` (default 10) exists
-  only as a modelled number on the admin analytics screen; nothing deducts
-  it, and `Payout.amount` is gross. Deliberate — a take rate is a business
-  decision, not a bug fix — so don't "fix" it in passing. Both the
-  `/admin/payouts` queue and `docs/LAUNCH-READINESS.md` §3b say so out
-  loud; keep it that way until someone decides.
+- **The commission engine exists; the switch is off (M37).**
+  `commissionEnabled` (PlatformSettings, default **false**, strict
+  `'true'` parse) decides whether a payout request deducts
+  `commissionPct`. The split is computed once at request time
+  (`server/src/seller/payout-split.ts`) and **stored on the row** —
+  `amount` stays the payable figure; `grossAmount`/`commissionAmount`/
+  `commissionPct` are its arithmetic, absent on pre-M37 rows where
+  `amount` was always gross. Pending balances subtract
+  `COALESCE(grossAmount, amount)` so flipping the flag never
+  double-counts. The rate rides on `GET /seller/me` (`commission:
+  { pct, enabled }`) — the listing form and payout screen compute from
+  it, **never a hardcoded percentage** — and every surface says
+  "estimate" while the flag is off. Flipping it is a business decision
+  (audited, on `/admin/settings`), not a bug fix — don't turn it on in
+  passing, and don't recalculate a payout already requested.
 - **The "Backed by" strip is unverified, and now carries the
   logos.** CUNA, ISB AIC and CGC-J VentureNest — `backedBy` in
   `lib/data/site.ts`, rendered by `components/about/AboutClient.tsx`
@@ -389,7 +399,7 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 | Marketplace | yes | full web checkout | yes | status only (no map/rider) |
 | Snacks | yes (menu) | **no** — WhatsApp only (`wa.me`), no cart/checkout on site | yes | WhatsApp status text |
 | Full meals | **no** — promo only, no menu/cart | app-only | yes (interest only) | app-only |
-| ~~Laundry~~ | **withdrawn (M19)** — `enabled: false`, `/laundry` 404s, `POST /laundry/bookings` and `/subscriptions` return 410 | | | |
+| ~~Laundry~~ | **withdrawn (M19; browse gone M37)** — `enabled: false`, `/laundry` 404s, the create routes return 410, and the four public browse reads are deleted. Owner reads + subscription change/cancel stay; booking payloads carry their own `serviceName`/slot labels so no screen needs the withdrawn catalogue | | | |
 
 `hasPreOrderOnWeb` is deliberately separate from `hasCheckoutOnWeb`:
 scheduling is information, not a transaction. Snacks/meals carry the
@@ -450,6 +460,21 @@ to undo by accident:
   or a start date, so a Server Component can compute a window once and ship
   it as text (the M12 React #418 lesson). `bracketStart` is a label
   (`"12:30"` = 12:30–13:00), not an instant.
+- **Dated menus (M37): `MealPlanDayMenu` is the promise, `weeklyMenu` the
+  rotation.** A date's menu — and the buyer's skip of it — locks at
+  `PlatformSettings.menuLockTime` IST **the evening before**
+  (`meals/menu-lock.ts`, pure, takes `now`; lock state is computed on
+  read, never stored, no scheduler). Past the lock only the audited admin
+  override (`PUT /admin/catalog/meal-plans/:id/menus/:date`) may change
+  it, and it still notifies — the lock stops *silent* changes, not being
+  told. A *change* to a set date messages the subscribers scheduled for
+  it (`meals` category); a first-time set messages nobody. A 7-line
+  `weeklyMenu` reads Monday→Sunday as the per-date fallback; any other
+  count opts out — never invent weekday anchoring the data doesn't have.
+  A pause leaves locked rows `scheduled` (the kitchen already planned
+  them; they arrive). A blackout added after subscribe now cascades:
+  affected deliveries go `unavailable` with the reason, the meal moves to
+  the end of the cycle (owed, not lost), and the subscriber is told.
 - **Absence is not closure**, carried over from M16: no stated
   `workingDays` means open every day, and no `prepTimeMins` means the
   90-minute default, never zero.
@@ -487,8 +512,21 @@ and every valid Indian pincode is approvable.
   buyers can see a kitchen at all, so a 12 km error hides a real storefront
   from its own neighbourhood. Approval seeds it and flags
   `placement` when it is approximate; an admin corrects it via
-  `PATCH /admin/sellers/:id/coords`. `spreadKm` is the honesty field —
-  ask it rather than assuming.
+  `PATCH /admin/sellers/:id/coords`, **and since 2026-08-18 the kitchen
+  can pin itself** — `PATCH /seller/profile/coords` takes a GPS fix from
+  the person standing in the kitchen (a "Use my current location" button
+  on `/seller/profile`). That reverses M36's "no seller-facing coords
+  write" on the owner's decision; what it protected stays closed by
+  three guardrails: the pin must land inside the kitchen's own pincode
+  (centroid + `spreadKm` + 10 km; pre-M36 rows: 25 km of the curated
+  area, anchored to the *stated* place so moves can't accumulate), it
+  clears `addressVerified` (the M36c rule — admin re-verifies), and it
+  is audited (`vendor.set_coords_self`). `Vendor.pinConfirmedAt` records
+  that a person (kitchen or admin) vouched for the pin; NULL means
+  "still the approval seed", and the profile completion meter names that
+  as a gap. Buyers are untouched either way — `mapVendor` rounds every
+  public payload to ~1.1 km whoever set the pin. `spreadKm` is the
+  honesty field — ask it rather than assuming.
 - **`servicedPincodePrefixes` gates buyers, never supply.** It selects
   **copy, not visibility** (the "location is never a gate" rule above still
   holds — an empty page can't be told apart from a broken site, by the
@@ -529,6 +567,23 @@ and every valid Indian pincode is approvable.
   `PublicVendorProfile`. This is the same exposure M25's EXIF strip
   exists to prevent, except typed in directly rather than hidden in a
   photo.
+- **An address is also a pair of coordinates, so `mapVendor` rounds them
+  (M36).** Withholding the address columns is only half the promise: the
+  public vendor payload carries `lat`/`lng`, and at four decimals that is
+  the front door to ~11 m. It was harmless while every vendor sat on one
+  of 21 curated *area* centroids; M36 seeds the column from a pincode and
+  adds `PATCH /admin/sellers/:id/coords`, whose approval banner tells the
+  operator to "set the exact spot" — so the leak arrives the first time an
+  admin does what the product asks. `mapVendor` now rounds to
+  `PUBLIC_COORD_DP` (2dp, ~1.1 km — the granularity of "Sector 35,
+  Chandigarh") **by default**, and the exact pin needs an explicit
+  `{ preciseLocation: true }`. Two callers pass it: the admin approve
+  response (which has to correct the pin) and `/seller/storefront` (a
+  HomeKrafter reading their own record). **The default is the safe one on
+  purpose** — a new call site added by somebody who never read this gets
+  the rounded value. The column keeps full precision; distance filtering
+  runs server-side against it, and nothing on the client computes a
+  distance from the response.
 - **Nothing is backfilled.** Pre-M36 rows keep their `area` and approve
   exactly as before; their `pincode` is NULL, which correctly reads as
   "they signed up before we asked". Guessing a pincode from a curated area
@@ -995,16 +1050,18 @@ All three shipped, were reviewed, and were manually tested. None of them
 had a test, and none was visible from reading the happy path.
 
 - **An approved HomeKrafter's password is issued *to* them, and dies on
-  first use (M32 — this reverses the rule below).** Approval mints the
-  account (`authProviders: ['phone']`) **and** a temporary password, shown
-  in the admin panel until claimed, because no provider key is set and
-  the invite link reaches nobody. The old rule — "an admin never sets a
-  credential, and must never be able to" — was protecting a principle by
-  leaving every real kitchen with an account and no door. What preserves
-  its substance: `mustChangePassword` is enforced in `JwtAuthGuard` (403
+  first use (M32 — this reverses the rule below; show-once since M37).**
+  Approval mints the account (`authProviders: ['phone']`) **and** a
+  temporary password, returned once in the approve/issue response and
+  stored only as a hash, because no provider key is set and the invite
+  link reaches nobody. The old rule — "an admin never sets a credential,
+  and must never be able to" — was protecting a principle by leaving
+  every real kitchen with an account and no door. What preserves its
+  substance: `mustChangePassword` is enforced in `JwtAuthGuard` (403
   `PASSWORD_CHANGE_REQUIRED` on every route but the change screen), the
-  plaintext is deleted the moment its owner picks their own, and the act
-  is audited. **Restore the original rule once SendGrid/Twilio exist.**
+  plaintext is never stored (a lost one is re-issued, not re-read), and
+  the act is audited. **Restore the original rule once SendGrid/Twilio
+  exist.**
 
   **Onboarding state is three-valued, and `mustChangePassword` alone
   cannot express it.** That flag is `false` both for a kitchen that

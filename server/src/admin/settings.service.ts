@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAuditLogService } from './audit-log.service';
+import { parseTimeLabel } from '../meals/meal-brackets';
+import { DEFAULT_MENU_LOCK_TIME } from '../meals/menu-lock';
 
 /**
  * The settings this platform actually has (M16, M5).
@@ -12,12 +14,22 @@ import { AdminAuditLogService } from './audit-log.service';
  */
 export interface PlatformSettings {
   /**
-   * Homekrafted's take rate, as a percentage. **Modelling only today** —
-   * `Payout` amounts are gross and settlement happens by hand, so nothing
-   * deducts this. It drives the commission line on admin analytics and
-   * the estimate on the payout queue, both of which say so.
+   * Homekrafted's take rate, as a percentage. Deducted from payouts
+   * **only while `commissionEnabled` is on** (M37); while off it drives
+   * the modelled commission line on admin analytics and the estimates a
+   * HomeKrafter sees on their payout screen and listing form — all of
+   * which say which mode they are in.
    */
   commissionPct: number;
+  /**
+   * Whether payouts actually deduct `commissionPct` (M37). **Defaults to
+   * off, and flipping it is a business decision, not a code change** —
+   * the engine exists so the numbers are visible and honest everywhere
+   * before anybody commits to a rate. While off, every payout row stores
+   * gross with an applied rate of 0, and every surface says the figures
+   * are estimates.
+   */
+  commissionEnabled: boolean;
   /**
    * Delivery radius given to a new HomeKrafter whose application didn't
    * state one. Read by `AdminSellersService.approveApplication`.
@@ -49,6 +61,14 @@ export interface PlatformSettings {
    * catalogue, never hide it.
    */
   servicedPincodePrefixes: string;
+  /**
+   * When a delivery date's menu (and a buyer's skip of it) closes: this
+   * time IST **the evening before** (M37). Read by
+   * `meals/menu-lock.ts`'s callers — the seller day-menu editor, buyer
+   * skip/pause, and the admin override screen. `"20:00"` means a Tuesday
+   * delivery locks Monday 8pm.
+   */
+  menuLockTime: string;
 }
 
 /**
@@ -70,9 +90,11 @@ export type PublicPlatformSettings = Pick<
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionPct: 10,
+  commissionEnabled: false,
   defaultDeliveryRadiusKm: 10,
   /** The Chandigarh tricity: Chandigarh, Mohali, Kharar, Zirakpur, Panchkula, Ambala. */
   servicedPincodePrefixes: '160,1401,1403,1341,1346',
+  menuLockTime: DEFAULT_MENU_LOCK_TIME,
 };
 
 @Injectable()
@@ -93,12 +115,17 @@ export class AdminSettingsService {
 
     return {
       commissionPct: numberOr(byKey.get('commissionPct'), DEFAULT_SETTINGS.commissionPct),
+      // Strict equality with the stored string: anything that is not the
+      // literal 'true' — a stale row, a typo, a half-written value —
+      // reads as off, which is the direction that fails safe for money.
+      commissionEnabled: byKey.get('commissionEnabled') === 'true',
       defaultDeliveryRadiusKm: numberOr(
         byKey.get('defaultDeliveryRadiusKm'),
         DEFAULT_SETTINGS.defaultDeliveryRadiusKm,
       ),
       servicedPincodePrefixes:
         byKey.get('servicedPincodePrefixes') ?? DEFAULT_SETTINGS.servicedPincodePrefixes,
+      menuLockTime: byKey.get('menuLockTime') ?? DEFAULT_SETTINGS.menuLockTime,
     };
   }
 
@@ -170,6 +197,11 @@ export class AdminSettingsService {
         );
       }
       patch = { ...patch, servicedPincodePrefixes: entries.join(',') };
+    }
+    if (patch.menuLockTime !== undefined) {
+      if (parseTimeLabel(patch.menuLockTime) === null) {
+        throw new BadRequestException('Menu lock must be a 24-hour time like 20:00');
+      }
     }
 
     const writes = Object.entries(patch)

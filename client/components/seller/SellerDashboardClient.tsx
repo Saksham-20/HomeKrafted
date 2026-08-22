@@ -121,6 +121,26 @@ export function SellerDashboardClient() {
         subtitle="Here's how things are going today."
       />
 
+      {/* Today's work, before today's numbers (M37): the two counts a
+          cook opens the portal for in the morning, each linking to the
+          screen that clears it. Rendered only when non-zero. */}
+      {((s?.mealsTodayCount ?? 0) > 0 || (s?.ordersAwaitingCount ?? 0) > 0) && (
+        <div className={styles.pendingStrip}>
+          {(s?.mealsTodayCount ?? 0) > 0 && (
+            <Link href="/seller/meal-plans/deliveries" className={styles.pendingLink}>
+              <strong>{s?.mealsTodayCount}</strong> meal
+              {s?.mealsTodayCount === 1 ? "" : "s"} to cook today
+            </Link>
+          )}
+          {(s?.ordersAwaitingCount ?? 0) > 0 && (
+            <Link href="/seller/orders" className={styles.pendingLink}>
+              <strong>{s?.ordersAwaitingCount}</strong> order
+              {s?.ordersAwaitingCount === 1 ? "" : "s"} waiting to be confirmed
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className={styles.stats}>
         <StatCard label="Today's orders" value={String(s?.todayOrdersCount ?? 0)} />
         <StatCard label="Today's revenue" value={formatCurrency(s?.todayRevenue ?? 0)} />
@@ -131,6 +151,16 @@ export function SellerDashboardClient() {
         />
         <StatCard label="Pending payout" value={formatCurrency(s?.pendingPayoutAmount ?? 0)} />
       </div>
+
+      {/* The kitchen's own stated ceiling, shown against today's load so
+          "am I overbooked" is answerable at a glance (M37). Only when the
+          profile actually states one. */}
+      {(s?.capacityPerDay ?? 0) > 0 && (
+        <p className={styles.capacityLine}>
+          Today: {(s?.todayOrdersCount ?? 0) + (s?.mealsTodayCount ?? 0)} of your stated{" "}
+          {s?.capacityPerDay} orders/day capacity.
+        </p>
+      )}
 
       {/* Only worth the space if this HomeKrafter actually does pickups or
           takes WhatsApp snack orders — zeroes across the board would be

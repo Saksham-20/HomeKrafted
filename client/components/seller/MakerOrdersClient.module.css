@@ -24,3 +24,18 @@
   padding: var(--hk-s6);
   text-align: center;
 }
+
+/* M37 — one page of 50; same pager shape as the admin queues. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hk-s4);
+  margin-top: var(--hk-s5);
+}
+
+.pagerLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  color: var(--hk-muted);
+}

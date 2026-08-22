@@ -141,3 +141,21 @@
   align-self: flex-start;
   min-height: 24px;
 }
+
+/* M37 — the needs-attention list. */
+.attentionList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  width: 100%;
+}
+
+.attentionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+}

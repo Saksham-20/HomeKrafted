@@ -293,9 +293,10 @@ export function SellersClient() {
               Approved. Here is how {approvedSignIn.displayName} signs in.
             </p>
             <p className={styles.inviteWarningBody}>
-              Read these out to them. They stay on this HomeKrafter&apos;s row
-              until they sign in and choose their own password — nothing else on
-              the site works for them until they do.
+              Read these out now and note them down — the password is shown
+              only this once. If it&apos;s lost, re-issue from their row; the
+              old one stops working. Nothing else on the site works for them
+              until they sign in and choose their own.
             </p>
             <code className={styles.inviteLink}>
               {approvedSignIn.email ?? approvedSignIn.phone} ·{" "}
@@ -317,7 +318,9 @@ export function SellersClient() {
               Pincode {placementWarning.pincode} ({placementWarning.label}) covers a wide area —
               its post offices are up to {Math.round(placementWarning.spreadKm)} km apart, so we
               may have placed this kitchen that far from where it really is. That decides which
-              buyers can see them at all. Open their record and set the exact spot.
+              buyers can see them at all. They can fix it themselves — their profile asks them to
+              pin the kitchen from where they stand, and it is listed as a gap until they do. If
+              they do not sign in, open their record and set the exact spot.
             </p>
             <Link
               className={styles.inviteLinkAction}

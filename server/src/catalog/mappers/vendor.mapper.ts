@@ -1,6 +1,54 @@
 import { Vendor } from '@prisma/client';
 
-export function mapVendor(vendor: Vendor, isFollowing?: boolean) {
+/**
+ * Decimal places a **public** payload rounds coordinates to (M36).
+ *
+ * Two is about 1.1 km — the granularity of "Sector 35, Chandigarh", which
+ * is exactly what the `/sell` form promises a buyer sees and no finer.
+ * Four decimals is roughly 11 m, i.e. a house.
+ *
+ * This was harmless until M36 and is not any more. Every vendor's
+ * `lat`/`lng` used to be one of 21 curated *area* centroids, so the raw
+ * column was already area-grained. M36 took supply national, seeds the
+ * column from a pincode centroid, and adds
+ * `PATCH /admin/sellers/:id/coords` — whose approval banner tells the
+ * operator in as many words to "set the exact spot". The moment an admin
+ * does the thing that endpoint exists for, the exact spot of a home
+ * cook's kitchen is in an unauthenticated payload, contradicting the
+ * promise printed above the box where they typed their address.
+ *
+ * The column keeps full precision: distance filtering runs server-side
+ * against it (`isWithinDelivery`), and nothing on the client computes a
+ * distance from the response. Rounding here costs the buyer nothing and
+ * closes the leak regardless of what any admin pins later.
+ */
+const PUBLIC_COORD_DP = 2;
+
+function coarse(value: number): number {
+  const factor = 10 ** PUBLIC_COORD_DP;
+  return Math.round(value * factor) / factor;
+}
+
+export interface MapVendorOptions {
+  /**
+   * Return coordinates exactly as stored. **Only for a surface that is
+   * already authenticated and already entitled to the address** — the
+   * admin panel, which owns the coords endpoint, and the HomeKrafter's
+   * own portal, which is looking at itself.
+   *
+   * The default is the safe one on purpose: a new call site added without
+   * reading any of this gets the rounded value, and a buyer-facing route
+   * cannot leak the exact pin by omission.
+   */
+  preciseLocation?: boolean;
+}
+
+export function mapVendor(
+  vendor: Vendor,
+  isFollowing?: boolean,
+  options?: MapVendorOptions,
+) {
+  const precise = options?.preciseLocation ?? false;
   return {
     id: vendor.id,
     slug: vendor.slug,
@@ -17,8 +65,11 @@ export function mapVendor(vendor: Vendor, isFollowing?: boolean) {
     // them handed the client `undefined` for fields it type-guarantees.
     area: vendor.area,
     pincode: vendor.pincode ?? undefined,
-    lat: vendor.lat,
-    lng: vendor.lng,
+    // Rounded unless the caller is entitled to the exact pin — see
+    // `PUBLIC_COORD_DP`. The buyer gets the neighbourhood, which is all
+    // the storefront ever claimed to show.
+    lat: precise ? vendor.lat : coarse(vendor.lat),
+    lng: precise ? vendor.lng : coarse(vendor.lng),
     deliveryRadiusKm: vendor.deliveryRadiusKm,
     rating: Number(vendor.rating),
     reviewCount: vendor.reviewCount,

@@ -33,7 +33,12 @@ function serviceWith(rows: {
     vendorProfile: { findUnique: jest.fn().mockResolvedValue(rows.profile ?? null) },
     vendorBlackoutDate: { findMany: jest.fn().mockResolvedValue(rows.blackouts ?? []) },
   } as unknown as PrismaService;
-  return { service: new VendorAvailabilityService(prisma), prisma };
+  return { service: new VendorAvailabilityService(prisma, stubCascade()), prisma };
+}
+
+/** The M37 cascade is exercised by its own e2e; here it only needs to exist. */
+function stubCascade() {
+  return { applyBlackout: jest.fn().mockResolvedValue(0) } as never;
 }
 
 describe('forVendor — defaults for a kitchen that has declared nothing', () => {
@@ -149,7 +154,7 @@ describe('removeBlackout', () => {
         findMany: jest.fn().mockResolvedValue([]),
       },
     } as unknown as PrismaService;
-    const service = new VendorAvailabilityService(prisma);
+    const service = new VendorAvailabilityService(prisma, stubCascade());
 
     await service.removeBlackout('vd1', 'someone-elses-blackout');
     // `vendorId` in the filter means a foreign id matches nothing and

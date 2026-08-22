@@ -292,3 +292,19 @@
   font-size: 0.78rem;
   color: var(--hk-muted);
 }
+
+/* What actually arrives that day (M37) — the answer to "what's for lunch
+   tomorrow", resolved server-side from the kitchen's dated menus. */
+.deliveryDish {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: var(--hk-ink-2);
+}
+
+/* Past the lock the kitchen is planning this meal — the skip the server
+   would refuse is not offered (M37). */
+.deliveryLocked {
+  font-size: 0.78rem;
+  color: var(--hk-muted-2);
+  white-space: nowrap;
+}

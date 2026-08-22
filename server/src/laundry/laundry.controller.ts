@@ -10,57 +10,29 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { LaundryService } from './laundry.service';
 import { UpdateSubscriptionDto } from './dto/update-subscription.dto';
 
 /**
- * Browse is anonymous per `lib/channel.ts` — service/availability reads are
- * `@Public()`. Bookings + subscriptions are owner-scoped.
- *
- * **M19: laundry is withdrawn, and the two CREATE routes are gone (410).**
- *
- * Removing the web entry points alone would have been the worst of both
- * worlds: `POST /laundry/bookings` was reachable by any signed-in consumer
- * and `/seller/pickups` was going to 404, so a booking could still be
- * created that **no HomeKrafter could ever see**. Both halves move
- * together — no new work arrives, and the fulfilment screen stays
- * reachable so work already in flight can be finished.
+ * **M19: laundry is withdrawn; M37 removed the anonymous browse routes
+ * too.** The four `@Public()` service/availability reads served a
+ * catalogue nobody could act on — the create routes have answered 410
+ * since M19 — so a withdrawn module was still publishing a browsable
+ * price list. What remains is exactly what existing customers need:
  *
  * Reads stay live so existing bookings keep rendering in order history,
  * and `PATCH`/`DELETE` on a subscription stay so anyone with one can still
  * change or cancel it. Cancelling something you are no longer allowed to
- * create must never be the thing that breaks.
+ * create must never be the thing that breaks. The create routes stay as
+ * `410 Gone` stubs rather than vanishing — a native client built against
+ * `docs/API.md` deserves to be told the product was retired, not that
+ * the route never existed.
  */
 @Controller('laundry')
 export class LaundryController {
   constructor(private readonly laundryService: LaundryService) {}
-
-  @Public()
-  @Get('services')
-  listServices() {
-    return this.laundryService.listServices();
-  }
-
-  @Public()
-  @Get('services/:slug')
-  getService(@Param('slug') slug: string) {
-    return this.laundryService.getServiceBySlug(slug);
-  }
-
-  @Public()
-  @Get('availability/days')
-  listDays() {
-    return this.laundryService.listDays();
-  }
-
-  @Public()
-  @Get('availability/slots')
-  listSlots() {
-    return this.laundryService.listSlots();
-  }
 
   @Get('bookings')
   listBookings(@CurrentUser() user: RequestUser) {
@@ -75,11 +47,9 @@ export class LaundryController {
   /**
    * Withdrawn (M19). `410 Gone` rather than `404`: the route existed, the
    * product was retired, and a native client built against `docs/API.md`
-   * deserves to be told which of those happened.
-   *
-   * `LaundryService.createBooking` is deliberately left intact — it is the
-   * server-priced, wallet-debiting, idempotent path, and rebuilding it
-   * later is a worse outcome than leaving it unreferenced here.
+   * deserves to be told which of those happened. The service-side create
+   * path was deleted in M37 — it had been unreferenced since M19, and
+   * dead money-moving code is a liability, not an asset.
    */
   @Post('bookings')
   createBooking(): never {

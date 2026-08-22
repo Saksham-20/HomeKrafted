@@ -10,6 +10,7 @@ import { ModerationNotificationsService } from './moderation-notifications.servi
 import { ModerateProductDto } from './dto/moderate-product.dto';
 import { ListAdminCatalogQueryDto } from './dto/list-admin-catalog.query.dto';
 import { moderationDecision, REFUSING_ACTIONS, type ModeratableKind } from '../catalog/moderation';
+import { MealPlanDayMenusService } from '../meals/day-menus.service';
 
 const DEFAULT_CATALOG_PAGE_SIZE = 25;
 
@@ -71,15 +72,13 @@ export interface PaginatedCatalog {
 
 /**
  * Unscoped catalog + review moderation — every `Product` across every
- * vendor, every `Review` across every target. `hide`/`takedown` write the
- * same `moderationStatus: "hidden"` `ProductsService.list`'s public
- * `GET /products` already filters out (`where: { moderationStatus: {
- * not: 'hidden' } }`) — so a hidden product disappears from browse
- * immediately, verified live in this milestone's DoD. `getBySlug` still
- * resolves a hidden product (direct link/cart/order/wishlist lookups must
- * keep working — see `ProductsService.getBySlug`'s doc comment), so
- * "hidden" here means "delisted from browse", not "the row stopped
- * existing".
+ * vendor, every `Review` across every target. `hide`/`takedown` move a
+ * listing out of `PUBLICLY_LISTED` (`catalog/moderation.ts` — public
+ * browse filters on the `active` allowlist since M22, never a denylist),
+ * so a hidden product disappears from browse immediately. `getBySlug`
+ * still resolves a hidden product (direct link/cart/order/wishlist
+ * lookups must keep working — see `isDirectlyResolvable`), so "hidden"
+ * here means "delisted from browse", not "the row stopped existing".
  */
 @Injectable()
 export class AdminCatalogService {
@@ -88,7 +87,42 @@ export class AdminCatalogService {
     private readonly auditLog: AdminAuditLogService,
     private readonly reviewAggregates: ReviewAggregatesService,
     private readonly moderationNotifications: ModerationNotificationsService,
+    private readonly dayMenus: MealPlanDayMenusService,
   ) {}
+
+  /**
+   * The audited path past the menu lock (M37) — same underlying write as
+   * the seller route (`MealPlanDayMenusService.setDayMenu`), with
+   * `enforceLock: false` and a before/after audit row. Subscribers
+   * scheduled for the date are still notified; the lock exists to stop
+   * *silent* changes, not to stop people being told.
+   */
+  async overrideMealPlanDayMenu(adminUserId: string, planId: string, date: Date, lines: string[]) {
+    const plan = await this.dayMenus.findPlan(planId);
+    const before = await this.prisma.mealPlanDayMenu.findUnique({
+      where: { planId_date: { planId, date } },
+      select: { lines: true },
+    });
+
+    const view = await this.dayMenus.setDayMenu(plan, date, lines, {
+      enforceLock: false,
+      now: new Date(),
+    });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'meal_plan.menu_override',
+      targetType: 'MealPlan',
+      targetId: planId,
+      metadata: {
+        date: view.date,
+        before: before?.lines ?? null,
+        after: view.source === 'day' ? view.lines : null,
+      },
+    });
+
+    return view;
+  }
 
   /**
    * The review queue.
@@ -533,10 +567,23 @@ export class AdminCatalogService {
     }
   }
 
-  async listReviews() {
-    const reviews = await this.prisma.review.findMany({ orderBy: { createdAt: 'desc' } });
+  /** One page, newest first (M37) — this pulled every review ever written, with a name-resolution pass over all of them, on each visit to the moderation screen. */
+  async listReviews(page = 1, pageSize = 50) {
+    const [reviews, total] = await Promise.all([
+      this.prisma.review.findMany({
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.review.count(),
+    ]);
     const targetNames = await this.resolveTargetNames(reviews);
-    return reviews.map((r) => ({ ...mapReview(r), targetName: targetNames.get(`${r.targetType}:${r.targetId}`) ?? 'Unknown' }));
+    return {
+      items: reviews.map((r) => ({ ...mapReview(r), targetName: targetNames.get(`${r.targetType}:${r.targetId}`) ?? 'Unknown' })),
+      page,
+      pageSize,
+      total,
+    };
   }
 
   async moderateReview(adminUserId: string, id: string, hidden: boolean) {

@@ -1,9 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { LaundryBookingStatus, Prisma } from '@prisma/client';
+import { LaundryBookingStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { mapLaundryBooking } from '../laundry/laundry.mapper';
-
-const BOOKING_INCLUDE = { lines: true } satisfies Prisma.LaundryBookingInclude;
+import { BOOKING_INCLUDE, mapLaundryBooking } from '../laundry/laundry.mapper';
 
 /**
  * The pipeline a laundry partner can advance an assigned booking through —

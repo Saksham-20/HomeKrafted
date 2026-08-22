@@ -14,8 +14,8 @@ export interface SellerSignInDetailsProps {
 }
 
 /**
- * The sign-in details for one approved HomeKrafter, shown until they use
- * them (M32).
+ * The sign-in details panel for one approved HomeKrafter (M32; show-once
+ * since M37).
  *
  * This exists because the invite email reaches nobody: SendGrid and
  * Twilio are unset in production, so the welcome link degrades to a line
@@ -23,14 +23,11 @@ export interface SellerSignInDetailsProps {
  * with a phone. A 200-character link cannot be read down a phone; four
  * groups of four characters can.
  *
- * **Why the password is still on screen days later.** It is stored in the
- * clear precisely so it can be read out again — the onboarding call
- * rarely happens the moment approval does. The exception is bounded by
- * the account's own progress rather than by a timer: the server clears
- * the column the instant its owner sets a password of their own, so this
- * panel stops showing one at exactly the moment it stops being true.
- * That is also what makes the `onboarded` state trustworthy — it is not a
- * flag somebody remembered to set, it is the absence of a credential.
+ * **The password is shown exactly once — in the response of the call that
+ * created it.** Nothing stores the plaintext, so this panel can only ever
+ * show a password it just minted (`issued` state below). A password that
+ * wasn't written down is not recoverable; "Re-issue" mints a fresh one and
+ * kills the old, which is the intended remedy, not a workaround.
  *
  * **It is never rendered for a HomeKrafter who has signed in.** The row
  * drops the control at that point, so there is no "create a new password
@@ -44,9 +41,9 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // The freshly issued one wins: this component does not refetch, so
-  // after "Create another" the row's copy is a render behind.
-  const password = issued ?? signIn.temporaryPassword;
+  // Only a password this session just minted is ever displayable — the
+  // server stores a hash and nothing else (M37).
+  const password = issued;
   const noCredentials = signIn.status === "no_credentials" && !issued;
 
   async function reissue() {
@@ -111,12 +108,37 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
     );
   }
 
+  if (!password) {
+    // Awaiting, and the plaintext is gone with the response that minted
+    // it. The row can say when it was issued, never what it was.
+    return (
+      <div className={styles.panel}>
+        <p className={styles.lead}>
+          <strong>
+            Issued{signIn.issuedAt ? ` ${formatDate(signIn.issuedAt)}` : ""}, not
+            yet used.
+          </strong>{" "}
+          The password was shown once, when it was created. If it wasn&apos;t
+          written down, re-issue — the old one stops working the moment a new
+          one exists.
+        </p>
+        <Button variant="ghost-gold" size="sm" onClick={reissue} disabled={busy}>
+          {busy ? "Creating…" : "Re-issue sign-in details"}
+        </Button>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={styles.panel}>
       <div className={styles.credentials} role="status">
         <p className={styles.lead}>
-          Read these out to them. They stay here until they sign in and choose
-          their own password.
+          Read these out to them now — the password is shown only this once.
         </p>
         <dl className={styles.list}>
           <div className={styles.pair}>
@@ -125,20 +147,20 @@ export function SellerSignInDetails({ sellerId, signIn }: SellerSignInDetailsPro
           </div>
           <div className={styles.pair}>
             <dt className={styles.key}>Password</dt>
-            <dd className={styles.secret}>{password ?? "—"}</dd>
+            <dd className={styles.secret}>{password}</dd>
           </div>
         </dl>
         <p className={styles.note}>
           They will be asked to choose their own password the moment they sign
-          in, and nothing else on the site works until they do.
-          {signIn.issuedAt ? ` Issued ${formatDate(signIn.issuedAt)}.` : ""}
+          in, and nothing else on the site works until they do. Leaving this
+          page loses the password; re-issuing mints a fresh one.
         </p>
         <div className={styles.actions}>
           <Button variant="secondary" size="sm" onClick={copy} disabled={!password}>
             {copied ? "Copied" : "Copy"}
           </Button>
           <Button variant="ghost-gold" size="sm" onClick={reissue} disabled={busy}>
-            {busy ? "Creating…" : "Create another"}
+            {busy ? "Creating…" : "Re-issue"}
           </Button>
         </div>
       </div>

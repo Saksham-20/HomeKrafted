@@ -97,8 +97,9 @@ describe('an approved HomeKrafter can sign in', () => {
     expect(user!.role).toBe('seller');
     expect(user!.passwordHash).not.toBeNull();
     expect(user!.mustChangePassword).toBe(true);
-    // Readable to the admin panel until claimed — and only until then.
-    expect(user!.tempPassword).toBeTruthy();
+    // Show-once (M37): only the hash is stored. `tempPasswordIssuedAt`
+    // is what tells the panel a credential exists, unclaimed.
+    expect(user!.tempPasswordIssuedAt).toBeTruthy();
     expect(user!.credentialsClaimedAt).toBeNull();
     // The account is still phone-first; using the password or the emailed
     // link is what adds `email`.

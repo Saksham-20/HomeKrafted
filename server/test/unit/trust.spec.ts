@@ -33,11 +33,16 @@ const achievements = (p: VendorProfile | null, s: VendorStats): Achievement[] =>
       achievements(p: VendorProfile | null, s: VendorStats): Achievement[];
     }
   ).achievements(p, s);
-/** `makesFood` defaults to true — every case written before M33 was a food kitchen. */
+/**
+ * `makesFood` defaults to true — every case written before M33 was a food
+ * kitchen. `pinConfirmed` defaults to false — a fresh profile's pin is
+ * whatever approval seeded, and nobody has vouched for it (2026-08-18).
+ */
 const completion = (
   p: VendorProfile | null,
   photos: number,
   makesFood = true,
+  pinConfirmed = false,
 ): CompletionSummary =>
   (
     service as unknown as {
@@ -45,9 +50,10 @@ const completion = (
         p: VendorProfile | null,
         photos: number,
         makesFood: boolean,
+        pinConfirmed: boolean,
       ): CompletionSummary;
     }
-  ).completion(p, photos, makesFood);
+  ).completion(p, photos, makesFood, pinConfirmed);
 
 function profileOf(partial: Partial<VendorProfile>): VendorProfile {
   return {
@@ -292,7 +298,7 @@ describe("completion — the seller's own nudge", () => {
   it('is zero with no profile, and names every missing section', () => {
     const c = completion(null, 0);
     expect(c.percent).toBe(0);
-    expect(c.missing).toHaveLength(9);
+    expect(c.missing).toHaveLength(10);
     // Named in plain words, because this list is shown to the person who
     // can fix it — a key like `knownFor` is not an instruction.
     expect(c.missing.map((m) => m.label)).toContain('Your story');
@@ -314,9 +320,22 @@ describe("completion — the seller's own nudge", () => {
         fssaiNumber: '12345678901234',
       }),
       2,
+      true,
+      // The pin counts too now — "everything filled in" includes having
+      // confirmed where the kitchen actually is.
+      true,
     );
     expect(c.percent).toBe(100);
     expect(c.missing).toHaveLength(0);
+  });
+
+  it('names the unconfirmed pin as a gap, and a confirmed one clears it', () => {
+    // Approval seeds coordinates from a pincode centroid trustworthy for
+    // 44% of pincodes, and those coordinates decide which buyers can find
+    // the kitchen — so the meter nudges until a person has vouched for
+    // the pin (the kitchen's own GPS fix, or an admin correction).
+    expect(completion(null, 0).missing.map((m) => m.key)).toContain('pin');
+    expect(completion(null, 0, true, true).missing.map((m) => m.key)).not.toContain('pin');
   });
 
   it('counts a submitted FSSAI number, not a verified one', () => {
@@ -337,7 +356,7 @@ describe("completion — the seller's own nudge", () => {
   it('never asks a craft-only HomeKrafter for a food licence', () => {
     const c = completion(null, 0, false);
     expect(c.missing.map((m) => m.key)).not.toContain('fssai');
-    expect(c.missing).toHaveLength(8);
+    expect(c.missing).toHaveLength(9);
   });
 
   it('lets a craft-only HomeKrafter reach 100% without one', () => {
@@ -355,9 +374,10 @@ describe("completion — the seller's own nudge", () => {
       cancellationPolicy: 'Free until packed',
       returnPolicy: 'Seven days',
     });
-    expect(completion(filled, 2, false).percent).toBe(100);
+    expect(completion(filled, 2, false, true).percent).toBe(100);
     // The same profile on a food kitchen is still short its licence.
-    expect(completion(filled, 2, true).percent).toBe(95);
+    // 110 weighted points with the pin section, 5 of them the licence.
+    expect(completion(filled, 2, true, true).percent).toBe(95);
   });
 
   it('weights story and photos above a tagline', () => {

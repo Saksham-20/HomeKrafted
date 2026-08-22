@@ -54,10 +54,6 @@
   font-size: 12.5px;
 }
 
-.otherVendor {
-  opacity: 0.55;
-}
-
 .itemPrice {
   font-family: var(--hk-font-mono);
   font-size: 13.5px;

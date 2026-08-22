@@ -5,9 +5,7 @@ import { Heart, Search } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import type {
   Category,
-  LaundryDay,
   LaundryService,
-  LaundrySlot,
   MealPromo,
   Occasion,
   Product,
@@ -51,16 +49,69 @@ export interface GalleryClientProps {
   products: Product[];
   vendorNameById: Record<string, string>;
   snacks: Snack[];
-  laundryServices: LaundryService[];
   categories: Category[];
   occasions: Occasion[];
   wallet: Wallet;
   transactions: WalletTransaction[];
   topupOptions: number[];
-  laundryDays: LaundryDay[];
-  laundrySlots: LaundrySlot[];
   mealPromo: MealPromo;
 }
+
+/**
+ * Inline demo fixtures for the laundry-shaped primitives (M37). The
+ * laundry module is withdrawn and its browse API is gone, but
+ * `ServiceCard`/`SlotPicker` are generic primitives worth keeping on
+ * this QA page — so they render against literals rather than a call to
+ * a deleted endpoint.
+ */
+const DEMO_SERVICES: LaundryService[] = [
+  {
+    id: "demo-svc-1",
+    slug: "demo-wash-fold",
+    name: "Wash & Fold",
+    description: "Everyday laundry, washed and neatly folded.",
+    pricingModel: "per-kg",
+    price: 79,
+    unitLabel: "kg",
+    priceIsFrom: false,
+    priceLabel: "₹79/kg",
+  },
+  {
+    id: "demo-svc-2",
+    slug: "demo-dry-clean",
+    name: "Dry Clean",
+    description: "Garment-by-garment care for delicates.",
+    pricingModel: "per-item",
+    price: 129,
+    unitLabel: "item",
+    priceIsFrom: true,
+    priceLabel: "from ₹129/item",
+  },
+  {
+    id: "demo-svc-3",
+    slug: "demo-steam-iron",
+    name: "Steam Ironing",
+    description: "Crisp finish, gentle on fabric.",
+    pricingModel: "per-item",
+    price: 25,
+    unitLabel: "item",
+    priceIsFrom: false,
+    priceLabel: "₹25/item",
+  },
+];
+
+const DEMO_DAYS = [
+  { id: "demo-day-1", day: "Mon", date: "18 Aug" },
+  { id: "demo-day-2", day: "Tue", date: "19 Aug" },
+  { id: "demo-day-3", day: "Wed", date: "20 Aug" },
+  { id: "demo-day-4", day: "Thu", date: "21 Aug" },
+];
+
+const DEMO_SLOTS = [
+  { id: "demo-slot-1", label: "9–11 am" },
+  { id: "demo-slot-2", label: "2–4 pm" },
+  { id: "demo-slot-3", label: "6–8 pm" },
+];
 
 function Section({
   id,
@@ -117,14 +168,11 @@ export function GalleryClient({
   products,
   vendorNameById,
   snacks,
-  laundryServices,
   categories,
   occasions,
   wallet,
   transactions,
   topupOptions,
-  laundryDays,
-  laundrySlots,
   mealPromo,
 }: GalleryClientProps) {
   // Live-state demos — proof the interactive primitives actually work,
@@ -132,7 +180,7 @@ export function GalleryClient({
   const [wishlisted, setWishlisted] = useState(false);
   const [cardAdded, setCardAdded] = useState(false);
   const [snackAdded, setSnackAdded] = useState(false);
-  const [selectedServiceId, setSelectedServiceId] = useState(laundryServices[0]?.id);
+  const [selectedServiceId, setSelectedServiceId] = useState(DEMO_SERVICES[0]?.id);
   const [chipSelected, setChipSelected] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [galleryImage, setGalleryImage] = useState("");
@@ -392,7 +440,7 @@ export function GalleryClient({
 
         <Group title="ServiceCard — single-select demo">
           <div className={styles.gridWide}>
-            {laundryServices.map((service) => (
+            {DEMO_SERVICES.map((service) => (
               <ServiceCard
                 key={service.id}
                 service={service}
@@ -482,7 +530,7 @@ export function GalleryClient({
             <SlotPicker
               variant="day"
               columns={4}
-              options={laundryDays.map((day) => ({
+              options={DEMO_DAYS.map((day) => ({
                 id: day.id,
                 primary: day.day,
                 secondary: day.date,
@@ -492,14 +540,14 @@ export function GalleryClient({
             <SlotPicker
               variant="slot"
               columns={3}
-              options={laundrySlots.map((slot) => ({ id: slot.id, primary: slot.label }))}
+              options={DEMO_SLOTS.map((slot) => ({ id: slot.id, primary: slot.label }))}
             />
             <span className={styles.helper}>Disabled</span>
             <SlotPicker
               variant="slot"
               columns={3}
               disabled
-              options={laundrySlots.map((slot) => ({ id: slot.id, primary: slot.label }))}
+              options={DEMO_SLOTS.map((slot) => ({ id: slot.id, primary: slot.label }))}
             />
           </div>
         </Group>
@@ -518,7 +566,7 @@ export function GalleryClient({
 
         <Group title="PhotoUpload — real uploads; needs a signed-in session">
           <div className={styles.cardSlotWide}>
-            <PhotoUpload photos={photos} onChange={setPhotos} purpose="laundry" maxPhotos={4} />
+            <PhotoUpload photos={photos} onChange={setPhotos} purpose="listing" maxPhotos={4} />
           </div>
         </Group>
 

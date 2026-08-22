@@ -153,9 +153,11 @@ export function AnalyticsClient() {
       </div>
 
       <p className={styles.modelNote}>
-        The commission figure is <strong>modelling only</strong>. Payouts are gross and settlement
-        happens by hand, so nothing deducts it — change the rate under{" "}
-        <Link href="/admin/settings">Settings</Link> to see what a different one would have earned.
+        The commission figure is <strong>modelled over GMV</strong>, not a sum of what was
+        deducted — whether payouts actually deduct it is the switch under{" "}
+        <Link href="/admin/settings">Settings</Link> (off by default). Change the rate there to see
+        what a different one would have earned; the per-payout arithmetic lives on{" "}
+        <Link href="/admin/payouts">Payouts</Link>.
       </p>
 
       <h2 className={styles.sectionTitle}>GMV — {rangeLabel}</h2>
@@ -183,6 +185,9 @@ export function AnalyticsClient() {
           <Card className={styles.barChart}>
             {(Object.keys(ORDER_TYPE_LABEL) as AdminOrderType[]).map((type) => {
               const count = snapshot.ordersByType[type];
+              // Withdrawn module: only rendered while legacy bookings
+              // exist to count (the label map stays for those rows).
+              if (type === "laundry" && count === 0) return null;
               const pct = Math.round((count / maxOrderType) * 100);
               return (
                 <div key={type} className={styles.barRow}>

@@ -14,14 +14,13 @@ import {
   getAdminMarketplaceOrder,
   getAdminOrderById,
   getAdminSnackOrder,
-  getLaundryServices,
   overrideAdminOrderStatus,
   refundAdminOrder,
   type AdminOrderSummary,
   type AdminOrderType,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { LaundryBooking, LaundryService, Order, SnackOrder } from "@/lib/types";
+import type { LaundryBooking, Order, SnackOrder } from "@/lib/types";
 import styles from "./OrderDetailClient.module.css";
 
 export interface OrderDetailClientProps {
@@ -78,7 +77,6 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
   const [marketplaceOrder, setMarketplaceOrder] = useState<Order | undefined>(undefined);
   const [laundryBooking, setLaundryBooking] = useState<LaundryBooking | undefined>(undefined);
   const [snackOrder, setSnackOrder] = useState<SnackOrder | undefined>(undefined);
-  const [laundryServices, setLaundryServices] = useState<LaundryService[]>([]);
   const [refundResult, setRefundResult] = useState<{ amount: number } | undefined>(undefined);
   const [refundError, setRefundError] = useState<string | undefined>(undefined);
   const [refunding, setRefunding] = useState(false);
@@ -107,10 +105,8 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
       if (type === "marketplace") {
         setMarketplaceOrder(await getAdminMarketplaceOrder(id));
       } else if (type === "laundry") {
-        const [booking, services] = await Promise.all([getAdminLaundryBooking(id), getLaundryServices()]);
-        if (cancelled) return;
-        setLaundryBooking(booking);
-        setLaundryServices(services);
+        // Service names ride on the booking payload since M37.
+        setLaundryBooking(await getAdminLaundryBooking(id));
       } else {
         setSnackOrder(await getAdminSnackOrder(id));
       }
@@ -191,10 +187,6 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
     );
   }
 
-  function serviceName(serviceId: string): string {
-    return laundryServices.find((s) => s.id === serviceId)?.name ?? serviceId;
-  }
-
   // Whatever the server says is pickable, minus the one it is already on.
   // An empty list (an older API, or a kind with nothing to offer) simply
   // hides the control rather than rendering an empty select.
@@ -272,7 +264,7 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
           <span className={styles.cardTitle}>Lines</span>
           {laundryBooking.lines.map((line, index) => (
             <div key={`${line.serviceId}-${index}`} className={styles.itemRow}>
-              <span className={styles.itemName}>{serviceName(line.serviceId)}</span>
+              <span className={styles.itemName}>{line.serviceName ?? line.serviceId}</span>
               <span className={styles.itemPrice}>{formatCurrency(line.estimatedPrice)}</span>
             </div>
           ))}

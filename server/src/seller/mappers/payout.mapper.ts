@@ -5,6 +5,12 @@ export function mapPayout(payout: Payout) {
     id: payout.id,
     sellerId: payout.sellerId,
     amount: Number(payout.amount),
+    // M37 — the row's own arithmetic. Absent on pre-M37 rows, where
+    // `amount` was always gross; the client renders no split rather than
+    // inventing one.
+    grossAmount: payout.grossAmount !== null ? Number(payout.grossAmount) : undefined,
+    commissionAmount: payout.commissionAmount !== null ? Number(payout.commissionAmount) : undefined,
+    commissionPct: payout.commissionPct !== null ? Number(payout.commissionPct) : undefined,
     periodStart: payout.periodStart.toISOString().slice(0, 10),
     periodEnd: payout.periodEnd.toISOString().slice(0, 10),
     status: payout.status,

@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 /**
  * Platform settings (M16, M5). Every field optional — an admin changing
@@ -28,6 +29,16 @@ export class UpdateSettingsDto {
   defaultDeliveryRadiusKm?: number;
 
   /**
+   * Whether payouts deduct the rate above (M37). `@BooleanField()` — the
+   * M17 rule: a bare `@IsBoolean()` under `enableImplicitConversion`
+   * reads the string "false" as true, which on a money switch is the
+   * worst possible coercion.
+   */
+  @IsOptional()
+  @BooleanField()
+  commissionEnabled?: boolean;
+
+  /**
    * Comma-separated pincode prefixes Homekrafted currently delivers to —
    * `"160,1401,1403,1341,1346"` is the Chandigarh tricity (M36).
    *
@@ -41,4 +52,14 @@ export class UpdateSettingsDto {
   @IsString()
   @MaxLength(2000)
   servicedPincodePrefixes?: string;
+
+  /**
+   * When a delivery date's menu closes, IST, the evening before (M37).
+   * Shape (`HH:MM`) is checked in the service so the message can say
+   * "like 20:00" rather than reporting a failed regex.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  menuLockTime?: string;
 }

@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { MealsModule } from '../meals/meals.module';
+import { SettingsModule } from '../admin/settings.module';
 import { IdempotencyModule } from '../common/idempotency/idempotency.module';
 import { WhatsAppModule } from '../whatsapp/whatsapp.module';
 import { SellerController } from './seller.controller';
@@ -25,6 +27,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { SellerAnalyticsController } from './analytics.controller';
 import { SellerAnalyticsService } from './analytics.service';
 import { OrdersModule } from '../orders/orders.module';
+import { AdminAuditLogService } from '../admin/audit-log.service';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -43,7 +46,16 @@ import { OrdersModule } from '../orders/orders.module';
   // reuses that service rather than keeping a second copy of the rules.
   // `OrdersModule` for `OrderNotificationsService` — advancing an order
   // here has to tell the buyer, and that copy lives in one place.
-  imports: [IdempotencyModule, WhatsAppModule, CatalogModule, OrdersModule],
+  imports: [
+    IdempotencyModule,
+    WhatsAppModule,
+    CatalogModule,
+    OrdersModule,
+    // M37 — `MealPlanDayMenusService` for the dated-menu editor routes.
+    MealsModule,
+    // M37 — the commission rate on /seller/me + the payout split.
+    SettingsModule,
+  ],
   controllers: [
     SellerController,
     SellerListingsController,
@@ -69,6 +81,10 @@ import { OrdersModule } from '../orders/orders.module';
     SellerPayoutsService,
     SellerProfileService,
     SellerAnalyticsService,
+    // For the self-set kitchen pin (`PATCH /seller/profile/coords`) —
+    // same stateless-two-instances reasoning as `SettingsModule`'s
+    // provider comment; its only dependency is the global PrismaService.
+    AdminAuditLogService,
   ],
 })
 export class SellerModule {}

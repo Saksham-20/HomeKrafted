@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import {
   apiErrorMessage,
   getAdminPayouts,
+  getPlatformSettings,
   markPayoutPaid,
   rejectPayout,
   type AdminPayout,
@@ -61,6 +62,21 @@ export function PayoutsClient() {
   // and re-deriving them by arithmetic is the "increment a denormalised
   // aggregate" pattern this codebase rejects everywhere else.
   const [reloadToken, setReloadToken] = useState(0);
+  // Whether payouts deduct commission (M37) — decides which warning heads
+  // the queue. `undefined` until the settings load; the gross warning only
+  // renders on a definite `false`, so a failed read shows neither claim.
+  const [commissionEnabled, setCommissionEnabled] = useState<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    if (!ready || role !== "admin") return;
+    let cancelled = false;
+    getPlatformSettings().then((settings) => {
+      if (!cancelled && settings) setCommissionEnabled(settings.commissionEnabled);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, role]);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -134,24 +150,30 @@ export function PayoutsClient() {
       />
 
       {/*
-        WS0b. `commissionPct` (default 10) exists only as a modelled number
-        on the admin analytics screen — **nothing deducts it**. Every figure
-        below is the full order value, so an admin transferring "the payout
-        amount" hands over the platform's cut too.
-
-        This sits above the queue rather than in `LAUNCH-READINESS.md` alone
-        because that file is read once and this decision is made every time
-        somebody settles a row. The plan deliberately does not implement a
-        take rate — that is a business call, not a bug fix — so until one
-        exists the honest thing is to say so where the money moves.
+        Which warning heads the queue depends on the M37 commission
+        switch. Off (the shipped default): every figure is gross, and an
+        admin transferring "the payout amount" hands over the platform's
+        cut too — said here rather than only in LAUNCH-READINESS.md §3b,
+        because that file is read once and this decision is made every
+        time somebody settles a row. On: new rows arrive net with their
+        split shown, and the thing worth saying is that old rows don't.
       */}
-      <Card padding="md" className={styles.grossNotice}>
-        <strong>These amounts are gross.</strong> No commission is deducted
-        anywhere on the platform yet, so each figure is the full order value
-        owed to the HomeKrafter. If a cut is meant to be taken, take it
-        before transferring — see{" "}
-        <code>docs/LAUNCH-READINESS.md</code> §3b.
-      </Card>
+      {commissionEnabled === false && (
+        <Card padding="md" className={styles.grossNotice}>
+          <strong>These amounts are gross.</strong> Commission is configured
+          but switched off (Settings), so nothing is deducted and each figure
+          is the full order value owed to the HomeKrafter. If a cut is meant
+          to be taken, take it before transferring — see{" "}
+          <code>docs/LAUNCH-READINESS.md</code> §3b.
+        </Card>
+      )}
+      {commissionEnabled === true && (
+        <Card padding="md" className={styles.grossNotice}>
+          <strong>Commission is on.</strong> New requests arrive net, with the
+          split on the row. Rows without a split predate the engine — their
+          amount is gross, and nothing recalculates a request already made.
+        </Card>
+      )}
 
       <div className={styles.statGrid}>
         <StatCard
@@ -197,6 +219,16 @@ export function PayoutsClient() {
                 </div>
                 <div className={styles.amountCol}>
                   <span className={styles.amount}>{formatCurrency(payout.amount)}</span>
+                  {/* Only when a deduction actually happened — pre-M37 and
+                      disabled-era rows get no invented split. */}
+                  {payout.grossAmount !== undefined &&
+                  payout.commissionAmount !== undefined &&
+                  payout.commissionAmount > 0 ? (
+                    <span className={styles.meta}>
+                      {formatCurrency(payout.grossAmount)} − {formatCurrency(payout.commissionAmount)}{" "}
+                      ({payout.commissionPct}%)
+                    </span>
+                  ) : null}
                   <StatusPill status={payout.status} />
                 </div>
               </div>

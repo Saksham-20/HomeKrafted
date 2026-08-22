@@ -10,25 +10,17 @@ import { SellerPageHeader } from "./SellerPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
   apiErrorMessage,
-  getSellerEarningsSummary,
-  getSellerPayouts,
+  getSellerPayoutsPage,
   requestSellerPayout,
+  type SellerPayoutsPage,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { Payout } from "@/lib/types";
 import styles from "./SellerPayoutsClient.module.css";
-
-interface Summary {
-  totalPaid: number;
-  totalPending: number;
-  lifetimeEarned: number;
-}
 
 /** `/seller/payouts` (M10a) — earnings summary, a mock "request payout" action, and full `Payout` history. */
 export function SellerPayoutsClient() {
   const { seller, sellerDataReady } = useAuth();
-  const [summary, setSummary] = useState<Summary | undefined>(undefined);
-  const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [page, setPage] = useState<SellerPayoutsPage | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState(false);
   const [requested, setRequested] = useState(false);
@@ -36,12 +28,7 @@ export function SellerPayoutsClient() {
 
   const refresh = useCallback(async () => {
     if (!seller) return;
-    const [s, list] = await Promise.all([
-      getSellerEarningsSummary(seller.id),
-      getSellerPayouts(seller.id),
-    ]);
-    setSummary(s);
-    setPayouts(list);
+    setPage(await getSellerPayoutsPage(seller.id));
   }, [seller]);
 
   // Fires as soon as we know a HomeKrafter is signed in: this screen's
@@ -61,7 +48,7 @@ export function SellerPayoutsClient() {
     setRequesting(true);
     setError(null);
     try {
-      await requestSellerPayout(seller.id, summary?.totalPending ?? 0);
+      await requestSellerPayout(seller.id, page?.pendingBalance ?? 0);
       await refresh();
       setRequested(true);
       setTimeout(() => setRequested(false), 2500);
@@ -77,9 +64,13 @@ export function SellerPayoutsClient() {
     }
   }
 
-  if (!sellerDataReady || loading || !summary) {
+  if (!sellerDataReady || loading || !page) {
     return <div className={styles.loading}>Loading your payouts…</div>;
   }
+
+  const summary = page.summary;
+  const commission = page.commission;
+  const payable = page.pendingBalance;
 
   return (
     <div>
@@ -88,8 +79,32 @@ export function SellerPayoutsClient() {
       <div className={styles.summaryGrid}>
         <StatCard label="Lifetime earned" value={formatCurrency(summary.lifetimeEarned)} />
         <StatCard label="Paid out" value={formatCurrency(summary.totalPaid)} />
-        <StatCard label="Pending" value={formatCurrency(summary.totalPending)} />
+        <StatCard label="Requested, awaiting settlement" value={formatCurrency(summary.totalPending)} />
       </div>
+
+      {/*
+        The M37 transparency card: what a payout of today's unclaimed
+        earnings works out to, at the platform rate. While the commission
+        switch is off nothing is deducted and these are estimates — the
+        card says so out loud, because /terms promises the split is shown
+        before it is ever taken.
+      */}
+      {commission.grossPending > 0 && (
+        <Card className={styles.requestCard}>
+          <h2 className={styles.sectionTitle}>How your next payout breaks down</h2>
+          <p className={styles.requestHint}>
+            Earnings not yet requested: <strong>{formatCurrency(commission.grossPending)}</strong>
+            {" · "}platform commission at {commission.pct}%:{" "}
+            <strong>{formatCurrency(commission.commissionOnPending)}</strong>
+            {" · "}you receive: <strong>{formatCurrency(commission.netPending)}</strong>
+          </p>
+          <p className={styles.requestHint}>
+            {commission.enabled
+              ? "Commission is deducted when you request a payout, and every payout below shows its own split."
+              : "This is an estimate — nothing is deducted yet. Payouts are currently settled at the full amount."}
+          </p>
+        </Card>
+      )}
 
       {/*
         There is no amount field any more, and there never should have
@@ -102,17 +117,24 @@ export function SellerPayoutsClient() {
       */}
       <Card className={styles.requestCard}>
         <h2 className={styles.sectionTitle}>Request a payout</h2>
+        {/*
+          Gated on `pendingBalance` — the server-computed unclaimed
+          earnings — not `summary.totalPending`, which is money already
+          requested and awaiting settlement. Gating on the latter meant a
+          kitchen whose last request had been paid saw a dead button over
+          fresh delivered earnings (found in the M37 commission pass).
+        */}
         <p className={styles.requestHint}>
-          {summary.totalPending > 0
-            ? `Your whole pending balance of ${formatCurrency(summary.totalPending)} goes out in one settlement. Payouts are settled by hand, so allow a couple of working days.`
-            : "You have nothing pending right now. New earnings appear here as orders are delivered."}
+          {payable > 0
+            ? `Your whole unclaimed balance of ${formatCurrency(payable)} goes out in one settlement. Payouts are settled by hand, so allow a couple of working days.`
+            : "You have nothing to request right now. New earnings appear here as orders are delivered."}
         </p>
         <div className={styles.requestRow}>
           <Button
             variant="primary"
             size="sm"
             onClick={handleRequest}
-            disabled={requesting || summary.totalPending <= 0}
+            disabled={requesting || payable <= 0}
           >
             {requesting ? "Requesting…" : "Request payout"}
           </Button>
@@ -126,14 +148,14 @@ export function SellerPayoutsClient() {
       </Card>
 
       <h2 className={styles.sectionTitle}>History</h2>
-      {payouts.length === 0 ? (
+      {page.items.length === 0 ? (
         <EmptyState
           title="No payouts yet."
           body="Earnings become payable once an order is delivered, and settle from there. Nothing is needed from you — this fills in as orders complete."
         />
       ) : (
         <Card className={styles.history} padding="md">
-          {payouts.map((payout) => (
+          {page.items.map((payout) => (
             <PayoutRow key={payout.id} payout={payout} />
           ))}
         </Card>

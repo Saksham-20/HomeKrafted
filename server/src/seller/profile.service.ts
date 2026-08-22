@@ -1,8 +1,17 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { VendorProfileService, mapPhoto } from '../catalog/vendor-profile.service';
+import { AdminAuditLogService } from '../admin/audit-log.service';
+import { areaById, distanceKm } from '../common/geo';
+import { lookupPincode } from '../common/pincodes';
 import { UpdateSellerProfileDto } from './dto/update-profile.dto';
+import { SetOwnCoordsDto } from './dto/set-own-coords.dto';
 import {
   AddVendorPhotoDto,
   ReorderVendorPhotosDto,
@@ -11,6 +20,26 @@ import {
 
 /** Photos beyond this stop being a profile and start being a gallery nobody scrolls. */
 const MAX_PHOTOS = 12;
+
+/**
+ * How far past its anchor a self-set pin may land.
+ *
+ * A pincode's centroid is the mean of its post offices, not anybody's
+ * house — even with `spreadKm: 0` (a single post office) the kitchen is
+ * legitimately some distance from it. 10 km on top of the measured
+ * spread accepts every honest fix; a pin further out than the pincode's
+ * own worst-case geography is a different pincode's kitchen.
+ */
+const PIN_MARGIN_KM = 10;
+
+/**
+ * For a pre-M36 kitchen (no pincode, curated tricity area): the whole
+ * tricity fits inside roughly 30 km, so a pin 25 km from the stated
+ * area has left the area. Anchored to the *curated area's* coordinates,
+ * never the current pin — anchoring to the current pin would let
+ * repeated small moves walk a storefront anywhere.
+ */
+const AREA_MARGIN_KM = 25;
 
 /**
  * The HomeKrafter's own profile (M16). Every method takes a `vendorId`
@@ -23,6 +52,7 @@ export class SellerProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly profiles: VendorProfileService,
+    private readonly auditLog: AdminAuditLogService,
   ) {}
 
   get(vendorId: string) {
@@ -135,6 +165,79 @@ export class SellerProfileService {
     });
 
     return this.profiles.ownProfile(vendorId);
+  }
+
+  /**
+   * The kitchen pins its own exact location — see `SetOwnCoordsDto` for
+   * why this exists and what keeps it honest.
+   *
+   * The pin is checked against the coarsest location claim we hold and
+   * an admin can independently see: the pincode (centroid + its measured
+   * spread + margin), or for a pre-M36 kitchen the curated area. A pin
+   * outside that is refused with the distance in the sentence, because
+   * "we didn't save that" with no reason reads as a broken button.
+   *
+   * Precision never reaches a buyer: `mapVendor` rounds every public
+   * payload to ~1.1 km whoever set the pin. This value feeds server-side
+   * distance filtering only.
+   */
+  async setOwnCoords(vendorId: string, actorUserId: string, dto: SetOwnCoordsDto) {
+    const vendor = await this.requireVendor(vendorId);
+
+    const pin = { lat: dto.lat, lng: dto.lng };
+    const record = vendor.pincode ? lookupPincode(vendor.pincode) : undefined;
+    const area = record ? undefined : areaById(vendor.area);
+    const anchor = record ?? area;
+    if (anchor) {
+      const allowedKm = record ? record.spreadKm + PIN_MARGIN_KM : AREA_MARGIN_KM;
+      const km = distanceKm(pin, anchor);
+      if (km > allowedKm) {
+        const place = record
+          ? `pincode ${vendor.pincode} (${record.district}, ${record.state})`
+          : `${area!.label}, ${area!.city}`;
+        throw new BadRequestException(
+          `That pin is ${Math.round(km)} km from ${place}, which is where this kitchen is registered — we could not save it. ` +
+            `If you have genuinely moved, update your pickup address first so we can re-check, or write to support.`,
+        );
+      }
+    }
+    // No anchor at all — a pincode the table doesn't know and an area id
+    // the curated list doesn't carry — falls through to the save. The
+    // badge reset below still puts an admin's eyes on it, which is the
+    // most any check could achieve for a location we can't corroborate.
+
+    // One transaction: the pin and the badge reset land together, or a
+    // failure between them leaves a "verified" address at coordinates
+    // nobody verified.
+    await this.prisma.$transaction([
+      this.prisma.vendor.update({
+        where: { id: vendorId },
+        data: { lat: dto.lat, lng: dto.lng, pinConfirmedAt: new Date() },
+      }),
+      // Upsert, because a profile row doesn't exist until the first save
+      // — same reason `updateOwn` upserts. Deliberately narrower than the
+      // FSSAI clear: `verifiedAt`/`verificationNote` belong to the
+      // identity and licence checks too (M36c).
+      this.prisma.vendorProfile.upsert({
+        where: { vendorId },
+        create: { vendorId, addressVerified: false },
+        update: { addressVerified: false },
+      }),
+    ]);
+
+    // After the mutation succeeds, never before — the audit-log rule.
+    await this.auditLog.log({
+      actorId: actorUserId,
+      action: 'vendor.set_coords_self',
+      targetType: 'Vendor',
+      targetId: vendorId,
+      metadata: {
+        before: { lat: vendor.lat, lng: vendor.lng },
+        after: { lat: dto.lat, lng: dto.lng },
+      },
+    });
+
+    return { lat: dto.lat, lng: dto.lng, addressVerified: false };
   }
 
   // -------------------------------------------------------------------

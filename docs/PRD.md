@@ -6,10 +6,28 @@ mirrors its coverage tables plus a short user-flow stub per module so the
 product surface is legible without opening the plan file. If this ever
 disagrees with the plan, **the plan wins**.
 
-Homekrafted is a multi-service home-craft platform — **Gifting
-Marketplace**, **Laundry / Cleaning / Ironing**, **Snacks + Food
-Delivery** — unified by one **Wallet** and one shared account layer.
-Every bullet below is mandatory and in-scope; nothing is phased out.
+Homekrafted is a home-craft platform — a **Gifting Marketplace**
+(homemade food + handcrafted goods, hampers as ordinary listings,
+occasions), **Snacks on WhatsApp**, and **meal-plan subscriptions**
+(prepaid cycles, dated menus with an evening-before lock — M19/M37) —
+unified by one **Wallet** and one shared account layer, across three
+role surfaces (consumer, HomeKrafter, admin). Supply is **national**
+(any Indian pincode can apply and be approved — M36); delivery is not,
+and the serviced-area setting selects copy, never visibility.
+
+**Laundry, Cleaning & Ironing is withdrawn (M19; browse API removed
+M37).** It appears throughout the historical tables below because they
+mirror the original plan; in the product, `/laundry` 404s, nothing new
+can be booked, and only existing bookings still render. Read every
+laundry row below as history, not scope.
+
+Since the original plan, the platform also grew: seller applications +
+manual onboarding (show-once credentials), a catalogue moderation queue,
+HomeKrafter profiles + verification badges, corporate/bulk enquiries
+with quotes, referrals (delivered-order-gated), image uploads with an
+EXIF-stripping pipeline, and a commission engine behind an audited flag
+(off by default). `docs/API.md` and `CLAUDE.md` are the current-truth
+references; this file explains where each surface came from.
 
 ## Coverage tables
 
@@ -55,7 +73,7 @@ Every bullet below is mandatory and in-scope; nothing is phased out.
 | Seller portal — laundry partner | `/seller/*` — pickups (assigned bookings + status), payouts |
 | Seller portal — snack seller | `/seller/*` — menu CRUD, incoming WhatsApp orders, payouts |
 
-### Laundry, Cleaning & Ironing
+### Laundry, Cleaning & Ironing — **withdrawn (M19; see the note at the top)**
 
 | Feature | Web surface |
 |---|---|
@@ -123,9 +141,9 @@ confirmed → packed → shipped → delivered; no live map).
 *M3 status (buy flow, shipped):* `lib/cart/CartContext.tsx` — the first
 real cross-page client state, `localStorage`-persisted, wired into
 `ProductPurchasePanel`/`ProductGridCard`'s add-to-cart and the header
-cart badge. `/hamper` (box → fill → message wizard, capacity-capped,
-hands the assembled hamper to the cart as one line and routes into
-checkout), `/cart` (line items, qty edit, remove, order summary, empty
+cart badge. `/hamper` (the M3 box → fill → message wizard — **removed in
+M18**, see the hamper-builder note below; `/hamper` is now the catalogue
+filtered on `Product.isHamper`), `/cart` (line items, qty edit, remove, order summary, empty
 state), `/checkout` (multi-address split with a per-address delivery
 date, a single order-wide gift-to-recipient toggle with hide-price +
 message, wallet/Razorpay payment, mock `createOrder` → in-place order

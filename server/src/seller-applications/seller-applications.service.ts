@@ -95,6 +95,27 @@ export class SellerApplicationsService {
       });
     }
 
+    // The city, derived rather than asked (M32's rule, M36's source).
+    //
+    // India Post's district beats anything typed in a hurry, so it wins
+    // where there is one. `dto.city` is the fallback for the legacy
+    // `area`-only path, and for the case that made this a real bug: the
+    // form derives its city from our own `/pincodes/:pincode` lookup, so
+    // when that endpoint is unreachable it sends `""` while telling the
+    // applicant the application will still go through. Refusing on the
+    // empty string made our outage look like their mistake.
+    //
+    // `Vendor.city` is non-null, so this must resolve to something — it
+    // refuses only when neither source has anything, which by the guard
+    // above means a request carrying no pincode and no area at all.
+    const city = (pincode ? lookupPincode(pincode)?.district : undefined) ?? dto.city?.trim() ?? '';
+    if (!city) {
+      problems.push({
+        field: 'city',
+        message: 'Tell us which city or town you work from.',
+      });
+    }
+
     // Where a rider collects (M36b). Required, because a pickup address
     // that "usually" exists is one a rider cannot be dispatched to — but
     // checked here rather than by a decorator so the message names the
@@ -154,6 +175,7 @@ export class SellerApplicationsService {
       websiteUrl,
       fssaiNumber,
       pincode,
+      city,
       addressLine1,
       addressLine2: dto.addressLine2?.trim() || null,
       landmark: dto.landmark?.trim() || null,
@@ -178,12 +200,12 @@ export class SellerApplicationsService {
         // asking). An older native app that still sends one is honoured.
         category: dto.category ?? categoryForSpecialties(dto.specialties),
         specialties: dto.specialties,
-        // Derived from the pincode when we have one — India Post's own
-        // district beats what somebody types in a hurry, and the M32 form
-        // already stopped asking for a city on the same reasoning (the
-        // field that decides anything is the location field, not a free
-        // text label next to it).
-        city: clean.pincode ? (lookupPincode(clean.pincode)?.district ?? dto.city) : dto.city,
+        // Derived in `normalize` — India Post's district where there is
+        // one, the client's own value otherwise, and a refusal if neither
+        // has anything. The M32 form already stopped asking for a city on
+        // the same reasoning: the field that decides anything is the
+        // location field, not a free text label next to it.
+        city: clean.city,
         area: dto.area ?? null,
         pincode: clean.pincode,
         // The pickup address. Private by contract — see the schema doc

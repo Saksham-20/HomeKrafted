@@ -79,6 +79,14 @@
   color: var(--hk-success);
 }
 
+/* The server's own sentence when it refuses a save. Terracotta-on-white is
+   4.55:1, so it takes the base token rather than `--hk-terracotta-text`
+   (which exists for the terracotta tint). */
+.saveError {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
 .previewLink {
   font-size: 13px;
   color: var(--hk-pine);

@@ -15,8 +15,10 @@ import styles from "./SettingsClient.module.css";
 
 interface Draft {
   commissionPct: string;
+  commissionEnabled: boolean;
   defaultDeliveryRadiusKm: string;
   servicedPincodePrefixes: string;
+  menuLockTime: string;
 }
 
 /**
@@ -45,8 +47,10 @@ export function SettingsClient() {
       setSettings(loaded);
       setDraft({
         commissionPct: String(loaded.commissionPct),
+        commissionEnabled: loaded.commissionEnabled ?? false,
         defaultDeliveryRadiusKm: String(loaded.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: loaded.servicedPincodePrefixes ?? "",
+        menuLockTime: loaded.menuLockTime ?? "20:00",
       });
     })();
     return () => {
@@ -70,8 +74,10 @@ export function SettingsClient() {
     try {
       const updated = await updatePlatformSettings({
         commissionPct: Number(draft.commissionPct),
+        commissionEnabled: draft.commissionEnabled,
         defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: draft.servicedPincodePrefixes.trim(),
+        menuLockTime: draft.menuLockTime.trim(),
       });
       if (!updated) {
         setMessage("That did not save. Commission must be 0–100%, radius 1–100 km.");
@@ -108,10 +114,39 @@ export function SettingsClient() {
             />
           </label>
           <p className={styles.help}>
-            <strong>Modelling only.</strong>{" "}Payouts are gross and settlement happens by hand, so
-            nothing deducts this today. It drives the commission line on Analytics, which exists so
-            &ldquo;what would 12% have earned last quarter&rdquo; is answerable before anyone commits to a
-            rate.
+            {draft.commissionEnabled ? (
+              <>
+                <strong>Deducted from payouts.</strong>{" "}Every new payout request stores its split
+                — gross, commission at this rate, and the net figure that is settled. Changing the
+                rate applies to future requests only; settled rows keep the arithmetic they were cut
+                with.
+              </>
+            ) : (
+              <>
+                <strong>Estimates only while the switch below is off.</strong>{" "}Payouts are gross
+                and settlement happens by hand, so nothing deducts this today. It drives the
+                commission line on Analytics and the estimates a HomeKrafter sees on their payout
+                screen and listing form — all of which say they are estimates.
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className={styles.setting}>
+          <label className={styles.field}>
+            <span className={styles.label}>
+              <input
+                type="checkbox"
+                checked={draft.commissionEnabled}
+                onChange={(event) => edit({ commissionEnabled: event.target.checked })}
+              />{" "}
+              Deduct commission from payouts
+            </span>
+          </label>
+          <p className={styles.help}>
+            Off: payouts are gross and every screen says so. On: new payout requests deduct the rate
+            above, and the split is stored on every payout row. Already-requested and settled payouts
+            are never recalculated. Like everything here, flipping this is audited.
           </p>
         </div>
 
@@ -153,6 +188,24 @@ export function SettingsClient() {
             <strong>It does not affect who can apply or be approved.</strong> HomeKrafters can join
             from anywhere in India, which is deliberate: supply has to exist somewhere before it is
             worth opening delivery there. Leave it empty to stop saying it altogether.
+          </p>
+        </div>
+
+        <div className={styles.setting}>
+          <label className={styles.field}>
+            <span className={styles.label}>Meal menu lock time</span>
+            <input
+              className={styles.input}
+              value={draft.menuLockTime}
+              onChange={(event) => edit({ menuLockTime: event.target.value })}
+              placeholder="20:00"
+            />
+          </label>
+          <p className={styles.help}>
+            A delivery date&rsquo;s menu closes at this time <strong>the evening before</strong>{" "}
+            (24-hour, IST). After it, the kitchen can&rsquo;t change that date and subscribers
+            can&rsquo;t skip it — an admin can still fix a genuine emergency from the plan&rsquo;s
+            catalog entry, and subscribers are told either way.
           </p>
         </div>
 

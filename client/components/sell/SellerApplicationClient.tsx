@@ -189,9 +189,12 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
         // so the form no longer asks a taxonomy question whose only
         // consumer was a column nothing renders.
         specialties,
-        // Sent as a courtesy for a server that could not resolve the
-        // pincode; the server prefers India Post's district over it.
-        city: city.trim(),
+        // Omitted rather than sent empty when the lookup did not settle.
+        // The server derives the city from the pincode anyway, and `""`
+        // used to fail its `@MinLength(1)` — so an outage of our own
+        // `/pincodes` endpoint 400'd a perfectly valid application on a
+        // field this form does not even show.
+        ...(city.trim() ? { city: city.trim() } : {}),
         pincode: form.pincode.trim(),
         addressLine1: form.addressLine1.trim(),
         addressLine2: form.addressLine2.trim() || undefined,

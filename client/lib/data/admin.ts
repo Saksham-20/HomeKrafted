@@ -1,13 +1,13 @@
 import type { User, Wallet, WalletTransaction } from "@/lib/types";
 import { currentUser } from "./user";
-import { laundryPartnerUser, sellerUser, snackSellerUser } from "./sellers";
+import { sellerUser, snackSellerUser } from "./sellers";
 import { wallet as demoWallet, walletTransactions as demoWalletTransactions } from "./wallet";
 
 /**
  * Admin-portal seed data (M11a). `adminUser` is the demo staff account
  * `signInAsAdmin()` (`lib/auth/AuthContext.tsx`) resolves to — a distinct
  * `User` (role `"admin"`), same "separate account per role surface"
- * convention `sellerUser`/`laundryPartnerUser`/`snackSellerUser`
+ * convention `sellerUser`/`snackSellerUser`
  * established in M10a/M10b, not a permission flag toggled on the
  * consumer account.
  */
@@ -92,7 +92,6 @@ export const extraUsers: User[] = [
 export const users: User[] = [
   currentUser,
   sellerUser,
-  laundryPartnerUser,
   snackSellerUser,
   adminUser,
   ...extraUsers,

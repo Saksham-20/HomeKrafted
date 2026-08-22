@@ -194,4 +194,74 @@ describe('mapVendor', () => {
 
     expect(mapped.location).toBe('Sector 35, Chandigarh');
   });
+
+  /**
+   * The other half of "buyers never see the address" (M36).
+   *
+   * The tests above check that no address-shaped *column* reaches a
+   * public payload. They would all still pass while the payload carried
+   * `lat: 30.72661, lng: 76.75542` — the kitchen's front door, to about
+   * eleven metres, on an unauthenticated route.
+   *
+   * That was harmless until M36 because every vendor's coordinates were
+   * one of 21 curated *area* centroids. M36 seeds them from a pincode and
+   * adds `PATCH /admin/sellers/:id/coords`, whose approval banner tells
+   * the operator to "set the exact spot" — so the leak arrives the first
+   * time an admin does exactly what the product asks them to.
+   */
+  const exactVendor = {
+    id: 'v1',
+    slug: 's',
+    name: 'n',
+    type: 'maker',
+    bio: '',
+    avatarPlaceholder: '',
+    bannerPlaceholder: '',
+    avatarSrc: null,
+    bannerSrc: null,
+    location: 'Sector 35, Chandigarh',
+    area: 'chd-sector-35',
+    pincode: '160035',
+    // A precise pin — a house, not a sector.
+    lat: 30.726614,
+    lng: 76.755423,
+    deliveryRadiusKm: 10,
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    joinedAt: new Date('2026-01-01'),
+  };
+
+  it('rounds coordinates to neighbourhood precision by default', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = mapVendor(exactVendor as any) as Record<string, unknown>;
+
+    expect(mapped.lat).toBe(30.73);
+    expect(mapped.lng).toBe(76.76);
+  });
+
+  it('never leaks house-level precision to a public caller', () => {
+    // Stated as the property rather than the value: any future change to
+    // `PUBLIC_COORD_DP` still has to keep the pin coarser than a street.
+    // 0.005 degrees is ~550 m, comfortably a neighbourhood and nowhere
+    // near a door.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = mapVendor(exactVendor as any) as Record<string, unknown>;
+
+    expect(Math.abs((mapped.lat as number) - exactVendor.lat)).toBeGreaterThan(0.0001);
+    expect(String(mapped.lat)).not.toContain('30.7266');
+    expect(String(mapped.lng)).not.toContain('76.7554');
+  });
+
+  it('gives the exact pin only when the caller asks, which only entitled surfaces do', () => {
+    // The admin panel (which owns the coords endpoint and has to correct
+    // the pin) and the HomeKrafter's own portal (looking at itself).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mapped = mapVendor(exactVendor as any, undefined, {
+      preciseLocation: true,
+    }) as Record<string, unknown>;
+
+    expect(mapped.lat).toBe(30.726614);
+    expect(mapped.lng).toBe(76.755423);
+  });
 });

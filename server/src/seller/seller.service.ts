@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Seller, SellerSpecialty } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AdminSettingsService } from '../admin/settings.service';
 import {
   isWithdrawnSpecialty,
   vendorTypeForSpecialties,
@@ -30,7 +31,10 @@ import { SellerPayoutsService } from './payouts.service';
  */
 @Injectable()
 export class SellerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: AdminSettingsService,
+  ) {}
 
   /** Every `/seller/*` controller method calls this first — never accepts a `sellerId` from a route/body param. */
   async resolveSeller(user: RequestUser): Promise<Seller> {
@@ -79,10 +83,16 @@ export class SellerService {
     // shared `resolveSeller` seam is deliberately left alone: no other
     // controller needs the vendor, and widening it would put a join on
     // every `/seller/*` request instead of taking one off this one.
-    const seller = await this.prisma.seller.findUnique({
-      where: { id: user.sellerId },
-      include: { vendor: { select: { name: true, slug: true } } },
-    });
+    const [seller, settings] = await Promise.all([
+      this.prisma.seller.findUnique({
+        where: { id: user.sellerId },
+        include: { vendor: { select: { name: true, slug: true } } },
+      }),
+      // M37 — the rate the listing form does its "you receive ₹N" math
+      // with. Server-supplied on the record every portal screen already
+      // loads, so no component ever hardcodes a percentage.
+      this.settings.get(),
+    ]);
     if (!seller) {
       throw new ForbiddenException('No seller account is linked to this session');
     }
@@ -98,6 +108,7 @@ export class SellerService {
       createdAt: seller.createdAt.toISOString(),
       rating: seller.rating !== null ? Number(seller.rating) : undefined,
       reviewCount: seller.reviewCount ?? undefined,
+      commission: { pct: settings.commissionPct, enabled: settings.commissionEnabled },
     };
   }
 
@@ -111,7 +122,11 @@ export class SellerService {
   async getStorefront(vendorId: string) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
-    return mapVendor(vendor);
+    // Exact coordinates: this is the HomeKrafter reading their own
+    // record, resolved through `resolveHomeKrafter` from their own
+    // session. Rounding here would show somebody their own kitchen in the
+    // wrong place. Every buyer-facing route takes the default.
+    return mapVendor(vendor, undefined, { preciseLocation: true });
   }
 
   async updateStorefront(vendorId: string, dto: UpdateStorefrontDto) {
@@ -127,7 +142,8 @@ export class SellerService {
         bannerSrc: dto.bannerSrc,
       },
     });
-    return mapVendor(updated);
+    // Their own record again — see `getStorefront`.
+    return mapVendor(updated, undefined, { preciseLocation: true });
   }
 
   // -------------------------------------------------------------------
@@ -258,6 +274,9 @@ export class SellerService {
       incomingOrdersCount,
       menuSize,
       snackEarningsAgg,
+      mealsTodayCount,
+      ordersAwaitingCount,
+      profileCapacity,
     ] = await Promise.all([
       this.prisma.vendor.findUnique({
         where: { id: vendorId },
@@ -292,6 +311,22 @@ export class SellerService {
         where: { sellerId: seller.id, status: 'delivered' },
         _sum: { total: true },
       }),
+      // M37 — the two numbers a cook actually opens the portal for in the
+      // morning: meals owed today, and orders sitting un-actioned.
+      this.prisma.mealDelivery.count({
+        where: {
+          status: 'scheduled',
+          scheduledFor: { gte: utcDayStart, lt: utcDayEnd },
+          subscription: { plan: { vendorId } },
+        },
+      }),
+      this.prisma.order.count({
+        where: { status: 'placed', items: { some: { product: { vendorId } } } },
+      }),
+      this.prisma.vendorProfile.findUnique({
+        where: { vendorId },
+        select: { capacityPerDay: true },
+      }),
     ]);
 
     return {
@@ -313,6 +348,10 @@ export class SellerService {
       pendingPayoutAmount,
       rating: vendor ? Number(vendor.rating) : 0,
       reviewCount: vendor?.reviewCount ?? 0,
+      // M37 — today's work, front and centre.
+      mealsTodayCount,
+      ordersAwaitingCount,
+      capacityPerDay: profileCapacity?.capacityPerDay ?? undefined,
     };
   }
 }

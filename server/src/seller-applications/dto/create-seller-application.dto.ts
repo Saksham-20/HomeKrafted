@@ -102,9 +102,27 @@ export class CreateSellerApplicationDto {
   @IsIn(ALL_SPECIALTIES, { each: true })
   specialties!: SellerSpecialty[];
 
+  /**
+   * **Optional since M36, and it has to be.**
+   *
+   * The `/sell` form no longer asks for a city — it derives one from the
+   * pincode lookup (`lookup.data?.district ?? ""`). So when our own
+   * `GET /pincodes/:pincode` is unreachable, the form correctly tells the
+   * applicant "you can still send your application" and then sends
+   * `city: ""`, which a `@MinLength(1)` rejected. A valid applicant hit a
+   * 400 on a field the form does not show them, caused entirely by our
+   * own outage.
+   *
+   * Widening a request field is safe for the native clients that still
+   * send one (the same reasoning `category` and `area` are kept for);
+   * narrowing would not be. The service derives the real value — India
+   * Post's district wins over anything typed — and refuses only when
+   * neither source yields one.
+   */
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  city!: string;
+  @MaxLength(120)
+  city?: string;
 
   /**
    * **Legacy since M36, and still accepted.**

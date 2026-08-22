@@ -20,10 +20,12 @@ import {
   getSellerVendor,
   removeSellerBlackout,
   removeSellerPhoto,
+  setSellerKitchenPin,
   updateSellerProfile,
   updateSellerSpecialties,
   type SellerProfileInput,
 } from "@/lib/api";
+import { apiErrorMessage } from "@/lib/api/errors";
 import { formatDate } from "@/lib/format";
 import type {
   OwnVendorProfile,
@@ -155,6 +157,11 @@ export function SellerProfileClient() {
   // pattern is `workingDays` above, and this is the exception to it.
   const [blackouts, setBlackouts] = useState<VendorBlackout[]>([]);
   const [newBlackout, setNewBlackout] = useState({ date: "", reason: "" });
+  // The kitchen pin (2026-08-18). The pin itself lives on `profile.pin`;
+  // these three are only the fetch-a-GPS-fix interaction around it.
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinStatus, setPinStatus] = useState<string | undefined>();
+  const [pinError, setPinError] = useState<string | undefined>();
   const [form, setForm] = useState<FormState | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -261,19 +268,28 @@ export function SellerProfileClient() {
     if (specialtyDraft === undefined) return;
     setSavingSpecialties(true);
     setSpecialtiesError(undefined);
-    const result = await updateSellerSpecialties(specialtyDraft);
-    setSavingSpecialties(false);
-    if (!result) {
-      setSpecialtiesError("That did not save. Pick at least one and try again.");
-      return;
+    try {
+      const result = await updateSellerSpecialties(specialtyDraft);
+      if (!result) {
+        setSpecialtiesError("That did not save. Pick at least one and try again.");
+        return;
+      }
+      setSavedSpecialties(result);
+      setSpecialtyDraft(undefined);
+      setSpecialtiesSaved(true);
+      // So every other portal screen reading `specialties` — the snack
+      // queue on `/seller/orders`, above all — stops describing the
+      // business this kitchen used to be.
+      void refreshSeller();
+    } catch (err) {
+      // M33 refuses a payload that newly adds a withdrawn tag, with a
+      // sentence saying which one. Swallowed, that read as a dead button.
+      setSpecialtiesError(
+        apiErrorMessage(err, "That did not save. Pick at least one and try again."),
+      );
+    } finally {
+      setSavingSpecialties(false);
     }
-    setSavedSpecialties(result);
-    setSpecialtyDraft(undefined);
-    setSpecialtiesSaved(true);
-    // So every other portal screen reading `specialties` — the snack
-    // queue on `/seller/orders`, above all — stops describing the
-    // business this kitchen used to be.
-    void refreshSeller();
   }
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -302,28 +318,116 @@ export function SellerProfileClient() {
     const added = nextUrls.filter((url) => !photoUrls.includes(url));
     const removed = photos.filter((photo) => !nextUrls.includes(photo.url));
 
-    for (const photo of removed) {
-      const remaining = await removeSellerPhoto(photo.id);
-      if (remaining) setPhotos(remaining);
-    }
-    for (const url of added) {
-      const created = await addSellerPhoto({ url });
-      if (created) setPhotos((current) => [...current, created]);
+    // One failure must not abandon the rest of the batch *silently*.
+    // `removeSellerPhoto` throws since M36, and an uncaught rejection here
+    // stopped the loop mid-way: some photos gone, some still listed, and
+    // the widget showing neither state accurately.
+    try {
+      for (const photo of removed) {
+        const remaining = await removeSellerPhoto(photo.id);
+        if (remaining) setPhotos(remaining);
+      }
+      for (const url of added) {
+        const created = await addSellerPhoto({ url });
+        if (created) setPhotos((current) => [...current, created]);
+      }
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't update your photos. Try again."));
     }
   }
 
   async function handleAddBlackout() {
     if (!newBlackout.date) return;
-    const updated = await addSellerBlackout(newBlackout.date, newBlackout.reason.trim() || undefined);
-    if (updated) {
-      setBlackouts(updated);
-      setNewBlackout({ date: "", reason: "" });
+    try {
+      const updated = await addSellerBlackout(newBlackout.date, newBlackout.reason.trim() || undefined);
+      if (updated) {
+        setBlackouts(updated);
+        setNewBlackout({ date: "", reason: "" });
+      }
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't add that day off. Try again."));
     }
   }
 
   async function handleRemoveBlackout(id: string) {
-    const updated = await removeSellerBlackout(id);
-    if (updated) setBlackouts(updated);
+    try {
+      const updated = await removeSellerBlackout(id);
+      if (updated) setBlackouts(updated);
+    } catch (err) {
+      // Silently failing here leaves a day the kitchen believes they
+      // reopened still closed, and they find out from a missing order.
+      setError(apiErrorMessage(err, "Couldn't remove that day off. Try again."));
+    }
+  }
+
+  /**
+   * "Use my current location" — the person is standing in the kitchen, so
+   * their GPS fix *is* the kitchen. The save is server-checked against
+   * their pincode/area (a fix from the wrong city comes back as a 400
+   * whose sentence we show verbatim), clears the address verification,
+   * and never changes what a buyer sees — the storefront always carries a
+   * ~1 km rounded point, whoever set the pin.
+   *
+   * `geolocation` is browser-only, which is fine: this fires from a
+   * click, never during render, so there is no SSR/hydration clock to
+   * disagree with (the M12 rule).
+   */
+  function handlePinKitchen() {
+    if (!("geolocation" in navigator)) {
+      setPinError("This browser cannot share a location. Open this page on your phone and try again.");
+      return;
+    }
+    setPinBusy(true);
+    setPinError(undefined);
+    setPinStatus(undefined);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const saved = await setSellerKitchenPin({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+          // One update carries both facts: the new pin, and the badge it
+          // cost — the verification list above reads `addressVerified`
+          // off this same object.
+          setProfile((current) =>
+            current
+              ? {
+                  ...current,
+                  addressVerified: saved.addressVerified,
+                  pin: {
+                    ...current.pin,
+                    lat: saved.lat,
+                    lng: saved.lng,
+                    confirmedAt: new Date().toISOString(),
+                  },
+                }
+              : current,
+          );
+          const accuracy = Math.round(position.coords.accuracy);
+          setPinStatus(
+            accuracy > 250
+              ? `Saved, but the fix was only accurate to about ${accuracy} m — try again near a window or outside for a tighter one.`
+              : "Saved. We will re-check your address, since the spot we verified has moved.",
+          );
+        } catch (err) {
+          // The server's refusal names the distance and what to do next —
+          // never swallow it (the M36 rule).
+          setPinError(apiErrorMessage(err, "We could not save that pin. Try again."));
+        } finally {
+          setPinBusy(false);
+        }
+      },
+      (geoError) => {
+        setPinBusy(false);
+        setPinError(
+          geoError.code === geoError.PERMISSION_DENIED
+            ? "Location is blocked for this site. Allow it in your browser settings, then press the button again — standing in your kitchen."
+            : "We could not get a location fix. Move near a window or step outside, then try again.",
+        );
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    );
   }
 
   async function handleSave() {
@@ -364,15 +468,34 @@ export function SellerProfileClient() {
       websiteUrl: text(form.websiteUrl),
     };
 
-    const updated = await updateSellerProfile(input);
-    setSaving(false);
-    if (!updated) {
-      setError("That did not save. Check the FSSAI number is 14 digits and any links start with https://.");
-      return;
+    // `updateSellerProfile` stopped swallowing its own refusals in M36,
+    // which is right — but a bare `await` on an unswallowed wrapper is
+    // worse than the swallow was. The rejection skips `setSaving(false)`
+    // as well as the message, so the button stays on "Saving…" forever
+    // and the only trace is an unhandled rejection in a console nobody
+    // has open. `finally` implies `catch`, the rule
+    // `lib/silent-failure.spec.ts` exists to enforce.
+    try {
+      const updated = await updateSellerProfile(input);
+      if (!updated) {
+        setError("That did not save. Check the FSSAI number is 14 digits and any links start with https://.");
+        return;
+      }
+      setProfile(updated);
+      setPhotos(updated.photos);
+      setSaved(true);
+    } catch (err) {
+      // The server's own sentence where there is one — it names the field
+      // and what is wrong with it, which no fallback string can.
+      setError(
+        apiErrorMessage(
+          err,
+          "That did not save. Check the FSSAI number is 14 digits and any links start with https://.",
+        ),
+      );
+    } finally {
+      setSaving(false);
     }
-    setProfile(updated);
-    setPhotos(updated.photos);
-    setSaved(true);
   }
 
   const noStorefront = ready && !!seller && !seller.vendorId;
@@ -636,6 +759,47 @@ export function SellerProfileClient() {
           courier may already be routing to the old one. Changing your address also
           clears the <strong>Kitchen address</strong> verification above, since we
           checked the old one; we will re-check the new address.
+        </p>
+      </Card>
+
+      {/*
+        The kitchen pin (2026-08-18) — the exact coordinates behind
+        delivery-distance filtering, set by the person standing in the
+        kitchen rather than read off a pincode centroid that is
+        trustworthy for 44% of pincodes (M36). Private for the same
+        reason the pickup address above is: the public payload only ever
+        carries a ~1 km rounded point. Setting it clears the address
+        badge — same rule as editing the address itself.
+      */}
+      <Card className={styles.section} padding="lg">
+        <h2 className={styles.sectionTitle}>Your kitchen&apos;s exact spot</h2>
+        <p className={styles.hint}>
+          <strong>Shoppers never see this pin.</strong> On your storefront they only ever see
+          your area. The pin works behind the scenes: it decides which nearby buyers find you
+          and how far a delivery travels. Your pincode stays on record for verification —
+          the pin does not change it.
+        </p>
+        <p className={styles.hint}>
+          {profile.pin
+            ? profile.pin.confirmedAt
+              ? `Pinned at ${profile.pin.lat.toFixed(5)}, ${profile.pin.lng.toFixed(5)} on ${formatDate(profile.pin.confirmedAt)}.`
+              : `Currently placed at ${profile.pin.lat.toFixed(5)}, ${profile.pin.lng.toFixed(5)}` +
+                (profile.pin.pincode
+                  ? ` — an automatic guess from pincode ${profile.pin.pincode}, which can be kilometres off. Setting it yourself helps the right buyers find you.`
+                  : ".")
+            : "We have not placed your kitchen on the map yet."}
+        </p>
+        <div className={styles.specialtyActions}>
+          <Button variant="secondary" onClick={handlePinKitchen} disabled={pinBusy}>
+            {pinBusy ? "Getting a fix…" : "Use my current location"}
+          </Button>
+          <span className={styles.status} role="status" aria-live="polite">
+            {pinError ?? pinStatus ?? ""}
+          </span>
+        </div>
+        <p className={styles.hint}>
+          Press it while standing in your kitchen — the pin lands wherever you are at that
+          moment. A pin far outside your registered pincode will not save.
         </p>
       </Card>
 

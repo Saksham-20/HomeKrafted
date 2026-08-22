@@ -11,11 +11,15 @@ import { IsLatitude, IsLongitude, IsOptional, IsString, MaxLength } from 'class-
  * needs a way to correct it. Without this endpoint, going national would
  * mean planting kitchens up to 12 km out with no route back.
  *
- * There is deliberately **no seller-facing equivalent**. A HomeKrafter
- * moving their own pin changes who can buy from them, which is the same
- * class of self-granted advantage as setting their own verification
- * badge (M16) — and unlike the badge it would be invisible on every
- * screen. It stays an audited admin action.
+ * A seller-facing sibling exists since 2026-08-18 —
+ * `PATCH /seller/profile/coords` (`seller/dto/set-own-coords.dto.ts`) —
+ * reversing this file's original "no seller-facing equivalent" stance on
+ * the owner's decision. What that stance protected (a kitchen quietly
+ * moving its pin to a busier neighbourhood) is held closed there by a
+ * pincode/area plausibility check, an `addressVerified` reset, and the
+ * same audit trail. This admin endpoint remains the unconstrained
+ * correction path — it alone may move a pin outside the stated pincode,
+ * because an admin can check the claim a kitchen cannot prove.
  */
 export class SetVendorCoordsDto {
   @IsLatitude()

@@ -53,6 +53,9 @@ describe('Seller application — unresolvable areas are unapprovable', () => {
     area: 'other',
     areaLabel: 'Model Town, Ludhiana',
     description: 'Punjabi thali cooked at home.',
+    // Required by the intake since M36b — the address a rider collects
+    // from. This spec predates it and 400'd on every submit.
+    addressLine1: '88, Model Town',
     ...over,
   });
 

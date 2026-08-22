@@ -173,7 +173,32 @@ describe("a component that mutates server state", () => {
     return names;
   }
 
-  it("always catches the refusal", () => {
+  /**
+   * Handler-by-handler, not file-by-file — and that distinction is the
+   * whole value of this rule.
+   *
+   * It used to be `if (/\}\s*catch\b/.test(source)) continue`: **one
+   * `catch` anywhere in the file exempted every handler in it.** A
+   * component with a careful `catch` around its data-loading effect was
+   * credited for it on all six of its save buttons.
+   *
+   * M36 turned that blind spot into six live defects at once. It removed
+   * `catch { return undefined }` from sixteen `lib/api` mutation wrappers
+   * — correctly, that is the rule directly above — and every bare `await`
+   * on one of them became an unhandled rejection. `SellerProfileClient`
+   * had a `catch` in its loader and none in `handleSave`, so the guard
+   * stayed green while saving a profile stuck the button on "Saving…"
+   * permanently, with the message discarded. That is *worse* than the
+   * swallow it replaced: the swallow at least let `setSaving(false)` run.
+   *
+   * Splitting on function declarations errs toward larger blocks, so it
+   * still under-reports rather than crying wolf. It catches the case that
+   * actually happens: a handler that awaits a mutation and handles only
+   * the happy path.
+   */
+  const FUNCTION_START = /(?=\n\s*(?:export\s+)?(?:async\s+function|function)\s+\w+|\n\s*const\s+\w+\s*=\s*async\b)/;
+
+  it("always catches the refusal, in the handler that awaits it", () => {
     const offenders: string[] = [];
 
     for (const file of files) {
@@ -185,12 +210,17 @@ describe("a component that mutates server state", () => {
       const mutators = apiImports(source).filter((name) => MUTATION_VERB.test(name));
       if (mutators.length === 0) continue;
 
-      const awaited = mutators.some((name) =>
-        new RegExp(`\\bawait\\s+${name}\\s*\\(`).test(source),
-      );
-      if (!awaited) continue;
-      if (/\}\s*catch\b/.test(source)) continue;
-      offenders.push(file.replace(CLIENT_ROOT + "/", ""));
+      for (const block of source.split(FUNCTION_START)) {
+        const awaited = mutators.find((name) =>
+          new RegExp(`\\bawait\\s+${name}\\s*\\(`).test(block),
+        );
+        if (!awaited) continue;
+        if (/\}\s*catch\b/.test(block)) continue;
+        const handler =
+          /(?:async\s+function|function)\s+(\w+)|const\s+(\w+)\s*=\s*async\b/.exec(block);
+        const name = handler?.[1] ?? handler?.[2] ?? "(top level)";
+        offenders.push(`${file.replace(CLIENT_ROOT + "/", "")} → ${name} (awaits ${awaited})`);
+      }
     }
 
     expect(offenders).toEqual([]);

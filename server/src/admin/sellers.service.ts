@@ -9,7 +9,7 @@ import { lookupPincode, seedCoordsForPincode } from '../common/pincodes';
 import { AssignApplicationAreaDto } from './dto/assign-application-area.dto';
 import { SetVendorCoordsDto } from './dto/set-vendor-coords.dto';
 import { ListAdminSellersQueryDto } from './dto/list-admin-sellers.query.dto';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { generateReferralCode } from '../auth/referral-code.util';
 import { AdminAuditLogService } from './audit-log.service';
@@ -90,18 +90,16 @@ function mapSeller(seller: Seller, vendorName?: string) {
  * Where one HomeKrafter stands between "approved" and "using the site",
  * and the credentials to get them there if they are not (M32).
  *
- * `temporaryPassword` is present **only** while it is still the account's
- * password — the moment its owner chooses their own it is `null`ed in the
- * database, so this returns nothing rather than a stale secret. That is
- * the whole reason the panel can show it persistently without it becoming
- * a permanent credential store.
+ * No credential rides here (M37). The plaintext exists only in the HTTP
+ * response of the issue/approve call itself — never in a column, never in
+ * a list payload. A panel that needs it again re-issues, which rotates the
+ * hash and revokes sessions; this returns only the *state* of onboarding.
  */
 function mapSignInState(user: {
   email: string | null;
   phone: string | null;
   passwordHash: string | null;
   mustChangePassword: boolean;
-  tempPassword: string | null;
   tempPasswordIssuedAt: Date | null;
   credentialsClaimedAt: Date | null;
 }) {
@@ -120,7 +118,6 @@ function mapSignInState(user: {
   return {
     status,
     username: user.email ?? user.phone,
-    temporaryPassword: user.mustChangePassword ? user.tempPassword : null,
     issuedAt: user.tempPasswordIssuedAt?.toISOString() ?? null,
     claimedAt: user.credentialsClaimedAt?.toISOString() ?? null,
   };
@@ -195,9 +192,9 @@ export interface ApproveSellerApplicationResult {
    * and a short temporary password an admin can read out, since no
    * provider key is set and the link reaches nobody.
    *
-   * Also readable later from the HomeKrafter's row, until they replace
-   * it. See `User.tempPassword` for why the plaintext exists at all and
-   * when to retire it.
+   * This response is the only place the plaintext ever exists (M37 —
+   * nothing stores it). Lost means re-issued, via
+   * `POST /admin/sellers/:id/temp-password`.
    */
   signIn: TemporarySignInDetails;
 }
@@ -227,10 +224,23 @@ export class AdminSellersService {
     private readonly prisma: PrismaService,
     private readonly auditLog: AdminAuditLogService,
     private readonly sellerInvite: SellerInviteService,
-    private readonly notifications: NotificationsService,
+    private readonly notifications: NotificationsDeliveryService,
     private readonly vendorProfiles: VendorProfileService,
     private readonly settings: AdminSettingsService,
   ) {}
+
+  /**
+   * Multi-channel per the account's preferences (M37 — approval,
+   * rejection and verification used to be in-app only, an inbox behind a
+   * login a new HomeKrafter may not be able to pass yet). Failures are
+   * swallowed: a decision that already committed must not be undone by a
+   * message.
+   */
+  private async deliverQuietly(
+    input: Parameters<NotificationsDeliveryService['deliver']>[0],
+  ): Promise<void> {
+    await this.notifications.deliver(input).catch(() => undefined);
+  }
 
   /**
    * One page of HomeKrafters, newest first.
@@ -274,7 +284,6 @@ export class AdminSellersService {
               phone: true,
               passwordHash: true,
               mustChangePassword: true,
-              tempPassword: true,
               tempPasswordIssuedAt: true,
               credentialsClaimedAt: true,
             },
@@ -375,7 +384,7 @@ export class AdminSellersService {
     ].filter(Boolean) as string[];
 
     if (granted.length > 0 || revoked.length > 0) {
-      await this.notifications.notify({
+      await this.deliverQuietly({
         userId: seller.userId,
         category: 'account',
         title: granted.length > 0 ? 'Your verification is through' : 'A verification was withdrawn',
@@ -432,7 +441,6 @@ export class AdminSellersService {
             createdAt: true,
             passwordHash: true,
             mustChangePassword: true,
-            tempPassword: true,
             tempPasswordIssuedAt: true,
             credentialsClaimedAt: true,
           },
@@ -841,6 +849,10 @@ export class AdminSellersService {
       data: {
         lat: dto.lat,
         lng: dto.lng,
+        // An admin placing the pin is a person vouching for it, the same
+        // as the kitchen's own GPS fix — the completion meter's "pin your
+        // kitchen" item is about *someone* having confirmed the seed.
+        pinConfirmedAt: new Date(),
         ...(dto.location ? { location: dto.location } : {}),
       },
     });
@@ -1043,18 +1055,17 @@ export class AdminSellersService {
     // approval happens.
     //
     // The safety properties are the ones documented on
-    // `issueTemporaryPassword` and on `User.tempPassword`: forced
-    // rotation at first sign-in, cleared the moment the owner chooses
-    // their own, never in an audit row or a public payload. Revisit once
-    // SendGrid/Twilio exist — with real delivery, the link is better and
-    // this should go back to being nothing.
+    // `issueTemporaryPassword`: never stored (only the hash is), forced
+    // rotation at first sign-in, never in an audit row or a public
+    // payload. Revisit once SendGrid/Twilio exist — with real delivery,
+    // the link is better and this should go back to being nothing.
     const signIn = await this.issueTemporaryPassword(adminUserId, result.seller.id, {
       audit: false,
     });
 
     // Kept, but it is now the second copy rather than the only one. It is
     // what they find waiting once the invite has got them inside.
-    await this.notifications.notify({
+    await this.deliverQuietly({
       userId: result.seller.userId,
       category: 'account',
       title: 'You are a HomeKrafter',
@@ -1084,7 +1095,10 @@ export class AdminSellersService {
     return {
       application: mapApplication(result.application),
       seller: mapSeller(result.seller, result.vendor.name),
-      vendor: mapVendor(result.vendor),
+      // Exact coordinates for the admin: this response carries the
+      // `placement` warning telling them to go and correct the pin, and a
+      // rounded starting point would be a worse one to correct from.
+      vendor: mapVendor(result.vendor, undefined, { preciseLocation: true }),
       // Surfaced so the admin screen can say "approved, but we could not
       // reach them" instead of a confident success. `fallbackLink` is
       // present only when nothing was delivered, and is what an admin
@@ -1127,7 +1141,7 @@ export class AdminSellersService {
     // predate one (there's no userId FK), so this is best-effort.
     const applicantUser = await this.prisma.user.findUnique({ where: { email: application.email } });
     if (applicantUser) {
-      await this.notifications.notify({
+      await this.deliverQuietly({
         userId: applicantUser.id,
         category: 'account',
         title: 'About your HomeKrafter application',
@@ -1265,10 +1279,9 @@ export class AdminSellersService {
         data: {
           passwordHash,
           mustChangePassword: true,
-          // Kept legible until its owner replaces it, so the admin can
-          // read it out again tomorrow — see the field's doc comment for
-          // why that exception is bounded and when to retire it.
-          tempPassword: temporaryPassword,
+          // Only the timestamp is stored (M37). The plaintext lives in
+          // this method's return value and nowhere else — an admin who
+          // loses it re-issues, which is a button, not a problem.
           tempPasswordIssuedAt: new Date(),
         },
       }),

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminOrderType } from './orders.service';
 import { AdminSettingsService } from './settings.service';
+import { AdminSupportService } from './support.service';
 
 export interface AdminDashboardSnapshot {
   /** Sum of every unified order/booking/snack-order total — a proxy for GMV; nets nothing out (vendor payout share is a `Payout`-ledger concern, not this KPI). */
@@ -26,6 +27,20 @@ export interface AdminDashboardSnapshot {
   pendingPayoutsAmount: number;
   /** Real server-side aggregate of every `Wallet.balance` — the platform's total wallet liability. */
   walletLiability: number;
+  /**
+   * The needs-attention queue (M37): everything on the platform that is
+   * waiting on an *admin* — cheap counts, each backing one row of the
+   * dashboard's action list. Rows render only when non-zero.
+   */
+  attention: {
+    pendingApplications: number;
+    pendingListings: number;
+    /** Support tickets a customer replied to last — "waiting on us". */
+    supportWaiting: number;
+    payoutRequests: number;
+    corporateNew: number;
+    flaggedListings: number;
+  };
 }
 
 export interface AnalyticsDailyPoint {
@@ -66,10 +81,11 @@ export interface AdminAnalyticsSnapshot {
   days: number;
   /**
    * Modelled platform take on the window's GMV at the configured
-   * `commissionPct`. **Nothing deducts this** — `Payout` amounts are
-   * gross and settlement is manual — so every surface that renders it
-   * says so. It exists because "what would a 12% take rate have earned"
-   * is a question the business needs answered before it can set one.
+   * `commissionPct` — a what-if over gross sales, **not** a sum of what
+   * was deducted. Whether payouts actually deduct the rate is
+   * `commissionEnabled` (M37, default off); either way this figure stays
+   * modelled, because "what would a 12% take rate have earned" is a
+   * question the business needs answered before it can change one.
    */
   commissionPct: number;
   modelledCommission: number;
@@ -114,6 +130,7 @@ export class AdminDashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: AdminSettingsService,
+    private readonly support: AdminSupportService,
   ) {}
 
   async getDashboard(): Promise<AdminDashboardSnapshot> {
@@ -141,6 +158,12 @@ export class AdminDashboardService {
       oldestPendingSnack,
       pendingMealPlansCount,
       oldestPendingMealPlan,
+      supportWaiting,
+      payoutRequestsCount,
+      corporateNew,
+      flaggedProducts,
+      flaggedSnacks,
+      flaggedMealPlans,
     ] = await Promise.all([
       // `groupBy({ by: ['type'] })` no longer works: a HomeKrafter's
       // `specialties` is a list, so one account can land in several buckets
@@ -187,6 +210,13 @@ export class AdminDashboardService {
         orderBy: { submittedAt: 'asc' },
         select: { submittedAt: true, createdAt: true },
       }),
+      // The needs-attention queue (M37) — everything waiting on an admin.
+      this.support.countAwaitingReply(),
+      this.prisma.payout.count({ where: { status: 'pending' } }),
+      this.prisma.corporateInquiry.count({ where: { status: 'new' } }),
+      this.prisma.product.count({ where: { moderationStatus: 'flagged' } }),
+      this.prisma.snack.count({ where: { moderationStatus: 'flagged' } }),
+      this.prisma.mealPlan.count({ where: { moderationStatus: 'flagged' } }),
     ]);
 
     const activeBySpecialty: Record<string, number> = {};
@@ -219,6 +249,14 @@ export class AdminDashboardService {
         .filter((d): d is Date => d instanceof Date)
         .sort((a, b) => a.getTime() - b.getTime())[0]
         ?.toISOString(),
+      attention: {
+        pendingApplications: pendingApplicationsCount,
+        pendingListings: pendingProductsCount + pendingSnacksCount + pendingMealPlansCount,
+        supportWaiting,
+        payoutRequests: payoutRequestsCount,
+        corporateNew,
+        flaggedListings: flaggedProducts + flaggedSnacks + flaggedMealPlans,
+      },
     };
   }
 

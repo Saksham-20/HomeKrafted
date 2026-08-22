@@ -302,8 +302,13 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  /* 44×44 (M37) — the WCAG/thumb tap-target floor; it was 38×38, the
+     smallest control in the header on the screens where it is the only
+     navigation. The negative margin absorbs the 6px so the header's
+     visual rhythm (and the 1190 collapse math) doesn't shift. */
+  width: 44px;
+  height: 44px;
+  margin: -3px;
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
   border-radius: var(--hk-r-md);

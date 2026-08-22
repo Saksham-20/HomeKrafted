@@ -72,7 +72,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | Entity | Key fields | Relationships |
 |---|---|---|
 | `Seller` | userId, type (`maker`\|`laundry`\|`snack`), vendorId? (maker only), displayName, status (`pending`\|`approved`\|`suspended`), rating?/reviewCount? (M10b, laundry/snack only) | belongs to a `User` (role `"seller"`, a separate demo account per type — not a permission flag on the consumer `User`); a maker additionally owns a `Vendor` via `vendorId` — laundry/snack have no `Vendor`, so their rating lives directly on `Seller` instead |
-| `Payout` | sellerId, amount, periodStart/End, status (`pending`\|`paid`\|**`rejected`** — M15), paidAt?, **reference?/note?/decidedById?/decidedAt? (M15)** | belongs to a `Seller` — `/seller/payouts` and `SellerPayoutsClient` are specialty-agnostic. `reference` is the bank/UPI id the transfer actually moved under: settlement happens **outside this system**, so it is the only link between a row marked paid and a real transfer. **`amount` is GROSS** — `PlatformSetting.commissionPct` is modelled on the admin dashboard and never deducted here, so nobody should settle a payout believing a cut was taken (see `docs/LAUNCH-READINESS.md` §3b) |
+| `Payout` | sellerId, amount, periodStart/End, status (`pending`\|`paid`\|**`rejected`** — M15), paidAt?, **reference?/note?/decidedById?/decidedAt? (M15)** | belongs to a `Seller` — `/seller/payouts` and `SellerPayoutsClient` are specialty-agnostic. `reference` is the bank/UPI id the transfer actually moved under: settlement happens **outside this system**, so it is the only link between a row marked paid and a real transfer. **`amount` is the payable figure** (M37): net while `PlatformSetting.commissionEnabled` is on, gross otherwise (the default — the flag ships off). `grossAmount?/commissionAmount?/commissionPct?` record the row's own split, computed once at request time and never recalculated; NULL on pre-M37 rows, where `amount` was always gross. Pending-balance maths subtracts `COALESCE(grossAmount, amount)` so mixed eras never double-count (see `docs/LAUNCH-READINESS.md` §3b) |
 
 ## Notes for the M8 Prisma pass
 
@@ -222,8 +222,13 @@ place the Prisma model deviates from the literal TS shape). All ids are
   a coordinate** — the bundled GeoNames table is authoritative for
   district and state, but its centroid is trustworthy for only 44% of
   pincodes (median internal spread 12.4 km), so `Vendor.lat`/`lng` is
-  *seeded* from it and confirmed by an admin through
-  `PATCH /admin/sellers/:id/coords`. **`Vendor.area` now carries two
+  *seeded* from it and confirmed by a person — an admin through
+  `PATCH /admin/sellers/:id/coords`, or since 2026-08-18 the kitchen
+  itself through `PATCH /seller/profile/coords` (a GPS fix,
+  plausibility-checked against its own pincode/area, clears
+  `addressVerified`, audited). `Vendor.pinConfirmedAt` records that
+  confirmation; NULL means the coordinates are still the approval seed,
+  which the profile completion meter names as a gap. **`Vendor.area` now carries two
   kinds of value** — a curated area id where one applies, otherwise the
   pincode; nothing filters on it (it is search and display only), which is
   what lets one column do both. **Nothing was backfilled**: pre-M36 rows
@@ -616,6 +621,38 @@ nothing before laundry was withdrawn.
 - **`status` splits `paused` from `cancelled` because only one gives the
   seat back.** Somebody away for a week has not given up their tiffin.
 
+### Notes for M37 — dated menus + the menu lock
+
+- **`MealPlanDayMenu` is the difference between a rotation and a
+  promise.** `MealPlan.weeklyMenu` stays the undated marketing rotation a
+  browsing buyer reads; a `MealPlanDayMenu` row (`@@unique([planId,
+  date])`, `lines String[]`) is what a specific date actually serves,
+  which is what lets a subscriber answer "what arrives tomorrow" and lets
+  a kitchen change one day without re-marketing (or re-queueing) the
+  plan. A **7-line** `weeklyMenu` is read Monday→Sunday as the per-date
+  fallback; any other line count opts out — the field never had weekday
+  anchoring, and guessing one would show wrong dishes with confidence.
+- **Lock state is computed on read, never stored.** A date locks at
+  `PlatformSettings.menuLockTime` IST the evening before
+  (`meals/menu-lock.ts`, pure functions that take `now`). No scheduler
+  exists and none is needed: the seller editor, the buyer's skip and the
+  pause all ask the same pure function. Past the lock, the kitchen's
+  write is refused, the buyer's skip is a 409 ("this one will still be
+  delivered"), a pause leaves the locked rows `scheduled`, and only the
+  audited admin override (`meal_plan.menu_override`) can change the menu
+  — which still notifies the affected subscribers.
+- **A blackout now cascades (first writer of
+  `MealDeliveryStatus.unavailable`).** Adding a `VendorBlackoutDate`
+  marks that date's `scheduled` deliveries `unavailable` with the
+  kitchen's reason, appends a replacement past the cycle's end on the
+  buyer's own days (owed, not lost — the same mechanics as skip), moves
+  `endDate` with it, and tells the subscriber on the `meals` category.
+  Removing the blackout un-marks nothing: recorded facts stay, and the
+  replacement is already owed.
+- **`NotificationCategory.meals`** carries the subscription lifecycle
+  (created/paused/resumed/cancelled/skip confirmations) and menu-change
+  messages. Transactional — the non-promo default channels apply.
+
 ### Notes for M20 — the gifts vertical
 
 `Product.kind` (`food | craft`) and `Product.shippingScope`
@@ -687,3 +724,16 @@ new kind of subscription or a new snack meant a migration:
   and the two guesses are not symmetric. A vegetarian buyer relies on that
   label, so the wrong "veg" is harmful and the wrong "non-veg" is only
   unhelpful.
+
+## Indexes (M37 perf pass)
+
+Postgres does **not** index foreign-key columns automatically, and Prisma
+only creates indexes it is asked for. Until M37 twenty-eight FK columns
+(`CartItem.productId`, `OrderItem.addressId`, every `Hamper`/`Snack`/
+`Laundry` line table, `RazorpayOrder.orderId`, …) had none — every
+delete/update on the referenced row, and every join through one, was a
+sequential scan on tables that only grow. `20260815150000_m37_perf_indexes`
+adds all of them plus `SellerApplication @@index([status, createdAt])`
+(the admin queue's exact read). Each carries an `// M37 perf pass` comment
+in `schema.prisma`. Cold FK columns that only an admin's rare lookup ever
+touches (`decidedById`, `moderatedById`) were deliberately left unindexed.

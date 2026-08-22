@@ -4,7 +4,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
 import { mapNotification, mapNotificationPreference } from './notifications.mapper';
 
-const ALL_CATEGORIES: NotificationCategory[] = ['order', 'laundry', 'snacks', 'wallet', 'promo', 'account'];
+const ALL_CATEGORIES: NotificationCategory[] = [
+  'order',
+  'laundry',
+  'snacks',
+  'wallet',
+  'promo',
+  'account',
+  // M37 — meal-subscription lifecycle + dated-menu changes. Lazy backfill
+  // below gives every existing user a row on their next prefs read.
+  'meals',
+];
 
 /**
  * Owner-scoped (auth). This service is still read/preferences-only — the
@@ -103,9 +113,12 @@ export class NotificationsService {
   }
 
   async listInbox(userId: string) {
+    // Latest 50 (M37) — the inbox only grows, and every order status
+    // change writes a row per channel. The client captions the cut.
     const rows = await this.prisma.notification.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
     return rows.map(mapNotification);
   }

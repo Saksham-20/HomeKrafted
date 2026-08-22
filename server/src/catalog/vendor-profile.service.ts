@@ -162,11 +162,18 @@ export class VendorProfileService {
    */
   async ownProfile(vendorId: string) {
     const publicPart = await this.publicProfile(vendorId);
-    const [profile, seller] = await Promise.all([
+    const [profile, seller, vendorPin] = await Promise.all([
       this.prisma.vendorProfile.findUnique({ where: { vendorId } }),
       // Only for `makesFood` below — the completion meter must not ask a
       // candle maker for a food licence (M22).
       this.prisma.seller.findFirst({ where: { vendorId }, select: { specialties: true } }),
+      // The exact pin, for the profile screen's "pin your kitchen"
+      // section. Own-view only — the public payload gets the ~1.1 km
+      // rounded point through `mapVendor` (M36), never this.
+      this.prisma.vendor.findUnique({
+        where: { id: vendorId },
+        select: { lat: true, lng: true, pincode: true, pinConfirmedAt: true },
+      }),
     ]);
     return {
       ...publicPart,
@@ -195,10 +202,23 @@ export class VendorProfileService {
         pincode: optional(profile?.pickupPincode ?? null),
         phone: optional(profile?.pickupPhone ?? null),
       },
+      // Where the platform currently believes this kitchen is — full
+      // precision, because this is the screen that lets them correct it
+      // (`PATCH /seller/profile/coords`). Same own-view-only rule as
+      // `pickup` above.
+      pin: vendorPin
+        ? {
+            lat: vendorPin.lat,
+            lng: vendorPin.lng,
+            pincode: optional(vendorPin.pincode),
+            confirmedAt: vendorPin.pinConfirmedAt?.toISOString(),
+          }
+        : undefined,
       completion: this.completion(
         profile,
         publicPart.photos.length,
         supplyMix(seller?.specialties ?? []).makesFood,
+        Boolean(vendorPin?.pinConfirmedAt),
       ),
     };
   }
@@ -397,8 +417,20 @@ export class VendorProfileService {
     profile: VendorProfile | null,
     photoCount: number,
     makesFood: boolean,
+    pinConfirmed: boolean,
   ): CompletionSummary {
     const sections: { key: string; label: string; done: boolean; weight: number }[] = [
+      {
+        key: 'pin',
+        // Approval seeds coordinates from a pincode centroid that is
+        // trustworthy for 44% of pincodes, and those coordinates decide
+        // which buyers can find the kitchen at all — so "confirm where
+        // you actually are" is named as a gap until a person (the
+        // kitchen's own GPS fix, or an admin) has vouched for the pin.
+        label: 'Pin your kitchen’s exact spot',
+        done: pinConfirmed,
+        weight: 10,
+      },
       { key: 'tagline', label: 'A one-line tagline', done: Boolean(profile?.tagline), weight: 10 },
       { key: 'story', label: 'Your story', done: Boolean(profile?.story), weight: 20 },
       { key: 'photos', label: 'Kitchen photos', done: photoCount > 0, weight: 15 },

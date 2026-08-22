@@ -45,6 +45,7 @@ import type {
   ProductTag,
   Review,
   Seller,
+  SellerOrder,
   SellerSpecialty,
   Snack,
   SnackCategory,
@@ -89,7 +90,10 @@ export async function getSeller(sellerId: string): Promise<Seller | undefined> {
  * throughout their own portal.
  */
 export async function getMySeller(): Promise<Seller | undefined> {
-  if (isMockMode()) return sellers[0];
+  // Mock parity for the M37 commission block: the real record carries the
+  // platform rate so no screen hardcodes one; offline mode models the
+  // shipped default (10%, deduction off).
+  if (isMockMode()) return { ...sellers[0], commission: { pct: 10, enabled: false } };
   try {
     return await http.get<Seller>("/seller/me");
   } catch {
@@ -146,9 +150,7 @@ function slugify(name: string): string {
 
 export async function getSellerListings(vendorId: string): Promise<Product[]> {
   if (isMockMode()) return ensureListings(vendorId);
-  const listings = await http.get<Product[]>("/seller/listings");
-  await warmMyProductIds(vendorId, listings);
-  return listings;
+  return http.get<Product[]>("/seller/listings");
 }
 
 export async function getSellerListing(
@@ -293,53 +295,73 @@ function orderIncludesVendor(order: Order, vendorId: string): boolean {
 }
 
 /**
- * `describeSellerOrderItems` (below) needs to know which of a mixed-vendor
- * order's lines are *this* vendor's own — mock mode resolves that via
- * `lib/data`'s product table (`orderIncludesVendor`/`getProductByIdData`),
- * which only knows mock seed ids and can never match a real order's
- * Postgres-generated `productId`s. Real mode instead warms this small
- * per-vendor id cache every time `getSellerListings`/`getSellerOrders` runs
- * (both already fetch "my products" or are called right after a listings
- * fetch in every screen that also renders order descriptions) — best-effort:
- * if the cache isn't warm yet the first time `describeSellerOrderItems` runs,
- * it falls back to describing every line rather than a false "—".
+ * Mock-mode mirror of the server's `mapOrderForSeller` (M37): filter a
+ * buyer-shaped mock `Order` down to this vendor's own lines, sum their
+ * subtotal, and flag whether other kitchens share the order. Real mode
+ * receives this projection straight from `GET /seller/orders*`, so no
+ * client-side filtering (or product-id cache) exists there any more.
  */
-const myProductIdsCache = new Map<string, Set<string>>();
-
-async function warmMyProductIds(vendorId: string, listings?: Product[]): Promise<void> {
-  try {
-    const list = listings ?? (await http.get<Product[]>("/seller/listings"));
-    myProductIdsCache.set(vendorId, new Set(list.map((p) => p.id)));
-  } catch {
-    // best-effort only — see doc comment above
-  }
+function toSellerOrder(order: Order, vendorId: string): SellerOrder {
+  const own = order.items.filter(
+    (item) => item.productId && getProductByIdData(item.productId)?.vendorId === vendorId,
+  );
+  const ownAddressIds = new Set(own.map((i) => i.addressId));
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    items: own,
+    itemsSubtotal: Math.round(own.reduce((sum, i) => sum + i.price * i.quantity, 0) * 100) / 100,
+    shippingAddressIds: order.shippingAddressIds.filter((id) => ownAddressIds.has(id)),
+    shipments: order.shipments.filter((s) => ownAddressIds.has(s.addressId)),
+    gift: order.gift,
+    placedAt: order.placedAt,
+    cancelledAt: order.cancelledAt,
+    deliveredAt: order.deliveredAt,
+    paymentMethod: order.paymentMethod,
+    multiVendor: own.length !== order.items.length,
+  };
 }
 
-export async function getSellerOrders(vendorId: string): Promise<Order[]> {
+export interface SellerOrdersPage {
+  items: SellerOrder[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** One page (M37 — the endpoint stopped returning a kitchen's entire history). Mock mode pages the seed/live merge the same way. */
+export async function getSellerOrders(vendorId: string, page = 1): Promise<SellerOrdersPage> {
+  const pageSize = 50;
   if (isMockMode()) {
     const placed = await getPlacedOrders();
-    return [...seedOrders, ...placed]
+    const all = [...seedOrders, ...placed]
       .filter((order) => orderIncludesVendor(order, vendorId))
-      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+      .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime())
+      .map((order) => toSellerOrder(order, vendorId));
+    return {
+      items: all.slice((page - 1) * pageSize, page * pageSize),
+      page,
+      pageSize,
+      total: all.length,
+    };
   }
 
-  const [orders] = await Promise.all([
-    http.get<Order[]>("/seller/orders"),
-    myProductIdsCache.has(vendorId) ? Promise.resolve() : warmMyProductIds(vendorId),
-  ]);
-  return orders;
+  return http.get<SellerOrdersPage>("/seller/orders", {
+    query: page > 1 ? { page: String(page) } : undefined,
+  });
 }
 
 export async function getSellerOrder(
   vendorId: string,
   orderId: string,
-): Promise<Order | undefined> {
+): Promise<SellerOrder | undefined> {
   if (isMockMode()) {
-    const orders = await getSellerOrders(vendorId);
-    return orders.find((o) => o.id === orderId);
+    const { items } = await getSellerOrders(vendorId);
+    return items.find((o) => o.id === orderId);
   }
   try {
-    return await http.get<Order>(`/seller/orders/${encodeURIComponent(orderId)}`);
+    return await http.get<SellerOrder>(`/seller/orders/${encodeURIComponent(orderId)}`);
   } catch {
     return undefined;
   }
@@ -365,42 +387,31 @@ export function nextFulfillmentStatus(status: OrderStatus): OrderStatus | undefi
   return FULFILLMENT_SEQUENCE[index + 1];
 }
 
-export async function advanceSellerOrderStatus(orderId: string): Promise<Order | undefined> {
+export async function advanceSellerOrderStatus(
+  vendorId: string,
+  orderId: string,
+): Promise<SellerOrder | undefined> {
   if (isMockMode()) {
     const placed = await getPlacedOrders();
     const order = [...seedOrders, ...placed].find((o) => o.id === orderId);
     if (!order) return undefined;
     const next = nextFulfillmentStatus(order.status);
     if (next) order.status = next;
-    return order;
+    return toSellerOrder(order, vendorId);
   }
 
-  return http.post<Order>(`/seller/orders/${encodeURIComponent(orderId)}/advance`);
+  return http.post<SellerOrder>(`/seller/orders/${encodeURIComponent(orderId)}/advance`);
 }
 
 /**
- * "Mango Thokku Pickle ×2, Ragi Almond Cookies ×1" — this seller's line
- * items only, for the order-list rows. A mixed-vendor order can have items
- * outside this seller's catalog; those are left out on purpose (mock mode)
- * or best-effort filtered via `myProductIdsCache` (real mode — see that
- * cache's doc comment).
+ * "Mango Thokku Pickle ×2, Ragi Almond Cookies ×1" — for the order-list
+ * rows. A `SellerOrder`'s items are already only this seller's own (the
+ * server projects them since M37; mock mode filters in `toSellerOrder`),
+ * so there is nothing left to filter here.
  */
-export function describeSellerOrderItems(order: Order, vendorId: string): string {
-  if (isMockMode()) {
-    const own = order.items.filter((item) => {
-      if (!item.productId) return false;
-      return getProductByIdData(item.productId)?.vendorId === vendorId;
-    });
-    if (own.length === 0) return "—";
-    return own.map((item) => `${item.name} ×${item.quantity}`).join(", ");
-  }
-
-  const myIds = myProductIdsCache.get(vendorId);
-  const relevant = myIds
-    ? order.items.filter((item) => item.productId && myIds.has(item.productId))
-    : order.items;
-  if (relevant.length === 0) return "—";
-  return relevant.map((item) => `${item.name} ×${item.quantity}`).join(", ");
+export function describeSellerOrderItems(order: SellerOrder): string {
+  if (order.items.length === 0) return "—";
+  return order.items.map((item) => `${item.name} ×${item.quantity}`).join(", ");
 }
 
 // ---------------------------------------------------------------------------
@@ -431,6 +442,11 @@ export interface SellerDashboardSnapshot {
   incomingOrdersCount?: number;
   menuSize?: number;
   snackEarnings?: number;
+  /** M37 — today's work: meals owed today, and orders sitting at `placed`. */
+  mealsTodayCount?: number;
+  ordersAwaitingCount?: number;
+  /** The kitchen's own stated daily ceiling (`VendorProfile.capacityPerDay`), when set. */
+  capacityPerDay?: number;
 }
 
 /**
@@ -477,15 +493,18 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
   if (!isMockMode()) return http.get<SellerDashboardSnapshot>("/seller/dashboard");
 
   const vendorId = seller.vendorId;
-  const [orders, listings, payoutList, vendor] = await Promise.all([
-    vendorId ? getSellerOrders(vendorId) : Promise.resolve<Order[]>([]),
+  const [ordersPage, listings, payoutList, vendor] = await Promise.all([
+    vendorId
+      ? getSellerOrders(vendorId)
+      : Promise.resolve<SellerOrdersPage>({ items: [], page: 1, pageSize: 50, total: 0 }),
     vendorId ? getSellerListings(vendorId) : Promise.resolve<Product[]>([]),
     getSellerPayouts(seller.id),
     vendorId ? getSellerVendor(vendorId) : Promise.resolve<Vendor | undefined>(undefined),
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const todayOrders = orders.filter((o) => o.placedAt.slice(0, 10) === today);
+  // Newest page is enough for a "today" count — mock mode only.
+  const todayOrders = ordersPage.items.filter((o) => o.placedAt.slice(0, 10) === today);
   const lowStockCount = listings.reduce(
     (count, product) =>
       count + product.weightOptions.filter((w) => w.stock < LOW_STOCK_THRESHOLD).length,
@@ -494,7 +513,7 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
 
   return {
     todayOrdersCount: todayOrders.length,
-    todayRevenue: todayOrders.reduce((sum, o) => sum + o.total, 0),
+    todayRevenue: todayOrders.reduce((sum, o) => sum + o.itemsSubtotal, 0),
     pendingPayoutAmount: payoutList
       .filter((p) => p.status === "pending")
       .reduce((sum, p) => sum + p.amount, 0),
@@ -514,10 +533,57 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
 /** Live "requested payout" table, separate from the seed history — same split as `lib/api/orders.ts`'s `orders` vs. `lib/data/orders.ts#seedOrders` (mock mode only). */
 const livePayouts: Payout[] = [];
 
-interface SellerPayoutsPage {
+/**
+ * The commission block `GET /seller/payouts` computes beside the rows
+ * (M37). While `enabled` is false the figures are an *estimate at the
+ * configured rate* and a payout request pays `grossPending`; enabled,
+ * it pays `netPending`. `pendingBalance` on the page is always the
+ * figure a request would actually pay.
+ */
+export interface SellerPayoutCommission {
+  enabled: boolean;
+  pct: number;
+  grossPending: number;
+  commissionOnPending: number;
+  netPending: number;
+}
+
+export interface SellerPayoutsPage {
   items: Payout[];
   summary: SellerEarningsSummary;
   pendingBalance: number;
+  commission: SellerPayoutCommission;
+}
+
+/**
+ * The whole payouts screen in one call — rows, summary, and what a
+ * request would pay right now with its arithmetic. Mock mode derives the
+ * same shape from the seed ledger at the shipped defaults (10%, off).
+ */
+export async function getSellerPayoutsPage(sellerId: string): Promise<SellerPayoutsPage> {
+  if (isMockMode()) {
+    const items = await getSellerPayouts(sellerId);
+    const summary = await getSellerEarningsSummary(sellerId);
+    // The offline ledger has no delivered-order stream to compute an
+    // unclaimed balance from, so mock mode models the requested-pending
+    // figure as the requestable one (pre-M37 behaviour) and estimates the
+    // split at the shipped defaults (10%, deduction off).
+    const grossPending = summary.totalPending;
+    const commissionOnPending = Math.round(grossPending * 10) / 100;
+    return {
+      items,
+      summary,
+      pendingBalance: grossPending,
+      commission: {
+        enabled: false,
+        pct: 10,
+        grossPending,
+        commissionOnPending,
+        netPending: Math.round((grossPending - commissionOnPending) * 100) / 100,
+      },
+    };
+  }
+  return http.get<SellerPayoutsPage>("/seller/payouts");
 }
 
 export async function getSellerPayouts(sellerId: string): Promise<Payout[]> {
@@ -761,6 +827,25 @@ export async function updateSellerProfile(
   return http.patch<OwnVendorProfile>("/seller/profile", input);
 }
 
+/**
+ * The kitchen pins its own exact location (2026-08-18). Server-side it is
+ * plausibility-checked against their pincode/area, clears
+ * `addressVerified`, and is audited; a refused pin comes back as a 400
+ * whose sentence names the distance — so this **must not swallow** the
+ * rejection (the M36 rule: a write that reports nothing has discarded
+ * the only explanation anybody was going to get).
+ */
+export async function setSellerKitchenPin(input: {
+  lat: number;
+  lng: number;
+}): Promise<{ lat: number; lng: number; addressVerified: boolean }> {
+  if (isMockMode()) return { ...input, addressVerified: false };
+  return http.patch<{ lat: number; lng: number; addressVerified: boolean }>(
+    "/seller/profile/coords",
+    input,
+  );
+}
+
 export async function addSellerPhoto(input: {
   url: string;
   caption?: string;
@@ -876,10 +961,6 @@ function mockSellerAnalytics(days: number): SellerAnalytics {
   };
 }
 
-function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 // ---------------------------------------------------------------------------
 // M10b — Laundry partner: pickups (`LaundryBooking`s assigned via
 // `partnerId`), dashboard snapshot. Real mode: `GET/POST /seller/bookings*`
@@ -941,71 +1022,10 @@ export async function advancePartnerBookingStatus(
   return http.post<LaundryBooking>(`/seller/bookings/${encodeURIComponent(bookingId)}/advance`);
 }
 
-export interface PartnerSlotInput {
-  pickupSlot: { date: string; slotId: string };
-  deliverySlot: { date: string; slotId: string };
-}
-
-/**
- * **Stays mock-only in every mode** — `docs/API.md`: "Not built in
- * M8.3b (not in the brief's scope) — still mock-only." In real mode this
- * mutates a mock-only booking object that isn't the one `getPartnerBooking`
- * just fetched from the server, so "Save slots" appears to succeed but the
- * next reload shows the original server-side slots — flagged here rather
- * than silently letting it look like a real write. A future milestone needs
- * a real `PATCH /seller/bookings/:id/slots` endpoint.
- */
-export async function updatePartnerBookingSlots(
-  bookingId: string,
-  input: PartnerSlotInput,
-): Promise<LaundryBooking | undefined> {
-  const placed = await getPlacedBookings();
-  const booking = [...seedLaundryBookings, ...placed].find((b) => b.id === bookingId);
-  if (!booking) return undefined;
-  booking.pickupSlot = input.pickupSlot;
-  booking.deliverySlot = input.deliverySlot;
-  return booking;
-}
-
-export interface PartnerDashboardSnapshot {
-  todayPickupsCount: number;
-  todayDeliveriesCount: number;
-  weekEarnings: number;
-  pendingPayoutAmount: number;
-  rating: number;
-  reviewCount: number;
-}
-
-/** Bookings whose `createdAt` falls within the trailing 7 days count toward "this week's earnings" — a simple mock proxy for a real settlement-period calculation. */
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-export async function getPartnerDashboard(seller: Seller): Promise<PartnerDashboardSnapshot> {
-  if (!isMockMode()) return http.get<PartnerDashboardSnapshot>("/seller/dashboard");
-
-  const [bookings, payoutList] = await Promise.all([
-    getPartnerBookings(seller.id),
-    getSellerPayouts(seller.id),
-  ]);
-
-  const today = todayISODate();
-  const now = Date.now();
-  const todayPickupsCount = bookings.filter((b) => b.pickupSlot.date === today).length;
-  const todayDeliveriesCount = bookings.filter((b) => b.deliverySlot.date === today).length;
-  const weekEarnings = bookings
-    .filter((b) => b.status !== "cancelled" && now - new Date(b.createdAt).getTime() <= WEEK_MS)
-    .reduce((sum, b) => sum + b.estimatedTotal, 0);
-
-  return {
-    todayPickupsCount,
-    todayDeliveriesCount,
-    weekEarnings,
-    pendingPayoutAmount: payoutList
-      .filter((p) => p.status === "pending")
-      .reduce((sum, p) => sum + p.amount, 0),
-    rating: seller.rating ?? 0,
-    reviewCount: seller.reviewCount ?? 0,
-  };
-}
+// `updatePartnerBookingSlots` and `getPartnerDashboard` left in M37 with
+// the withdrawn laundry module: the first was mock-only in every mode (a
+// "Save slots" that never reached the server), the second fed a
+// dashboard component the single-role merge had already orphaned.
 
 // ---------------------------------------------------------------------------
 // M10b — Snack seller: menu CRUD (`Snack`s scoped by `sellerId`). Real

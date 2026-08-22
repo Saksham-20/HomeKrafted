@@ -873,6 +873,19 @@ export interface AdminDashboardSnapshot {
   pendingPayoutsAmount: number;
   /** Real mode: server-side `Wallet.balance` aggregate (`server/src/admin/dashboard.service.ts`). Mock mode: sum of every seeded `Wallet` balance (`adminWalletsByUser`). */
   walletLiability: number;
+  /**
+   * The needs-attention queue (M37): everything waiting on an admin, as
+   * cheap counts — one dashboard row each, rendered only when non-zero.
+   * Optional so a pre-M37 server (or the mock) degrades to no list.
+   */
+  attention?: {
+    pendingApplications: number;
+    pendingListings: number;
+    supportWaiting: number;
+    payoutRequests: number;
+    corporateNew: number;
+    flaggedListings: number;
+  };
 }
 
 export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
@@ -1248,11 +1261,28 @@ function resolveReviewTargetName(review: Review): string {
   return "Unknown service";
 }
 
-export async function getAllReviewsAdmin(): Promise<AdminReviewSummary[]> {
+export interface AdminReviewsPage {
+  items: AdminReviewSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** One page (M37 — the endpoint stopped returning every review ever written). */
+export async function getAllReviewsAdmin(page = 1): Promise<AdminReviewsPage> {
   if (!isMockMode()) {
-    return http.get<AdminReviewSummary[]>("/admin/catalog/reviews");
+    return http.get<AdminReviewsPage>("/admin/catalog/reviews", {
+      query: page > 1 ? { page: String(page) } : undefined,
+    });
   }
-  return reviews.map((review) => ({ ...review, targetName: resolveReviewTargetName(review) }));
+  const pageSize = 50;
+  const all = reviews.map((review) => ({ ...review, targetName: resolveReviewTargetName(review) }));
+  return {
+    items: all.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    pageSize,
+    total: all.length,
+  };
 }
 
 /** Hides/unhides a review — mutates the shared `Review` object (mock mode), filtered by (or restored to) `getProductReviews`/`getVendorReviews` (`lib/api/reviews.ts`) on their next server-side read. Doesn't clear `flagged`: a moderator hiding a flagged review is expected to leave the flag as an audit trail of why it was hidden. */
@@ -1668,11 +1698,18 @@ export async function getCategoriesAdmin(): Promise<Category[]> {
 
 export interface PlatformSettings {
   /**
-   * The take rate. **Modelling only today** — payouts are gross and
-   * settlement is manual, so nothing deducts this. It drives the
-   * commission line on analytics, which says as much.
+   * The take rate. Deducted from payouts only while `commissionEnabled`
+   * is on (M37); off, it drives the modelled commission line on
+   * analytics and the estimates on the seller's payout screen and
+   * listing form.
    */
   commissionPct: number;
+  /**
+   * Whether payouts actually deduct the rate above (M37). Defaults off —
+   * flipping it is a business decision, and every screen says which mode
+   * it is in.
+   */
+  commissionEnabled: boolean;
   /** Given to a new HomeKrafter whose application didn't state one. */
   defaultDeliveryRadiusKm: number;
   /**
@@ -1688,14 +1725,22 @@ export interface PlatformSettings {
    * a new name. An empty value means no gate at all.
    */
   servicedPincodePrefixes: string;
+  /**
+   * When a delivery date's meal menu (and a buyer's skip of it) closes:
+   * this time IST the evening before (M37). "20:00" means Tuesday's
+   * tiffin locks Monday 8pm.
+   */
+  menuLockTime: string;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings | undefined> {
   if (isMockMode())
     return {
       commissionPct: 10,
+      commissionEnabled: false,
       defaultDeliveryRadiusKm: 10,
       servicedPincodePrefixes: "160,1401,1403,1341,1346",
+      menuLockTime: "20:00",
     };
   try {
     return await http.get<PlatformSettings>("/admin/settings");
@@ -1710,8 +1755,10 @@ export async function updatePlatformSettings(
   if (isMockMode())
       return {
         commissionPct: 10,
+        commissionEnabled: false,
         defaultDeliveryRadiusKm: 10,
         servicedPincodePrefixes: "160,1401,1403,1341,1346",
+        menuLockTime: "20:00",
         ...patch,
       };
   return http.patch<PlatformSettings>("/admin/settings", patch);
@@ -2030,6 +2077,14 @@ export interface AdminPayout {
   sellerEmail?: string;
   sellerPhone?: string;
   amount: number;
+  /**
+   * The row's own arithmetic (M37); absent on pre-M37 rows, where
+   * `amount` was always gross — the queue must not invent a split for
+   * those.
+   */
+  grossAmount?: number;
+  commissionAmount?: number;
+  commissionPct?: number;
   periodStart: string;
   periodEnd: string;
   status: PayoutStatus;

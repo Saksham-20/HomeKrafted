@@ -17,7 +17,11 @@ import {
   scheduleDates,
   toDateKey,
 } from './meal-brackets';
-import { mapMealSubscription } from './meals.mapper';
+import { DeliveryDayContext, mapMealSubscription } from './meals.mapper';
+import { AdminSettingsService } from '../admin/settings.service';
+import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
+import { templateLineFor } from './day-menus.service';
+import { isMenuLocked } from './menu-lock';
 
 /** Rounds money the same way the wallet ledger does. */
 function round2(value: number): number {
@@ -47,7 +51,51 @@ export class MealSubscriptionsService {
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
     private readonly idempotency: IdempotencyService,
+    private readonly settings: AdminSettingsService,
+    private readonly notifications: NotificationsDeliveryService,
   ) {}
+
+  /**
+   * Everything a delivery row needs to say what food arrives and whether
+   * it can still be changed (M37): set day menus win, a 7-line
+   * `weeklyMenu` falls back per weekday, and lock state comes from the
+   * platform's `menuLockTime` — computed here once so the client ships
+   * booleans instead of re-deriving "locked" against its own clock (the
+   * M12 hydration lesson).
+   */
+  private async dayContext(
+    planId: string,
+    weeklyMenu: string[],
+    deliveryDates: Date[],
+  ): Promise<DeliveryDayContext> {
+    const { menuLockTime } = await this.settings.get();
+    const now = new Date();
+    const dishByDate = new Map<string, string>();
+    if (deliveryDates.length > 0) {
+      const min = new Date(Math.min(...deliveryDates.map((d) => d.getTime())));
+      const max = new Date(Math.max(...deliveryDates.map((d) => d.getTime())));
+      const rows = await this.prisma.mealPlanDayMenu.findMany({
+        where: { planId, date: { gte: min, lte: max } },
+      });
+      for (const row of rows) {
+        dishByDate.set(row.date.toISOString().slice(0, 10), row.lines.join(', '));
+      }
+    }
+    return {
+      dishFor: (date) =>
+        dishByDate.get(date.toISOString().slice(0, 10)) ??
+        templateLineFor(weeklyMenu, date) ??
+        undefined,
+      lockedFor: (date) => isMenuLocked(date, menuLockTime, now),
+    };
+  }
+
+  /** Lifecycle messages ride the `meals` category (M37); a failed message never undoes the write it describes. */
+  private tell(userId: string, title: string, body: string, refId: string): void {
+    void this.notifications
+      .deliver({ userId, category: 'meals', title, body, refType: 'mealSubscription', refId })
+      .catch(() => undefined);
+  }
 
   async create(userId: string, dto: CreateMealSubscriptionDto, idempotencyKey?: string) {
     if (!MEAL_COUNTS.includes(dto.mealCount as (typeof MEAL_COUNTS)[number])) {
@@ -92,9 +140,16 @@ export class MealSubscriptionsService {
 
       // Capacity, enforced. `VendorProfile.capacityPerDay` has existed since
       // M16 and is checked nowhere; this is the first place a home cook's
-      // stated ceiling actually holds. Counted inside the transaction so two
-      // simultaneous subscribers cannot both take the last seat.
+      // stated ceiling actually holds.
+      //
+      // The plan row is locked first (M37): a transaction alone does not
+      // serialise count-then-insert under READ COMMITTED — two concurrent
+      // subscribers both count, both see a free seat, both insert. The
+      // loser of the lock blocks here and re-counts after the winner
+      // commits. Same pattern as `seller/payouts.service.ts` and
+      // `wallet.service.ts#postLedgerEntryTx`.
       if (plan.maxSubscribers !== null) {
+        await tx.$queryRaw`SELECT "id" FROM "MealPlan" WHERE "id" = ${plan.id} FOR UPDATE`;
         const taken = await tx.mealSubscription.count({
           where: { planId: plan.id, status: { in: ['active', 'paused'] } },
         });
@@ -170,10 +225,26 @@ export class MealSubscriptionsService {
         orderBy: { scheduledFor: 'asc' },
       });
 
+      // Inside the work callback, never after `run` returns, so a
+      // *replayed* idempotency key hands back the stored result without
+      // messaging anybody twice (the same placement OrdersService uses).
+      this.tell(
+        userId,
+        'Your meal plan is set',
+        `${plan.name}: first meal ${deliveries[0]?.scheduledFor.toISOString().slice(0, 10) ?? subscription.startDate.toISOString().slice(0, 10)}, ${dto.mealCount} meals paid.`,
+        subscription.id,
+      );
+
+      const dayContext = await this.dayContext(
+        plan.id,
+        plan.weeklyMenu,
+        deliveries.map((d) => d.scheduledFor),
+      );
       return mapMealSubscription(subscription, {
         plan,
         deliveries,
         vendorName: plan.vendor.name,
+        dayContext,
       });
     });
   }
@@ -199,10 +270,16 @@ export class MealSubscriptionsService {
       where: { subscriptionId: subscription.id },
       orderBy: { scheduledFor: 'asc' },
     });
+    const dayContext = await this.dayContext(
+      subscription.planId,
+      subscription.plan.weeklyMenu,
+      deliveries.map((d) => d.scheduledFor),
+    );
     return mapMealSubscription(subscription, {
       plan: subscription.plan,
       deliveries,
       vendorName: subscription.plan.vendor.name,
+      dayContext,
     });
   }
 
@@ -212,11 +289,25 @@ export class MealSubscriptionsService {
       throw new ConflictException(`This subscription is ${subscription.status}, so it cannot be paused.`);
     }
 
+    // A locked date's meal is already being planned (M37): pausing at
+    // 11pm does not un-cook tomorrow's lunch, so locked rows stay
+    // `scheduled` and still arrive. Everything unlocked stops.
+    const { menuLockTime } = await this.settings.get();
+    const now = new Date();
+    const scheduled = await this.prisma.mealDelivery.findMany({
+      where: { subscriptionId: id, status: 'scheduled' },
+      select: { id: true, scheduledFor: true },
+    });
+    const unlockedIds = scheduled
+      .filter((d) => !isMenuLocked(d.scheduledFor, menuLockTime, now))
+      .map((d) => d.id);
+    const lockedCount = scheduled.length - unlockedIds.length;
+
     const updated = await this.prisma.$transaction(async (tx) => {
-      // Everything still ahead of us stops. Past rows are history and are
-      // never rewritten — a delivered meal stays delivered.
+      // Past rows are history and are never rewritten — a delivered meal
+      // stays delivered.
       await tx.mealDelivery.updateMany({
-        where: { subscriptionId: id, status: 'scheduled' },
+        where: { id: { in: unlockedIds } },
         data: { status: 'cancelled', reason: 'Subscription paused' },
       });
       return tx.mealSubscription.update({
@@ -224,6 +315,15 @@ export class MealSubscriptionsService {
         data: { status: 'paused', pausedAt: new Date() },
       });
     });
+
+    this.tell(
+      userId,
+      'Meal plan paused',
+      lockedCount > 0
+        ? `${subscription.plan.name} is paused. ${lockedCount === 1 ? 'One meal was' : `${lockedCount} meals were`} already being planned and will still arrive; your seat is kept.`
+        : `${subscription.plan.name} is paused. Your seat is kept until you resume.`,
+      id,
+    );
 
     return mapMealSubscription(updated, { plan: subscription.plan });
   }
@@ -288,6 +388,13 @@ export class MealSubscriptionsService {
       });
     });
 
+    this.tell(
+      userId,
+      'Meal plan resumed',
+      `${plan.name} is back on — next meal ${dates[0]?.toISOString().slice(0, 10)}, ${subscription.mealsRemaining} meals to go.`,
+      id,
+    );
+
     return mapMealSubscription(updated, { plan });
   }
 
@@ -307,6 +414,16 @@ export class MealSubscriptionsService {
     if (!delivery) throw new NotFoundException('Delivery not found');
     if (delivery.status !== 'scheduled') {
       throw new ConflictException(`That meal is already ${delivery.status}.`);
+    }
+
+    // M37 — the same lock that freezes the kitchen's menu freezes the
+    // buyer's skip: after `menuLockTime` the evening before, that meal is
+    // being planned and possibly cooked.
+    const { menuLockTime } = await this.settings.get();
+    if (isMenuLocked(delivery.scheduledFor, menuLockTime, new Date())) {
+      throw new ConflictException(
+        `That meal is already being planned — changes close at ${menuLockTime} the evening before. This one will still be delivered.`,
+      );
     }
 
     const plan = await this.prisma.mealPlan.findUniqueOrThrow({
@@ -359,6 +476,15 @@ export class MealSubscriptionsService {
       });
     });
 
+    this.tell(
+      userId,
+      'Meal skipped',
+      replacement
+        ? `${plan.name}: ${delivery.scheduledFor.toISOString().slice(0, 10)} is skipped — owed, not lost. It moves to ${replacement.toISOString().slice(0, 10)}.`
+        : `${plan.name}: ${delivery.scheduledFor.toISOString().slice(0, 10)} is skipped. We could not find a replacement day on your selection — support will sort it.`,
+      id,
+    );
+
     return mapMealSubscription(updated, { plan });
   }
 
@@ -385,6 +511,13 @@ export class MealSubscriptionsService {
         data: { status: 'cancelled', cancelledAt: new Date() },
       });
     });
+
+    this.tell(
+      userId,
+      'Meal plan cancelled',
+      `${subscription.plan.name} is cancelled. ${subscription.mealsRemaining > 0 ? `${subscription.mealsRemaining} unused meals do not auto-refund — Homekrafted support resolves them.` : 'No meals were left on the cycle.'}`,
+      id,
+    );
 
     return mapMealSubscription(updated, { plan: subscription.plan });
   }

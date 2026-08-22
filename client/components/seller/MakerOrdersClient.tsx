@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { OrderRow } from "./OrderRow";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { describeSellerOrderItems, getSellerOrders } from "@/lib/api";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { OrderStatus, SellerOrder } from "@/lib/types";
 import styles from "./MakerOrdersClient.module.css";
 
 const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
@@ -24,7 +25,10 @@ const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
 /** `/seller/orders` for `type: "maker"` sellers (M10a) — orders containing at least one of this seller's products, filterable by fulfilment status, newest first. Rendered by `SellerOrdersClient` (M10b's type router) when `seller.type === "maker"`; otherwise unchanged from M10a. */
 export function MakerOrdersClient() {
   const { ready, seller } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<SellerOrder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
@@ -38,9 +42,11 @@ export function MakerOrdersClient() {
     let cancelled = false;
     (async () => {
       try {
-        const list = await getSellerOrders(seller.vendorId!);
+        const result = await getSellerOrders(seller.vendorId!, page);
         if (cancelled) return;
-        setOrders(list);
+        setOrders(result.items);
+        setTotal(result.total);
+        setPageSize(result.pageSize);
       } catch (error) {
         if (cancelled) return;
         if (!isForbidden(error)) throw error;
@@ -52,7 +58,7 @@ export function MakerOrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller]);
+  }, [ready, seller, page]);
 
   const filtered = useMemo(
     () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
@@ -72,7 +78,7 @@ export function MakerOrdersClient() {
     <div>
       <SellerPageHeader
         title="Orders"
-        subtitle={`${orders.length} order${orders.length === 1 ? "" : "s"} containing your products`}
+        subtitle={`${total} order${total === 1 ? "" : "s"} containing your products`}
       />
 
       <div className={styles.filterRow} role="tablist" aria-label="Filter by status">
@@ -93,10 +99,36 @@ export function MakerOrdersClient() {
             <OrderRow
               key={order.id}
               order={order}
-              itemsLabel={seller?.vendorId ? describeSellerOrderItems(order, seller.vendorId) : "—"}
+              itemsLabel={describeSellerOrderItems(order)}
               href={`/seller/orders/${order.id}`}
             />
           ))}
+        </div>
+      )}
+
+      {/* The status filter narrows the current page, so the pager stays
+          visible under a filtered view — the next 50 may hold more. */}
+      {total > pageSize && (
+        <div className={styles.pager}>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </Button>
+          <span className={styles.pagerLabel} aria-live="polite">
+            Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={page >= Math.ceil(total / pageSize) || loading}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+          </Button>
         </div>
       )}
     </div>

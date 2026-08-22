@@ -5,6 +5,7 @@ import { RequestUser } from '../common/types/jwt-payload.type';
 import { SellerService } from './seller.service';
 import { SellerProfileService } from './profile.service';
 import { UpdateSellerProfileDto } from './dto/update-profile.dto';
+import { SetOwnCoordsDto } from './dto/set-own-coords.dto';
 import {
   AddVendorPhotoDto,
   ReorderVendorPhotosDto,
@@ -42,6 +43,18 @@ export class SellerProfileController {
   async update(@CurrentUser() user: RequestUser, @Body() dto: UpdateSellerProfileDto) {
     const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.profileService.updateOwn(seller.vendorId, dto);
+  }
+
+  /**
+   * The kitchen pins its own exact spot (2026-08-18). Plausibility-checked
+   * against their pincode/area, clears `addressVerified`, audited — see
+   * `SetOwnCoordsDto`. Buyers still only ever get the ~1.1 km rounded
+   * point (`mapVendor`, M36).
+   */
+  @Patch('coords')
+  async setCoords(@CurrentUser() user: RequestUser, @Body() dto: SetOwnCoordsDto) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    return this.profileService.setOwnCoords(seller.vendorId, user.userId, dto);
   }
 
   @Get('photos')

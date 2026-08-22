@@ -1,5 +1,18 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+
+/**
+ * Same shape as `auth.controller.ts`'s `AUTH_THROTTLE`: evaluated once at
+ * import, env-tunable so the e2e suite (which posts many reviews from one
+ * IP) can raise it without weakening production's default.
+ */
+const REVIEWS_THROTTLE = {
+  default: {
+    limit: parseInt(process.env.THROTTLE_REVIEWS_LIMIT ?? '5', 10),
+    ttl: 60_000,
+  },
+};
 import { Public } from '../common/decorators/public.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -28,6 +41,13 @@ export class ReviewsController {
     return this.reviewsService.listPending(user.userId);
   }
 
+  /**
+   * Throttled well under the global 120/min (M37): the delivered-order
+   * requirement already blocks strangers, but an account with real
+   * deliveries could still script a burst onto its own targets. Nobody
+   * writes six honest reviews in a minute.
+   */
+  @Throttle(REVIEWS_THROTTLE)
   @Post()
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateReviewDto) {
     return this.reviewsService.create(user.userId, dto);

@@ -115,7 +115,13 @@ export class SellerListingsService {
       (dto.name !== undefined && dto.name !== existing.name) ||
         (dto.description !== undefined && dto.description !== existing.description) ||
         (dto.categoryId !== undefined && dto.categoryId !== existing.categoryId) ||
-        dto.imagePath !== undefined,
+        // Only a photo that actually *changed* is material (M37). The form
+        // sends the current path back on every save, so `!== undefined`
+        // alone re-queued a live listing for editing its price. `""` and
+        // absent both mean "no photo" — same normalisation the write path
+        // applies below.
+        (dto.imagePath !== undefined &&
+          (dto.imagePath || undefined) !== (existing.images[0]?.src ?? undefined)),
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {

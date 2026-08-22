@@ -14,10 +14,13 @@ money moves, no real orders ship. Break things freely.
 guide. (Some web addresses still contain `/seller` — that's internal
 plumbing, not a mistake.)
 
-**Everything is Chandigarh tricity now.** Every kitchen sits in a real
-area — Chandigarh sectors, Mohali, Panchkula, Zirakpur — and you only see
-food from kitchens that deliver to *you*. The site asks for your area on
-your first visit.
+**Buying is Chandigarh tricity; selling is national (M36).** Every live
+kitchen sits in a real tricity area — Chandigarh sectors, Mohali,
+Panchkula, Zirakpur — and you only see food from kitchens that deliver
+to *you*. The site asks for your area on your first visit (skipping is
+fine — you still see everything, sorted rather than hidden). Applying to
+**sell**, though, works from any Indian pincode — see the `/sell`
+section further down; the two are different on purpose.
 
 > **Accounts were reset.** If you tested before 30 July, your old account,
 > orders and wallet balance are gone. Sign in again with the demo accounts
@@ -130,6 +133,10 @@ A HomeKrafter account can also shop as a normal customer in the same
 session — look for "Switch to shopping" in the dashboard top bar. Worth
 testing both directions.
 
+An admin can do the same round trip: "View site" in the admin top bar
+goes to the shop, and the shop header shows a shield icon ("Switch to
+admin panel" on hover; a labelled row in the phone drawer) to come back.
+
 **Check the dashboard greets you as the right kitchen.** Signing in as
 `meera@meerassnackbox.example` must say *Meera's Snack Box*, not
 Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
@@ -153,20 +160,25 @@ through the real application flow is not:
    expected state today, not a bug. `POST /admin/sellers/:id/resend-invite`
    re-sends and burns the previous link.
 5. **M32 — approval also issues a username and a short temporary
-   password**, shown on the approval banner and on the HomeKrafter's row
-   under **Sign-in details**, so an admin can simply read them out. They
-   stay visible until used. The moment that kitchen signs in and chooses
-   their own password, the temporary one is deleted, the row flips to
-   "Signed in", and the **Sign-in details** button disappears from that
-   row for good. If such a HomeKrafter is genuinely locked out, use
-   **Resend invite** — that sends a set-password link to them, rather
-   than giving whoever is at the admin screen a working password.
+   password**, shown on the approval banner so an admin can read them
+   out. **M37 — it is shown exactly once.** Nothing stores the plaintext,
+   so note it down before leaving the page; afterwards the row says
+   "Issued ‹date›, not yet used" and offers **Re-issue**, which mints a
+   fresh password (killing the previous one and any open sessions) and
+   shows the new one — once. Do the onboarding call with the panel open,
+   or re-issue at the start of it. The moment that kitchen signs in and
+   chooses their own password, the row flips to "Signed in" and the
+   control disappears for good. If such a HomeKrafter is genuinely locked
+   out, use **Resend invite** — that sends a set-password link to them,
+   rather than giving whoever is at the admin screen a working password.
 6. **The filter above the list has three states**, and they are worth
    knowing apart. **No sign-in yet** — no password exists at all, so
    there is nothing to read out; every HomeKrafter approved before M32 is
    here, and their row offers "Create sign-in details". **Details
-   issued** — a password is on the row, unused. **Signed in** — they
-   chose their own, and we hold nothing that opens the account.
+   issued** — a credential exists and has not been used; the password
+   itself is not re-readable (M37 — re-issue if it was lost). **Signed
+   in** — they chose their own, and we hold nothing that opens the
+   account.
 
 **The `/sell` form asks more, and refuses less usefully (M32).** It now
 checks as you go: an email address typed into "Business / maker name"
@@ -217,6 +229,20 @@ clears that badge, and the hint under the fields says so before you save.
 That is deliberate — we verified the old address, so the new one has to
 be checked again. Editing anything else on the page (a return policy,
 hours) leaves the badge alone.
+
+**A HomeKrafter can pin their kitchen's exact spot (2026-08-18).**
+`/seller/profile` → **Your kitchen's exact spot** has a "Use my current
+location" button: the browser asks for location, and the fix becomes the
+kitchen's coordinates — the ones behind delivery-distance sorting. Things
+to test: the pin is **private** (open the storefront signed out; the page
+and its API payload only ever carry a ~1 km rounded point); saving a pin
+clears the **Kitchen address** verification, and the status line says so;
+a pin far from the kitchen's registered pincode is refused with the
+distance in the message (simulate with browser dev-tools sensor override
+— set a location in another city); denying the browser prompt shows an
+instruction, not a dead button; and until someone pins (or an admin sets
+coords), the profile completion meter lists "Pin your kitchen's exact
+spot" as missing.
 
 **Applying is national; delivering is not.** Approving a HomeKrafter in
 Jaipur works and is meant to. Whether buyers there can order is a separate
@@ -377,7 +403,12 @@ nothing to book. What to confirm instead:
   not a blank screen and not a redirect to home
 - A demo account with an **old booking still sees it** in
   `/account/orders`. Hiding a service must never erase what somebody
-  already paid for — if a past booking has vanished, report it.
+  already paid for — if a past booking has vanished, report it. The
+  booking detail names its services and slots without the old catalogue
+  (M37 — those labels now ride on the booking itself).
+- The support bot's greeting no longer offers laundry, but asking it
+  about a laundry pickup gets an honest "no longer offered" answer that
+  points at `/account/orders` (M37).
 
 ### 6. Snacks — including pre-order
 - **Snacks** page — browse the menu
@@ -415,10 +446,20 @@ This is the one that moves real money, so be thorough. Open **/meal-plans**
 
 Then, from **/account/subscriptions**:
 
+- **Expand "See every meal".** Each upcoming meal should say **what food
+  arrives** (M37) when the kitchen has set that day's menu, or the
+  weekday line of a 7-line rotation. If the kitchen set tomorrow's menu,
+  it should be here — verbatim
 - **Skip a meal.** The meal should come back at the far end — your end date
   moves out by a day. You paid for N meals, you get N meals. If skipping
   loses you a meal, **that's a bug**
-- **Pause**, then **resume**. Your wallet balance must not move either way
+- **Try to skip tomorrow's meal after the lock** (default: after 8pm the
+  evening before). The Skip button should read **"Being planned"** and
+  refuse — the kitchen is already cooking against that list. Being told
+  no with the reason is correct; a silent dead button is a bug
+- **Pause**, then **resume**. Your wallet balance must not move either way.
+  If tomorrow's meal was already locked when you paused, it **still
+  arrives** — the confirmation message says so
 - **Cancel.** This also moves no money — a refund is something we do by
   hand, on purpose. The screen should say so rather than implying a refund
   is coming
@@ -452,7 +493,12 @@ accounts — if you see it, report it.
 - Open **Listings** (or **Menu**) → add an item, with a price and a photo
 - It should appear on **/shop** (or the Snacks menu) for shoppers in range
 - On the **Dashboard**, the "Today's menu" panel lists everything you sell
-  with an on/off switch
+  with an on/off switch. Above the stat cards, a work strip (M37) shows
+  "N meals to cook today" and "N orders waiting to be confirmed" when
+  either is non-zero, each linking to the screen that clears it; if the
+  profile states a daily capacity, a line compares today's load against
+  it. If loading your items fails, the panel now says so with a Retry —
+  it must never claim "you haven't added anything yet" over a hiccup.
 - Switch something **off** → it should vanish from the shopper side
   immediately. Switch it back on → it returns.
 - This is the thing a cook does every day, so be rough with it
@@ -502,6 +548,15 @@ Worth trying to break:
 - **If it says no delivery windows, that's the thing to check.** It means
   your opening hours (on **Profile**) don't overlap the meal — and nobody
   can subscribe until they do. It should say that in as many words
+- **Day-by-day menus (M37).** Edit a plan → below the form is
+  **"Day-by-day menus"**: the next 14 dates, each editable until it locks
+  at the platform's lock time the evening before (default 8pm; Admin →
+  Settings changes it). Set tomorrow's dishes and save — if anyone is
+  subscribed and scheduled for that date, the panel names how many, and
+  a *change* to an already-set day messages them ("Menu changed for…").
+  A locked day renders read-only saying so. Buyers see the set menus on
+  the plan page ("This week, dated") and against each meal on
+  /account/subscriptions
 - Set a **subscriber limit**, then have somebody subscribe up to it — the
   plan should show as full and stop taking people
 - Press the **power icon** on a plan. It should tell you plainly that the
@@ -623,6 +678,14 @@ Worth trying to break:
 ### 8. Admin panel
 Sign in as **admin** at https://homekrafted.in/admin/login
 
+- **Dashboard** — the top card is the needs-attention queue (M37): one
+  row per thing waiting on an admin (applications, listings to approve,
+  support tickets waiting on us, payout requests, new corporate
+  enquiries, flagged listings), each with an Open button; "Queue clear"
+  when nothing is. Also on `/shop` as a shopper: filter yourself into
+  zero results — the empty state names the filters and offers **Clear
+  filters**; and on a phone, a product page's Add to cart follows you in
+  a sticky bottom bar once the in-page button scrolls away.
 - **Users** — list, open a user, see their detail
 - **HomeKrafters** — review applications, approve/reject
 - **Orders** — every order across all HomeKrafters and all modules
@@ -680,15 +743,36 @@ Sign in as **admin** at https://homekrafted.in/admin/login
   phone number like `+91…` appears with a leading apostrophe. That is
   deliberate: a cell starting with `+` or `=` is treated as a formula by
   every spreadsheet, and the apostrophe is what stops one running.
-- **Settings** holds the commission rate and the default delivery radius.
-  Both used to be constants in source. Every change is written to the
-  audit log with its before and after.
+- **Settings** holds the commission rate (plus its on/off switch — M37,
+  below), the default delivery radius, the serviced-area prefixes and the
+  meal-menu lock time. Every change is written to the audit log with its
+  before and after.
 
-> The commission figure on Analytics is **modelling only** — payouts are
-> gross and settlement is manual, so nothing is being deducted. It is
-> there so "what would 12% have earned last quarter" is answerable.
-> Feature flags are deliberately *not* on the settings screen; the page
-> explains why.
+> While the commission switch is **off** (the shipped default), the rate
+> is estimates only — payouts are gross and settlement is manual, and
+> every screen showing a figure says so. Feature flags are deliberately
+> *not* on the settings screen; the page explains why.
+
+### Commission engine (M37)
+
+The platform can now actually deduct its take rate, behind a switch that
+ships **off**. To walk the whole loop:
+
+1. As a HomeKrafter with delivered orders, open **Payouts**: a breakdown
+   card shows unclaimed earnings, the commission at the configured rate
+   and the net — labelled *"estimate — nothing is deducted yet"*. The
+   listing editor shows the same arithmetic live under the price tiers
+   ("Customer pays ₹450 → commission (10%) ₹45 → you receive ₹405"),
+   with the inverse ("to take home X, price at Y").
+2. Request a payout: it arrives **gross**, and the admin queue's banner
+   says every figure is the full order value.
+3. As admin, **Settings → "Deduct commission from payouts"** on, save
+   (audited). The payouts banner flips: new rows arrive net.
+4. Request another payout as the HomeKrafter: the row now shows its own
+   split — gross − commission (rate) — on both the seller history and
+   the admin queue, and the amount to settle is the net. Rows from step
+   2 keep their gross figure untouched: nothing recalculates a request
+   already made.
 
 ### Pre-order and days off (M16)
 

@@ -16,16 +16,12 @@ import {
   BOOKING_SEQUENCE,
   advancePartnerBookingStatus,
   getAddressById,
-  getLaundryDays,
-  getLaundryServices,
-  getLaundrySlots,
   getPartnerBooking,
   nextBookingStatus,
-  updatePartnerBookingSlots,
   apiErrorMessage,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import type { Address, LaundryBookingStatus, LaundryBooking, LaundryDay, LaundryService, LaundrySlot } from "@/lib/types";
+import type { Address, LaundryBookingStatus, LaundryBooking } from "@/lib/types";
 import styles from "./PartnerPickupDetailClient.module.css";
 
 const STATUS_LABEL: Record<LaundryBookingStatus, string> = {
@@ -43,30 +39,24 @@ export interface PartnerPickupDetailClientProps {
 
 /**
  * `/seller/pickups/[id]` (M10b, laundry type) — booking detail with a
- * `StatusTimeline` over `BOOKING_SEQUENCE`, an "advance to next status"
- * action, and editable pickup/delivery slot pickers (the brief's "set/
- * confirm the two slots"). No consumer live-map here either — status
- * only, same channel rule as the consumer-facing booking detail. Mirrors
+ * `StatusTimeline` over `BOOKING_SEQUENCE` and an "advance to next
+ * status" action. No consumer live-map here either — status only, same
+ * channel rule as the consumer-facing booking detail. Mirrors
  * `SellerOrderDetailClient`'s shape for the maker `Order` flow, one
  * level down.
+ *
+ * The slot-editing card left in M37 with the withdrawn module's browse
+ * API: its "Save slots" had been mock-only in every mode (the write
+ * never reached the server — see the old `updatePartnerBookingSlots`
+ * doc), so it was a control that looked like it worked and didn't.
  */
 export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClientProps) {
   const { ready, seller } = useAuth();
   const [booking, setBooking] = useState<LaundryBooking | undefined>(undefined);
   const [address, setAddress] = useState<Address | undefined>(undefined);
-  const [services, setServices] = useState<LaundryService[]>([]);
-  const [days, setDays] = useState<LaundryDay[]>([]);
-  const [slots, setSlots] = useState<LaundrySlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [advancing, setAdvancing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savingSlots, setSavingSlots] = useState(false);
-  const [slotsSaved, setSlotsSaved] = useState(false);
-
-  const [pickupDate, setPickupDate] = useState("");
-  const [pickupSlotId, setPickupSlotId] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState("");
-  const [deliverySlotId, setDeliverySlotId] = useState("");
 
   const load = useCallback(async () => {
     if (!seller) return;
@@ -74,10 +64,6 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
     setBooking(found);
     if (found) {
       setAddress(await getAddressById(found.addressId));
-      setPickupDate(found.pickupSlot.date);
-      setPickupSlotId(found.pickupSlot.slotId);
-      setDeliveryDate(found.deliverySlot.date);
-      setDeliverySlotId(found.deliverySlot.slotId);
     }
     setLoading(false);
   }, [seller, bookingId]);
@@ -85,14 +71,6 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
   useEffect(() => {
     if (!ready || !seller) return;
     (async () => {
-      const [serviceList, dayList, slotList] = await Promise.all([
-        getLaundryServices(),
-        getLaundryDays(),
-        getLaundrySlots(),
-      ]);
-      setServices(serviceList);
-      setDays(dayList);
-      setSlots(slotList);
       await load();
     })();
   }, [ready, seller, load]);
@@ -111,25 +89,6 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
     } finally {
       setAdvancing(false);
     }
-  }
-
-  async function handleSaveSlots() {
-    if (!pickupDate || !pickupSlotId || !deliveryDate || !deliverySlotId) return;
-    setSavingSlots(true);
-    setError(null);
-    try {
-      await updatePartnerBookingSlots(bookingId, {
-        pickupSlot: { date: pickupDate, slotId: pickupSlotId },
-        deliverySlot: { date: deliveryDate, slotId: deliverySlotId },
-      });
-      await load();
-      setSlotsSaved(true);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Couldn't save these slots. Try again."));
-    } finally {
-      setSavingSlots(false);
-    }
-    setTimeout(() => setSlotsSaved(false), 2500);
   }
 
   if (!ready || loading) {
@@ -170,7 +129,6 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
           <Card className={styles.card}>
             <h2 className={styles.cardTitle}>Service</h2>
             {booking.lines.map((line, index) => {
-              const service = services.find((s) => s.id === line.serviceId);
               const qty = line.estimatedWeightKg
                 ? `${line.estimatedWeightKg} kg`
                 : line.itemCount
@@ -181,7 +139,7 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
               return (
                 <div key={index} className={styles.itemRow}>
                   <div>
-                    <div className={styles.itemName}>{service?.name ?? "Service"}</div>
+                    <div className={styles.itemName}>{line.serviceName ?? "Service"}</div>
                     <div className={styles.itemMeta}>{qty}</div>
                   </div>
                   <span className={styles.itemPrice}>{formatCurrency(line.estimatedPrice)}</span>
@@ -214,84 +172,6 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
             )}
           </Card>
 
-          {!isCancelled && (
-            <Card className={clsx(styles.card, styles.cardSpaced)}>
-              <h2 className={styles.cardTitle}>Set / confirm slots</h2>
-              <div className={styles.slotGrid}>
-                <label className={styles.field}>
-                  <span className={styles.label}>Pickup day</span>
-                  <select
-                    className={styles.select}
-                    value={pickupDate}
-                    onChange={(event) => setPickupDate(event.target.value)}
-                  >
-                    <option value="">Select day</option>
-                    {days.map((d) => (
-                      <option key={d.id} value={d.isoDate}>
-                        {d.day} {d.date}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Pickup slot</span>
-                  <select
-                    className={styles.select}
-                    value={pickupSlotId}
-                    onChange={(event) => setPickupSlotId(event.target.value)}
-                  >
-                    <option value="">Select slot</option>
-                    {slots.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Delivery day</span>
-                  <select
-                    className={styles.select}
-                    value={deliveryDate}
-                    onChange={(event) => setDeliveryDate(event.target.value)}
-                  >
-                    <option value="">Select day</option>
-                    {days.map((d) => (
-                      <option key={d.id} value={d.isoDate}>
-                        {d.day} {d.date}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>Delivery slot</span>
-                  <select
-                    className={styles.select}
-                    value={deliverySlotId}
-                    onChange={(event) => setDeliverySlotId(event.target.value)}
-                  >
-                    <option value="">Select slot</option>
-                    {slots.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className={styles.slotActions}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleSaveSlots}
-                  disabled={savingSlots || !pickupDate || !pickupSlotId || !deliveryDate || !deliverySlotId}
-                >
-                  {savingSlots ? "Saving…" : "Save slots"}
-                </Button>
-                {slotsSaved && <span className={styles.savedNote}>Saved.</span>}
-              </div>
-            </Card>
-          )}
         </div>
 
         <div>
@@ -308,15 +188,13 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Pickup</span>
               <span>
-                {formatDate(booking.pickupSlot.date)} ·{" "}
-                {slots.find((s) => s.id === booking.pickupSlot.slotId)?.label}
+                {formatDate(booking.pickupSlot.date)} · {booking.pickupSlotLabel ?? ""}
               </span>
             </div>
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Delivery</span>
               <span>
-                {formatDate(booking.deliverySlot.date)} ·{" "}
-                {slots.find((s) => s.id === booking.deliverySlot.slotId)?.label}
+                {formatDate(booking.deliverySlot.date)} · {booking.deliverySlotLabel ?? ""}
               </span>
             </div>
           </Card>

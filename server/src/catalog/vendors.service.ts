@@ -35,6 +35,8 @@ export class VendorsService {
             }
           : undefined,
       orderBy: { name: 'asc' },
+      // M37 — a bounded page for a browse surface that renders ~20 cards.
+      take: 60,
     });
     return vendors.map((v) => mapVendor(v));
   }

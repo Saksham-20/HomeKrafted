@@ -146,6 +146,14 @@
   color: var(--hk-muted);
   padding: var(--hk-s7) 0;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.empty p {
+  margin: 0;
 }
 
 .pagination {

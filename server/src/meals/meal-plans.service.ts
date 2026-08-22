@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { distanceKm, formatDistanceKm } from '../common/geo';
+import { PUBLICLY_LISTED, isPubliclyListed } from '../catalog/moderation';
 import { ListMealPlansQueryDto } from './dto/list-meal-plans.query.dto';
 import { mapMealPlan } from './meals.mapper';
 
@@ -23,7 +24,7 @@ export class MealPlansService {
     const plans = await this.prisma.mealPlan.findMany({
       where: {
         isActive: true,
-        moderationStatus: 'active',
+        ...PUBLICLY_LISTED,
         mealType: query.mealType,
         diet: query.diet === 'non-veg' ? 'non_veg' : query.diet,
         ...(terms.length > 0
@@ -45,6 +46,11 @@ export class MealPlansService {
         _count: { select: { subscriptions: { where: { status: { in: ['active', 'paused'] } } } } },
       },
       orderBy: { pricePerMeal: 'asc' },
+      // Candidate cap before the in-memory distance pass (M37) — same
+      // tradeoff as `ProductsService.list`'s 500: without PostGIS the
+      // radius filter runs on the heap, so the read has to be bounded.
+      // 200 plans is far past the launch city's supply.
+      take: 200,
     });
 
     const buyer =
@@ -92,15 +98,34 @@ export class MealPlansService {
 
     // A hidden or withdrawn plan is a 404, not a 403. Telling an anonymous
     // caller that a plan exists but is hidden leaks a moderation decision.
-    if (!plan || !plan.isActive || plan.moderationStatus !== 'active') {
+    if (!plan || !plan.isActive || !isPubliclyListed(plan.moderationStatus)) {
       throw new NotFoundException('Meal plan not found');
     }
 
-    return mapMealPlan(plan, {
-      vendor: plan.vendor,
-      opensAt: plan.vendor.profile?.opensAt,
-      closesAt: plan.vendor.profile?.closesAt,
-      subscriberCount: plan._count.subscriptions,
+    // M37 — the dated menus the kitchen has actually set for the next
+    // seven days. Detail page only (the list stays light); `weeklyMenu`
+    // remains the undated rotation rendered alongside.
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const dayMenus = await this.prisma.mealPlanDayMenu.findMany({
+      where: {
+        planId: plan.id,
+        date: { gte: today, lt: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) },
+      },
+      orderBy: { date: 'asc' },
     });
+
+    return {
+      ...mapMealPlan(plan, {
+        vendor: plan.vendor,
+        opensAt: plan.vendor.profile?.opensAt,
+        closesAt: plan.vendor.profile?.closesAt,
+        subscriberCount: plan._count.subscriptions,
+      }),
+      thisWeek:
+        dayMenus.length > 0
+          ? dayMenus.map((d) => ({ date: d.date.toISOString().slice(0, 10), lines: d.lines }))
+          : undefined,
+    };
   }
 }

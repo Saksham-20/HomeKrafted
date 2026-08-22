@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Heart } from "lucide-react";
@@ -33,6 +33,32 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const [selectedSku, setSelectedSku] = useState(product.defaultWeightSku);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+
+  // The mobile sticky bar (M37): on a phone the in-flow Add to cart
+  // scrolls away under the description, and the one action the page
+  // exists for stops being reachable. The bar shows only while the real
+  // button is off-screen — an IntersectionObserver on the buy row, not a
+  // scroll listener — and only below the 640 rail (the CSS hides it
+  // above; the observer runs harmlessly). Appearance is a CSS
+  // transition, so the global reduced-motion floor already covers it.
+  const buyRowRef = useRef<HTMLDivElement | null>(null);
+  const [buyRowVisible, setBuyRowVisible] = useState(true);
+
+  useEffect(() => {
+    const el = buyRowRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setBuyRowVisible(entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  function handleAdd() {
+    addItem(product.id, selectedSku, quantity);
+    setAdded(true);
+  }
 
   const weight =
     product.weightOptions.find((w) => w.sku === selectedSku) ?? product.weightOptions[0];
@@ -75,16 +101,9 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         Earn {formatCurrency(cashback)} wallet cashback on this order
       </div>
 
-      <div className={styles.buyRow}>
+      <div className={styles.buyRow} ref={buyRowRef}>
         <QuantityStepper value={quantity} onChange={setQuantity} aria-label="Quantity" />
-        <Button
-          variant="primary"
-          className={styles.addToCart}
-          onClick={() => {
-            addItem(product.id, selectedSku, quantity);
-            setAdded(true);
-          }}
-        >
+        <Button variant="primary" className={styles.addToCart} onClick={handleAdd}>
           {added ? "Added ✓" : "Add to cart"}
         </Button>
         <button
@@ -121,6 +140,26 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
           <span className={styles.giftChip}>🎀 Gift wrap</span>
           <span className={styles.giftChip}>📮 Ship to recipient</span>
         </div>
+      </div>
+
+      {/* Phone-only (≤640 rail, CSS-gated); `aria-hidden` while the real
+          controls are on screen so nothing is announced twice. */}
+      <div
+        className={clsx(styles.stickyBar, !buyRowVisible && styles.stickyBarVisible)}
+        aria-hidden={buyRowVisible}
+      >
+        <div className={styles.stickyInfo}>
+          <span className={styles.stickyName}>{product.name}</span>
+          {weight && <span className={styles.stickyPrice}>{formatCurrency(weight.price)}</span>}
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleAdd}
+          tabIndex={buyRowVisible ? -1 : 0}
+        >
+          {added ? "Added ✓" : "Add to cart"}
+        </Button>
       </div>
     </div>
   );
