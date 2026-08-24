@@ -558,7 +558,7 @@ async function main(): Promise<void> {
       { id: 'oc6', slug: 'baby-shower', name: 'Baby Shower', initial: 'B', tagline: 'Gentle, home-made, nothing with a novelty slogan.' },
       { id: 'oc7', slug: 'wedding', name: 'Wedding', initial: 'W', tagline: 'Favours and welcome hampers in real quantities.' },
       { id: 'oc8', slug: 'thank-you', name: 'Thank You', initial: 'T', tagline: 'When "thanks" needs to arrive in a jar.' },
-      { id: 'oc9', slug: 'raksha-bandhan', name: 'Raksha Bandhan', initial: 'R', celebratedOn: new Date('2026-08-28'), tagline: 'Sweets worth posting across the country.' },
+      { id: 'oc9', slug: 'raksha-bandhan', name: 'Raksha Bandhan', initial: 'R', celebratedOn: new Date('2026-08-28'), tagline: 'Sweets, chocolate and handmade gifts for a brother or a sister, made in a tricity kitchen.' },
       { id: 'oc10', slug: 'karwa-chauth', name: 'Karwa Chauth', initial: 'K', celebratedOn: new Date('2026-10-29'), tagline: 'Sargi and after-moonrise food, cooked that morning.' },
     ],
   });
@@ -635,7 +635,7 @@ async function main(): Promise<void> {
     },
     {
       id: 'pr3', slug: 'ragi-almond-cookies', vendorId: 'vd3', name: 'Ragi Almond Cookies', categoryId: 'ct3', featured: true,
-      occasionIds: ['oc1', 'oc6'], dietary: ['vegetarian', 'gluten_free'],
+      occasionIds: ['oc1', 'oc6', 'oc9', 'oc10'], dietary: ['vegetarian', 'gluten_free'],
       images: [{ placeholder: 'Ragi Almond Cookies product photo', src: '/images/products/ragi-almond-cookies.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'ragi-almond-cookies-200g', label: '200 g', price: 220, mrp: 260, stock: 50 }],
       defaultWeightSku: 'ragi-almond-cookies-200g', rating: 4.9, reviewCount: 204, tags: [], isPackaged: true, cashbackPct: 5,
@@ -643,7 +643,7 @@ async function main(): Promise<void> {
     },
     {
       id: 'pr4', slug: 'roasted-makhana', vendorId: 'vd4', name: 'Roasted Makhana', categoryId: 'ct7',
-      occasionIds: ['oc5', 'oc8'], dietary: ['vegetarian', 'vegan', 'gluten_free'],
+      occasionIds: ['oc5', 'oc8', 'oc10'], dietary: ['vegetarian', 'vegan', 'gluten_free'],
       images: [{ placeholder: 'Roasted Makhana product photo', src: '/images/products/roasted-makhana.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'roasted-makhana-100g', label: '100 g', price: 160, mrp: 190, stock: 60 }],
       defaultWeightSku: 'roasted-makhana-100g', rating: 4.6, reviewCount: 92, tags: [], isPackaged: true, cashbackPct: 5,
@@ -651,7 +651,7 @@ async function main(): Promise<void> {
     },
     {
       id: 'pr5', slug: 'dark-chocolate-bark', vendorId: 'vd5', name: 'Dark Chocolate Bark', categoryId: 'ct6',
-      occasionIds: ['oc2', 'oc1'], dietary: ['vegetarian', 'vegan'],
+      occasionIds: ['oc2', 'oc1', 'oc9'], dietary: ['vegetarian', 'vegan'],
       images: [{ placeholder: 'Dark Chocolate Bark product photo', src: '/images/products/dark-chocolate-bark.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'dark-chocolate-bark-150g', label: '150 g', price: 340, mrp: 399, stock: 30 }],
       defaultWeightSku: 'dark-chocolate-bark-150g', rating: 4.8, reviewCount: 73, tags: [], isPackaged: true, cashbackPct: 5,
@@ -659,7 +659,7 @@ async function main(): Promise<void> {
     },
     {
       id: 'pr6', slug: 'dry-fruit-laddoo-box', vendorId: 'vd6', name: 'Dry Fruit Laddoo Box', categoryId: 'ct5', featured: true,
-      occasionIds: ['oc3', 'oc7'], dietary: ['vegetarian'],
+      occasionIds: ['oc3', 'oc7', 'oc9', 'oc10'], dietary: ['vegetarian'],
       images: [{ placeholder: 'Dry Fruit Laddoo Box product photo', src: '/images/products/dry-fruit-laddoo-box.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'dry-fruit-laddoo-box-400g', label: '400 g', price: 560, mrp: 640, stock: 20 }],
       defaultWeightSku: 'dry-fruit-laddoo-box-400g', rating: 4.9, reviewCount: 140, tags: ['Festive'], isPackaged: true, cashbackPct: 5,
@@ -667,7 +667,7 @@ async function main(): Promise<void> {
     },
     {
       id: 'pr7', slug: 'masala-chai-blend', vendorId: 'vd7', name: 'Masala Chai Blend', categoryId: 'ct7',
-      occasionIds: ['oc4', 'oc8'], dietary: ['vegetarian', 'vegan'],
+      occasionIds: ['oc4', 'oc8', 'oc9', 'oc10'], dietary: ['vegetarian', 'vegan'],
       images: [{ placeholder: 'Masala Chai Blend product photo', src: '/images/products/masala-chai-blend.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'masala-chai-blend-150g', label: '150 g', price: 275, mrp: 310, stock: 45 }],
       defaultWeightSku: 'masala-chai-blend-150g', rating: 4.7, reviewCount: 61, tags: [], isPackaged: true, cashbackPct: 5,
@@ -675,7 +675,7 @@ async function main(): Promise<void> {
     },
     {
       id: 'pr8', slug: 'festive-assorted-hamper', vendorId: 'vd8', name: 'Festive Assorted Hamper', categoryId: 'ct8', featured: true,
-      occasionIds: ['oc3', 'oc5', 'oc7'], dietary: ['vegetarian'],
+      occasionIds: ['oc3', 'oc5', 'oc7', 'oc9', 'oc10'], dietary: ['vegetarian'],
       images: [{ placeholder: 'Festive Assorted Hamper product photo', src: '/images/products/festive-assorted-hamper.jpg', ratio: '1/1' }],
       weightOptions: [{ sku: 'festive-assorted-hamper-curated', label: 'Curated', price: 1499, mrp: 1750, stock: 15 }],
       defaultWeightSku: 'festive-assorted-hamper-curated', rating: 4.9, reviewCount: 57, tags: ['Curated'], isPackaged: true, isHamper: true, cashbackPct: 5,

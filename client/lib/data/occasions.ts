@@ -19,7 +19,7 @@ export const occasions: Occasion[] = [
   { id: "oc6", slug: "baby-shower", name: "Baby Shower", initial: "B", tagline: "Gentle, home-made, nothing with a novelty slogan." },
   { id: "oc7", slug: "wedding", name: "Wedding", initial: "W", tagline: "Favours and welcome hampers in real quantities." },
   { id: "oc8", slug: "thank-you", name: "Thank You", initial: "T", tagline: "When \"thanks\" needs to arrive in a jar." },
-  { id: "oc9", slug: "raksha-bandhan", name: "Raksha Bandhan", initial: "R", celebratedOn: "2026-08-28", tagline: "Sweets worth posting across the country." },
+  { id: "oc9", slug: "raksha-bandhan", name: "Raksha Bandhan", initial: "R", celebratedOn: "2026-08-28", tagline: "Sweets, chocolate and handmade gifts for a brother or a sister, made in a tricity kitchen." },
   { id: "oc10", slug: "karwa-chauth", name: "Karwa Chauth", initial: "K", celebratedOn: "2026-10-29", tagline: "Sargi and after-moonrise food, cooked that morning." },
 ];
 
