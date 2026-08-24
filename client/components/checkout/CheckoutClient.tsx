@@ -32,6 +32,11 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { formatCurrency } from "@/lib/format";
 import { CHECKOUT_LOADING, kitchenLoading } from "@/lib/kitchen-copy";
 import type { DeliveryDateOption } from "@/lib/data";
+import {
+  clearGiftIntent,
+  hasGiftIntent,
+  readGiftIntent,
+} from "@/lib/gift/gift-intent";
 import type { Address, Order, OrderGift, OrderShipment, PaymentMethod } from "@/lib/types";
 import styles from "./CheckoutClient.module.css";
 
@@ -80,6 +85,22 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   const [hidePrice, setHidePrice] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
   const [giftDateId, setGiftDateId] = useState(deliveryDateOptions[0]?.id ?? "");
+  /**
+   * The two asks the product page's gift block can make that this screen
+   * had no control for (see `lib/gift/gift-intent.ts`).
+   *
+   * `giftWrap` is the one that was missing outright: `CartItem.giftWrap`
+   * and `OrderItem.giftWrap` are real columns, both order screens already
+   * print "· gift wrapped", and **nothing anywhere ever set them** — the
+   * product page advertised wrap "at checkout" and checkout never asked.
+   *
+   * `wantsCard` only decides whether the message box is on screen. A
+   * handwritten card belongs on an order the buyer keeps and hands over
+   * as much as on one posted to somebody else, which is why the box is no
+   * longer nested inside "ship to someone else".
+   */
+  const [giftWrap, setGiftWrap] = useState(false);
+  const [wantsCard, setWantsCard] = useState(false);
 
   const [dateByAddress, setDateByAddress] = useState<Record<string, string>>({});
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState<PaymentMethod>("razorpay");
@@ -101,6 +122,35 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
 
   // `undefined` until the server answers, so no tile is offered on a guess.
   const [cardPayments, setCardPayments] = useState<boolean | undefined>(undefined);
+
+  /**
+   * Pick up what the buyer asked for on the product page and then forget
+   * it, so a gift bought on Tuesday does not pre-tick this screen on
+   * Thursday's order for oneself. Runs once, before anything is typed
+   * here — it never overwrites a choice made on this screen.
+   */
+  useEffect(() => {
+    // Deferred a tick, the same technique `LocationContext` and
+    // `WalletContext` use to hydrate from browser storage: a synchronous
+    // setState in an effect body is `react-hooks/set-state-in-effect`.
+    // It cannot be read during render either — this is a Client Component
+    // but it still server-renders, and `sessionStorage` does not exist
+    // there (React #418, the M12 lesson).
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const intent = readGiftIntent();
+      if (!hasGiftIntent(intent)) return;
+      setIsGift(intent.shipToRecipient);
+      setGiftWrap(intent.wrap);
+      setWantsCard(intent.messageCard);
+      if (intent.message) setGiftMessage(intent.message);
+      clearGiftIntent();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -268,7 +318,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
         quantity: info.quantity,
         price: info.unitPrice,
         addressId: isGift ? (giftAddressId ?? MOCK_GIFT_ADDRESS_ID) : (item.addressId ?? defaultAddress?.id ?? ""),
-        giftWrap: item.giftWrap,
+        // Order-level here rather than per line: the checkbox wraps the
+        // whole parcel, and a per-line control would be a cart feature
+        // (there is no endpoint that writes `CartItem.giftWrap`). An
+        // already-set line stays set.
+        giftWrap: item.giftWrap || giftWrap,
       };
     });
 
@@ -286,15 +340,26 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
           )?.isoDate,
         }));
 
+    /**
+     * Sent whenever there is something to record, which since the gift
+     * block became real controls includes "a card, on an order I am
+     * keeping". `recipientAddressId` is what makes the parcel go
+     * somewhere else and is the only field the server treats as the
+     * shipping switch — absent, this is a gift note on an ordinary
+     * order.
+     */
+    const trimmedMessage = giftMessage.trim();
     const gift: OrderGift | undefined = isGift
       ? {
           isGift: true,
           recipientName: recipient.recipientName,
           recipientAddressId: giftAddressId ?? MOCK_GIFT_ADDRESS_ID,
           hidePrice,
-          message: giftMessage.trim() || undefined,
+          message: trimmedMessage || undefined,
         }
-      : undefined;
+      : trimmedMessage
+        ? { isGift: true, hidePrice: false, message: trimmedMessage }
+        : undefined;
 
     const created = await createOrder({
       lines,
@@ -469,6 +534,44 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
               </span>
             </label>
 
+            {/* Gift wrap and the message card sit **outside** the
+                ship-to-someone-else branch, because both apply just as
+                well to a parcel the buyer collects and hands over — and
+                because the product page offers all three side by side.
+                Wrap in particular had no control anywhere until now. */}
+            <div className={styles.giftExtras}>
+              <label className={styles.hideToggleRow}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={giftWrap}
+                  onChange={(event) => setGiftWrap(event.target.checked)}
+                />
+                🎀 Gift wrap this order
+              </label>
+
+              <label className={styles.hideToggleRow}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={wantsCard || isGift}
+                  disabled={isGift}
+                  onChange={(event) => setWantsCard(event.target.checked)}
+                />
+                ✎ Include a handwritten message card
+              </label>
+
+              {(wantsCard || isGift) && (
+                <Textarea
+                  label="Message card"
+                  placeholder="Add a short note — the maker writes it out by hand."
+                  value={giftMessage}
+                  onChange={(event) => setGiftMessage(event.target.value)}
+                  rows={3}
+                />
+              )}
+            </div>
+
             {isGift && (
               <div className={styles.giftBody}>
                 <AddressForm values={recipient} onChange={setRecipient} idPrefix="recipient" />
@@ -482,14 +585,6 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                   />
                   Hide prices on the recipient&rsquo;s copy
                 </label>
-
-                <Textarea
-                  label="Gift message"
-                  placeholder="Add a short note for the recipient…"
-                  value={giftMessage}
-                  onChange={(event) => setGiftMessage(event.target.value)}
-                  rows={3}
-                />
 
                 <div className={styles.dateBlock}>
                   <div className={styles.fieldLabel}>Delivery date</div>

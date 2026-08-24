@@ -226,3 +226,11 @@
   color: var(--hk-terracotta);
   margin: 0;
 }
+
+/* An ask went through. Pine rather than terracotta: this is the good
+   outcome, and it sits in the same slot as the refusal. */
+.notice {
+  font-size: 13px;
+  color: var(--hk-pine);
+  margin: 0;
+}

@@ -14,6 +14,7 @@ import { commissionBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import type { ListingFormValues } from "./ListingForm";
+import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
 
 const DIETARY_OPTIONS: { value: DietaryTag; label: string }[] = [
@@ -44,6 +45,13 @@ export interface GuidedListingFormProps {
   onChange: (values: ListingFormValues) => void;
   categories: { id: string; name: string; group?: ProductKind }[];
   occasions: { id: string; name: string }[];
+  /**
+   * What to do when the shelf or occasion somebody wants is not on the
+   * list (M50) — see `lib/taxonomy-actions.ts`. This is the screen the
+   * gap showed up on: the shelf question is one of the four, and its
+   * empty state used to be a dead end.
+   */
+  taxonomy?: ListingTaxonomyActions;
   commission?: SellerCommission;
   /**
    * Handed the finished values rather than reading the parent's state:
@@ -95,6 +103,7 @@ export function GuidedListingForm({
   onChange,
   categories,
   occasions,
+  taxonomy,
   commission,
   onSubmit,
   saving,
@@ -309,6 +318,13 @@ export function GuidedListingForm({
               />
             </label>
 
+            {/*
+              The shelf list is filtered to the side of the catalogue
+              they just picked, so a candle maker is never offered
+              "Pickles" — and the ask carries that same answer, so an
+              approved shelf lands on the right half without an admin
+              having to guess at what somebody meant.
+            */}
             <Combobox
               label="Which shelf does it belong on?"
               labelTone="plain"
@@ -318,6 +334,12 @@ export function GuidedListingForm({
               placeholder="Start typing…"
               emptyMessage="Nothing by that name — try a shorter word."
               hint="This is how shoppers find it when they are browsing."
+              onSuggest={
+                taxonomy?.suggestCategory
+                  ? (name) => taxonomy.suggestCategory!(name, values.kind)
+                  : undefined
+              }
+              createNoun="shelf"
             />
           </div>
         )}
@@ -480,7 +502,10 @@ export function GuidedListingForm({
               onChange={(next) => set("occasionIds", next)}
               options={occasionOptions}
               placeholder="Diwali, birthdays…"
-              emptyMessage="No occasion by that name. Ask us to add it."
+              emptyMessage="No occasion by that name."
+              onCreate={taxonomy?.createOccasion}
+              onSuggest={taxonomy?.suggestOccasion}
+              createNoun="occasion"
               hint="Optional — it puts your listing on that occasion's page."
             />
 

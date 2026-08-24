@@ -1,0 +1,299 @@
+"use client";
+
+import { useCallback, useEffect, useId, useState } from "react";
+import { Card } from "@/components/ui/Card";
+import { Chip } from "@/components/ui/Chip";
+import { Button } from "@/components/ui/Button";
+import { AdminPageHeader } from "./AdminPageHeader";
+import { CatalogTabs } from "./CatalogTabs";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { formatDate } from "@/lib/format";
+import {
+  apiErrorMessage,
+  approveTaxonomySuggestion,
+  getTaxonomySuggestions,
+  rejectTaxonomySuggestion,
+} from "@/lib/api";
+import type { TaxonomySuggestion, TaxonomySuggestionStatus } from "@/lib/types";
+import styles from "./TaxonomySuggestionsClient.module.css";
+
+type Filter = TaxonomySuggestionStatus | "all";
+
+const FILTERS: { value: Filter; label: string }[] = [
+  // Waiting first and the default: it is the one filter with a
+  // HomeKrafter on the other end of it. Same rule as the catalogue's
+  // status chips.
+  { value: "pending", label: "Waiting" },
+  { value: "all", label: "All" },
+  { value: "approved", label: "Added" },
+  { value: "rejected", label: "Declined" },
+];
+
+/** Matches `RejectTaxonomySuggestionDto`'s `@MinLength(10)` — checked here too so the admin is told before the round trip, not after. */
+const MIN_REASON = 10;
+
+/**
+ * `/admin/catalog/suggestions` (M50) — the shelves and occasions
+ * HomeKrafters have asked for.
+ *
+ * **Approving is what mints the real row.** That is the design, not an
+ * implementation detail: `Category` and `Occasion` are a shared
+ * vocabulary the whole catalogue browses by, so the person who can see
+ * the whole list is the one who decides whether "Achaar" is a genuine gap
+ * or the pickles shelf under another name — and can rename it into the
+ * vocabulary that already exists on the way in.
+ *
+ * A decline needs a reason, and it reaches the HomeKrafter **verbatim**
+ * (the M22 rule). It is the only thing telling them whether to pick an
+ * existing shelf or ask again differently.
+ */
+export function TaxonomySuggestionsClient() {
+  const { ready, role } = useAuth();
+  const [items, setItems] = useState<TaxonomySuggestion[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [filter, setFilter] = useState<Filter>("pending");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const result = await getTaxonomySuggestions(filter === "all" ? undefined : filter);
+    setItems(result.items);
+    setPendingCount(result.pendingCount);
+    setLoading(false);
+  }, [filter]);
+
+  useEffect(() => {
+    if (!ready || role !== "admin") return;
+    let cancelled = false;
+    (async () => {
+      // `setLoading` inside the async body rather than in the effect
+      // itself: the lint rule that forbids the latter is about the
+      // synchronous render-then-immediately-set pattern, and the list
+      // genuinely does become stale the moment the filter changes.
+      setLoading(true);
+      try {
+        const result = await getTaxonomySuggestions(filter === "all" ? undefined : filter);
+        if (cancelled) return;
+        setItems(result.items);
+        setPendingCount(result.pendingCount);
+      } catch (err) {
+        if (!cancelled) setError(apiErrorMessage(err, "Could not load the queue."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, role, filter]);
+
+  async function decide(run: () => Promise<unknown>, id: string) {
+    setBusyId(id);
+    setError(null);
+    try {
+      await run();
+      await load();
+    } catch (err) {
+      // The server refuses on purpose — a name that now clashes, a
+      // decision already made — and the sentence is the only thing
+      // saying what to do instead (the M36 rule).
+      setError(apiErrorMessage(err, "That did not go through — try again."));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <div>
+      <AdminPageHeader
+        title="Catalog"
+        subtitle={
+          pendingCount > 0
+            ? `${pendingCount} shelf or occasion ${pendingCount === 1 ? "request is" : "requests are"} waiting`
+            : "Nothing waiting on a decision"
+        }
+      />
+      <CatalogTabs active="suggestions" pendingSuggestions={pendingCount} />
+
+      <div className={styles.filters}>
+        {FILTERS.map((option) => (
+          <Chip
+            key={option.value}
+            label={option.label}
+            selected={filter === option.value}
+            onClick={() => setFilter(option.value)}
+          />
+        ))}
+      </div>
+
+      {error && (
+        <p className={styles.error} role="alert">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <Card padding="sm">
+          <p className={styles.empty}>Loading…</p>
+        </Card>
+      ) : items.length === 0 ? (
+        <Card padding="sm">
+          <p className={styles.empty}>
+            {filter === "pending"
+              ? "Nothing waiting. Requests land here when a HomeKrafter cannot find the shelf or occasion they need."
+              : "Nothing here."}
+          </p>
+        </Card>
+      ) : (
+        <div className={styles.list}>
+          {items.map((item) => (
+            <SuggestionRow
+              key={item.id}
+              suggestion={item}
+              busy={busyId === item.id}
+              onApprove={(name) =>
+                decide(() => approveTaxonomySuggestion(item.id, name ? { name } : {}), item.id)
+              }
+              onReject={(reason) =>
+                decide(() => rejectTaxonomySuggestion(item.id, reason), item.id)
+              }
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SuggestionRow({
+  suggestion,
+  busy,
+  onApprove,
+  onReject,
+}: {
+  suggestion: TaxonomySuggestion;
+  busy: boolean;
+  onApprove: (name?: string) => void;
+  onReject: (reason: string) => void;
+}) {
+  /**
+   * The name starts as asked and is editable in place. Renaming on the
+   * way in is the point of a human step — "achaar" filed as "Pickles &
+   * Preserves" keeps the vocabulary tidy without refusing somebody who
+   * described the same thing in their own words.
+   */
+  const [name, setName] = useState(suggestion.name);
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState<string | null>(null);
+  const fieldId = useId();
+
+  const decided = suggestion.status !== "pending";
+  const noun = suggestion.kind === "category" ? "Shelf" : "Occasion";
+
+  function confirmReject() {
+    const trimmed = reason.trim();
+    if (trimmed.length < MIN_REASON) {
+      setReasonError(`Give them something they can act on — at least ${MIN_REASON} characters.`);
+      return;
+    }
+    onReject(trimmed);
+    setRejecting(false);
+    setReason("");
+    setReasonError(null);
+  }
+
+  return (
+    <Card padding="sm" className={styles.row}>
+      <div className={styles.head}>
+        <span className={styles.kind}>
+          {noun}
+          {suggestion.group && ` · ${suggestion.group === "food" ? "to eat" : "to keep"}`}
+        </span>
+        <span className={styles.status} data-status={suggestion.status}>
+          {suggestion.status === "pending"
+            ? "Waiting"
+            : suggestion.status === "approved"
+              ? "Added"
+              : "Declined"}
+        </span>
+      </div>
+
+      {decided ? (
+        <p className={styles.name}>{suggestion.name}</p>
+      ) : (
+        <label className={styles.nameField}>
+          <span className={styles.nameLabel}>Name it will be added under</span>
+          <input
+            className={styles.nameInput}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+      )}
+
+      <p className={styles.meta}>
+        {suggestion.vendorName ?? suggestion.suggestedByName ?? "A HomeKrafter"} ·{" "}
+        {formatDate(suggestion.createdAt)}
+      </p>
+
+      {/* Their own words. The one thing that tells a genuinely missing
+          shelf from a synonym of one that already exists. */}
+      {suggestion.note && <p className={styles.note}>“{suggestion.note}”</p>}
+
+      {suggestion.decisionNote && (
+        <p className={styles.decision}>Told them: {suggestion.decisionNote}</p>
+      )}
+
+      {!decided && !rejecting && (
+        <div className={styles.actions}>
+          <Button
+            size="sm"
+            onClick={() => onApprove(name.trim() === suggestion.name ? undefined : name.trim())}
+            disabled={busy || name.trim().length < 2}
+          >
+            {busy ? "Adding…" : `Add this ${noun.toLowerCase()}`}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setRejecting(true)} disabled={busy}>
+            Decline
+          </Button>
+        </div>
+      )}
+
+      {!decided && rejecting && (
+        <div className={styles.reasonBox}>
+          <label className={styles.nameLabel} htmlFor={`${fieldId}-reason`}>
+            Why not? The HomeKrafter sees this word for word.
+          </label>
+          <textarea
+            id={`${fieldId}-reason`}
+            className={styles.reasonInput}
+            rows={2}
+            autoFocus
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+              if (reasonError) setReasonError(null);
+            }}
+            placeholder="e.g. Pickles already covers this — file it under Pickles & Preserves."
+            aria-describedby={reasonError ? `${fieldId}-error` : undefined}
+          />
+          {reasonError && (
+            <p className={styles.error} id={`${fieldId}-error`} role="alert">
+              {reasonError}
+            </p>
+          )}
+          <div className={styles.actions}>
+            <Button size="sm" onClick={confirmReject} disabled={busy}>
+              Send and decline
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setRejecting(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}

@@ -273,6 +273,45 @@ export interface Category {
   sortOrder?: number;
 }
 
+/**
+ * A shelf or an occasion somebody has asked to have added (M50).
+ *
+ * **Why this is an ask rather than a row.** A HomeKrafter had nowhere in
+ * the product to say "there is no shelf for what I make" — the picker's
+ * empty state read "Ask us to add it" and there was nobody to ask.
+ * Letting them add one is what the server refuses: `Category` and
+ * `Occasion` are a shared vocabulary the whole catalogue browses by, and
+ * one anybody can append to stops being one ("Pickles", "Pickle" and
+ * "Achaar" as three half-empty shelves). An admin reads the queue and
+ * mints the real row — which is also the only point where somebody
+ * looking at the whole list sees the name.
+ */
+export type TaxonomyKind = "category" | "occasion";
+
+export type TaxonomySuggestionStatus = "pending" | "approved" | "rejected";
+
+export interface TaxonomySuggestion {
+  id: ID;
+  kind: TaxonomyKind;
+  name: string;
+  /** Categories only — which half of the catalogue it belongs on. */
+  group?: ProductKind;
+  /** What they make, in their words. The one field that tells a real gap from a synonym. */
+  note?: string;
+  status: TaxonomySuggestionStatus;
+  suggestedById: ID;
+  suggestedByName?: string;
+  vendorId?: ID;
+  vendorName?: string;
+  /** The refusal, word for word. It is the only thing saying what to do next. */
+  decisionNote?: string;
+  reviewedAt?: ISODateString;
+  /** What approval created, so the queue can link to the live row. */
+  resultCategoryId?: ID;
+  resultOccasionId?: ID;
+  createdAt: ISODateString;
+}
+
 export interface Occasion {
   id: ID;
   slug: string;

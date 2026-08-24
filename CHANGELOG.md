@@ -3,6 +3,149 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M50] — the buttons that were pictures of buttons — 2026-08-24
+
+Seven items off a client list. Four of them turn out to be the same
+defect wearing different clothes: **a control that looks like a control
+and isn't**, or **an empty state that names an action nobody can take.**
+
+### "Make it a gift" did nothing, and gift wrap existed nowhere
+
+The block under Add to cart was three `<span>`s under copy promising "a
+handwritten message card and gift wrap at checkout". Pressing one did
+nothing, and checkout offered neither by that name.
+
+Gift wrap is the worse half: `CartItem.giftWrap` and `OrderItem.giftWrap`
+are real columns, both order-detail screens have always printed
+"· gift wrapped", the checkout payload has always carried the field —
+and **nothing in the product ever set it**. A column, a payload field and
+two rendered strings, wired end to end except for the beginning.
+
+- The three chips are toggles. "Message card" opens a box asking what it
+  should say, on the page where somebody is looking at the thing they are
+  gifting.
+- What they pick rides to checkout in `lib/gift/gift-intent.ts` —
+  sessionStorage, per-tab, cleared the moment checkout reads it, so a
+  gift bought on Tuesday does not pre-tick Thursday's order for oneself.
+- Checkout gained a real **Gift wrap this order** checkbox, and the
+  message box moved **out** of the ship-to-someone-else branch.
+- `OrdersService` now separates `shipsToRecipient` from `isGift`. They
+  were one bit, so a message card could only be attached to a parcel
+  posted to somebody else — not to the commonest gift there is, the one
+  you collect and hand over. `OrderGiftInputDto`'s recipient fields are
+  optional accordingly.
+- **The maker can now read the message.** It was stored from the day
+  gifting shipped and displayed on no screen at all, so the person who
+  has to write the card by hand had no way to see it. It is on their
+  order detail, in a box that says "write this out".
+
+### The shelf picker said "ask us to add it". There was nobody to ask.
+
+Same shape, twice: the listing form's category `<select>` had no way to
+say *"none of these is what I make"*, and the occasion picker's empty
+state read "Ask an admin to add it" with no route to one.
+
+The obvious fix — let them add one — is what
+`occasion-admin-only.spec.ts` exists to prevent, and for a good reason:
+`Category` and `Occasion` are a shared vocabulary the whole catalogue
+browses by, and one anybody can append to stops being one. "Pickles",
+"Pickle" and "Achaar" as three half-empty shelves, unmergeable.
+
+So the ask and the write are separate. `TaxonomySuggestion` records what
+somebody wants; an admin on `/admin/catalog/suggestions` mints the real
+row. The approve code lives in `src/admin/` so the existing directory
+scan still covers it, and the spec gained a case pinning the new seller
+controller as create-free.
+
+- **An admin renames on the way in** — "achaar" becomes "Pickles &
+  Preserves" rather than a refusal aimed at somebody who used their own
+  words. That is the whole value of the human step.
+- A duplicate is a **409 naming the existing row**, checked again at
+  approval against the final name. Never a silent de-duplication (M43).
+- A decline needs a reason and it reaches them **verbatim** (M22),
+  category `account`.
+- The category picker is a `<Combobox>` now, in both the guided flow and
+  the long form.
+
+**A defect the browser found and review would not have.** `<Combobox>`
+renders its listbox absolutely positioned over everything below the
+input, and its message below the field — so a refusal drew the
+explanation *behind* the open list. Pressing the row looked like it did
+nothing, which is exactly the failure a verbatim sentence exists to
+prevent. It closes the list on refusal now.
+
+### An admin was approving listings from a 48px thumbnail
+
+`/admin/catalog` rows carry a thumbnail, a name and a price. That is
+enough to *find* a listing and not to *judge* one, and the question being
+answered is "would this look right in the grid". **Preview card** draws
+the real `<ProductCard>` at the width the shop grid gives it — the
+component itself, not a mock-up that would drift and start approving
+listings against a rendering buyers never see. It is `inert`, because the
+card draws a wishlist heart and an add button that nothing here should
+honour. The first listing it was tried on had no photograph, which the
+thumbnail had not made obvious.
+
+### Reels come from Instagram
+
+There is no anonymous Instagram read API left — oEmbed needs a Facebook
+app token and App Review, and the old `/media/?size=l` thumbnail redirect
+answers **500** (checked 2026-08-24). What is still public is the embed
+iframe, so a reel is referenced by URL and played by Instagram.
+`Reel.instagramUrl` + `lib/instagram.ts`; adding another is one line in
+`lib/data/reels.ts`.
+
+Three things this deliberately does not do. It **does not mirror the
+poster frame** — those CDN URLs are signed and expire within days, so a
+stored one is a broken image on a delay, and re-hosting somebody's still
+is a separate permission from embedding their post. It **does not print a
+zero count** beside a real creator's clip; `viewCount: 0` means "not
+published to us", and Instagram's live numbers are inside the frame. And
+it **credits the creator** — `Reel.authorLabel`, because falling through
+to "Homekrafted" would put our name on somebody else's work.
+
+### Ten caricatures, and every one of them wears an apron
+
+`MakerPortrait` drew one of six line-art faces. Two problems: the six
+were a bun, a braid, long hair, a crop, a turban and a beard, which lands
+as "mostly women who cook" across a rail — and none of them was doing
+anything. They were generic avatar circles that happened to sit above a
+kitchen's name.
+
+The apron is in the shared base now, so every drawing says *this person
+makes things* at 40 pixels, which is the one claim the card exists to
+make. Four faces added: glasses, a headscarf, a chef's toque, a
+moustache. `/gallery#portraits` renders all ten — which is how the turban
+was caught rendering as a **blindfold**, a wash-coloured fold struck
+across the brow that nine kitchens out of ten would never have shown.
+
+Maker cards also show the **bestseller's photograph** now. A kitchen's
+single best listing is the most persuasive thing it owns and it was
+rendering as a 15px line of text.
+
+### Also
+
+- `MakerCard`'s bestseller block is a `<div>`, not a `<p>`: `ImageSlot`
+  renders a block element, and a block inside a paragraph makes the
+  browser close the `<p>` early — server and client trees disagree and
+  React throws a hydration error. Caught on the first render.
+- `silent-failure.spec.ts` gained a **registry with a stated reason** for
+  adapters whose job is to hand a refusal up rather than handle it, and a
+  case that fails the build if one is renamed away.
+- `docs/DATA-MODEL.md`'s "Full model list (44 models)" has been wrong
+  since M8.0 — the schema has 67. The heading now says so rather than
+  quietly miscounting; re-enumerating it properly is its own job.
+- **`role="tablist"` over links and toggle chips is a critical axe
+  failure** (`aria-required-children`: a tablist may contain only
+  `role="tab"`), and it also promised arrow-key navigation none of these
+  ever had. Fixed on the two surfaces this milestone touched —
+  `CatalogTabs` is a `<nav>` now, `CatalogClient`'s status filters a
+  `role="group"`. **Eight more carry the same one-word defect** and were
+  left alone rather than quietly widening this change:
+  `MakerOrdersClient`, `SnackOrdersClient`, `PartnerPickupsClient`,
+  `OrdersClient`, `CollectionsTabs`, `CatalogReviewsClient` and
+  `SellersClient` (×3). Each is the same swap with no visual change.
+
 ## [M47a] — the seeded admin had no sections — 2026-08-22
 
 `User.adminScopes` is **empty-means-nothing** on purpose: an admin whose

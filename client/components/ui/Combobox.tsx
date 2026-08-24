@@ -57,6 +57,23 @@ export interface ComboboxProps {
   onCreate?: (typedLabel: string) => Promise<ComboboxOption | undefined>;
   /** Word for the thing being created, used in the create row: "Add “Onam” as a new occasion". */
   createNoun?: string;
+  /**
+   * The other half of "the list is too short" (M50): where the viewer may
+   * **ask** for a value rather than mint one.
+   *
+   * A HomeKrafter cannot create a shelf or an occasion — those are a
+   * shared vocabulary the whole catalogue browses by, and one anybody can
+   * append to stops being one. What they had instead was an empty state
+   * reading "Ask us to add it", with nobody to ask. This is the ask.
+   *
+   * Distinct from `onCreate` in what happens next: nothing becomes
+   * selectable, because nothing exists yet. It resolves to the sentence
+   * shown in place of the hint — "Sent. We'll let you know." — and the
+   * typed name is left in the box so it is obvious what was asked for.
+   *
+   * Pass one or the other, not both. `onCreate` wins if both are given.
+   */
+  onSuggest?: (typedLabel: string) => Promise<string>;
   className?: string;
 }
 
@@ -101,6 +118,7 @@ export function Combobox({
   emptyMessage = "Nothing matches that.",
   onCreate,
   createNoun = "option",
+  onSuggest,
   className,
 }: ComboboxProps) {
   const baseId = useId();
@@ -116,6 +134,8 @@ export function Combobox({
   const [activeIndex, setActiveIndex] = useState(-1);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The server's confirmation of an ask. Shown where the error would be, in the other colour. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   const byValue = useMemo(() => new Map(options.map((o) => [o.value, o])), [options]);
   const selected = useMemo(
@@ -136,8 +156,20 @@ export function Combobox({
   // the filtered ones. Otherwise typing "diwali" next to an existing
   // "Diwali" offers to make a second one.
   const typed = query.trim();
+  /**
+   * Whichever extra row this combobox offers — mint it, or ask for it.
+   * Offered only for a name that is not already in the list,
+   * case-insensitively and against **every** option rather than the
+   * filtered ones: otherwise typing "diwali" next to an existing "Diwali"
+   * offers to make a second one.
+   */
+  const extra: "create" | "suggest" | undefined = onCreate
+    ? "create"
+    : onSuggest
+      ? "suggest"
+      : undefined;
   const canCreate =
-    Boolean(onCreate) &&
+    Boolean(extra) &&
     typed.length > 0 &&
     !options.some((o) => normalise(o.label) === normalise(typed));
 
@@ -198,17 +230,34 @@ export function Combobox({
   }
 
   async function commitCreate() {
-    if (!onCreate || !typed || creating) return;
+    if (!typed || creating) return;
     setCreating(true);
     setError(null);
+    setNotice(null);
     try {
-      const created = await onCreate(typed);
-      if (created) commitOption(created);
+      if (onCreate) {
+        const created = await onCreate(typed);
+        if (created) commitOption(created);
+      } else if (onSuggest) {
+        // Nothing to select: the row does not exist yet and will not
+        // until an admin approves it. The confirmation takes the hint's
+        // place, and the typed name stays in the box so it is obvious
+        // what was sent.
+        setNotice(await onSuggest(typed));
+        close();
+      }
     } catch (err) {
       // The server's sentence, verbatim. It is the only thing that says
-      // what to change — a duplicate name and a rejected one read
-      // differently and both matter.
+      // what to change — "that already exists, pick it" and "you have
+      // already asked" read differently and both matter.
       setError(err instanceof Error ? err.message : `Couldn't add that ${createNoun}.`);
+      // **And close the list, or nobody reads it.** The listbox is
+      // absolutely positioned over everything below the input and the
+      // message renders *under* the field, so a refusal left the list
+      // open and drew the explanation behind it — pressing the row looked
+      // like it did nothing at all, which is the exact failure a verbatim
+      // sentence exists to prevent. Caught in the browser, not in review.
+      close();
     } finally {
       setCreating(false);
     }
@@ -433,7 +482,13 @@ export function Combobox({
           >
             <Plus size={15} strokeWidth={2} aria-hidden="true" />
             <span className={styles.optionText}>
-              {creating ? `Adding “${typed}”…` : `Add “${typed}” as a new ${createNoun}`}
+              {extra === "suggest"
+                ? creating
+                  ? `Asking for “${typed}”…`
+                  : `Ask us to add “${typed}” as a new ${createNoun}`
+                : creating
+                  ? `Adding “${typed}”…`
+                  : `Add “${typed}” as a new ${createNoun}`}
             </span>
           </li>
         )}
@@ -451,7 +506,12 @@ export function Combobox({
           {error}
         </p>
       )}
-      {hint && !error && <p className={styles.hint}>{hint}</p>}
+      {notice && !error && (
+        <p className={styles.notice} role="status">
+          {notice}
+        </p>
+      )}
+      {hint && !error && !notice && <p className={styles.hint}>{hint}</p>}
     </div>
   );
 }

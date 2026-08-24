@@ -1071,6 +1071,69 @@ that is written. Worth checking:
 
 ---
 
+### Make it a gift (M50)
+
+On any product page, under Add to cart. The three chips were decoration
+until now — they looked like buttons and nothing happened.
+
+- Press **Message card** and a box opens asking what it should say. Press
+  **Gift wrap**. Press **Add to cart**, then go to Checkout: the gift
+  section should already have both ticked and the message you typed
+  already in the box. Nothing to find again.
+- **Gift wrap this order** is new at checkout too. Tick it, place the
+  order, and open it from Order history — each line should read
+  "· gift wrapped". The HomeKrafter's own order screen shows the same,
+  plus the message card in a box saying "write this out", which is the
+  point: they have to hand-write it before it goes in the parcel.
+- **Ship to recipient** pre-ticks "This is a gift — ship to someone
+  else", which then asks for the recipient's address as before.
+- Worth checking: a message card on an order you are *keeping*. Tick only
+  the card, ship to yourself, and it should still save.
+
+### Asking for a shelf or an occasion (M50)
+
+Sign in as a HomeKrafter and start a listing (**Listings → Add listing**).
+
+- On **"Which shelf does it belong on?"**, type something that is not on
+  the list — "Kombucha & Ferments". A row appears: *"Ask us to add
+  “Kombucha & Ferments” as a new shelf"*. Press it and you should get
+  "Sent. We'll look at it and let you know — pick the closest shelf for
+  now." The listing still needs a shelf today; the ask is for next time.
+- Ask for the **same name twice** and the second one should refuse in
+  words: "You have already asked for …". Ask for one that already exists
+  ("Bakery") and it should tell you to pick it instead. **Both messages
+  must be readable** — if the dropdown list is covering one, that is a
+  bug.
+- The occasion picker on the full form does the same.
+- Then sign in as **admin → Catalog → Suggestions**. The ask is there with
+  the kitchen's name and whatever they typed. You can **rename it** before
+  adding — that is deliberate, an admin turns "achaar" into "Pickles &
+  Preserves" rather than refusing somebody who used their own words.
+  Adding it puts the shelf on the real list immediately; check it appears
+  in the listing form's picker. Declining needs a reason of at least ten
+  characters, and the HomeKrafter gets it **word for word** in their
+  notifications.
+
+### Previewing a listing as a buyer sees it (M50)
+
+**Admin → Catalog**, any row: **Preview card**. It draws the real product
+card the shop grid uses, at the width it gets there. Nothing in the
+preview is clickable, on purpose. It is worth opening on a listing with no
+photograph — that is the case the 48px thumbnail hides.
+
+### Reels from Instagram (M50)
+
+The first card in the home page's **"Watch it being made"** rail is an
+Instagram reel. It has a pine tile rather than a photo (we do not
+re-host Instagram's frames), an "Instagram" chip and the creator's handle
+rather than ours. Open it: Instagram's own player loads inside the viewer
+and plays on press, with a "Watch on Instagram" link out. It carries no
+like/view counts of ours — those are inside the embed and are Instagram's
+own. A blocked-tracker browser extension can stop the embed loading;
+that is worth reporting with the extension named.
+
+---
+
 ## Things that are deliberately off — don't report these
 
 | Thing | Why |

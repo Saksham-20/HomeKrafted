@@ -8,6 +8,7 @@ import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { ModerationNotice } from "./ModerationNotice";
 import { GuidedListingForm } from "./GuidedListingForm";
+import { sellerTaxonomyActions } from "@/lib/taxonomy-actions";
 import { SellerPageHeader } from "./SellerPageHeader";
 import {
   EMPTY_LISTING_FORM,
@@ -195,6 +196,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
           onChange={setValues}
           categories={categories}
           occasions={occasions}
+          taxonomy={sellerTaxonomyActions}
           commission={seller?.commission}
           onSubmit={(finished) => void handleSubmit(finished)}
           saving={saving}
@@ -212,6 +214,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
             onChange={setValues}
             categories={categories}
             occasions={occasions}
+            taxonomy={sellerTaxonomyActions}
             commission={seller?.commission}
           />
           {error && (

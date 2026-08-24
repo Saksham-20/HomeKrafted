@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import clsx from "clsx";
 import { Heart, Play } from "lucide-react";
+import { InstagramMark } from "@/components/ui/icons/InstagramMark";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCount } from "@/lib/format";
 import { prefersReducedMotion } from "@/lib/motion";
@@ -65,10 +66,24 @@ export function ReelCard({ reel, authorName, onOpen }: ReelCardProps) {
     return () => observer.disconnect();
   }, []);
 
+  const fromInstagram = Boolean(reel.instagramUrl);
+
   return (
     <button type="button" className={styles.card} onClick={onOpen}>
       <span className={styles.frame}>
-        {reel.videoSrc ? (
+        {fromInstagram && !reel.posterSrc ? (
+          /*
+            An Instagram-hosted reel with no still of our own. The hatch
+            placeholder is wrong here — it means "an asset is missing",
+            and nothing is missing: the clip is one press away, on
+            Instagram's player. Mirroring their poster frame is not the
+            fix either (`lib/instagram.ts`: signed URLs that expire, and a
+            separate permission from embedding the post).
+          */
+          <span className={styles.igTile} aria-hidden="true">
+            <InstagramMark size={26} />
+          </span>
+        ) : reel.videoSrc ? (
           <video
             ref={videoRef}
             className={styles.video}
@@ -92,9 +107,20 @@ export function ReelCard({ reel, authorName, onOpen }: ReelCardProps) {
         <span className={styles.scrim} aria-hidden="true" />
 
         <span className={clsx(styles.chip, styles.moduleChip)}>{MODULE_LABEL[reel.module]}</span>
-        <span className={clsx(styles.chip, styles.durationChip)}>
-          {formatDuration(reel.durationSeconds)}
-        </span>
+        {/* Instagram publishes no runtime anonymously, so a reel from
+            there has `durationSeconds: 0` and gets the source chip
+            instead of a fabricated `0:00`. */}
+        {reel.durationSeconds > 0 ? (
+          <span className={clsx(styles.chip, styles.durationChip)}>
+            {formatDuration(reel.durationSeconds)}
+          </span>
+        ) : (
+          fromInstagram && (
+            <span className={clsx(styles.chip, styles.durationChip)}>
+              <InstagramMark size={11} /> Instagram
+            </span>
+          )
+        )}
 
         <span className={styles.playBadge} aria-hidden="true">
           <Play size={16} strokeWidth={2} fill="currentColor" />
@@ -103,14 +129,20 @@ export function ReelCard({ reel, authorName, onOpen }: ReelCardProps) {
         <span className={styles.overlay}>
           <span className={styles.author}>{authorName}</span>
           <span className={styles.title}>{reel.title}</span>
-          <span className={styles.stats}>
-            <Heart size={12} strokeWidth={2} aria-hidden="true" />
-            {formatCount(reel.likeCount)}
-            <span className={styles.dot} aria-hidden="true">
-              ·
+          {/* Zero counts mean "not published to us", not "nobody watched"
+              — Instagram's own live numbers are inside the embed. Printing
+              "0 likes · 0 views" under a real creator's clip would be a
+              made-up number, and an insulting one. */}
+          {reel.viewCount > 0 && (
+            <span className={styles.stats}>
+              <Heart size={12} strokeWidth={2} aria-hidden="true" />
+              {formatCount(reel.likeCount)}
+              <span className={styles.dot} aria-hidden="true">
+                ·
+              </span>
+              {formatCount(reel.viewCount)} views
             </span>
-            {formatCount(reel.viewCount)} views
-          </span>
+          )}
         </span>
       </span>
     </button>

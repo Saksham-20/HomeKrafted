@@ -9,6 +9,7 @@ import { ImageUpload } from "@/components/ui/ImageUpload";
 import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag, SellerCommission } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
 import { commissionBreakdown, priceForTarget } from "@/lib/commission";
+import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
 import styles from "./ListingForm.module.css";
 
@@ -115,6 +116,13 @@ export interface ListingFormProps {
   categories: { id: string; name: string; group?: ProductKind }[];
   occasions: { id: string; name: string }[];
   /**
+   * What to do when the shelf or occasion somebody wants is not on the
+   * list (M50). Absent means the pickers are pick-only, which is what
+   * every call site did before. See `lib/taxonomy-actions.ts` for why an
+   * admin creates and a HomeKrafter asks.
+   */
+  taxonomy?: ListingTaxonomyActions;
+  /**
    * The platform rate from `GET /seller/me` (M37) — drives the "you
    * receive ₹N" line under the price tiers. Omitted by the admin editor,
    * which is pricing on a kitchen's behalf and shows no earnings line.
@@ -129,7 +137,14 @@ export interface ListingFormProps {
  * `/seller/listings/[id]` render this and only differ in how they submit
  * (`createSellerListing` vs. `updateSellerListing`, `lib/api/seller.ts`).
  */
-export function ListingForm({ values, onChange, categories, occasions, commission }: ListingFormProps) {
+export function ListingForm({
+  values,
+  onChange,
+  categories,
+  occasions,
+  commission,
+  taxonomy,
+}: ListingFormProps) {
   const occasionOptions = useMemo(
     () => occasions.map((o) => ({ value: o.id, label: o.name })),
     [occasions],
@@ -171,6 +186,11 @@ export function ListingForm({ values, onChange, categories, occasions, commissio
 
   const isCraft = values.kind === "craft";
   const categoriesForKind = categories.filter((c) => (c.group ?? "food") === values.kind);
+  const categoryOptions = useMemo(
+    () => categoriesForKind.map((c) => ({ value: c.id, label: c.name })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuilt from the same `categories` prop and `values.kind` each render
+    [categories, values.kind],
+  );
 
   // Earnings line inputs (M37): the default tier is the price on the
   // product card, so that is the one the line explains.
@@ -258,26 +278,35 @@ export function ListingForm({ values, onChange, categories, occasions, commissio
               placeholder="e.g. Mango Thokku Pickle"
             />
           </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Category</span>
-            <select
-              className={styles.select}
-              value={values.categoryId}
-              onChange={(event) => set("categoryId", event.target.value)}
-            >
-              <option value="">Select category</option>
-              {/*
-                Only the categories on this side of the catalogue. Pickles
-                is not a category a candle can be in, and offering it is how
-                a listing ends up filed somewhere no buyer will look.
-              */}
-              {categoriesForKind.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {/*
+            A searchable picker rather than a `<select>` (M50). Two
+            reasons, and the second is the one that mattered: the list
+            grows every time a shelf is added, and a `<select>` has
+            nothing to type into — but more importantly a `<select>` has
+            no way to say *"none of these is what I make"*. Now it has.
+
+            Only the categories on this side of the catalogue. Pickles is
+            not a shelf a candle can be on, and offering it is how a
+            listing ends up filed somewhere no buyer will look — which is
+            also why the ask carries `values.kind` rather than leaving an
+            admin to guess at review time.
+          */}
+          <div className={styles.field}>
+            <Combobox
+              label="Category"
+              value={values.categoryId ? [values.categoryId] : []}
+              onChange={(next) => set("categoryId", next[0] ?? "")}
+              options={categoryOptions}
+              placeholder="Select category"
+              emptyMessage="Nothing by that name — try a shorter word."
+              onSuggest={
+                taxonomy?.suggestCategory
+                  ? (name) => taxonomy.suggestCategory!(name, values.kind)
+                  : undefined
+              }
+              createNoun="shelf"
+            />
+          </div>
           {/*
             The "Cashback %" box used to be here, and it was a promise
             nothing kept (M46). Whatever a HomeKrafter typed was quoted on
@@ -309,12 +338,16 @@ export function ListingForm({ values, onChange, categories, occasions, commissio
         thirty, and there was nothing to type into. A searchable picker
         replaces it — same selection, findable by name.
 
-        **No create row here, deliberately.** Occasions are a shared
-        vocabulary the whole catalogue browses by; one anybody can add to
-        stops being one, and "Diwali", "diwali" and "Deepavali" become
-        three hub pages splitting a festival's traffic. Admins add them
-        on `/admin/collections/occasions`. The gate is the server — that
-        route lives under `/api/v1/admin` — not this missing prop.
+        **A HomeKrafter still cannot create one, and that has not
+        changed.** Occasions are a shared vocabulary the whole catalogue
+        browses by; one anybody can add to stops being one, and "Diwali",
+        "diwali" and "Deepavali" become three hub pages splitting a
+        festival's traffic. What M50 added is the missing other half: the
+        picker used to say "ask an admin" with no way to, so `onSuggest`
+        files the ask and an admin mints the row. An admin's own copy of
+        this form gets `onCreate` instead. The gate is the server — the
+        create route lives under `/api/v1/admin` — not which prop is
+        passed.
       */}
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Occasions</h2>
@@ -326,8 +359,11 @@ export function ListingForm({ values, onChange, categories, occasions, commissio
           value={values.occasionIds}
           onChange={(next) => set("occasionIds", next)}
           options={occasionOptions}
-          emptyMessage="No occasion by that name. Ask an admin to add it."
+          emptyMessage="No occasion by that name."
           hint="Optional — it puts your listing on the occasion's page."
+          onCreate={taxonomy?.createOccasion}
+          onSuggest={taxonomy?.suggestOccasion}
+          createNoun="occasion"
           className={styles.occasionPicker}
         />
       </div>

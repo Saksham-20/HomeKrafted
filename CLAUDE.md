@@ -930,6 +930,74 @@ since centralizing a single-use color doesn't pay for itself: ProductCard's
 TransactionRow's debit icon tint (`#f6e7e0`), StoreBadges' on-dark border
 (`#56493a`). See each component's `.module.css` for the inline rationale.
 
+## Reels, gifting and the taxonomy queue (M50)
+
+**A reel may live on Instagram, and it plays there.** `Reel.instagramUrl`
++ `lib/instagram.ts`; the viewer renders Instagram's own `/embed/captioned`
+iframe. There is no anonymous read API left — oEmbed needs a Facebook app
+token and `/media/?size=l` answers 500 — so the embed is the whole
+integration, and adding another reel is one line in `lib/data/reels.ts`.
+Three rules: **never mirror the poster frame** (their CDN URLs are signed
+and expire within days, and re-hosting somebody's still is a separate
+permission from embedding their post — a reel with no `posterSrc` draws
+the branded tile instead), **never print a zero count** beside a real
+creator's clip (`viewCount: 0` means "not published to us", and the live
+numbers are inside the embed), and **credit the creator** —
+`Reel.authorLabel` exists so a clip somebody else posted about us does not
+render under our name.
+
+**The "Make it a gift" block is three real controls now, and gift wrap had
+no control anywhere.** `CartItem.giftWrap`/`OrderItem.giftWrap` are real
+columns, both order screens have always printed "· gift wrapped", and
+**nothing ever set them** — the product page advertised wrap "at checkout"
+and checkout never asked. The block writes `lib/gift/gift-intent.ts`
+(sessionStorage, per-tab, cleared once checkout consumes it) and checkout
+pre-arms from it. `OrdersService` now separates **`shipsToRecipient`**
+(where the parcel goes) from **`isGift`** (that gifting was asked for at
+all): collapsing them meant a message card could only ride on a parcel
+posted to somebody else, which is not the commonest gift. The maker sees
+the message on their order detail — before this it was stored and
+displayed nowhere, so nobody could write the card.
+
+**A HomeKrafter can ask for a shelf or an occasion that isn't there.**
+`TaxonomySuggestion` (`kind: category|occasion`), asked at
+`POST /seller/taxonomy-suggestions`, decided at `/admin/catalog/suggestions`.
+The design is the point and it is easy to "simplify" away:
+
+- **The ask is not the write.** Approving is what mints the
+  `Category`/`Occasion`, and that code lives in `src/admin/` so
+  `occasion-admin-only.spec.ts`'s directory scan still covers it. Letting
+  a seller create one outright ends the shared vocabulary — "Pickles",
+  "Pickle" and "Achaar" as three half-empty shelves nothing can merge.
+- **An admin renames on the way in.** That is what a human step buys: the
+  person who can see the whole list turns "achaar" into "Pickles &
+  Preserves" instead of refusing somebody who used their own words.
+- **A duplicate is a 409 naming the existing row**, checked again at
+  approval against the *final* name — never a silent de-duplication (the
+  M43 rule).
+- **A decline needs a reason and it is sent verbatim** (M22), category
+  `account`, not `promo`.
+- **`<Combobox>` closes its list on a refusal.** The listbox is absolutely
+  positioned over everything under the input and the message renders below
+  the field, so a refusal used to draw the explanation *behind* the open
+  list — pressing the row looked like it did nothing. Found in the
+  browser, not in review.
+
+**A listing's category picker is a `<Combobox>`, not a `<select>`** —
+because a `<select>` has no way to say "none of these is what I make".
+`lib/taxonomy-actions.ts` is the one place deciding who may create and who
+may only ask; it is exempt from `silent-failure.spec.ts` by a registry
+entry, because its whole job is to hand the refusal up to the combobox
+that displays it.
+
+**The admin catalogue row previews the buyer-facing card.** A 48px
+thumbnail is enough to *find* a listing and not to *judge* one, and the
+question being answered is "would this look right in the grid". It
+renders `<ProductCard>` itself — a mock-up would drift and start approving
+listings against a rendering buyers never see — inside an `inert`
+wrapper, since the card draws a wishlist heart and an add button that
+nothing here should honour.
+
 ## Vendor avatars — one component, and a guard (M38b)
 
 **Nothing reads `Vendor.avatarSrc` directly. Render
@@ -941,8 +1009,15 @@ the seeds writing it; **the rows written before that day still hold it**
 and nothing has cleared the column.
 
 `lib/maker-portrait.ts#ownAvatarSrc` filters those rows back to "no
-picture"; `MakerPortrait` then draws one of six line-art caricatures,
-picked from the vendor's slug. Both are **pure and deterministic** —
+picture"; `MakerPortrait` then draws one of **ten** line-art caricatures,
+picked from the vendor's slug. Ten rather than the original six since
+M50, and the four added — glasses, a headscarf, a chef's toque, a
+moustache — are there because the first six (bun, braid, long, crop,
+turban, beard) read as one gender across a rail. Every one wears an
+apron: without it these were generic avatar circles that happened to sit
+above a kitchen's name, and the apron is what says *this person makes
+things* at 40 pixels. `/gallery#portraits` renders all ten, which is how
+the turban was caught rendering as a blindfold. Both are **pure and deterministic** —
 they render in Server Components, so a `Math.random()` pick would choose
 one face on the server and another on hydration (React #418, the M12
 lesson).
@@ -1114,6 +1189,16 @@ undo by accident:
 
 ## Occasions & guides (M16) — dates are set by a person
 
+- **A HomeKrafter can now *ask* for one (M50), and that is not the same
+  thing.** The picker used to say "ask an admin to add it" with no way to;
+  `POST /seller/taxonomy-suggestions` files a `TaxonomySuggestion` and an
+  admin approving it on `/admin/catalog/suggestions` mints the row. Two
+  rules: **the ask must never become the write** — the approve code lives
+  in `src/admin/` for exactly the scan below, and
+  `occasion-admin-only.spec.ts` now pins the seller controller as
+  create-free — and **a refusal carries a reason, verbatim** (the M22
+  rule), because a decline with no sentence is how people stop asking.
+  Same machinery covers categories, which had the identical dead end.
 - **Only an admin creates an occasion (M43), and the route is the gate.**
   `POST /admin/collections/occasions` is the single writer; there is
   deliberately no `/seller/*` equivalent, and

@@ -150,3 +150,30 @@
     width: 100%;
   }
 }
+
+/* The buyer-facing card, opened under the row it belongs to. Inline
+   rather than a dialog, for the same reason the reason box is (see the
+   component doc): a modal owes focus-in, a tab trap and focus restore,
+   and none of that buys anything for a preview that belongs beside the
+   thing it is about. */
+.previewBox {
+  margin-top: var(--hk-s4);
+  padding-top: var(--hk-s4);
+  border-top: 1px solid var(--hk-border);
+}
+
+.previewLabel {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+  margin-bottom: var(--hk-s3);
+}
+
+/* The width the card actually gets in the shop grid, so the preview shows
+   the real line breaks and the real crop rather than a stretched one. */
+.previewCard {
+  width: min(240px, 100%);
+}

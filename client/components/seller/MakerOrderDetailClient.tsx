@@ -141,6 +141,20 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
                 <span className={styles.itemPrice}>{formatCurrency(item.price * item.quantity)}</span>
               </div>
             ))}
+            {/* The card the buyer asked for, in their own words. This is
+                work the HomeKrafter has to do by hand before the parcel
+                goes out, so it belongs on the screen they pack from —
+                the message was stored from the day gifting shipped and
+                was shown on no screen at all. */}
+            {order.gift?.message && (
+              <div className={styles.giftMessage}>
+                <span className={styles.giftMessageLabel}>Message card — write this out</span>
+                <p className={styles.giftMessageText}>“{order.gift.message}”</p>
+              </div>
+            )}
+            {order.items.some((item) => item.giftWrap) && (
+              <p className={styles.itemMeta}>Gift wrap requested.</p>
+            )}
             {order.multiVendor && (
               <p className={styles.itemMeta}>
                 Another HomeKrafter&apos;s items are also on this order — only yours are

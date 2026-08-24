@@ -30,7 +30,8 @@ export function ReelsRailClient({ reels, vendors }: ReelsRailClientProps) {
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
   const authorNameFor = useCallback(
-    (reel: Reel) => (reel.vendorId && vendorNameById.get(reel.vendorId)) || "Homekrafted",
+    (reel: Reel) =>
+      (reel.vendorId && vendorNameById.get(reel.vendorId)) || reel.authorLabel || "Homekrafted",
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map is rebuilt from the same `vendors` prop each render
     [vendors],
   );

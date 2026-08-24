@@ -19,6 +19,13 @@ import { join, relative } from 'node:path';
  *
  * Reads are fine and stay fine: `SellerListingsService` counts occasions
  * to validate the ids on a listing, which is exactly right.
+ *
+ * **M50 did the generous thing without opening the write.** A HomeKrafter
+ * can now ask for an occasion that isn't there — the picker used to say
+ * "ask an admin" with no way to. The ask is a `TaxonomySuggestion` row;
+ * an admin approving it is what mints the `Occasion`, and that code lives
+ * in `src/admin/` for exactly this scan's sake. The last case below pins
+ * that the seller-facing controller files an ask and nothing more.
  */
 
 const SERVER_SRC = join(__dirname, '..', '..', 'src');
@@ -93,6 +100,23 @@ describe('occasions are admin-only to create', () => {
     );
     expect(controller).toMatch(/@Roles\('admin'\)/);
     expect(controller).toMatch(/@Post\('occasions'\)/);
+  });
+
+  /**
+   * The M50 escape valve, pinned in the shape it shipped: a controller
+   * under `seller/` that takes the ask and touches neither table. If this
+   * ever grows a `prisma.occasion.create`, the scan above catches it —
+   * this case catches the subtler regression of the ask itself being
+   * replaced by a direct write to some other module's service.
+   */
+  it('the seller-side ask files a suggestion and creates nothing', () => {
+    const controller = stripComments(
+      readFileSync(join(SERVER_SRC, 'seller', 'taxonomy.controller.ts'), 'utf8'),
+    );
+    expect(controller).toMatch(/@Roles\('seller'\)/);
+    expect(controller).toMatch(/TaxonomySuggestionsService/);
+    expect(OCCASION_WRITE.test(controller)).toBe(false);
+    expect(controller).not.toMatch(/prisma\.category\.(create|update|upsert|delete)/);
   });
 
   it('no controller outside admin/ exposes an occasion-creating handler', () => {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Heart } from "lucide-react";
+import { Check, Heart } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
@@ -11,12 +11,25 @@ import { formatCurrency } from "@/lib/format";
 import { CASHBACK_RATE } from "@/lib/cart/pricing";
 import { useCart } from "@/lib/cart/CartContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
+import {
+  EMPTY_GIFT_INTENT,
+  hasGiftIntent,
+  writeGiftIntent,
+  type GiftIntent,
+} from "@/lib/gift/gift-intent";
 import type { Product } from "@/lib/types";
 import styles from "./ProductPurchasePanel.module.css";
 
 export interface ProductPurchasePanelProps {
   product: Product;
 }
+
+/** The three gift asks, in the order the parcel gets them. */
+const GIFT_OPTIONS: { key: "messageCard" | "wrap" | "shipToRecipient"; icon: string; label: string }[] = [
+  { key: "messageCard", icon: "✎", label: "Message card" },
+  { key: "wrap", icon: "🎀", label: "Gift wrap" },
+  { key: "shipToRecipient", icon: "📮", label: "Ship to recipient" },
+];
 
 /**
  * Product detail's purchase controls: weight-option chips, quantity
@@ -34,6 +47,27 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const [selectedSku, setSelectedSku] = useState(product.defaultWeightSku);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+
+  /**
+   * The "Make it a gift" block (see `lib/gift/gift-intent.ts`). These
+   * three were `<span>`s until now: they looked like controls, the copy
+   * above them promised a message card and gift wrap "at checkout", and
+   * pressing one did nothing. They are toggles now, and what they set is
+   * carried into checkout on add-to-cart.
+   */
+  const [gift, setGift] = useState<GiftIntent>(EMPTY_GIFT_INTENT);
+  const messageFieldId = useId();
+
+  function toggleGift(key: "wrap" | "messageCard" | "shipToRecipient") {
+    setGift((current) => {
+      const next = { ...current, [key]: !current[key] };
+      // Turning the card off drops the message with it, so a line typed
+      // and then un-asked-for does not reappear at checkout.
+      if (key === "messageCard" && !next.messageCard) next.message = "";
+      return next;
+    });
+    setAdded(false);
+  }
 
   // The mobile sticky bar (M37): on a phone the in-flow Add to cart
   // scrolls away under the description, and the one action the page
@@ -58,6 +92,10 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
 
   function handleAdd() {
     addItem(product.id, selectedSku, quantity);
+    // Written on add, not on every toggle: the hand-off is about *this
+    // order*, and somebody who plays with the chips and leaves should not
+    // find checkout pre-ticked next time they visit.
+    writeGiftIntent(gift);
     setAdded(true);
   }
 
@@ -161,14 +199,60 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
       <div className={styles.giftBlock}>
         <div className={styles.giftLabel}>Make it a gift</div>
         <p className={styles.giftCopy}>
-          Add a handwritten message card and gift wrap at checkout, or send it straight to a
-          recipient&rsquo;s address.
+          Pick what you want and it carries through to checkout — a handwritten card, gift
+          wrap, or sending it straight to someone else&rsquo;s address.
         </p>
         <div className={styles.giftChips}>
-          <span className={styles.giftChip}>✎ Message card</span>
-          <span className={styles.giftChip}>🎀 Gift wrap</span>
-          <span className={styles.giftChip}>📮 Ship to recipient</span>
+          {GIFT_OPTIONS.map((option) => {
+            const on = gift[option.key];
+            return (
+              <button
+                key={option.key}
+                type="button"
+                className={clsx(styles.giftChip, on && styles.giftChipOn)}
+                onClick={() => toggleGift(option.key)}
+                aria-pressed={on}
+              >
+                {on ? (
+                  <Check size={13} strokeWidth={2.4} aria-hidden="true" />
+                ) : (
+                  <span aria-hidden="true">{option.icon}</span>
+                )}
+                {option.label}
+              </button>
+            );
+          })}
         </div>
+
+        {/* The card is the one option with something to say. Asking for
+            the words here rather than only at checkout is the point of
+            the button: it is written while looking at the thing being
+            gifted. Optional — an empty card is a blank card, not an
+            error. */}
+        {gift.messageCard && (
+          <div className={styles.giftMessage}>
+            <label className={styles.giftMessageLabel} htmlFor={messageFieldId}>
+              What should the card say?
+            </label>
+            <textarea
+              id={messageFieldId}
+              className={styles.giftMessageInput}
+              rows={2}
+              maxLength={300}
+              value={gift.message}
+              onChange={(event) => setGift((c) => ({ ...c, message: event.target.value }))}
+              placeholder="Happy Diwali, Amma — from all of us."
+            />
+          </div>
+        )}
+
+        {hasGiftIntent(gift) && (
+          <p className={styles.giftNote} role="status">
+            {added
+              ? "Saved — checkout will have this ready."
+              : "Add to cart and checkout will have this ready."}
+          </p>
+        )}
       </div>
 
       {/* Phone-only (≤640 rail, CSS-gated); `aria-hidden` while the real

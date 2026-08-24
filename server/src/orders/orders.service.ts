@@ -86,10 +86,27 @@ export class OrdersService {
     const rawItems: RawCartItem[] = await this.prisma.cartItem.findMany({ where: { cartId: cart.id } });
     if (rawItems.length === 0) throw new BadRequestException('Cart is empty');
 
+    /**
+     * Two different questions, and they used to be one.
+     *
+     * `shipsToRecipient` decides *where the parcel goes* — it rewrites
+     * every line's address to the recipient's. `isGift` records that the
+     * buyer asked for gifting at all, which since the product page's
+     * "Make it a gift" block became real controls includes the case of a
+     * **message card on an order the buyer keeps** and hands over
+     * themselves. Collapsing the two meant a message could only be
+     * attached to a parcel posted to somebody else, so the card button
+     * had nothing to write to for the commonest gift there is.
+     *
+     * `recipientAddressId` stays the switch, and it is still checked for
+     * ownership: a gift shipment may only go to an address on the
+     * caller's own account.
+     */
+    const shipsToRecipient = !!dto.gift?.recipientAddressId;
     const isGift = !!dto.gift;
-    if (isGift) {
+    if (shipsToRecipient) {
       const recipientAddress = await this.prisma.address.findUnique({
-        where: { id: dto.gift!.recipientAddressId },
+        where: { id: dto.gift!.recipientAddressId! },
       });
       if (!recipientAddress || recipientAddress.userId !== userId) {
         throw new NotFoundException('Gift recipient address not found');
@@ -105,7 +122,9 @@ export class OrdersService {
 
     const addressIdByItemId = new Map<string, string>();
     for (const item of rawItems) {
-      const addressId = isGift ? dto.gift!.recipientAddressId : (item.addressId ?? fallbackAddressId);
+      const addressId = shipsToRecipient
+        ? dto.gift!.recipientAddressId!
+        : (item.addressId ?? fallbackAddressId);
       if (!addressId) {
         throw new BadRequestException(
           `No shipping address for cart item ${item.id} — assign one via POST /cart/items/:id/address or pass defaultAddressId`,
@@ -179,7 +198,7 @@ export class OrdersService {
           shippingAddressIds: distinctAddressIds,
           giftIsGift: isGift,
           giftRecipientName: dto.gift?.recipientName,
-          giftRecipientAddressId: isGift ? dto.gift!.recipientAddressId : undefined,
+          giftRecipientAddressId: shipsToRecipient ? dto.gift!.recipientAddressId! : undefined,
           giftHidePrice: dto.gift?.hidePrice ?? false,
           giftMessage: dto.gift?.message,
           subtotal,

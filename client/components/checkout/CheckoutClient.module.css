@@ -106,6 +106,15 @@
   border-top: 1px solid var(--hk-border);
 }
 
+/* Gift wrap + message card. Outside `.giftBody` on purpose — both apply
+   to an order the buyer keeps, not only one posted to somebody else. */
+.giftExtras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s4);
+}
+
 .hideToggleRow {
   display: flex;
   align-items: center;

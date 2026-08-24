@@ -79,6 +79,23 @@
 .durationChip {
   right: var(--hk-s3);
   font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* An Instagram-hosted reel with no still of our own. A quiet pine wash
+   rather than Instagram's gradient: this is our card, and borrowing their
+   brand colour to say "there is a video here" claims more than a link
+   does. The mark and the chip already name the source. */
+.igTile {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--hk-pine) 0%, var(--hk-pine-deep) 100%);
+  color: var(--hk-on-pine);
 }
 
 .playBadge {

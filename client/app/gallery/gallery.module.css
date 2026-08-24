@@ -206,3 +206,17 @@
   border-top: 1px solid var(--hk-border);
   margin: 0;
 }
+
+/* MakerPortrait's full caricature set — a small labelled cell each. */
+.portraitCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s2);
+}
+
+.portraitIndex {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted-2);
+}

@@ -22,3 +22,25 @@
   border-color: var(--hk-pine);
   color: #ffffff;
 }
+
+/* Waiting count on the Suggestions tab. Gold fill with ink on it — the
+   gold-as-text rule (CLAUDE.md) is about words in gold, not ink on a gold
+   chip, which is what the rest of the panel's counters do. */
+.badge {
+  margin-left: 7px;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-gold);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* On the active (pine) tab the gold chip would sit on dark green. Keep it
+   readable by swapping to the light surface. */
+.tabActive .badge {
+  background: var(--hk-gold-bright);
+}

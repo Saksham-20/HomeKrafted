@@ -639,12 +639,29 @@ export interface Reel {
   caption: string;
   /** Author line — a `Vendor.id` for maker-posted reels, absent for Homekrafted's own. */
   vendorId?: ID;
+  /**
+   * Who to credit when the clip is neither a vendor's nor ours — a
+   * creator's own handle, for an Instagram reel somebody else posted.
+   * Falling through to "Homekrafted" would put our name on their work.
+   * Ignored when `vendorId` resolves.
+   */
+  authorLabel?: string;
   /** Poster still label, used as the `ImageSlot` fallback + the video's a11y label. */
   posterPlaceholder: string;
   /** Real poster photo, e.g. "/images/products/besan-ladoo.jpg". */
   posterSrc?: string;
   /** Real footage, e.g. "/videos/reels/besan-ladoo.mp4". Absent until shot — see above. */
   videoSrc?: string;
+  /**
+   * An Instagram post/reel URL, when the clip lives there rather than on
+   * our disk. The viewer plays it through Instagram's own embed —
+   * `lib/instagram.ts` records why that is the only anonymous way in, and
+   * why the poster frame must never be mirrored.
+   *
+   * Takes precedence over `videoSrc` in the viewer if both are somehow
+   * set; they are not expected together.
+   */
+  instagramUrl?: string;
   /** Runtime in seconds, shown as the card's `0:24` chip. */
   durationSeconds: number;
   likeCount: number;

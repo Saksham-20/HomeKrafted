@@ -10,16 +10,19 @@
  * answer was the labelled hatch placeholder, and it looks like a missing
  * asset because it is one.
  *
- * This is the third option: a **drawn caricature**, one of six, picked
+ * This is the third option: a **drawn caricature**, one of ten, picked
  * from the kitchen's slug. It is a stand-in and is meant to be replaced
  * — see `ownAvatarSrc` for what displaces it.
  *
- * **Why six and not one.** A single dummy face on every card is exactly
+ * **Why ten and not one.** A single dummy face on every card is exactly
  * the thing M28 deleted, and it would be worse the second time: back
  * then it was a photograph nobody had chosen, now it would be a
  * photograph nobody had chosen *and* a house style implying somebody drew
- * these to order. Six variants means no two kitchens in a four-card rail
- * match.
+ * these to order. Ten variants means no two kitchens in a four-card rail
+ * match, and — the reason it went from six — the set is no longer read
+ * as one gender: the first six were a bun, a braid, long hair, a crop, a
+ * turban and a beard, which lands as "mostly women who cook". The four
+ * added are glasses, a headscarf, a chef's toque and a moustache.
  *
  * **Why they are line art with no skin tone.** The faces are an outline
  * in the wash's own ink, with the hair filled in the same colour. Nothing
@@ -37,7 +40,7 @@
 export type MakerTone = "sage" | "sand" | "clay";
 
 /** How many caricatures `MakerPortrait` draws. */
-export const CARICATURE_COUNT = 6;
+export const CARICATURE_COUNT = 10;
 
 const TONES: MakerTone[] = ["sage", "sand", "clay"];
 

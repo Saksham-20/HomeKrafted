@@ -11,6 +11,8 @@ import { NotificationProvidersModule } from '../notifications/providers/provider
 import { AdminAuditModule } from './audit.module';
 import { SellerModule } from '../seller/seller.module';
 import { AdminSettingsController } from './settings.controller';
+import { AdminTaxonomyController } from './taxonomy.controller';
+import { TaxonomySuggestionsService } from './taxonomy-suggestions.service';
 import { PublicSettingsController } from './public-settings.controller';
 import { PublicPincodesController } from './public-pincodes.controller';
 import { SettingsModule } from './settings.module';
@@ -106,6 +108,7 @@ import { AdminCorporateService } from './corporate.service';
     AdminCorporateController,
     AdminAuditController,
     AdminSettingsController,
+    AdminTaxonomyController,
   ],
   providers: [
     AdminUsersService,
@@ -121,6 +124,7 @@ import { AdminCorporateService } from './corporate.service';
     AdminCorporateService,
     AdminDashboardService,
     AdminExportsService,
+    TaxonomySuggestionsService,
   ],
 })
 export class AdminModule {}

@@ -16,6 +16,39 @@ import type { Reel } from "@/lib/types";
  * Counts are plausible seed numbers, not derived from anything.
  */
 export const reels: Reel[] = [
+  /**
+   * A real reel, posted by a real creator about a real order (M50). It is
+   * played through Instagram's own embed — see `lib/instagram.ts` for why
+   * that is the only anonymous route in, and why nothing of theirs is
+   * copied here. No `posterSrc`: the embed's own frames are signed URLs
+   * that expire, and re-hosting somebody's still is a separate permission
+   * from embedding their post. The card draws its branded tile instead.
+   *
+   * Adding another is one more entry with an `instagramUrl`.
+   */
+  {
+    id: "rl0",
+    slug: "eatwith-aditi-biryani",
+    module: "marketplace",
+    title: "“Some food just tastes like home”",
+    caption:
+      "@eatwith_aditi on the Non-Veg Biryani — freshly made in a home kitchen, not a mass-production line.",
+    // Their handle, not ours: this is somebody else's clip about us, and
+    // falling through to "Homekrafted" would put our name on their work.
+    authorLabel: "@eatwith_aditi",
+    posterPlaceholder: "Non-veg biryani from a Homekrafted kitchen",
+    instagramUrl: "https://www.instagram.com/reel/DcBdttehGMO/",
+    // Instagram does not publish a runtime anonymously, and the chip
+    // would be a guess. `0` is the "not stated" value the card reads.
+    durationSeconds: 0,
+    // Not derived from anything and deliberately not invented either:
+    // the embed carries Instagram's own live counts.
+    likeCount: 0,
+    viewCount: 0,
+    ctaLabel: "Shop homemade food",
+    ctaHref: "/shop?kind=food",
+    publishedAt: "2026-08-20",
+  },
   {
     id: "rl1",
     slug: "thokku-tempering",

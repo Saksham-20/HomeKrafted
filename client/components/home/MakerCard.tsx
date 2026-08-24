@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { formatCurrency } from "@/lib/format";
 import type { Product, Vendor } from "@/lib/types";
@@ -51,15 +52,44 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
       <p className={styles.bio}>{vendor.bio}</p>
 
       {bestseller ? (
-        <p className={styles.pick}>
+        /*
+          The bestseller shows its photograph now, not only its name. The
+          card is an argument that a real person makes real things, and it
+          was making it entirely in words: a kitchen's single best listing
+          is the most persuasive thing it owns, and it was rendering as a
+          15px line of text.
+
+          `ImageSlot` handles both halves — a bundled or uploaded photo,
+          or the hatch placeholder for a kitchen that has not added one.
+          `alt=""` because the product's name is the very next node
+          (`ImageSlot`'s own rule), and `sizes` because this is a 56px
+          thumbnail, not a grid card: without it the browser downloads a
+          viewport-wide image to fill it.
+        */
+        /* A `<div>`, not a `<p>`: `ImageSlot` renders a `<div>`, and a
+           block element inside a paragraph is invalid HTML — the browser
+           closes the `<p>` early, so the server and client trees differ
+           and React throws a hydration error. */
+        <div className={styles.pick}>
           <span className={styles.pickLabel}>Their bestseller</span>
           <span className={styles.pickRow}>
+            <span className={styles.pickThumb}>
+              <ImageSlot
+                ratio="1/1"
+                shape="square"
+                compact
+                label={bestseller.images[0]?.placeholder ?? bestseller.name}
+                src={bestseller.images[0]?.src}
+                alt=""
+                sizes="56px"
+              />
+            </span>
             <span className={styles.pickName}>{bestseller.name}</span>
             {bestsellerPrice !== undefined && (
               <span className={styles.pickPrice}>{formatCurrency(bestsellerPrice)}</span>
             )}
           </span>
-        </p>
+        </div>
       ) : (
         // A kitchen approved this morning has nothing listed yet. Say so
         // plainly rather than rendering an empty slot — the same rule M16

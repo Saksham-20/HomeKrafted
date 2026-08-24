@@ -15,6 +15,7 @@ import {
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
 import { AdminPageHeader } from "./AdminPageHeader";
+import { adminTaxonomyActions } from "@/lib/taxonomy-actions";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
   apiErrorMessage,
@@ -164,6 +165,7 @@ export function AdminListingCreateClient() {
         onChange={setValues}
         categories={categories}
         occasions={occasions}
+        taxonomy={adminTaxonomyActions}
       />
       {error && <p className={styles.error}>{error}</p>}
       <div className={styles.actions}>

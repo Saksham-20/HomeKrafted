@@ -534,13 +534,13 @@ enum AdminScope {
 }
 
 model User {
-  id                String         @id @default(cuid())
-  name              String
-  email             String?        @unique
-  phone             String?        @unique
+  id                   String         @id @default(cuid())
+  name                 String
+  email                String?        @unique
+  phone                String?        @unique
   /// Only set for the email+password auth flow; null for phone-OTP-only or
   /// social-only accounts.
-  passwordHash      String?
+  passwordHash         String?
   /// The credential in `passwordHash` was issued *to* this person by
   /// somebody else, and must be replaced before the account can be used
   /// (M32).
@@ -553,7 +553,7 @@ model User {
   /// the admin-known password stops working the moment its owner arrives.
   /// Cleared by `POST /auth/password/change`, which also revokes every
   /// other session — including any the admin might hold.
-  mustChangePassword Boolean       @default(false)
+  mustChangePassword   Boolean        @default(false)
   /// When a temporary password was last issued (M32, plaintext storage
   /// removed in M37) — drives "approved but never signed in" in the admin
   /// queue. The plaintext itself exists only in the HTTP response of the
@@ -573,12 +573,12 @@ model User {
   /// read. Rows created before M25 were backfilled to `true`: they had no
   /// way to verify, and marking real accounts unverified retroactively is
   /// a nag with nothing behind it.
-  emailVerified     Boolean        @default(false)
-  phoneVerified     Boolean        @default(false)
-  avatarPlaceholder String?
-  authProviders     AuthProvider[]
-  createdAt         DateTime       @default(now())
-  role              UserRole       @default(consumer)
+  emailVerified        Boolean        @default(false)
+  phoneVerified        Boolean        @default(false)
+  avatarPlaceholder    String?
+  authProviders        AuthProvider[]
+  createdAt            DateTime       @default(now())
+  role                 UserRole       @default(consumer)
   /// M47 — which parts of the admin panel this admin may reach.
   ///
   /// Only consulted when `role` is `admin`; ignored otherwise, so a
@@ -593,14 +593,14 @@ model User {
   ///
   /// A `users`-scoped admin is the one who grants these — which makes it
   /// the scope to hand out last.
-  adminScopes       AdminScope[]
+  adminScopes          AdminScope[]
   /// M11a admin suspend/reactivate flag — see lib/types/shared.ts's doc
   /// comment. Unlike the M0–M11a mock, this DOES gate sign-in for real
   /// once wired (auth.service checks it) — that's the real-backend upgrade
   /// the frontend note calls out as still owed.
-  suspended         Boolean        @default(false)
-  referralCode      String         @unique
-  referredByCode    String?
+  suspended            Boolean        @default(false)
+  referralCode         String         @unique
+  referredByCode       String?
 
   wallet                  Wallet?
   loyaltyAccount          LoyaltyAccount?
@@ -635,6 +635,10 @@ model User {
   moderatedSnacks         Snack[]                  @relation("SnackModerator")
   /// Payouts this admin settled or refused — see `Payout.decidedById`.
   payoutDecisions         Payout[]                 @relation("PayoutDecidedBy")
+  /// M50 — shelves and occasions asked for, and decided on. Named for the
+  /// same reason as the moderator relations above: one `User` can be both.
+  taxonomySuggestions     TaxonomySuggestion[]     @relation("TaxonomySuggestionAuthor")
+  taxonomyDecisions       TaxonomySuggestion[]     @relation("TaxonomySuggestionReviewer")
 
   @@index([role])
 }
@@ -1295,7 +1299,7 @@ model Vendor {
   /// (`catalog/vendor-discount.ts`) — a home cook is not in a position to
   /// discount 90% of their own income, and a runaway value here would
   /// reach every one of their listings at once.
-  discountPct       Int?
+  discountPct    Int?
   /// When the discount stops, exclusive. NULL means it runs until the
   /// HomeKrafter turns it off — which is a real case ("everything is 10%
   /// off, always"), so it is not treated as an unfinished date.
@@ -1304,16 +1308,18 @@ model Vendor {
   /// asks `activeDiscountPct(vendor, now)`, so a lapsed discount stops
   /// applying the moment the date passes rather than the next time some
   /// job happens to run.
-  discountEndsAt    DateTime?
+  discountEndsAt DateTime?
 
-  products   Product[]
-  seller     Seller?
-  mealPlans  MealPlan[]
-  follows    VendorFollow[]
-  profile    VendorProfile?
-  photos     VendorPhoto[]
-  blackouts  VendorBlackoutDate[]
-  quoteLines CorporateQuoteLine[]
+  products            Product[]
+  seller              Seller?
+  mealPlans           MealPlan[]
+  follows             VendorFollow[]
+  profile             VendorProfile?
+  photos              VendorPhoto[]
+  blackouts           VendorBlackoutDate[]
+  quoteLines          CorporateQuoteLine[]
+  /// M50 — shelves and occasions this storefront has asked for.
+  taxonomySuggestions TaxonomySuggestion[]
 }
 
 /// M16 (M2). A day this kitchen is not taking orders — a festival they
@@ -1551,6 +1557,83 @@ model Occasion {
 
   products    ProductOccasion[]
   collections Collection[]
+}
+
+/// M50. What a HomeKrafter is asking to be added to the catalogue's shared
+/// vocabulary — a shelf (`Category`) or an occasion.
+enum TaxonomyKind {
+  category
+  occasion
+}
+
+enum TaxonomySuggestionStatus {
+  pending
+  approved
+  rejected
+}
+
+/// A request to add a category or an occasion, from the person who found
+/// the list too short (M50).
+///
+/// **Why this is a suggestion and not a row in the real table.** A
+/// HomeKrafter could not previously say "there is no shelf for what I
+/// make" anywhere in the product: the shelf picker's empty state read
+/// "Ask us to add it" and there was nobody to ask. But the two tables it
+/// wants to write are a *shared vocabulary the whole catalogue browses
+/// by*, and one anybody can append to stops being one — "Diwali",
+/// "diwali " and "Deepavali" as three hub pages splitting one festival's
+/// traffic, with nothing in the product able to merge them. The same is
+/// true of a shelf: "Pickles", "Pickle" and "Achaar" is three half-empty
+/// category pages.
+///
+/// So the ask is recorded here, an admin reads it beside the others, and
+/// **the admin mints the real row** — which is also where a duplicate is
+/// spotted by somebody who can see the whole list. `Occasion` therefore
+/// keeps its invariant exactly: nothing outside `src/admin` writes that
+/// table, and `test/unit/occasion-admin-only.spec.ts` still passes.
+///
+/// A rejection carries a `decisionNote`, and it reaches the HomeKrafter
+/// **verbatim** — the M22 rule. A refusal with no reason is the thing
+/// that makes people stop asking.
+model TaxonomySuggestion {
+  id     String                   @id @default(cuid())
+  kind   TaxonomyKind
+  /// As typed, whitespace-collapsed. Never slugged here: the admin may
+  /// rename it on approval, and the slug belongs to the real row.
+  name   String
+  /// Which half of the catalogue a suggested **category** belongs to,
+  /// taken from the answer the form already has ("something to eat" /
+  /// "something to keep"). Null for an occasion, which has no side.
+  group  ProductKind?
+  /// Optional: what they make, in their words. The one thing that lets an
+  /// admin tell a genuinely missing shelf from a synonym of an existing
+  /// one.
+  note   String?
+  status TaxonomySuggestionStatus @default(pending)
+
+  suggestedById String
+  suggestedBy   User    @relation("TaxonomySuggestionAuthor", fields: [suggestedById], references: [id])
+  /// The storefront it was asked for, when there is one. Absent for an
+  /// admin-side suggestion.
+  vendorId      String?
+  vendor        Vendor? @relation(fields: [vendorId], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?     @relation("TaxonomySuggestionReviewer", fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+  /// The reason, sent to the HomeKrafter word for word on a rejection.
+  decisionNote String?
+
+  /// What approval actually created. Kept so the queue can link to the
+  /// live row and so a second identical ask can be answered with it.
+  resultCategoryId String?
+  resultOccasionId String?
+
+  createdAt DateTime @default(now())
+
+  /// The queue is read newest-pending-first, and that is the only listing.
+  @@index([status, createdAt])
+  @@index([suggestedById])
 }
 
 model Collection {
@@ -2111,7 +2194,7 @@ model Snack {
   moderationStatus ProductModerationStatus @default(pending)
   moderationNote   String?
   moderatedById    String?
-  moderatedBy      User?         @relation("SnackModerator", fields: [moderatedById], references: [id])
+  moderatedBy      User?                   @relation("SnackModerator", fields: [moderatedById], references: [id])
   moderatedAt      DateTime?
   submittedAt      DateTime?
 
@@ -2260,41 +2343,41 @@ model PlatformSetting {
 }
 
 model Payout {
-  id          String       @id @default(cuid())
-  sellerId    String
-  seller      Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  id               String       @id @default(cuid())
+  sellerId         String
+  seller           Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   /// The payable figure — net of commission when `commissionEnabled` was
   /// on at request time, gross otherwise. The three columns below say
   /// which, so every row explains its own arithmetic (M37).
-  amount      Decimal      @db.Decimal(12, 2)
+  amount           Decimal      @db.Decimal(12, 2)
   /// Delivered earnings before any deduction. Null on pre-M37 rows,
   /// where `amount` was always gross.
-  grossAmount Decimal?     @db.Decimal(12, 2)
+  grossAmount      Decimal?     @db.Decimal(12, 2)
   /// What was actually deducted — 0 when the flag was off, so a row from
   /// a disabled era never looks like a 0% business decision was applied.
-  commissionAmount Decimal? @db.Decimal(12, 2)
+  commissionAmount Decimal?     @db.Decimal(12, 2)
   /// The rate *applied* (0 when disabled), not the configured rate.
-  commissionPct Decimal?   @db.Decimal(5, 2)
-  periodStart DateTime
-  periodEnd   DateTime
-  status      PayoutStatus @default(pending)
-  paidAt      DateTime?
+  commissionPct    Decimal?     @db.Decimal(5, 2)
+  periodStart      DateTime
+  periodEnd        DateTime
+  status           PayoutStatus @default(pending)
+  paidAt           DateTime?
   /// The bank/UPI reference the money actually moved under (a UTR, a
   /// transaction id). Recorded because settlement happens **outside this
   /// system** — there is no payout-provider integration — so this string
   /// is the only link between "we marked it paid" and a real transfer,
   /// and it is what a HomeKrafter quotes when they say it never arrived.
-  reference   String?
+  reference        String?
   /// Why it was rejected, or any note attached when settling. Shown to
   /// the HomeKrafter: a payout refused with no explanation is worse than
   /// one that never happened.
-  note        String?
+  note             String?
   /// Which admin settled or refused it, and when. Also written to
   /// `AdminAuditLog`; kept on the row too so the payout itself can say
   /// who touched it without a join across a loosely-typed log table.
-  decidedById String?
-  decidedBy   User?        @relation("PayoutDecidedBy", fields: [decidedById], references: [id])
-  decidedAt   DateTime?
+  decidedById      String?
+  decidedBy        User?        @relation("PayoutDecidedBy", fields: [decidedById], references: [id])
+  decidedAt        DateTime?
 
   @@index([sellerId])
   @@index([status])

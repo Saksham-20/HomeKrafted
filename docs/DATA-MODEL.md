@@ -353,7 +353,16 @@ of the tables in this doc; only auth infrastructure (below) has no
 `/diagram` skill once the schema has real write traffic against it — this
 section is the prose reference until then.
 
-### Full model list (44 models)
+### Full model list
+
+**The schema has 67 models; the groups below stopped being exhaustive
+after M8.0.** They were written as a complete enumeration and the heading
+said "44 models" until M50 — which was true the day it was written and
+has been wrong for every milestone since, because each one added tables
+without coming back here. Treat this as a guided tour of the shapes that
+needed explaining, not an inventory: `server/prisma/schema.prisma` is the
+list, and every model in it carries its own doc comment. Correcting the
+enumeration properly is a follow-up worth doing on its own.
 
 **Auth infrastructure (no `lib/types` counterpart — server-only):**
 `RefreshToken`, `PhoneOtp`, `SocialAccount`.
@@ -573,6 +582,31 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   set `revalidate = 3600` so a static prerender cannot freeze a countdown
   at build time.
 
+### Notes for M50 — asking for a shelf or an occasion
+
+- **`TaxonomySuggestion` is an ask, not a draft row.** A HomeKrafter had
+  nowhere in the product to say "there is no shelf for what I make" — the
+  picker's empty state read *"ask us to add it"* and there was nobody to
+  ask. It is a separate table rather than a `pending` status on `Category`
+  and `Occasion` for two reasons: those two tables are read by every
+  browse query in the catalogue and a status column there is one more
+  filter every one of them can forget (the M22 `{ not: 'hidden' }`
+  lesson), and an ask carries fields a real row never should — who asked,
+  from which storefront, and what they said they make.
+- **`group` is stored on the ask, not decided at review.** It is the
+  listing form's own "something to eat / something to keep" answer, so an
+  approved shelf lands on the right half of the catalogue without an
+  admin guessing at what somebody meant. `null` for an occasion, which
+  has no side.
+- **`decisionNote` is the refusal, and it is sent verbatim** — the M22
+  rule. `resultCategoryId`/`resultOccasionId` record what approval
+  created, so the queue can link to the live row and a second identical
+  ask can be answered with it.
+- **Nothing cascades from a decision.** Approving mints a new row; it
+  does not touch any listing already filed under the closest shelf. A
+  HomeKrafter re-files their own listing if they want to move it, which
+  re-queues it through the normal M22 gate.
+
 - **`VendorPhoto` is a list, not columns**, because the count is
   open-ended and ordering matters — the same reasoning as `ProductImage`.
   Capped at 12 server-side. Deleting a row does not delete the file (M14,
@@ -652,6 +686,23 @@ nothing before laundry was withdrawn.
 - **`NotificationCategory.meals`** carries the subscription lifecycle
   (created/paused/resumed/cancelled/skip confirmations) and menu-change
   messages. Transactional — the non-promo default channels apply.
+
+### Notes for M50 — gifting an order you keep
+
+- **`Order.giftIsGift` and "ships to the recipient" stopped being the same
+  bit.** `giftRecipientAddressId` is the switch that redirects the
+  parcel; `giftIsGift` records that gifting was asked for at all, which
+  since the product page's "Make it a gift" block became real controls
+  includes a **message card on an order the buyer keeps**. Collapsing the
+  two meant a card could only ride on a parcel posted to somebody else,
+  which is not the commonest gift there is. The recipient columns stay
+  present-together-or-not-at-all.
+- **`OrderItem.giftWrap` finally has a writer.** The column, the payload
+  field and both order screens' "· gift wrapped" line all shipped years
+  before anything set them: the product page advertised gift wrap "at
+  checkout" and checkout had no control for it. It is set order-level at
+  checkout, not per line — a per-line control would be a cart feature, and
+  no endpoint writes `CartItem.giftWrap`.
 
 ### Notes for M20 — the gifts vertical
 

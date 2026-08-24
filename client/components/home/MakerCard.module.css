@@ -101,9 +101,28 @@
 
 .pickRow {
   display: flex;
-  align-items: baseline;
+  /* `center`, not `baseline`: the row carries a 56px thumbnail now, and a
+     baseline would hang it off the text's bottom edge. */
+  align-items: center;
   justify-content: space-between;
   gap: var(--hk-s3);
+}
+
+/* The bestseller's own photograph. Fixed square so a portrait and a
+   landscape listing produce the same row height across the four cards. */
+.pickThumb {
+  flex: none;
+  width: 56px;
+  border-radius: var(--hk-r-sm);
+  overflow: hidden;
+  border: 1px solid var(--hk-border);
+}
+
+.pickName {
+  /* Takes the space the thumbnail and price leave, rather than pushing
+     the price off the card on a long product name. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .pickName {

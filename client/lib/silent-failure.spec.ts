@@ -55,6 +55,7 @@ describe("an await inside try/finally", () => {
     expect(files.length).toBeGreaterThan(50);
   });
 
+
   it("always has somewhere to put the failure", () => {
     const offenders: string[] = [];
 
@@ -198,13 +199,33 @@ describe("a component that mutates server state", () => {
    */
   const FUNCTION_START = /(?=\n\s*(?:export\s+)?(?:async\s+function|function)\s+\w+|\n\s*const\s+\w+\s*=\s*async\b)/;
 
+  /**
+   * Adapters that exist to hand a refusal *up*, not to handle it — a
+   * registry with a stated reason per entry, so a new one is a claim
+   * somebody has to write down rather than a path that quietly widens.
+   *
+   * `lib/api` is the transport: a wrapper there is supposed to let the
+   * error through to its caller (that is the M36 rule, directly above).
+   */
+  const PASSES_THE_REFUSAL_UP: { path: string; why: string }[] = [
+    { path: join("lib", "api"), why: "the transport itself — M36: a wrapper that reports nothing has discarded the only explanation" },
+    {
+      path: join("lib", "taxonomy-actions.ts"),
+      why: "M50 — two-line adapters handed to `<Combobox onCreate/onSuggest>`, whose documented contract is that it awaits them inside its own try/catch and renders the server's sentence verbatim. A catch here would swallow the message before the component that displays it ever sees it.",
+    },
+  ];
+
+  it("every exempt adapter still exists, so a rename fails the build", () => {
+    for (const entry of PASSES_THE_REFUSAL_UP) {
+      expect(files.some((file) => file.includes(entry.path))).toBe(true);
+    }
+  });
+
   it("always catches the refusal, in the handler that awaits it", () => {
     const offenders: string[] = [];
 
     for (const file of files) {
-      // `lib/api` itself is the transport, not a screen — a wrapper there
-      // is supposed to let the error through to its caller.
-      if (file.includes(join("lib", "api"))) continue;
+      if (PASSES_THE_REFUSAL_UP.some((entry) => file.includes(entry.path))) continue;
 
       const source = stripComments(readFileSync(file, "utf8"));
       const mutators = apiImports(source).filter((name) => MUTATION_VERB.test(name));

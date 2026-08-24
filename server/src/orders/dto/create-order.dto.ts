@@ -29,13 +29,26 @@ export class OrderShipmentInputDto {
  * doesn't carry over — flagged for M8.4 in `docs/API.md`.
  */
 export class OrderGiftInputDto {
+  /**
+   * Both recipient fields are optional since the product page's "Make it
+   * a gift" block became real controls: a buyer may ask for a **message
+   * card** on an order posted to their own address, to hand over
+   * themselves. Present together or not at all — `recipientAddressId` is
+   * what makes the order ship somewhere else, and it is still checked
+   * against the caller's own addresses (`OrdersService.create`).
+   *
+   * Narrowing this back to required would silently drop the card on the
+   * commonest gift there is.
+   */
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  recipientName!: string;
+  recipientName?: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  recipientAddressId!: string;
+  recipientAddressId?: string;
 
   @IsOptional()
   @BooleanField()

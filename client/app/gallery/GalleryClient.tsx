@@ -10,10 +10,12 @@ import type {
   Occasion,
   Product,
   Snack,
+  Vendor,
   Wallet,
   WalletTransaction,
 } from "@/lib/types";
 
+import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { AmountPicker } from "@/components/ui/AmountPicker";
 import { Button } from "@/components/ui/Button";
 import { CapacityMeter } from "@/components/ui/CapacityMeter";
@@ -164,6 +166,25 @@ const TOC = [
   { id: "qr", label: "QR & app install" },
 ];
 
+/**
+ * One slug per caricature, in index order — `makerCaricature` hashes each
+ * of these to 0…9. Picked by search rather than by hand; if the hash ever
+ * changes, this row shows duplicates and `lib/maker-portrait.spec.ts`
+ * fails on the same day.
+ */
+const CARICATURE_SLUGS = [
+  "face-4",
+  "face-5",
+  "face-6",
+  "face-7",
+  "face-8",
+  "face-9",
+  "face-0",
+  "face-1",
+  "face-2",
+  "face-3",
+];
+
 export function GalleryClient({
   products,
   vendorNameById,
@@ -213,6 +234,44 @@ export function GalleryClient({
       </div>
 
       {/* ---------------------------------------------------------- */}
+      {/*
+        Every caricature `MakerPortrait` can draw, in one row.
+
+        A drawing is picked by hashing a vendor's slug, so nine of the ten
+        are invisible on any one screen and a broken path renders as an
+        empty disc that nobody would notice — which is exactly what a dev
+        gallery is for. The slugs below are chosen so `makerCaricature`
+        lands on 0…9 in order; the assertion that they do is in
+        `lib/maker-portrait.spec.ts`.
+      */}
+      <Section id="portraits" eyebrow="00 · Makers" title="MakerPortrait — every caricature">
+        <Group title="The ten drawings">
+          {CARICATURE_SLUGS.map((slug, index) => (
+            <div key={slug} className={styles.portraitCell}>
+              <MakerPortrait
+                vendor={
+                  {
+                    id: slug,
+                    slug,
+                    name: `Face ${index}`,
+                    bio: "",
+                    avatarPlaceholder: "",
+                    bannerPlaceholder: "",
+                    location: "",
+                    rating: 0,
+                    reviewCount: 0,
+                    followerCount: 0,
+                    joinedAt: "2026-01-01",
+                  } as Vendor
+                }
+                size={68}
+              />
+              <span className={styles.portraitIndex}>{index}</span>
+            </div>
+          ))}
+        </Group>
+      </Section>
+
       <Section id="buttons" eyebrow="01 · Buttons" title="Button & QuantityStepper">
         <Group title="Variants · size md">
           <Swatch label="primary">

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Heart, Volume2, VolumeX, X } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCount } from "@/lib/format";
+import { instagramEmbedUrl, instagramPermalink } from "@/lib/instagram";
 import { FOCUSABLE, trapTab } from "@/lib/focus-trap";
 import type { Reel } from "@/lib/types";
 import styles from "./ReelViewer.module.css";
@@ -112,6 +113,8 @@ export function ReelViewer({
 
   if (!open || !reel) return null;
 
+  const embedUrl = reel.instagramUrl ? instagramEmbedUrl(reel.instagramUrl) : undefined;
+  const permalink = reel.instagramUrl ? instagramPermalink(reel.instagramUrl) : undefined;
   const hasPrev = index > 0;
   const hasNext = index < reels.length - 1;
 
@@ -153,7 +156,30 @@ export function ReelViewer({
 
       <div className={styles.stage}>
         <div className={styles.player}>
-          {reel.videoSrc ? (
+          {embedUrl ? (
+            /*
+              Instagram's own player, on Instagram's origin. This is the
+              only anonymous way to play a reel we do not host — see
+              `lib/instagram.ts`. `key` on the reel id so moving to the
+              next one remounts the frame rather than leaving the previous
+              clip playing behind a new caption.
+
+              No autoplay: a cross-origin iframe cannot be told to, and
+              browsers would refuse an unmuted one anyway. The visitor
+              presses play inside the frame, which is also where
+              Instagram's own like and view counts live.
+            */
+            <iframe
+              key={reel.id}
+              className={styles.embed}
+              src={embedUrl}
+              title={reel.title}
+              loading="lazy"
+              allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+              allowFullScreen
+              scrolling="no"
+            />
+          ) : reel.videoSrc ? (
             <video
               ref={videoRef}
               key={reel.id}
@@ -179,7 +205,10 @@ export function ReelViewer({
             </>
           )}
 
-          <div className={styles.playerScrim} aria-hidden="true" />
+          {/* The scrim sits over the player to make the overlaid controls
+              legible — but over a cross-origin iframe it would swallow
+              every press, including play. */}
+          {!embedUrl && <div className={styles.playerScrim} aria-hidden="true" />}
 
           {reel.videoSrc && (
             <button
@@ -201,6 +230,10 @@ export function ReelViewer({
           <span className={styles.author}>{authorNameFor(reel)}</span>
           <h3 className={styles.title}>{reel.title}</h3>
           <p className={styles.caption}>{reel.caption}</p>
+          {/* Zero is "not published to us", not "nobody watched" — an
+              embedded reel carries Instagram's own live counts inside the
+              frame, and printing 0 beside it would be a made-up number. */}
+          {reel.viewCount > 0 && (
           <p className={styles.stats}>
             <Heart size={13} strokeWidth={2} aria-hidden="true" />
             {formatCount(reel.likeCount)} likes
@@ -209,6 +242,17 @@ export function ReelViewer({
             </span>
             {formatCount(reel.viewCount)} views
           </p>
+          )}
+          {permalink && (
+            <a
+              className={styles.source}
+              href={permalink}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Watch on Instagram ↗
+            </a>
+          )}
           <Link href={reel.ctaHref} className={styles.cta} onClick={onClose}>
             {reel.ctaLabel} →
           </Link>

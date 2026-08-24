@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import {
   apiErrorMessage,
   getAllProductsAdmin,
+  getTaxonomySuggestions,
   getVendors,
   moderateProduct,
   type AdminProductSummary,
@@ -62,6 +63,13 @@ export function CatalogClient() {
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  /**
+   * Shelf and occasion requests waiting (M50). Read here only to badge
+   * the tab — nothing else on this screen mentions that queue exists, so
+   * without the number a HomeKrafter's request sits unread behind a link
+   * nobody has a reason to press.
+   */
+  const [pendingSuggestions, setPendingSuggestions] = useState(0);
   const [page, setPage] = useState(1);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -84,7 +92,7 @@ export function CatalogClient() {
     (async () => {
       setLoading(true);
       try {
-        const [result, vendorList] = await Promise.all([
+        const [result, vendorList, suggestions] = await Promise.all([
           getAllProductsAdmin({
             status: statusFilter === "all" ? undefined : statusFilter,
             vendorId: vendorFilter === "all" ? undefined : vendorFilter,
@@ -92,8 +100,12 @@ export function CatalogClient() {
             page,
           }),
           getVendors(),
+          // Its own failure must not take the catalogue down with it: the
+          // badge is a courtesy, the product list is the screen.
+          getTaxonomySuggestions("pending").catch(() => ({ items: [], pendingCount: 0 })),
         ]);
         if (cancelled) return;
+        setPendingSuggestions(suggestions.pendingCount);
         setProducts(result.items);
         setTotal(result.total);
         setPageSize(result.pageSize);
@@ -164,7 +176,7 @@ export function CatalogClient() {
           </Button>
         }
       />
-      <CatalogTabs active="products" />
+      <CatalogTabs active="products" pendingSuggestions={pendingSuggestions} />
 
       {/* Menu items and meal plans awaiting review. They have no tab of
           their own and, until M28, no endpoint that could approve them —
@@ -195,7 +207,13 @@ export function CatalogClient() {
             </option>
           ))}
         </select>
-        <div className={styles.chipRow} role="tablist" aria-label="Filter by status">
+        {/* A group of toggles, not a `role="tablist"` — it claimed that
+            role and axe fails it as `aria-required-children` (critical),
+            since a tablist may contain only `role="tab"`. The role also
+            promised arrow-key navigation this never had. `<Chip>` already
+            carries `aria-pressed`, which is the right thing for a filter
+            that stays on the same page. */}
+        <div className={styles.chipRow} role="group" aria-label="Filter by status">
           {STATUS_FILTERS.map((f) => (
             <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => {
                 setStatusFilter(f.value);

@@ -141,13 +141,74 @@
   flex-wrap: wrap;
 }
 
+/* Real toggles since the gift block was wired up: they were `<span>`s
+   under copy promising a message card and gift wrap "at checkout". The
+   pressed state has to be legible without colour alone — hence the check
+   mark swapping in for the icon — because `aria-pressed` is the only
+   other thing saying so. */
 .giftChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--hk-surface);
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-pill);
   padding: 6px 12px;
   font-size: 12.5px;
   color: var(--hk-ink-2);
+  cursor: pointer;
+  transition: background var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
+}
+
+.giftChip:hover {
+  border-color: var(--hk-pine);
+}
+
+.giftChip:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.giftChipOn {
+  background: var(--hk-pine);
+  border-color: var(--hk-pine);
+  color: var(--hk-on-pine);
+}
+
+.giftMessage {
+  margin-top: var(--hk-s3);
+  display: grid;
+  gap: 6px;
+}
+
+.giftMessageLabel {
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+}
+
+.giftMessageInput {
+  width: 100%;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  padding: 8px 10px;
+  font-family: var(--hk-font-body);
+  /* The 16px floor is enforced globally (M29) — stated here only so the
+     next person does not "fix" it down to match the chips. */
+  font-size: 16px;
+  color: var(--hk-ink);
+  background: var(--hk-surface);
+  resize: vertical;
+}
+
+.giftMessageInput:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.giftNote {
+  margin-top: var(--hk-s3);
+  font-size: 12.5px;
+  color: var(--hk-ink-3);
 }
 
 /* ------------------------------------------------------------------ */

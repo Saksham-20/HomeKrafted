@@ -28,6 +28,9 @@ import { SellerAnalyticsController } from './analytics.controller';
 import { SellerAnalyticsService } from './analytics.service';
 import { OrdersModule } from '../orders/orders.module';
 import { AdminAuditLogService } from '../admin/audit-log.service';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { SellerTaxonomyController } from './taxonomy.controller';
+import { TaxonomySuggestionsService } from '../admin/taxonomy-suggestions.service';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -55,6 +58,9 @@ import { AdminAuditLogService } from '../admin/audit-log.service';
     MealsModule,
     // M37 — the commission rate on /seller/me + the payout split.
     SettingsModule,
+    // M50 — `NotificationsDeliveryService`, which the taxonomy-suggestion
+    // service below tells a HomeKrafter their decision through.
+    NotificationsModule,
   ],
   controllers: [
     SellerController,
@@ -68,6 +74,7 @@ import { AdminAuditLogService } from '../admin/audit-log.service';
     SellerPayoutsController,
     SellerProfileController,
     SellerAnalyticsController,
+    SellerTaxonomyController,
   ],
   providers: [
     SellerService,
@@ -85,6 +92,18 @@ import { AdminAuditLogService } from '../admin/audit-log.service';
     // same stateless-two-instances reasoning as `SettingsModule`'s
     // provider comment; its only dependency is the global PrismaService.
     AdminAuditLogService,
+    /**
+     * M50 — the "ask for a shelf" half of the suggestion service.
+     *
+     * Declared here rather than imported from `AdminModule`, deliberately:
+     * `AdminModule` imports **this** module (for `SellerListingsService`),
+     * so importing it back would be a cycle — the same reason
+     * `AdminAuditLogService` is a bare provider above. The service is
+     * stateless, so a second instance costs nothing, and the half that
+     * writes `Category`/`Occasion` is still only reachable through the
+     * admin controller.
+     */
+    TaxonomySuggestionsService,
   ],
   // M44 — `AdminCatalogService` writes listings through this service so
   // there is one owner of product creation and editing rather than two

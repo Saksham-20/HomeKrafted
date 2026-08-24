@@ -1,0 +1,146 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  margin-bottom: var(--hk-s5);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+}
+
+.kind {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.status {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: var(--hk-r-pill);
+  padding: 3px 9px;
+  background: var(--hk-canvas);
+  color: var(--hk-ink-2);
+}
+
+.status[data-status="pending"] {
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+}
+
+.status[data-status="approved"] {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+/* #f6e7e0 — the same one-off terracotta tint `StatusPill`, `TransactionRow`
+   and `OrderStatusPill` hardcode; see CLAUDE.md's "Known token gaps" for
+   why a single-use colour is not worth a token. The *text* is
+   `--hk-terracotta-text`, because the base token is 3.77:1 on this tint. */
+.status[data-status="rejected"] {
+  background: #f6e7e0;
+  color: var(--hk-terracotta-text);
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 1.05rem;
+  color: var(--hk-ink);
+}
+
+.nameField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.nameLabel {
+  font-size: 12.5px;
+  color: var(--hk-ink-3);
+}
+
+.nameInput,
+.reasonInput {
+  width: 100%;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  padding: 8px 10px;
+  font-family: var(--hk-font-body);
+  /* The 16px floor is global (M29); stated so nobody shrinks it back. */
+  font-size: 16px;
+  color: var(--hk-ink);
+  background: var(--hk-surface);
+}
+
+.reasonInput {
+  resize: vertical;
+}
+
+.nameInput:focus-visible,
+.reasonInput:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted-2);
+}
+
+.note {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+  border-left: 2px solid var(--hk-border-2);
+  padding-left: var(--hk-s3);
+}
+
+.decision {
+  font-size: 13px;
+  color: var(--hk-ink-3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  margin-top: var(--hk-s2);
+}
+
+.reasonBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--hk-s2);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta-text);
+  margin-bottom: var(--hk-s3);
+}
+
+.empty {
+  font-size: 13.5px;
+  color: var(--hk-muted-2);
+}
