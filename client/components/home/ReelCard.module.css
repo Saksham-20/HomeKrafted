@@ -84,18 +84,40 @@
   gap: 4px;
 }
 
-/* An Instagram-hosted reel with no still of our own. A quiet pine wash
-   rather than Instagram's gradient: this is our card, and borrowing their
-   brand colour to say "there is a video here" claims more than a link
-   does. The mark and the chip already name the source. */
+/* An Instagram-hosted reel we have no still of our own for.
+
+   A quiet pine wash rather than Instagram's gradient: this is our card,
+   and borrowing their brand colour to say "there is a video here" claims
+   more than a link does. The mark and the chip already name the source.
+
+   It sits in a rail of real photographs, so a flat slab reads as a
+   broken image rather than a deliberate card. The weave of faint rules
+   plus a large glyph is the "this lives somewhere else" treatment: it
+   looks made, not missing. Mirroring Instagram's own frame is not
+   available — their CDN URLs are signed and expire, and re-hosting
+   somebody's still is a separate permission from embedding their post
+   (see `lib/instagram.ts`). */
 .igTile {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, var(--hk-pine) 0%, var(--hk-pine-deep) 100%);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.045) 0 2px,
+      transparent 2px 12px
+    ),
+    radial-gradient(120% 90% at 50% 18%, #2f5545 0%, var(--hk-pine-deep) 68%);
   color: var(--hk-on-pine);
+}
+
+/* The glyph reads as the source mark, not as the play button — the play
+   badge sits on top of it and has to stay the louder of the two. */
+.igTile > svg {
+  opacity: 0.4;
+  transform: translateY(-26px);
 }
 
 .playBadge {

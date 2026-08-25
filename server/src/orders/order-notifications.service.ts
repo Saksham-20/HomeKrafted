@@ -4,6 +4,7 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppConfig } from '../config/configuration';
 import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
+import { buyerOrderMessage } from './order-status-copy';
 
 /**
  * Everything the platform says to a human about an order (M18).
@@ -38,58 +39,6 @@ export class OrderNotificationsService {
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
-  /** Buyer-facing copy per status. `null` means "not worth a message". */
-  private buyerMessage(
-    status: OrderStatus,
-    orderNumber: string,
-  ): { title: string; body: string } | null {
-    switch (status) {
-      case 'placed':
-      case 'confirmed':
-        return {
-          title: `Order ${orderNumber} confirmed`,
-          body: 'Your order is with the kitchen. We’ll message you when it’s packed and on the way.',
-        };
-      case 'packed':
-        return {
-          title: `Order ${orderNumber} is packed`,
-          body: 'Freshly made and boxed up. It goes out for delivery next.',
-        };
-      case 'shipped':
-        return {
-          title: `Order ${orderNumber} is on the way`,
-          body: 'Out for delivery now.',
-        };
-      case 'delivered':
-        return {
-          title: `Order ${orderNumber} delivered`,
-          body: 'Hope it was worth the wait. You can leave a review from your orders page — the kitchen reads every one.',
-        };
-      case 'cancelled':
-        return {
-          title: `Order ${orderNumber} cancelled`,
-          body: 'This order has been cancelled. Anything already paid goes back to your Homekrafted wallet.',
-        };
-      case 'returned':
-        return {
-          title: `Return for order ${orderNumber} closed`,
-          body: 'Your return has been processed. Check your wallet for the refund.',
-        };
-      // `pending_payment` is not "nothing happened" — a COD order sits
-      // here, and so does a card order while the payment sheet is open.
-      // What the buyer needs to hear is that the order reached us; saying
-      // "confirmed" before capture would be a promise the payment might
-      // not keep.
-      case 'pending_payment':
-        return {
-          title: `We’ve got order ${orderNumber}`,
-          body: 'Your order is in. We’ll confirm as soon as the kitchen picks it up.',
-        };
-      default:
-        return null;
-    }
-  }
-
   /**
    * Tell the buyer their order reached a new status.
    *
@@ -105,7 +54,7 @@ export class OrderNotificationsService {
       });
       if (!order) return;
 
-      const message = this.buyerMessage(status, order.orderNumber);
+      const message = buyerOrderMessage(status, order.orderNumber);
       if (!message) return;
 
       await this.delivery.deliver({
