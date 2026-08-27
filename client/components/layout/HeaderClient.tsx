@@ -75,8 +75,11 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
         <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
           {/* eslint-disable-next-line @next/next/no-img-element -- the brand
               lockup is a fixed vector; next/image adds no value for an SVG. */}
+          {/* The tagline row ("Home food · Tricity") left with the compact
+              header (2026-08-27) — the hero's eyebrow now states the same
+              locality under the big lockup, and two copies 40px apart was
+              the redundancy, not the information. */}
           <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
-          <span className={styles.tagline}>Home food · Tricity</span>
         </Link>
 
         <nav className={styles.nav} aria-label="Primary">

@@ -12,7 +12,13 @@
      field, which had been rendering 0px wide. 26px is still a clear break
      between the lockup, the nav and the actions. */
   gap: var(--hk-s6);
-  padding-block: var(--hk-s4);
+  /* 16px → 10px (2026-08-27, owner): the header went compact when the
+     landing page took the big centred lockup — ~130px of chrome above a
+     hero whose job is to fit the brand, the slogan and both panels into
+     the first screenful. Height only; the row's widths are untouched, so
+     the 1092px capacity arithmetic in `e2e/tests/header-capacity.spec.ts`
+     is unaffected. */
+  padding-block: 10px;
 }
 
 /* ---- Logo ---- */
@@ -39,27 +45,20 @@
 .logoMark {
   display: block;
   align-self: flex-start;
-  height: 64px;
+  /* 64px + a tagline row until 2026-08-27 — the tall lockup made sense
+     while the header was the only place the brand appeared at size. The
+     landing hero now carries the big centred lockup, so the header's copy
+     is a compact wayfinding mark (the top-left logo convention), not the
+     brand moment. */
+  height: 40px;
   width: auto;
   max-width: 100%;
 }
 
 @media (max-width: 400px) {
   .logoMark {
-    height: 48px;
+    height: 34px;
   }
-}
-
-.tagline {
-  font-family: var(--hk-font-mono);
-  font-size: 8.5px;
-  /* Tracked to sit under the lockup rather than overhang it — the artwork
-     is ~1.75:1, so at 64px tall it is ~112px wide and this row has to
-     match. Was 0.34em when the brand was set in type at a wider ratio. */
-  letter-spacing: 0.115em;
-  color: var(--hk-muted-2);
-  margin-top: 2px;
-  text-transform: uppercase;
 }
 
 /* ---- Primary nav (desktop) ---- */
