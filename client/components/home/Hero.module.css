@@ -25,10 +25,11 @@
   flex-direction: column;
   align-items: center;
   gap: var(--hk-s5);
-  /* Tight at the top so the split itself lands inside the first
-     screenful at 900px — the page's whole question is on those two
-     panels, and a headline that pushes them under the fold asks nothing. */
-  padding-block: var(--hk-s6) var(--hk-s7);
+  /* Tight at the top so the whole opening set — lockup, slogan, both
+     panels — lands inside the first screenful at 800px of viewport.
+     The page's question is on those two panels, and anything that pushes
+     them under the fold asks nothing. */
+  padding-block: var(--hk-s5) var(--hk-s7);
 }
 
 .copy {
@@ -74,6 +75,18 @@
   margin-top: var(--hk-s2);
 }
 
+/*
+ * The centred brand lockup (2026-08-27). Height-clamped the same way the
+ * heading is so the pair scale together; the SVG is ~1.75:1, so 88px tall
+ * is ~154px wide — poster-scale without eating the panels' room.
+ */
+.brandMark {
+  display: block;
+  height: clamp(56px, 9vh, 88px);
+  width: auto;
+  margin-top: var(--hk-s3);
+}
+
 .heading {
   font-family: var(--hk-font-display);
   font-weight: 700;
@@ -81,7 +94,7 @@
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--hk-pine);
-  margin-top: var(--hk-s3);
+  margin-top: var(--hk-s2);
 }
 
 .headingLine {
@@ -167,14 +180,6 @@
   stroke-width: 2.6;
   stroke-linejoin: round;
   stroke-linecap: round;
-}
-
-.lede {
-  font-size: 16px;
-  line-height: 1.6;
-  color: var(--hk-ink-3);
-  max-width: 620px;
-  margin: var(--hk-s4) auto 0;
 }
 
 /* The promise strip — four points under the lede, hairline-divided. */

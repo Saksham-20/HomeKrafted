@@ -6,6 +6,15 @@ import styles from "./Hero.module.css";
  * Home hero — the owner-supplied comp (2026-08-13), re-laid out around
  * the split landing screen (M51).
  *
+ * **The opening screenful is four things (owner instruction, 2026-08-27):
+ * the lockup, the slogan, and the two panels.** The lockup moved here from
+ * the header (which went compact the same day) so the brand appears at
+ * size exactly once, centred above the slogan. The lede paragraph was cut
+ * — its whole sentence ("food cooked nearby, gifts posted anywhere") is
+ * already on the two panels' own blurbs, and three lines of copy above
+ * the split were what pushed the choice below the fold. If the panels
+ * ever lose their blurbs, a sentence has to come back here.
+ *
  * **What M51 changed and what it kept.** The two gold CTA cards and the
  * hamper photograph are gone from here; `<SplitPanels>` is both of those
  * things at the size of the decision they are asking about — half a
@@ -72,6 +81,16 @@ export function Hero() {
                 <path d="M12 21c-4.8-3.5-8.6-6.8-9.8-10A5.6 5.6 0 0 1 7.4 3.6c1.9 0 3.6 1 4.6 2.6a5.4 5.4 0 0 1 4.6-2.6 5.6 5.6 0 0 1 5.2 7.4C20.6 14.2 16.8 17.5 12 21Z" />
               </svg>
             </span>
+            {/*
+              The brand lockup, centred above the slogan (owner instruction,
+              2026-08-27). This is the page's one brand moment — the header
+              shrank to a 40px wayfinding mark the same day, so the lockup
+              appears at size exactly once. A plain <img> for the same
+              reason as the header's: a fixed vector gains nothing from
+              next/image.
+            */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.brandMark} />
             <h1 className={styles.heading}>
               <span className="hk-sr-only">From home to the world</span>
               <span aria-hidden="true" className={styles.headingLine}>
@@ -110,11 +129,6 @@ export function Hero() {
                 </svg>
               </span>
             </h1>
-            <p className={styles.lede}>
-              Daily meals, fresh bakes, snacks, sweets and small-batch pickles, made by hand the
-              same morning they go out, in home kitchens around the tricity — and handcrafted
-              gifts, posted anywhere in India.
-            </p>
           </div>
 
           {/* The two halves. A client component — it reads the pointer,
