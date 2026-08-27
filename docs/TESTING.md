@@ -322,7 +322,25 @@ Open the site in a **fresh browser window** (or clear site data).
 ### 1. Shopper — browse
 Sign in as **Ananya**.
 
+- Home page — the **split landing screen** first: two halves, food on the
+  left and gifts on the right. Move the pointer onto one and it should
+  open to about three quarters of the width, smoothly, and give the width
+  back when you leave. Tab to each half with the keyboard — the same
+  thing should happen, and the focus ring must be visible on the
+  photograph. On a phone, scroll: whichever half you are looking at
+  should be the taller one. If your system is set to **reduce motion**,
+  both halves should simply stay level — that is correct, not a bug.
 - Home page — banners, category tiles, the video reel rail
+- **Shop (Homemade Food)** — this now opens on **kitchens**, not dishes:
+  one card per home kitchen, with how far away they are, what they mostly
+  make, whether it is all vegetarian, how many dishes they have and four
+  of them you can open directly. "See their full menu" goes to their
+  storefront. Switch to **Dishes** with the toggle above the grid for the
+  old flat product grid — the sort, the filters and the URL should follow
+  you across, and Back should return you to the view you left. Filter by
+  a category and check the kitchen cards show *that* category's dishes.
+  Handcrafted **gifts** are deliberately still a plain product grid;
+  browsing a candle is not a decision about who made it.
 - **Shop** — filter and sort products, open a product page
 - Open a **HomeKrafter storefront** from a product, and **Follow** it —
   the follower count should move, the button should still say "Following"

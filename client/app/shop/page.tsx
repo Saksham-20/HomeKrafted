@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import clsx from "clsx";
 import { getBuyerCoords } from "@/lib/location/server";
 import { getCategories, getFoodProducts, getOccasions, getVendors } from "@/lib/api";
+import { buildKitchens } from "@/lib/kitchens";
 import { LocationBar } from "@/components/location/LocationBar";
 import { ShopClient } from "./ShopClient";
 import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
@@ -70,6 +71,13 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const vendorNameById = Object.fromEntries(vendors.map((vendor) => [vendor.id, vendor.name]));
 
+  // The header counts kitchens first, because that is what the page opens
+  // on (M51). Derived with the same pure function the grid uses, so the
+  // number in the heading and the number on the toggle cannot disagree —
+  // and computed on the server rather than in an effect, so it is in the
+  // HTML rather than appearing a moment later.
+  const kitchenCount = buildKitchens(products, vendors, categories).length;
+
   return (
     <>
       <div className={clsx("container", styles.breadcrumbWrap)}>
@@ -78,7 +86,8 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         </span>
         <h1 className={styles.title}>Homemade Food</h1>
         <p className={styles.subtitle}>
-          {products.length} small-batch products from home kitchens across India
+          {kitchenCount} home {kitchenCount === 1 ? "kitchen" : "kitchens"} cooking{" "}
+          {products.length} small-batch {products.length === 1 ? "dish" : "dishes"}
         </p>
         {/* Says whether this count is the whole catalogue or a filtered
             one, and gives the only route back to the prompt — see
@@ -90,6 +99,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         products={products}
         categories={categories}
         occasions={occasions}
+        vendors={vendors}
         vendorNameById={vendorNameById}
         initialQuery={toQuery(params)}
       />

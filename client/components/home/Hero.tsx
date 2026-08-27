@@ -1,10 +1,22 @@
-import Link from "next/link";
-import { ArrowRight, Gift, HandPlatter, House, HouseHeart, Soup, Truck } from "lucide-react";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { Gift, House, HouseHeart, Soup, Truck } from "lucide-react";
+import { SplitPanels } from "./SplitPanels";
 import styles from "./Hero.module.css";
 
 /**
- * Home hero — rebuilt to the owner-supplied comp (2026-08-13).
+ * Home hero — the owner-supplied comp (2026-08-13), re-laid out around
+ * the split landing screen (M51).
+ *
+ * **What M51 changed and what it kept.** The two gold CTA cards and the
+ * hamper photograph are gone from here; `<SplitPanels>` is both of those
+ * things at the size of the decision they are asking about — half a
+ * screen each, photographed, and the one you lean toward opens to about
+ * three quarters. Everything the comp says in words is untouched and
+ * simply centred over it: the eyebrow and its heart, the decorated
+ * headline, the lede, and the four-point promise strip.
+ *
+ * The strip matters more than it looks: it is what keeps something
+ * concrete under a headline as broad as "From home to the world", and the
+ * note below is the standing rule about it.
  *
  * **"From home to the world"** (owner copy, 2026-08-11) stays the
  * headline, and still carries both verticals: "home" is where everything
@@ -12,9 +24,10 @@ import styles from "./Hero.module.css";
  * while the food travels the tricity. What changed is the treatment, all
  * of it from the comp: the second line is a gold brush script with a
  * paper-plane doodle, the "o" of "home" is a pine roundel holding a house
- * mark, the two CTAs are gold-outlined cards with icons, and a four-point
- * promise strip sits under them (made at home · freshly made everyday ·
- * packed with care · delivered anywhere in India).
+ * mark, and a four-point promise strip states what the platform does
+ * (made at home · freshly made everyday · packed with care · delivered
+ * anywhere in India). The comp's two gold CTA cards became the split
+ * panels in M51 — same two destinations, at the size of the choice.
  *
  * **The slowness note ("It takes a little longer than a restaurant…") is
  * gone with this redesign** — the comp replaces it with the promise
@@ -22,7 +35,7 @@ import styles from "./Hero.module.css";
  * If the strip ever goes, something concrete has to come back under the
  * lede.
  *
- * **The gifts CTA says "handcrafted", not the comp's "handkrafted".** The
+ * **The gifts half says "handcrafted", not the comp's "handkrafted".** The
  * brand-K spelling appeared exactly once on the whole site, next to a nav
  * and a /gifts H1 that both spell it with a C — used once, a brand
  * spelling is indistinguishable from a typo (2026-08-13 design review,
@@ -41,7 +54,7 @@ export function Hero() {
   return (
     <section className={styles.hero}>
       <div className="container">
-        <div className={styles.grid}>
+        <div className={styles.inner}>
           <div className={styles.copy}>
             {/* Grouped so the heart centres on the eyebrow rather than on
                 the column — see `.eyebrowGroup`. */}
@@ -102,68 +115,37 @@ export function Hero() {
               same morning they go out, in home kitchens around the tricity — and handcrafted
               gifts, posted anywhere in India.
             </p>
-            <div className={styles.ctaRow}>
-              <Link href="/shop" className={styles.ctaCard}>
-                <HandPlatter className={styles.ctaIcon} aria-hidden="true" />
-                <span className={styles.ctaLabel}>
-                  Order
-                  <br />
-                  homemade food
-                </span>
-                <span className={styles.ctaArrow} aria-hidden="true">
-                  <ArrowRight />
-                </span>
-              </Link>
-              {/* Two verticals, two buttons, equal weight — the split is
-                  the whole message. */}
-              <Link href="/gifts" className={styles.ctaCard}>
-                <Gift className={styles.ctaIcon} aria-hidden="true" />
-                <span className={styles.ctaLabel}>
-                  Order
-                  <br />
-                  handcrafted gifts
-                </span>
-                <span className={styles.ctaArrow} aria-hidden="true">
-                  <ArrowRight />
-                </span>
-              </Link>
-            </div>
-            <ul className={styles.points}>
-              <li className={styles.point}>
-                <HouseHeart className={styles.pointIcon} aria-hidden="true" />
-                <span className={styles.pointLabel}>Made at home</span>
-              </li>
-              <li className={styles.point}>
-                <Soup className={styles.pointIcon} aria-hidden="true" />
-                <span className={styles.pointLabel}>Freshly made everyday</span>
-              </li>
-              <li className={styles.point}>
-                <Gift className={styles.pointIcon} aria-hidden="true" />
-                <span className={styles.pointLabel}>Packed with care</span>
-              </li>
-              <li className={styles.point}>
-                <Truck className={styles.pointIcon} aria-hidden="true" />
-                <span className={styles.pointLabel}>Delivered anywhere in India</span>
-              </li>
-            </ul>
           </div>
-          <div className={styles.imageWrap}>
-            {/* The home page's LCP element — `priority` so it isn't
-                lazy-loaded behind everything below the fold. The wrapper's
-                card chrome is stripped and the edges mask-faded in
-                Hero.module.css so the photo merges into the cream stage,
-                per the comp. */}
-            <ImageSlot
-              ratio="1/1"
-              label="Festive homemade gift hamper"
-              alt="A festive gift hamper of homemade sweets, pickles and dry fruit"
-              src="/images/site/hero-hamper.jpg"
-              size="1200×1200"
-              sizes="(max-width: 900px) 100vw, 50vw"
-              className={styles.photo}
-              priority
-            />
-          </div>
+
+          {/* The two halves. A client component — it reads the pointer,
+              focus and, on a touch screen, which half the scroll is
+              showing. See `SplitPanels.tsx`. */}
+          <SplitPanels />
+
+          {/*
+            The promise strip sits under the split now, not under the
+            lede: the two halves have to be *in* the first screenful for
+            the page to be asking a question, and four points of chrome
+            above them pushed them under the fold at 900px.
+          */}
+          <ul className={styles.points}>
+            <li className={styles.point}>
+              <HouseHeart className={styles.pointIcon} aria-hidden="true" />
+              <span className={styles.pointLabel}>Made at home</span>
+            </li>
+            <li className={styles.point}>
+              <Soup className={styles.pointIcon} aria-hidden="true" />
+              <span className={styles.pointLabel}>Freshly made everyday</span>
+            </li>
+            <li className={styles.point}>
+              <Gift className={styles.pointIcon} aria-hidden="true" />
+              <span className={styles.pointLabel}>Packed with care</span>
+            </li>
+            <li className={styles.point}>
+              <Truck className={styles.pointIcon} aria-hidden="true" />
+              <span className={styles.pointLabel}>Delivered anywhere in India</span>
+            </li>
+          </ul>
         </div>
       </div>
     </section>

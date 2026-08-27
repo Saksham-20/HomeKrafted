@@ -3,6 +3,70 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M51] — the food page lists cooks, and the landing page asks one question — 2026-08-26
+
+Two client asks, and the first is a change of browse model rather than a
+screen: **ordering food is a decision about who cooks it.**
+
+### `/shop` opens on kitchens
+
+`Homemade Food` was a grid of jars. It is now a grid of **home kitchens**,
+each card carrying the cook and four of the things they have live:
+portrait, area and distance, rating (or "New kitchen", never 0.0 out of
+five), a two-line story, what they mostly make, a **Pure veg** badge that
+appears only when *every* listing is vegetarian, "N dishes · from ₹X", four
+dish thumbnails that are real links to real listings, and their storefront.
+
+- **Derived, not fetched.** `lib/kitchens.ts` groups the listings the page
+  already loads. There is no `GET /kitchens` and no schema change: the
+  products handed to the page are the ones whose kitchens deliver to this
+  buyer, so grouping them gives exactly the kitchens that can feed them.
+  A kitchen with nothing live does not appear.
+- **The dish grid did not go away.** A `Kitchens / Dishes` toggle above
+  the grid switches between them, it lives in the URL (`?view=dishes`),
+  and the filters, the sort and the page number cross with you. Filter by
+  a category and each kitchen card previews *that category's* dishes —
+  a preview that ignored the filter would send people into storefronts
+  that do not sell what they ticked.
+- **A new sort, `nearest`**, offered only when the listings actually carry
+  a distance — i.e. when the buyer shared a location — and it sorts every
+  unknown distance **last**. "We were not told where you are" is not
+  "next door".
+- **Gifts stay a product grid, deliberately.** Buying a candle is not a
+  decision about whose kitchen it came out of, and merging the two browse
+  models would throw away the only thing that makes the food half honest.
+
+### The landing page is the choice, at the size of the choice
+
+The home hero's two gold CTA cards and its hamper photograph are replaced
+by `<SplitPanels>`: half a screen each, photographed, and whichever half
+you lean toward opens to about 72%.
+
+- **The expansion is `flex-grow` and one data attribute.** Nothing
+  measures the viewport or writes a style.
+- **Pointer, focus, and — on a touch screen — the scroll.** A keyboard
+  visitor tabbing to a half opens it; an `IntersectionObserver` (attached
+  only where `hover: none`) opens whichever stacked half is showing more
+  of itself, with a dead band so the panels do not swap under a thumb
+  mid-scroll.
+- **Skipped entirely under `prefers-reduced-motion`.** The global floor
+  strips the *transition*, which would have left a panel jumping from 50%
+  to 72% instantly — worse than a split that never moves. Both halves
+  stay level, and nothing is unreachable because of it.
+- Each panel sets `--hk-focus-ring: var(--hk-gold-bright)` — the global
+  ring is `--hk-pine`, which is 1.23:1 on the scrim (the M34 rule).
+- The promise strip moved **below** the split, so the two halves land
+  inside the first screenful at 900px. The headline, the eyebrow, the
+  heart, the script line and the plane are untouched.
+
+### Tests
+
+`lib/kitchens.spec.ts` (14 cases — pure-veg only when every dish is,
+distance never invented, a listing whose vendor row is missing dropped
+rather than rendered nameless, sorts that do not mutate their input) and
+five new `browse-params` cases for `view` and `nearest`. axe: zero
+violations on `/`, `/shop` and `/shop?view=dishes`.
+
 ## [M50] — the buttons that were pictures of buttons — 2026-08-24
 
 Seven items off a client list. Four of them turn out to be the same

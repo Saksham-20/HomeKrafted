@@ -1,0 +1,241 @@
+/*
+ * One kitchen on the food page (M51). White card, hairline border — the
+ * white-first rule; the only colour on it is the maker mark's wash, the
+ * rating star and the sale chip.
+ */
+.card {
+  display: flex;
+  flex-direction: column;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s4);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+}
+
+.who {
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--hk-pine);
+  margin: 0;
+}
+
+.nameLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.where {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hk-muted);
+  margin: 4px 0 0;
+}
+
+.distance {
+  color: var(--hk-ink-3);
+  white-space: nowrap;
+}
+
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin: 0;
+  font-size: 13px;
+  color: var(--hk-ink);
+}
+
+/* Gold as a fill, never as the number beside it. */
+.star {
+  width: 14px;
+  height: 14px;
+  fill: var(--hk-gold);
+  stroke: var(--hk-gold);
+}
+
+.ratingValue {
+  font-weight: 600;
+}
+
+.ratingCount {
+  color: var(--hk-muted);
+}
+
+.newBadge {
+  flex: none;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+  white-space: nowrap;
+}
+
+.bio {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+  margin: var(--hk-s3) 0 0;
+  /* Two lines: the bios run from one sentence to a paragraph, and a card
+     grid whose rows depend on how chatty a kitchen is looks broken. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: var(--hk-s3) 0 0;
+}
+
+.tag,
+.tagVeg,
+.tagSale {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid var(--hk-border-2);
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--hk-ink-2);
+  background: var(--hk-surface-2);
+}
+
+.tagVeg {
+  border-color: #b7d0bd; /* the veg green at hairline weight — see ProductCard's `.added` */
+  color: var(--hk-ink);
+}
+
+.vegDot {
+  width: 9px;
+  height: 9px;
+  border: 1.4px solid var(--hk-whatsapp-text);
+  border-radius: 2px;
+  position: relative;
+}
+
+.vegDot::after {
+  content: "";
+  position: absolute;
+  inset: 1.6px;
+  border-radius: 50%;
+  background: var(--hk-whatsapp-text);
+}
+
+.tagSale {
+  border-color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
+  background: var(--hk-gold-tint);
+}
+
+.stats {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  margin: var(--hk-s3) 0 0;
+}
+
+/*
+ * A fixed-width strip, not a four-column grid. The card is one to a row
+ * (see `.kitchenGrid`), so `1fr` columns made a kitchen with one listing
+ * render a 300px square — a single dish photographed like a hero, which
+ * is not what "a few of the things they make" looks like.
+ */
+.dishes {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
+  padding: 0;
+  margin: var(--hk-s3) 0 0;
+}
+
+.dish {
+  width: 150px;
+  min-width: 0;
+}
+
+.dishLink {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--hk-r-md);
+}
+
+.dishThumb {
+  display: block;
+  border-radius: var(--hk-r-md);
+  overflow: hidden;
+}
+
+.dishLink:hover .dishName {
+  text-decoration: underline;
+}
+
+.dishName {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--hk-ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dishPrice {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--hk-terracotta);
+}
+
+.cta {
+  align-self: flex-start;
+  margin-top: var(--hk-s4);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  text-decoration: none;
+}
+
+.cta:hover {
+  text-decoration: underline;
+}
+
+/* Two dishes a row once the card is phone-width — four 70px thumbnails
+   read as a filmstrip, not as things you can choose between. */
+@media (max-width: 560px) {
+  .dish {
+    width: calc(50% - var(--hk-s3) / 2);
+  }
+}

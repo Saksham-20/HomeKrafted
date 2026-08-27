@@ -313,3 +313,87 @@ test.describe('browsing survives the Back button', () => {
     await expect(page).toHaveURL(/category=pickles/);
   });
 });
+
+test.describe('the food page opens on kitchens (M51)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('kitchens first, dishes one toggle away, and the view survives Back', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/shop');
+
+    // The whole point of M51: `/shop` answers "whose kitchen" before it
+    // answers "which jar". A regression here is a silent one — the page
+    // still renders a full grid of things you can buy.
+    const kitchens = page.getByRole('radio', { name: /^Kitchens/ });
+    await expect(kitchens).toBeChecked();
+    await expect(page.locator('a[href^="/storefront/"]').first()).toBeVisible();
+
+    // And a dish is still one click away from the food page — the kitchen
+    // card carries real listings, it is not a directory entry.
+    await expect(page.locator('a[href^="/product/"]').first()).toBeVisible();
+
+    await page.getByRole('radio', { name: /^Dishes/ }).click();
+    await expect(page).toHaveURL(/view=dishes/);
+
+    await page.locator('a[href^="/product/"]').first().click();
+    await expect(page).toHaveURL(/\/product\/[^/]+$/);
+    await page.goBack();
+
+    // State that is not in the URL cannot survive a navigation — the same
+    // rule the filters and the sort are held to.
+    await expect(page).toHaveURL(/view=dishes/);
+    await expect(page.getByRole('radio', { name: /^Dishes/ })).toBeChecked();
+  });
+
+  test('an untouched food page does not put the default view in the URL', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/shop');
+    await expect(page.getByRole('radio', { name: /^Kitchens/ })).toBeChecked();
+    await expect(page).not.toHaveURL(/view=/);
+  });
+});
+
+test.describe('the split landing screen (M51)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  const food = (page: import('@playwright/test').Page) =>
+    page.locator('a[href="/shop"]').filter({ hasText: 'Find a kitchen' }).first();
+  const gifts = (page: import('@playwright/test').Page) =>
+    page.locator('a[href="/gifts"]').filter({ hasText: 'Browse gifts' }).first();
+
+  test('keyboard focus opens a half, not only the mouse', async ({ page, viewport }) => {
+    // Below 780 the halves are stacked and driven by the scroll position
+    // instead (`hover: none` — see `SplitPanels.tsx`), so there is no
+    // width to grow and the observer, not focus, owns the attribute.
+    test.skip((viewport?.width ?? 0) < 780, 'the split is scroll-driven on a phone');
+    await skipLocationPrompt(page);
+    await page.goto('/');
+
+    const even = await food(page).boundingBox();
+    const evenGifts = await gifts(page).boundingBox();
+    expect(Math.abs(even!.width - evenGifts!.width)).toBeLessThan(2);
+
+    // Focus, not hover: an expansion only a pointer can trigger is
+    // decoration, and this is the page's primary navigation.
+    await gifts(page).focus();
+    await page.waitForTimeout(900);
+    const opened = await gifts(page).boundingBox();
+    expect(opened!.width).toBeGreaterThan(even!.width * 1.3);
+  });
+
+  test('reduced motion keeps both halves level', async ({ page }) => {
+    // The global reduced-motion floor removes the *transition*, so without
+    // the media guard in `SplitPanels.module.css` this would jump from half
+    // the screen to three quarters with no motion at all — worse than not
+    // moving.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await skipLocationPrompt(page);
+    await page.goto('/');
+
+    await food(page).hover();
+    await page.waitForTimeout(500);
+    const foodBox = await food(page).boundingBox();
+    const giftsBox = await gifts(page).boundingBox();
+    expect(Math.abs(foodBox!.width - giftsBox!.width)).toBeLessThan(2);
+  });
+});

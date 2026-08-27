@@ -114,6 +114,11 @@
   display: flex;
   gap: var(--hk-s2);
   flex-wrap: wrap;
+  /* The view switch and the sort keep their intrinsic width; the chips
+     take what is left and wrap, so a long filter set never squeezes
+     either control off the row. */
+  flex: 1;
+  min-width: 0;
 }
 
 .sortRow {
@@ -133,6 +138,62 @@
   font-weight: 500;
   font-size: 13.5px;
   min-height: 40px;
+}
+
+/*
+ * Kitchens / dishes (M51). A segmented control rather than a select: two
+ * options, and the counts beside them are half the answer to "which one
+ * do I want".
+ */
+.viewSwitch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--hk-surface-2);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: none;
+  background: none;
+  border-radius: var(--hk-r-pill);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.viewBtnActive {
+  background: var(--hk-surface);
+  color: var(--hk-pine);
+  box-shadow: var(--hk-shadow-card);
+}
+
+.viewCount {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+}
+
+.viewBtnActive .viewCount {
+  color: var(--hk-ink-2);
+}
+
+/*
+ * One kitchen a row at every width the sidebar leaves. The card carries a
+ * portrait, a bio, tags and four dish thumbnails — two of them side by
+ * side turns each into a column too narrow for any of that to read.
+ */
+.kitchenGrid {
+  display: grid;
+  gap: var(--hk-s4);
 }
 
 .grid {

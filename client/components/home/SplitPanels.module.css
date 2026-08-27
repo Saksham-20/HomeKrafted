@@ -1,0 +1,178 @@
+/*
+ * The landing page's two halves (M51). See `SplitPanels.tsx` for why the
+ * split is the hero rather than a pair of buttons under one.
+ */
+.split {
+  /* The hero column is `align-items: center`, which shrink-wraps its
+     children — without this the panels get a zero-width row to share and
+     the split renders as nothing at all. */
+  width: 100%;
+  align-self: stretch;
+  display: flex;
+  gap: var(--hk-s4);
+  height: clamp(320px, 46vh, 500px);
+}
+
+.panel {
+  position: relative;
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--hk-r-xl);
+  text-decoration: none;
+  box-shadow: var(--hk-shadow-card);
+  /*
+   * `flex-grow` is a number, so it interpolates — nothing here measures
+   * or writes a width. Slower than `--hk-dur` (0.36s) on purpose: this is
+   * three quarters of the screen moving, and at button speed it snaps.
+   */
+  transition: flex-grow 0.62s var(--hk-ease);
+  /*
+   * The panel is a dark photograph, and the global focus ring is
+   * `--hk-pine` — 1.23:1 on a scrim this deep, i.e. invisible (M34). The
+   * variable inherits, so this one line covers everything inside.
+   */
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+/*
+ * The expansion itself. Wrapped in `no-preference` deliberately: the
+ * global reduced-motion floor strips the *transition*, which would leave
+ * the panel jumping from 50% to 72% instantly on hover — worse than a
+ * split that simply stays even. Under reduced motion both halves keep
+ * their half, and nothing on the page is unreachable because of it.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .split[data-active="food"] .food,
+  .split[data-active="gifts"] .gifts {
+    flex-grow: 2.6; /* 2.6 of 3.6 — about 72% of the row */
+  }
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/*
+ * The scrim. Two stops rather than a flat wash so the top of the
+ * photograph stays a photograph: everything readable sits in the bottom
+ * half, where the gradient is deep enough to carry white text (measured
+ * against #1B3327 at 0.86 — 13.6:1 for the title, 8.9:1 for the blurb).
+ */
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(27, 51, 39, 0.12) 0%,
+    rgba(27, 51, 39, 0.55) 52%,
+    rgba(27, 51, 39, 0.88) 100%
+  );
+}
+
+.body {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  padding: var(--hk-s5);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hk-gold-bright);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: clamp(26px, 3.2vw, 40px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.blurb {
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--hk-on-pine);
+  max-width: 42ch;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--hk-s2);
+  border-radius: var(--hk-r-pill);
+  background: #ffffff;
+  color: var(--hk-pine);
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  min-height: 40px;
+}
+
+.ctaIcon {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.4;
+}
+
+.panel:hover .cta {
+  background: var(--hk-gold-bright);
+}
+
+/*
+ * 780, the shell rail (M29). Stacked, and the height is the pair's — the
+ * halves still share one column so `flex-grow` still means what it means,
+ * which is what lets the scroll-driven expansion work on a phone.
+ */
+@media (max-width: 780px) {
+  .split {
+    flex-direction: column;
+    height: clamp(460px, 78vh, 680px);
+  }
+
+  .body {
+    padding: var(--hk-s4);
+  }
+
+  .blurb {
+    font-size: 13.5px;
+  }
+}
+
+/*
+ * Gentler on a phone. At 2.6 the closed half is ~170px tall, which is
+ * shorter than its own body (title, two lines, a 40px button) — the
+ * eyebrow clips off the top of a panel somebody is about to scroll to.
+ * Two thirds/one third keeps both halves readable while still saying
+ * plainly which one you are heading for.
+ */
+@media (max-width: 780px) and (prefers-reduced-motion: no-preference) {
+  .split[data-active="food"] .food,
+  .split[data-active="gifts"] .gifts {
+    flex-grow: 2;
+  }
+}

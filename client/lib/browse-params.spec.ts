@@ -12,7 +12,8 @@ import {
  */
 describe("reading browse state out of a URL", () => {
   it("reads a full state", () => {
-    expect(parseBrowseParams("category=pickles,sweets&occasion=diwali&diet=vegan&minPrice=100&maxPrice=500&sort=price-asc&page=3")).toEqual({
+    expect(parseBrowseParams("view=dishes&category=pickles,sweets&occasion=diwali&diet=vegan&minPrice=100&maxPrice=500&sort=price-asc&page=3")).toEqual({
+      view: "dishes",
       categories: ["pickles", "sweets"],
       occasions: ["diwali"],
       dietary: ["vegan"],
@@ -38,6 +39,24 @@ describe("reading browse state out of a URL", () => {
     ["a sort of the wrong shape", "sort[]=price-asc"],
   ])("falls back to the default sort for %s", (_label, query) => {
     expect(parseBrowseParams(query).sort).toBe("most-loved");
+  });
+
+  it.each([
+    ["an unknown view", "view=chefs"],
+    ["an empty view", "view="],
+    ["a view of the wrong shape", "view[]=dishes"],
+  ])("falls back to the kitchens view for %s", (_label, query) => {
+    // M51 — the food page opens on the kitchens cooking, and a URL
+    // somebody hand-edited must not land on a half-rendered third view.
+    expect(parseBrowseParams(query).view).toBe("kitchens");
+  });
+
+  it("reads the dishes view", () => {
+    expect(parseBrowseParams("view=dishes").view).toBe("dishes");
+  });
+
+  it("accepts the nearest sort", () => {
+    expect(parseBrowseParams("sort=nearest").sort).toBe("nearest");
   });
 
   it.each([
@@ -93,6 +112,14 @@ describe("writing browse state into a URL", () => {
     expect(browseParamsToQuery(DEFAULT_BROWSE_PARAMS)).toBe("");
   });
 
+  it("omits the default view", () => {
+    // A visitor who never touched the toggle must not be handed
+    // `?view=kitchens` to share — the default belongs in the code, not in
+    // everybody's address bar.
+    expect(browseParamsToQuery({ ...DEFAULT_BROWSE_PARAMS, view: "kitchens" })).toBe("");
+    expect(browseParamsToQuery({ ...DEFAULT_BROWSE_PARAMS, view: "dishes" })).toBe("view=dishes");
+  });
+
   it("omits the default sort and the first page", () => {
     expect(
       browseParamsToQuery({ ...DEFAULT_BROWSE_PARAMS, categories: ["pickles"] }),
@@ -101,6 +128,7 @@ describe("writing browse state into a URL", () => {
 
   it("round-trips a full state", () => {
     const state = {
+      view: "dishes" as const,
       categories: ["pickles", "sweets"],
       occasions: ["diwali"],
       dietary: ["vegan" as const],

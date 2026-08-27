@@ -25,9 +25,19 @@ import type { DietaryTag } from "@/lib/types";
  * throwing or filtering the grid to nothing.
  */
 
-export type BrowseSortKey = "most-loved" | "price-asc" | "price-desc";
+export type BrowseSortKey = "most-loved" | "price-asc" | "price-desc" | "nearest";
 
-export const BROWSE_SORT_KEYS: BrowseSortKey[] = ["most-loved", "price-asc", "price-desc"];
+export const BROWSE_SORT_KEYS: BrowseSortKey[] = [
+  "most-loved",
+  "price-asc",
+  "price-desc",
+  // M51. Reads `distanceKm`, which is present on a listing only when the
+  // buyer's coordinates were sent — so it is offered whatever the visitor
+  // did with the location prompt, and simply orders every unknown
+  // distance last rather than hiding a control that would then appear
+  // from nowhere the moment an area was picked.
+  "nearest",
+];
 
 export const DEFAULT_BROWSE_SORT: BrowseSortKey = "most-loved";
 
@@ -39,7 +49,23 @@ const DIETARY_TAGS: DietaryTag[] = [
   "contains-nuts",
 ];
 
+/**
+ * Which half of `/shop` is showing (M51): the kitchens cooking, or every
+ * dish flattened into one grid.
+ *
+ * `kitchens` is the default because ordering food is a decision about who
+ * cooks it — see `lib/kitchens.ts`. `dishes` is the older grid, kept
+ * because "who has ragi cookies" is a real question and a kitchen list
+ * answers it badly.
+ */
+export type BrowseView = "kitchens" | "dishes";
+
+export const BROWSE_VIEWS: BrowseView[] = ["kitchens", "dishes"];
+
+export const DEFAULT_BROWSE_VIEW: BrowseView = "kitchens";
+
 export interface BrowseParams {
+  view: BrowseView;
   /** Category slugs, in the order given. Empty means every category. */
   categories: string[];
   /** Occasion slugs. Empty means every occasion. */
@@ -57,6 +83,7 @@ export interface BrowseParams {
 }
 
 export const DEFAULT_BROWSE_PARAMS: BrowseParams = {
+  view: DEFAULT_BROWSE_VIEW,
   categories: [],
   occasions: [],
   dietary: [],
@@ -92,6 +119,11 @@ export function parseBrowseParams(input: string | URLSearchParams): BrowseParams
     ? (sortRaw as BrowseSortKey)
     : DEFAULT_BROWSE_SORT;
 
+  const viewRaw = params.get("view");
+  const view = BROWSE_VIEWS.includes(viewRaw as BrowseView)
+    ? (viewRaw as BrowseView)
+    : DEFAULT_BROWSE_VIEW;
+
   const pageRaw = Number(params.get("page"));
   const page = Number.isInteger(pageRaw) && pageRaw >= 1 ? pageRaw : 1;
 
@@ -106,6 +138,7 @@ export function parseBrowseParams(input: string | URLSearchParams): BrowseParams
   );
 
   return {
+    view,
     categories: parseList(params.get("category")),
     occasions: parseList(params.get("occasion")),
     dietary,
@@ -124,6 +157,7 @@ export function parseBrowseParams(input: string | URLSearchParams): BrowseParams
  */
 export function browseParamsToQuery(state: BrowseParams): string {
   const params = new URLSearchParams();
+  if (state.view !== DEFAULT_BROWSE_VIEW) params.set("view", state.view);
   if (state.categories.length) params.set("category", state.categories.join(","));
   if (state.occasions.length) params.set("occasion", state.occasions.join(","));
   if (state.dietary.length) params.set("diet", state.dietary.join(","));

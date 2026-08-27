@@ -15,18 +15,28 @@
   overflow: hidden;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
-  gap: var(--hk-s6);
+/*
+ * One column since M51: the copy is centred over the split panels rather
+ * than sharing a row with a photograph, because the panels carry the
+ * photographs now — two of them, one per vertical.
+ */
+.inner {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  padding-block: var(--hk-s7);
+  gap: var(--hk-s5);
+  /* Tight at the top so the split itself lands inside the first
+     screenful at 900px — the page's whole question is on those two
+     panels, and a headline that pushes them under the fold asks nothing. */
+  padding-block: var(--hk-s6) var(--hk-s7);
 }
 
 .copy {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
+  max-width: 760px;
 }
 
 .eyebrow {
@@ -67,7 +77,7 @@
 .heading {
   font-family: var(--hk-font-display);
   font-weight: 700;
-  font-size: clamp(38px, 5.6vw, 64px);
+  font-size: clamp(34px, 4.6vw, 54px);
   line-height: 1;
   letter-spacing: -0.02em;
   color: var(--hk-pine);
@@ -163,82 +173,19 @@
   font-size: 16px;
   line-height: 1.6;
   color: var(--hk-ink-3);
-  max-width: 460px;
-  margin: var(--hk-s5) 0 var(--hk-s6);
+  max-width: 620px;
+  margin: var(--hk-s4) auto 0;
 }
 
-.ctaRow {
-  display: flex;
-  gap: var(--hk-s4);
-  flex-wrap: wrap;
-}
-
-/*
- * Gold-outlined CTA cards from the comp: icon · two-line uppercase label
- * · arrow chip. Labels take --hk-gold-text-sm (gold never carries words);
- * the border and arrow chip keep the true gold, which is fills-and-rules
- * territory.
- */
-.ctaCard {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--hk-s3);
-  padding: var(--hk-s3) var(--hk-s4);
-  border: 1.6px solid var(--hk-gold);
-  border-radius: var(--hk-r-lg);
-  background: rgba(255, 255, 255, 0.55);
-  box-shadow: 0 2px 10px rgba(185, 135, 36, 0.14);
-  transition: box-shadow var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
-}
-
-.ctaCard:hover {
-  background: #ffffff;
-  box-shadow: 0 4px 16px rgba(185, 135, 36, 0.22);
-}
-
-.ctaIcon {
-  width: 26px;
-  height: 26px;
-  flex: none;
-  color: var(--hk-gold);
-  stroke-width: 2;
-}
-
-.ctaLabel {
-  font-family: var(--hk-font-body);
-  font-size: 12.5px;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
-}
-
-.ctaArrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--hk-gold);
-  color: #ffffff;
-}
-
-.ctaArrow svg {
-  width: 13px;
-  height: 13px;
-  stroke-width: 2.6;
-}
-
-/* The promise strip — four points under the CTAs, hairline-divided. */
+/* The promise strip — four points under the lede, hairline-divided. */
 .points {
   list-style: none;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   padding: 0;
-  margin: var(--hk-s6) 0 0;
+  margin: 0;
 }
 
 .point {
@@ -269,78 +216,6 @@
   text-transform: uppercase;
   color: var(--hk-ink);
   max-width: 118px;
-}
-
-/*
- * Full-bleed on desktop (owner instruction, 2026-08-13): the photo is
- * pinned to the hero's top, right and bottom edges — those three sides
- * end at layout boundaries, so they need no fade — and only its LEFT
- * edge dissolves into the cream stage where it meets the copy. No
- * radial vignette.
- *
- * **The left edge tracks the copy column, not the viewport.** It was
- * `width: min(50%, 780px)`, which is a fraction of the *full-bleed
- * viewport* while the copy beside it is a fraction of `.container`,
- * capped at 1180px — two systems that agree at 1180 and diverge
- * monotonically above it. Measured: ~240px of cream between the copy and
- * the photo at 1180, ~485px at 1920, so the hero got emptier the bigger
- * the screen.
- *
- * The `calc` is the container's left edge `(100vw - 1180px) / 2`, plus
- * its 44px padding, plus the copy column's share — so the photo starts
- * just past the copy at every width above 1180. `max()` with 50% keeps it
- * off the copy below that, where the container is narrower than its cap.
- */
-.imageWrap {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: max(50%, calc((100vw - 1180px) / 2 + 568px));
-}
-
-/*
- * Strip ImageSlot's card chrome and let the photo fill the wrapper.
- * `inset: 0` fixes both dimensions, which makes the slot's inline
- * `aspect-ratio` moot on desktop; `object-fit: cover` on the image does
- * the cropping.
- *
- * Reached through `ImageSlot`'s own `className` prop rather than a bare
- * `> div` descendant selector: that selector was `.slot`'s internals, so
- * wrapping the slot in anything would have dropped the mask, the
- * full-bleed positioning and the chrome-strip silently, with no type
- * error and no failing test. Two classes so it beats `.slot`'s single
- * one whatever order the stylesheets land in.
- */
-.imageWrap .photo {
-  position: absolute;
-  inset: 0;
-  border-radius: 0;
-  box-shadow: none;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 34%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 34%);
-}
-
-@media (max-width: 900px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Back in flow when stacked; the slot keeps its own aspect ratio. */
-  .imageWrap {
-    position: static;
-    left: auto;
-    width: 100%;
-    max-width: 560px;
-    margin: 0 auto;
-  }
-
-  .imageWrap .photo {
-    position: relative;
-    inset: auto;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
 }
 
 @media (max-width: 640px) {
@@ -376,22 +251,5 @@
   .plane {
     width: 84px;
     height: 50px;
-  }
-}
-
-/* 420, the small-phone rail (M29). Was 480, which is not a rail and sat
-   60px from one; the two-line CTA labels fit side by side down to here. */
-@media (max-width: 420px) {
-  .ctaRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .ctaCard {
-    justify-content: flex-start;
-  }
-
-  .ctaLabel {
-    flex: 1;
   }
 }

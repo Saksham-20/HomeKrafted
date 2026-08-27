@@ -998,6 +998,63 @@ listings against a rendering buyers never see — inside an `inert`
 wrapper, since the card draws a wishlist heart and an add button that
 nothing here should honour.
 
+## Browsing food is browsing cooks (M51)
+
+**`/shop` opens on kitchens, `/gifts` stays a product grid, and that
+asymmetry is the point.** Ordering cooked food is a decision about *who
+made it* — five identical jars from five kitchens are five hygiene
+standards and five delivery radii. Buying a candle is not that decision.
+Don't "unify" the two browse models; that trade throws away the only
+thing making the food half honest.
+
+- **`lib/kitchens.ts` derives, it does not fetch.** `buildKitchens`
+  groups the listings the page already loaded, so a kitchen appears
+  exactly when it has something live that reaches this buyer — the
+  delivery-radius filtering is already done by `GET /products?lat&lng`,
+  and a `GET /kitchens` would duplicate it in a second place. Pure and
+  clock-free: it runs in the Server Component (the header count) and
+  again in the browser (the grid), and those two must agree or hydration
+  throws.
+- **The dish grid is a `?view=dishes` toggle, not a deletion.** "Who has
+  ragi cookies" is a real question. The view rides in `BrowseParams` with
+  the filters and the sort, so switching keeps everything; `kitchens` is
+  the default and is omitted from the URL.
+- **A card previews the *filtered* dishes.** Tick "Pickles" and the four
+  thumbnails are that kitchen's pickles — a preview reading the whole
+  catalogue sends people into storefronts that don't sell what they
+  ticked.
+- **Never claim what the data doesn't say.** "Pure veg" only when *every*
+  listing is vegetarian; `reviewCount: 0` renders "New kitchen", never
+  0.0 out of five; a missing `distanceKm` prints nothing and sorts
+  **last** under `nearest` — absent means "we weren't told where you
+  are", the M12 rule again.
+- **`MakerPortrait`, never `avatarSrc`** (M38b) — this is a grid, and the
+  pre-M28 rows would render several kitchens under one stock face.
+- No stretched link on the card: the dish thumbnails are links, and an
+  overlay would swallow every one of them.
+
+## The landing page is a split screen (M51)
+
+`components/home/SplitPanels.tsx` — homemade food and handcrafted gifts,
+half a screen each, and the half you lean toward opens to ~72%.
+
+- **The expansion is `flex-grow` and one `data-active` attribute.**
+  Nothing measures the viewport or writes a style.
+- **Pointer *and* focus *and*, on touch, the scroll.** An
+  `IntersectionObserver` (attached only where `hover: none` — two systems
+  writing one attribute is a flicker) opens whichever stacked half shows
+  more of itself, with a dead band so they don't swap under a thumb.
+- **The whole expansion is inside `prefers-reduced-motion:
+  no-preference`.** The global floor strips the transition, which would
+  leave a panel *jumping* 50%→72%; under reduced motion both halves
+  simply stay level.
+- Dark photograph, so each panel sets `--hk-focus-ring:
+  var(--hk-gold-bright)` (the M34 rule).
+- The **promise strip sits below the split** so both halves are in the
+  first screenful at 900px. The comp's headline, eyebrow, heart, script
+  line and plane are untouched — the two gold CTA cards became the
+  panels.
+
 ## Vendor avatars — one component, and a guard (M38b)
 
 **Nothing reads `Vendor.avatarSrc` directly. Render
