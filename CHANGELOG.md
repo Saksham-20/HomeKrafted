@@ -59,6 +59,17 @@ you lean toward opens to about 72%.
   inside the first screenful at 900px. The headline, the eyebrow, the
   heart, the script line and the plane are untouched.
 
+### The opening screenful is the brand and the choice (2026-08-27)
+
+Owner-directed follow-up, shipped as three design commits: the **brand
+lockup moved from the header into the hero**, centred above "From home to
+the world"; the **header went compact** (40px mark, tagline dropped,
+~130px of chrome down to ~61px); and the hero's three-line lede was cut —
+its sentence already lives on the two panels' blurbs, and it was what
+pushed the choice below the fold. First screenful at 1440×800 is now:
+compact nav · eyebrow · lockup · slogan · both panels with their CTAs.
+axe: still zero violations; header-capacity, browse and M51 e2e all pass.
+
 ### Tests
 
 `lib/kitchens.spec.ts` (14 cases — pure-veg only when every dish is,

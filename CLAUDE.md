@@ -1054,6 +1054,12 @@ half a screen each, and the half you lean toward opens to ~72%.
   first screenful at 900px. The comp's headline, eyebrow, heart, script
   line and plane are untouched — the two gold CTA cards became the
   panels.
+- **The opening screenful is lockup · slogan · panels (owner,
+  2026-08-27).** The brand lockup renders at size exactly once — centred
+  in the hero above the slogan — and the header went compact to pay for
+  it (40px mark, no tagline, ~61px of chrome). The hero's lede was cut
+  because its sentence lives on the two panels' blurbs; if the panels
+  ever lose their blurbs, a sentence has to come back under the slogan.
 
 ## Vendor avatars — one component, and a guard (M38b)
 
