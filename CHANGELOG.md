@@ -20,7 +20,14 @@ in the browser after four hours.
   `WalletContext` and `WishlistContext` imported from `@/lib/api`, which
   re-exports admin, seller, meals and Razorpay — all of it shipped on
   the landing page. `AuthContext` did the same with `@/lib/data` for
-  five fixtures and got 131 KB of seed products with them.
+  five fixtures and got 131 KB of seed products with them. One level
+  down, `AuthContext → lib/api/seller.ts` reached every fixture again
+  (`seller.ts` imports the catalogue, orders, reviews and `./laundry`
+  for its offline mode), so `getMySeller`/`getSellerVendor` moved to
+  `lib/api/seller-me.ts` — re-exported from `seller.ts`, so call sites
+  and the M39 contract spec are untouched — and `wallet`, `orders`,
+  `products`, `site` and `laundry` in `lib/api` import their data
+  modules directly.
 - **Uploads go through the optimiser.** The dev-only `/uploads/` rewrite
   now applies in production, pointed at the public origin, so the
   optimiser's loopback fetch is answered by nginx and `ImageSlot` drops

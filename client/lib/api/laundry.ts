@@ -1,5 +1,5 @@
 import type { LaundryBooking } from "@/lib/types";
-import { laundryServices, laundrySlots, seedLaundryBookings } from "@/lib/data";
+import { laundryServices, laundrySlots, seedLaundryBookings } from "@/lib/data/laundry";
 import { http, isMockMode } from "./http";
 
 /**

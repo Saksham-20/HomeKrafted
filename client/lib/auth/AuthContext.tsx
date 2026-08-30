@@ -75,7 +75,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getMySeller } from "@/lib/api/seller";
+import { getMySeller } from "@/lib/api/seller-me";
 // From the modules, not the `@/lib/data` barrel: this is a root-layout
 // client file, and the barrel re-exports every fixture — the whole seed
 // catalogue on every page's bundle.

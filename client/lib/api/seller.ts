@@ -59,7 +59,7 @@ import type {
   VendorPhotoKind,
   WeightOption,
 } from "@/lib/types";
-import { ApiError, http, isMockMode } from "./http";
+import { http, isMockMode } from "./http";
 import { getPlacedBookings } from "./laundry";
 import { getPlacedOrders } from "./orders";
 
@@ -89,50 +89,11 @@ export async function getSeller(sellerId: string): Promise<Seller | undefined> {
  * meaning a genuine kitchen saw another kitchen's name and `vendorId`
  * throughout their own portal.
  */
-/**
- * `undefined` means **this account has no kitchen** — a 404, and only a
- * 404. Every other failure throws.
- *
- * This used to be `catch { return undefined }`, and that one line was the
- * whole of the M39 sign-in loop. `/seller/me` is not in the server's
- * `PASSWORD_CHANGE_EXEMPT` set, so an admin-issued temporary password
- * (M32) makes it answer **403 PASSWORD_CHANGE_REQUIRED** — deliberately,
- * and asserted in `server/test/e2e/temp-password.e2e-spec.ts`. Swallowing
- * that turned "you must set a password first" into "you are not a
- * HomeKrafter", `SellerShell` rendered the sign-in wall, its button
- * returned to `/login`, and the "You're all set" card sent them straight
- * back. A closed loop with no sign-in form in it.
- *
- * The same swallow did it for a 500 and for a dropped connection, which
- * is why the bug read as intermittent: a transient blip showed a real
- * HomeKrafter a rejection screen.
- *
- * A read may answer `undefined` for "no such thing". It may not answer
- * `undefined` for "I could not ask" — see `lib/silent-failure.spec.ts`.
- */
-export async function getMySeller(): Promise<Seller | undefined> {
-  // Mock parity for the M37 commission block: the real record carries the
-  // platform rate so no screen hardcodes one; offline mode models the
-  // shipped default (10%, deduction off).
-  if (isMockMode()) return { ...sellers[0], commission: { pct: 10, enabled: false } };
-  try {
-    return await http.get<Seller>("/seller/me");
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return undefined;
-    throw err;
-  }
-}
 
-/** Same contract as `getMySeller` — `/seller/storefront` is equally non-exempt, so it fails the same way. */
-export async function getSellerVendor(vendorId: string): Promise<Vendor | undefined> {
-  if (isMockMode()) return getVendorByIdData(vendorId);
-  try {
-    return await http.get<Vendor>("/seller/storefront");
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return undefined;
-    throw err;
-  }
-}
+// Moved to ./seller-me (M55) so the root layout can read the session's
+// seller without this module's fixture imports; re-exported for callers.
+import { getMySeller, getSellerVendor } from "./seller-me";
+export { getMySeller, getSellerVendor };
 
 // ---------------------------------------------------------------------------
 // Listings (maker) — CRUD over a lazily-seeded per-vendor copy of

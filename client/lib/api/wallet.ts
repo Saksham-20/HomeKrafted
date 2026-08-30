@@ -1,5 +1,5 @@
 import type { AutoTopupRule, Wallet, WalletTransaction } from "@/lib/types";
-import { defaultAutoTopupRule, topupOptions, wallet, walletTransactions } from "@/lib/data";
+import { defaultAutoTopupRule, topupOptions, wallet, walletTransactions } from "@/lib/data/wallet";
 import { http, isMockMode } from "./http";
 
 /** Wallet reads (M8.4a — real). `docs/API.md` "Wallet & Payments (M8.2)" — owner-scoped, server-authoritative; there's deliberately no bare top-up/pay/refund endpoint (see `WalletContext`). */

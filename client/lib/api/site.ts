@@ -1,21 +1,20 @@
 import type { Address, Cart, HamperBox, MealPromo, User } from "@/lib/types";
+// Module imports, not the `@/lib/data` barrel: `CartContext` reaches
+// this file from the root layout, and the barrel is the whole catalogue.
+import { getCartItemCount, mockCart } from "@/lib/data/cart";
+import { hamperBoxes } from "@/lib/data/hampers";
+import { mealPromo } from "@/lib/data/meals";
 import {
-  addresses,
   brandBlurb,
-  currentUser,
-  demoAddress,
   footerColumns,
-  getCartItemCount,
-  hamperBoxes,
   homePromoBands,
-  mealPromo,
-  mockCart,
   primaryNav,
   secondaryNav,
   type FooterColumn,
   type HomePromoBandContent,
   type NavLink,
-} from "@/lib/data";
+} from "@/lib/data/site";
+import { addresses, currentUser, demoAddress } from "@/lib/data/user";
 import { getMe, updateMe } from "./auth";
 import { ApiError, http, isMockMode } from "./http";
 import { TRICITY_AREAS } from "@/lib/geo";

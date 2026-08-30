@@ -3,7 +3,7 @@ import {
   getProductById as getProductByIdData,
   getProductBySlug,
   products,
-} from "@/lib/data";
+} from "@/lib/data/products";
 import { http, isMockMode } from "./http";
 
 /**

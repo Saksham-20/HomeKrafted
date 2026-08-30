@@ -1,5 +1,6 @@
 import type { Order, OrderGift, OrderItem, OrderShipment, PaymentMethod } from "@/lib/types";
-import { currentUser, deliveryDateOptions, nextOrderNumber } from "@/lib/data";
+import { deliveryDateOptions, nextOrderNumber } from "@/lib/data/orders";
+import { currentUser } from "@/lib/data/user";
 import { computeCashback, computeShipping } from "@/lib/cart/pricing";
 import { http, isMockMode } from "./http";
 
