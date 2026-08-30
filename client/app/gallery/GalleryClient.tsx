@@ -15,6 +15,8 @@ import type {
   WalletTransaction,
 } from "@/lib/types";
 
+import { CharacterPicker } from "@/components/seller/CharacterPicker";
+import { CHEF_CHARACTERS } from "@/lib/avatars/chef-characters";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { AmountPicker } from "@/components/ui/AmountPicker";
 import { Button } from "@/components/ui/Button";
@@ -166,24 +168,24 @@ const TOC = [
   { id: "qr", label: "QR & app install" },
 ];
 
-/**
- * One slug per caricature, in index order — `makerCaricature` hashes each
- * of these to 0…9. Picked by search rather than by hand; if the hash ever
- * changes, this row shows duplicates and `lib/maker-portrait.spec.ts`
- * fails on the same day.
- */
-const CARICATURE_SLUGS = [
-  "face-4",
-  "face-5",
-  "face-6",
-  "face-7",
-  "face-8",
-  "face-9",
-  "face-0",
-  "face-1",
-  "face-2",
-  "face-3",
-];
+
+/** A throwaway `Vendor` — the portrait reads four of these fields. */
+function demoVendor(slug: string, avatarSrc?: string): Vendor {
+  return {
+    id: slug,
+    slug,
+    name: slug,
+    bio: "",
+    avatarSrc,
+    avatarPlaceholder: "maker.jpg",
+    bannerPlaceholder: "",
+    location: "",
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    joinedAt: "2026-01-01",
+  } as Vendor;
+}
 
 export function GalleryClient({
   products,
@@ -205,6 +207,7 @@ export function GalleryClient({
   const [chipSelected, setChipSelected] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [galleryImage, setGalleryImage] = useState("");
+  const [character, setCharacter] = useState("");
 
   const heroProduct = products[0];
   const plainProduct = products[2];
@@ -235,40 +238,27 @@ export function GalleryClient({
 
       {/* ---------------------------------------------------------- */}
       {/*
-        Every caricature `MakerPortrait` can draw, in one row.
+        The characters a HomeKrafter can choose, in the picker's own
+        order.
 
-        A drawing is picked by hashing a vendor's slug, so nine of the ten
-        are invisible on any one screen and a broken path renders as an
-        empty disc that nobody would notice — which is exactly what a dev
-        gallery is for. The slugs below are chosen so `makerCaricature`
-        lands on 0…9 in order; the assertion that they do is in
-        `lib/maker-portrait.spec.ts`.
+        They are ordinary committed files (Open Peeps, CC0 — see
+        `scripts/build-chef-avatars.mjs`), so a missing one renders as a
+        broken image nobody would notice on a storefront, which is
+        exactly what a dev gallery is for. The last cell is the
+        placeholder every kitchen shows until it picks one.
       */}
-      <Section id="portraits" eyebrow="00 · Makers" title="MakerPortrait — every caricature">
-        <Group title="The ten drawings">
-          {CARICATURE_SLUGS.map((slug, index) => (
-            <div key={slug} className={styles.portraitCell}>
-              <MakerPortrait
-                vendor={
-                  {
-                    id: slug,
-                    slug,
-                    name: `Face ${index}`,
-                    bio: "",
-                    avatarPlaceholder: "",
-                    bannerPlaceholder: "",
-                    location: "",
-                    rating: 0,
-                    reviewCount: 0,
-                    followerCount: 0,
-                    joinedAt: "2026-01-01",
-                  } as Vendor
-                }
-                size={68}
-              />
-              <span className={styles.portraitIndex}>{index}</span>
+      <Section id="portraits" eyebrow="00 · Makers" title="MakerPortrait — every character">
+        <Group title="The sixteen characters">
+          {CHEF_CHARACTERS.map((character) => (
+            <div key={character.id} className={styles.portraitCell}>
+              <MakerPortrait vendor={demoVendor(character.id, character.src)} size={68} />
+              <span className={styles.portraitIndex}>{character.label}</span>
             </div>
           ))}
+          <div className={styles.portraitCell}>
+            <MakerPortrait vendor={demoVendor("unchosen")} size={68} />
+            <span className={styles.portraitIndex}>Not chosen yet</span>
+          </div>
         </Group>
       </Section>
 
@@ -577,6 +567,13 @@ export function GalleryClient({
         eyebrow="05 · Forms & pickers"
         title="SearchField, SlotPicker, AmountPicker, PriceRange, PhotoUpload, Textarea"
       >
+        {/* The character grid a HomeKrafter picks a stand-in portrait
+            from, on /seller/storefront under the photo upload. */}
+        <Group title="CharacterPicker">
+          <div className={styles.cardSlotWide}>
+            <CharacterPicker value={character} onChange={setCharacter} />
+          </div>
+        </Group>
         <Group title="SearchField">
           <div className={styles.cardSlotWide}>
             <SearchField />

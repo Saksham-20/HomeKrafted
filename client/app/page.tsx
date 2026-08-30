@@ -2,11 +2,15 @@ import Link from "next/link";
 import clsx from "clsx";
 import { PromoBand } from "@/components/ui/PromoBand";
 import { Hero } from "@/components/home/Hero";
+import { Ticker } from "@/components/home/Ticker";
+import { HowItWorks } from "@/components/home/HowItWorks";
+import { SellCta } from "@/components/home/SellCta";
 import { OccasionTile } from "@/components/ui/OccasionTile";
 import { SeasonalBand } from "@/components/home/SeasonalBand";
 import { CategoryTile } from "@/components/ui/CategoryTile";
 import { ScrollRail } from "@/components/ui/ScrollRail";
 import { MakerCard } from "@/components/home/MakerCard";
+import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
 import { QuickEntryRow } from "@/components/home/QuickEntryRow";
@@ -34,13 +38,12 @@ import styles from "./page.module.css";
  * Bandhan in 27 days" at whatever the number was when the build ran, and
  * an hour was well inside the day granularity it works at.
  *
- * A minute, though, because the hero's hamper CTA reads a **runtime
- * feature flag** (M17). A route's `revalidate` caps how fresh it can be,
- * whatever the underlying fetch says — so leaving this at an hour meant
- * flipping the flag opened `/hamper` within a minute while this page
- * carried on saying "coming soon" for up to an hour. That is the exact
- * half-open state the runtime flags exist to prevent, so the interval
- * follows the fastest-moving thing on the page, not the slowest.
+ * A minute, though, because the page reads **runtime feature flags**
+ * (M17). A route's `revalidate` caps how fresh it can be, whatever the
+ * underlying fetch says — so leaving this at an hour meant flipping a
+ * flag opened a destination within a minute while this page carried on
+ * saying "coming soon" for up to an hour. The interval follows the
+ * fastest-moving thing on the page, not the slowest.
  */
 export const revalidate = 60;
 
@@ -56,12 +59,30 @@ function renderPromoTitle(title: string) {
 }
 
 /**
- * Home — full port of the prototype's store-first Home (M2). Hero, shop by
- * occasion, shop by category, "this week's small batches" featured rail,
- * hamper + wallet promo bands, "One home, three crafts" services band
- * (Laundry/Food Delivery/Snacks) and the app-install panel. Replaces the
- * M0 placeholder. Promo band copy is admin-editable (M11b `/admin/collections`)
- * — see `getHomePromoBands`.
+ * Home — rebuilt from scratch in M53.
+ *
+ * **What changed and why.** The M51/M52 page opened on a 50/50
+ * photographic split that asked "food or gifts?" before the page had
+ * said what either was, and then ran a sequence of rails with no
+ * argument between them. It read as a catalogue index for a product
+ * whose entire proposition — *a person made this in their house* — is
+ * the thing a first-time visitor has to be convinced of. This version is
+ * an argument in order: what this is (hero), what is true about it
+ * (ticker), the two catalogues (doors), who is cooking (kitchens), what
+ * to eat and what to send (rails), what arrives (reels), how ordering
+ * from a stranger's kitchen actually works (steps), and the supply-side
+ * pitch that only ever lived in the footer (`<SellCta>`).
+ *
+ * **The order is a claim about attention, not taste.** NN/g's finding
+ * that ~74% of viewing time lands in the first two screenfuls is why the
+ * proposition and the two doors are both above the third, and why the
+ * reels — the only genuinely persuasive asset on the page, four real
+ * clips of real orders — stay high rather than sitting seventh where the
+ * M52 audit found them.
+ *
+ * **Every number on this page is derived from the catalogue it already
+ * fetched.** There is no "200+ home chefs" strip and no invented review
+ * total; the two counts on the doors say exactly what was counted.
  */
 export default async function Home() {
   const [occasions, categories, allProducts, vendors, promoBands, reels, collections, quickEntries] =
@@ -76,17 +97,14 @@ export default async function Home() {
       getSecondaryNav(),
     ]);
 
+  const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+
   /**
-   * The four kitchens behind "Meet the Hands Behind the Flavours", each
-   * with their best-rated listing.
+   * Each kitchen's best-rated listing.
    *
-   * Derived from the products already fetched rather than a per-vendor API
-   * call: four extra round trips to render four cards is not a trade worth
-   * making, and the catalogue is loaded here anyway.
-   *
-   * Kitchens with something listed come first. A vendor with nothing live
-   * still renders — `MakerCard` says so in words — but it should not
-   * displace one that has a bestseller to show.
+   * Derived from the products already fetched rather than a per-vendor
+   * API call: extra round trips to render a rail of cards is not a trade
+   * worth making, and the catalogue is loaded here anyway.
    */
   const bestsellerByVendor = new Map<string, Product>();
   for (const product of allProducts) {
@@ -94,7 +112,13 @@ export default async function Home() {
     if (!held || product.rating > held.rating) bestsellerByVendor.set(product.vendorId, product);
   }
 
-  const makers = vendors
+  // The platform's own vendor (M44: `homekrafted`, the one an admin lists
+  // on behalf of a cook who can't face the form) is not one of "the
+  // people cooking" — a section about people should not seat the company
+  // in one of its slots.
+  const realVendors = vendors.filter((vendor) => vendor.slug !== "homekrafted");
+
+  const makers = realVendors
     .slice()
     .sort((a, b) => {
       const aHas = bestsellerByVendor.has(a.id) ? 1 : 0;
@@ -114,6 +138,21 @@ export default async function Home() {
       return { vendor, bestseller, bestsellerPrice: option?.price };
     });
 
+  /**
+   * The "most loved" rail — the best-rated listings that have actually
+   * been reviewed.
+   *
+   * `reviewCount > 0` is the whole filter and it is doing real work: an
+   * unreviewed listing carries `rating: 0`, so sorting the raw catalogue
+   * by rating would rank every new listing last and a tie of zeros
+   * first, depending which way the sort fell. A rail called "most loved"
+   * has to be listings somebody loved.
+   */
+  const loved = allProducts
+    .filter((product) => product.reviewCount > 0)
+    .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+    .slice(0, 10);
+
   // The seasonal hook (M16). Read once, on the server, and shipped as
   // text — nothing recomputes "today" during hydration, which is the
   // failure CLAUDE.md records from M12. Absent when nothing dated is
@@ -124,15 +163,12 @@ export default async function Home() {
     : undefined;
 
   // The tile grid stays at eight — it is a glance, not an index. The hub
-  // (`/collections`, new in M16) is where every occasion lives, which is
-  // what "All occasions" now actually means.
+  // (`/collections`) is where every occasion lives, which is what "All
+  // occasions" means.
   //
   // Corporate is excluded here, not from the data (M35): the quick-entry
   // strip's "Corporate & bulk" tile is THE corporate entry on this page,
-  // and a second tile four sections apart sent the same buyer to a
-  // different destination (the occasion listing vs the inquiry form).
-  // The occasion itself still exists — /collections lists it, and the
-  // corporate guide hangs off it.
+  // and a second tile sent the same buyer to a different destination.
   const occasionTiles = occasions.filter((o) => o.slug !== "corporate").slice(0, 8);
 
   /**
@@ -140,28 +176,16 @@ export default async function Home() {
    * (M33, owner instruction — artwork for the rest is being produced).
    *
    * A filter on `imageSrc` rather than a hardcoded list of slugs, so the
-   * tiles come back **on their own** the moment art lands: set
-   * `Category.imageSrc` and the category reappears here with no code
-   * change. A slug list would need editing again and would silently
-   * exclude any category added later.
-   *
-   * The rail is not the only way in — every category is still reachable
-   * through "View all" (`/shop`), its own `?category=` listing, and search,
-   * so this hides a tile rather than a part of the catalogue.
-   *
-   * `CategoryTile`'s drawn mark is deliberately kept. It is what the tile
-   * renders wherever a photograph is genuinely missing (the primitives
-   * gallery today, and this rail again the moment a category ships
-   * without art), and it is the reason a missing image degrades to
-   * something deliberate instead of an invisible hatch placeholder.
+   * tiles come back **on their own** the moment art lands. Every category
+   * is still reachable through "View all" (`/shop`), its own `?category=`
+   * listing, and search.
    */
   const photographedCategories = categories.filter((category) => category.imageSrc);
 
   // Organization + WebSite structured data, on the home page only —
   // stating it once site-wide is what the spec expects, and repeating it
   // per route just bloats every document. `SearchAction` is what lets a
-  // search engine offer a Homekrafted search box directly in results; it
-  // points at the real `/search` route added in the same milestone.
+  // search engine offer a Homekrafted search box directly in results.
   const siteJsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -172,7 +196,7 @@ export default async function Home() {
         url: SITE_URL,
         logo: absoluteUrl("/images/site/logo.svg"),
         description:
-          "A marketplace for homemade creations — gifts, foods, snacks and home services from real home kitchens across the Chandigarh tricity.",
+          "A marketplace for homemade creations — food and snacks from real home kitchens delivered across the Chandigarh tricity, and handcrafted gifts posted anywhere in India.",
         areaServed: ["Chandigarh", "Mohali", "Panchkula", "Zirakpur"],
       },
       {
@@ -196,14 +220,19 @@ export default async function Home() {
   return (
     <>
       <script {...jsonLdProps(siteJsonLd)} />
+
       <Hero />
+
+      {/* Full-bleed on purpose — it is a rule under the hero, not a card
+          inside the grid. */}
+      <Ticker />
 
       {/*
         M34 — the ways in that the desktop nav gave up so its search field
         could be typable, plus Snacks on WhatsApp, which was never in the
-        nav at all. Directly under the hero on purpose: this is the
-        "what are you here for" row, and it has to be in the first
-        screenful to do the job the nav links were doing.
+        nav at all. Directly under the hero's two halves: this is the
+        "anything else?" row, and it only makes sense after the page's
+        two main answers.
       */}
       <section className={clsx("container", styles.quickEntry)}>
         <QuickEntryRow items={quickEntries} detail={quickEntryDetail} />
@@ -219,29 +248,89 @@ export default async function Home() {
         </section>
       )}
 
+      {/*
+        M20 put people on the home page for the first time; M53 moved them
+        up to third. The platform's thesis is trusting a stranger's
+        kitchen, so the cook is the most persuasive thing on the page and
+        was rendering below four rails of jars.
+      */}
+      {makers.length > 0 && (
+        <section className={clsx("container", styles.section)}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className={styles.eyebrow}>Real people, real kitchens</span>
+              <h2 className={styles.sectionTitle}>Who is cooking</h2>
+            </div>
+            <Link href="/shop" className={styles.viewAll}>
+              All kitchens →
+            </Link>
+          </div>
+          <div className={clsx(styles.makersGrid, "hk-scroll")}>
+            {makers.map(({ vendor, bestseller, bestsellerPrice }) => (
+              <MakerCard
+                key={vendor.id}
+                vendor={vendor}
+                bestseller={bestseller}
+                bestsellerPrice={bestsellerPrice}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/*
+        M53 — the reels stay in the top third (M52's finding) but sit
+        after the makers now: "here are the people" then "here is what
+        turns up" is an argument, where the reverse was two unrelated
+        rails. Framed as what arrives, not "watch it being made": the
+        clips show tiffins landing, not kadais.
+      */}
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>
-            Thoughtful handcrafted gifts for every occasion
-          </h2>
-          <Link href="/collections" className={styles.viewAll}>
-            All occasions →
+          <div>
+            <span className={styles.eyebrow}>From real orders</span>
+            <h2 className={styles.sectionTitle}>See what arrives</h2>
+          </div>
+          <Link href="/shop" className={styles.viewAll}>
+            Order homemade food →
           </Link>
         </div>
-        <div className={styles.occasionGrid}>
-          {occasionTiles.map((occasion) => (
-            <OccasionTile
-              key={occasion.id}
-              occasion={occasion}
-              href={`/collections/${occasion.slug}`}
-            />
-          ))}
-        </div>
+        <ReelsRailClient reels={reels} vendors={vendors} />
       </section>
+
+      {loved.length > 0 && (
+        <section className={clsx("container", styles.section)}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className={styles.eyebrow}>Reviewed by people who ate it</span>
+              <h2 className={styles.sectionTitle}>Ordered again and again</h2>
+            </div>
+            <Link href="/shop" className={styles.viewAll}>
+              All products →
+            </Link>
+          </div>
+          <ScrollRail label="most loved listings" className={styles.productRail}>
+            {loved.map((product) => (
+              <ProductGridCard
+                key={product.id}
+                product={product}
+                makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
+                href={`/product/${product.slug}`}
+              />
+            ))}
+          </ScrollRail>
+        </section>
+      )}
 
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Shop by category</h2>
+          <div>
+            {/* Every photographed category is food (M33) — the eyebrow
+                says so, rather than promising a category rail for the
+                gifts half that is not there yet. */}
+            <span className={styles.eyebrow}>Homemade food</span>
+            <h2 className={styles.sectionTitle}>What are you in the mood for</h2>
+          </div>
           <Link href="/shop" className={styles.viewAll}>
             All categories →
           </Link>
@@ -259,49 +348,49 @@ export default async function Home() {
         </ScrollRail>
       </section>
 
-      {/*
-        M20: this slot was "This week's small batches", a rail of products.
-        It is now a rail of *people*.
-
-        That is the point of the change rather than a re-skin: the platform's
-        whole thesis is trusting a stranger's kitchen, and the home page
-        never showed a cook. `getFeatured` still exists and still feeds
-        `/shop` — nothing was deleted to make room.
-      */}
-      {makers.length > 0 && (
-        <section className={clsx("container", styles.section)}>
-          <div className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>The hands behind it all</h2>
-            <Link href="/shop" className={styles.viewAll}>
-              All products →
-            </Link>
-          </div>
-          <div className={clsx(styles.makersGrid, "hk-scroll")}>
-            {makers.map(({ vendor, bestseller, bestsellerPrice }) => (
-              <MakerCard
-                key={vendor.id}
-                vendor={vendor}
-                bestseller={bestseller}
-                bestsellerPrice={bestsellerPrice}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-
       <section className={clsx("container", styles.section)}>
         <div className={styles.sectionHead}>
           <div>
-            <span className={styles.reelsEyebrow}>Reels</span>
-            <h2 className={styles.sectionTitle}>Watch it being made</h2>
+            <span className={styles.eyebrow}>Handcrafted gifts</span>
+            <h2 className={styles.sectionTitle}>Someone you owe a present</h2>
           </div>
-          <Link href="/shop" className={styles.viewAll}>
-            Browse the shop →
+          <Link href="/collections" className={styles.viewAll}>
+            All occasions →
           </Link>
         </div>
-        <ReelsRailClient reels={reels} vendors={vendors} />
+        <div className={styles.occasionGrid}>
+          {occasionTiles.map((occasion) => (
+            <OccasionTile
+              key={occasion.id}
+              occasion={occasion}
+              href={`/collections/${occasion.slug}`}
+            />
+          ))}
+        </div>
       </section>
 
+      {/* The objection an unfamiliar visitor arrives with, answered where
+          they have just seen enough to have it.
+
+          It is the one section on its own ground. Everything above it is
+          a rail of things to look at on the page's canvas, and eight of
+          those in a row read as one long list whatever the headings say;
+          this is the section that stops and explains, so the page stops
+          with it. See `.explainerBand`. */}
+      <div className={styles.explainerBand}>
+        <section className={clsx("container", styles.section, styles.explainer)}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className={styles.eyebrow}>Ordering from a home kitchen</span>
+              <h2 className={styles.sectionTitle}>How this works</h2>
+            </div>
+          </div>
+          <HowItWorks />
+        </section>
+      </div>
+
+      {/* Admin-editable copy (M11b `/admin/collections`) — see
+          `getHomePromoBands`. */}
       <section className={clsx("container", styles.section)}>
         <div className={styles.bandsGrid}>
           {promoBands.map((band) => (
@@ -318,15 +407,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/*
-        M35 — "Homemade, Your Way" (M20) is gone, and the app panel is the
-        whole closing section. Each of its four cards re-pitched a
-        destination this page already offers once: bulk and WhatsApp had
-        quick-entry tiles, food had the hero CTA, and the app card
-        rendered directly above the install panel that *is* the app pitch
-        — the same CTA twice, adjacent. One pitch per destination per
-        page; the quick-entry row under the hero is the "ways in" module.
-      */}
+      {/* The supply side. A two-sided marketplace whose home page never
+          addressed the supply half was leaving the harder side of the
+          problem to the footer. */}
+      <section className={clsx("container", styles.section)}>
+        <SellCta />
+      </section>
+
       <section className={clsx("container", styles.section)}>
         <AppInstallPanel />
       </section>

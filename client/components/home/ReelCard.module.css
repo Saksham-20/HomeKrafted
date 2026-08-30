@@ -1,6 +1,9 @@
 .card {
   flex: 0 0 auto;
-  width: 208px;
+  /* Four cards at 256px + three 16px gaps = 1072px — the whole 1092px row,
+     since M52 made these the page's proof rather than its seventh
+     section. 208px below 900, where the rail scrolls anyway. */
+  width: 256px;
   padding: 0;
   border: none;
   background: none;
@@ -42,6 +45,20 @@
   border: none;
 }
 
+/* The preview sits over the still and is invisible until the browser
+   reports `playing` — so a clip that is refused, slow, or never asked
+   for leaves the photograph exactly as it was. Fades rather than cuts;
+   the global reduced-motion floor strips the transition, and under it
+   the card never mounts a video anyway (see `ReelCard`). */
+.video {
+  opacity: 0;
+  transition: opacity var(--hk-dur) var(--hk-ease);
+}
+
+.videoShowing {
+  opacity: 1;
+}
+
 /* The gradient that keeps the white overlay copy legible over any still —
    a scrim, not a surface, so it is an rgba wash rather than a token fill. */
 .scrim {
@@ -70,10 +87,6 @@
      ChannelBadge's gold-dark variant). */
   background: rgba(27, 51, 39, 0.62);
   backdrop-filter: blur(3px);
-}
-
-.moduleChip {
-  left: var(--hk-s3);
 }
 
 .durationChip {
@@ -183,6 +196,12 @@
 
 .dot {
   opacity: 0.7;
+}
+
+@media (max-width: 900px) {
+  .card {
+    width: 208px;
+  }
 }
 
 @media (max-width: 640px) {

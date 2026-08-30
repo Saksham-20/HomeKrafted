@@ -71,7 +71,9 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
            closes the `<p>` early, so the server and client trees differ
            and React throws a hydration error. */
         <div className={styles.pick}>
-          <span className={styles.pickLabel}>Their bestseller</span>
+          {/* Highest-rated, not most-sold — nothing here counts sales, and a
+              "bestseller" with no sales behind it is a claim (M52). */}
+          <span className={styles.pickLabel}>Their top-rated</span>
           <span className={styles.pickRow}>
             <span className={styles.pickThumb}>
               <ImageSlot

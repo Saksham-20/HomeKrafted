@@ -11,7 +11,7 @@ import { join, relative } from "node:path";
  * it; the rows written before that day still hold it, and nothing has
  * cleared the column. `lib/maker-portrait.ts#ownAvatarSrc` is the filter
  * that turns those rows back into "no picture", and `MakerPortrait` is
- * the component that draws a caricature instead.
+ * the component that renders the placeholder instead.
  *
  * The filter only works where it is called. It shipped applied to the
  * home page's maker rail alone, which left the borrowed face rendering on
@@ -40,6 +40,8 @@ const ALLOWED: Record<string, string> = {
     "a HomeKrafter editing their own avatar; the form must show the stored value, stock or not",
   "app/storefront/[vendor]/page.tsx":
     "metadata + JSON-LD, both routed through ownAvatarSrc — asserted separately below",
+  "app/gallery/GalleryClient.tsx":
+    "dev-only, unlinked: it *constructs* throwaway vendors to show every character, and renders them through MakerPortrait like everything else",
 };
 
 function sourceFiles(dir: string): string[] {

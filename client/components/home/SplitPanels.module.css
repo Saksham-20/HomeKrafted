@@ -1,178 +1,440 @@
 /*
- * The landing page's two halves (M51). See `SplitPanels.tsx` for why the
- * split is the hero rather than a pair of buttons under one.
- */
-.split {
-  /* The hero column is `align-items: center`, which shrink-wraps its
-     children — without this the panels get a zero-width row to share and
-     the split renders as nothing at all. */
-  width: 100%;
-  align-self: stretch;
-  display: flex;
-  gap: var(--hk-s4);
-  height: clamp(320px, 46vh, 500px);
+  The two halves. See `SplitPanels.tsx` for what the screen is asking and
+  why the seam is a diagonal; this file is the mechanism.
+
+  `--seam` is the boundary as a percentage of the width and `--skew` is
+  how far it leans. Both panels are clipped against the same two numbers,
+  so there is exactly one thing to animate and the two edges cannot drift
+  apart.
+*/
+@property --seam {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
 }
 
-.panel {
+.split {
   position: relative;
-  display: block;
-  flex: 1 1 0;
-  min-width: 0;
+  display: grid;
+  /* Both panels occupy the same cell and clip themselves out of it. */
+  grid-template-areas: "stage";
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
+  /* Rounded, because the hero insets them from the viewport edge — these
+     are two cards on the canvas, not a wallpaper. */
   border-radius: var(--hk-r-xl);
-  text-decoration: none;
-  box-shadow: var(--hk-shadow-card);
+  isolation: isolate;
+  --seam: 50%;
+  --skew: 3.2%;
+  /* Half the gap between the halves. They are clipped apart rather than
+     butted together, so the canvas shows through the diagonal and the
+     two read as two things you can choose between — not one photograph
+     with a line drawn on it. */
+  --gutter: 0.26%;
   /*
-   * `flex-grow` is a number, so it interpolates — nothing here measures
-   * or writes a width. Slower than `--hk-dur` (0.36s) on purpose: this is
-   * three quarters of the screen moving, and at button speed it snaps.
-   */
-  transition: flex-grow 0.62s var(--hk-ease);
-  /*
-   * The panel is a dark photograph, and the global focus ring is
-   * `--hk-pine` — 1.23:1 on a scrim this deep, i.e. invisible (M34). The
-   * variable inherits, so this one line covers everything inside.
-   */
+    The panel is a dark photograph, and the global focus ring is
+    `--hk-pine` — 1.23:1 on a scrim this deep, i.e. invisible (M34). The
+    variable inherits, so this one line covers everything inside.
+  */
   --hk-focus-ring: var(--hk-gold-bright);
 }
 
+.panel {
+  grid-area: stage;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  color: #fff;
+  isolation: isolate;
+}
+
 /*
- * The expansion itself. Wrapped in `no-preference` deliberately: the
- * global reduced-motion floor strips the *transition*, which would leave
- * the panel jumping from 50% to 72% instantly on hover — worse than a
- * split that simply stays even. Under reduced motion both halves keep
- * their half, and nothing on the page is unreachable because of it.
- */
-@media (prefers-reduced-motion: no-preference) {
-  .split[data-active="food"] .food,
-  .split[data-active="gifts"] .gifts {
-    flex-grow: 2.6; /* 2.6 of 3.6 — about 72% of the row */
+  The panel is an `<a>`, and the global link hover recolours its text —
+  which on the half you are opening turned the title and the CTA to brand
+  gold over a photograph (3.2:1, and the M34 rule says gold never carries
+  words). The panel states its own colours in every state.
+*/
+.panel:hover,
+.panel:focus-visible {
+  color: #fff;
+}
+
+/* The clip. Four points each, in the same order, so the browser can
+   interpolate one polygon into the other. */
+.food {
+  clip-path: polygon(
+    0 0,
+    calc(var(--seam) + var(--skew) - var(--gutter)) 0,
+    calc(var(--seam) - var(--skew) - var(--gutter)) 100%,
+    0 100%
+  );
+}
+
+.gifts {
+  clip-path: polygon(
+    calc(var(--seam) + var(--skew) + var(--gutter)) 0,
+    100% 0,
+    100% 100%,
+    calc(var(--seam) - var(--skew) + var(--gutter)) 100%
+  );
+}
+
+/*
+  The expansion. Wrapped in `no-preference` deliberately: the global
+  reduced-motion floor strips the *transition*, which would leave the
+  panel jumping from half the screen to three quarters instantly on
+  hover — worse than a split that simply stays even. Under reduced motion
+  both halves keep their half and nothing is unreachable because of it.
+
+  `(hover: hover)` as well: a thumb has nothing to hover with, and on a
+  touch screen the halves are stacked anyway.
+*/
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .split {
+    transition: --seam 0.62s var(--hk-ease);
+  }
+
+  .food,
+  .gifts {
+    /* `clip-path` alongside `--seam` for browsers that have the animation
+       but not registered custom properties: there the polygon itself
+       interpolates. */
+    transition: clip-path 0.62s var(--hk-ease);
+  }
+
+  .split[data-active="food"] {
+    --seam: 74%;
+  }
+
+  .split[data-active="gifts"] {
+    --seam: 26%;
   }
 }
 
+/* ---- photograph ---- */
+
 .photo {
   position: absolute;
-  inset: 0;
   border-radius: 0;
   box-shadow: none;
+  z-index: -2;
+  /*
+    `ImageSlot` sets `aspect-ratio` **inline** (it is the one genuinely
+    dynamic value it has) and its own class sets `width: 100%`. Both have
+    to go here or the four insets below cannot size the box: with a width
+    and a ratio the element ignores `right` and `bottom`, which is what
+    made a 700×790 slice lay out as a 1376×1720 photograph showing its
+    top-left corner at 3× zoom. `!important` beats the inline style; it
+    is the narrowest way to say "the insets decide".
+  */
+  aspect-ratio: auto !important;
+  width: auto;
+  height: auto;
 }
 
 /*
- * The scrim. Two stops rather than a flat wash so the top of the
- * photograph stays a photograph: everything readable sits in the bottom
- * half, where the gradient is deep enough to carry white text (measured
- * against #1B3327 at 0.86 — 13.6:1 for the title, 8.9:1 for the blurb).
- */
+  Each photograph is sized to its **own slice**, not to the whole stage.
+
+  The panels are full-width elements that clip themselves, so a photo at
+  `inset: 0` is laid out across the entire screen and the panel shows a
+  vertical strip of it — which is how a picture of a whole table ended up
+  rendering as one blurred pot at 3× zoom. Bounding the wrapper to the
+  slice means `object-fit: cover` crops within the half, the way it would
+  in any card.
+*/
+.food .photo {
+  inset: 0 calc(100% - var(--seam) - var(--skew)) 0 0;
+}
+
+.gifts .photo {
+  inset: 0 0 0 calc(var(--seam) - var(--skew));
+}
+
+/*
+  A counter-move on the photograph, not on the panel. The clip changes
+  what you see of a frame that never resizes, so the picture cannot
+  stretch; this slow push-in is what makes the opening half feel like it
+  is coming towards you rather than a window widening over a still.
+*/
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .photo {
+    transition: transform 0.9s var(--hk-ease), filter 0.62s var(--hk-ease);
+  }
+
+  .panel[data-state="open"] .photo {
+    transform: scale(1.06);
+  }
+
+  /* The half you are not going to reads as the background it has become
+     — desaturated and a stop darker, so the two never compete. */
+  .panel[data-state="shut"] .photo {
+    filter: saturate(0.55) brightness(0.82);
+  }
+}
+
+/*
+  The scrim. Two stops rather than a flat wash so the top of the
+  photograph stays a photograph: everything readable sits in the bottom
+  half, where the gradient is deep enough to carry white text (measured
+  against #1B3327 at 0.88 — 13.6:1 for the title, 8.9:1 for the blurb).
+*/
 .panel::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1;
   background: linear-gradient(
     180deg,
-    rgba(27, 51, 39, 0.12) 0%,
+    rgba(27, 51, 39, 0.14) 0%,
     rgba(27, 51, 39, 0.55) 52%,
-    rgba(27, 51, 39, 0.88) 100%
+    rgba(27, 51, 39, 0.9) 100%
   );
 }
 
-.body {
+/* ---- the edge rail ---- */
+
+/*
+  A rotated index and label pinned to the panel's outer edge — the detail
+  that stops this reading as a stock two-column template. It sits on the
+  outside so the diagonal never crosses it, and it is `aria-hidden`: the
+  panel's real heading says the same word one node down.
+*/
+.rail {
   position: absolute;
-  inset: auto 0 0 0;
-  z-index: 1;
+  top: clamp(var(--hk-s5), 4vh, 44px);
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+  /* The rail sits at the top of the frame, above the scrim's deep end,
+     so it is over whatever the photograph is doing. A shadow rather than
+     a plate: a chip up here would read as a second badge competing with
+     the panel's own eyebrow. */
+  text-shadow: 0 1px 6px rgba(27, 51, 39, 0.85);
+  writing-mode: vertical-rl;
+}
+
+.food .rail {
+  left: clamp(var(--hk-s4), 2.4vw, 30px);
+}
+
+.gifts .rail {
+  right: clamp(var(--hk-s4), 2.4vw, 30px);
+  transform: rotate(180deg);
+}
+
+.index {
+  font-size: 12px;
+  color: var(--hk-gold-bright);
+}
+
+.railLine {
+  width: 1px;
+  height: 46px;
+  background: linear-gradient(
+    to bottom,
+    var(--hk-gold-bright),
+    rgba(228, 200, 116, 0)
+  );
+}
+
+/* ---- copy ---- */
+
+.body {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--hk-s2);
-  padding: var(--hk-s5);
+  gap: var(--hk-s3);
+  /*
+    The column is the slice, computed from the same `--seam` the clip
+    uses — so the copy can never cross the diagonal, and it widens and
+    narrows with the panel instead of being a guess at how much room the
+    half has. The copy sits at the bottom, so the arithmetic is the
+    seam's *bottom* edge: `--seam - --skew`.
+  */
+  width: calc(var(--seam) - var(--skew));
+  padding: clamp(var(--hk-s5), 4vh, 48px) clamp(var(--hk-s5), 3.4vw, 52px);
+}
+
+.gifts .body {
+  width: calc(100% - var(--seam) + var(--skew));
+  margin-left: auto;
+  align-items: flex-end;
+  text-align: right;
 }
 
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: var(--hk-r-pill);
+  background: rgba(27, 51, 39, 0.42);
   font-family: var(--hk-font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.18em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--hk-gold-bright);
 }
 
 .icon {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2;
+  width: 14px;
+  height: 14px;
 }
 
 .title {
   font-family: var(--hk-font-display);
-  font-size: clamp(26px, 3.2vw, 40px);
   font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.01em;
-  color: #ffffff;
+  font-size: clamp(26px, 3.4vw, 46px);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .blurb {
-  font-size: 14.5px;
-  line-height: 1.5;
-  color: var(--hk-on-pine);
-  max-width: 42ch;
+  font: var(--hk-body);
+  color: #e4ebe4;
 }
+
+/* ---- the call to action ---- */
 
 .cta {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--hk-s3);
   margin-top: var(--hk-s2);
-  border-radius: var(--hk-r-pill);
-  background: #ffffff;
-  color: var(--hk-pine);
-  padding: 9px 18px;
-  font-size: 13.5px;
+  font-family: var(--hk-font-body);
   font-weight: 600;
-  min-height: 40px;
+  font-size: 15px;
+}
+
+.gifts .cta {
+  flex-direction: row-reverse;
+}
+
+/* The disc is drawn, not filled: an outlined ring that fills gold as the
+   half opens. It is the one place the two panels differ from a card. */
+.ctaDisc {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  transition: background-color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease);
 }
 
 .ctaIcon {
-  width: 16px;
-  height: 16px;
-  stroke-width: 2.4;
+  width: 17px;
+  height: 17px;
 }
 
-.panel:hover .cta {
+.gifts .ctaIcon {
+  transform: scaleX(-1);
+}
+
+.panel[data-state="open"] .ctaDisc {
   background: var(--hk-gold-bright);
+  border-color: var(--hk-gold-bright);
+  /* Ink on gold-bright is 9.6:1. */
+  color: var(--hk-ink);
 }
 
 /*
- * 780, the shell rail (M29). Stacked, and the height is the pair's — the
- * halves still share one column so `flex-grow` still means what it means,
- * which is what lets the scroll-driven expansion work on a phone.
- */
-@media (max-width: 780px) {
+  What the shut half gives up. Its blurb and its label go, because the
+  column it has left cannot carry them without wrapping into a ribbon;
+  the title, the disc and the edge rail stay, so the half is still an
+  offer rather than a photograph.
+*/
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .blurb,
+  .eyebrow,
+  .title {
+    transition: opacity 0.42s var(--hk-ease), transform 0.42s var(--hk-ease),
+      font-size 0.62s var(--hk-ease);
+  }
+
+  .panel[data-state="shut"] .blurb,
+  .panel[data-state="shut"] .eyebrow {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  /* The title stays — a shut half is still an offer — but at the size
+     its quarter of the screen can hold on one or two lines. */
+  .panel[data-state="shut"] .title {
+    font-size: clamp(19px, 2.1vw, 28px);
+  }
+}
+
+/* ---- stacked ---- */
+
+@media (max-width: 900px) {
   .split {
-    flex-direction: column;
-    height: clamp(460px, 78vh, 680px);
+    /* Two cards with room to be read, rather than two 300px letterboxes:
+       the hero stops being one screen here on purpose (see `Hero`). */
+    min-height: 640px;
+    grid-template-areas: "food" "gifts";
+    grid-template-rows: 1fr 1fr;
+    gap: var(--hk-s3);
+    border-radius: var(--hk-r-lg);
+    overflow: visible;
+    /* Rounded again once they are two cards inside the page's gutter. */
   }
 
-  .body {
-    padding: var(--hk-s4);
+  /* Stacked, the diagonal becomes a straight edge on each card — a
+     clipped corner at this size just eats the copy. */
+  .food,
+  .gifts {
+    grid-area: food;
+    clip-path: none;
+    border-radius: var(--hk-r-lg);
   }
 
-  .blurb {
-    font-size: 13.5px;
+  .gifts {
+    grid-area: gifts;
   }
-}
 
-/*
- * Gentler on a phone. At 2.6 the closed half is ~170px tall, which is
- * shorter than its own body (title, two lines, a 40px button) — the
- * eyebrow clips off the top of a panel somebody is about to scroll to.
- * Two thirds/one third keeps both halves readable while still saying
- * plainly which one you are heading for.
- */
-@media (max-width: 780px) and (prefers-reduced-motion: no-preference) {
-  .split[data-active="food"] .food,
-  .split[data-active="gifts"] .gifts {
-    flex-grow: 2;
+  .rail {
+    display: none;
+  }
+
+  /* The seam arithmetic is a desktop-only idea — stacked, each card is
+     the full width, the copy is simply inside it, and the photograph
+     fills the card rather than a slice of it. */
+  .body,
+  .gifts .body {
+    width: 100%;
+    padding: var(--hk-s5);
+  }
+
+  .food .photo,
+  .gifts .photo {
+    inset: 0;
+  }
+
+  .title {
+    font-size: clamp(24px, 6.4vw, 32px);
+  }
+
+  .gifts .body {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .gifts .cta {
+    flex-direction: row;
+  }
+
+  .gifts .ctaIcon {
+    transform: none;
   }
 }

@@ -143,6 +143,29 @@ Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
 seeded demo kitchen's name and storefront link, because the portal
 resolved the seller record from mock data.
 
+### Picking a character for the storefront
+
+`/seller/storefront` has a **shop photo** upload and, under it, a grid of
+sixteen drawn characters — turban and beard, hijab, grey bun, grey
+moustache, and so on. Pick one and it becomes the round picture buyers
+see next to the kitchen's name, everywhere: the home page maker rail,
+`/shop`'s kitchen cards, search results, the storefront header. Save,
+then open the live storefront from the link at the top of the page to
+check.
+
+Three things worth testing:
+
+- **A photo beats a character.** Upload one and it replaces the
+  character; the picker keeps showing which character was chosen, and
+  "Use no picture" clears both.
+- **A kitchen that has picked neither shows a labelled placeholder**, not
+  a face. That is deliberate as of 2026-08-29 — an assigned drawing was
+  a portrait nobody had chosen. Most seeded kitchens are in that state,
+  so the home rail will show placeholders until somebody picks.
+- **Keyboard**: the grid is a radio group, so arrow keys move between
+  characters and Space selects. A screen reader should say "Turban and
+  beard, 1 of 16".
+
 ### A brand-new HomeKrafter
 
 The demo accounts above are seeded *with* passwords. A kitchen that comes
@@ -1139,16 +1162,42 @@ card the shop grid uses, at the width it gets there. Nothing in the
 preview is clickable, on purpose. It is worth opening on a listing with no
 photograph — that is the case the 48px thumbnail hides.
 
-### Reels from Instagram (M50)
+### The landing page (M52)
 
-The first card in the home page's **"Watch it being made"** rail is an
-Instagram reel. It has a pine tile rather than a photo (we do not
-re-host Instagram's frames), an "Instagram" chip and the creator's handle
-rather than ours. Open it: Instagram's own player loads inside the viewer
-and plays on press, with a "Watch on Instagram" link out. It carries no
-like/view counts of ours — those are inside the embed and are Instagram's
-own. A blocked-tracker browser extension can stop the embed loading;
-that is worth reporting with the extension named.
+- The first screen is the whole opening set — small line, the big
+  lockup, the slogan, both photo panels, the four-point strip — with
+  **nothing above it**: on the home page the header is only the three
+  profile icons floating top-right. **Scroll down** and a white bar
+  slides in with the three tabs centred. Search and the wallet chip are
+  not on the home page at all (they are on every other page, and in the
+  phone menu).
+- **Hover a panel** (mouse/trackpad): the lockup and slogan fold away and
+  the panel grows to fill the screen; move off and they come back. Not
+  on a phone, and not with *Reduce motion* on — both are correct.
+- The pieces rise in one after another on load; with *Reduce motion* on
+  they simply appear.
+
+### Reels — real clips (M52)
+
+The four cards in the home page's **"See what arrives"** rail are real
+footage: an office skit ("Nahi sir, pehle khana ho jaye"), a
+sofa testimonial ("Lunch ho ya dinner"), "PG ka khana kha-kha ke bore?",
+and @eatwith_aditi's biryani clip (credited to her handle, not ours).
+
+- **Desktop:** hover a card, or tab to it — a silent eight-second preview
+  fades in over the still; move off and the still comes back. Nothing
+  plays until you do that.
+- **Phone:** the card that is mostly on screen plays its silent preview
+  on its own; scroll it away and it stops. With the OS's *Reduce motion*
+  or the browser's *Data saver* on, nothing moves at all — that is
+  correct, report it only if a preview plays anyway.
+- **Open one:** the full clip plays, **sound off**, with a "Tap for
+  sound" pill top-right. Tap the picture to pause (a play badge appears)
+  and again to resume; a thin gold line along the foot shows progress.
+  ← / → and the arrows move between reels; Escape closes; Tab stays
+  inside.
+- The rail is the **second thing on the page** after the split, under
+  "From real orders · See what arrives". There are exactly four cards.
 
 ---
 

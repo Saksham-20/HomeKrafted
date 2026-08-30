@@ -168,6 +168,68 @@ because what is persisted is the URL the driver returned, not a
 driver-specific key. An unrecognised `STORAGE_DRIVER` fails at boot rather
 than silently falling back to local disk.
 
+## Reel footage (M52)
+
+The home page's reels are real clips, committed under
+`client/public/videos/reels/` and served by Next from `public/` — same
+origin, byte-range requests answered (`206`), and a week of
+`Cache-Control` added by `next.config.ts#headers`. The files are **not**
+content-hashed, so a re-shot clip keeps its filename and is stale for at
+most that week. ~33 MB in the clone for the first four; budget for it in
+git, not in nginx.
+
+**Two renditions per clip, plus a still.** `videoSrc` is what the viewer
+plays with sound; `previewSrc` is the eight-second silent cut the rail
+card plays under the pointer; `posterSrc` under
+`client/public/images/reels/` is a frame of the clip itself, and it goes
+through `next/image` on the card. The recipe, from the clone root:
+
+```bash
+# Full rendition. Re-encode ONLY when the source is not already H.264
+# (an iPhone shoots HEVC, which Chrome and Firefox on most desktops
+# cannot play). `-map_metadata -1` is the privacy control: a phone clip
+# carries the GPS of the kitchen it was shot in, same as the M25 photo
+# pipeline one directory over.
+ffmpeg -i IN.MP4 -vf "scale=720:-2:flags=lanczos:out_range=tv,format=yuv420p" -r 30 \
+  -c:v libx264 -profile:v high -level 4.0 -preset slow -crf 24 -maxrate 2000k -bufsize 4000k \
+  -c:a aac -b:a 96k -ac 2 -movflags +faststart -map_metadata -1 -map_chapters -1 \
+  client/public/videos/reels/<slug>.mp4
+
+# A source that is already H.264 is REMUXED, never re-encoded: CRF on a
+# 0.9 Mbps phone clip inflates it (measured 7.7 MB → 12.9 MB) and loses
+# a generation for nothing.
+ffmpeg -i IN.mp4 -c copy -movflags +faststart -map_metadata -1 -map_chapters -1 \
+  client/public/videos/reels/<slug>.mp4
+
+# Rail preview: first 8 s, 360 px wide, no audio track, ~300 KB.
+ffmpeg -t 8 -i IN.mp4 -vf "scale=360:-2:flags=lanczos:out_range=tv,format=yuv420p" -r 30 -an \
+  -c:v libx264 -profile:v main -level 3.1 -preset slow -crf 29 \
+  -movflags +faststart -map_metadata -1 -map_chapters -1 \
+  client/public/videos/reels/<slug>.preview.mp4
+
+# Poster: one real frame, 720 wide.
+ffmpeg -ss <seconds> -i IN.mp4 -frames:v 1 -vf "scale=720:-2" -q:v 3 \
+  client/public/images/reels/<slug>.jpg
+```
+
+Then one entry in `client/lib/data/reels.ts`. Check the result with
+`ffprobe -show_entries format_tags <file>` — nothing but the container
+brand and the encoder should print.
+
+**Optional, once traffic justifies it:** nginx can serve the clips
+straight from disk instead of proxying them through Node, which on the
+box's one vCPU is the cheaper read path for a 10 MB file:
+
+```nginx
+location /videos/ {
+    alias /path/to/clone/client/public/videos/;
+    add_header Cache-Control "public, max-age=604800, stale-while-revalidate=86400";
+    sendfile on; tcp_nopush on;
+}
+```
+
+The URL does not change, so nothing in the app notices either way.
+
 ## Env files — the one thing not in git
 
 `.gitignore` excludes `.env*`, so these two live only on the box and survive

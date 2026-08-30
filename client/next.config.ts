@@ -31,6 +31,26 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
 
+  /**
+   * Reel footage lives under `public/videos/` (M52). Next serves `public/`
+   * with `Cache-Control: public, max-age=0` — every visit revalidates a
+   * multi-megabyte MP4 — so the rail's previews are given a week. Not
+   * `immutable`: the filenames are not content-hashed, so a re-shot clip
+   * under the same name has to be able to replace itself, and a week is
+   * the ceiling on how stale it can be. Byte-range requests pass through
+   * untouched; this only adds the cache header.
+   */
+  async headers() {
+    return [
+      {
+        source: "/videos/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" },
+        ],
+      },
+    ];
+  },
+
   async rewrites() {
     if (process.env.NODE_ENV === "production") return [];
     return [{ source: "/uploads/:path*", destination: `${API_ORIGIN}/uploads/:path*` }];

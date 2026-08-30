@@ -3,6 +3,277 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M54] — a kitchen chooses its own face, and the reels play — 2026-08-29
+
+### HomeKrafters pick a character; the assigned caricature is retired
+
+`/seller/storefront` now offers **sixteen characters** under the photo
+upload (`components/seller/CharacterPicker`,
+`lib/avatars/chef-characters.ts`). M38b's ten line-art faces were
+*assigned* by hashing the slug, so a kitchen that had never opened the
+portal still had a portrait nobody chose; with a real choice available
+that is an invention on a page whose claim is that a real person made
+this, and it hid the gap from the only people who can close it. A
+kitchen with neither a photo nor a character shows the labelled hatch
+placeholder.
+
+- **Open Peeps by Pablo Stanley, CC0 1.0** — public domain, no
+  attribution owed. Composed through DiceBear (code MIT) by
+  `client/scripts/build-chef-avatars.mjs` with every parameter named, and
+  **committed**: nothing talks to dicebear.com at build or request time,
+  and `images.remotePatterns` stays empty.
+- **Stored in `avatarSrc` like an upload**, as `.webp` — so no column, no
+  mapper change, and the storefront's OpenGraph card and `LocalBusiness`
+  JSON-LD keep working (both point at that string, and neither can take
+  an SVG; `next/image` refuses SVG without `dangerouslyAllowSVG`).
+- **The head coverings and the grey hair are not at the bottom of the
+  grid.** Labels describe the drawing — "Turban and beard" — and name no
+  community on anybody's behalf. Skin tones and ages are spread across
+  the cast rather than left to a seed, which is what the first contact
+  sheet came back as: sixteen variations of one person in sunglasses.
+- Radio-group semantics, so arrow keys move between characters and a
+  screen reader announces "3 of 16". `/gallery#forms` renders the picker
+  and `#portraits` the whole cast plus the placeholder.
+- `vendor-avatar.spec.ts` gains a fourth allowlist entry (the gallery
+  constructs fixture vendors); `maker-portrait.spec.ts` now pins the
+  guard and the cast instead of the retired hash.
+
+### The reel rail autoplays
+
+Previews play **in view on every device** — a 0.75 observer, with hover
+and focus as a second immediate trigger where a pointer exists and no
+leave handler (the observer owns stopping; pausing on pointer-leave
+blanked the rail as the mouse moved). This reverses M52's "two triggers,
+never both", and what that rule protected is now stated as a budget:
+`previewBudget()` allows **four** on a pointer device 900px and up, one
+on a phone. A card outside the budget is never handed a `src` — the real
+M50 defect was unbudgeted fetching, not the observer — and eviction is by
+live distance from the viewport centre, since the whole rail crosses the
+threshold in one frame. `prefers-reduced-motion` and Save-Data still keep
+the poster.
+
+### Hero and page polish
+
+- **The lockup glow moved onto the `<hgroup>`.** A 520px plate spanning
+  the stage read as fog over both photographs; sized to the heading box
+  it tracks what it lights at every breakpoint, with an eight-stop
+  falloff (three stops put the whole fade into a few dozen pixels, which
+  is what made it a disc) and a mask that ends before the paint so the
+  backdrop blur never draws its own rim. The mark and slogan carry a
+  short white `drop-shadow` halo — light behind the mark, not a change to
+  it. The mark grew to `clamp(64px, 9.4vw, 140px)`.
+- **The comp's eyebrow and heart are gone** — a mono line naming the
+  three cities, set over the seam so it had to be read against either
+  photograph. The cities are in the food half's copy and in the footer.
+- **The landing header is `--hk-surface` once revealed, not a wash.** At
+  0.86 a 36px display heading scrolling under the bar read straight
+  across the nav; 0.96 only made the ghost fainter.
+- **"How this works" sits on its own full-bleed band.** Eight rails on
+  one canvas read as a single long list; the section that stops and
+  explains now stops the page with it.
+
+## [M53] — the landing page, rebuilt around the split — 2026-08-29
+
+The home page was researched against the market (marketplace and food-brand
+landing patterns, 2026 editorial-type trends, and the Indian home-food
+incumbents) and rebuilt. The split hero stays — it is the one thing on the
+page nobody else does — and everything under it became an argument in
+order instead of a stack of rails.
+
+### The hero: two halves, a diagonal seam, and the lockup between them
+
+The two panels are inset from the viewport edge and split by a diagonal
+gutter, so they read as two cards on the canvas. Both photographs are
+licensed portrait stock (Pexels 8148149 and 7817374 — free for commercial
+use, no attribution), downscaled and re-saved through a fresh buffer,
+which is what drops the camera metadata. They are placeholders for owner
+photography of a real kitchen and a real hamper.
+
+- **The brand lockup is centred over the seam, high in the frame**, on a
+  cream plate that keeps the mark in its own green and gold, and it steps
+  aside the moment you lean toward a half. It is `position: absolute` over the
+  split with `pointer-events: none`, so hovering through it opens the
+  panel underneath rather than parking you in a dead zone, and it fades
+  on `.stage:has([data-active="…"])` — the split's own attribute, so "a
+  half is open" has one source of truth and no second piece of state.
+- **The expansion is `clip-path` against a registered `--seam`, not
+  `flex-grow`.** A growing flex item re-lays-out its own contents every
+  frame, which is why the copy crept as the M51/M52 split moved. Clipping
+  changes what you see of a frame that never resizes: the photographs
+  cannot stretch, and a slow counter-scale on the open half's picture
+  reads as the panel coming toward you.
+- **The seam is a diagonal.** A vertical rule between two photographs is
+  the template version of this layout.
+- **Nothing opens while the pointer is in the middle third.** Hover is
+  read on the container against a `LEAN` threshold, not per panel: the
+  earlier version opened a half the moment the pointer crossed the centre
+  line on its way to the header, taking the lockup with it.
+- **Each photograph is bounded to its own slice.** The panels are
+  full-width elements that clip themselves, so a photo at `inset: 0` laid
+  out across the whole screen and the panel showed a vertical strip of it
+  — a picture of a whole table rendering as one blurred pot at 3× zoom.
+  `.photo` also has to beat `ImageSlot`'s inline `aspect-ratio` and its
+  `width: 100%`, or the insets cannot size the box.
+- **The copy column is `calc(var(--seam) - var(--skew))`** — computed
+  from the same number the clip uses, so text can never cross the
+  diagonal and the column widens with the half. A shut half keeps its
+  title, its CTA disc and a rotated edge rail, and drops its blurb.
+- **The panel states its own colour on hover**: the global link-hover
+  recolour was turning the opening half's title and CTA to brand gold
+  over a photograph (3.2:1).
+- Copy is unchanged from the owner's comp — eyebrow and heart, the
+  decorated "From home to the world", the four-point promise strip.
+
+### The landing header keeps its nav
+
+The tabs are visible from the first paint on `/` instead of fading in
+once the hero's brand block scrolls past — the one page a first-time
+visitor lands on had no navigation at all above the fold. The
+`IntersectionObserver` still runs; what it changes is the wash behind the
+bar. The bar floats over the canvas rather than over a photograph, since
+the hero insets its panels, so no control in it needs on-dark ink.
+
+### Under the hero
+
+Ticker → quick entries → who is cooking → what arrives → most loved →
+categories → occasions → how this works → promo bands → sell with us →
+app.
+
+- **The makers moved up to third.** The platform's thesis is trusting a
+  stranger's kitchen and the cook was rendering below four rails of jars;
+  the reels follow them, so "here are the people" leads into "here is
+  what turns up".
+- **New: a ticker of what the platform actually is** (every phrase a rule
+  the product enforces), a **most-loved rail** filtered on
+  `reviewCount > 0` — an unreviewed listing carries `rating: 0`, so
+  sorting the raw catalogue ranks new listings last and a tie of zeros
+  first — a **three-step "how this works"** written from the delivery
+  filter, the cook-after-you-order rule and the two buyer windows, and a
+  **supply-side band**, which until now existed only in the footer.
+- Section titles went from a flat 27px to `clamp(25px, 2.9vw, 40px)` with
+  an eyebrow above each, and section rhythm from 34px to
+  `clamp(34px, 6vw, 84px)`.
+- Nothing on the page claims a number it cannot derive from the catalogue
+  it already fetched, and `SellCta` promises neither zero commission
+  (`commissionEnabled` is off) nor an approval time.
+
+### Checks
+
+`npm run lint`, `npx tsc --noEmit` and `npm run build` clean; axe
+(wcag2a/2aa/21a/21aa) reports **0 violations** on `/` at 1440×900 and
+390×844 — the one it found was the decorative step numeral at
+`--hk-gold-border` (1.54:1 on white), now `--hk-gold-text-sm`.
+
+## [M52] — real reels, and the landing page measured — 2026-08-27
+
+Four owner-supplied clips replace the reels rail's sample data, the brand
+lockup becomes the landing page's `<h1>`, and a research-and-audit pass
+over the landing page (four evidence lenses, two audits — NN/g, Baymard,
+web.dev, and eleven incumbent sites; measurements at four viewports)
+turned into the set of changes below.
+
+### Reels are real footage
+
+`public/videos/reels/` holds the four clips — an office skit, a sofa
+testimonial, "PG ka khana kha-kha ke bore?", and @eatwith_aditi's biryani
+clip, which was the same reel the M50 Instagram embed pointed at. The
+embed entry is gone; `lib/instagram.ts` stays as the route for a reel we
+cannot host.
+
+- **Two renditions and a still per clip.** `videoSrc` (H.264, ≤720px,
+  faststart) for the viewer; `previewSrc` (8 s, 360px, silent, ~300 KB)
+  for the rail card; a real frame as `posterSrc`. Every byte of camera
+  metadata stripped — a phone clip carries the GPS of the kitchen it was
+  shot in. Sources already in H.264 were **remuxed**, not re-encoded:
+  CRF on a 0.9 Mbps phone clip inflated it from 7.7 to 12.9 MB. Recipe in
+  `docs/DEPLOY.md` § Reel footage; ~33 MB in the clone.
+- **The card is the poster; the video is a courtesy.** The still is
+  `next/image` at 16 KB; the `<video>` is `preload="none"` with **no
+  `src` until the first play** (Safari has probed media with
+  `Range: bytes=0-1` whatever `preload` says). It plays under the pointer
+  and on focus where a pointer exists, and by a 75%-in-view observer on
+  touch — one card at a time, never both triggers, never under
+  `prefers-reduced-motion` or Save-Data (`lib/network.ts`). Page-load
+  cost of the rail: zero video bytes. M50's card set `preload="metadata"`
+  on the full clip for every card on every device.
+- **The viewer got a progress line, tap-to-pause and a "Tap for sound"
+  pill** — a 64-second reel with no sense of where it is reads as broken,
+  and these clips are people talking, so a crossed speaker at 16px was
+  not enough of a hint.
+- **`/videos/` gets a week of `Cache-Control`** (`next.config.ts`) and
+  answers Range requests (`206`) through Next. Not `immutable`: the names
+  are not content-hashed.
+- **The five M2-era seed reels are deleted.** Poster-only, "clip coming
+  soon", with invented like/view counts — beside a real clip printing no
+  count, the invented numbers were the louder ones.
+
+### The opening screen is one viewport (owner, second pass)
+
+- **The landing header is a different object.** On `/`: no logo, no
+  search, no wallet — only the profile icons, floating over the hero in a
+  fixed, transparent bar. Scroll past the brand block (an
+  `IntersectionObserver` on `#hk-hero-brand`) and it turns into a bar —
+  white wash, blur, hairline — with the three tabs fading in, **centred**.
+  Every other route keeps the ordinary static row, so
+  `header-capacity.spec.ts` now measures `/shop`. `scroll-padding-top`
+  keeps a focused control out from under it.
+- **The hero is a `100dvh` grid** — brand block, panels, promise strip —
+  and the lockup is ~2× (up to 200px tall) with the slogan stepped down
+  to a subtitle. Verified one-screen at 1366×720, 1478×767, 1280×800,
+  1440×900, 1920×1080.
+- **Hovering a panel folds the brand block away** and the panel takes the
+  screen: `:has([data-active])` drives an animated `grid-template-rows`
+  (length → `0px`), pointer devices and `no-preference` only.
+- Entrance: eyebrow, lockup, slogan, strip rise in over ~0.9s, inside
+  `no-preference` (the reduced-motion floor keeps delays, so a `backwards`
+  fill would hold the hero invisible).
+
+### The landing page, measured
+
+- **The lockup is the `<h1>` and the header shows no logo on `/`.**
+  `<hgroup>` around the mark and the slogan (a `<p>`); alt "Homekrafted";
+  axe clean. Every other route keeps the compact mark as the way home.
+- **The reels rail moved from seventh section to second screenful**,
+  reframed as proof — "From real orders · See what arrives" — with the
+  internal "MARKETPLACE" chip removed and cards at 256px so four fill the
+  1092px row. Measured before: 2.2 screens down on desktop, 3.7 on a
+  phone; no incumbent food or gifting site carries landing-page video.
+- **On a phone the split stays level.** M51's scroll-driven expansion
+  opened the food half at load (gifts panel top at y=790 of 844) and was
+  the page's entire CLS (0.067). Removed; the stacked height dropped to
+  `clamp(420px, 60vh, 560px)`; the brand block shrinks below 560px. Both
+  panels' titles and CTAs now sit inside an 844px first screen.
+- Smaller honesty fixes from the audit: "Their bestseller" → "Their
+  top-rated" (nothing counts sales); the platform's own vendor no longer
+  takes one of the four "hands behind it all" slots; "Shop by category" →
+  "Homemade food by category" (every photographed category is food); the
+  promise strip no longer wraps a label to three lines and under a
+  1280×800 fold; the Organization JSON-LD no longer advertises "home
+  services" (withdrawn M19); the food panel's crop anchors to the thali
+  rather than the kraft box; `KitchenCard`'s name is an `h2` under
+  `/shop`'s `h1` (axe `heading-order`, pre-existing from M51).
+
+### Left on the table (backlog, from the same audit)
+
+The two promo bands re-pitch two quick-entry tiles (hampers ×4, meal
+plans ×3 on one page) and cost 706px on a phone; the eyebrow omits
+Zirakpur while the promise strip says "anywhere in India" in the same
+screen; nothing on the page says how ordering works; the page ends on a
+placeholder QR; the landing header on `/` has ~320px of dead space where
+a "Deliver to ‹area›" control could live; and `/videos/` would be cheaper
+served by nginx than proxied through Node (snippet in `docs/DEPLOY.md`).
+
+### Tests
+
+`client`: 278 unit tests pass; `tsc` and `eslint` clean; production
+build passes. e2e `a11y`, `header-capacity`, `focus-traps` and
+`presentation` against that build on :3100: **125 passed, 0 failed**.
+Against the dev server the same suites show seven dev-only failures —
+Next's Dev Tools button and its "Console ApiError" overlay steal `:focus`
+and match `[role="dialog"]` — so run them against a build. The local e2e "shopper" account had been promoted to a sub-admin
+during M47 testing — run with `E2E_CONSUMER_EMAIL` pointed at another
+seeded consumer (memory note).
+
 ## [M51] — the food page lists cooks, and the landing page asks one question — 2026-08-26
 
 Two client asks, and the first is a change of browse model rather than a

@@ -1,0 +1,126 @@
+.wrap {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--hk-s4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--hk-border);
+}
+
+.legend {
+  padding: 0;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--hk-ink);
+}
+
+.lead {
+  margin: 6px 0 var(--hk-s4);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hk-ink-3);
+  /* The measure a sentence wants, not the width of a sixteen-cell grid. */
+  max-width: 52ch;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--hk-s3);
+}
+
+.cell {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  /* The wash the characters are drawn on, so an unselected cell is a
+     portrait rather than a hole in the card. */
+  background: var(--hk-sand-2, #f3eee4);
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cell:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.cell:hover {
+  border-color: var(--hk-gold-border);
+}
+
+.cellSelected,
+.cellSelected:hover {
+  border-color: var(--hk-pine);
+}
+
+/*
+  The input is the control — it keeps the radio group's arrow-key
+  movement and its "3 of 16" — so it is hidden visually and never
+  removed from the tab order. `opacity: 0` over the whole cell rather
+  than `display: none`, which would take it out of the accessibility
+  tree along with the group.
+*/
+.radio {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The ring has to sit on the label, since that is what is drawn. */
+.radio:focus-visible + .face {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 3px;
+}
+
+.face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.tick {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hk-pine);
+  color: #fff;
+  border: 2px solid var(--hk-surface);
+}
+
+.cellSelected .tick {
+  display: grid;
+}
+
+.clear {
+  margin-top: var(--hk-s4);
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: 13px;
+  color: var(--hk-ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: var(--hk-ink);
+}

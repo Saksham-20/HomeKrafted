@@ -21,6 +21,73 @@
   padding-block: 10px;
 }
 
+/* ---- The landing page's bar (M52) ----
+ *
+ * Fixed and transparent at the top of `/`, so the hero is one full screen
+ * with only the profile icons floating over it. `data-revealed="true"`
+ * (set by an IntersectionObserver on the hero's brand block) turns it
+ * into a bar — white wash, blur, hairline — and fades the centred tabs
+ * in. Transform and opacity only, so nothing under it reflows; and
+ * `scroll-padding-top` in globals.css keeps a focused control from
+ * landing under it (WCAG 2.4.11). z-index 50: under the location prompt
+ * (60) and the drawer (90). */
+.landing {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 50;
+  background: transparent;
+  border-bottom-color: transparent;
+  transition:
+    background-color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.landing[data-revealed="true"] {
+  /*
+    The same surface every other route's header uses, not a wash. At 0.86
+    a display headline scrolling under the bar stayed legible *through*
+    it — "How this works" reading straight across the nav — which is read
+    as a rendering fault, not as a translucent surface; at 0.96 the ghost
+    was fainter and still there, because the type it competes with is
+    36px and nearly black. Translucency buys the landing header nothing
+    once it has turned solid: the point of the reveal is that the bar
+    stops being part of the hero.
+  */
+  background: var(--hk-surface);
+  border-bottom-color: var(--hk-border);
+  box-shadow: 0 6px 24px -18px rgba(27, 51, 39, 0.35);
+}
+
+.landing .row {
+  position: relative;
+  padding-block: 12px;
+  min-height: 64px;
+}
+
+/*
+  The tabs, centred in the row (there is no logo and no search to share
+  it with) and **visible from the first paint** (owner, 2026-08-29).
+
+  They used to fade in only once the hero's brand block had scrolled
+  past, which left the landing page — the one page a first-time visitor
+  lands on — with no navigation at all above the fold. The bar still
+  changes at that point; what changes is the background wash, not
+  whether the site has a menu.
+*/
+.landing .nav {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  gap: var(--hk-s5);
+}
+
+.landing .navLink {
+  font-size: 15px;
+}
+
 /* ---- Logo ---- */
 
 .logo {
@@ -383,3 +450,15 @@
     padding: 9px;
   }
 }
+
+/* ---- The landing bar (M53) ----
+ *
+ * It floats over the **canvas**, not over a photograph: the hero insets
+ * its two panels from the viewport edge, so the strip the bar sits in is
+ * `--hk-bg`. That is why there are no on-dark overrides here — an
+ * earlier pass had the split running full-bleed under the bar and every
+ * control in it needed re-inking. If the hero ever goes edge-to-edge
+ * again, they come back: `--hk-ink-2` measured 2.1:1 on the photograph,
+ * and the hamburger — the only navigation below 1190px — was a solid
+ * white square pasted on it.
+ */

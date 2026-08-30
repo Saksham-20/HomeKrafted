@@ -45,6 +45,14 @@ import { skipLocationPrompt } from '../fixtures/location';
 
 const VIEWPORT = { width: 1280, height: 900 };
 
+/**
+ * An inner route, not `/`, since M52: the landing page's header carries
+ * no search field and no wallet chip at all (only the profile icons, and
+ * the tabs once you scroll), so the capacity arithmetic this file guards
+ * is the inner-page header's. `/shop` renders the full row for every role.
+ */
+const INNER_ROUTE = '/shop';
+
 /** The header pill, not the drawer's block variant — both live in `<header>`. */
 const searchForm = (page: Page) => page.locator('header form[role="search"]').first();
 
@@ -121,7 +129,7 @@ for (const role of ROLES) {
     });
 
     test('keeps every action control on the screen', async ({ page }) => {
-      await page.goto('/');
+      await page.goto(INNER_ROUTE);
       await settled(page);
 
       const geo = await headerGeometry(page);
@@ -144,7 +152,7 @@ for (const role of ROLES) {
     });
 
     test('does not push the document sideways', async ({ page }) => {
-      await page.goto('/');
+      await page.goto(INNER_ROUTE);
       await settled(page);
 
       const geo = await headerGeometry(page);
@@ -163,7 +171,7 @@ for (const role of ROLES) {
      * bug wearing the fix's clothes.
      */
     test('carries a typable search field with no interaction', async ({ page }) => {
-      await page.goto('/');
+      await page.goto(INNER_ROUTE);
       await settled(page);
 
       const geo = await headerGeometry(page);
@@ -180,7 +188,7 @@ for (const role of ROLES) {
      * width on focus is the deleted expansion coming back by accident.
      */
     test('focuses on the magnifier without resizing the row', async ({ page }) => {
-      await page.goto('/');
+      await page.goto(INNER_ROUTE);
       await settled(page);
 
       const before = await headerGeometry(page);
@@ -195,7 +203,7 @@ for (const role of ROLES) {
     });
 
     test('searches what was typed', async ({ page }) => {
-      await page.goto('/');
+      await page.goto(INNER_ROUTE);
       await settled(page);
 
       const input = searchForm(page).locator('input[type="search"]');

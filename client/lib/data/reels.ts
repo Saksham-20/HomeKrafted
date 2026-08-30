@@ -1,30 +1,35 @@
 import type { Reel } from "@/lib/types";
 
 /**
- * Seed reels for the Home page's "Straight from the kitchen" rail.
+ * Reels for the Home page's "See what arrives" rail — all real footage
+ * since M52.
  *
- * Every entry is poster-only today: `videoSrc` is deliberately absent
- * because no real footage has been shot yet, and CLAUDE.md forbids
- * fabricating product/food media. Posters reuse the real supplied
- * photography under `public/images/**`. When a clip lands, drop the MP4 in
- * `public/videos/reels/<slug>.mp4` and set `videoSrc` — the card starts
- * autoplaying it muted in view and the viewer plays it full-height, no
- * component change needed.
+ * The five M2-era seed entries (poster-only, "clip coming soon", with
+ * like/view counts that were "plausible seed numbers, not derived from
+ * anything") were deleted the day the real clips landed: a genuine
+ * customer clip printing no count beside a stock poster printing
+ * "1.2k · 18.4k views" made the invented numbers the louder ones. The
+ * viewer's "Clip coming soon" branch stays for a reel filed before its
+ * footage. Adding a clip is: the MP4 and an eight-second silent cut in
+ * `public/videos/reels/` (encode recipe in `docs/DEPLOY.md`), a frame of
+ * it in `public/images/reels/`, and one entry here — no component change.
  *
- * `vendorId`/`ctaHref` point at real seeded rows and routes, so the rail
- * is a live merchandising surface (reel → product) rather than decoration.
- * Counts are plausible seed numbers, not derived from anything.
+ * `ctaHref` points at a real route, so the rail is a live merchandising
+ * surface (reel → shop) rather than decoration.
  */
 export const reels: Reel[] = [
   /**
-   * A real reel, posted by a real creator about a real order (M50). It is
-   * played through Instagram's own embed — see `lib/instagram.ts` for why
-   * that is the only anonymous route in, and why nothing of theirs is
-   * copied here. No `posterSrc`: the embed's own frames are signed URLs
-   * that expire, and re-hosting somebody's still is a separate permission
-   * from embedding their post. The card draws its branded tile instead.
+   * The four real reels (M52) — supplied by the owner on 2026-08-27,
+   * re-encoded by hand (`docs/DEPLOY.md` § Reel footage) with every byte
+   * of camera metadata stripped, because a phone clip carries the GPS of
+   * the room it was shot in (the same rule as the M25 upload pipeline).
+   * Titles quote the clip's own captions; nothing here claims anything
+   * the footage does not say. Counts are `0` — "not published to us" —
+   * and the card prints nothing for them.
    *
-   * Adding another is one more entry with an `instagramUrl`.
+   * Two renditions per reel: `videoSrc` is what the viewer plays with
+   * sound, `previewSrc` the eight-second silent cut the rail card plays
+   * under the pointer. `posterSrc` is a frame of the clip itself.
    */
   {
     id: "rl0",
@@ -32,101 +37,73 @@ export const reels: Reel[] = [
     module: "marketplace",
     title: "“Some food just tastes like home”",
     caption:
-      "@eatwith_aditi on the Non-Veg Biryani — freshly made in a home kitchen, not a mass-production line.",
-    // Their handle, not ours: this is somebody else's clip about us, and
-    // falling through to "Homekrafted" would put our name on their work.
+      "@eatwith_aditi on the Non-Veg Biryani — 100% homemade, fresh, hygienic and affordable. Her favourite part: every order helps somebody turn their cooking into a business.",
+    // Her clip, her handle. This is a creator's post about us — the M50
+    // rule — and it was an Instagram embed until the file was supplied.
     authorLabel: "@eatwith_aditi",
-    posterPlaceholder: "Non-veg biryani from a Homekrafted kitchen",
-    instagramUrl: "https://www.instagram.com/reel/DcBdttehGMO/",
-    // Instagram does not publish a runtime anonymously, and the chip
-    // would be a guess. `0` is the "not stated" value the card reads.
-    durationSeconds: 0,
-    // Not derived from anything and deliberately not invented either:
-    // the embed carries Instagram's own live counts.
+    posterPlaceholder: "A tub of non-veg biryani with the Homekrafted sticker on the lid",
+    posterSrc: "/images/reels/eatwith-aditi-biryani.jpg",
+    videoSrc: "/videos/reels/eatwith-aditi-biryani.mp4",
+    previewSrc: "/videos/reels/eatwith-aditi-biryani.preview.mp4",
+    durationSeconds: 34,
     likeCount: 0,
     viewCount: 0,
     ctaLabel: "Shop homemade food",
     ctaHref: "/shop?kind=food",
-    publishedAt: "2026-08-20",
+    publishedAt: "2026-08-12",
   },
   {
-    id: "rl1",
-    slug: "thokku-tempering",
+    id: "rl6",
+    slug: "office-lunch-first",
     module: "marketplace",
-    title: "The tempering that makes the thokku",
-    caption: "Mustard seeds, curry leaf, sesame oil — the 40-second step Anjali refuses to rush.",
-    vendorId: "vd1",
-    posterPlaceholder: "Mango thokku tempering in a kadai",
-    posterSrc: "/images/products/mango-thokku-pickle.jpg",
-    durationSeconds: 28,
-    likeCount: 1240,
-    viewCount: 18400,
-    ctaLabel: "Shop Mango Thokku",
-    ctaHref: "/product/mango-thokku-pickle",
-    publishedAt: "2026-07-20",
+    title: "“Nahi sir, pehle khana ho jaye”",
+    caption:
+      "Mummy is at nani's and Abhinav is missing ghar ka khana — until his boss finds out he is a Homekrafted banda. Paneer butter masala first; the fresh lime soda can wait.",
+    posterPlaceholder: "Abhinav at his office desk, grinning, about to order lunch",
+    posterSrc: "/images/reels/office-lunch-first.jpg",
+    videoSrc: "/videos/reels/office-lunch-first.mp4",
+    previewSrc: "/videos/reels/office-lunch-first.preview.mp4",
+    durationSeconds: 50,
+    likeCount: 0,
+    viewCount: 0,
+    ctaLabel: "Order today's lunch",
+    ctaHref: "/shop",
+    publishedAt: "2026-08-27",
   },
   {
-    id: "rl2",
-    slug: "ladoo-rolling",
+    id: "rl7",
+    slug: "lunch-ho-ya-dinner",
     module: "marketplace",
-    title: "200 laddoos, rolled by hand",
-    caption: "A Diwali morning at Dadi's Recipe, from roasting the besan to the last box taped shut.",
-    vendorId: "vd6",
-    posterPlaceholder: "Hands rolling besan laddoos",
-    posterSrc: "/images/products/besan-ladoo.jpg",
-    durationSeconds: 34,
-    likeCount: 2860,
-    viewCount: 41200,
-    ctaLabel: "Shop laddoo boxes",
-    ctaHref: "/product/dry-fruit-laddoo-box",
-    publishedAt: "2026-07-18",
+    title: "“Lunch ho ya dinner — ghar jaisa swaad”",
+    caption:
+      "Ekdum fresh, zero factory production. She ordered a tiffin from here, it arrived hot, and the evening snack came with it.",
+    posterPlaceholder: "A four-compartment tiffin of pulao, sabzi and raita with the Homekrafted sticker",
+    posterSrc: "/images/reels/lunch-ho-ya-dinner.jpg",
+    videoSrc: "/videos/reels/lunch-ho-ya-dinner.mp4",
+    previewSrc: "/videos/reels/lunch-ho-ya-dinner.preview.mp4",
+    durationSeconds: 64,
+    likeCount: 0,
+    viewCount: 0,
+    ctaLabel: "Find a kitchen near you",
+    ctaHref: "/shop",
+    publishedAt: "2026-08-27",
   },
   {
-    id: "rl3",
-    slug: "chakli-spirals",
-    module: "snacks",
-    title: "Perfect chakli spirals, first try",
-    caption: "Crunch Corner's press-and-turn trick — then straight onto today's WhatsApp menu.",
-    vendorId: "vd4",
-    posterPlaceholder: "Chakli spirals being pressed",
-    posterSrc: "/images/snacks/chakli-spirals.jpg",
-    durationSeconds: 22,
-    likeCount: 980,
-    viewCount: 12700,
-    ctaLabel: "See today's snacks",
-    ctaHref: "/snacks",
-    publishedAt: "2026-07-17",
-  },
-  {
-    id: "rl4",
-    slug: "cookie-cooling-rack",
+    id: "rl8",
+    slug: "pg-food-bored",
     module: "marketplace",
-    title: "Millet cookies, straight off the rack",
-    caption: "Ragi, almond, jaggery. Baked at 7am in a Bengaluru home kitchen, packed by 9.",
-    vendorId: "vd3",
-    posterPlaceholder: "Ragi almond cookies cooling on a rack",
-    posterSrc: "/images/products/ragi-almond-cookies.jpg",
-    durationSeconds: 19,
-    likeCount: 1510,
-    viewCount: 23900,
-    ctaLabel: "Shop Ragi Almond Cookies",
-    ctaHref: "/product/ragi-almond-cookies",
-    publishedAt: "2026-07-15",
-  },
-  {
-    id: "rl5",
-    slug: "hamper-packing",
-    module: "marketplace",
-    title: "How a festive hamper gets packed",
-    caption: "Kraft box, shredded filler, handwritten card, ribbon. Ninety seconds, no plastic.",
-    vendorId: "vd8",
-    posterPlaceholder: "Festive assorted hamper being packed",
-    posterSrc: "/images/products/festive-assorted-hamper.jpg",
-    durationSeconds: 41,
-    likeCount: 3320,
-    viewCount: 55600,
-    ctaLabel: "Shop hampers",
-    ctaHref: "/product/festive-assorted-hamper",
-    publishedAt: "2026-07-12",
+    title: "PG ka khana kha-kha ke bore?",
+    caption:
+      "Student ho ya working — fast food is quick, par woh ghar wala pyaar? Paratha, dal, sabzi and fried rice, all out of a home kitchen.",
+    posterPlaceholder: "A student at a table with paratha, dal and sabzi in delivery bowls",
+    posterSrc: "/images/reels/pg-food-bored.jpg",
+    videoSrc: "/videos/reels/pg-food-bored.mp4",
+    previewSrc: "/videos/reels/pg-food-bored.preview.mp4",
+    durationSeconds: 49,
+    likeCount: 0,
+    viewCount: 0,
+    ctaLabel: "See meal plans",
+    ctaHref: "/meal-plans",
+    publishedAt: "2026-08-27",
   },
 ];

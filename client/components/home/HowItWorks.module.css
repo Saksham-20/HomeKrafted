@@ -1,0 +1,57 @@
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--hk-s5);
+  list-style: none;
+  counter-reset: none;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  padding: var(--hk-s6) var(--hk-s5) var(--hk-s6);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-xl);
+  /* The gold rule along the top is the only decoration — a token fill,
+     never gold text (the numeral below is display type on white and
+     takes the tint, not the brand gold). */
+  border-top: 3px solid var(--hk-gold);
+}
+
+.n {
+  font-family: var(--hk-font-display);
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  /*
+    The numeral is decoration — `aria-hidden`, and the step order is
+    already carried by the <ol> — but it is still a glyph somebody reads,
+    so it takes the AA-safe gold. `--hk-gold-border` (#E4CF8F) measured
+    1.54:1 on white and axe fails it; the carve-out for "pure decoration"
+    was deleted in the 2026-08-08 contrast audit for exactly this shape.
+    Weight, not colour, is what keeps it from competing with the title.
+  */
+  color: var(--hk-gold-text-sm);
+  opacity: 0.85;
+}
+
+.title {
+  margin-top: var(--hk-s4);
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 21px;
+  color: var(--hk-ink);
+}
+
+.body {
+  margin-top: var(--hk-s3);
+  font: var(--hk-body);
+  color: var(--hk-ink-3);
+}
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+}

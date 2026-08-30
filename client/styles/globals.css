@@ -360,6 +360,13 @@ main:focus {
  * `scrollTo`/`scrollBy` call sites read — `behavior: "smooth"` in script
  * ignores this media query entirely.
  */
+/* The landing page's header is fixed and 64px tall (M52). A scroll to a
+   focused control or an in-page anchor must stop short of it (WCAG
+   2.4.11). Harmless on every other route, where the header is static. */
+html {
+  scroll-padding-top: 72px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

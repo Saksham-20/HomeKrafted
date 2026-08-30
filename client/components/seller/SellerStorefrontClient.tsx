@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { formatCurrency } from "@/lib/format";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { CharacterPicker } from "./CharacterPicker";
+import { isChefCharacter } from "@/lib/avatars/chef-characters";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
@@ -215,7 +217,9 @@ export function SellerStorefrontClient() {
               ratio="1/1"
               placeholderLabel={vendor.avatarPlaceholder}
               hint="Square works best — this is the round photo buyers see next to your name."
-              value={form.avatarSrc}
+              /* A chosen character lives in the same column, so the
+                 upload must not show one back as "your photo". */
+              value={isChefCharacter(form.avatarSrc) ? "" : form.avatarSrc}
               onChange={(url) => setForm((f) => ({ ...f, avatarSrc: url }))}
             />
             <ImageUpload
@@ -226,6 +230,10 @@ export function SellerStorefrontClient() {
               hint="A wide shot of your workspace or what you make, roughly 3:1."
               value={form.bannerSrc}
               onChange={(url) => setForm((f) => ({ ...f, bannerSrc: url }))}
+            />
+            <CharacterPicker
+              value={form.avatarSrc}
+              onChange={(src) => setForm((f) => ({ ...f, avatarSrc: src }))}
             />
             <label className={styles.field}>
               <span className={styles.label}>Location</span>

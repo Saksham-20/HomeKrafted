@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Heart, Menu, ShieldCheck, ShoppingCart, Store, User, Wallet } from "lucide-react";
 import { SearchForm } from "@/components/search/SearchForm";
@@ -44,7 +44,42 @@ export interface HeaderClientProps {
  */
 export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  /**
+   * The landing page's header is a different object (owner, 2026-08-27,
+   * M52): no logo (the lockup is the page's `<h1>`), no search field, no
+   * wallet chip — only the profile icons, floating over the hero — and
+   * the tabs appear, centred, once the brand block has scrolled out. It
+   * is `position: fixed` and transparent at the top, so the hero can be
+   * one full screen with nothing above it. Every other route keeps the
+   * ordinary row: logo, tabs, search, wallet, icons, static.
+   * `usePathname` is known on the server, so the two renders agree.
+   */
+  const onLanding = pathname === "/";
+  const [revealed, setRevealed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!onLanding) return;
+    // Watch the hero's brand block; the bar turns solid and shows the tabs
+    // the moment it leaves the top 64px of the viewport (the bar's own
+    // height, so the lockup is never half-covered at the hand-over).
+    const target = document.getElementById("hk-hero-brand");
+    if (target && "IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(
+        ([entry]) => setRevealed(!entry.isIntersecting),
+        { rootMargin: "-64px 0px 0px 0px", threshold: 0 },
+      );
+      observer.observe(target);
+      return () => observer.disconnect();
+    }
+    // No brand block on the page (a future landing without the hero):
+    // fall back to plain scroll distance so the tabs are never unreachable.
+    const onScroll = () => setRevealed(window.scrollY > 80);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [onLanding]);
   const { count: cartCount } = useCart();
   const { balance: walletBalance, ready: walletReady } = useWallet();
   const { count: wishlistCount } = useWishlist();
@@ -70,17 +105,22 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
   }
 
   return (
-    <header className={styles.header}>
+    <header
+      className={clsx(styles.header, onLanding && styles.landing)}
+      data-revealed={onLanding ? String(revealed) : undefined}
+    >
       <div className={clsx("container", styles.row)}>
-        <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
-          {/* eslint-disable-next-line @next/next/no-img-element -- the brand
-              lockup is a fixed vector; next/image adds no value for an SVG. */}
-          {/* The tagline row ("Home food · Tricity") left with the compact
-              header (2026-08-27) — the hero's eyebrow now states the same
-              locality under the big lockup, and two copies 40px apart was
-              the redundancy, not the information. */}
-          <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
-        </Link>
+        {!onLanding && (
+          <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
+            {/* The tagline row ("Home food · Tricity") left with the compact
+                header (2026-08-27) — the hero's eyebrow now states the same
+                locality under the big lockup, and two copies 40px apart was
+                the redundancy, not the information. */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- the brand
+                lockup is a fixed vector; next/image adds no value for an SVG. */}
+            <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
+          </Link>
+        )}
 
         <nav className={styles.nav} aria-label="Primary">
           {navItems.map((item) => (
@@ -142,25 +182,31 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
               the three icons all jump 46px left the instant the caret
               lands, and back again on blur. The slot keeps the flow
               width; only the form moves. */}
-          <div className={styles.searchSlot}>
-            <SearchForm className={styles.searchPill} />
-          </div>
+          {/* Not on the landing page (M52): search is a browsing tool, and
+              the drawer still carries one for a phone. */}
+          {!onLanding && (
+            <div className={styles.searchSlot}>
+              <SearchForm className={styles.searchPill} />
+            </div>
+          )}
 
           {/* The amount is hidden below the mobile breakpoint, which left
               this link with an icon and no accessible name at all — a
               screen reader announced "link". The label names the
               destination and carries the balance where it is known, so it
               says the same thing at both widths. */}
-          <Link
-            href="/wallet"
-            className={styles.walletChip}
-            aria-label={walletReady ? `Wallet, ${formatCurrency(walletBalance)}` : "Wallet"}
-          >
-            <Wallet size={17} strokeWidth={1.7} />
-            <span className={styles.walletAmount}>
-              {walletReady ? formatCurrency(walletBalance) : "…"}
-            </span>
-          </Link>
+          {!onLanding && (
+            <Link
+              href="/wallet"
+              className={styles.walletChip}
+              aria-label={walletReady ? `Wallet, ${formatCurrency(walletBalance)}` : "Wallet"}
+            >
+              <Wallet size={17} strokeWidth={1.7} />
+              <span className={styles.walletAmount}>
+                {walletReady ? formatCurrency(walletBalance) : "…"}
+              </span>
+            </Link>
+          )}
 
           <Link
             href="/account/wishlist"

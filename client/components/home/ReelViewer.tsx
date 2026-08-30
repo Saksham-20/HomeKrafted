@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Heart, Volume2, VolumeX, X } from "lucide-react";
+import clsx from "clsx";
+import { ChevronLeft, ChevronRight, Heart, Play, Volume2, VolumeX, X } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCount } from "@/lib/format";
 import { instagramEmbedUrl, instagramPermalink } from "@/lib/instagram";
@@ -39,6 +40,12 @@ export function ReelViewer({
   onClose,
 }: ReelViewerProps) {
   const [muted, setMuted] = useState(true);
+  // Playback state for the two controls drawn over the clip (M52): a
+  // progress bar, because a 64-second reel with no sense of where it is
+  // reads as broken, and a paused badge, because tapping the picture is
+  // how everyone pauses a reel and it did nothing here.
+  const [progress, setProgress] = useState(0);
+  const [paused, setPaused] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const scrimRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -104,12 +111,22 @@ export function ReelViewer({
   }, [open]);
 
   // Restart from the top whenever the viewer moves to a different reel.
+  // (The progress bar and the paused badge reset from the new element's
+  // own `loadstart` event, below — not from here.)
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = 0;
     void video.play().catch(() => undefined);
   }, [index]);
+
+  /** Tap the picture to pause, tap again to resume — the reel convention. */
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play().catch(() => undefined);
+    else video.pause();
+  }
 
   if (!open || !reel) return null;
 
@@ -180,6 +197,14 @@ export function ReelViewer({
               scrolling="no"
             />
           ) : reel.videoSrc ? (
+            /*
+              The full rendition — the rail card only ever played the
+              short silent cut. `poster` is the same still the card drew,
+              so the stage is a picture from the first frame rather than a
+              black box while the first bytes arrive; `preload="auto"`
+              because this element exists only once somebody has pressed
+              play, so buffering ahead is what they asked for.
+            */
             <video
               ref={videoRef}
               key={reel.id}
@@ -190,8 +215,21 @@ export function ReelViewer({
               loop
               autoPlay
               playsInline
+              preload="auto"
               controls={false}
+              disableRemotePlayback
               aria-label={reel.posterPlaceholder}
+              onClick={togglePlayback}
+              onLoadStart={() => {
+                setProgress(0);
+                setPaused(false);
+              }}
+              onPlay={() => setPaused(false)}
+              onPause={() => setPaused(true)}
+              onTimeUpdate={(event) => {
+                const { currentTime, duration } = event.currentTarget;
+                if (duration > 0) setProgress(currentTime / duration);
+              }}
             />
           ) : (
             <>
@@ -211,18 +249,42 @@ export function ReelViewer({
           {!embedUrl && <div className={styles.playerScrim} aria-hidden="true" />}
 
           {reel.videoSrc && (
-            <button
-              type="button"
-              className={styles.mute}
-              onClick={() => setMuted((value) => !value)}
-              aria-label={muted ? "Unmute reel" : "Mute reel"}
-            >
-              {muted ? (
-                <VolumeX size={16} strokeWidth={1.8} />
-              ) : (
-                <Volume2 size={16} strokeWidth={1.8} />
+            <>
+              {/* Opens muted (browser policy and basic manners), and these
+                  clips are people talking — so while it is muted the
+                  button says so in words, not only a crossed speaker
+                  nobody notices at 16px. */}
+              <button
+                type="button"
+                className={clsx(styles.mute, muted && styles.muteLabelled)}
+                onClick={() => setMuted((value) => !value)}
+                aria-label={muted ? "Unmute reel" : "Mute reel"}
+              >
+                {muted ? (
+                  <>
+                    <VolumeX size={16} strokeWidth={1.8} aria-hidden="true" />
+                    <span className={styles.muteText}>Tap for sound</span>
+                  </>
+                ) : (
+                  <Volume2 size={16} strokeWidth={1.8} aria-hidden="true" />
+                )}
+              </button>
+
+              {paused && (
+                <span className={styles.pausedBadge} aria-hidden="true">
+                  <Play size={22} strokeWidth={2} fill="currentColor" />
+                </span>
               )}
-            </button>
+
+              {/* A native <progress>: no inline width to write each tick,
+                  and it is announced as what it is. */}
+              <progress
+                className={styles.progress}
+                value={progress}
+                max={1}
+                aria-label="How far through the reel"
+              />
+            </>
           )}
         </div>
 

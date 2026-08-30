@@ -653,6 +653,14 @@ export interface Reel {
   /** Real footage, e.g. "/videos/reels/besan-ladoo.mp4". Absent until shot — see above. */
   videoSrc?: string;
   /**
+   * A short, muted, low-bitrate cut of `videoSrc` for the rail card's
+   * hover / in-view preview (M52) — first eight seconds at 360px, no
+   * audio track, ~300 KB. The card falls back to `videoSrc` when this is
+   * absent, which costs a phone the full clip for a 208px thumbnail; set
+   * it whenever `videoSrc` is set.
+   */
+  previewSrc?: string;
+  /**
    * An Instagram post/reel URL, when the clip lives there rather than on
    * our disk. The viewer plays it through Instagram's own embed —
    * `lib/instagram.ts` records why that is the only anonymous way in, and

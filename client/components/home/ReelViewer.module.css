@@ -110,6 +110,10 @@
   border-radius: 0;
 }
 
+.video {
+  cursor: pointer;
+}
+
 .playerScrim {
   position: absolute;
   inset: 0;
@@ -136,15 +140,81 @@
   position: absolute;
   top: var(--hk-s4);
   right: var(--hk-s4);
-  display: grid;
-  place-items: center;
-  width: 34px;
+  /* Above the player scrim, which is what made the M50 version a button
+     that could be seen and not pressed on some pointer stacks. */
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 34px;
   height: 34px;
+  padding: 0;
   border-radius: var(--hk-r-pill);
   border: none;
   background: rgba(27, 51, 39, 0.62);
   color: #fff;
   cursor: pointer;
+}
+
+/* While muted the control carries words, so it is a pill, not a dot. */
+.muteLabelled {
+  padding: 0 12px 0 10px;
+}
+
+.muteText {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Drawn over a paused clip; not a control — the picture itself is. */
+.pausedBadge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding-left: 3px; /* optically centres the triangle */
+  border-radius: var(--hk-r-pill);
+  color: var(--hk-pine-deep);
+  background: rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+/* The progress line along the foot of the player. A native <progress>,
+   restyled to a 3px gold hairline on both engines. */
+.progress {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 3px;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: var(--hk-gold-bright);
+  pointer-events: none;
+}
+
+.progress::-webkit-progress-bar {
+  background: transparent;
+}
+
+.progress::-webkit-progress-value {
+  background: var(--hk-gold-bright);
+}
+
+.progress::-moz-progress-bar {
+  background: var(--hk-gold-bright);
 }
 
 .meta {

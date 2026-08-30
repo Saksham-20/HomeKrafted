@@ -1,135 +1,251 @@
 /*
- * Owner-supplied hero comp (2026-08-13): a warm cream stage matching the
- * hamper photo's own background, so the image merges edge-free instead of
- * sitting in a card. This is a deliberate, hero-scoped exception to the
- * white-first rule — the cream is the photo's, not a new surface family.
- * Not tokens: hero-only values, per the known-token-gaps convention.
- *
- * Contrast held at AA on the deepest stop (#F8F1E3):
- * --hk-gold-text-sm 4.63:1 · --hk-ink-3 6.76:1 · --hk-pine 9.84:1.
- * The bottom fades into the canvas so the next section starts clean.
- */
+  Hero — the brand block centred over a two-panel split. See `Hero.tsx`
+  for the copy decisions and `SplitPanels.module.css` for the seam.
+*/
 .hero {
-  position: relative;
-  background: linear-gradient(180deg, #fbf5ea 0%, #f8f1e3 100%);
-  overflow: hidden;
+  background: var(--hk-bg);
 }
 
 /*
- * One column since M51: the copy is centred over the split panels rather
- * than sharing a row with a photograph, because the panels carry the
- * photographs now — two of them, one per vertical.
- */
+  The whole first screen (owner, 2026-08-29), with air around it: the
+  two halves are a pair of cards inset from the viewport edge, not a
+  full-bleed wallpaper. The top inset clears the fixed header; the other
+  three are the margin that makes the panels read as objects you can
+  choose between.
+
+  The promise strip is **not** in here any more. Overlaid on the panels it
+  landed on top of their own copy, and inside the `100dvh` it pushed the
+  split up off the screen it is supposed to fill; it is a band directly
+  under the hero instead, and it is the first thing a scroll reveals.
+*/
 .inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--hk-s5);
-  /* Tight at the top so the whole opening set — lockup, slogan, both
-     panels — lands inside the first screenful at 800px of viewport.
-     The page's question is on those two panels, and anything that pushes
-     them under the fold asks nothing. */
-  padding-block: var(--hk-s5) var(--hk-s7);
+  display: grid;
+  min-height: 100dvh;
 }
 
-.copy {
+.stage {
+  position: relative;
+  display: grid;
+  min-height: 100dvh;
+  padding: clamp(76px, 9vh, 108px) clamp(16px, 2.2vw, 36px) clamp(20px, 2.6vw, 40px);
+}
+
+/* ---- the brand block ---- */
+
+/*
+  Centred over the seam, and **inert**: `pointer-events: none` is what
+  keeps the middle of the screen from becoming a dead zone between the
+  two things the page is asking about. Hovering "through" the lockup
+  opens whichever half is under it, which is the behaviour somebody
+  moving diagonally toward a panel expects.
+*/
+.brand {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* Top, not middle (owner, 2026-08-29) — the centre of the screen is
+     where the two photographs are doing their work, and a lockup parked
+     over it reads as a watermark. */
+  justify-content: flex-start;
+  gap: var(--hk-s4);
+  /* Centred over the seam, high in the frame (owner, 2026-08-29): the
+     top third is the only part of the split that carries no copy, so the
+     lockup can be large there without landing on either half's title. */
+  /* Clears the panels' own top edge — the block is absolutely
+     positioned against the stage's padding box, so this number is
+     measured from the top of the hero, not from the top of the split. */
+  padding: clamp(96px, 12vh, 140px) 0 0;
   text-align: center;
-  max-width: 760px;
-}
-
-.eyebrow {
-  font-family: var(--hk-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--hk-pine);
+  pointer-events: none;
 }
 
 /*
- * The eyebrow and its heart, grouped so the heart can centre under the
- * line it belongs to. The group is `align-items: center` and shrinks to
- * the eyebrow's width (`.copy` is `align-items: flex-start`), which is
- * what makes "centred" mean centred on the eyebrow rather than on the
- * column.
- *
- * The first version pinned the heart with `margin-left: 108px` — the
- * measured distance to the middle of "Home kitchens • Chandigarh, Mohali
- * & Panchkula" at one font size and one viewport. Any copy edit to that
- * line moved the text and left the heart behind, silently, and it had to
- * be hidden below 560px because it did not survive reflow. It survives
- * now, so it stays visible at every width.
- */
-.eyebrowGroup {
+  The lockup steps aside the moment you lean toward a half — the page has
+  been asked and answered, and the name is in the header from here on.
+  `:has()` reads the split's own `data-active`, so there is one source of
+  truth for "a half is open" and no second piece of state.
+
+  Behind `hover` and `no-preference` for the same reasons as the
+  expansion itself: a thumb has nothing to hover with, and under reduced
+  motion a lockup that vanishes instantly on a stray pointer move is
+  worse than one that stays put.
+*/
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .brand {
+    transition:
+      opacity 0.44s var(--hk-ease),
+      transform 0.52s var(--hk-ease);
+  }
+
+  .stage:has([data-active="food"]) .brand,
+  .stage:has([data-active="gifts"]) .brand {
+    opacity: 0;
+    transform: scale(0.94) translateY(-14px);
+  }
+}
+
+.brandGroup {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-.heart {
-  width: 13px;
-  height: 13px;
-  fill: var(--hk-gold);
-  margin-top: var(--hk-s2);
+  gap: var(--hk-s4);
 }
 
 /*
- * The centred brand lockup (2026-08-27). Height-clamped the same way the
- * heading is so the pair scale together; the SVG is ~1.75:1, so 88px tall
- * is ~154px wide — poster-scale without eating the panels' room.
- */
+  The glow, and why it is on this box rather than on the stage.
+
+  The mark is drawn in its own green and gold and it stays that way
+  (owner, 2026-08-29) — so the surface behind it has to be light, the way
+  it is everywhere else on the site. It used to be a 520px plate spanning
+  the whole stage, which read as fog over both photographs; sized to the
+  `<hgroup>` instead, it tracks exactly what it is lighting — the lockup
+  and the slogan — and grows with them at every breakpoint with no second
+  number to keep in step.
+
+  **The falloff is eight stops, not three, and the box is much larger
+  than the light in it.** A three-stop ramp on a tight box put the whole
+  fade into a few dozen pixels, which is what made it read as a white
+  disc laid over the photographs rather than light behind the type: the
+  eye finds the edge of a gradient long before it goes fully
+  transparent. The stops here approximate a gaussian — most of the
+  opacity is spent in the middle and the last quarter is nearly nothing —
+  and the extra inset is empty room for that tail to die in.
+
+  Two layers: the plate that carries the type, and a wider, much fainter
+  halo under it that softens where the plate ends.
+
+  The mask runs to zero **earlier** than the paint (88% against 100%), so
+  the backdrop blur is already gone by the time the light is — a blur
+  that stops while it is still visible draws its own rim, which is the
+  other half of what made a disc. No `isolation: isolate` on the parent,
+  and no `filter` or static `opacity` either: each makes a backdrop root
+  and leaves the blur nothing behind it to work on.
+*/
+.brandGroup::before {
+  content: "";
+  position: absolute;
+  inset: -62% -54%;
+  z-index: -1;
+  background:
+    radial-gradient(
+      55% 50% at 50% 51%,
+      rgba(253, 251, 246, 0.96) 0%,
+      rgba(253, 251, 246, 0.93) 20%,
+      rgba(253, 251, 246, 0.85) 34%,
+      rgba(253, 251, 246, 0.72) 47%,
+      rgba(253, 251, 246, 0.5) 59%,
+      rgba(253, 251, 246, 0.26) 71%,
+      rgba(253, 251, 246, 0.11) 83%,
+      rgba(253, 251, 246, 0.03) 92%,
+      rgba(253, 251, 246, 0) 100%
+    ),
+    radial-gradient(
+      74% 66% at 50% 51%,
+      rgba(253, 251, 246, 0.3) 0%,
+      rgba(253, 251, 246, 0.16) 45%,
+      rgba(253, 251, 246, 0.05) 74%,
+      rgba(253, 251, 246, 0) 100%
+    );
+  backdrop-filter: blur(9px) saturate(0.94);
+  -webkit-backdrop-filter: blur(9px) saturate(0.94);
+  mask-image: radial-gradient(
+    61% 55% at 50% 51%,
+    #000 22%,
+    rgba(0, 0, 0, 0.85) 42%,
+    rgba(0, 0, 0, 0.5) 62%,
+    rgba(0, 0, 0, 0.18) 78%,
+    transparent 88%
+  );
+  -webkit-mask-image: radial-gradient(
+    61% 55% at 50% 51%,
+    #000 22%,
+    rgba(0, 0, 0, 0.85) 42%,
+    rgba(0, 0, 0, 0.5) 62%,
+    rgba(0, 0, 0, 0.18) 78%,
+    transparent 88%
+  );
+}
+
+.brandHeading {
+  margin: 0;
+  line-height: 0;
+}
+
+/*
+  The lockup at the size the owner asked for: the one place the brand
+  appears at all on this page, so it is the largest thing on it.
+
+  **No filter.** It carries the brand's own green and gold, which is why
+  the plate behind it is cream — recolouring a wordmark to survive its
+  background is changing the brand to fit the photograph.
+*/
 .brandMark {
   display: block;
-  height: clamp(56px, 9vh, 88px);
+  height: clamp(64px, 9.4vw, 140px);
   width: auto;
-  margin-top: var(--hk-s3);
+  /*
+    A short white halo on the mark itself, on top of the plate behind the
+    whole group. The plate is a broad, soft light and the wordmark's
+    counters are small — the halo is what puts a hard-edged separation
+    right at the letterforms, so the green reads as green rather than as
+    dark type on a bright patch. Still no recolouring and no drop shadow
+    with an offset: the mark keeps its own green and gold, and light
+    behind it is not a change to it.
+  */
+  filter:
+    drop-shadow(0 0 10px rgba(253, 251, 246, 0.95))
+    drop-shadow(0 0 26px rgba(253, 251, 246, 0.6));
 }
 
+/* ---- the slogan ---- */
+
 .heading {
-  font-family: var(--hk-font-display);
-  font-weight: 700;
-  font-size: clamp(34px, 4.6vw, 54px);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--hk-pine);
-  margin-top: var(--hk-s2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--hk-ink);
+  /* Same reasoning as `.brandMark`'s halo, at half the strength: the
+     slogan sits lower in the plate, where the light has already begun to
+     fall off, and its right end crosses onto the dark half. */
+  filter: drop-shadow(0 0 9px rgba(253, 251, 246, 0.85));
 }
 
 .headingLine {
-  position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--hk-font-display);
+  font-weight: 700;
+  font-size: clamp(26px, 3.4vw, 46px);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
 }
 
 .sparks {
-  position: absolute;
-  left: -0.52em;
-  top: -0.08em;
-  width: 0.42em;
-  height: 0.42em;
+  width: clamp(18px, 1.8vw, 26px);
+  height: clamp(18px, 1.8vw, 26px);
+  margin-right: 4px;
   fill: none;
   stroke: var(--hk-gold);
-  stroke-width: 3.2;
+  stroke-width: 2.4;
   stroke-linecap: round;
 }
 
-/*
- * The "o" of "home" — a pine roundel holding the house mark, straight
- * from the comp. Sized off the em so it tracks the clamp; the sr-only
- * heading copy is what a screen reader gets instead of "h ... me".
- */
+/* The "o" of "home" is a roundel holding a house mark — comp doodle. */
 .oHouse {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 0.64em;
-  height: 0.64em;
+  display: inline-grid;
+  place-items: center;
+  width: clamp(26px, 3.2vw, 44px);
+  height: clamp(26px, 3.2vw, 44px);
+  margin-inline: 1px;
   border-radius: 50%;
   background: var(--hk-pine);
-  color: #fdf8ec; /* house mark on solid pine — same family as --hk-on-pine */
-  margin: 0 0.02em;
-  vertical-align: -0.04em;
+  color: #fff;
 }
 
 .oHouse svg {
@@ -138,123 +254,147 @@
 }
 
 .scriptRow {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--hk-s3);
-  margin: 0.08em 0 0 0.55em;
-}
-
-/*
- * The brush line. Kaushan Script (see layout.tsx — hero-only font), in
- * the darkened gold: --hk-gold itself is 2.8:1 here and never carries
- * words. At this size the line passes AA large comfortably (4.6:1+).
- */
-.script {
-  font-family: var(--font-script), cursive;
-  font-weight: 400;
-  font-size: 0.92em;
-  line-height: 1.1;
-  letter-spacing: 0;
-  color: var(--hk-gold-text-sm);
-  transform: rotate(-2deg);
-}
-
-.plane {
-  width: 118px;
-  height: 68px;
-  flex: none;
-  margin-top: 0.12em;
-}
-
-.planeTrail {
-  fill: none;
-  stroke: var(--hk-gold);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-dasharray: 1 8;
-}
-
-.planeBody {
-  fill: none;
-  stroke: var(--hk-gold-text-sm);
-  stroke-width: 2.6;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
-
-/* The promise strip — four points under the lede, hairline-divided. */
-.points {
-  list-style: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  padding: 0;
-  margin: 0;
-}
-
-.point {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: var(--hk-s2);
 }
 
-.point + .point {
-  border-left: 1px solid var(--hk-gold-border);
-  margin-left: var(--hk-s4);
-  padding-left: var(--hk-s4);
+.script {
+  font-family: var(--font-script), cursive;
+  font-size: clamp(30px, 4.2vw, 58px);
+  line-height: 1.1;
+  color: var(--hk-gold-text-sm);
+}
+
+.plane {
+  width: clamp(46px, 5vw, 74px);
+  height: auto;
+  fill: none;
+  stroke: var(--hk-gold);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.planeTrail {
+  stroke-dasharray: 5 9;
+  opacity: 0.75;
+}
+
+/* ---- the promise strip ---- */
+
+.points {
+  /* Its own band under the full-screen split, on the canvas — the first
+     thing a scroll reveals. */
+  width: min(1180px, 100% - 2 * var(--hk-s8));
+  margin-inline: auto;
+  padding-block: var(--hk-s5);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--hk-s3) clamp(var(--hk-s5), 4vw, 52px);
+  list-style: none;
+}
+
+.point {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-s2);
 }
 
 .pointIcon {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
+  color: var(--hk-gold-text-sm);
   flex: none;
-  color: var(--hk-gold);
-  stroke-width: 2;
 }
 
 .pointLabel {
+  font-family: var(--hk-font-mono);
   font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--hk-ink);
-  max-width: 118px;
+  color: var(--hk-ink-2);
 }
 
-@media (max-width: 640px) {
-  .points {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--hk-s4);
-  }
-
-  .point + .point {
-    border-left: none;
-    margin-left: 0;
-    padding-left: 0;
-  }
-
-  .pointLabel {
-    max-width: none;
-  }
-}
+/* ---- entrance ---- */
 
 /*
- * The heart used to be hidden here too, because its hardcoded 108px
- * offset did not survive reflow. It centres on the eyebrow now (see
- * `.eyebrowGroup`), so it stays. `.sparks` is still dropped: it hangs
- * half an em off the left of the heading and there is no bleed room for
- * it at phone widths.
- */
-@media (max-width: 560px) {
-  .sparks {
+  The stagger lives inside `no-preference` for the opposite reason to the
+  expansion: the global floor shortens durations but not delays, so a
+  held `from { opacity: 0 }` on a page that never animates is an
+  invisible hero. `backwards` is what applies the first frame during the
+  delay.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  .brand,
+  .points {
+    animation: hkRise 0.7s var(--hk-ease) backwards;
+  }
+
+  .brand {
+    animation-delay: 0.08s;
+  }
+
+  .points {
+    animation-delay: 0.34s;
+  }
+}
+
+@keyframes hkRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* ---- stacked ---- */
+
+@media (max-width: 900px) {
+  .inner {
+    /* The split grows past one screen on a phone rather than crushing
+       two photographs into 300px each. */
+    min-height: 0;
+  }
+
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--hk-s5);
+    min-height: 0;
+    padding: 76px var(--hk-s5) 0;
+  }
+
+  /* Above the halves, in the flow: centred over a stacked split it would
+     sit on top of the first photograph's copy. */
+  .brand {
+    position: static;
+    /* The stage is a flex column here and the panels are its first child
+       in the DOM — the brand block has to be pulled above them. Source
+       order stays right for a screen reader either way: the heading is
+       announced before the two links follow it. */
+    order: -1;
+    padding: 0 0 var(--hk-s3);
+  }
+
+  /* On the canvas here, so the glow has nothing to do. */
+  .brandGroup::before {
     display: none;
   }
 
-  .plane {
-    width: 84px;
-    height: 50px;
+  .brandMark {
+    height: clamp(44px, 12vw, 64px);
+  }
+
+  .points {
+    width: min(1180px, 100% - 2 * var(--hk-s5));
+  }
+}
+
+@media (max-width: 560px) {
+  .points {
+    /* Two per line rather than four ragged ones. */
+    justify-content: flex-start;
+    gap: var(--hk-s3) var(--hk-s5);
   }
 }

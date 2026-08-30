@@ -1,0 +1,55 @@
+.ticker {
+  overflow: hidden;
+  background: var(--hk-pine-deep);
+  border-block: 1px solid rgba(228, 200, 116, 0.22);
+  padding-block: var(--hk-s3);
+  /* Dark surface — see the M34 focus-ring rule. Nothing here is
+     focusable today; the variable is set so anything added later is. */
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+.track {
+  display: flex;
+  width: max-content;
+}
+
+.run {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(var(--hk-s5), 4vw, 52px);
+  padding-inline-end: clamp(var(--hk-s5), 4vw, 52px);
+  font-family: var(--hk-font-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* 7.4:1 on pine-deep. */
+  color: #cddace;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hk-gold-bright);
+  flex: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .track {
+    animation: hkTicker 42s linear infinite;
+  }
+}
+
+/* One run's width, which is half the track — that is what makes the
+   duplicate seamless. */
+@keyframes hkTicker {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}

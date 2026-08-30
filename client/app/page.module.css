@@ -1,45 +1,100 @@
-.section {
-  padding-block: var(--hk-s7) var(--hk-s2);
-}
+/*
+  Home — M53 rebuild. See `app/page.tsx` for the section order and the
+  argument behind it; this file is only spacing and section chrome.
+*/
 
-/* Tighter than `.section` — the seasonal band belongs to the hero, not to
-   the occasion grid it sits above (M16). */
-.seasonal {
-  padding-block: var(--hk-s5) 0;
+/*
+  Sections are further apart than they were. The old page ran `--hk-s7`
+  top and `--hk-s2` bottom, which is 34px of air between two unrelated
+  rails — enough for a catalogue index, not enough for a page that is
+  making an argument one section at a time. Fluid so a phone does not pay
+  desktop rhythm out of its scroll budget.
+*/
+.section {
+  padding-block: clamp(var(--hk-s7), 6vw, 84px) 0;
 }
 
 /*
- * The quick-entry strip (M34) sits between the hero and the first
- * catalogue section, tighter than a `.section` on both sides: it belongs
- * to the hero as a set of ways in, not to the browse content below.
- */
+  The explainer's own ground — the only band on the page that is not the
+  canvas.
+
+  The argument runs rail, rail, rail: eight sections of things to look at,
+  each on the same surface, which reads as one long list however clear the
+  headings are. "How this works" is the section that stops and explains,
+  so it gets a surface of its own and hairlines top and bottom to say the
+  page changed gear. Full-bleed by construction — the `container` stays on
+  the `<section>` inside it, so the copy keeps the same measure as every
+  other section and only the ground runs edge to edge.
+*/
+.explainerBand {
+  margin-block-start: clamp(var(--hk-s7), 6vw, 84px);
+  background: var(--hk-surface);
+  border-block: 1px solid var(--hk-border);
+}
+
+/* The band supplies the air above, so the section inside it only owes
+   its own — and it owes it at the bottom too, which `.section` never
+   does. */
+.explainer {
+  padding-block: clamp(var(--hk-s6), 5vw, 64px) clamp(var(--hk-s6), 5vw, 64px);
+}
+
+/* Tighter than `.section` on both sides: the quick-entry strip is a set
+   of ways in that belongs to the doors above it (M34). */
 .quickEntry {
   padding-block: var(--hk-s5) 0;
 }
 
+/* The seasonal band belongs to the doors, not to the section under it. */
+.seasonal {
+  padding-block: var(--hk-s5) 0;
+}
+
+/* ---- section head ---- */
+
 .sectionHead {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: var(--hk-s3);
+  gap: var(--hk-s4);
   margin-bottom: var(--hk-s5);
 }
 
+/* See ProductCard.maker — gold as text takes the AA-safe shade
+   (`--hk-gold` is 3.2:1 on white and these are words somebody reads). */
+.eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+/*
+  Bigger and tighter than the old flat 27px. Section titles are the only
+  typographic level between the hero and the cards, so they carry the
+  page's editorial weight — display face, negative tracking, fluid to
+  40px on a wide screen.
+*/
 .sectionTitle {
   font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 27px;
+  font-weight: 700;
+  font-size: clamp(25px, 2.9vw, 40px);
+  line-height: 1.04;
+  letter-spacing: -0.02em;
   color: var(--hk-ink);
 }
 
-/* See ProductCard.maker — small gold text takes the AA-safe shade. */
 .viewAll {
   display: inline-flex;
   align-items: center;
-  /* 12px mono gave a 19px box. These are the section-level "see the rest"
+  /* 12px mono gives a 19px box. These are section-level "see the rest"
      links — standalone controls, not links inside a sentence, so WCAG
      2.2's 24px pointer floor applies. */
   min-height: 24px;
+  flex: none;
   border: none;
   background: none;
   font-family: var(--hk-font-mono);
@@ -50,17 +105,25 @@
   white-space: nowrap;
 }
 
-/* Reels section head — the only section with an eyebrow above its title.
-   See ProductCard.maker — small gold text takes the AA-safe shade. */
-.reelsEyebrow {
-  display: block;
-  margin-bottom: 6px;
-  font-family: var(--hk-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
+@media (hover: hover) {
+  .viewAll:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
 }
+
+/* A phone has no room for a title and a "view all" on one line: the
+   heading wraps to two lines and the link ends up alone against a
+   ragged edge. Stacked, both read. */
+@media (max-width: 560px) {
+  .sectionHead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--hk-s3);
+  }
+}
+
+/* ---- grids and rails ---- */
 
 .occasionGrid {
   display: grid;
@@ -76,27 +139,15 @@
  * categories over seven columns left a five-tile orphan row that read as
  * a layout accident rather than a second row of anything.
  *
- * **A rail rather than a shorter list.** The obvious alternative is to
- * cap the row the way the occasion grid caps at eight — but categories
- * are ordered `sortOrder` then name, and the four craft categories are
- * deliberately last (`seed-crafts.ts` numbers them 10–13, so craft lands
- * after food rather than interleaving). Cutting the row to what fits
- * would therefore cut *exactly* the non-food half, one commit after
- * making it visible. Everything stays reachable here; nothing is ranked
- * out of existence by a viewport width.
+ * **A rail rather than a shorter list.** Categories are ordered
+ * `sortOrder` then name, and the four craft categories are deliberately
+ * last (`seed-crafts.ts` numbers them 10–13, so craft lands after food
+ * rather than interleaving). Cutting the row to what fits would
+ * therefore cut *exactly* the non-food half. Everything stays reachable
+ * here; nothing is ranked out of existence by a viewport width.
  *
- * Same shape as `ReelsRailClient` further down the page — and since the
- * scrollbar came off, literally the same component: both are `ScrollRail`,
- * which owns the overflow, the edge fades and the arrows. What is left
- * here is this rail's own layout and nothing else.
- *
- * The fades used to live in this rule, as four gradients painted in
- * `--hk-bg` with `background-attachment: local` — a genuinely neat
- * no-JS trick, and the reason it went is not that it stopped working.
- * `ScrollRail` needs the overflow state anyway to decide whether to
- * render an arrow, so one mechanism now answers both questions instead
- * of two answering one each, and the fade no longer has to be told what
- * colour it is sitting on.
+ * `ScrollRail` owns the overflow, the edge fades and the arrows — what
+ * is left here is this rail's own layout and nothing else.
  */
 .categoryRail {
   gap: var(--hk-s4);
@@ -120,6 +171,27 @@
   }
 }
 
+/*
+  The "most loved" rail (M53). A rail rather than a grid for the reason
+  the home page has no product grid at all: this section is a sample of
+  the catalogue, and a grid reads as the catalogue itself — which is
+  `/shop`'s job, where the filters are.
+*/
+.productRail {
+  gap: var(--hk-s4);
+  padding-bottom: var(--hk-s2);
+}
+
+.productRail > * {
+  flex: 0 0 232px;
+}
+
+@media (max-width: 640px) {
+  .productRail > * {
+    flex-basis: 62%;
+  }
+}
+
 /* `.featuredGrid` and `.servicesGrid` were deleted here in M29.
 
    Both were dead: `app/page.tsx` is this stylesheet's only importer, and
@@ -135,9 +207,7 @@
    plan reported it as the milestone's headline defect. It survived a
    source check too: the rule is real, the arithmetic is right, the
    reference fix it is compared against is real. What nobody checked was
-   whether anything *renders* it. Nothing does — the live home page has no
-   product grid at all, which is what a browser at 390px showed in about
-   ten seconds.
+   whether anything *renders* it. Nothing does.
 
    The lesson is cheap to state and was not: dead CSS reads exactly like
    live CSS, so a defect found by reading a stylesheet is a hypothesis
@@ -156,8 +226,6 @@
 }
 
 /*
-  M20 — "Meet the Hands Behind the Flavours".
-
   Four kitchens, so the grid is explicitly four-up rather than auto-fill:
   the client asked for four, and auto-fill would silently render five on a
   wide screen and break the symmetry the section is built on.
@@ -196,5 +264,3 @@
     scroll-snap-align: start;
   }
 }
-
-

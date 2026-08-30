@@ -49,11 +49,11 @@ export function KitchenCard({ kitchen, priority }: KitchenCardProps) {
         {/* `alt=""` — the kitchen's name is the very next node. */}
         <MakerPortrait vendor={vendor} size={56} alt="" />
         <div className={styles.who}>
-          <h3 className={styles.name}>
+          <h2 className={styles.name}>
             <Link href={`/storefront/${vendor.slug}`} className={styles.nameLink}>
               {vendor.name}
             </Link>
-          </h3>
+          </h2>
           <p className={styles.where}>
             {vendor.location}
             {/* Absent means "we were not told where you are", not "far" —

@@ -1,0 +1,96 @@
+.band {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.6fr);
+  align-items: center;
+  gap: clamp(var(--hk-s5), 4vw, 56px);
+  padding: clamp(var(--hk-s6), 4vw, 56px);
+  border-radius: var(--hk-r-xl);
+  background:
+    radial-gradient(90% 140% at 100% 0%, rgba(185, 135, 36, 0.28), transparent 60%),
+    linear-gradient(120deg, var(--hk-pine-grad-a), var(--hk-pine-deep));
+  color: #fff;
+  /* Dark surface — the M34 rule: pine on pine is invisible. */
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hk-gold-bright);
+}
+
+.title {
+  margin-top: var(--hk-s3);
+  font-family: var(--hk-font-display);
+  font-weight: 700;
+  font-size: clamp(26px, 3vw, 40px);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+
+.blurb {
+  margin-top: var(--hk-s4);
+  max-width: 58ch;
+  font: var(--hk-body);
+  /* 8.1:1 on the darkest stop of the gradient. */
+  color: #d3ddd4;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s4);
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  min-height: 48px;
+  padding-inline: var(--hk-s5);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-gold-bright);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-body);
+  font-weight: 600;
+  font-size: 15px;
+  transition: transform var(--hk-dur) var(--hk-ease),
+    background-color var(--hk-dur) var(--hk-ease);
+}
+
+@media (hover: hover) {
+  .cta:hover {
+    background: #f0dc9a;
+    transform: translateY(-2px);
+  }
+}
+
+.ctaIcon {
+  width: 17px;
+  height: 17px;
+}
+
+.link {
+  font-family: var(--hk-font-body);
+  font-size: 14px;
+  color: #cddace;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .band {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--hk-s5);
+  }
+}
