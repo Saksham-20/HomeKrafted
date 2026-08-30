@@ -37,7 +37,12 @@ export async function Footer() {
           published before a live account is activated — so they live in
           the footer of every page rather than behind Support. */}
       <div className={clsx("container", styles.legal)}>
-        <span>© {year} Homekrafted · Made with love in real homes</span>
+        <span>
+          © {year} Homekrafted · Made with love in real homes ·{" "}
+          {/* Studio credit, owner's request 2026-08-30. Plain text — no
+              link, so it never competes with the policy links beside it. */}
+          Developed by Globoniks
+        </span>
         <span className={styles.legalLinks}>
           <Link href="/terms">Terms</Link>
           <Link href="/privacy">Privacy</Link>
