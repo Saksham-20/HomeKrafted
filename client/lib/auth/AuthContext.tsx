@@ -76,14 +76,12 @@ import {
   type ReactNode,
 } from "react";
 import { getMySeller } from "@/lib/api/seller";
-import {
-  adminUser,
-  currentUser,
-  getSellerByUserId,
-  sellerUser,
-  sellers,
-  snackSellerUser,
-} from "@/lib/data";
+// From the modules, not the `@/lib/data` barrel: this is a root-layout
+// client file, and the barrel re-exports every fixture — the whole seed
+// catalogue on every page's bundle.
+import { adminUser } from "@/lib/data/admin";
+import { getSellerByUserId, sellerUser, sellers, snackSellerUser } from "@/lib/data/sellers";
+import { currentUser } from "@/lib/data/user";
 import {
   getMe,
   loginWithEmail,

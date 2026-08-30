@@ -23,7 +23,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { addWishlistItem, getServerWishlist, removeWishlistItem } from "@/lib/api";
+// Imported from the module, not the `@/lib/api` barrel. This file is
+// `"use client"` and sits in the root layout, so anything it imports
+// ships to every page; through the barrel that was the *entire* API
+// layer — admin, seller, meal plans, Razorpay — on the landing page.
+import { addWishlistItem, getServerWishlist, removeWishlistItem } from "@/lib/api/wishlist";
 import { isMockMode } from "@/lib/api/http";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { ID, WishlistItem } from "@/lib/types";

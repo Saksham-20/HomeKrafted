@@ -6,11 +6,17 @@ import type { NextConfig } from "next";
  * `next/image` optimise HomeKrafter photos without a `remotePatterns`
  * allowlist.
  *
- * In local development nothing serves that path on :3000: uploads land
- * wherever `server/` writes them and are served by the API. Without this
- * rewrite an uploaded photo 404s in dev and renders in production, which
- * is the worst way round for a bug to behave. Proxying in dev only keeps
- * the URL a photo is stored under identical in both.
+ * Nothing serves that path on the Next process itself, in any
+ * environment: in dev uploads are served by the API, in production by
+ * nginx in front of both. The rewrite below is what makes the path
+ * answer on :3000 anyway — and it has to answer there, because the image
+ * optimiser fetches a relative `src` from **its own server**, not from
+ * the public origin. Until 2026-08-30 the rewrite was dev-only and
+ * uploads were rendered `unoptimized` to dodge the resulting 400 (see
+ * `ImageSlot`); now it applies in production too, pointed at the public
+ * origin, so nginx serves the file to the optimiser exactly as it would
+ * to a browser. Public requests never reach it — nginx matches
+ * `/uploads/` before proxying to Next.
  */
 const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1").replace(
   /\/api\/v1\/?$/,
@@ -29,6 +35,19 @@ const nextConfig: NextConfig = {
     // hosts we trust to serve images into our own pages — don't widen it
     // to `**` to make a CDN work.
     remotePatterns: [],
+    // Two qualities, not one. The landing page's two hero photographs are
+    // grainy kitchen shots that AVIF spends ~290 KB each on at q75; at
+    // q50 they read the same under the scrim for about half the bytes.
+    // Everything else stays on the default 75 — a product photo is the
+    // thing being judged, and the hero is not.
+    qualities: [50, 75],
+    // A week, up from Next's four-hour default. Neither bundled art nor
+    // an upload changes under its name in the ordinary course (an upload
+    // is UUID-named; a bundled photo is replaced by a deploy), and at
+    // four hours every returning visitor re-fetched every optimised
+    // image and the 1-vCPU box re-encoded any it had evicted. Same
+    // ceiling as `/videos/`, for the same reason: not `immutable`.
+    minimumCacheTTL: 604800,
   },
 
   /**
@@ -52,7 +71,6 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    if (process.env.NODE_ENV === "production") return [];
     return [{ source: "/uploads/:path*", destination: `${API_ORIGIN}/uploads/:path*` }];
   },
 };

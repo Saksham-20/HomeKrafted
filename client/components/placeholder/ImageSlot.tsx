@@ -40,6 +40,13 @@ export interface ImageSlotProps {
    * nothing.
    */
   priority?: boolean;
+  /**
+   * Encoder quality, one of `images.qualities` in `next.config.ts`
+   * (50 or 75). Leave it alone for anything a buyer is judging; the
+   * landing hero passes 50 because a grainy photograph under a scrim
+   * does not repay the bytes.
+   */
+  quality?: 50 | 75;
   className?: string;
 }
 
@@ -65,31 +72,22 @@ const DEFAULT_SIZES = "(max-width: 640px) 100vw, (max-width: 1180px) 50vw, 380px
  * so it keeps `role="img"` there.
  */
 /**
- * Is this an uploaded photo rather than a bundled asset?
+ * **An upload goes through the optimiser now (2026-08-30); an absolute
+ * URL still does not.**
  *
- * **Why it matters: `next/image` cannot optimise an upload, and fails
- * loudly when it tries.** The optimiser resolves a local `src` against
- * its *own* server (127.0.0.1:3000). Bundled art lives in `public/` so
- * Next serves it and optimisation works — but `/uploads/` is served by
- * nginx straight from `/var/lib/homekrafted/uploads` and the Next process
- * knows nothing about it. So the optimiser fetched its own 404 page and
- * answered `400 "The requested resource isn't a valid image"`, which is
- * to say **every HomeKrafter-uploaded photo has rendered broken on the
- * live site since `next/image` was introduced in M16**. Found by
- * uploading a real photo to production, which is the only place the two
- * halves (nginx's alias and Next's optimiser) exist together.
- *
- * Skipping the optimiser is the honest fix rather than a workaround,
- * because as of M25 the bytes have *already* been through an equivalent
- * pass: `server/src/uploads/image-pipeline.ts` caps every upload at
- * 2000px and re-encodes it to WebP before it is ever stored. Optimising
- * again would be a second resize of an image that is already web-ready.
- *
- * The cost is that one stored size serves every slot, so a 210px card
- * downloads the same file as a full-width banner. That is the follow-up
- * worth doing (stored variants, or teaching nginx to serve them) — but a
- * heavy image beats a broken one, and this is what unblocks a
- * HomeKrafter seeing their own photo.
+ * From M25 until today `/uploads/` was rendered `unoptimized`, because
+ * the optimiser resolves a relative `src` against its *own* server
+ * (127.0.0.1:3000), nothing on the Next process served that path in
+ * production, and the optimiser fetched its own 404 page and answered
+ * `400 "The requested resource isn't a valid image"`. The fix is in
+ * `next.config.ts`: the `/uploads/` rewrite that already existed for dev
+ * now applies in production too, pointed at the public origin, so the
+ * optimiser's in-process fetch is answered by nginx from disk like any
+ * browser's. What it buys is the thing M25 named as the follow-up: a
+ * 260px card no longer downloads the 1600px file a full-width banner
+ * needs, and a phone gets AVIF at its own width. The M25 pipeline
+ * (2000px cap, WebP, metadata stripped) still runs at upload time; this
+ * is the per-slot resize on top of it, cached for a week.
  *
  * **The absolute-URL arm is structural on purpose (M27).** With cloud
  * storage the stored URL becomes absolute
@@ -105,8 +103,8 @@ const DEFAULT_SIZES = "(max-width: 640px) 100vw, (max-width: 1180px) 50vw, 380px
  * optimising it" is simply true, needs no configuration, and cannot be
  * misconfigured.
  */
-function isUpload(src: string): boolean {
-  return src.startsWith("/uploads/") || /^https?:\/\//i.test(src);
+function isAbsolute(src: string): boolean {
+  return /^https?:\/\//i.test(src);
 }
 
 export function ImageSlot({
@@ -119,6 +117,7 @@ export function ImageSlot({
   src,
   sizes = DEFAULT_SIZES,
   priority = false,
+  quality,
   className,
 }: ImageSlotProps) {
   const wrapperClass = clsx(
@@ -142,7 +141,8 @@ export function ImageSlot({
           fill
           sizes={sizes}
           priority={priority}
-          unoptimized={isUpload(src)}
+          quality={quality}
+          unoptimized={isAbsolute(src)}
         />
       </div>
     );

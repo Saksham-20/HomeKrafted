@@ -34,17 +34,21 @@ import {
   useState,
   type ReactNode,
 } from "react";
+// Imported from the module, not the `@/lib/api` barrel. This file is
+// `"use client"` and sits in the root layout, so anything it imports
+// ships to every page; through the barrel that was the *entire* API
+// layer — admin, seller, meal plans, Razorpay — on the landing page.
 import {
   addCartItem,
   addHamperCartItem,
   assignCartItemAddress,
   clearServerCart,
-  getHamperBoxes,
-  getProducts,
   getServerCart,
   removeCartItem,
   updateCartItemQty,
-} from "@/lib/api";
+} from "@/lib/api/cart";
+import { getProducts } from "@/lib/api/products";
+import { getHamperBoxes } from "@/lib/api/site";
 import { isMockMode } from "@/lib/api/http";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { CartItem, Hamper, HamperBox, ID, Product, ServerCartLine } from "@/lib/types";

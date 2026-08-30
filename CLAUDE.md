@@ -1816,25 +1816,35 @@ Three props matter and are easy to forget:
 uploads are same-origin (nginx serves `/uploads/` — see `docs/DEPLOY.md`),
 so nothing needs allowlisting. Don't widen it to `**` to make a CDN work.
 
-**An upload is served with `unoptimized`, and that is not a shortcut
-(M25).** `next/image` resolves a local `src` against its *own* server on
-`127.0.0.1:3000`. Bundled art under `public/` is served by Next, so the
-optimiser works. `/uploads/` is served **only by nginx**, from
-`/var/lib/homekrafted/uploads` — the Next process has no such route, so
+**An upload goes through the optimiser (2026-08-30); until then it was
+served `unoptimized`, and that was not a shortcut (M25).** `next/image`
+resolves a local `src` against its *own* server on `127.0.0.1:3000`.
+Bundled art under `public/` is served by Next, so the optimiser works.
+`/uploads/` is served **only by nginx**, from
+`/var/lib/homekrafted/uploads` — the Next process had no such route, so
 the optimiser fetched its own 404 page and answered `400 "The requested
 resource isn't a valid image"`. Every HomeKrafter-uploaded photo rendered
-broken on the live site from M16 until this was found, by uploading a
-real photo to production. Three things to know before touching it:
+broken on the live site from M16 until M25 found it by uploading a real
+photo to production; M25 answered with `unoptimized`, honest because
+`image-pipeline.ts` had already capped and re-encoded the file, at the
+open cost that one stored size served every slot. Now the `/uploads/`
+rewrite in `next.config.ts` applies in **production too**, pointed at
+the public origin: the optimiser's in-process fetch is answered by nginx
+from disk, and a 260px card gets a 260px AVIF. Three things to know
+before touching it:
 
 - **A `public/uploads` symlink does not fix it** — tried on the box; Next
   does not pick up `public/` changes at runtime.
-- **Skipping the optimiser is honest now, because the server already did
-  that pass.** `image-pipeline.ts` caps at 2000px and re-encodes to WebP
-  before storing, so optimising again resizes an already-web-ready file.
-- **The open cost is one stored size for every slot** — a 210px card
-  downloads the same file as a full-width banner. Stored variants (or
-  teaching nginx to serve them) is the follow-up; don't "fix" it by
-  re-enabling the optimiser, which puts the broken images back.
+- **Public requests never hit the rewrite.** nginx matches `/uploads/`
+  before it proxies to Next; the rewrite exists for the optimiser's
+  loopback fetch and dev alone. Don't "tidy" it back to dev-only — that
+  puts the 400 back on every uploaded photo.
+- **`images.minimumCacheTTL` is a week, `qualities` is `[50, 75]`.** The
+  four-hour default had every returning visitor re-fetching every image
+  and the 1-vCPU box re-encoding evicted ones; a week matches `/videos/`
+  and is not `immutable` for the same reason. Quality 50 exists for the
+  landing hero's two grainy photographs (measured: half the bytes); a
+  product photo stays on 75.
 
 ## Fonts & tokens wiring (established in M0 — don't re-derive this)
 

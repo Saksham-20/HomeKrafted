@@ -36,14 +36,18 @@ import {
   useState,
   type ReactNode,
 } from "react";
+// Imported from the module, not the `@/lib/api` barrel. This file is
+// `"use client"` and sits in the root layout, so anything it imports
+// ships to every page; through the barrel that was the *entire* API
+// layer — admin, seller, meal plans, Razorpay — on the landing page.
+import { payOrder } from "@/lib/api/orders";
 import {
   createRazorpayOrder,
   getAutoTopupRule,
   getTransactions,
   getWallet,
-  payOrder,
   updateAutoTopupRule,
-} from "@/lib/api";
+} from "@/lib/api/wallet";
 import { ApiError, isMockMode } from "@/lib/api/http";
 import { openRazorpayCheckout } from "@/lib/payments/razorpay";
 import { useAuth } from "@/lib/auth/AuthContext";

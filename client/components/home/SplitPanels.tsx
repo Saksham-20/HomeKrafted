@@ -153,13 +153,23 @@ export function SplitPanels() {
         >
           {/* `alt=""` — the panel's own heading says the same thing one
               node later, and `priority` because one of these two is the
-              landing page's LCP element whichever way the split falls. */}
+              landing page's LCP element whichever way the split falls.
+
+              `sizes` is what the photo's box measures, not what the panel
+              can grow to: at rest each slice is half the stage, and a
+              browser never swaps in a larger candidate on hover. At `75vw`
+              a 2× desktop asked for the 2048 candidate — the full 1125px
+              source, ~290 KB of AVIF per half — for a box 700px wide.
+              `quality={50}` because these are grainy kitchen shots under a
+              scrim; measured, it halves the bytes and nothing in the
+              frame is being judged the way a product photo is. */}
           <ImageSlot
             ratio="4/5"
             label={`${title} photograph`}
             alt=""
             src={src}
-            sizes="(max-width: 900px) 100vw, 75vw"
+            sizes="(max-width: 900px) 100vw, 50vw"
+            quality={50}
             className={styles.photo}
             priority
           />

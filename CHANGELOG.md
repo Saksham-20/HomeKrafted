@@ -3,6 +3,33 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M55] — the landing page ships less — 2026-08-30
+
+Measured on the production box before touching anything: the hero's two
+photographs were **~290 KB of AVIF each** (a `75vw` `sizes` on a 2×
+desktop picked the full 1125px source for a 700px box), a `/` visit
+pulled **the entire `lib/api` layer and the whole seed catalogue** into
+its JavaScript through two barrels, and every optimised image expired
+in the browser after four hours.
+
+- **Hero:** `sizes` says what the box measures (`50vw` at rest, a
+  browser never swaps up on hover) and the two grainy kitchen shots take
+  `quality={50}` (`images.qualities: [50, 75]`; `ImageSlot` grew a
+  `quality` prop). Roughly a third of the bytes.
+- **Root-layout clients import modules, not barrels.** `CartContext`,
+  `WalletContext` and `WishlistContext` imported from `@/lib/api`, which
+  re-exports admin, seller, meals and Razorpay — all of it shipped on
+  the landing page. `AuthContext` did the same with `@/lib/data` for
+  five fixtures and got 131 KB of seed products with them.
+- **Uploads go through the optimiser.** The dev-only `/uploads/` rewrite
+  now applies in production, pointed at the public origin, so the
+  optimiser's loopback fetch is answered by nginx and `ImageSlot` drops
+  `unoptimized` for `/uploads/` (absolute URLs stay unoptimised — the
+  M27 structural reason holds). A 260px card on `/shop` stops
+  downloading the 1600px file.
+- **`images.minimumCacheTTL` is a week** (was four hours), same ceiling
+  and same not-`immutable` reasoning as `/videos/`.
+
 ## [M54] — a kitchen chooses its own face, and the reels play — 2026-08-29
 
 ### HomeKrafters pick a character; the assigned caricature is retired
