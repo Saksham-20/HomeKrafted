@@ -110,7 +110,8 @@
    sets for a pointer target (2.5.8), and these are the links somebody
    reaches for on a phone to find the refund policy. The type size is
    unchanged; the box around it is not. */
-.legalLinks a {
+.legalLinks a,
+.credit {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -118,7 +119,8 @@
   text-decoration: none;
 }
 
-.legalLinks a:hover {
+.legalLinks a:hover,
+.credit:hover {
   color: var(--hk-footer-ink);
   text-decoration: underline;
 }

@@ -39,9 +39,17 @@ export async function Footer() {
       <div className={clsx("container", styles.legal)}>
         <span>
           © {year} Homekrafted · Made with love in real homes ·{" "}
-          {/* Studio credit, owner's request 2026-08-30. Plain text — no
-              link, so it never competes with the policy links beside it. */}
-          Developed by Globoniks
+          {/* Studio credit, owner's request 2026-08-30 (linked since the
+              same day). Same 24px target box as the policy links. */}
+          Developed by{" "}
+          <a
+            className={styles.credit}
+            href="https://globoniks.com"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Globoniks
+          </a>
         </span>
         <span className={styles.legalLinks}>
           <Link href="/terms">Terms</Link>
