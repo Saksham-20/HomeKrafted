@@ -1,0 +1,28 @@
+.activeChips {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  /* The surrounding toolbar's other controls keep their intrinsic width;
+     the chips take what is left and wrap, so a long filter set never
+     squeezes them off the row. */
+  flex: 1;
+  min-width: 0;
+}
+
+.clearAll {
+  border: none;
+  background: none;
+  padding: 4px 8px;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.clearAll:hover {
+  color: var(--hk-ink);
+}

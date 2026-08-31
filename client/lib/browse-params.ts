@@ -1,4 +1,4 @@
-import type { DietaryTag } from "@/lib/types";
+import type { DietaryTag, ProductTag } from "@/lib/types";
 
 /**
  * The browse state of a listing page, as it lives in the URL.
@@ -50,6 +50,23 @@ const DIETARY_TAGS: DietaryTag[] = [
 ];
 
 /**
+ * The merchandising tags a listing can carry (M56). Validated the same
+ * way dietary tags are: an unknown value in the URL is dropped, never
+ * passed through to filter the grid to nothing.
+ */
+export const PRODUCT_TAG_VALUES: ProductTag[] = ["Bestseller", "New", "Festive", "Curated"];
+
+/**
+ * How a listing travels (M56): `local` is cooked-fresh food delivered
+ * nearby (a thali, rajma chawal, warm brownies), `national` is what
+ * survives a courier — pickles, cookies, dry snacks, and most crafts.
+ * The owner's framing: some food *is* a craft in shipping terms.
+ */
+export type ShippingScopeFilter = "local" | "national";
+
+export const SHIPPING_SCOPE_VALUES: ShippingScopeFilter[] = ["local", "national"];
+
+/**
  * Which half of `/shop` is showing (M51): the kitchens cooking, or every
  * dish flattened into one grid.
  *
@@ -71,6 +88,16 @@ export interface BrowseParams {
   /** Occasion slugs. Empty means every occasion. */
   occasions: string[];
   dietary: DietaryTag[];
+  /** Merchandising tags (`?tag=Bestseller,Festive`, M56). Empty means every listing. */
+  tags: ProductTag[];
+  /** `?sale=1` — only listings with a storefront discount running (M56). */
+  sale: boolean;
+  /**
+   * `?ship=national` / `?ship=local` (M56). Empty means both. Two values
+   * selected is the same as none — kept as the caller sees it so the
+   * checkboxes round-trip.
+   */
+  shipping: ShippingScopeFilter[];
   /**
    * `null` when the range was left alone. The bounds depend on the product
    * set, which this module deliberately knows nothing about — the caller
@@ -87,6 +114,9 @@ export const DEFAULT_BROWSE_PARAMS: BrowseParams = {
   categories: [],
   occasions: [],
   dietary: [],
+  tags: [],
+  sale: false,
+  shipping: [],
   price: null,
   sort: DEFAULT_BROWSE_SORT,
   page: 1,
@@ -137,11 +167,26 @@ export function parseBrowseParams(input: string | URLSearchParams): BrowseParams
     DIETARY_TAGS.includes(tag as DietaryTag),
   );
 
+  const tags = parseList(params.get("tag")).filter((tag): tag is ProductTag =>
+    PRODUCT_TAG_VALUES.includes(tag as ProductTag),
+  );
+
+  // Strictly `"1"`. `?sale=yes`, `?sale=true` and `?sale=0` all read as
+  // off — one spelling, so a shared URL either means it or does nothing.
+  const sale = params.get("sale") === "1";
+
+  const shipping = parseList(params.get("ship")).filter((value): value is ShippingScopeFilter =>
+    SHIPPING_SCOPE_VALUES.includes(value as ShippingScopeFilter),
+  );
+
   return {
     view,
     categories: parseList(params.get("category")),
     occasions: parseList(params.get("occasion")),
     dietary,
+    tags,
+    sale,
+    shipping,
     price,
     sort,
     page,
@@ -161,6 +206,9 @@ export function browseParamsToQuery(state: BrowseParams): string {
   if (state.categories.length) params.set("category", state.categories.join(","));
   if (state.occasions.length) params.set("occasion", state.occasions.join(","));
   if (state.dietary.length) params.set("diet", state.dietary.join(","));
+  if (state.tags.length) params.set("tag", state.tags.join(","));
+  if (state.sale) params.set("sale", "1");
+  if (state.shipping.length) params.set("ship", state.shipping.join(","));
   if (state.price) {
     params.set("minPrice", String(state.price[0]));
     params.set("maxPrice", String(state.price[1]));

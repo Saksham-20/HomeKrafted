@@ -1,0 +1,18 @@
+.sortRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13.5px;
+  color: var(--hk-ink-3);
+}
+
+.sortSelect {
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-sm);
+  padding: 8px 12px;
+  color: var(--hk-ink-2);
+  font-weight: 500;
+  font-size: 13.5px;
+  min-height: 40px;
+}

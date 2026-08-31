@@ -12,15 +12,48 @@ import {
  */
 describe("reading browse state out of a URL", () => {
   it("reads a full state", () => {
-    expect(parseBrowseParams("view=dishes&category=pickles,sweets&occasion=diwali&diet=vegan&minPrice=100&maxPrice=500&sort=price-asc&page=3")).toEqual({
+    expect(parseBrowseParams("view=dishes&category=pickles,sweets&occasion=diwali&diet=vegan&tag=Bestseller&sale=1&ship=national&minPrice=100&maxPrice=500&sort=price-asc&page=3")).toEqual({
       view: "dishes",
       categories: ["pickles", "sweets"],
       occasions: ["diwali"],
       dietary: ["vegan"],
+      tags: ["Bestseller"],
+      sale: true,
+      shipping: ["national"],
       price: [100, 500],
       sort: "price-asc",
       page: 3,
     });
+  });
+
+  it("a pre-M56 URL still parses identically, with the new fields at their defaults", () => {
+    // Every shared /shop link written before tags/sale/shipping existed
+    // must keep meaning exactly what it meant.
+    const parsed = parseBrowseParams("category=pickles&sort=price-asc&page=2");
+    expect(parsed.categories).toEqual(["pickles"]);
+    expect(parsed.tags).toEqual([]);
+    expect(parsed.sale).toBe(false);
+    expect(parsed.shipping).toEqual([]);
+  });
+
+  it("drops a tag that is not one of ours", () => {
+    expect(parseBrowseParams("tag=Bestseller,<script>,Festive").tags).toEqual([
+      "Bestseller",
+      "Festive",
+    ]);
+  });
+
+  it.each([
+    ["yes", "sale=yes"],
+    ["true", "sale=true"],
+    ["0", "sale=0"],
+    ["empty", "sale="],
+  ])("reads sale=%s as off — only the one spelling counts", (_label, query) => {
+    expect(parseBrowseParams(query).sale).toBe(false);
+  });
+
+  it("drops an unknown shipping scope", () => {
+    expect(parseBrowseParams("ship=national,overnight").shipping).toEqual(["national"]);
   });
 
   it("an empty query is the default state", () => {
@@ -126,12 +159,27 @@ describe("writing browse state into a URL", () => {
     ).toBe("category=pickles");
   });
 
+  it("omits empty tags, sale off and an empty shipping scope", () => {
+    expect(
+      browseParamsToQuery({ ...DEFAULT_BROWSE_PARAMS, categories: ["pickles"] }),
+    ).not.toContain("tag");
+    expect(
+      browseParamsToQuery({ ...DEFAULT_BROWSE_PARAMS, categories: ["pickles"] }),
+    ).not.toContain("sale");
+    expect(
+      browseParamsToQuery({ ...DEFAULT_BROWSE_PARAMS, categories: ["pickles"] }),
+    ).not.toContain("ship");
+  });
+
   it("round-trips a full state", () => {
     const state = {
       view: "dishes" as const,
       categories: ["pickles", "sweets"],
       occasions: ["diwali"],
       dietary: ["vegan" as const],
+      tags: ["Bestseller" as const],
+      sale: true,
+      shipping: ["national" as const],
       price: [100, 500] as [number, number],
       sort: "price-desc" as const,
       page: 4,

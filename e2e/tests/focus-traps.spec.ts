@@ -234,6 +234,40 @@ test.describe('the reel viewer', () => {
   });
 });
 
+test.describe('the mobile filter sheet (M56)', () => {
+  // The Filters button only exists below the sidebar's 900px collapse.
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  const FILTER_SHEET = '[role="dialog"][aria-label="Filters"]';
+
+  test('moves focus in, traps Tab, closes on Escape, and gives focus back', async ({ page }) => {
+    await page.goto('/gifts');
+    await dismissLocationPrompt(page);
+
+    const opener = page.getByRole('button', { name: /^Filters/ }).first();
+    test.skip(!(await opener.count()), 'no filter toggle — catalogue empty');
+
+    await opener.click();
+    await expect(page.locator(FILTER_SHEET)).toBeVisible();
+    expect(await focusIsInside(page, FILTER_SHEET)).toBe(true);
+
+    // Enough presses to walk past every checkbox and both footer buttons
+    // — focus must wrap, never escape into the grid behind the scrim.
+    for (let i = 0; i < 25; i += 1) {
+      await page.keyboard.press('Tab');
+      expect(
+        await focusIsInside(page, FILTER_SHEET),
+        `Tab press ${i + 1} left the sheet (focus: ${await focusedDescriptor(page)})`,
+      ).toBe(true);
+    }
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator(FILTER_SHEET)).toBeHidden();
+    // Back to the Filters button that opened it.
+    await expect(opener).toBeFocused();
+  });
+});
+
 /**
  * Answers the first-visit prompt by actually pressing Escape.
  *

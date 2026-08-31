@@ -1,78 +1,58 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
-import { KitchenCard } from "@/components/kitchen/KitchenCard";
 import { ActiveFilterBar, type ActiveFilterChip } from "@/components/browse/ActiveFilterBar";
 import { BrowsePagination } from "@/components/browse/BrowsePagination";
 import { FilterGroup } from "@/components/browse/FilterGroup";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
-import { PRODUCT_TAG_VALUES, type BrowseView } from "@/lib/browse-params";
-import { buildKitchens, listingPrice, sortKitchens } from "@/lib/kitchens";
-import { isOnSale, productMatchesFacets, DIETARY_LABELS, DIETARY_OPTIONS, SHIPPING_LABELS } from "@/lib/browse-facets";
-import type { Category, Occasion, Product, Vendor } from "@/lib/types";
-import styles from "./ShopClient.module.css";
+import { PRODUCT_TAG_VALUES } from "@/lib/browse-params";
+import { isOnSale, productMatchesFacets, SHIPPING_LABELS } from "@/lib/browse-facets";
+import { listingPrice } from "@/lib/kitchens";
+import type { Category, Occasion, Product } from "@/lib/types";
+import styles from "./GiftsClient.module.css";
 
-/**
- * How many cards get `priority` — the first row at the widest layout this
- * grid reaches. Three here, not five like the sidebar-less grids, because
- * this page gives a column to filters; measured at 1280px.
- *
- * A single card is not enough: every card renders the same size, so which
- * one wins LCP is decided by paint order, and at 1280px Next named the
- * second one. Marking one card was a fix that happened to miss.
- */
+/** First grid row at the sidebar layout's widest — see ShopClient's note. */
 const PRIORITY_CARDS = 3;
 
-export interface ShopClientProps {
+const PAGE_SIZE = 8;
+
+const priceOf = listingPrice;
+
+export interface GiftsClientProps {
   products: Product[];
+  /** Craft-group categories only — the server page scopes them (M51's facet rule). */
   categories: Category[];
   occasions: Occasion[];
-  /**
-   * Every kitchen, so the default view can be built from the listings
-   * already fetched (M51). There is no `GET /kitchens` — see
-   * `lib/kitchens.ts` for why deriving beats adding one.
-   */
-  vendors: Vendor[];
   vendorNameById: Record<string, string>;
   /** See `useBrowseFilters` — the server's query string, verbatim. */
   initialQuery: string;
 }
 
-const PAGE_SIZE = 6;
-
 /**
- * Kitchens page in eights, dishes in sixes. A kitchen card is taller than
- * a product card but carries four listings of its own, so eight of them
- * is roughly the same amount of catalogue per page.
+ * The craft vertical's browse machinery (M56). `/gifts` was a bare grid
+ * with no filters, no sort and no URL state while `/shop` had all
+ * three — composed here from the same `components/browse/` pieces, so
+ * the two listing pages are one set of controls. No kitchens/dishes
+ * switch (buying a candle is not a decision about who made it the way
+ * ordering cooked food is — the M51 asymmetry, kept on purpose) and no
+ * dietary facet (a craft has none).
  */
-const KITCHEN_PAGE_SIZE = 8;
-
-/** Shared with the kitchen cards so a "from ₹220" and the dish card under it cannot disagree. */
-const priceOf = listingPrice;
-
-/**
- * Shop listing's interactive half (recomposed over `components/browse/`
- * in M56): filter sidebar — and the same controls in a bottom sheet
- * below 900px — sort, removable active-filter chips, the kitchens/dishes
- * switch, grid and pagination. All filtering stays a client-side
- * `useMemo` over the already-loaded list (M49: instant, so a spinner
- * here would be theatre); the URL machinery lives in `useBrowseFilters`.
- */
-export function ShopClient({
+export function GiftsClient({
   products,
   categories,
   occasions,
-  vendors,
   vendorNameById,
   initialQuery,
-}: ShopClientProps) {
+}: GiftsClientProps) {
   const priceBounds = useMemo(() => {
+    if (products.length === 0) return [0, 0] as [number, number];
     const prices = products.map(priceOf);
     return [Math.min(...prices), Math.max(...prices)] as [number, number];
   }, [products]);
@@ -81,8 +61,6 @@ export function ShopClient({
   const {
     selectedCategories,
     setSelectedCategories,
-    selectedDietary,
-    setSelectedDietary,
     selectedOccasions,
     setSelectedOccasions,
     selectedTags,
@@ -96,8 +74,6 @@ export function ShopClient({
     priceNarrowed,
     sort,
     setSort,
-    view,
-    setView,
     page,
     setPage,
     toggle,
@@ -109,20 +85,18 @@ export function ShopClient({
   const counts = useMemo(() => {
     const category = new Map<string, number>();
     const occasion = new Map<string, number>();
-    const dietary = new Map<string, number>();
     const tag = new Map<string, number>();
     const shipping = new Map<string, number>();
     let sale = 0;
     for (const product of products) {
       category.set(product.categoryId, (category.get(product.categoryId) ?? 0) + 1);
       for (const id of product.occasionIds) occasion.set(id, (occasion.get(id) ?? 0) + 1);
-      for (const t of product.dietary) dietary.set(t, (dietary.get(t) ?? 0) + 1);
       for (const t of product.tags) tag.set(t, (tag.get(t) ?? 0) + 1);
       const scope = product.shippingScope ?? "local";
       shipping.set(scope, (shipping.get(scope) ?? 0) + 1);
       if (isOnSale(product)) sale += 1;
     }
-    return { category, occasion, dietary, tag, shipping, sale };
+    return { category, occasion, tag, shipping, sale };
   }, [products]);
 
   const filtered = useMemo(
@@ -132,7 +106,7 @@ export function ShopClient({
           productMatchesFacets(product, {
             categories: selectedCategories,
             occasions: selectedOccasions,
-            dietary: selectedDietary,
+            dietary: new Set(),
             tags: selectedTags,
             sale: saleOnly,
             shipping: selectedShipping,
@@ -140,16 +114,7 @@ export function ShopClient({
           priceOf(product) >= priceRange[0] &&
           priceOf(product) <= priceRange[1],
       ),
-    [
-      products,
-      selectedCategories,
-      selectedDietary,
-      selectedOccasions,
-      selectedTags,
-      saleOnly,
-      selectedShipping,
-      priceRange,
-    ],
+    [products, selectedCategories, selectedOccasions, selectedTags, saleOnly, selectedShipping, priceRange],
   );
 
   const sorted = useMemo(() => {
@@ -164,54 +129,20 @@ export function ShopClient({
     return list;
   }, [filtered, sort]);
 
-  /**
-   * The kitchens view is grouped out of the **filtered** listings, not out
-   * of the whole catalogue: a kitchen appears when it has something that
-   * matches, and the four dishes on its card are four of the matches. Tick
-   * "Pickles" and the cards keep showing the kitchen's pickles rather than
-   * whatever it happens to be best rated for — a preview that ignored the
-   * filter would send people into storefronts that do not sell what they
-   * ticked.
-   */
-  const kitchens = useMemo(
-    () => sortKitchens(buildKitchens(filtered, vendors, categories), sort),
-    [filtered, vendors, categories, sort],
-  );
-
-  const isKitchens = view === "kitchens";
-
   const hasDistance = useMemo(
     () => products.some((product) => product.distanceKm !== undefined),
     [products],
   );
 
-  const pageSize = isKitchens ? KITCHEN_PAGE_SIZE : PAGE_SIZE;
-  const resultCount = isKitchens ? kitchens.length : sorted.length;
-  const totalPages = Math.max(1, Math.ceil(resultCount / pageSize));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pageItems = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const kitchenPageItems = kitchens.slice(
-    (currentPage - 1) * KITCHEN_PAGE_SIZE,
-    currentPage * KITCHEN_PAGE_SIZE,
-  );
-
-  function switchView(next: BrowseView) {
-    setView(next);
-    // Page 3 of the dishes is not page 3 of the kitchens, and landing on
-    // an empty page reads as the filters having eaten the catalogue.
-    setPage(1);
-  }
+  const pageItems = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const activeChips: ActiveFilterChip[] = [
     ...[...selectedCategories].map((id) => ({
       key: `cat-${id}`,
       label: categories.find((c) => c.id === id)?.name ?? id,
       onRemove: () => toggle(selectedCategories, setSelectedCategories, id),
-    })),
-    ...[...selectedDietary].map((tag) => ({
-      key: `diet-${tag}`,
-      label: DIETARY_LABELS[tag],
-      onRemove: () => toggle(selectedDietary, setSelectedDietary, tag),
     })),
     ...[...selectedOccasions].map((id) => ({
       key: `occ-${id}`,
@@ -244,12 +175,7 @@ export function ShopClient({
 
   const activeCount = activeChips.length;
 
-  /**
-   * Rendered twice — the desktop `<aside>` and the mobile sheet show the
-   * same controls, and only one of the two is ever visible (the aside is
-   * `display: none` below 900px; the closed sheet is `visibility:
-   * hidden`), so the duplicate never doubles the tab order.
-   */
+  /** Rendered twice — desktop aside + mobile sheet; only one is ever visible. */
   const filterControls = (
     <>
       <FilterGroup
@@ -262,13 +188,6 @@ export function ShopClient({
         }))}
         onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
       />
-      {/*
-        The owner's framing (M56): some food is a craft in shipping terms.
-        A jar of pickle or a tin of cookies survives a courier anywhere in
-        the country; a thali or rajma chawal is cooked to be eaten within
-        the hour. This facet is that split, straight off
-        `Product.shippingScope`.
-      */}
       <FilterGroup
         title="Delivery"
         options={(["national", "local"] as const).map((scope) => ({
@@ -280,16 +199,6 @@ export function ShopClient({
         onToggle={(id) =>
           toggle(selectedShipping, setSelectedShipping, id as "local" | "national")
         }
-      />
-      <FilterGroup
-        title="Dietary"
-        options={DIETARY_OPTIONS.map((tag) => ({
-          id: tag,
-          label: DIETARY_LABELS[tag],
-          count: counts.dietary.get(tag) ?? 0,
-          checked: selectedDietary.has(tag),
-        }))}
-        onToggle={(id) => toggle(selectedDietary, setSelectedDietary, id as (typeof DIETARY_OPTIONS)[number])}
       />
       <FilterGroup
         title="Occasion"
@@ -310,12 +219,7 @@ export function ShopClient({
             count: counts.tag.get(tag) ?? 0,
             checked: selectedTags.has(tag),
           })),
-          {
-            id: "__sale",
-            label: "On sale",
-            count: counts.sale,
-            checked: saleOnly,
-          },
+          { id: "__sale", label: "On sale", count: counts.sale, checked: saleOnly },
         ]}
         onToggle={(id) => {
           if (id === "__sale") {
@@ -342,6 +246,24 @@ export function ShopClient({
     </>
   );
 
+  // The pre-M56 "nothing listed yet" state, distinct from "your filters
+  // matched nothing": one means the vertical is still filling, the other
+  // means loosen a checkbox.
+  if (products.length === 0) {
+    return (
+      <div className={styles.empty}>
+        <p className={styles.emptyLead}>No handcrafted gifts listed yet.</p>
+        <p className={styles.emptyBody}>
+          This side of Homekrafted is just opening. HomeKrafters are being onboarded now — in the
+          meantime, the gift hampers are ready to send today.
+        </p>
+        <Link href="/hamper" className={styles.emptyLink}>
+          Browse gift hampers →
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <section className={clsx("container", styles.layout)}>
       <button
@@ -358,7 +280,7 @@ export function ShopClient({
       <MobileFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        resultCount={resultCount}
+        resultCount={sorted.length}
         onClearAll={activeCount > 0 || priceNarrowed ? clearFilters : undefined}
       >
         {filterControls}
@@ -366,62 +288,24 @@ export function ShopClient({
 
       <div className={styles.main}>
         <div className={styles.toolbar}>
-          {/*
-            The food page's two shapes (M51). A radio group rather than
-            two buttons or a link pair: it is one question with two
-            answers, and a screen reader should hear "Browse by, kitchens,
-            selected, 1 of 2" instead of two unrelated toggles.
-          */}
-          <div className={styles.viewSwitch} role="radiogroup" aria-label="Browse by">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={isKitchens}
-              className={clsx(styles.viewBtn, isKitchens && styles.viewBtnActive)}
-              onClick={() => switchView("kitchens")}
-            >
-              Kitchens
-              <span className={styles.viewCount}>{kitchens.length}</span>
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!isKitchens}
-              className={clsx(styles.viewBtn, !isKitchens && styles.viewBtnActive)}
-              onClick={() => switchView("dishes")}
-            >
-              Dishes
-              <span className={styles.viewCount}>{sorted.length}</span>
-            </button>
-          </div>
+          <span className={styles.resultCount}>
+            {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
+          </span>
           <ActiveFilterBar chips={activeChips} onClearAll={clearFilters} />
           <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
         </div>
 
-        {resultCount === 0 ? (
-          /* The three-part empty state (M37): what happened, which
-             filters caused it, and the way out. A bare "no products"
-             over an active filter set reads as an empty catalogue. */
-          <div className={styles.empty}>
+        {sorted.length === 0 ? (
+          <div className={styles.noMatch}>
             <p>
-              {activeCount > 0
-                ? `Nothing matches ${activeChips.map((chip) => chip.label).join(" + ")}${
-                    priceNarrowed ? " in this price range" : ""
-                  }.`
-                : "Nothing matches this view."}
+              {`Nothing matches ${activeChips.map((chip) => chip.label).join(" + ")}${
+                priceNarrowed ? " in this price range" : ""
+              }.`}
             </p>
-            <p>Every filter narrows the same catalogue — loosen one and the kitchens come back.</p>
-            {(activeCount > 0 || priceNarrowed) && (
-              <Button variant="secondary" size="sm" onClick={clearFilters}>
-                Clear filters
-              </Button>
-            )}
-          </div>
-        ) : isKitchens ? (
-          <div className={styles.kitchenGrid}>
-            {kitchenPageItems.map((kitchen, index) => (
-              <KitchenCard key={kitchen.vendor.id} kitchen={kitchen} priority={index === 0} />
-            ))}
+            <p>Every filter narrows the same catalogue — loosen one and the gifts come back.</p>
+            <Button variant="secondary" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
           </div>
         ) : (
           <div className={styles.grid}>

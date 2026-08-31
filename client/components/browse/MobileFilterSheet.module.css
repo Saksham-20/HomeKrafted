@@ -1,0 +1,120 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(27, 40, 33, 0.42);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--hk-dur) var(--hk-ease);
+  /* Above the sticky header (50) and the location prompt (60), below the
+     nav drawer (90) — the drawer and the sheet never open together, but
+     a fixed stack needs one answer. */
+  z-index: 70;
+}
+
+.scrim.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 71;
+  display: flex;
+  flex-direction: column;
+  max-height: 82dvh;
+  background: var(--hk-surface);
+  border-top-left-radius: var(--hk-r-lg);
+  border-top-right-radius: var(--hk-r-lg);
+  border-top: 1px solid var(--hk-border);
+  box-shadow: 0 -18px 48px -24px rgba(27, 51, 39, 0.4);
+  transform: translateY(100%);
+  /* Off-screen must also leave the tab order (CLAUDE.md a11y floor):
+     `visibility` hides after the slide finishes and shows immediately on
+     open. The global reduced-motion floor strips the transition, which
+     leaves a snap — fine. */
+  visibility: hidden;
+  transition:
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s linear var(--hk-dur);
+}
+
+.sheet.open {
+  transform: translateY(0);
+  visibility: visible;
+  transition:
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s;
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--hk-s4) var(--hk-s5) var(--hk-s3);
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.body {
+  overflow-y: auto;
+  padding: var(--hk-s4) var(--hk-s5);
+  flex: 1;
+  min-height: 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s5);
+  border-top: 1px solid var(--hk-border);
+  background: var(--hk-surface);
+}
+
+.clearAll {
+  border: none;
+  background: none;
+  padding: 10px 8px;
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--hk-ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.apply {
+  flex: 1;
+  min-height: 48px;
+  border: none;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-pine);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}

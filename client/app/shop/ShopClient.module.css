@@ -28,10 +28,6 @@
   top: 84px;
 }
 
-.filterGroup {
-  margin-bottom: var(--hk-s5);
-}
-
 /* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
    sense, but these are words somebody reads. `--hk-gold-text-sm` is the
    same family at an AA-safe darkness (2026-08-08 contrast audit). */
@@ -42,54 +38,6 @@
   text-transform: uppercase;
   color: var(--hk-gold-text-sm);
   margin-bottom: var(--hk-s3);
-}
-
-.checkboxRow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14px;
-  color: var(--hk-ink-2);
-  padding: 6px 0;
-  cursor: pointer;
-  min-height: 32px;
-}
-
-/* A facet that would return nothing.
-
-   These stayed fully live next to a "0", so "Bakery 0" and "Raksha
-   Bandhan 0" were clickable routes to an empty grid — the shop offering
-   a dead end and charging a tap for it. Dimmed and disabled rather than
-   hidden: a count of zero is information ("we have no bakery near you
-   today"), and a facet that vanishes and reappears as stock changes is
-   a filter list nobody can learn.
-
-   A *checked* facet is never disabled, even at zero, or the filter that
-   emptied the grid could not be switched off. */
-.checkboxRowEmpty {
-  cursor: default;
-  color: var(--hk-muted);
-}
-
-.checkboxRowEmpty .count {
-  opacity: 0.6;
-}
-
-.checkbox {
-  width: 16px;
-  /* 16px is the browser default and under WCAG 2.2's 24px pointer floor —
-     these are ticked with a thumb, in a stack of near-identical rows. */
-  min-width: 24px;
-  height: 16px;
-  min-height: 24px;
-  accent-color: var(--hk-pine);
-  flex-shrink: 0;
-}
-
-.count {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--hk-muted);
 }
 
 .priceGroup {
@@ -108,36 +56,6 @@
   gap: var(--hk-s3);
   flex-wrap: wrap;
   margin-bottom: var(--hk-s5);
-}
-
-.activeChips {
-  display: flex;
-  gap: var(--hk-s2);
-  flex-wrap: wrap;
-  /* The view switch and the sort keep their intrinsic width; the chips
-     take what is left and wrap, so a long filter set never squeezes
-     either control off the row. */
-  flex: 1;
-  min-width: 0;
-}
-
-.sortRow {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 13.5px;
-  color: var(--hk-ink-3);
-}
-
-.sortSelect {
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-sm);
-  padding: 8px 12px;
-  color: var(--hk-ink-2);
-  font-weight: 500;
-  font-size: 13.5px;
-  min-height: 40px;
 }
 
 /*
@@ -217,33 +135,6 @@
   margin: 0;
 }
 
-.pagination {
-  display: flex;
-  justify-content: center;
-  gap: var(--hk-s2);
-  margin-top: var(--hk-s7);
-}
-
-.pageBtn {
-  /* 44px, the touch-target floor. Paging is the one control on this page
-     that is *only* reachable by tapping — there is no swipe or scroll
-     equivalent — and it is the last thing on a long browse page, so
-     nothing is competing for the four pixels. */
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: var(--hk-r-pill);
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  color: var(--hk-ink-2);
-  font-size: 13.5px;
-  font-weight: 500;
-}
-
-.pageActive {
-  background: var(--hk-pine);
-  border-color: var(--hk-pine);
-  color: #fff;
-}
 
 @media (max-width: 900px) {
   .layout {
@@ -258,10 +149,6 @@
     display: none;
     position: static;
     margin-bottom: var(--hk-s4);
-  }
-
-  .sidebarOpen {
-    display: block;
   }
 }
 

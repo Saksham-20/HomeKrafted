@@ -1,25 +1,15 @@
-import Link from "next/link";
 import clsx from "clsx";
-import { getCraftProducts, getVendors } from "@/lib/api";
+import { getCategories, getCraftProducts, getOccasions, getVendors } from "@/lib/api";
 import { getBuyerCoords } from "@/lib/location/server";
-import { ProductGridCard } from "@/components/product/ProductGridCard";
+import { GiftsClient } from "./GiftsClient";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Gifts.module.css";
 
 /**
- * How many cards get `priority` — the first row at the widest layout this
- * grid reaches (1180px container ÷ its own `minmax()` track). Above that
- * row nothing is above the fold, and below it the row is narrower, so a
- * couple of these are eager without being the LCP element; they are all
- * first-screen images either way, so nothing is fetched that was not
- * already needed. A single card is not enough: every card renders the same
- * size, so which one wins LCP is decided by paint order, and at 1280px
- * Next named the second one.
- */
-const PRIORITY_CARDS = 5;
-
-/**
- * Handcrafted Gifts (M20) — the platform's second vertical.
+ * Handcrafted Gifts (M20) — the platform's second vertical. Browse
+ * machinery (filters, sort, URL state, pagination) arrived in M56 via
+ * `GiftsClient`, composed from the same `components/browse/` pieces as
+ * `/shop`.
  *
  * Same reasoning as `/hamper` for `force-dynamic`: this reads the `hk_loc`
  * cookie, and `getBuyerCoords` swallows the error `cookies()` throws during
@@ -36,9 +26,35 @@ export const metadata = pageMetadata({
   path: "/gifts",
 });
 
-export default async function GiftsPage() {
+export interface GiftsPageProps {
+  /** Every browse param — see `lib/browse-params.ts`. */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+/** The page's query string, flattened the way `URLSearchParams` reads it. */
+function toQuery(params: Record<string, string | string[] | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) for (const item of value) search.append(key, item);
+    else if (value !== undefined) search.set(key, value);
+  }
+  return search.toString();
+}
+
+export default async function GiftsPage({ searchParams }: GiftsPageProps) {
+  const params = await searchParams;
   const near = await getBuyerCoords();
-  const [gifts, vendors] = await Promise.all([getCraftProducts(near), getVendors()]);
+  const [gifts, allCategories, occasions, vendors] = await Promise.all([
+    getCraftProducts(near),
+    getCategories(),
+    getOccasions(),
+    getVendors(),
+  ]);
+
+  // The sidebar's facets have to be scoped the same way the listing is
+  // (the /shop rule in reverse): a food category here would be a checkbox
+  // that empties the grid.
+  const categories = allCategories.filter((category) => category.group === "craft");
 
   const vendorNameById = Object.fromEntries(vendors.map((vendor) => [vendor.id, vendor.name]));
 
@@ -64,32 +80,13 @@ export default async function GiftsPage() {
         </p>
       </div>
 
-      <section className={clsx("container", styles.section)}>
-        {gifts.length === 0 ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyLead}>No handcrafted gifts listed yet.</p>
-            <p className={styles.emptyBody}>
-              This side of Homekrafted is just opening. HomeKrafters are being onboarded now — in the
-              meantime, the gift hampers are ready to send today.
-            </p>
-            <Link href="/hamper" className={styles.emptyLink}>
-              Browse gift hampers →
-            </Link>
-          </div>
-        ) : (
-          <div className={styles.grid}>
-            {gifts.map((product, index) => (
-              <ProductGridCard
-                key={product.id}
-                product={product}
-                makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
-                href={`/product/${product.slug}`}
-                priority={index < PRIORITY_CARDS}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      <GiftsClient
+        products={gifts}
+        categories={categories}
+        occasions={occasions}
+        vendorNameById={vendorNameById}
+        initialQuery={toQuery(params)}
+      />
     </>
   );
 }

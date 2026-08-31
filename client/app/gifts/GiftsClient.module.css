@@ -1,0 +1,147 @@
+/* The craft vertical's browse layout (M56) — same rhythm as
+   `app/shop/ShopClient.module.css`, because two listing pages that
+   behave the same should look the same. */
+
+.layout {
+  padding-block: var(--hk-s4) var(--hk-s8);
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.filterToggle {
+  display: none;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-md);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  grid-column: 1 / -1;
+  min-height: 44px;
+}
+
+.sidebar {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5) var(--hk-s4);
+  position: sticky;
+  top: 84px;
+}
+
+.filterTitle {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+  margin-bottom: var(--hk-s3);
+}
+
+.priceGroup {
+  border-top: 1px solid var(--hk-border);
+  padding-top: var(--hk-s4);
+}
+
+.main {
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s5);
+}
+
+.resultCount {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hk-ink-2);
+  white-space: nowrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--hk-s4);
+}
+
+.noMatch {
+  font-size: 14.5px;
+  color: var(--hk-muted);
+  padding: var(--hk-s7) 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--hk-s3);
+}
+
+.noMatch p {
+  margin: 0;
+}
+
+/* The vertical-still-filling state — a card with somewhere to go next
+   rather than a one-line apology (ported from Gifts.module.css). */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  max-width: 520px;
+  padding: var(--hk-s5);
+  margin: var(--hk-s5) auto var(--hk-s8);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+}
+
+.emptyLead {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  margin: 0;
+}
+
+.emptyBody {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+  margin: 0;
+}
+
+.emptyLink {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .filterToggle {
+    display: block;
+  }
+
+  .sidebar {
+    display: none;
+  }
+}
+
+/* Two products per row on a phone, not one — the M26 H13 rule every
+   browse grid carries. */
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hk-s3);
+  }
+}
