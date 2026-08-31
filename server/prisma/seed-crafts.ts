@@ -254,9 +254,16 @@ async function main(): Promise<void> {
           bio: maker.bio,
           avatarPlaceholder: `${maker.vendorName.toUpperCase()} — AVATAR`,
           bannerPlaceholder: `${maker.vendorName.toUpperCase()} — BANNER`,
-          // No `avatarSrc`/`bannerSrc`: the seeded food kitchens share two
-          // stock brand images, which are photographs of food. Reusing them
-          // on a jeweller would be worse than the placeholder.
+          // A chef character chosen for the demo storefront (M56) — one
+          // distinct drawing per maker, never a shared file (the M28
+          // lesson). No `bannerSrc`. Real kitchens choose their own on
+          // /seller/storefront; assignment is a demo-fixture-only move.
+          avatarSrc:
+            maker.vendorSlug === 'the-slow-studio'
+              ? '/images/avatars/short-hair.webp'
+              : maker.vendorSlug === 'maati-and-thread'
+                ? '/images/avatars/bob.webp'
+                : undefined,
           location: maker.location,
           area: maker.area,
           lat: maker.lat,

@@ -412,6 +412,22 @@ async function main(): Promise<void> {
     { id: 'vd10', slug: 'meeras-snack-box', name: "Meera's Snack Box", type: 'maker', bio: 'Evening snacks, samosas and homemade namkeen from a Sector 46 kitchen — order on WhatsApp, delivered hot.', location: 'Sector 46, Chandigarh', area: 'chd-sector-46', lat: 30.7083, lng: 76.7626, deliveryRadiusKm: 8, rating: 4.5, reviewCount: 96, joinedAt: '2024-05-20' },
   ] as const;
 
+  // Chef characters for the demo storefronts (M56, owner 2026-08-31) —
+  // one *distinct* drawing per kitchen from the M38b picker cast, never
+  // one file shared (the M28 lesson). vd8 (the platform, not a person)
+  // and vd9 (withdrawn laundry) stay faceless on purpose. Keep in step
+  // with `client/lib/data/vendors.ts` and `prisma/seed-avatars.ts`.
+  const demoAvatars: Record<string, string> = {
+    'anjalis-kitchen': '/images/avatars/bun.webp',
+    'meeras-homefoods': '/images/avatars/long-hair.webp',
+    'home-batch': '/images/avatars/moustache.webp',
+    'crunch-corner': '/images/avatars/goatee.webp',
+    'cocoa-homemade': '/images/avatars/curly-hair.webp',
+    'dadis-recipe': '/images/avatars/grey-bun.webp',
+    'hills-leaves': '/images/avatars/turban-beard.webp',
+    'meeras-snack-box': '/images/avatars/bangs-glasses.webp',
+  };
+
   for (const v of vendorSeeds) {
     await prisma.vendor.create({
       data: {
@@ -422,10 +438,11 @@ async function main(): Promise<void> {
         bio: v.bio,
         avatarPlaceholder: `${v.name.toUpperCase()} — AVATAR`,
         bannerPlaceholder: `${v.name.toUpperCase()} — BANNER`,
-        // No `avatarSrc`/`bannerSrc` (M28). Every vendor used to be seeded
-        // with the same two files, so ten kitchens shared one face and one
-        // banner. See `client/lib/data/vendors.ts` for the full reasoning;
+        // A chosen-for-demo character where one is assigned; no
+        // `bannerSrc` (M28 — ten kitchens once shared one face and one
+        // banner). See `client/lib/data/vendors.ts` for the reasoning;
         // real per-kitchen photos are an owner asset, not a code change.
+        avatarSrc: demoAvatars[v.slug],
         location: v.location,
         area: v.area,
         lat: v.lat,

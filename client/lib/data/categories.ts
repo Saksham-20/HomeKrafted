@@ -71,24 +71,34 @@ export const categories: Category[] = [
     imageSrc: "/images/categories/hampers.jpg",
     productCount: 7,
   },
+  {
+    id: "ct13",
+    slug: "sweets-ladoos",
+    name: "Sweets & Ladoos",
+    imagePlaceholder: "SWEETS & LADOOS",
+    imageSrc: "/images/categories/sweets-ladoos.jpg",
+    productCount: 2,
+    group: "food",
+  },
   /*
    * The craft half (M33). These four are real rows in production —
    * `server/prisma/seed-crafts.ts` has seeded them since M22 — but they
    * had never been mirrored here, so mock mode showed a food-only
    * marketplace and nobody working offline saw half the catalogue.
    *
-   * They carry **no `imageSrc`, on purpose**: no photograph exists for
-   * them, and inventing one is ruled out (`CLAUDE.md`). `CategoryTile`
-   * draws a mark instead of `ImageSlot`'s hatch placeholder, and mock
-   * mode is where that path is easiest to look at. `sortOrder` continues
-   * from the seed's numbering so both modes order the row identically.
+   * Their tiles are licensed stock photography since M56 (crops of the
+   * matching product photos — see `docs/IMAGE-LICENSES.md`), seeded onto
+   * production by `server/prisma/seed-catalogue.ts`. `sortOrder`
+   * continues from the seed's numbering so both modes order the row
+   * identically.
    */
   {
     id: "ct9",
     slug: "candles-home",
     name: "Candles & Home",
     imagePlaceholder: "CANDLES & HOME",
-    productCount: 4,
+    imageSrc: "/images/categories/candles-home.jpg",
+    productCount: 6,
     group: "craft",
     sortOrder: 10,
   },
@@ -97,6 +107,7 @@ export const categories: Category[] = [
     slug: "handmade-jewellery",
     name: "Handmade Jewellery",
     imagePlaceholder: "JEWELLERY",
+    imageSrc: "/images/categories/handmade-jewellery.jpg",
     productCount: 2,
     group: "craft",
     sortOrder: 11,
@@ -106,7 +117,8 @@ export const categories: Category[] = [
     slug: "art-prints",
     name: "Art & Prints",
     imagePlaceholder: "ART & PRINTS",
-    productCount: 1,
+    imageSrc: "/images/categories/art-prints.jpg",
+    productCount: 2,
     group: "craft",
     sortOrder: 12,
   },
@@ -115,7 +127,8 @@ export const categories: Category[] = [
     slug: "personalised-gifts",
     name: "Personalised Gifts",
     imagePlaceholder: "PERSONALISED",
-    productCount: 1,
+    imageSrc: "/images/categories/personalised-gifts.jpg",
+    productCount: 2,
     group: "craft",
     sortOrder: 13,
   },

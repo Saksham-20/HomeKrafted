@@ -5,21 +5,23 @@ import type { Vendor } from "@/lib/types";
  * (including "Homekrafted" itself for the platform-curated hamper) —
  * multi-product storefronts arrive with the full catalog in M2.
  *
- * **No vendor carries an `avatarSrc` or `bannerSrc`, deliberately (M28).**
- * Every one of them used to point at `/images/vendors/avatar.jpg` and
- * `/images/vendors/banner.jpg` — two files, shared by all ten kitchens —
- * so the storefronts rendered as the same stock face repeated down the
- * page. On a platform whose entire pitch is that a real person cooked
- * this, one borrowed face on ten makers reads as fake faster than no face
- * does. Absent a `src`, `ImageSlot` falls back to the labelled
- * placeholder, and each vendor's `avatarPlaceholder` already names them —
- * so the cards are at least distinct and honest.
+ * **Demo vendors carry a chef character as `avatarSrc` (M56, owner
+ * 2026-08-31); no vendor carries a `bannerSrc`.** M28 stripped the shared
+ * stock face (`/images/vendors/avatar.jpg` on all ten kitchens — one
+ * borrowed face on ten makers reads as fake faster than no face does);
+ * these are the M38b picker characters instead, one *distinct* drawing
+ * per demo storefront. That is fine here precisely because these rows are
+ * demo fixtures, not people: the owner's 2026-08-29 rule — a real kitchen
+ * is never *assigned* a face, it chooses one on /seller/storefront —
+ * still stands, and `server/prisma/seed-avatars.ts` (the prod side of
+ * this) is allowlisted by slug so it can never touch an onboarded seller.
+ * The platform's own storefront (vd8) and the withdrawn laundry vendor
+ * (vd9) stay faceless on purpose: neither is a person.
  *
- * The fix is real photographs, one per kitchen, which only the owner can
- * supply (`CLAUDE.md`: never generate or AI-fabricate imagery). Dropping
- * them under `public/images/vendors/` and setting the field here is then
- * a pure data change. Do **not** re-point several vendors at one file to
- * make the grid look full.
+ * The real fix is still a photograph per kitchen, owner-supplied
+ * (`CLAUDE.md`: never generate or AI-fabricate imagery) — dropping one
+ * under `public/images/vendors/` and re-pointing the field here is a pure
+ * data change. Never re-point several vendors at one file.
  */
 export const vendors: Vendor[] = [
   {
@@ -29,6 +31,7 @@ export const vendors: Vendor[] = [
     type: "maker",
     bio: "Home-cooked Punjabi food and small-batch pickles, made fresh every morning in a Sector 35 kitchen. Daily thalis, weekend specials, nothing frozen.",
     avatarPlaceholder: "ANJALI'S KITCHEN — AVATAR",
+    avatarSrc: "/images/avatars/bun.webp",
     bannerPlaceholder: "ANJALI'S KITCHEN — BANNER",
     location: "Sector 35, Chandigarh",
     area: "chd-sector-35",
@@ -47,6 +50,7 @@ export const vendors: Vendor[] = [
     type: "maker",
     bio: "Everyday home food from a Mohali kitchen — dal, sabzi, rotis packed hot, plus chutneys ground fresh each week.",
     avatarPlaceholder: "MEERA'S HOMEFOODS — AVATAR",
+    avatarSrc: "/images/avatars/long-hair.webp",
     bannerPlaceholder: "MEERA'S HOMEFOODS — BANNER",
     location: "Phase 3B2, Mohali",
     area: "moh-phase-3b2",
@@ -65,6 +69,7 @@ export const vendors: Vendor[] = [
     type: "baker",
     bio: "A Sector 15 home-bakery: millet cookies, eggless cakes and breads baked to order, never off a shelf.",
     avatarPlaceholder: "HOME BATCH — AVATAR",
+    avatarSrc: "/images/avatars/moustache.webp",
     bannerPlaceholder: "HOME BATCH — BANNER",
     location: "Sector 15, Chandigarh",
     area: "chd-sector-15",
@@ -83,6 +88,7 @@ export const vendors: Vendor[] = [
     type: "maker",
     bio: "Panchkula home kitchen roasting nuts, seeds and namkeen in small weekly batches.",
     avatarPlaceholder: "CRUNCH CORNER — AVATAR",
+    avatarSrc: "/images/avatars/goatee.webp",
     bannerPlaceholder: "CRUNCH CORNER — BANNER",
     location: "Sector 5, Panchkula",
     area: "pkl-sector-5",
@@ -101,6 +107,7 @@ export const vendors: Vendor[] = [
     type: "baker",
     bio: "Bean-to-bar chocolate and homemade desserts, made in a Sector 22 flat one batch at a time.",
     avatarPlaceholder: "COCOA HOMEMADE — AVATAR",
+    avatarSrc: "/images/avatars/curly-hair.webp",
     bannerPlaceholder: "COCOA HOMEMADE — BANNER",
     location: "Sector 22, Chandigarh",
     area: "chd-sector-22",
@@ -119,6 +126,7 @@ export const vendors: Vendor[] = [
     type: "maker",
     bio: "Traditional sweets, mathri and dry-fruit preparations from a Zirakpur family kitchen, three generations of recipes.",
     avatarPlaceholder: "DADI'S RECIPE — AVATAR",
+    avatarSrc: "/images/avatars/grey-bun.webp",
     bannerPlaceholder: "DADI'S RECIPE — BANNER",
     location: "VIP Road, Zirakpur",
     area: "zkp-vip-road",
@@ -137,6 +145,7 @@ export const vendors: Vendor[] = [
     type: "maker",
     bio: "Hand-blended teas and homemade masalas, packed in Panchkula.",
     avatarPlaceholder: "HILLS & LEAVES — AVATAR",
+    avatarSrc: "/images/avatars/turban-beard.webp",
     bannerPlaceholder: "HILLS & LEAVES — BANNER",
     location: "Sector 9, Panchkula",
     area: "pkl-sector-9",
@@ -191,6 +200,7 @@ export const vendors: Vendor[] = [
     type: "maker",
     bio: "Evening snacks, samosas and homemade namkeen from a Sector 46 kitchen — order on WhatsApp, delivered hot.",
     avatarPlaceholder: "MEERA'S SNACK BOX — AVATAR",
+    avatarSrc: "/images/avatars/bangs-glasses.webp",
     bannerPlaceholder: "MEERA'S SNACK BOX — BANNER",
     location: "Sector 46, Chandigarh",
     area: "chd-sector-46",
@@ -201,6 +211,51 @@ export const vendors: Vendor[] = [
     reviewCount: 96,
     followerCount: 143,
     joinedAt: "2024-05-20",
+  },
+  /*
+   * The two craft makers (M56). Real rows in production since
+   * `server/prisma/seed-crafts.ts` ran, mirrored here so mock mode's
+   * `/gifts` can name a maker. Ratings honest at 0 — nobody has
+   * reviewed them, and a card renders "New" rather than an invented
+   * score (the M51 rule).
+   */
+  {
+    id: "vd11",
+    slug: "the-slow-studio",
+    name: "The Slow Studio",
+    type: "artist",
+    bio: "Hand-poured soy candles, block-printed textiles and small ceramics, made in a Sector 8 flat in batches of thirty at a time.",
+    avatarPlaceholder: "THE SLOW STUDIO — AVATAR",
+    avatarSrc: "/images/avatars/short-hair.webp",
+    bannerPlaceholder: "THE SLOW STUDIO — BANNER",
+    location: "Sector 8, Chandigarh",
+    area: "chd-sector-8",
+    lat: 30.7419,
+    lng: 76.7906,
+    deliveryRadiusKm: 10,
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    joinedAt: "2026-06-10",
+  },
+  {
+    id: "vd12",
+    slug: "maati-and-thread",
+    name: "Maati & Thread",
+    type: "artist",
+    bio: "Hand-worked silver, thread jewellery and paper art from a Mohali studio. Everything is made to order, which is why it takes a week.",
+    avatarPlaceholder: "MAATI & THREAD — AVATAR",
+    avatarSrc: "/images/avatars/bob.webp",
+    bannerPlaceholder: "MAATI & THREAD — BANNER",
+    location: "Phase 5, Mohali",
+    area: "moh-phase-5",
+    lat: 30.702,
+    lng: 76.71,
+    deliveryRadiusKm: 10,
+    rating: 0,
+    reviewCount: 0,
+    followerCount: 0,
+    joinedAt: "2026-06-10",
   },
 ];
 
