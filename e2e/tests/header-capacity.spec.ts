@@ -47,9 +47,10 @@ const VIEWPORT = { width: 1280, height: 900 };
 
 /**
  * An inner route, not `/`, since M52: the landing page's header carries
- * no search field and no wallet chip at all (only the profile icons, and
- * the tabs once you scroll), so the capacity arithmetic this file guards
- * is the inner-page header's. `/shop` renders the full row for every role.
+ * no search field and no wallet chip at all (the profile icons and tabs,
+ * plus — since M56 — the logo, which sits invisible until the hero lockup
+ * scrolls past), so the capacity arithmetic this file guards is the
+ * inner-page header's. `/shop` renders the full row for every role.
  */
 const INNER_ROUTE = '/shop';
 

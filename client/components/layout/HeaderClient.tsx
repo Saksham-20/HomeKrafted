@@ -15,11 +15,19 @@ import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { MobileDrawer } from "./MobileDrawer";
 import styles from "./Header.module.css";
 
+/** One row of a tab's dropdown panel (M56). */
+export interface NavMenuLink {
+  href: string;
+  label: string;
+}
+
 export interface HeaderClientProps {
   /** The catalogue destinations — the only ones the desktop row renders (M34). */
   navItems: NavLink[];
   /** The non-catalogue ways in; drawer-only up here, since the desktop row has no width for them. See `secondaryNav` in `lib/data/site.ts`. */
   secondaryItems: NavLink[];
+  /** Dropdown rows per tab, keyed by the tab's href — built server-side in `Header.tsx` from the live category/occasion tables. */
+  navMenus?: Record<string, NavMenuLink[]>;
 }
 
 /**
@@ -42,18 +50,22 @@ export interface HeaderClientProps {
  * itself) and offers the reverse switch back to their dashboard — see
  * `SellerShell`'s matching "Switch to shopping" for the other direction.
  */
-export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
+export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClientProps) {
   const router = useRouter();
   const pathname = usePathname();
   /**
    * The landing page's header is a different object (owner, 2026-08-27,
-   * M52): no logo (the lockup is the page's `<h1>`), no search field, no
-   * wallet chip — only the profile icons, floating over the hero — and
-   * the tabs appear, centred, once the brand block has scrolled out. It
-   * is `position: fixed` and transparent at the top, so the hero can be
-   * one full screen with nothing above it. Every other route keeps the
-   * ordinary row: logo, tabs, search, wallet, icons, static.
-   * `usePathname` is known on the server, so the two renders agree.
+   * M52): no search field, no wallet chip — only the profile icons,
+   * floating over the hero — and the tabs are centred. It is
+   * `position: fixed` and transparent at the top, so the hero can be one
+   * full screen with nothing above it. The logo is in the row from first
+   * paint but invisible until the hero lockup (the page's `<h1>`) has
+   * scrolled past — then it fades in as the bar turns solid, so the
+   * wordmark reads as moving into the bar (owner, 2026-08-31, M56). The
+   * same `data-revealed` drives both; see Header.module.css. Every other
+   * route keeps the ordinary row: logo, tabs, search, wallet, icons,
+   * static. `usePathname` is known on the server, so the two renders
+   * agree.
    */
   const onLanding = pathname === "/";
   const [revealed, setRevealed] = useState(false);
@@ -110,24 +122,52 @@ export function HeaderClient({ navItems, secondaryItems }: HeaderClientProps) {
       data-revealed={onLanding ? String(revealed) : undefined}
     >
       <div className={clsx("container", styles.row)}>
-        {!onLanding && (
-          <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
-            {/* The tagline row ("Home food · Tricity") left with the compact
-                header (2026-08-27) — the hero's eyebrow now states the same
-                locality under the big lockup, and two copies 40px apart was
-                the redundancy, not the information. */}
-            {/* eslint-disable-next-line @next/next/no-img-element -- the brand
-                lockup is a fixed vector; next/image adds no value for an SVG. */}
-            <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
-          </Link>
-        )}
+        {/* Rendered on every route, the landing page included — there it
+            starts invisible (opacity 0 + visibility hidden, so it also
+            leaves the tab order) and appears with `data-revealed` once the
+            hero lockup scrolls out. Always in the flex row so nothing
+            reflows when it shows. */}
+        <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
+          {/* The tagline row ("Home food · Tricity") left with the compact
+              header (2026-08-27) — the hero's eyebrow now states the same
+              locality under the big lockup, and two copies 40px apart was
+              the redundancy, not the information. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- the brand
+              lockup is a fixed vector; next/image adds no value for an SVG. */}
+          <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
+        </Link>
 
         <nav className={styles.nav} aria-label="Primary">
-          {navItems.map((item) => (
-            <Link key={item.href + item.label} href={item.href} className={styles.navLink}>
-              {item.label}
-            </Link>
-          ))}
+          {/* Each tab is still a plain link to its hub; the dropdown (M56)
+              is a shortcut panel revealed on hover or focus-within —
+              CSS-only, absolutely positioned, so the row's 1092px
+              capacity arithmetic is untouched and keyboard users reach
+              every row by tabbing through it. */}
+          {navItems.map((item) => {
+            const menu = navMenus?.[item.href];
+            return (
+              <div key={item.href + item.label} className={styles.navItem}>
+                <Link href={item.href} className={styles.navLink}>
+                  {item.label}
+                </Link>
+                {menu && menu.length > 0 && (
+                  <div className={styles.navMenu}>
+                    <div className={styles.navMenuPanel}>
+                      {menu.map((link) => (
+                        <Link
+                          key={link.href + link.label}
+                          href={link.href}
+                          className={styles.navMenuLink}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className={styles.actions}>

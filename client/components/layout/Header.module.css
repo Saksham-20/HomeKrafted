@@ -1,5 +1,8 @@
 .header {
   position: relative;
+  /* Above ordinary page content so the tab dropdowns (M56) paint over
+     it; still under the location prompt (60) and the drawer (90). */
+  z-index: 40;
   background: var(--hk-surface);
   border-bottom: 1px solid var(--hk-border);
 }
@@ -86,6 +89,122 @@
 
 .landing .navLink {
   font-size: 15px;
+}
+
+/*
+  The landing bar's logo (M56, owner 2026-08-31): in the row from first
+  paint — so its flex slot is always occupied and nothing reflows when it
+  appears (the "transform and opacity only" rule above) — but invisible
+  until the hero lockup has scrolled out. `data-revealed` already means
+  exactly "the lockup left the bar's 64px band", so the same attribute
+  that turns the bar solid brings the wordmark in: it reads as the hero's
+  mark moving into the bar. `visibility` (delayed 0s on the way out,
+  immediate on the way in) also removes the link from the tab order while
+  it cannot be seen (the a11y floor's off-screen rule). No FLIP morph of
+  the hero mark itself — a fade/rise as the bar solidifies is the honest
+  version at a fraction of the machinery. And deliberately scroll-only:
+  hovering a split panel fades the hero lockup too (Hero.module.css), but
+  that is a momentary hover state — don't couple SplitPanels to this bar
+  through a document-root attribute to cover it.
+*/
+.landing .logo {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px);
+  transition:
+    opacity var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s linear var(--hk-dur);
+}
+
+.landing[data-revealed="true"] .logo {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s;
+}
+
+/* ---- Tab dropdowns (M56) ----
+ *
+ * Each tab is a plain link; hovering it (pointer devices) or focusing
+ * anything inside its wrapper (keyboard — `:focus-within`) reveals a
+ * shortcut panel of category/occasion rows built server-side in
+ * `Header.tsx`. Absolutely positioned so the row's 1092px capacity
+ * arithmetic never moves; `visibility: hidden` keeps the closed panel's
+ * links out of the tab order (the a11y floor's off-screen rule). The
+ * `padding-top` on `.navMenu` bridges the gap under the bar so the
+ * pointer can travel into the panel without it closing.
+ */
+.navItem {
+  position: relative;
+  display: inline-flex;
+}
+
+.navMenu {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translate(-50%, 6px);
+  padding-top: 10px;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 60;
+  transition:
+    opacity var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s linear var(--hk-dur);
+}
+
+.navItem:focus-within .navMenu {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition:
+    opacity var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease),
+    visibility 0s;
+}
+
+/* Hover reveal only where hover exists — on a touch screen the tap goes
+   to the tab's own link, and a panel that flashes open under a
+   navigating tap is noise. */
+@media (hover: hover) {
+  .navItem:hover .navMenu {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+    transition:
+      opacity var(--hk-dur) var(--hk-ease),
+      transform var(--hk-dur) var(--hk-ease),
+      visibility 0s;
+  }
+}
+
+.navMenuPanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 216px;
+  padding: var(--hk-s2);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  box-shadow: 0 18px 44px -22px rgba(27, 51, 39, 0.4);
+}
+
+.navMenuLink {
+  padding: 9px 12px;
+  border-radius: var(--hk-r-sm);
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  white-space: nowrap;
+}
+
+.navMenuLink:hover {
+  background: var(--hk-surface-2);
+  color: var(--hk-pine);
 }
 
 /* ---- Logo ---- */

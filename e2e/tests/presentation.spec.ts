@@ -99,6 +99,29 @@ test.describe('the header collapses where it has to', () => {
   });
 });
 
+test.describe('the landing logo hands over on scroll (M56)', () => {
+  test('hidden over the hero, visible once the lockup scrolls out', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto('/');
+
+    const headerLogo = page.locator('header a[aria-label="Homekrafted — home"]');
+    // At rest the hero lockup is the brand moment; the bar's copy sits in
+    // the row (so nothing reflows later) at visibility: hidden — which
+    // also keeps it out of the tab order while it cannot be seen.
+    await expect(headerLogo).toBeHidden();
+
+    // Past the first screenful the hero lockup has left the bar's 64px
+    // band; the observer flips `data-revealed` and the wordmark fades in.
+    await page.evaluate(() => window.scrollTo(0, window.innerHeight + 300));
+    await expect(headerLogo).toBeVisible();
+
+    // And back: scrolling up returns the brand moment to the hero.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(headerLogo).toBeHidden();
+  });
+});
+
 test.describe('every page has one h1', () => {
   test('exactly one, so the document has a single title', async ({ page }) => {
     await skipLocationPrompt(page);
