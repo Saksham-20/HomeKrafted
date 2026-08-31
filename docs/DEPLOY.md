@@ -303,22 +303,31 @@ wired and tested; none of it leaves the box until `WHATSAPP_*` and
 `pm2 logs homekrafted-api` as `[WHATSAPP STUB]` / `[EMAIL STUB]` lines —
 which is also where to look to confirm the fan-out is firing.
 
-## Demo-content seeders — the two that are safe on production
+## Demo-content seeders — the four that are safe on production
 
 `server/prisma/seed.ts` **clears every table it owns** before re-inserting.
 That is right for a dev reset and catastrophic anywhere real. **Never run it
 against production.**
 
-These two are different, and are safe to run there:
+These four are different, and are safe to run there:
 
 ```
 cd server
 npx ts-node prisma/seed-meal-plans.ts   # demo meal plans on existing kitchens
 npx ts-node prisma/seed-crafts.ts       # 4 craft categories, 2 craft makers, 8 listings
+npx ts-node prisma/seed-avatars.ts      # M56: chef characters on the demo storefronts (slug allowlist)
+npx ts-node prisma/seed-catalogue.ts    # M56: craft photos + tiles, Sweets & Ladoos, 14 new listings, shipping scopes
 ```
 
-Both only ever insert, match on slug, and never delete — so a second run is
-a no-op and no existing row is touched. `seed-crafts.ts` also recomputes
+Order matters only for the M56 pair: run them **after** the client deploy
+that ships the images (they point at `/images/...` paths in the build) and
+after `seed-crafts.ts` (the craft backfills match on its slugs).
+`seed-avatars.ts` updates only rows whose avatar is NULL or the pre-M28
+shared stock path; `seed-catalogue.ts` never overwrites an image somebody
+set.
+
+All only ever insert or fill blanks, match on slug, and never delete — so a
+second run is a no-op and no existing row is touched. `seed-crafts.ts` also recomputes
 `Category.productCount` from the rows rather than incrementing it, the same
 rule M15 set for ratings.
 

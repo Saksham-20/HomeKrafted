@@ -3,6 +3,64 @@
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [M56] — the catalogue gets real, the browse pages grow up — 2026-08-31
+
+Owner-directed batch: the landing logo hands over to the nav bar, the
+demo storefronts get faces and a real photographed catalogue, and both
+listing pages get proper filters.
+
+- **Landing logo handoff.** The header wordmark now renders on `/` too,
+  invisible until the hero lockup scrolls past — the same
+  `data-revealed` that turns the bar solid fades it in, so the mark
+  reads as moving into the bar. Always in the flex row (no reflow),
+  `visibility: hidden` while unseen (tab order), scroll-only by design.
+  Pinned in `presentation.spec.ts`.
+- **Chef characters on the demo storefronts.** Each seeded kitchen and
+  craft maker carries a distinct M38b character (`vendors.ts`, both dev
+  seeders, and the new additive `server/prisma/seed-avatars.ts` for
+  production — slug-allowlisted, only touches NULL or pre-M28
+  stock-path rows, which it finally clears). vd8/vd9 stay faceless; the
+  owner's no-assigned-faces rule for real kitchens stands.
+- **Catalogue refresh with licensed stock photography.** 18 Pexels
+  photographs (provenance in the new `docs/IMAGE-LICENSES.md`, processed
+  by `client/scripts/process-stock-images.mjs` — 1000×1000 JPEG q80,
+  EXIF stripped). The 8 image-less craft listings get photos, craft
+  categories get tiles, a new "Sweets & Ladoos" category, 10 new food
+  listings across the existing kitchens (4 from photos already
+  committed but unused) and 4 new craft listings — all via the additive
+  `server/prisma/seed-catalogue.ts`, mirrored into the client fixtures
+  (mock `/gifts` renders a catalogue for the first time).
+- **Fresh vs shippable.** Shelf-stable demo food (pickles, cookies,
+  dry snacks, chai, chocolate) flips `shippingScope` to `national` —
+  the owner's framing that some food is a craft in shipping terms — and
+  both listing pages grow a "Delivery" facet (Ships pan-India / Fresh,
+  delivered nearby) plus `?ship=` in the URL codec.
+- **Shared browse machinery** (`components/browse/`): FilterGroup,
+  ActiveFilterBar (chips + Clear all), SortSelect, windowed
+  BrowsePagination, MobileFilterSheet (a real dialog — shared focus
+  trap, Esc, scroll lock, live "Show N results") and the
+  `useBrowseFilters` URL hook, extracted from the 622-line ShopClient.
+  `/gifts` composes the lot (category/delivery/occasion/tags/on-sale/
+  price/sort, URL round-trip, pagination); `/shop` gains
+  tags/on-sale/delivery facets and the sheet; new `tag=`/`sale=`/`ship=`
+  params are backward compatible (pinned in `browse-params.spec.ts`);
+  facet predicates pure in `lib/browse-facets.ts` with a spec. The
+  latent `pageItems` slice-by-constant bug went with the refactor.
+- **Nav tab dropdowns.** The three catalogue tabs reveal shortcut panels
+  on hover/focus-within, built server-side from the live
+  category/occasion tables — absolutely positioned (the 1092px capacity
+  arithmetic is untouched), keyboard reachable, hover gated behind
+  `(hover: hover)`.
+- **Favicon** — the wordmark's yarn-ball "o" cropped into
+  `app/icon.png` + `apple-icon.png` (the tab finally shows the brand).
+- **Store badges at size.** The "Get the app" / promo badges are the
+  standard two-line layout ("Coming soon on / App Store") with 26px
+  glyphs.
+- **Footer social row.** Instagram (@_homekrafted, the confirmed
+  handle), Facebook and X icon links in the brand column — inline SVG
+  brand marks, 40px targets. FB/X URLs are brand-name guesses pending
+  the owner's confirmation.
+
 ## [M55] — the landing page ships less — 2026-08-30
 
 Measured on the production box before touching anything: the hero's two

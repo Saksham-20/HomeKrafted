@@ -320,6 +320,14 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   labelled diagonal-hatch placeholder when it's absent. **Never generate or
   AI-fabricate product/food imagery** (Firefly/Canva/Higgsfield image-gen
   stay unused) — only real assets, real uploads, or the placeholder.
+  **Licensed stock photography counts as a real asset with two
+  conditions (M56):** every committed stock file is recorded in
+  `docs/IMAGE-LICENSES.md` (source URL, photographer, licence — Pexels
+  only so far, and never a platform-labelled AI image), and it is a
+  stand-in for the *demo* catalogue, replaced listing-by-listing as real
+  makers upload their own work. New batches go through
+  `client/scripts/process-stock-images.mjs` (1000×1000 JPEG q80, EXIF
+  stripped — the M25 rule applied to our own assets).
 - **CSS Modules only**, consuming token vars (`var(--hk-...)`), not
   scattered hex. No inline `style={{...}}` styling (that was the
   prototype's technique, not ours) except for genuinely dynamic values
@@ -738,14 +746,43 @@ paragraphs over appending new ones.
   cart/checkout UI, use `formatCurrency`/`formatDate` from `lib/format`
   rather than ad hoc formatting.
 - **A listing page's filters, sort and page number belong in the URL**
-  (`lib/browse-params.ts`, used by `/shop`). State that is only in React
-  is lost the moment somebody opens a listing and presses Back, and a
-  narrowed view that cannot be sent to anybody is half a browse page.
-  Write it with **`router.replace`, debounced** — `push` makes every
-  checkbox a history entry, and `window.history.replaceState` does not
-  survive Back (the App Router restores its own `renderedSearch` and the
-  query is gone before `popstate` fires). Parse defensively: it is a URL,
-  so it comes from anybody.
+  (`lib/browse-params.ts`, used by `/shop` and `/gifts`). State that is
+  only in React is lost the moment somebody opens a listing and presses
+  Back, and a narrowed view that cannot be sent to anybody is half a
+  browse page. Write it with **`router.replace`, debounced** — `push`
+  makes every checkbox a history entry, and
+  `window.history.replaceState` does not survive Back (the App Router
+  restores its own `renderedSearch` and the query is gone before
+  `popstate` fires). Parse defensively: it is a URL, so it comes from
+  anybody.
+- **Browse machinery is shared (M56): `components/browse/`** —
+  `FilterGroup` (checkboxes with counts; a zero-count facet is dimmed,
+  never hidden), `ActiveFilterBar` (removable chips + Clear all at ≥2),
+  `SortSelect`, `BrowsePagination` (prev/next + windowed ellipsis),
+  `MobileFilterSheet` (bottom sheet below 900px — real dialog: shared
+  focus trap, Esc, scroll lock, live "Show N results"), and the
+  `useBrowseFilters` hook holding the URL machinery. Both listing pages
+  compose these; a new listing page should too, not re-derive them. The
+  facet predicates are pure in `lib/browse-facets.ts` (`isOnSale` is
+  presence of the server-computed discount, never arithmetic — M46).
+  Filtering stays a client-side `useMemo` over the pageSize-100 fetch
+  (M49: instant, no spinners); revisit only when the catalogue outgrows
+  one page.
+- **`shippingScope` is the fresh-vs-shippable split, and it is a
+  filter now (M56).** The owner's framing: some food *is* a craft in
+  shipping terms — a jar of pickle or a tin of cookies posts anywhere
+  (`national`), a thali or warm brownies are eaten fresh nearby
+  (`local`). The "Delivery" facet on both listing pages reads it
+  (labels in `lib/browse-facets.ts#SHIPPING_LABELS`); absent means
+  `local` (pre-M20 rows). Demo food rows were backfilled by
+  `seed-catalogue.ts`; a real kitchen's own choice is never touched.
+- **The three nav tabs carry dropdown panels (M56)**, built server-side
+  in `components/layout/Header.tsx` from the live category/occasion
+  tables (never a second hand-kept list) and revealed by CSS
+  `:hover`/`:focus-within` in `HeaderClient` — absolutely positioned, so
+  the 1092px row-capacity arithmetic is untouched; `visibility: hidden`
+  keeps closed panels out of the tab order; hover reveal is wrapped in
+  `(hover: hover)` so a touch tap just follows the tab's own link.
 - **New milestone:** read the plan's milestone table + this file, build
   exactly to the brief's scope (resist finishing later milestones early),
   self-check the Definition-of-Done, update `CHANGELOG.md` and any
@@ -1146,13 +1183,22 @@ you lean toward opening to ~74%.
   <h1><img alt="Homekrafted"></h1><p>slogan</p></hgroup>` — the alt is the
   heading's name (Google reads alt inside an h1 as the h1; axe passes it);
   the slogan is a `<p>`, never an h2. On `/` `HeaderClient` renders **no
-  logo, no search, no wallet** — only the profile icons, floating over
-  the hero in a `position: fixed`, transparent bar — and turns solid
-  (white wash + blur + hairline) with the **tabs fading in, centred**
+  search and no wallet** — the profile icons and centred tabs, floating
+  over the hero in a `position: fixed`, transparent bar — and turns solid
   once an `IntersectionObserver` sees `#hk-hero-brand` leave the top
-  64px — **the tabs themselves are visible from the first paint**
-  (owner, 2026-08-29); what the observer changes is the wash behind them,
-  not whether the site has a menu. Every other route keeps the ordinary
+  64px. **The tabs are visible from the first paint** (owner,
+  2026-08-29); what the observer changes is the wash behind them, not
+  whether the site has a menu. **The logo is in the row from first paint
+  too, but invisible until that same flip (M56, owner 2026-08-31)** —
+  `data-revealed` fades it in as the bar turns solid, so the wordmark
+  reads as the hero's mark moving into the bar. It occupies its flex slot
+  always (nothing reflows), `visibility: hidden` keeps it out of the tab
+  order while unseen, and the handoff is deliberately **scroll-only**:
+  hovering a split panel fades the hero lockup too, but that is a
+  momentary hover state — don't couple SplitPanels to the fixed bar
+  through a root attribute to cover it. No FLIP morph — rejected as
+  machinery for no legible gain. Pinned in `presentation.spec.ts`
+  ("landing logo hands over"). Every other route keeps the ordinary
   static row, which is why `e2e/tests/header-capacity.spec.ts` measures
   **`/shop`**, not `/`.
   **Revealed, it is `--hk-surface`, not a wash** (2026-08-29). At
@@ -1267,6 +1313,18 @@ over: it is an invention on a page claiming a real person made this, and
 it hid the gap from the only people who can close it. A kitchen with
 neither a photo nor a character shows the **labelled hatch
 placeholder** — which looks like a missing asset because it is one.
+
+**The seeded DEMO storefronts carry assigned characters (M56, owner
+2026-08-31), and that does not reopen the rule above.** A demo fixture is
+not a person; each demo kitchen gets a *distinct* character (never one
+file shared — the M28 failure), set in `client/lib/data/vendors.ts`,
+`seed.ts`/`seed-crafts.ts`, and on production by
+**`server/prisma/seed-avatars.ts`** — additive, slug-allowlisted, updates
+only rows whose `avatarSrc` is NULL or still the pre-M28 stock path (so
+it also finally clears those rows), and never overwrites a photo or a
+picker choice. The allowlist must never grow an entry for an onboarded
+seller. vd8 (the platform, not a person) and vd9 (withdrawn laundry)
+stay faceless on purpose.
 
 - **A photo still wins, and the screen says so.** The upload is above the
   picker, the picker says "or", and choosing a character never hides the

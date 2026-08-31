@@ -362,8 +362,29 @@ Sign in as **Ananya**.
   old flat product grid — the sort, the filters and the URL should follow
   you across, and Back should return you to the view you left. Filter by
   a category and check the kitchen cards show *that* category's dishes.
-  Handcrafted **gifts** are deliberately still a plain product grid;
-  browsing a candle is not a decision about who made it.
+- **Handcrafted Gifts (`/gifts`) has real filters now (M56)** — category,
+  Delivery (Ships pan-India / Fresh, delivered nearby), occasion, Picks
+  (Bestseller/New/Festive + On sale), price and sort, same as the food
+  shop but with no kitchens toggle (that asymmetry is deliberate). Every
+  craft listing should show a real photograph, not the hatch placeholder.
+  Narrow something, copy the URL into a fresh tab — the same narrowed
+  view should load.
+- **The Delivery filter** on both pages is the fresh-vs-shippable split:
+  pickles, cookies and dry snacks say they post pan-India; ladoos,
+  brownies and cooked food stay local. Check a pan-India food item is
+  visible even with a far-away area set.
+- **Filters on a phone** open as a bottom sheet with a live "Show N
+  results" button; Escape and the ✕ both close it, and the count should
+  change as you tick boxes.
+- **The nav tabs drop menus** (desktop): hover or keyboard-Tab onto
+  Homemade Food / Handcrafted Gifts / Occasions and a panel of shortcuts
+  should appear; every row should land on a sensibly narrowed page.
+- **The landing page's logo** starts only in the hero; scroll past the
+  first screen and it should fade into the top bar (and back out when
+  you scroll up).
+- **Demo maker faces** — each seeded kitchen/maker shows its own drawn
+  character (never the same drawing twice); the Homekrafted house
+  storefront shows a placeholder, which is correct.
 - **Shop** — filter and sort products, open a product page
 - Open a **HomeKrafter storefront** from a product, and **Follow** it —
   the follower count should move, the button should still say "Following"
@@ -1219,7 +1240,7 @@ and @eatwith_aditi's biryani clip (credited to her handle, not ours).
 | An occasion with **no countdown** on the hub | It has no date set — birthdays and thank-yous have no season. |
 | A kitchen with **no story or photos** on its storefront | Nobody has filled that profile in yet. Sections with no content are hidden rather than shown empty. |
 | **"0 orders delivered"** on a well-rated kitchen | Ratings are seeded demo data; delivered-order counts are real. They will disagree on staging until orders are actually placed. |
-| **Every gift on `/gifts` shows a hatched placeholder** | We hold no photography for the craft makers and won't generate any — the rule is real photos, real uploads, or the placeholder. They'll fill in as makers upload their own. |
+| **Product photos are generic stock shots** | M56 gave the demo catalogue licensed stock photography (recorded in `docs/IMAGE-LICENSES.md`) as stand-ins. A photo that doesn't exactly match a listing's description is expected until real makers upload their own. |
 | A gift showing **"delivers to your area"** rather than posting | Not every craft posts. Shipping is set per listing, not per maker — the heavy stoneware is deliberately local while the prints and jewellery post nationally. |
 | Accepting a corporate quote creates **no order** | By design. Acceptance agrees a price; an admin places the orders once there's a delivery address and payment terms. The schema has no way to express a corporate order today, and faking one would put uncollected money into a home cook's payout queue. |
 | The quote email **doesn't arrive** | Email provider isn't connected on staging. The link is in the server log — ask whoever's running the box. |
