@@ -49,6 +49,32 @@
   max-width: 270px;
 }
 
+/* Social profiles (M56). 40px targets on the dark ground; the ring is
+   `--hk-focus-ring`, which the footer already sets to gold-bright for
+   everything inside it (the M34 dark-surface rule). */
+.socialRow {
+  display: flex;
+  gap: var(--hk-s2);
+  margin-top: var(--hk-s4);
+}
+
+.socialLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--hk-r-pill);
+  border: 1px solid var(--hk-footer-border);
+  color: var(--hk-footer-ink);
+  transition: color var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
+}
+
+.socialLink:hover {
+  color: #fff;
+  border-color: var(--hk-footer-ink-2);
+}
+
 .col {
   display: flex;
   flex-direction: column;

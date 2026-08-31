@@ -13,8 +13,8 @@ export interface StoreBadgesProps {
 function AppleGlyph() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="26"
+      height="26"
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden="true"
@@ -28,8 +28,8 @@ function AppleGlyph() {
 function PlayGlyph() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="26"
+      height="26"
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden="true"
@@ -62,43 +62,59 @@ export function StoreBadges({
 }: StoreBadgesProps) {
   return (
     <div className={clsx(styles.row, className)}>
-      <StoreBadge href={appStoreHref} variant={variant} label="App Store">
+      <StoreBadge
+        href={appStoreHref}
+        variant={variant}
+        label="App Store"
+        lead="Download on the"
+      >
         <AppleGlyph />
       </StoreBadge>
-      <StoreBadge href={playStoreHref} variant={variant} label="Google Play">
+      <StoreBadge href={playStoreHref} variant={variant} label="Google Play" lead="Get it on">
         <PlayGlyph />
       </StoreBadge>
     </div>
   );
 }
 
+/**
+ * The standard two-line store badge (M56, owner: "make the coming soon
+ * pop better with enlarged logos"): a big glyph beside a small lead line
+ * over the store name at size. Pending swaps the lead for "Coming soon
+ * on the" — the state changes the words, never the shape, so the row
+ * reads the same before and after launch.
+ */
 function StoreBadge({
   href,
   variant,
   label,
+  lead,
   children,
 }: {
   href?: string;
   variant: "outline" | "solid";
   label: string;
+  lead: string;
   children: React.ReactNode;
 }) {
   const className = clsx(styles.badge, styles[variant]);
+  const body = (
+    <>
+      {children}
+      <span className={styles.lines}>
+        <span className={styles.lead}>{href ? lead : "Coming soon on"}</span>
+        <span className={styles.store}>{label}</span>
+      </span>
+    </>
+  );
 
   if (!href) {
-    return (
-      <span className={clsx(className, styles.pending)}>
-        {children}
-        {label}
-        <span className={styles.pendingNote}> — coming soon</span>
-      </span>
-    );
+    return <span className={clsx(className, styles.pending)}>{body}</span>;
   }
 
   return (
     <a href={href} className={className}>
-      {children}
-      {label}
+      {body}
     </a>
   );
 }

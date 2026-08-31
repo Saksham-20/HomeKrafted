@@ -1,17 +1,20 @@
 .row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
+/* The standard two-line store badge (M56): glyph at size beside a small
+   lead line over the store name. Bigger than the pre-M56 pill on
+   purpose — the owner asked for the "coming soon" pair to carry the
+   logos at size. */
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  border-radius: var(--hk-r-md);
-  padding: 9px 14px;
-  font-size: 12.5px;
-  font-weight: 500;
+  gap: 11px;
+  border-radius: 10px;
+  padding: 10px 18px 10px 14px;
+  min-height: 52px;
   text-decoration: none;
   transition: border-color var(--hk-dur) var(--hk-ease), opacity var(--hk-dur) var(--hk-ease);
 }
@@ -20,21 +23,36 @@
   opacity: 0.85;
 }
 
+.lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.lead {
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.store {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 /* Not a link — the app isn't published. It keeps the badge's shape so the
    row still reads as "iOS and Android are coming", and loses the two
    things that would make it a lie: the pointer and the hover lift. */
 .pending {
   cursor: default;
-  opacity: 0.72;
+  opacity: 0.78;
 }
 
 .pending:hover {
-  opacity: 0.72;
-}
-
-.pendingNote {
-  font-weight: 400;
-  white-space: nowrap;
+  opacity: 0.78;
 }
 
 /* Dark warm border — no matching token (prototype's #56493a), used only
@@ -47,7 +65,4 @@
 .solid {
   background: var(--hk-ink);
   color: #fff;
-  border-radius: 8px;
-  padding: 7px 11px;
-  font-size: 11px;
 }
