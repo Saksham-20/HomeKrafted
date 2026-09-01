@@ -152,7 +152,14 @@ export async function getSellerListing(
 
 export interface SellerListingInput {
   name: string;
+  /** The primary shelf — the breadcrumb and the canonical URL. */
   categoryId: string;
+  /**
+   * Every other shelf this listing sits on (M58). Optional, so an older
+   * client that has never heard of it keeps working — the server folds the
+   * primary in either way.
+   */
+  categoryIds?: string[];
   occasionIds: string[];
   dietary: DietaryTag[];
   description: string;
@@ -190,6 +197,7 @@ export async function createSellerListing(
       vendorId,
       name: input.name,
       categoryId: input.categoryId,
+      categoryIds: input.categoryIds,
       occasionIds: input.occasionIds,
       dietary: input.dietary,
       images: [

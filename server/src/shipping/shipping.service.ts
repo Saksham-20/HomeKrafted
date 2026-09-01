@@ -46,6 +46,7 @@ function publicConsignment(row: {
   awbNumber: string | null;
   courierStatus: string | null;
   currentLocation: string | null;
+  trackingUrl: string | null;
   riderName: string | null;
   riderContact: string | null;
   lastEventAt: Date | null;
@@ -60,6 +61,9 @@ function publicConsignment(row: {
     awbNumber: row.awbNumber,
     courierStatus: row.courierStatus,
     currentLocation: row.currentLocation,
+    // The carrier's own live tracking page. Absent in staging and until a
+    // parcel is moving, so every surface must treat it as optional.
+    trackingUrl: row.trackingUrl,
     // Only ever populated by the carrier once a rider is actually
     // assigned, which is the only time it means anything.
     riderName: row.riderName,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Package, Phone, Truck } from "lucide-react";
+import { ExternalLink, Package, Phone, Truck } from "lucide-react";
 import type { Consignment, ConsignmentStatus } from "@/lib/types/shipping";
 import { formatDate } from "@/lib/format";
 import styles from "./ParcelTracking.module.css";
@@ -121,6 +121,23 @@ export function ParcelTracking({ load, showWaybill = false, heading = "Delivery"
             {showWaybill && parcel.awbNumber ? (
               <p className={styles.meta}>
                 Waybill <span className={styles.awb}>{parcel.awbNumber}</span> — write this on the parcel.
+              </p>
+            ) : null}
+
+            {/* The carrier's own live page — the only real-time view that
+                exists, since their API carries no rider coordinates. Shown
+                only when Shadowfax has minted one, which is never in
+                staging and not until a parcel is moving. */}
+            {parcel.trackingUrl && parcel.status !== "delivered" ? (
+              <p className={styles.meta}>
+                <a
+                  className={styles.track}
+                  href={parcel.trackingUrl}
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Track this parcel <ExternalLink aria-hidden size={13} />
+                </a>
               </p>
             ) : null}
 

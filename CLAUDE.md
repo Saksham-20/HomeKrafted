@@ -496,6 +496,53 @@ to undo by accident:
   `workingDays` means open every day, and no `prepTimeMins` means the
   90-minute default, never zero.
 
+## Subcategories and multi-shelf listings (M58)
+
+`Category.parentId` (one level, self-relation) + `ProductCategory` (a
+listing sits on several shelves). Seeded trees: **Shop by recipient** on
+the gifts side, **Shop by cuisine** and **Shop by meal** on the food side
+(`prisma/seed-subcategories.ts` — additive, idempotent, never overwrites).
+
+- **One level deep, enforced from both ends.** A category under a
+  subcategory is refused, and a category that *has* children cannot become
+  one. Arbitrary nesting reads as more general and produces a tree nobody
+  can browse and a breadcrumb nobody can render.
+- **A parent is browsable and matches its children.** "Shop by meal" with
+  nothing filed directly under it would otherwise render empty for
+  everybody who clicks it, which reads as a broken site.
+- **`ProductCategory` carries the complete set, primary included.** That
+  is what makes "everything in this category" one query instead of an `OR`
+  across two places — the shape that eventually disagrees with itself.
+  `Product.categoryId` stays required and *primary*: the breadcrumb, the
+  canonical URL, and what every pre-M58 reader already uses. The two are
+  kept in step by `SellerListingsService`, the one owner of product writes
+  (M44). `mapProduct` is the single place the primary is taken back *out*,
+  so the editor's "also show it under" box never offers it twice.
+- **Adding a shelf re-queues the listing; re-saving the same set does
+  not.** The M22 rule: re-queueing nothing makes approval a formality you
+  pass by listing something innocuous, and getting approved under
+  "Pickles" then quietly adding "For Kids" is exactly that move. Compared
+  as sets, so a re-order is not an edit.
+- **An admin is the only writer, and there is now a route for it** —
+  `POST/PATCH /admin/collections/categories`, the panel's "+" button.
+  `server/test/unit/category-admin-only.spec.ts` fails the build if a
+  `prisma.category.create` appears outside `src/admin/`; it deliberately
+  does not match `productCategory`, which is the seller-side join every
+  listing writes. Same shape and same reasoning as occasions (M43).
+- **A HomeKrafter asks, and the ask carries a parent.** `parentForSuggestion`
+  reads it off the shelf they already picked — a sibling of the child they
+  chose, or the group itself. A childless top-level shelf yields `null`
+  rather than being promoted to a parent on a guess; that is a structural
+  decision an admin makes on the approve form.
+- **A rename never re-derives the slug.** It is in every browse URL
+  anybody has shared and everything Google has indexed.
+- **A subcategory always follows its parent's `group`.** "For Her" under a
+  food shelf is not something anybody meant, and the header's food/gifts
+  split would render it on the wrong side.
+- **Uniqueness is scoped to the parent**, so "Sweets" under two different
+  groups are two shelves — and a duplicate is a **409 naming the existing
+  row**, never a silent hand-back (M43).
+
 ## Courier despatch (M57) — a rider, and what a webhook may not do
 
 `Consignment` (one kitchen's lines of one order, to one address) +

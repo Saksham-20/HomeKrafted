@@ -86,3 +86,18 @@
   font-family: var(--hk-font-mono);
   color: var(--hk-ink);
 }
+
+.track {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--hk-pine);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  font-size: 13px;
+}
+
+.track:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}

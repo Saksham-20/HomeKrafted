@@ -78,7 +78,25 @@ export class ProductsService {
     }
 
     if (query.category) {
-      where.category = { slug: { in: splitCsv(query.category) } };
+      const slugs = splitCsv(query.category);
+      // M58 — two changes here, both load-bearing.
+      //
+      // 1. Match through `ProductCategory`, not `Product.categoryId`. A
+      //    listing may sit on several shelves now, and filtering on the
+      //    primary alone would hide it from every other one it claims.
+      //    The join carries the primary too, so nothing that matched
+      //    before stops matching.
+      // 2. A **parent matches its children**. "Shop by recipient" with
+      //    nothing filed directly under it would otherwise be a shelf
+      //    that renders empty for everybody who clicks it, which reads as
+      //    a broken site rather than an empty category.
+      where.categories = {
+        some: {
+          category: {
+            OR: [{ slug: { in: slugs } }, { parent: { slug: { in: slugs } } }],
+          },
+        },
+      };
     }
     if (query.occasion) {
       where.occasions = { some: { occasion: { slug: { in: splitCsv(query.occasion) } } } };

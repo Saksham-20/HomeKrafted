@@ -33,6 +33,7 @@ function productToFormValues(product: Product): ListingFormValues {
   return {
     name: product.name,
     categoryId: product.categoryId,
+    categoryIds: product.categoryIds ?? [],
     occasionIds: product.occasionIds,
     dietary: product.dietary,
     description: product.description,

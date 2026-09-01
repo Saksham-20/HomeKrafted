@@ -1917,3 +1917,27 @@ An order goes to `shipped` when **every** parcel has left its kitchen and
 `delivered` when **every** parcel has arrived — never on the first one.
 `delivered` stamps `deliveredAt`, which starts the buyer's seven-day return
 window and is the payout basis for every kitchen on the order (M15/M37).
+
+## Categories and subcategories (M58)
+
+`Category.parentId` gives one level of nesting. A **parent is browsable
+and matches its children**, so `?category=shop-by-meal` returns everything
+filed under Breakfast, Desserts and the rest.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/categories` | Flat list; every row now carries `parentId` (`null` = top level). |
+| `GET` | `/admin/collections/categories` | The tree — parents with `children` nested. Scope `catalog`. |
+| `POST` | `/admin/collections/categories` | **The only route that creates a `Category`.** `{ name, group?, parentId? }`. `group` is ignored when `parentId` is set — a subcategory follows its parent. `409` naming the existing row on a duplicate (scoped to the same parent); `400` on a two-deep nest. Audited. |
+| `PATCH` | `/admin/collections/categories/:id` | Rename, re-parent, re-order. The **slug is never re-derived** — it is in every shared browse URL. `400` if the category has children of its own and is being made a child, or is made its own parent. Audited. |
+
+`POST /seller/listings` and `PATCH /seller/listings/:id` accept
+`categoryIds: string[]` — the *extra* shelves. `categoryId` stays the
+required primary, and the server folds it into the join, so
+`ProductCategory` always holds the complete set. `mapProduct` returns
+`categoryIds` with the primary removed, which is what the editor's "also
+show it under" box is seeded from.
+
+**Changing the set re-queues the listing for moderation**, compared as
+sets so a re-order does not. `POST /seller/taxonomy-suggestions` and the
+admin approve body both take `parentCategoryId`.

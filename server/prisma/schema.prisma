@@ -1530,13 +1530,56 @@ model Category {
   /// which one it is. Defaults to `food`: everything that existed before
   /// this column was food.
   group            ProductKind @default(food)
+  /// M58. A subcategory's parent, `null` for a top-level shelf.
+  ///
+  /// One level is what the product needs and one level is what it
+  /// enforces: a parent may not itself have a parent
+  /// (`CategoriesService` refuses it). Arbitrary nesting reads as more
+  /// general and in practice produces a tree nobody can browse and a
+  /// breadcrumb nobody can render.
+  ///
+  /// A parent is **still browsable**, showing the union of its children —
+  /// "Shop by recipient" with nothing under it directly would be a shelf
+  /// that 404s for anybody who clicks it.
+  parentId         String?
+  parent           Category?   @relation("CategoryTree", fields: [parentId], references: [id])
+  children         Category[]  @relation("CategoryTree")
   /// M20. Display order on the home page's category tiles. Ties fall back
   /// to name, so an unset value is stable rather than random.
   sortOrder        Int         @default(0)
 
-  products Product[]
+  products         Product[]
+  /// M58. Every category this product sits on, the primary included — see
+  /// `ProductCategory`.
+  productLinks     ProductCategory[]
+  suggestionsUnder TaxonomySuggestion[] @relation("TaxonomySuggestionParent")
 
   @@index([group, sortOrder])
+  @@index([parentId, sortOrder])
+}
+
+/// M58 — a product may sit on several shelves.
+///
+/// **This carries the complete set, the primary `Product.categoryId`
+/// included**, not just the extras. That is what makes "everything in this
+/// category" a single query instead of an `OR` across two places, which is
+/// the shape that eventually disagrees with itself. `Product.categoryId`
+/// stays required and is the *primary* one — the breadcrumb, the canonical
+/// URL, and what every pre-M58 query already reads.
+///
+/// The two are kept in step by `SellerListingsService`, which is the one
+/// owner of every product write (M44).
+model ProductCategory {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  /// `categoryId` is not the leading column of the unique above, and every
+  /// browse query filters on it.
+  @@index([categoryId])
 }
 
 model Occasion {
@@ -1628,6 +1671,13 @@ model TaxonomySuggestion {
 
   /// What approval actually created. Kept so the queue can link to the
   /// live row and so a second identical ask can be answered with it.
+  /// M58. Which shelf the requested subcategory belongs under, when the
+  /// seller picked one. `null` means they asked for a top-level shelf —
+  /// and an admin may still file it under a parent at approval, which is
+  /// the same "an admin renames on the way in" judgement M50 exists for.
+  parentCategoryId String?
+  parentCategory   Category? @relation("TaxonomySuggestionParent", fields: [parentCategoryId], references: [id])
+
   resultCategoryId String?
   resultOccasionId String?
 
@@ -1774,6 +1824,7 @@ model Product {
   images        ProductImage[]
   weightOptions WeightOption[]
   occasions     ProductOccasion[]
+  categories    ProductCategory[]
   collections   CollectionProduct[]
   cartItems     CartItem[]
   orderItems    OrderItem[]

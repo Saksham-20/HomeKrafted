@@ -29,6 +29,19 @@ export class CreateTaxonomySuggestionDto {
   @IsIn(GROUPS as unknown as string[])
   group?: (typeof GROUPS)[number];
 
+  /**
+   * The shelf this belongs under, when the HomeKrafter picked one (M58) —
+   * "Achaar, under Pickles & Preserves".
+   *
+   * Optional, and an admin may still file it under a parent (or move it
+   * out) at approval: that is the same "an admin renames on the way in"
+   * judgement the whole suggestion queue exists for. Ignored for an
+   * occasion, which has no tree.
+   */
+  @IsOptional()
+  @IsString()
+  parentCategoryId?: string;
+
   /** What they make, in their words. Optional: demanding an essay before accepting a two-word ask is how a queue stays empty. */
   @IsOptional()
   @IsString()

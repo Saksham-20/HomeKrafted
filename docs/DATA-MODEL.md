@@ -812,3 +812,19 @@ timestamp insert a second event and re-drive the order.
 
 Both enums (`ShippingProvider`, `ConsignmentStatus`) and both tables are
 **additive** — the M57 migration touches no existing table.
+
+## Category tree + ProductCategory (M58)
+
+`Category.parentId` — a self-relation, **one level only**, refused from
+both ends (`AdminCategoriesService`). Subcategories inherit their parent's
+`group`; uniqueness is scoped to `(name, group, parentId)`.
+
+`ProductCategory` — the join that lets a listing sit on several shelves.
+It carries the **complete** set including `Product.categoryId`, which
+stays required and primary. The M58 migration backfills one row per
+existing product; without it the catalogue disappears from browse the
+moment queries move to the join.
+
+`TaxonomySuggestion.parentCategoryId` — which shelf a requested
+subcategory would sit under. `null` is a top-level ask, and an admin may
+still change it at approval.

@@ -39,7 +39,17 @@ export interface ListingTaxonomyActions {
    * than guessed at review time — the person filling the form has already
    * answered it.
    */
-  suggestCategory?: (name: string, group: ProductKind) => Promise<string>;
+  suggestCategory?: (
+    name: string,
+    group: ProductKind,
+    /**
+     * Which shelf to file the ask under (M58), inferred from the one the
+     * HomeKrafter has already picked — see `parentForSuggestion`. `null`
+     * asks for a top-level shelf, and an admin can still file it under a
+     * parent at approval.
+     */
+    parentCategoryId?: string | null,
+  ) => Promise<string>;
 }
 
 const SENT = "Sent. We’ll look at it and let you know — pick the closest shelf for now.";
@@ -47,8 +57,13 @@ const SENT_OCCASION = "Sent. We’ll look at it and let you know.";
 
 /** What a HomeKrafter's listing forms get. */
 export const sellerTaxonomyActions: ListingTaxonomyActions = {
-  async suggestCategory(name, group) {
-    await createTaxonomySuggestion({ kind: "category", name, group });
+  async suggestCategory(name, group, parentCategoryId) {
+    await createTaxonomySuggestion({
+      kind: "category",
+      name,
+      group,
+      ...(parentCategoryId ? { parentCategoryId } : {}),
+    });
     return SENT;
   },
   async suggestOccasion(name) {
@@ -73,3 +88,33 @@ export const adminTaxonomyActions: ListingTaxonomyActions = {
     return { value: created.id, label: created.name };
   },
 };
+
+/**
+ * Which shelf a "there's no category for this" ask should be filed under.
+ *
+ * Read off the category the HomeKrafter has *already* chosen, because
+ * that is the only signal available without asking them a second
+ * question they have no context for:
+ *
+ * - they picked a parent ("Shop by meal") -> ask under it;
+ * - they picked a child ("Breakfast") -> ask under its parent, since the
+ *   thing they are missing is a sibling;
+ * - they picked a plain top-level shelf, or nothing -> `null`, a
+ *   top-level ask.
+ *
+ * That last case is deliberately not clever. "Pickles" has no children,
+ * and quietly turning it into a parent because somebody asked for
+ * "Achaar" is a structural decision about the catalogue — which is an
+ * admin's, on the approve form.
+ */
+export function parentForSuggestion(
+  categories: { id: string; parentId?: string | null }[],
+  selectedId: string,
+): string | null {
+  if (!selectedId) return null;
+  const selected = categories.find((c) => c.id === selectedId);
+  if (!selected) return null;
+  if (selected.parentId) return selected.parentId;
+  const isParent = categories.some((c) => c.parentId === selected.id);
+  return isParent ? selected.id : null;
+}

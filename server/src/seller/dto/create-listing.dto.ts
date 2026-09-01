@@ -63,6 +63,25 @@ export class CreateListingDto {
   @MaxLength(64)
   categoryId!: string;
 
+  /**
+   * Every other shelf this listing sits on (M58) — a jar of pickle that is
+   * both "Pickles & Preserves" and "Gifts under ₹500".
+   *
+   * The **primary** category stays `categoryId`: it is the breadcrumb, the
+   * canonical URL and what every pre-M58 reader already uses. This list is
+   * the *additional* ones, and the server folds the primary in when it
+   * writes the join rows, so `ProductCategory` always carries the complete
+   * set and "everything in this category" stays one query.
+   *
+   * Optional, so a client that has never heard of M58 keeps working
+   * exactly as before — the same reason `kind`/`shippingScope` are
+   * optional (M20).
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds?: string[];
+
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

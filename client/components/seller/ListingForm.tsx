@@ -9,6 +9,7 @@ import { ImageUpload } from "@/components/ui/ImageUpload";
 import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag, SellerCommission } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
 import { commissionBreakdown, priceForTarget } from "@/lib/commission";
+import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
 import styles from "./ListingForm.module.css";
@@ -25,6 +26,12 @@ export interface ListingFormWeightRow {
 export interface ListingFormValues {
   name: string;
   categoryId: string;
+  /**
+   * Every other shelf this listing sits on (M58). The **primary** stays
+   * `categoryId` — it is the breadcrumb and the canonical URL — and the
+   * server folds it into the join, so this list is the extras only.
+   */
+  categoryIds: string[];
   occasionIds: string[];
   dietary: DietaryTag[];
   description: string;
@@ -44,6 +51,7 @@ export interface ListingFormValues {
 export const EMPTY_LISTING_FORM: ListingFormValues = {
   name: "",
   categoryId: "",
+  categoryIds: [],
   occasionIds: [],
   dietary: [],
   description: "",
@@ -90,6 +98,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
   return {
     name: values.name,
     categoryId: values.categoryId,
+    categoryIds: values.categoryIds,
     occasionIds: values.occasionIds,
     // A craft has no dietary tags and is never a snack, whatever was ticked
     // before the kind was switched. Sending stale food fields on a candle
@@ -113,7 +122,7 @@ export interface ListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
   /** `group` absent reads as `"food"` — every category predating M20 was. */
-  categories: { id: string; name: string; group?: ProductKind }[];
+  categories: { id: string; name: string; group?: ProductKind; parentId?: string | null }[];
   occasions: { id: string; name: string }[];
   /**
    * What to do when the shelf or occasion somebody wants is not on the
@@ -186,10 +195,29 @@ export function ListingForm({
 
   const isCraft = values.kind === "craft";
   const categoriesForKind = categories.filter((c) => (c.group ?? "food") === values.kind);
-  const categoryOptions = useMemo(
-    () => categoriesForKind.map((c) => ({ value: c.id, label: c.name })),
+  /**
+   * Subcategories are labelled with their parent — "Shop by meal ›
+   * Breakfast" (M58).
+   *
+   * The combobox is a flat searchable list, so two shelves called
+   * "Sweets" under different parents are indistinguishable without this,
+   * and typing "breakfast" should find it whether or not the person knows
+   * which group it lives in. A parent stays listed on its own: it is
+   * browsable, showing the union of its children.
+   */
+  const categoryOptions = useMemo(() => {
+    const nameById = new Map(categories.map((c) => [c.id, c.name]));
+    return categoriesForKind.map((c) => {
+      const parentName = c.parentId ? nameById.get(c.parentId) : undefined;
+      return { value: c.id, label: parentName ? `${parentName} › ${c.name}` : c.name };
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuilt from the same `categories` prop and `values.kind` each render
-    [categories, values.kind],
+  }, [categories, values.kind]);
+
+  /** The primary is chosen in its own box, so it is never offered twice. */
+  const extraCategoryOptions = useMemo(
+    () => categoryOptions.filter((o) => o.value !== values.categoryId),
+    [categoryOptions, values.categoryId],
   );
 
   // Earnings line inputs (M37): the default tier is the price on the
@@ -206,7 +234,18 @@ export function ListingForm({
     const stillValid = categories.some(
       (c) => c.id === values.categoryId && (c.group ?? "food") === kind,
     );
-    onChange({ ...values, kind, categoryId: stillValid ? values.categoryId : "" });
+    // The extras can strand on the other side of the catalogue just as
+    // the primary can, and an invisible value that still posts is worse
+    // than an empty box.
+    const keptExtras = values.categoryIds.filter((id) =>
+      categories.some((c) => c.id === id && (c.group ?? "food") === kind),
+    );
+    onChange({
+      ...values,
+      kind,
+      categoryId: stillValid ? values.categoryId : "",
+      categoryIds: keptExtras,
+    });
   }
 
   return (
@@ -301,10 +340,38 @@ export function ListingForm({
               emptyMessage="Nothing by that name — try a shorter word."
               onSuggest={
                 taxonomy?.suggestCategory
-                  ? (name) => taxonomy.suggestCategory!(name, values.kind)
+                  ? (name) =>
+                      taxonomy.suggestCategory!(
+                        name,
+                        values.kind,
+                        // File it beside whatever they already picked (M58).
+                        parentForSuggestion(categories, values.categoryId),
+                      )
                   : undefined
               }
               createNoun="shelf"
+            />
+          </div>
+          {/*
+            M58 — a listing can sit on more than one shelf. A jar of pickle
+            that is both "Pickles" and "Shop by meal › Breakfast" should be
+            findable from either, and before this a HomeKrafter had to pick
+            one and lose the other.
+
+            Deliberately a *second* box rather than making the first one
+            multi-select: the primary decides the breadcrumb and the
+            canonical URL, so "which one is the main shelf" has to stay an
+            answerable question.
+          */}
+          <div className={styles.field}>
+            <Combobox
+              label="Also show it under"
+              value={values.categoryIds}
+              onChange={(next) => set("categoryIds", next)}
+              options={extraCategoryOptions}
+              placeholder="Optional — pick any that fit"
+              emptyMessage="Nothing by that name — try a shorter word."
+              multiple
             />
           </div>
           {/*

@@ -108,6 +108,7 @@ export function mapCategory(category: {
   productCount: number;
   group?: 'food' | 'craft';
   sortOrder?: number;
+  parentId?: string | null;
 }) {
   return {
     id: category.id,
@@ -128,6 +129,13 @@ export function mapCategory(category: {
      */
     group: category.group ?? 'food',
     sortOrder: category.sortOrder ?? 0,
+    /**
+     * M58. `null` is a top-level shelf. Sent on every category payload
+     * rather than only where a tree is being drawn, because a client that
+     * has to ask a second time to find out whether a shelf is a
+     * subcategory ends up caching two disagreeing answers.
+     */
+    parentId: category.parentId ?? null,
   };
 }
 

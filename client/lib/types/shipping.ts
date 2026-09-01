@@ -30,6 +30,17 @@ export interface Consignment {
   /** The carrier's own raw status id, unmapped — shown to an admin only. */
   courierStatus: string | null;
   currentLocation: string | null;
+  /**
+   * The carrier's own live tracking page for this parcel
+   * (`customer_track_url`). `null` until Shadowfax mints one — it never
+   * appears in their staging environment, where no parcel physically
+   * moves, so treat absence as normal rather than as an error.
+   *
+   * This is the whole of "live tracking" the carrier offers: there is no
+   * rider GPS anywhere in their API, so we cannot draw our own map.
+   * `currentLocation` is a facility name ("DEL_Rohini_EXP"), not a point.
+   */
+  trackingUrl: string | null;
   /** Only ever set once a rider is actually assigned, which is the only time it means anything. */
   riderName: string | null;
   riderContact: string | null;

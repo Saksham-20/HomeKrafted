@@ -14,6 +14,7 @@ import { commissionBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import type { ListingFormValues } from "./ListingForm";
+import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
 
@@ -43,7 +44,7 @@ const STEPS = [
 export interface GuidedListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
-  categories: { id: string; name: string; group?: ProductKind }[];
+  categories: { id: string; name: string; group?: ProductKind; parentId?: string | null }[];
   occasions: { id: string; name: string }[];
   /**
    * What to do when the shelf or occasion somebody wants is not on the
@@ -137,7 +138,17 @@ export function GuidedListingForm({
     const stillValid = categories.some(
       (c) => c.id === values.categoryId && (c.group ?? "food") === kind,
     );
-    onChange({ ...values, kind, categoryId: stillValid ? values.categoryId : "" });
+    // Extras strand on the other side of the catalogue just as the
+    // primary can — see `ListingForm.setKind`.
+    const keptExtras = values.categoryIds.filter((id) =>
+      categories.some((c) => c.id === id && (c.group ?? "food") === kind),
+    );
+    onChange({
+      ...values,
+      kind,
+      categoryId: stillValid ? values.categoryId : "",
+      categoryIds: keptExtras,
+    });
   }
 
   function toggleDietary(tag: DietaryTag) {
@@ -149,13 +160,16 @@ export function GuidedListingForm({
     );
   }
 
-  const categoryOptions = useMemo<ComboboxOption[]>(
-    () =>
-      categories
-        .filter((c) => (c.group ?? "food") === values.kind)
-        .map((c) => ({ value: c.id, label: c.name })),
-    [categories, values.kind],
-  );
+  /** Subcategories carry their parent's name — see `ListingForm` for why. */
+  const categoryOptions = useMemo<ComboboxOption[]>(() => {
+    const nameById = new Map(categories.map((c) => [c.id, c.name]));
+    return categories
+      .filter((c) => (c.group ?? "food") === values.kind)
+      .map((c) => {
+        const parentName = c.parentId ? nameById.get(c.parentId) : undefined;
+        return { value: c.id, label: parentName ? `${parentName} › ${c.name}` : c.name };
+      });
+  }, [categories, values.kind]);
 
   const occasionOptions = useMemo<ComboboxOption[]>(
     () => occasions.map((o) => ({ value: o.id, label: o.name })),
@@ -336,7 +350,13 @@ export function GuidedListingForm({
               hint="This is how shoppers find it when they are browsing."
               onSuggest={
                 taxonomy?.suggestCategory
-                  ? (name) => taxonomy.suggestCategory!(name, values.kind)
+                  ? (name) =>
+                      taxonomy.suggestCategory!(
+                        name,
+                        values.kind,
+                        // File it beside whatever they already picked (M58).
+                        parentForSuggestion(categories, values.categoryId),
+                      )
                   : undefined
               }
               createNoun="shelf"

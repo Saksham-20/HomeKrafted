@@ -1308,3 +1308,27 @@ Worth testing: mark an order packed for a kitchen with **no pickup address
 on file**. The order must still advance to `packed`, and the parcel must
 appear in the despatch queue saying the address is missing. A courier being
 unbookable must never block a kitchen from recording that it has cooked.
+
+## Categories and subcategories (M58)
+
+`/admin/catalog/categories` lists both halves of the catalogue as a tree.
+There is a **+ Category** per section and a **+ Subcategory** on every
+parent. Clicking a name renames it — the URL slug deliberately does not
+change, so old links keep working.
+
+Worth testing:
+
+- Add a subcategory, then try to add it again with different
+  capitalisation. It must refuse with the name of the shelf that already
+  exists, not a generic error.
+- The same name under a *different* parent is allowed, and takes that
+  parent's side of the catalogue.
+- Nesting cannot go two deep, and a group that already has children
+  cannot itself be filed under something.
+
+On a listing (`/seller/listings/[id]`) there are now two category boxes:
+**Category** (the primary — the breadcrumb) and **Also show it under**.
+Subcategories are labelled with their group, "Shop by meal › Breakfast",
+so two shelves with the same name are told apart. A listing added to a new
+shelf goes back into the review queue; re-saving the same shelves does
+not.

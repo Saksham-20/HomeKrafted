@@ -271,6 +271,20 @@ export interface Category {
   /** Which side of the catalogue this belongs to. Absent reads as `"food"`. */
   group?: ProductKind;
   sortOrder?: number;
+  /**
+   * M58. The shelf this sits under, `null` for a top-level one.
+   *
+   * A subcategory always carries its parent's `group` — a shelf under
+   * "Shop by recipient" is a gift shelf whatever else it says — so nothing
+   * needs to read both to decide which half of the catalogue it belongs
+   * to.
+   */
+  parentId?: string | null;
+}
+
+/** A top-level shelf with its subcategories (M58) — what `/admin/collections/categories` returns. */
+export interface CategoryNode extends Category {
+  children: Category[];
 }
 
 /**
@@ -430,6 +444,11 @@ export interface Product {
   name: string;
   categoryId: ID;
   occasionIds: ID[];
+  /**
+   * M58. The **extra** shelves this listing sits on, primary excluded —
+   * `categoryId` is still the primary. Absent on a pre-M58 payload.
+   */
+  categoryIds?: ID[];
   dietary: DietaryTag[];
   images: ProductImage[];
   weightOptions: WeightOption[];

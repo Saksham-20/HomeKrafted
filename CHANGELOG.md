@@ -1,5 +1,50 @@
 # Changelog
 
+## M58 — subcategories, and a listing that can sit on more than one shelf
+
+Categories were a flat list, and a listing could be on exactly one of
+them. Both were limits nobody chose: a jar of pickle that is also a
+breakfast thing had to pick, and a gifts page had no way to offer "shop by
+recipient" at all.
+
+`Category.parentId` adds one level of nesting — one, enforced from both
+ends, because arbitrary depth produces a tree nobody can browse and a
+breadcrumb nobody can render. A parent is browsable and matches its
+children, so "Shop by meal" is never an empty shelf. Seeded trees: **Shop
+by recipient** for gifts, **Shop by cuisine** and **Shop by meal** for
+food, through an additive idempotent script that never overwrites what an
+admin has since curated.
+
+`ProductCategory` lets a listing sit on several shelves. It carries the
+**complete** set, the primary included, so "everything in this category"
+stays one query rather than an `OR` across two places — and the migration
+backfills a row per existing product, without which the whole catalogue
+would vanish from browse the moment the query switched over.
+`Product.categoryId` is unchanged and still primary: the breadcrumb, the
+canonical URL, and what every pre-M58 reader already uses.
+
+**The admin panel gets the "+" it needed.** Until now there was no route
+that created a category at all — the only way one came into existence was
+approving a seller's suggestion. `/admin/catalog/categories` adds one
+button per section and one per parent, because "add a top-level shelf" and
+"add a child to the group I am looking at" are two different decisions.
+Admin remains the only writer, pinned by a new structural spec that
+deliberately does not match the seller-side join.
+
+A HomeKrafter still *asks* rather than creates, and the ask now carries a
+parent — inferred from the shelf they already picked, a sibling of the
+child they chose or the group itself. A childless top-level shelf yields
+nothing rather than being promoted to a parent on a guess: that is a
+structural decision, and it belongs on the approve form.
+
+One rule worth stating because it was nearly missed: **adding a shelf
+re-queues the listing for review.** Re-queueing nothing makes approval a
+formality you pass by listing something innocuous and then quietly adding
+"For Kids" (the M22 reasoning). Compared as sets, so a re-order or a
+re-save of the same shelves is not an edit and does not take a live
+listing off sale.
+
+
 ## M57 — Razorpay on real keys, and a courier that updates itself
 
 **Razorpay moved off placeholders onto real test keys** (owner-supplied, 2026-09-01),

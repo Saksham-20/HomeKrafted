@@ -30,6 +30,13 @@ export interface CreateTaxonomySuggestionInput {
   name: string;
   /** Categories only — which half of the catalogue. Taken from the form's "eat or keep" answer. */
   group?: ProductKind;
+  /**
+   * Categories only (M58) — the shelf this would sit under, when the
+   * HomeKrafter picked one. Optional: an admin may file it under a parent
+   * (or move it out) at approval, which is the same judgement the rename
+   * exists for.
+   */
+  parentCategoryId?: string;
   note?: string;
 }
 

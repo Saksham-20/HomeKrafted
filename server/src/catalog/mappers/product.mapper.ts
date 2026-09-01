@@ -12,6 +12,8 @@ export const PRODUCT_INCLUDE = {
   images: { orderBy: { sortOrder: 'asc' as const } },
   weightOptions: true,
   occasions: { include: { occasion: true } },
+  // M58 — every shelf this listing sits on, the primary included.
+  categories: true,
   /**
    * M46 — two columns, so every surface that shows a price can show the
    * HomeKrafter's discount on it.
@@ -45,6 +47,16 @@ export function mapProduct(product: ProductWithRelations) {
     name: product.name,
     categoryId: product.categoryId,
     occasionIds: product.occasions.map((o) => o.occasionId),
+    /**
+     * M58. The **extra** shelves, primary excluded — the editors seed
+     * their "also show it under" box from this, and including the primary
+     * would offer it twice and let it be removed from its own breadcrumb.
+     * The join carries the primary; this projection is the one place it is
+     * taken back out.
+     */
+    categoryIds: (product.categories ?? [])
+      .map((c) => c.categoryId)
+      .filter((id) => id !== product.categoryId),
     dietary: dietaryTagsToFrontend(product.dietary),
     images: product.images.map((img) => ({
       placeholder: img.placeholder,

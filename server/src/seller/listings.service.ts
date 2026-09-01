@@ -65,6 +65,24 @@ export class SellerListingsService {
     return mapProduct(product);
   }
 
+
+  /**
+   * The complete set of categories a listing sits on, primary first.
+   *
+   * `ProductCategory` carries the primary too (see the model comment), so
+   * this is what every write hands it: de-duplicated, primary in front,
+   * and validated as a batch so a bad id is one 404 rather than a
+   * half-written listing.
+   */
+  private async resolveCategoryIds(primaryId: string, extras: string[] | undefined): Promise<string[]> {
+    const ids = [primaryId, ...(extras ?? [])].filter((id, i, all) => id && all.indexOf(id) === i);
+    if (ids.length > 1) {
+      const found = await this.prisma.category.count({ where: { id: { in: ids } } });
+      if (found !== ids.length) throw new NotFoundException('One or more categories not found');
+    }
+    return ids;
+  }
+
   async create(vendorId: string, dto: CreateListingDto, options: ListingWriteOptions = {}) {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException('Category not found');
@@ -76,6 +94,8 @@ export class SellerListingsService {
 
     await this.assertSkusAvailable(dto.weightOptions.map((w) => w.sku));
     this.assertDefaultSkuPresent(dto);
+
+    const categoryIds = await this.resolveCategoryIds(dto.categoryId, dto.categoryIds);
 
     const slug = await this.uniqueSlug(dto.name);
 
@@ -112,6 +132,8 @@ export class SellerListingsService {
         },
         weightOptions: { create: dto.weightOptions },
         occasions: { create: (dto.occasionIds ?? []).map((occasionId) => ({ occasionId })) },
+        // M58 — the complete set, primary included.
+        categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
       },
       include: PRODUCT_INCLUDE,
     });
@@ -145,12 +167,33 @@ export class SellerListingsService {
       this.assertDefaultSkuPresent({ weightOptions: dto.weightOptions, defaultWeightSku: dto.defaultWeightSku });
     }
 
+    // Compared as sets: order is not meaning here, and a re-ordered list
+    // is not an edit anybody made.
+    const existingExtras = new Set(
+      existing.categories.map((c) => c.categoryId).filter((id) => id !== existing.categoryId),
+    );
+    const nextExtras = new Set((dto.categoryIds ?? []).filter((id) => id !== (dto.categoryId ?? existing.categoryId)));
+    const categorySetChanged =
+      dto.categoryIds !== undefined &&
+      (existingExtras.size !== nextExtras.size || [...nextExtras].some((id) => !existingExtras.has(id)));
+
     // M44 — an admin edit is a reviewed edit; see `ListingWriteOptions`.
     const requeue = options.actor === 'admin' ? {} : requeueOnEdit(
       existing.moderationStatus,
       (dto.name !== undefined && dto.name !== existing.name) ||
         (dto.description !== undefined && dto.description !== existing.description) ||
         (dto.categoryId !== undefined && dto.categoryId !== existing.categoryId) ||
+        // M58 — the *extra* shelves are material too, and for the reason
+        // M22 gives: re-queueing nothing makes approval a one-time
+        // formality you pass by listing something innocuous. Getting
+        // approved under "Pickles" and then quietly adding
+        // "Shop by recipient › For Kids" is exactly that move.
+        //
+        // Only a set that actually **changed** counts, the same way only a
+        // photo that changed does: the form posts the current list back on
+        // every save, so `!== undefined` alone would re-queue a live
+        // listing for editing its price.
+        categorySetChanged ||
         // Only a photo that actually *changed* is material (M37). The form
         // sends the current path back on every save, so `!== undefined`
         // alone re-queued a live listing for editing its price. `""` and
@@ -168,6 +211,15 @@ export class SellerListingsService {
       if (dto.occasionIds) {
         await tx.productOccasion.deleteMany({ where: { productId } });
         await tx.productOccasion.createMany({ data: dto.occasionIds.map((occasionId) => ({ productId, occasionId })) });
+      }
+      // M58. Rewritten whenever **either** the primary or the extra list
+      // is sent, because the join carries the primary too — changing only
+      // `categoryId` and leaving these rows alone is how the two drift
+      // apart and a listing disappears from the shelf it now claims.
+      if (dto.categoryIds || dto.categoryId) {
+        const ids = await this.resolveCategoryIds(dto.categoryId ?? existing.categoryId, dto.categoryIds);
+        await tx.productCategory.deleteMany({ where: { productId } });
+        await tx.productCategory.createMany({ data: ids.map((categoryId) => ({ productId, categoryId })) });
       }
       if (dto.imagePath !== undefined) {
         await tx.productImage.deleteMany({ where: { productId } });

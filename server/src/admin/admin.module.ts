@@ -36,6 +36,7 @@ import { AdminWalletController } from './wallet.controller';
 import { AdminWalletService } from './wallet.service';
 import { AdminCollectionsController } from './collections.controller';
 import { AdminCollectionsService } from './collections.service';
+import { AdminCategoriesService } from './categories.service';
 import { AdminDashboardController } from './dashboard.controller';
 import { AdminDashboardService } from './dashboard.service';
 import { AdminCorporateController } from './corporate.controller';
@@ -121,6 +122,7 @@ import { AdminCorporateService } from './corporate.service';
     AdminSupportService,
     AdminWalletService,
     AdminCollectionsService,
+    AdminCategoriesService,
     AdminCorporateService,
     AdminDashboardService,
     AdminExportsService,

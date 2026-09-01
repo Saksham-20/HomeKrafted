@@ -15,6 +15,18 @@ export class ApproveTaxonomySuggestionDto {
   @MaxLength(48)
   name?: string;
 
+  /**
+   * Categories only (M58) — the shelf the new subcategory lands under.
+   *
+   * Absent means "as asked", so an admin who just presses Approve honours
+   * what the HomeKrafter chose. Pass `null` to promote a requested
+   * subcategory to a top-level shelf, which is the other half of the same
+   * judgement the rename above exists for.
+   */
+  @IsOptional()
+  @IsString()
+  parentCategoryId?: string | null;
+
   /** Occasions only — the absolute date it next falls on. Never a recurrence rule (CLAUDE.md, M16). */
   @IsOptional()
   @IsISO8601()

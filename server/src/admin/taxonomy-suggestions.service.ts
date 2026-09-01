@@ -130,6 +130,8 @@ export class TaxonomySuggestionsService {
         // the right half without asking the admin a question the
         // HomeKrafter already answered.
         group: dto.kind === 'category' ? (dto.group ?? null) : null,
+        // M58 — only a category has a tree; an occasion has none.
+        parentCategoryId: dto.kind === 'category' ? (dto.parentCategoryId ?? null) : null,
         note: dto.note?.trim() || null,
         suggestedById: userId,
         vendorId: vendorId ?? null,
@@ -194,8 +196,29 @@ export class TaxonomySuggestionsService {
     const name = tidy(dto.name ?? suggestion.name);
 
     if (suggestion.kind === 'category') {
+      // M58. Which shelf it lands under: whatever the admin chose on the
+      // approve form, else what the HomeKrafter asked for. `null` is a
+      // top-level shelf.
+      const parentId = dto.parentCategoryId !== undefined ? dto.parentCategoryId : suggestion.parentCategoryId;
+      const parent = parentId
+        ? await this.prisma.category.findUnique({ where: { id: parentId } })
+        : null;
+      if (parentId && !parent) throw new NotFoundException('That parent category does not exist.');
+      if (parent?.parentId) {
+        throw new BadRequestException(
+          `“${parent.name}” is already a subcategory. Categories go one level deep.`,
+        );
+      }
+
+      // Scoped to the same parent, so "Sweets" under two different shelves
+      // are two different shelves — and re-checked here against the
+      // **final** name, not the suggested one, because an admin may have
+      // renamed it on the way in (M50).
       const clash = await this.prisma.category.findFirst({
-        where: { name: { equals: name, mode: 'insensitive' } },
+        where: {
+          name: { equals: name, mode: 'insensitive' },
+          parentId: parent?.id ?? null,
+        },
       });
       if (clash) {
         throw new ConflictException(
@@ -212,7 +235,10 @@ export class TaxonomySuggestionsService {
             // nothing has been supplied for a shelf nobody has listed in
             // yet, and CLAUDE.md forbids inventing one.
             imagePlaceholder: name.toUpperCase(),
-            group: suggestion.group ?? 'food',
+            // A subcategory always follows its parent's side of the
+            // catalogue — see `AdminCategoriesService.create`.
+            group: parent ? parent.group : (suggestion.group ?? 'food'),
+            parentId: parent?.id ?? null,
           },
         });
         const row = await tx.taxonomySuggestion.update({

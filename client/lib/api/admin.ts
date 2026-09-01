@@ -80,6 +80,8 @@ import type {
   AdminSellerDetail,
   AdminSellerProfile,
   Category,
+  CategoryNode,
+  ProductKind,
   Collection,
   ID,
   LaundryBooking,
@@ -2453,4 +2455,55 @@ export async function getAdminAuditLog(params: {
   if (params.pageSize) query.set("pageSize", String(params.pageSize));
   const suffix = query.toString() ? `?${query}` : "";
   return http.get<AdminAuditPage>(`/admin/audit${suffix}`);
+}
+
+// ---------------------------------------------------------------------------
+// Categories (M58) — the admin panel's "+" button
+// ---------------------------------------------------------------------------
+
+/**
+ * The category tree, parents with their subcategories nested.
+ *
+ * Admin-only, because it is the shape the management screen needs. The
+ * public `getCategories()` stays flat — a browse page filters on one slug
+ * and does not need the tree.
+ */
+export async function getCategoryTree(): Promise<CategoryNode[]> {
+  if (isMockMode()) {
+    // No tree in the fixtures: every seeded category is top-level, which is
+    // truthfully what a pre-M58 catalogue looks like.
+    return (await getCategories()).map((c) => ({ ...c, children: [] }));
+  }
+  return http.get<CategoryNode[]>("/admin/collections/categories");
+}
+
+export interface CreateCategoryInput {
+  name: string;
+  /** Ignored when `parentId` is set — a subcategory follows its parent. */
+  group?: ProductKind;
+  parentId?: string | null;
+  sortOrder?: number;
+}
+
+/**
+ * Both of these are **mutations, and neither swallows its refusal** (M36).
+ * The server refuses a duplicate name, a two-deep nest and a parent that
+ * has children of its own, each with the sentence saying what to do
+ * instead — and the screen's error banner is built on these throwing.
+ */
+export async function createCategory(input: CreateCategoryInput): Promise<Category> {
+  if (isMockMode()) {
+    throw new Error("Adding a category needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.post<Category>("/admin/collections/categories", input);
+}
+
+export async function updateCategory(
+  id: string,
+  input: Partial<CreateCategoryInput>,
+): Promise<Category> {
+  if (isMockMode()) {
+    throw new Error("Editing a category needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.patch<Category>(`/admin/collections/categories/${id}`, input);
 }
