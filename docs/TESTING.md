@@ -1271,3 +1271,40 @@ overlapping, cut off, or sideways-scrolling.
 
 It may just be restarting. Wait a minute and reload. If it's still down,
 report it with the time you tried.
+
+## Card payment (Razorpay test mode)
+
+Live since 2026-09-01. Choose **Card / UPI** at checkout or **Top up** in
+the wallet and a real Razorpay widget opens in test mode. Use Razorpay's
+test card `4111 1111 1111 1111`, any future expiry, any CVV. **No real
+money moves.** The order stays `pending-payment` until Razorpay's webhook
+confirms the capture, which is the correct behaviour — an order is not
+paid because a browser said so.
+
+If the widget does not open, the deployment has no card keys set; the site
+tells you so rather than hanging (`GET /payments/razorpay/config`).
+
+## Courier delivery (Shadowfax)
+
+Only visible when the deployment has `SHADOWFAX_ENABLED=true`. Most orders
+have no parcel — a kitchen usually delivers itself — and the delivery panel
+then does not render at all. That is correct, not a missing section.
+
+When a parcel does exist:
+
+- **Buyer** — order detail shows a progress rail, where the parcel is, and
+  the rider's name and number once one is assigned. Never a waybill.
+- **HomeKrafter** — `/seller/orders/[id]` additionally shows the **waybill
+  to write on the box**. While a rider is carrying the parcel the "mark as
+  shipped/delivered" button is deliberately **blocked**: the status updates
+  itself from the carrier, and a kitchen ticking "delivered" for a parcel
+  it no longer has would start the buyer's return window on a guess.
+- **Admin** — `/admin/shipping` is the despatch queue, defaulting to
+  **parcels that could not be booked**, each showing the carrier's own
+  refusal. "Book a rider" retries; "Call off" cancels (a reason is
+  required). "Reconcile" polls the carrier for anything missed.
+
+Worth testing: mark an order packed for a kitchen with **no pickup address
+on file**. The order must still advance to `packed`, and the parcel must
+appear in the despatch queue saying the address is missing. A courier being
+unbookable must never block a kitchen from recording that it has cooked.

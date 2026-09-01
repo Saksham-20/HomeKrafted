@@ -673,6 +673,7 @@ model Address {
   mealSubscriptions     MealSubscription[]
   ordersAsGiftRecipient Order[]            @relation("OrderGiftRecipientAddress")
   laundryBookings       LaundryBooking[]
+  consignments          Consignment[]
 
   @@index([userId])
 }
@@ -1320,6 +1321,7 @@ model Vendor {
   quoteLines          CorporateQuoteLine[]
   /// M50 — shelves and occasions this storefront has asked for.
   taxonomySuggestions TaxonomySuggestion[]
+  consignments        Consignment[]
 }
 
 /// M16 (M2). A day this kitchen is not taking orders — a festival they
@@ -1998,6 +2000,7 @@ model Order {
   items          OrderItem[]
   shipments      OrderShipment[]
   razorpayOrders RazorpayOrder[]
+  consignments   Consignment[]
 
   /// `[userId]` alone was the only index here, and no query uses it on its
   /// own: every buyer-facing read is `where userId orderBy placedAt desc`
@@ -2640,4 +2643,160 @@ model MealDelivery {
   /// scheduler safe to re-run.
   @@unique([subscriptionId, scheduledFor])
   @@index([scheduledFor, status])
+}
+
+// ---------------------------------------------------------------------------
+// M57 — courier despatch (Shadowfax)
+// ---------------------------------------------------------------------------
+
+/// Which courier carries a `Consignment`. An enum rather than a string so a
+/// second carrier is a value addition, not a shape change — same reasoning
+/// as `SnackOrderChannel`. `self` is the pre-M57 world and stays the
+/// default everywhere a kitchen hands the parcel over itself.
+enum ShippingProvider {
+  self
+  shadowfax
+}
+
+/// Where a parcel is, in **our** vocabulary — deliberately coarser than the
+/// ~30 carrier status ids in `shadowfax-status.ts`, which are mapped onto
+/// this. Two reasons the two are kept apart: a carrier renames and adds
+/// states on its own schedule, and every screen in this product would
+/// otherwise have to learn `recd_at_fwd_dc`. The raw id is still stored on
+/// `Consignment.courierStatus` and on every `ConsignmentEvent`, so nothing
+/// is lost.
+///
+/// `failed` is a booking we could not place at all (unserviceable pincode,
+/// carrier refusal) — distinct from `cancelled`, which is a booking that
+/// existed and was called off, and from `exception`, which is a live parcel
+/// that has hit a snag (not contactable, on hold) and is still moving.
+enum ConsignmentStatus {
+  pending
+  booked
+  out_for_pickup   @map("out-for-pickup")
+  picked
+  in_transit       @map("in-transit")
+  out_for_delivery @map("out-for-delivery")
+  delivered
+  exception
+  returned
+  cancelled
+  failed
+}
+
+/// One parcel: this vendor's lines of this order, going to this address.
+///
+/// Deliberately **not** folded into `OrderShipment`, which is keyed
+/// `(orderId, addressId)` and predates multi-vendor orders. A courier
+/// consignment is one pickup point to one drop point, and a two-kitchen
+/// order to one address is two riders and two AWBs — a shape
+/// `OrderShipment` cannot hold.
+model Consignment {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// Whose kitchen the rider collects from. The pickup address itself is
+  /// read from `VendorProfile.pickup*` at booking time and sent to the
+  /// carrier — it is **never** stored here and never leaves in an API
+  /// response (M36b: the pickup address is a home cook's home address).
+  vendorId  String
+  vendor    Vendor  @relation(fields: [vendorId], references: [id])
+  /// Where it is going — the buyer's delivery address.
+  addressId String
+  address   Address @relation(fields: [addressId], references: [id])
+
+  provider ShippingProvider @default(shadowfax)
+
+  /// What we call this parcel when we talk to the carrier, and what comes
+  /// back on every callback. Not `Order.orderNumber`: a multi-vendor order
+  /// is several parcels and the carrier's `client_order_id` is unique per
+  /// consignment. Minted locally, before the carrier is called, so a
+  /// booking that times out can be retried against the same id instead of
+  /// creating a second parcel.
+  clientOrderId String  @unique
+  /// The carrier's own waybill number. Absent until a booking succeeds —
+  /// which is why the callback resolves on it and 404s when it is unknown,
+  /// rather than trusting the body's `order_id`.
+  awbNumber     String? @unique
+
+  status          ConsignmentStatus @default(pending)
+  /// The carrier's raw `status_id` for the latest event, unmapped.
+  courierStatus   String?
+  /// The carrier's own remark for the latest event, verbatim. Shown to an
+  /// admin; never paraphrased (same rule as a moderation refusal).
+  statusNote      String?
+  /// Rider identity, sent by the carrier only from out-for-pickup/delivery
+  /// onward. Cleared by nothing — the last rider to hold the parcel stays
+  /// on the row, which is what a support call needs.
+  riderName       String?
+  riderContact    String?
+  currentLocation String?
+  /// The carrier's own shareable tracking page (`customer_track_url`),
+  /// learned from a poll rather than sent on a callback. Handed to the
+  /// buyer as-is — it is the carrier's live view of their parcel, and
+  /// rebuilding it here would be a worse copy that goes stale.
+  trackingUrl     String?
+
+  /// Why a booking could not be placed. Read by the admin despatch queue,
+  /// which is the only screen that can do anything about it.
+  failureReason String?
+  /// How many times we have asked the carrier to book this parcel. A retry
+  /// is an admin action, not a background job — there is no scheduler here.
+  bookAttempts  Int     @default(0)
+
+  lastEventAt DateTime?
+  bookedAt    DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events ConsignmentEvent[]
+
+  /// One parcel per (order, kitchen, destination). This is what makes
+  /// booking safe to re-run: a retry finds the existing row.
+  @@unique([orderId, vendorId, addressId])
+  @@index([status])
+  @@index([orderId])
+  @@index([vendorId, status])
+}
+
+/// Every carrier callback, kept. The `Consignment` row holds the latest
+/// state; this holds how it got there — which is the only thing that can
+/// answer "the rider says he delivered it and the buyer says he didn't".
+model ConsignmentEvent {
+  id            String      @id @default(cuid())
+  consignmentId String
+  consignment   Consignment @relation(fields: [consignmentId], references: [id], onDelete: Cascade)
+
+  /// The carrier's raw `status_id`, and our mapping of it. Both, because
+  /// the mapping can be corrected later and the raw value cannot.
+  courierStatus String
+  status        ConsignmentStatus
+  comments      String?
+  location      String?
+  riderName     String?
+  riderContact  String?
+  /// Carrier-reported instant, falling back to when we received the
+  /// callback if the carrier omitted it. **Non-null on purpose**: it is
+  /// part of the idempotency key below, and Postgres treats NULLs in a
+  /// unique index as distinct — so a nullable column here would let a
+  /// redelivered callback with no timestamp insert a second event and
+  /// re-drive the order. Untrusted for *ordering*, though: `createdAt` is
+  /// when we heard it, and a carrier's clock is not ours.
+  eventAt       DateTime
+  /// The whole callback body. A carrier adds fields on its own schedule and
+  /// the ones it adds are exactly the ones nobody thought to model.
+  payload       Json
+
+  createdAt DateTime @default(now())
+
+  /// Idempotency for redelivered callbacks — the carrier retries, and a
+  /// retry must not append a second event or re-drive the order. A
+  /// same-status event at a genuinely new instant is a real event (a second
+  /// delivery attempt), which is why `eventAt` is in the key.
+  @@unique([consignmentId, courierStatus, eventAt])
+  @@index([consignmentId, createdAt])
 }

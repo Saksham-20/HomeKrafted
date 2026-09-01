@@ -788,3 +788,27 @@ adds all of them plus `SellerApplication @@index([status, createdAt])`
 (the admin queue's exact read). Each carries an `// M37 perf pass` comment
 in `schema.prisma`. Cold FK columns that only an admin's rare lookup ever
 touches (`decidedById`, `moderatedById`) were deliberately left unindexed.
+
+## Consignment / ConsignmentEvent (M57)
+
+`Consignment` — one parcel: `(orderId, vendorId, addressId)` unique, which
+is what makes booking safe to re-run. Carries `clientOrderId` (minted
+before the carrier is called, so a timed-out booking retries against the
+same id instead of creating a second parcel), `awbNumber` (unique, the
+carrier's waybill, `NULL` until a booking succeeds), a coarse
+`ConsignmentStatus`, the carrier's raw `courierStatus`, rider identity,
+`trackingUrl`, and `failureReason` + `bookAttempts` for the despatch queue.
+
+**There is no pickup address on this table, deliberately.** It is a home
+cook's home address (M36b). It is read from `VendorProfile.pickup*` at
+booking time, put in the carrier request, and never stored or served.
+
+`ConsignmentEvent` — every carrier callback and every polled history row,
+kept. Unique on `(consignmentId, courierStatus, eventAt)`, which is the
+idempotency key shared by the push and poll channels. **`eventAt` is
+non-null on purpose**: Postgres treats NULLs in a unique index as
+distinct, so a nullable column would let a redelivered callback with no
+timestamp insert a second event and re-drive the order.
+
+Both enums (`ShippingProvider`, `ConsignmentStatus`) and both tables are
+**additive** — the M57 migration touches no existing table.

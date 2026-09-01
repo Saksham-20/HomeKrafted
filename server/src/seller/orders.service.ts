@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, Injectable, NotFoundException } 
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
+import { ShippingService } from '../shipping/shipping.service';
 import { mapOrderForSeller, SellerOrderWithRelations } from './mappers/seller-order.mapper';
 
 const SELLER_ORDER_INCLUDE = {
@@ -40,6 +41,7 @@ export class SellerOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orderNotifications: OrderNotificationsService,
+    private readonly shipping: ShippingService,
   ) {}
 
   /**
@@ -89,6 +91,24 @@ export class SellerOrdersService {
     // all of it. A missing product row (legacy hamper line) counts as
     // another vendor's: the safe direction.
     if (next === 'shipped' || next === 'delivered') {
+      // A rider is carrying this parcel, so the kitchen is no longer the
+      // one who knows where it is. Blocking the manual move is what keeps
+      // `deliveredAt` — the buyer's return window and every kitchen's
+      // payout basis (M15) — meaning "the carrier's proof of delivery"
+      // rather than "somebody ticked a box".
+      //
+      // Narrow on purpose. It bites only for a parcel actually with the
+      // carrier: a booking that failed, was cancelled, or was never made
+      // leaves the manual path exactly as it was, because the alternative
+      // strands a real order behind a courier that never turned up. An
+      // admin can always override through `/admin/orders`.
+      const held = await this.shipping.hasParcelInFlight(orderId, vendorId);
+      if (held) {
+        throw new ConflictException(
+          'A Shadowfax rider is carrying this order — the status updates itself as the parcel moves. If something has gone wrong with the pickup, tell the Homekrafted team the order number.',
+        );
+      }
+
       const foreign = order.items.some((i) => i.product?.vendorId !== vendorId);
       if (foreign) {
         throw new ForbiddenException(
@@ -112,6 +132,13 @@ export class SellerOrdersService {
     // most often — a HomeKrafter tapping through packed, shipped,
     // delivered — and before M18 it was completely silent.
     void this.orderNotifications.notifyBuyerOfStatus(orderId, next);
+
+    // `packed` is when a parcel exists, so it is when a rider can be
+    // asked for. `void`, and the service swallows its own failures: a
+    // carrier being down must never stop a home cook recording that they
+    // have finished cooking. A booking that does not happen lands in the
+    // admin despatch queue with the reason on it.
+    if (next === 'packed') void this.shipping.bookForOrder(orderId);
 
     return mapOrderForSeller(updated, vendorId);
   }

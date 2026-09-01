@@ -1,5 +1,67 @@
 # Changelog
 
+## M57 — Razorpay on real keys, and a courier that updates itself
+
+**Razorpay moved off placeholders onto real test keys** (owner-supplied, 2026-09-01),
+locally and on production. `cardPaymentsEnabled` is now `true`, so checkout
+and wallet top-up open a real widget. Verified end to end rather than
+assumed: real order creation (`mock: false`), wallet capture crediting the
+ledger, checkout capture transitioning `pending-payment → placed` with
+cashback, per-order de-duplication returning the same Razorpay order, replay
+idempotency, and a forged signature rejected `400`.
+
+**The live-key switch was audited and is config only.** Nothing in the tree
+branches on `rzp_test_` versus `rzp_live_`, and the browser takes its key
+from the API response rather than the build-time env — so no client rebuild
+is needed. Written down in `docs/DEPLOY.md` because the opposite assumption
+is the natural one.
+
+**Shadowfax courier despatch, built from scratch.** There was no logistics
+integration at all; `docs/PRODUCTION-AUDIT.md` recorded it as deferred. Now
+`Consignment` + `ConsignmentEvent` (both tables additive — the migration
+touches nothing existing), the carrier's *marketplace seller-pickup* model:
+a rider collects from the HomeKrafter's own kitchen when they mark an order
+packed, and the order's status updates itself from the carrier.
+
+Two channels feed one ingest path, so they cannot disagree: the PUSH
+callback, and a `bulk_track` reconciliation poll that replays each parcel's
+whole history. The poll exists because the callback only fires once its URL
+is registered in Shadowfax's client portal — a setting no code here can
+make — so until somebody does that, the poll *is* the auto-update.
+
+Rules that took measurement rather than reading to get right:
+
+- **A callback may only move a parcel forward.** Shadowfax does not sign
+  callback bodies; the whole authentication is a shared header value.
+  Cancellations, returns and losses are recorded and left for an admin,
+  because each moves money.
+- **Serviceability is advisory.** The obvious pre-flight check was built,
+  then measured: staging calls `999999` deliverable and omits Chandigarh
+  `160022` from seller-pickup. Read through the documented contract, that
+  refuses every real booking. The booking call is the authority — and it
+  refuses with **HTTP 200** plus `{"message":"Failure","errors":"…"}`, so
+  the presence of an AWB is the check.
+- **Carrier timestamps are IST.** Zoneless on the callback, ISO-`Z` on the
+  tracking API. Parsed in the server's own zone they were 5h30m out between
+  this dev box and the UTC VPS — on `deliveredAt`, which starts the buyer's
+  return window.
+- **A terminal parcel is frozen.** An event stamped after a delivery is
+  legitimately "newest" and rewrote the row to `status=delivered,
+  courierStatus=ofd` until `ingest` refused it.
+- **Booking never blocks the order.** A missing pickup address, an
+  unserviceable pincode or a carrier outage records a `failed` consignment
+  with the reason; the kitchen's "packed" still succeeds and the parcel
+  lands in the despatch queue.
+
+Surfaces: the buyer gets a progress rail and the rider's number; the
+HomeKrafter gets the waybill and is blocked from hand-advancing a parcel a
+rider is carrying; `/admin/shipping` is the despatch queue, defaulting to
+parcels that could not be booked, each showing the carrier's own words.
+
+35 new unit tests across the status map, the payload builder and callback
+parsing/authentication.
+
+
 All notable changes to the Homekrafted build are logged here, one entry
 per milestone. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 

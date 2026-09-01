@@ -12,3 +12,4 @@ export * from "./laundry";
 export * from "./food";
 export * from "./seller";
 export * from "./meals";
+export * from "./shipping";

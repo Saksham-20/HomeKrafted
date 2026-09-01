@@ -291,9 +291,69 @@ NEXT_PUBLIC_SITE_URL=https://homekrafted.in
 `NEXT_PUBLIC_*` values are inlined **at build time**, so changing one means a
 rebuild, not just a restart.
 
-Razorpay, WhatsApp, Twilio and SendGrid keys are still placeholders. The
-server degrades gracefully around each (mock Razorpay order ids, logged-only
-sends), so the flows stay exercisable without real accounts.
+WhatsApp, Twilio and SendGrid keys are still placeholders. The server
+degrades gracefully around each (logged-only sends), so the flows stay
+exercisable without real accounts.
+
+**Razorpay is on real test keys as of 2026-09-01** — the `rzp_test_…` pair in the owner-supplied CSV.
+`cardPaymentsEnabled` is therefore `true` and checkout opens a real
+Razorpay test-mode widget. Verified end to end: order creation, wallet
+top-up capture, checkout capture, per-order de-duplication, webhook replay
+idempotency and signature rejection.
+
+### Switching Razorpay to live keys
+
+**It is a server-side env change and nothing else.** Nothing in the tree
+branches on `rzp_test_` versus `rzp_live_` — the only key-sensitive gate is
+`PaymentsService.isMockMode`, which compares against the literal
+`.env.example` placeholders. And the browser takes the key from the API
+response (`rzpOrder.keyId || NEXT_PUBLIC_RAZORPAY_KEY_ID`), so the server's
+key wins and **no client rebuild is required**. Steps:
+
+1. Set `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in `server/.env`.
+2. Set `RAZORPAY_WEBHOOK_SECRET` to the secret you enter in the Razorpay
+   dashboard's webhook form (Settings → Webhooks). It is chosen by you and
+   must match on both sides. **Subscribe to `payment.captured`** — it is
+   the only event handled; everything else is acknowledged as a no-op.
+   Webhook URL: `https://homekrafted.in/api/v1/payments/razorpay/webhook`.
+3. `pm2 restart homekrafted-api`. `GET /api/v1/payments/razorpay/config`
+   should report `{"cardPaymentsEnabled":true}`.
+
+Update `NEXT_PUBLIC_RAZORPAY_KEY_ID` too for tidiness, but it is only a
+fallback — it is not what is used.
+
+### Shadowfax courier despatch (M57)
+
+**Off by default (`SHADOWFAX_ENABLED=false`).** Booking a real rider costs
+real money and every kitchen that hands its own parcels over must keep
+working untouched.
+
+| Variable | Notes |
+|---|---|
+| `SHADOWFAX_ENABLED` | Master switch. `false` = the module is dormant. |
+| `SHADOWFAX_API_TOKEN` | Issued per environment. **Staging and production tokens are different** — a staging token on the production host returns a bare 401. |
+| `SHADOWFAX_BASE_URL` | Staging `https://dale.staging.shadowfax.in/api`, production `https://dale.shadowfax.in/api`. |
+| `SHADOWFAX_CALLBACK_TOKEN` | A secret **you** choose and enter in their client portal. Empty = the callback endpoint refuses everything. |
+| `SHADOWFAX_POLL_SECONDS` | `0` = no background poll. `900` is a sensible value. Floored at 60. |
+
+**Two things must be done in Shadowfax's client portal, not here:**
+
+1. **Webhook tab** — set the callback URL to
+   `https://homekrafted.in/api/v1/shipping/shadowfax/callback` and the
+   `Authorization` header to `Token <SHADOWFAX_CALLBACK_TOKEN>`. Until this
+   is done **no push callback arrives at all**, and `SHADOWFAX_POLL_SECONDS`
+   is the entire auto-update.
+2. **Pincode serviceability** — confirm the launch city is enabled for
+   `seller_pickup`. Measured 2026-09-01, staging refuses pickup from
+   Chandigarh `160022` ("Invalid Pickup Pincode … is not serviceable") and
+   only serves the carrier's documented test pincodes `110009`, `560007`,
+   `560077`. **Verify production coverage for the tricity before enabling
+   the switch**, or every booking fails into the despatch queue.
+
+Note also that Shadowfax refuses a booking with **HTTP 200** and
+`{"message":"Failure","errors":"…"}`. The presence of an AWB is the check,
+not `res.ok`; `errors` is surfaced verbatim onto `Consignment.failureReason`
+because it is the only sentence saying what to fix.
 
 **What that costs, concretely, as of M18.** Order events now fan out to
 WhatsApp and email by default for both the buyer and the HomeKrafter

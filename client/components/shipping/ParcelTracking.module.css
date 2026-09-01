@@ -1,0 +1,88 @@
+.wrap {
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  padding: var(--hk-s5);
+  margin-block: var(--hk-s5);
+}
+
+.heading {
+  font-family: var(--hk-font-display);
+  font-size: 18px;
+  margin: 0 0 var(--hk-s3);
+  color: var(--hk-ink);
+}
+
+.parcel + .parcel {
+  border-top: 1px solid var(--hk-border);
+  margin-top: var(--hk-s4);
+  padding-top: var(--hk-s4);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  margin: 0 0 var(--hk-s3);
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.vendor {
+  color: var(--hk-muted);
+  font-weight: 400;
+}
+
+.rail {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 var(--hk-s3);
+  padding: 0;
+}
+
+.step {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hk-border);
+}
+
+.step[data-done="true"] {
+  background: var(--hk-pine);
+}
+
+.rider {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  margin: 0 0 var(--hk-s2);
+  color: var(--hk-ink);
+  font-size: 14px;
+}
+
+.phone {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--hk-pine);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+
+.phone:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.awb {
+  font-family: var(--hk-font-mono);
+  color: var(--hk-ink);
+}

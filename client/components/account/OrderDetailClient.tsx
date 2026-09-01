@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -8,6 +8,8 @@ import { StatusTimeline } from "@/components/ui/StatusTimeline";
 import { AppTrackingBand } from "@/components/laundry/AppTrackingBand";
 import { ReorderButton } from "./ReorderButton";
 import { OrderResolutionPanel } from "./OrderResolutionPanel";
+import { ParcelTracking } from "@/components/shipping/ParcelTracking";
+import { getOrderConsignments } from "@/lib/api/shipping";
 import {
   getAddressById,
   getOrderHistoryEntry,
@@ -38,6 +40,8 @@ const PAYMENT_LABEL: Record<string, string> = {
 export function OrderDetailClient({ id }: OrderDetailClientProps) {
   const [entry, setEntry] = useState<OrderHistoryEntry | null | undefined>(undefined);
   const [addresses, setAddresses] = useState<Record<string, Address>>({});
+
+  const loadParcels = useCallback(() => getOrderConsignments(id), [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -112,6 +116,12 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
         <h1 className={styles.title}>#{entry.number}</h1>
         <p className={styles.subtitle}>{formatDate(entry.date, { day: "2-digit", month: "long", year: "numeric" })}</p>
       </div>
+
+      {/* Courier parcels (M57). Renders nothing unless a rider actually
+          has one, which is most orders — the kitchen usually delivers
+          itself. Placed under the status timeline because it is the
+          finer-grained answer to the same question the timeline asks. */}
+      <ParcelTracking load={loadParcels} />
 
       <Card className={styles.statusCard}>
         <StatusTimeline orientation="horizontal" steps={entry.steps} />

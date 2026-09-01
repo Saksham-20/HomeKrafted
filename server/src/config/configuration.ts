@@ -74,6 +74,13 @@ export interface AppConfig {
     keySecret: string;
     webhookSecret: string;
   };
+  shadowfax: {
+    apiToken: string;
+    baseUrl: string;
+    callbackToken: string;
+    enabled: boolean;
+    pollSeconds: number;
+  };
   whatsapp: {
     token: string;
     phoneNumberId: string;
@@ -171,6 +178,31 @@ export default (): AppConfig => ({
     keyId: process.env.RAZORPAY_KEY_ID ?? '',
     keySecret: process.env.RAZORPAY_KEY_SECRET ?? '',
     webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET ?? '',
+  },
+  shadowfax: {
+    apiToken: (process.env.SHADOWFAX_API_TOKEN ?? '').trim(),
+    // Staging by default. Production is `https://dale.shadowfax.in/api`,
+    // and the two issue **different tokens** — a staging token on the
+    // production host 401s, which is the failure this default makes loud
+    // rather than silent.
+    baseUrl: (process.env.SHADOWFAX_BASE_URL ?? 'https://dale.staging.shadowfax.in/api').trim(),
+    // The shared secret we hand Shadowfax to put in its callback
+    // `Authorization` header. Chosen by us, entered in their client
+    // portal. Shadowfax does **not** sign callback bodies (no HMAC, unlike
+    // Razorpay), so this string is the whole of the authentication —
+    // compared in constant time, and never the reason anything moves money.
+    callbackToken: (process.env.SHADOWFAX_CALLBACK_TOKEN ?? '').trim(),
+    // Whether a parcel is despatched to a courier **at all**. Off by
+    // default: booking a real rider is a commercial decision with a bill
+    // attached, and every kitchen that hands its own parcels over must
+    // keep working exactly as before. `false` leaves the whole M57 module
+    // dormant — no consignment rows, no calls, nothing on any screen.
+    enabled: (process.env.SHADOWFAX_ENABLED ?? '').trim() === 'true',
+    // How often to poll the carrier for parcels whose callbacks we may
+    // have missed. `0` (the default) means no background poll at all —
+    // the admin can still run one by hand from the despatch screen.
+    // Floored at 60s below so a typo cannot hammer the carrier.
+    pollSeconds: Math.max(0, parseInt(process.env.SHADOWFAX_POLL_SECONDS ?? '0', 10) || 0),
   },
   whatsapp: {
     token: process.env.WHATSAPP_TOKEN ?? '',

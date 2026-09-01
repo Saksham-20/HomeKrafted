@@ -1841,3 +1841,79 @@ milestone list, not gaps in it. Add the real endpoint in the matching
 future module, following the pattern above (DTO-validated, owner-scoped
 where relevant, server-authoritative pricing/ledger math never trusted
 from the client).
+
+## Courier despatch — Shadowfax (M57)
+
+A `Consignment` is **one kitchen's lines of one order going to one
+address**: a rider collects from the HomeKrafter's own kitchen and delivers
+to the buyer (Shadowfax calls this the *marketplace seller pickup* model).
+A two-kitchen order to one address is two parcels and two AWBs — a shape
+`OrderShipment` (keyed `orderId + addressId`) cannot hold, which is why
+this is its own table.
+
+**The whole module is dormant unless `SHADOWFAX_ENABLED=true`.** With it
+off nothing books, no consignment row is created, and the manual
+seller-driven pipeline behaves exactly as it did before M57.
+
+### Public
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/shipping/serviceability?pincode=` | Does the carrier deliver there. **Advisory only** — a `false` must never gate a catalogue or a checkout (location is never a gate, M12). Throttled 20/min: it proxies to a carrier we pay per call. Existence is checked against our own `pincodes.json` first, because the carrier's staging endpoint answers `serviceable` for `999999`. |
+| `POST` | `/shipping/shadowfax/callback` | Shadowfax's PUSH callback. See **Authentication** below. Throttled 600/min. Always `200` for anything accepted, **including an unknown AWB and an unmappable status** — a carrier that receives an error retries forever, and neither is fixed by a retry. `400` for a body that is not a JSON object or is over 64 KB. |
+
+### Buyer
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/shipping/orders/:orderId` | This buyer's parcels. A foreign order **404s**, never 403s. Returns status, AWB, live location, and the rider's name and number once one is assigned. Never the pickup address. |
+
+### HomeKrafter
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/seller/orders/:id/consignments` | This kitchen's own parcel only — a participant in a multi-kitchen order never sees the other kitchen's (M37). Carries the AWB, which goes on the box. |
+
+### Admin (`@RequireAdminScope('orders')`, every mutation audited)
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/admin/shipping/consignments?status=&page=` | The despatch queue. |
+| `GET` | `/admin/shipping/consignments/:id` | One parcel plus its last 100 carrier events. |
+| `POST` | `/admin/shipping/consignments/:id/book` | Retry a booking whose cause has been fixed. `400` if already booked. |
+| `POST` | `/admin/shipping/consignments/:id/cancel` | `{ reason }`, required and stored verbatim. A carrier `queued` outcome (its 304 — the parcel is already moving) deliberately does **not** mark the row cancelled; it is not cancelled until a callback says so. |
+| `POST` | `/admin/shipping/reconcile` | Run the reconciliation poll now. |
+
+### Authentication on the callback — read this before changing it
+
+**Shadowfax does not sign callback bodies.** There is no HMAC, unlike the
+Razorpay webhook where the signature *is* the authentication. All we get is
+an `Authorization` header value we chose ourselves and entered in their
+client portal. Consequently:
+
+- it is compared in **constant time** (`timingSafeEqual`);
+- an **unset** `SHADOWFAX_CALLBACK_TOKEN` refuses everything rather than
+  accepting everything;
+- and the endpoint may only ever move a parcel **forward**. A callback
+  never cancels, returns or refunds anything — those move money and are an
+  admin's decision. This is the single most important rule in the module.
+
+### Auto-updating status: two channels, one path
+
+Both the PUSH callback and the reconciliation poll feed the same
+`ShippingService.ingest`, so they cannot disagree; whichever sees an event
+first records it and the other loses the unique-insert.
+
+- **Push** is faster but only fires once its URL is registered in
+  Shadowfax's **client portal → Webhook tab** — a setting on their side
+  that no code here can make. See `docs/DEPLOY.md`.
+- **Poll** (`bulk_track`, ≤50 AWBs a call) reads each parcel's whole
+  `tracking_details` history, so a parcel that moved
+  `picked → ofd → delivered` between two runs records all three events
+  rather than jumping to the last. Terminal parcels are never re-polled.
+  Off by default; `SHADOWFAX_POLL_SECONDS` turns it on (floored at 60).
+
+An order goes to `shipped` when **every** parcel has left its kitchen and
+`delivered` when **every** parcel has arrived — never on the first one.
+`delivered` stamps `deliveredAt`, which starts the buyer's seven-day return
+window and is the payout basis for every kitchen on the order (M15/M37).

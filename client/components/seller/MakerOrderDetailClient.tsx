@@ -9,6 +9,8 @@ import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { StatusTimeline, type StatusTimelineStep } from "@/components/ui/StatusTimeline";
+import { ParcelTracking } from "@/components/shipping/ParcelTracking";
+import { getSellerOrderConsignments } from "@/lib/api/shipping";
 import { OrderStatusPill } from "./OrderStatusPill";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -92,6 +94,11 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
     }
   }
 
+  // Hoisted above every early return — this component returns early both
+  // while loading and for a missing order, and hooks must run in the same
+  // order on every render.
+  const loadParcels = useCallback(() => getSellerOrderConsignments(orderId), [orderId]);
+
   if (!ready || loading) {
     return <RouteSkeleton variant="page" message={kitchenLoading("seller/maker-order", MAKER_LOADING)} />;
   }
@@ -172,6 +179,11 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
             ) : (
               <>
                 <StatusTimeline steps={steps} orientation="horizontal" />
+              {/* The waybill goes on the box, so the HomeKrafter is the
+                  one role that is shown it. Also carries the rider's name
+                  and number, which is what a kitchen needs when somebody
+                  is at the door. */}
+              <ParcelTracking heading="Courier pickup" load={loadParcels} showWaybill />
                 {next &&
                   (order.multiVendor && (next === "shipped" || next === "delivered") ? (
                     <p className={styles.terminalNote}>

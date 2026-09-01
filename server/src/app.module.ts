@@ -14,6 +14,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { CartModule } from './cart/cart.module';
 import { OrdersModule } from './orders/orders.module';
+import { ShippingModule } from './shipping/shipping.module';
 import { WalletModule } from './wallet/wallet.module';
 import { PaymentsModule } from './payments/payments.module';
 import { LaundryModule } from './laundry/laundry.module';
@@ -68,6 +69,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     WishlistModule,
     CartModule,
     OrdersModule,
+    ShippingModule,
     // M8.2 (wallet/Razorpay): server-authoritative wallet ledger +
     // Razorpay order/webhook integration. PaymentsModule depends on both
     // WalletModule (credit a verified top-up/cashback) and OrdersModule

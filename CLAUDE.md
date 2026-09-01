@@ -52,6 +52,15 @@ refuses every token, so the buttons can't work until someone creates
 those IDs (`docs/LAUNCH-READINESS.md` §0.4). Don't "fix" a failing
 social login by weakening the verifier — set the IDs.
 
+**Razorpay is on real test keys since 2026-09-01, and going live is
+config only.** Nothing branches on `rzp_test_` vs `rzp_live_`: the one
+key-sensitive gate is `PaymentsService.isMockMode`, comparing against the
+`.env.example` placeholders. The browser takes the key from the API
+response (`rzpOrder.keyId || NEXT_PUBLIC_RAZORPAY_KEY_ID`), so the
+server's key wins and a live switch needs **no client rebuild** — set the
+two server vars plus `RAZORPAY_WEBHOOK_SECRET`, subscribe
+`payment.captured` in the dashboard, restart. See `docs/DEPLOY.md`.
+
 **These are not code.** The build is feature-complete against
 every approved plan and deployed; these are what still stand between it
 and real customers, and each is the kind of thing a session will otherwise
@@ -486,6 +495,62 @@ to undo by accident:
 - **Absence is not closure**, carried over from M16: no stated
   `workingDays` means open every day, and no `prepTimeMins` means the
   90-minute default, never zero.
+
+## Courier despatch (M57) — a rider, and what a webhook may not do
+
+`Consignment` (one kitchen's lines of one order, to one address) +
+`ConsignmentEvent`. Shadowfax's **marketplace seller-pickup** model: a
+rider collects from the HomeKrafter's own kitchen. Booked when the
+kitchen marks an order **packed** — that is when a parcel exists.
+
+- **`SHADOWFAX_ENABLED` is off by default and the module is dormant
+  without it.** Booking a rider costs money, and every kitchen that hands
+  its own parcels over must keep working untouched.
+- **A carrier callback may move a parcel forward and nothing else.**
+  Shadowfax does **not** sign callback bodies — there is no HMAC, unlike
+  Razorpay, only an `Authorization` value we chose and gave them
+  (constant-time compared; an unset secret refuses everything rather than
+  accepting everything). So it is the weakest input the server takes, and
+  it may drive only `shipped` and `delivered`. Cancelled, returned and
+  lost are recorded on the consignment and left for an admin, because
+  each of those moves money and the loss lands on a home cook (M15).
+- **Two channels, one path.** The push callback and the `bulk_track` poll
+  both feed `ShippingService.ingest`; whichever sees an event first
+  records it and the other loses the unique insert. Push only fires once
+  its URL is registered in **Shadowfax's client portal**, which no code
+  here can do — so `SHADOWFAX_POLL_SECONDS` is the whole auto-update
+  until somebody does that, and the safety net afterwards.
+- **The weakest parcel decides the order.** `shipped` when every parcel
+  has left, `delivered` when every parcel has arrived — never the first.
+  `delivered` stamps `deliveredAt`, which starts the return window and is
+  every kitchen's payout basis (M15/M37).
+- **Booking never blocks the order.** A carrier that is down, a missing
+  pickup address or an unserviceable pincode records a `failed`
+  consignment with the reason and the kitchen's "packed" still succeeds.
+  The despatch queue (`/admin/shipping`) is where a person fixes it.
+- **Never trust the callback body's `order_id`** — resolve on
+  `awb_number` against our own row (the Razorpay lesson). And never
+  `String()` a callback field: an object becomes `"[object Object]"`, a
+  real-looking string an operator then reads as the carrier's own words.
+- **A terminal parcel is frozen.** A carrier event stamped *after* a
+  delivery is legitimately "newest" and rewrote the row to
+  `status=delivered, courierStatus=ofd` until `ingest` started refusing
+  it. Measured, not hypothetical.
+- **Carrier timestamps are IST and zoneless on the callback, ISO-`Z` on
+  the tracking API.** `new Date("…T16:20:00")` parses in the *server's*
+  zone — this dev box is Asia/Kolkata, the VPS is Etc/UTC, a 5h30m skew
+  on every `deliveredAt`. `parseCarrierTimestamp` pins +05:30 and honours
+  an explicit zone.
+- **Serviceability is advisory, never a booking gate.** Measured on
+  staging: `customer_delivery` calls `999999` serviceable, and
+  `seller_pickup` omits Chandigarh `160022` — reading absence as refusal
+  (the documented contract) refuses every real booking we have. The
+  carrier's own **booking** call is the authority, and it refuses with
+  **HTTP 200** + `{"message":"Failure","errors":"…"}`, so the presence of
+  an AWB is the check, not `res.ok`.
+- **The pickup address never lands on `Consignment` and never leaves in a
+  response.** It is read from `VendorProfile.pickup*` at booking time and
+  put in the carrier request only — a home cook's home address (M36b).
 
 ## Location & availability (M12) — read before touching catalog or portal
 

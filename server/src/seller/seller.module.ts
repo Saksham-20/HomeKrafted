@@ -27,6 +27,7 @@ import { CatalogModule } from '../catalog/catalog.module';
 import { SellerAnalyticsController } from './analytics.controller';
 import { SellerAnalyticsService } from './analytics.service';
 import { OrdersModule } from '../orders/orders.module';
+import { ShippingModule } from '../shipping/shipping.module';
 import { AdminAuditLogService } from '../admin/audit-log.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SellerTaxonomyController } from './taxonomy.controller';
@@ -49,7 +50,7 @@ import { TaxonomySuggestionsService } from '../admin/taxonomy-suggestions.servic
   // reuses that service rather than keeping a second copy of the rules.
   // `OrdersModule` for `OrderNotificationsService` — advancing an order
   // here has to tell the buyer, and that copy lives in one place.
-  imports: [
+  imports: [ShippingModule, 
     IdempotencyModule,
     WhatsAppModule,
     CatalogModule,

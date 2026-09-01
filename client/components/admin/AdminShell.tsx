@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Banknote, BarChart3, Building2, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ScrollText, ShoppingBag, SlidersHorizontal, Store, Users, Wallet } from "lucide-react";
+import { Banknote, BarChart3, Building2, FolderOpen, LayoutGrid, LifeBuoy, LogOut, Package, ScrollText, ShoppingBag, SlidersHorizontal, Store, Users, Wallet, Truck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { AdminScope } from "@/lib/types";
@@ -36,6 +36,7 @@ const NAV: AdminNavItem[] = [
   { label: "Users", href: "/admin/users", icon: Users, scope: "users" },
   { label: "HomeKrafters", href: "/admin/sellers", icon: Store, scope: "sellers" },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag, scope: "orders" },
+  { label: "Despatch", href: "/admin/shipping", icon: Truck, scope: "orders" },
   { label: "Catalog", href: "/admin/catalog", icon: Package, scope: "catalog" },
   { label: "Wallet", href: "/admin/wallet", icon: Wallet, scope: "finance" },
   // M15 — until this existed, a HomeKrafter's payout request had nowhere
