@@ -1,18 +1,43 @@
+/* A pill around a native select: the icon and border are ours, the
+   dropdown behaviour stays the platform's. */
 .sortRow {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-size: 13.5px;
+  gap: 0;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-pill);
+  padding-left: 12px;
+  min-height: 40px;
+  transition: border-color var(--hk-dur) var(--hk-ease);
+}
+
+.sortRow:hover {
+  border-color: var(--hk-pine);
+}
+
+.sortRow:focus-within {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.sortIcon {
   color: var(--hk-ink-3);
+  flex-shrink: 0;
 }
 
 .sortSelect {
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-sm);
-  padding: 8px 12px;
+  border: none;
+  background: none;
+  padding: 8px 10px 8px 8px;
   color: var(--hk-ink-2);
+  font-family: inherit;
   font-weight: 500;
   font-size: 13.5px;
-  min-height: 40px;
+  min-height: 38px;
+  cursor: pointer;
+}
+
+.sortSelect:focus-visible {
+  outline: none; /* the pill's focus-within ring carries it */
 }

@@ -874,13 +874,19 @@ paragraphs over appending new ones.
   restores its own `renderedSearch` and the query is gone before
   `popstate` fires). Parse defensively: it is a URL, so it comes from
   anybody.
-- **Browse machinery is shared (M56): `components/browse/`** —
-  `FilterGroup` (checkboxes with counts; a zero-count facet is dimmed,
-  never hidden), `ActiveFilterBar` (removable chips + Clear all at ≥2),
-  `SortSelect`, `BrowsePagination` (prev/next + windowed ellipsis),
-  `MobileFilterSheet` (bottom sheet below 900px — real dialog: shared
-  focus trap, Esc, scroll lock, live "Show N results"), and the
-  `useBrowseFilters` hook holding the URL machinery. Both listing pages
+- **Browse machinery is shared (M56, rebuilt M59): `components/browse/`**
+  — `FilterGroup` (collapsible groups of checkboxes with counts; a
+  zero-count facet is dimmed and partitioned after the usable rows,
+  never hidden; M58 parent trees render as labelled sections via
+  `lib/category-sections.ts`, not flattened rows), `QuickFilterChips`
+  (one-tap category pills over the grid — same `toggle()` as the
+  sidebar, so rail and checklist are one state; populated facets only,
+  it is a shortcut, not the filter list), `ActiveFilterBar` (removable
+  chips + Clear all at ≥2), `SortSelect` (pill around a native select —
+  don't swap in a custom listbox), `BrowsePagination` (prev/next +
+  windowed ellipsis), `MobileFilterSheet` (bottom sheet below 900px —
+  real dialog: shared focus trap, Esc, scroll lock, live "Show N
+  results"), and the `useBrowseFilters` hook holding the URL machinery. Both listing pages
   compose these; a new listing page should too, not re-derive them. The
   facet predicates are pure in `lib/browse-facets.ts` (`isOnSale` is
   presence of the server-computed discount, never arithmetic — M46).

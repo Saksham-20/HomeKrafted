@@ -1,5 +1,43 @@
 # Changelog
 
+## M59 — the two browse pages, rebuilt
+
+The listing pages worked and looked like a settings screen: a
+forty-checkbox wall down the left (the M58 tree flattened into it, so
+"Shop by cuisine" sat mid-alphabet as a permanently-zero checkbox
+between its own cuisines), a bare toolbar, and a mobile flow where the
+single most common narrowing — pick one category — cost
+open-sheet → find group → tick → close.
+
+What changed, all composed from the same `components/browse/` pieces so
+`/shop` and `/gifts` stay one set of controls:
+
+- **Quick category chips** over the grid — one tap, same `toggle()` as
+  the sidebar's checkboxes, so the rail and the checklist are one state.
+  Only populated facets get a pill; the sidebar keeps every facet
+  including the dimmed zero-count tail (the M56 rule — the rail is a
+  shortcut, not the filter list).
+- **Collapsible filter groups** with an active-count badge, and the M58
+  parent trees rendered as labelled sections instead of flattened rows.
+  Usable options partition ahead of the zero-count tail; nothing is
+  hidden, and a checked row never sorts away from where the eye left it.
+- **A sidebar with a head** — "Filters" plus Clear all where it can be
+  seen, not only inside the empty state; sticky with its own scroll so
+  the price slider is reachable without losing the grid.
+- **A sticky toolbar** — view switch (active half now solid pine), a
+  pill sort control, and on narrow screens a Filters button with a count
+  badge; active-filter chips get their own row under it.
+- **Custom-drawn checkboxes** and count pills; product cards gained a
+  small hover lift and a slow image settle (stripped by the global
+  reduced-motion floor).
+- **Bug found while rebuilding:** `?sort=nearest` was in the URL codec
+  and the kitchens sorter but neither dish grid — on the dishes view it
+  silently sorted by rating. Fixed in both clients; absent distance
+  still sorts last.
+
+Axe (WCAG A/AA) clean on both pages at both viewports; all 299 client
+specs pass, `splitCategorySections` pinned by its own.
+
 ## M58 — subcategories, and a listing that can sit on more than one shelf
 
 Categories were a flat list, and a listing could be on exactly one of

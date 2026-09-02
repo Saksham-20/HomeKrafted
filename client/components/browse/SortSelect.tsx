@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowUpDown } from "lucide-react";
 import type { BrowseSortKey } from "@/lib/browse-params";
 import styles from "./SortSelect.module.css";
 
@@ -18,11 +19,16 @@ export interface SortSelectProps {
   hasDistance: boolean;
 }
 
-/** The browse sort control, shared by `/shop` and `/gifts` (M56). */
+/**
+ * The browse sort control, shared by `/shop` and `/gifts` (M56;
+ * restyled as a pill in M59). Still a native `<select>` under the
+ * pill paint — a custom listbox would re-buy keyboard and screen-reader
+ * behaviour the platform already ships.
+ */
 export function SortSelect({ value, onChange, hasDistance }: SortSelectProps) {
   return (
     <label className={styles.sortRow}>
-      Sort
+      <ArrowUpDown size={14} strokeWidth={2} aria-hidden className={styles.sortIcon} />
       <select
         // The wrapping label already names this, but a name computed from
         // a label that contains the control folds the selected option

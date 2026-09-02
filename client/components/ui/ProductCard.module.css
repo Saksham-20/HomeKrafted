@@ -9,7 +9,8 @@
   flex-direction: column;
   transition:
     border-color var(--hk-dur) var(--hk-ease),
-    box-shadow var(--hk-dur) var(--hk-ease);
+    box-shadow var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease);
 }
 
 .clickable {
@@ -22,10 +23,23 @@
      token (tokens.css has no separate value for it). */
   border-color: var(--hk-gold-border);
   box-shadow: var(--hk-shadow-card);
+  transform: translateY(-2px);
 }
 
 .imageWrap {
   position: relative;
+  overflow: hidden;
+}
+
+/* A slow settle into the photograph on hover (M59). The card clips it;
+   the global reduced-motion floor strips the transition, leaving a
+   static state change of nothing. */
+.imageWrap img {
+  transition: transform 0.45s var(--hk-ease);
+}
+
+.clickable:hover .imageWrap img {
+  transform: scale(1.045);
 }
 
 .tag {

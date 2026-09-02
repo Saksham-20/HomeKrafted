@@ -1,31 +1,58 @@
 .layout {
   padding-block: var(--hk-s4) var(--hk-s8);
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 256px 1fr;
   gap: var(--hk-s6);
   align-items: start;
 }
 
-.filterToggle {
-  display: none;
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-md);
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--hk-ink-2);
-  grid-column: 1 / -1;
-  min-height: 44px;
-}
+/* ---- sidebar ---- */
 
 .sidebar {
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-lg);
-  padding: var(--hk-s5) var(--hk-s4);
+  padding: var(--hk-s4) var(--hk-s4) var(--hk-s5);
   position: sticky;
-  top: 84px;
+  top: var(--hk-s4);
+  /* Its own scroll once taller than the viewport, so the price group at
+     the bottom is reachable without scrolling the grid away. */
+  max-height: calc(100vh - var(--hk-s6));
+  overflow-y: auto;
+}
+
+.sidebarHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hk-s2);
+  padding-bottom: var(--hk-s3);
+  margin-bottom: var(--hk-s3);
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.sidebarTitle {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.sidebarClear {
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink-3);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.sidebarClear:hover {
+  color: var(--hk-ink);
 }
 
 /* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
@@ -43,19 +70,69 @@
 .priceGroup {
   border-top: 1px solid var(--hk-border);
   padding-top: var(--hk-s4);
+  margin-top: var(--hk-s3);
 }
 
 .main {
   min-width: 0;
 }
 
+/* ---- toolbar ---- */
+
+/* Sticks to the top while the grid scrolls, so sort and the
+   kitchens/dishes switch never drift out of reach on a long page. The
+   header on this route is static (only the landing page floats one), so
+   top: 0 is the viewport edge. */
 .toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--hk-s3);
   flex-wrap: wrap;
-  margin-bottom: var(--hk-s5);
+  padding-block: var(--hk-s2);
+  margin-bottom: var(--hk-s3);
+  background: var(--hk-bg);
+  /* A soft fade instead of a hard hairline, so cards scrolling under it
+     dissolve rather than clip. */
+  box-shadow: 0 10px 12px -12px rgba(35, 66, 51, 0.18);
+}
+
+.chipsRow {
+  margin-bottom: var(--hk-s4);
+}
+
+.filterToggle {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--hk-border-2);
+  background: var(--hk-surface);
+  border-radius: var(--hk-r-pill);
+  padding: 0 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.filterBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 /*
@@ -89,8 +166,8 @@
 }
 
 .viewBtnActive {
-  background: var(--hk-surface);
-  color: var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
   box-shadow: var(--hk-shadow-card);
 }
 
@@ -101,8 +178,10 @@
 }
 
 .viewBtnActive .viewCount {
-  color: var(--hk-ink-2);
+  color: var(--hk-gold-bright);
 }
+
+/* ---- grids ---- */
 
 /*
  * One kitchen a row at every width the sidebar leaves. The card carries a
@@ -123,32 +202,35 @@
 .empty {
   font-size: 14.5px;
   color: var(--hk-muted);
-  padding: var(--hk-s7) 0;
+  padding: var(--hk-s7) var(--hk-s4);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px dashed var(--hk-border-2);
+  border-radius: var(--hk-r-lg);
 }
 
 .empty p {
   margin: 0;
 }
 
-
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
+    gap: var(--hk-s3);
   }
 
   .filterToggle {
-    display: block;
+    display: inline-flex;
   }
 
   .sidebar {
     display: none;
     position: static;
-    margin-bottom: var(--hk-s4);
+    max-height: none;
   }
 }
 

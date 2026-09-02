@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import clsx from "clsx";
+import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
@@ -10,6 +11,8 @@ import { ActiveFilterBar, type ActiveFilterChip } from "@/components/browse/Acti
 import { BrowsePagination } from "@/components/browse/BrowsePagination";
 import { FilterGroup } from "@/components/browse/FilterGroup";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
+import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
+import { splitCategorySections } from "@/lib/category-sections";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
 import { PRODUCT_TAG_VALUES, type BrowseView } from "@/lib/browse-params";
@@ -156,6 +159,12 @@ export function ShopClient({
     const list = [...filtered];
     if (sort === "price-asc") list.sort((a, b) => priceOf(a) - priceOf(b));
     else if (sort === "price-desc") list.sort((a, b) => priceOf(b) - priceOf(a));
+    // "Nearest" was in the URL codec and the kitchens sorter but not
+    // here, so ?sort=nearest on the dishes view silently sorted by
+    // rating (M59). Absent distance sorts last — "we were not told
+    // where you are", never "far".
+    else if (sort === "nearest")
+      list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     else
       list.sort((a, b) => {
         if (b.rating !== a.rating) return b.rating - a.rating;
@@ -250,15 +259,22 @@ export function ShopClient({
    * `display: none` below 900px; the closed sheet is `visibility:
    * hidden`), so the duplicate never doubles the tab order.
    */
+  const categorySplit = useMemo(() => splitCategorySections(categories), [categories]);
+  const facetOf = (category: (typeof categories)[number]) => ({
+    id: category.id,
+    label: category.name,
+    count: counts.category.get(category.id) ?? 0,
+    checked: selectedCategories.has(category.id),
+  });
+
   const filterControls = (
     <>
       <FilterGroup
         title="Category"
-        options={categories.map((category) => ({
-          id: category.id,
-          label: category.name,
-          count: counts.category.get(category.id) ?? 0,
-          checked: selectedCategories.has(category.id),
+        options={categorySplit.flat.map(facetOf)}
+        sections={categorySplit.sections.map(({ parent, children }) => ({
+          label: parent.name,
+          options: children.map(facetOf),
         }))}
         onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
       />
@@ -293,6 +309,7 @@ export function ShopClient({
       />
       <FilterGroup
         title="Occasion"
+        defaultOpen={selectedOccasions.size > 0}
         options={occasions.map((occasion) => ({
           id: occasion.id,
           label: occasion.name,
@@ -342,18 +359,29 @@ export function ShopClient({
     </>
   );
 
+  const categoryChips = [
+    ...categorySplit.flat,
+    ...categorySplit.sections.flatMap((section) => section.children),
+  ].map((category) => ({
+    id: category.id,
+    label: category.name,
+    count: counts.category.get(category.id) ?? 0,
+    selected: selectedCategories.has(category.id),
+  }));
+
   return (
     <section className={clsx("container", styles.layout)}>
-      <button
-        type="button"
-        className={styles.filterToggle}
-        onClick={() => setSheetOpen(true)}
-        aria-expanded={sheetOpen}
-      >
-        Filters{activeCount > 0 ? ` (${activeCount})` : ""}
-      </button>
-
-      <aside className={styles.sidebar}>{filterControls}</aside>
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHead}>
+          <span className={styles.sidebarTitle}>Filters</span>
+          {(activeCount > 0 || priceNarrowed) && (
+            <button type="button" className={styles.sidebarClear} onClick={clearFilters}>
+              Clear all
+            </button>
+          )}
+        </div>
+        {filterControls}
+      </aside>
 
       <MobileFilterSheet
         open={sheetOpen}
@@ -365,7 +393,26 @@ export function ShopClient({
       </MobileFilterSheet>
 
       <div className={styles.main}>
+        {/* One-tap categories over the grid; same toggle() as the
+            sidebar's checkboxes, so the rail and the checklist are one
+            state, not two filters. */}
+        <QuickFilterChips
+          label="Filter by category"
+          chips={categoryChips}
+          onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
+        />
+
         <div className={styles.toolbar}>
+          <button
+            type="button"
+            className={styles.filterToggle}
+            onClick={() => setSheetOpen(true)}
+            aria-expanded={sheetOpen}
+          >
+            <SlidersHorizontal size={15} strokeWidth={2} aria-hidden />
+            Filters
+            {activeCount > 0 && <span className={styles.filterBadge}>{activeCount}</span>}
+          </button>
           {/*
             The food page's two shapes (M51). A radio group rather than
             two buttons or a link pair: it is one question with two
@@ -394,9 +441,14 @@ export function ShopClient({
               <span className={styles.viewCount}>{sorted.length}</span>
             </button>
           </div>
-          <ActiveFilterBar chips={activeChips} onClearAll={clearFilters} />
           <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
         </div>
+
+        {activeChips.length > 0 && (
+          <div className={styles.chipsRow}>
+            <ActiveFilterBar chips={activeChips} onClearAll={clearFilters} />
+          </div>
+        )}
 
         {resultCount === 0 ? (
           /* The three-part empty state (M37): what happened, which

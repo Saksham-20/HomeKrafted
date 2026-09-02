@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
+import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
@@ -10,6 +11,8 @@ import { ActiveFilterBar, type ActiveFilterChip } from "@/components/browse/Acti
 import { BrowsePagination } from "@/components/browse/BrowsePagination";
 import { FilterGroup } from "@/components/browse/FilterGroup";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
+import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
+import { splitCategorySections } from "@/lib/category-sections";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
 import { PRODUCT_TAG_VALUES } from "@/lib/browse-params";
@@ -121,6 +124,10 @@ export function GiftsClient({
     const list = [...filtered];
     if (sort === "price-asc") list.sort((a, b) => priceOf(a) - priceOf(b));
     else if (sort === "price-desc") list.sort((a, b) => priceOf(b) - priceOf(a));
+    // Same gap as /shop had (M59): the codec accepted ?sort=nearest and
+    // this sorter ignored it. Absent distance sorts last.
+    else if (sort === "nearest")
+      list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     else
       list.sort((a, b) => {
         if (b.rating !== a.rating) return b.rating - a.rating;
@@ -175,16 +182,23 @@ export function GiftsClient({
 
   const activeCount = activeChips.length;
 
+  const categorySplit = useMemo(() => splitCategorySections(categories), [categories]);
+  const facetOf = (category: (typeof categories)[number]) => ({
+    id: category.id,
+    label: category.name,
+    count: counts.category.get(category.id) ?? 0,
+    checked: selectedCategories.has(category.id),
+  });
+
   /** Rendered twice — desktop aside + mobile sheet; only one is ever visible. */
   const filterControls = (
     <>
       <FilterGroup
         title="Category"
-        options={categories.map((category) => ({
-          id: category.id,
-          label: category.name,
-          count: counts.category.get(category.id) ?? 0,
-          checked: selectedCategories.has(category.id),
+        options={categorySplit.flat.map(facetOf)}
+        sections={categorySplit.sections.map(({ parent, children }) => ({
+          label: parent.name,
+          options: children.map(facetOf),
         }))}
         onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
       />
@@ -202,6 +216,7 @@ export function GiftsClient({
       />
       <FilterGroup
         title="Occasion"
+        defaultOpen={selectedOccasions.size > 0}
         options={occasions.map((occasion) => ({
           id: occasion.id,
           label: occasion.name,
@@ -264,18 +279,29 @@ export function GiftsClient({
     );
   }
 
+  const categoryChips = [
+    ...categorySplit.flat,
+    ...categorySplit.sections.flatMap((section) => section.children),
+  ].map((category) => ({
+    id: category.id,
+    label: category.name,
+    count: counts.category.get(category.id) ?? 0,
+    selected: selectedCategories.has(category.id),
+  }));
+
   return (
     <section className={clsx("container", styles.layout)}>
-      <button
-        type="button"
-        className={styles.filterToggle}
-        onClick={() => setSheetOpen(true)}
-        aria-expanded={sheetOpen}
-      >
-        Filters{activeCount > 0 ? ` (${activeCount})` : ""}
-      </button>
-
-      <aside className={styles.sidebar}>{filterControls}</aside>
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHead}>
+          <span className={styles.sidebarTitle}>Filters</span>
+          {(activeCount > 0 || priceNarrowed) && (
+            <button type="button" className={styles.sidebarClear} onClick={clearFilters}>
+              Clear all
+            </button>
+          )}
+        </div>
+        {filterControls}
+      </aside>
 
       <MobileFilterSheet
         open={sheetOpen}
@@ -287,13 +313,36 @@ export function GiftsClient({
       </MobileFilterSheet>
 
       <div className={styles.main}>
+        {/* One-tap categories; the same toggle() as the sidebar, so the
+            rail and the checklist are one state. */}
+        <QuickFilterChips
+          label="Filter by category"
+          chips={categoryChips}
+          onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
+        />
+
         <div className={styles.toolbar}>
+          <button
+            type="button"
+            className={styles.filterToggle}
+            onClick={() => setSheetOpen(true)}
+            aria-expanded={sheetOpen}
+          >
+            <SlidersHorizontal size={15} strokeWidth={2} aria-hidden />
+            Filters
+            {activeCount > 0 && <span className={styles.filterBadge}>{activeCount}</span>}
+          </button>
           <span className={styles.resultCount}>
             {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
           </span>
-          <ActiveFilterBar chips={activeChips} onClearAll={clearFilters} />
           <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
         </div>
+
+        {activeChips.length > 0 && (
+          <div className={styles.chipsRow}>
+            <ActiveFilterBar chips={activeChips} onClearAll={clearFilters} />
+          </div>
+        )}
 
         {sorted.length === 0 ? (
           <div className={styles.noMatch}>
