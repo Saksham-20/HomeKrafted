@@ -60,24 +60,30 @@ export default async function GiftsPage({ searchParams }: GiftsPageProps) {
 
   return (
     <>
-      <div className={clsx("container", styles.heroWrap)}>
-        <span className={styles.breadcrumb}>
-          Home / <span className={styles.breadcrumbCurrent}>Handcrafted gifts</span>
-        </span>
-        <h1 className={styles.title}>Handcrafted gifts</h1>
-        <p className={styles.description}>
-          Handmade décor, candles, art, jewellery and personalised pieces, made by independent
-          HomeKrafters.
-        </p>
-        {/*
-          The genuinely useful difference between the two verticals, said
-          plainly rather than discovered at checkout: food is cooked nearby
-          and driven to you, craft goes in the post.
-        */}
-        <p className={styles.shipping}>
-          Most gifts here ship <strong>anywhere in India</strong> — unlike homemade food, which
-          only travels as far as the kitchen delivers.
-        </p>
+      {/* The hero band (M59b) — same shape as /shop's, on the gold tint:
+          two verticals, two grounds, one composition. */}
+      <div className={styles.hero}>
+        <div className={clsx("container", styles.heroInner)}>
+          <span className={styles.breadcrumb}>
+            Home / <span className={styles.breadcrumbCurrent}>Handcrafted gifts</span>
+          </span>
+          <h1 className={styles.title}>
+            Handcrafted <em className={styles.titleAccent}>Gifts</em>
+          </h1>
+          <p className={styles.description}>
+            Handmade décor, candles, art, jewellery and personalised pieces, made by independent
+            HomeKrafters.
+          </p>
+          {/*
+            The genuinely useful difference between the two verticals, said
+            plainly rather than discovered at checkout: food is cooked nearby
+            and driven to you, craft goes in the post.
+          */}
+          <p className={styles.shipping}>
+            Most gifts here ship <strong>anywhere in India</strong> — unlike homemade food, which
+            only travels as far as the kitchen delivers.
+          </p>
+        </div>
       </div>
 
       <GiftsClient

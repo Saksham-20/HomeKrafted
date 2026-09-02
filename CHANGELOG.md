@@ -38,6 +38,21 @@ What changed, all composed from the same `components/browse/` pieces so
 Axe (WCAG A/AA) clean on both pages at both viewports; all 299 client
 specs pass, `splitCategorySections` pinned by its own.
 
+**M59b — the same pages again, but new** (owner: "should look new and
+fresh, not the same as old ones"). The sidebar is gone entirely: a
+full-bleed hero band (pine tint for food, gold for gifts; display title
+with an italic terracotta accent word; counts as stat pills), a
+floating control card lifted over the hero's edge — emoji category
+chips (every shelf, zero-count dimmed per the facet rule) over an
+Airbnb-shaped `FilterPillBar` (Dietary/Occasion · Price · Delivery as
+dropdown-pill popovers + "All filters" opening the sheet, which now
+serves every width) — and the catalogue full-width beneath: kitchens
+two-up, gifts five across. One set of option arrays feeds popovers and
+sheet so they cannot drift. The store badges got their original marks —
+the real Apple silhouette and Google Play's four-colour prism (inline
+SVG, the brand-mark rule). Chip-bar styling ported (never pasted) from
+a 21st.dev pattern per the M56 precedent.
+
 ## M58 — subcategories, and a listing that can sit on more than one shelf
 
 Categories were a flat list, and a listing could be on exactly one of

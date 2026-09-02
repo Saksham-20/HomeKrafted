@@ -79,13 +79,13 @@ export function FilterGroup({ title, options, sections, onToggle, defaultOpen = 
       </button>
       {open && (
         <div id={panelId} className={styles.groupBody}>
-          <OptionRows options={options} onToggle={onToggle} />
+          <FilterOptionList options={options} onToggle={onToggle} />
           {(sections ?? [])
             .filter((section) => section.options.length > 0)
             .map((section) => (
               <div key={section.label} className={styles.section}>
                 <div className={styles.sectionLabel}>{section.label}</div>
-                <OptionRows options={section.options} onToggle={onToggle} />
+                <FilterOptionList options={section.options} onToggle={onToggle} />
               </div>
             ))}
         </div>
@@ -94,7 +94,11 @@ export function FilterGroup({ title, options, sections, onToggle, defaultOpen = 
   );
 }
 
-function OptionRows({ options, onToggle }: { options: FilterOption[]; onToggle: (id: string) => void }) {
+/**
+ * The bare option rows, exported for the pill popovers (M59b) — same
+ * partition rule, no group chrome.
+ */
+export function FilterOptionList({ options, onToggle }: { options: FilterOption[]; onToggle: (id: string) => void }) {
   // Usable rows first, the dimmed zero-count tail after — a partition,
   // not a re-sort, so rows keep their given order within each half.
   const ordered = [

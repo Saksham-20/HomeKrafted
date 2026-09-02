@@ -1,0 +1,97 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.pillWrap {
+  position: relative;
+}
+
+.pill,
+.allBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-ink-2);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--hk-dur) var(--hk-ease), box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.pill:hover,
+.allBtn:hover {
+  border-color: var(--hk-pine);
+  color: var(--hk-ink);
+}
+
+.pill:focus-visible,
+.allBtn:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+/* Open, or carrying selections — either way this pill is "in play". */
+.pillActive {
+  border-color: var(--hk-pine);
+  color: var(--hk-ink);
+  box-shadow: inset 0 0 0 1px var(--hk-pine);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.chevron {
+  color: var(--hk-ink-3);
+  transition: transform var(--hk-dur) var(--hk-ease);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  min-width: 264px;
+  max-width: min(340px, 90vw);
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  box-shadow: var(--hk-shadow-stage);
+  padding: var(--hk-s3) var(--hk-s3);
+}
+
+/* Popovers don't fit a phone — the "All filters" sheet is the phone
+   control, so the dropdown pills step back below 640px and the sheet
+   button carries everything. */
+@media (max-width: 640px) {
+  .pillWrap {
+    display: none;
+  }
+}

@@ -8,6 +8,8 @@ export interface QuickFilterChip {
   label: string;
   count: number;
   selected: boolean;
+  /** Decorative emoji, rendered aria-hidden — see `lib/category-emoji.ts`. */
+  icon?: string;
 }
 
 export interface QuickFilterChipsProps {
@@ -19,30 +21,41 @@ export interface QuickFilterChipsProps {
 
 /**
  * One-tap category pills in a horizontal rail over the grid (M59) — the
- * pattern every food-ordering surface has taught this audience. It
- * exists mainly for the narrow layout, where the checkbox sidebar lives
- * behind a "Filters" button and the most common narrowing (pick one
- * category) used to cost open-sheet → find group → tick → close.
- *
- * Only populated facets get a pill — this rail is a shortcut, not the
- * filter list itself. The sidebar and sheet keep every facet including
- * the dimmed zero-count tail (the M56 rule); nothing here removes a
- * control, it only surfaces the usable subset. Toggles are the same
- * `toggle()` the sidebar's checkboxes call, so the two stay one state.
+ * pattern every food-ordering surface has taught this audience. Since
+ * M59b it is the primary category control (the sidebar is gone); every
+ * shelf renders, zero-count ones dimmed and disabled per the M56 rule.
+ * Toggles are the same `toggle()` the sheet's checkboxes call, so the
+ * rail and the checklist are one state.
  */
 export function QuickFilterChips({ label, chips, onToggle }: QuickFilterChipsProps) {
-  const visible = chips.filter((chip) => chip.count > 0 || chip.selected);
-  if (visible.length < 2) return null;
+  if (chips.length < 2) return null;
+  // The M56 facet rule, applied to the rail too (owner, 2026-09-02:
+  // "north indian categories, add them as well"): a zero-count chip is
+  // dimmed and disabled, never hidden — populated ones sort first.
+  const ordered = [
+    ...chips.filter((chip) => chip.count > 0 || chip.selected),
+    ...chips.filter((chip) => chip.count === 0 && !chip.selected),
+  ];
   return (
     <div className={clsx(styles.rail, "hk-scroll")} role="group" aria-label={label}>
-      {visible.map((chip) => (
+      {ordered.map((chip) => (
         <button
           key={chip.id}
           type="button"
-          className={clsx(styles.chip, chip.selected && styles.chipSelected)}
+          disabled={chip.count === 0 && !chip.selected}
+          className={clsx(
+            styles.chip,
+            chip.selected && styles.chipSelected,
+            chip.count === 0 && !chip.selected && styles.chipEmpty,
+          )}
           aria-pressed={chip.selected}
           onClick={() => onToggle(chip.id)}
         >
+          {chip.icon && (
+            <span className={styles.chipIcon} aria-hidden>
+              {chip.icon}
+            </span>
+          )}
           {chip.label}
           <span className={styles.chipCount}>{chip.count}</span>
         </button>

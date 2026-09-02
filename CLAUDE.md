@@ -874,19 +874,25 @@ paragraphs over appending new ones.
   restores its own `renderedSearch` and the query is gone before
   `popstate` fires). Parse defensively: it is a URL, so it comes from
   anybody.
-- **Browse machinery is shared (M56, rebuilt M59): `components/browse/`**
-  — `FilterGroup` (collapsible groups of checkboxes with counts; a
-  zero-count facet is dimmed and partitioned after the usable rows,
-  never hidden; M58 parent trees render as labelled sections via
-  `lib/category-sections.ts`, not flattened rows), `QuickFilterChips`
-  (one-tap category pills over the grid — same `toggle()` as the
-  sidebar, so rail and checklist are one state; populated facets only,
-  it is a shortcut, not the filter list), `ActiveFilterBar` (removable
-  chips + Clear all at ≥2), `SortSelect` (pill around a native select —
-  don't swap in a custom listbox), `BrowsePagination` (prev/next +
-  windowed ellipsis), `MobileFilterSheet` (bottom sheet below 900px —
-  real dialog: shared focus trap, Esc, scroll lock, live "Show N
-  results"), and the `useBrowseFilters` hook holding the URL machinery. Both listing pages
+- **Browse machinery is shared (M56, rebuilt M59/M59b): `components/browse/`**
+  — the two listing pages are **sidebarless**: a hero band (tinted
+  full-bleed, italic terracotta accent word — gold never carries text),
+  then one floating control card holding `QuickFilterChips` (every
+  shelf as an emoji pill — `lib/category-emoji.ts`, decoration only,
+  `aria-hidden`; zero-count dimmed+disabled after the populated ones,
+  never hidden) over `FilterPillBar` (Airbnb-shaped dropdown pills for
+  the 2–3 most-used facets + an "All filters" button; popovers, not
+  dialogs — Esc/outside-press close, no trap owed). The full checkbox
+  set lives in `MobileFilterSheet` at **every** width (real dialog:
+  shared focus trap, Esc, scroll lock, live "Show N results").
+  `FilterGroup` (collapsible; zero-count dimmed and partitioned after
+  usable rows; M58 parent trees as labelled sections via
+  `lib/category-sections.ts`) + `FilterOptionList` feed both sheet and
+  popovers from **one** set of option arrays, so the two cannot drift.
+  `ActiveFilterBar` (removable chips + Clear all at ≥2), `SortSelect`
+  (pill around a native select — don't swap in a custom listbox),
+  `BrowsePagination`, and the `useBrowseFilters` hook holding the URL
+  machinery. Both listing pages
   compose these; a new listing page should too, not re-derive them. The
   facet predicates are pure in `lib/browse-facets.ts` (`isOnSale` is
   presence of the server-computed discount, never arithmetic — M46).

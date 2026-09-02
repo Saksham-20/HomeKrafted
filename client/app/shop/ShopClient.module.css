@@ -1,63 +1,70 @@
+/* M59b — sidebarless browse. One full-width column: the floating
+   control card (category rail + pill-filter bar) over the catalogue.
+   The full checkbox set lives in the "All filters" sheet at every
+   width. */
+
 .layout {
-  padding-block: var(--hk-s4) var(--hk-s8);
-  display: grid;
-  grid-template-columns: 256px 1fr;
-  gap: var(--hk-s6);
-  align-items: start;
+  padding-block: 0 var(--hk-s8);
 }
 
-/* ---- sidebar ---- */
+.main {
+  min-width: 0;
+}
 
-.sidebar {
+/* ---- floating control card ---- */
+
+/* Lifted over the hero band's bottom edge — the page reads as
+   hero → controls → catalogue, one column. */
+.controlCard {
+  position: relative;
+  z-index: 6;
+  margin-top: calc(-1 * var(--hk-s5));
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-lg);
-  padding: var(--hk-s4) var(--hk-s4) var(--hk-s5);
-  position: sticky;
-  top: var(--hk-s4);
-  /* Its own scroll once taller than the viewport, so the price group at
-     the bottom is reachable without scrolling the grid away. */
-  max-height: calc(100vh - var(--hk-s6));
-  overflow-y: auto;
+  border-radius: var(--hk-r-xl);
+  box-shadow: var(--hk-shadow-card);
+  padding: var(--hk-s3) var(--hk-s4) var(--hk-s3);
+  margin-bottom: var(--hk-s4);
 }
 
-.sidebarHead {
+.controlRow {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--hk-s2);
-  padding-bottom: var(--hk-s3);
+  flex-wrap: wrap;
+  border-top: 1px solid var(--hk-border);
+  padding-top: var(--hk-s3);
+}
+
+.pillBar {
+  flex: 1;
+  min-width: 0;
+}
+
+.controlRow > :last-child {
+  margin-left: auto;
+}
+
+.chipsRow {
+  margin-bottom: var(--hk-s4);
+}
+
+/* Price popover body. */
+.pricePanel {
+  padding: var(--hk-s2) var(--hk-s2) var(--hk-s3);
+  min-width: 240px;
+}
+
+.pricePanelTitle {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
   margin-bottom: var(--hk-s3);
-  border-bottom: 1px solid var(--hk-border);
 }
 
-.sidebarTitle {
-  font-family: var(--hk-font-display);
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--hk-ink);
-}
-
-.sidebarClear {
-  border: none;
-  background: none;
-  padding: 2px 0;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--hk-ink-3);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.sidebarClear:hover {
-  color: var(--hk-ink);
-}
-
-/* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
-   sense, but these are words somebody reads. `--hk-gold-text-sm` is the
-   same family at an AA-safe darkness (2026-08-08 contrast audit). */
+/* The sheet reuses these two class names for its groups. */
 .filterTitle {
   font-family: var(--hk-font-mono);
   font-size: 11px;
@@ -73,73 +80,8 @@
   margin-top: var(--hk-s3);
 }
 
-.main {
-  min-width: 0;
-}
+/* ---- view switch ---- */
 
-/* ---- toolbar ---- */
-
-/* Sticks to the top while the grid scrolls, so sort and the
-   kitchens/dishes switch never drift out of reach on a long page. The
-   header on this route is static (only the landing page floats one), so
-   top: 0 is the viewport edge. */
-.toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hk-s3);
-  flex-wrap: wrap;
-  padding-block: var(--hk-s2);
-  margin-bottom: var(--hk-s3);
-  background: var(--hk-bg);
-  /* A soft fade instead of a hard hairline, so cards scrolling under it
-     dissolve rather than clip. */
-  box-shadow: 0 10px 12px -12px rgba(35, 66, 51, 0.18);
-}
-
-.chipsRow {
-  margin-bottom: var(--hk-s4);
-}
-
-.filterToggle {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
-  padding: 0 16px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--hk-ink-2);
-  min-height: 40px;
-  cursor: pointer;
-}
-
-.filterBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--hk-r-pill);
-  background: var(--hk-pine);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-/*
- * Kitchens / dishes (M51). A segmented control rather than a select: two
- * options, and the counts beside them are half the answer to "which one
- * do I want".
- */
 .viewSwitch {
   display: inline-flex;
   gap: 2px;
@@ -183,13 +125,11 @@
 
 /* ---- grids ---- */
 
-/*
- * One kitchen a row at every width the sidebar leaves. The card carries a
- * portrait, a bio, tags and four dish thumbnails — two of them side by
- * side turns each into a column too narrow for any of that to read.
- */
+/* Two kitchen cards a row once the full width allows it — each still
+   gets ~540px, enough for the portrait, bio and four thumbnails. */
 .kitchenGrid {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(460px, 100%), 1fr));
   gap: var(--hk-s4);
 }
 
@@ -217,35 +157,13 @@
   margin: 0;
 }
 
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-    gap: var(--hk-s3);
-  }
-
-  .filterToggle {
-    display: inline-flex;
-  }
-
-  .sidebar {
-    display: none;
-    position: static;
-    max-height: none;
-  }
-}
-
-/* Two products per row on a phone, not one.
-
-   `auto-fill, minmax(200px, 1fr)` needs 200px + gap + 200px to fit a
-   second column, which a 358px content width never does — so every
-   browse grid collapsed to a single 501px-tall card on a 844px screen.
-   Measured on `/shop` at 390px: one and a half products visible, and
-   4864px of scrolling for six of them. A marketplace that shows one
-   product per screen is a marketplace nobody browses.
-
-   `minmax(0, 1fr)` rather than a fixed floor, so the columns shrink with
-   the viewport instead of overflowing it at 320px. */
 @media (max-width: 640px) {
+  .controlCard {
+    margin-top: calc(-1 * var(--hk-s4));
+    padding: var(--hk-s3) var(--hk-s3);
+  }
+
+  /* Two products per row on a phone, not one — the M26 H13 rule. */
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--hk-s3);

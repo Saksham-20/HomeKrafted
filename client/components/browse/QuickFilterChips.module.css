@@ -3,9 +3,6 @@
   gap: var(--hk-s2);
   overflow-x: auto;
   padding: 2px 2px 8px;
-  margin-bottom: var(--hk-s2);
-  /* Edge-to-edge swipe on a phone: bleed through the container padding
-     so the rail scrolls off the screen edge instead of clipping at it. */
   scrollbar-width: thin;
 }
 
@@ -14,8 +11,8 @@
   align-items: center;
   gap: 7px;
   flex-shrink: 0;
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 40px;
+  padding: 0 15px;
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-pill);
   background: var(--hk-surface);
@@ -46,6 +43,30 @@
 
 .chipSelected:hover {
   color: #fff;
+}
+
+.chipIcon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Zero-count: dimmed and disabled, never hidden (the M56 facet rule on
+   the rail too — owner, 2026-09-02). Kept in the row, after the
+   populated chips, so the shelf list is learnable. */
+.chipEmpty {
+  cursor: default;
+  color: var(--hk-muted);
+  background: var(--hk-surface-2);
+}
+
+.chipEmpty:hover {
+  border-color: var(--hk-border-2);
+  color: var(--hk-muted);
+}
+
+.chipEmpty .chipIcon {
+  filter: grayscale(1);
+  opacity: 0.55;
 }
 
 .chipCount {

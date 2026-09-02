@@ -80,20 +80,36 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   return (
     <>
-      <div className={clsx("container", styles.breadcrumbWrap)}>
-        <span className={styles.breadcrumb}>
-          Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
-        </span>
-        <h1 className={styles.title}>Homemade Food</h1>
-        <p className={styles.subtitle}>
-          {kitchenCount} home {kitchenCount === 1 ? "kitchen" : "kitchens"} cooking{" "}
-          {products.length} small-batch {products.length === 1 ? "dish" : "dishes"}
-        </p>
-        {/* Says whether this count is the whole catalogue or a filtered
-            one, and gives the only route back to the prompt — see
-            `LocationBar`. */}
-        <LocationBar />
-        <KitchenCrossLinks current="/shop" />
+      {/* The hero band (M59b): the page opens as a place, not a settings
+          screen — tinted ground, display title with an italic accent,
+          the two counts as stat pills. Warmth stays accent-only: the
+          tint is the pine selected-fill token fading to the canvas. */}
+      <div className={styles.hero}>
+        <div className={clsx("container", styles.heroInner)}>
+          <span className={styles.breadcrumb}>
+            Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
+          </span>
+          <h1 className={styles.title}>
+            Homemade <em className={styles.titleAccent}>Food</em>
+          </h1>
+          <p className={styles.tagline}>
+            Cooked to order in real home kitchens — never off a shelf.
+          </p>
+          <div className={styles.statRow}>
+            <span className={styles.stat}>
+              <strong>{kitchenCount}</strong> home {kitchenCount === 1 ? "kitchen" : "kitchens"}
+            </span>
+            <span className={styles.stat}>
+              <strong>{products.length}</strong> small-batch{" "}
+              {products.length === 1 ? "dish" : "dishes"}
+            </span>
+          </div>
+          {/* Says whether this count is the whole catalogue or a filtered
+              one, and gives the only route back to the prompt — see
+              `LocationBar`. */}
+          <LocationBar />
+          <KitchenCrossLinks current="/shop" />
+        </div>
       </div>
       <ShopClient
         products={products}

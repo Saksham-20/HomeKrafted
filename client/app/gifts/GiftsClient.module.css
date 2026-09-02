@@ -1,60 +1,68 @@
-/* The craft vertical's browse layout (M56; rebuilt with /shop in M59) —
-   same rhythm as `app/shop/ShopClient.module.css`, because two listing
-   pages that behave the same should look the same. */
+/* M59b — sidebarless browse, same composition as
+   `app/shop/ShopClient.module.css`: floating control card over a
+   full-width grid, the full checkbox set in the "All filters" sheet. */
 
 .layout {
-  padding-block: var(--hk-s4) var(--hk-s8);
-  display: grid;
-  grid-template-columns: 256px 1fr;
-  gap: var(--hk-s6);
-  align-items: start;
+  padding-block: 0 var(--hk-s8);
 }
 
-/* ---- sidebar ---- */
+.main {
+  min-width: 0;
+}
 
-.sidebar {
+.controlCard {
+  position: relative;
+  z-index: 6;
+  margin-top: calc(-1 * var(--hk-s5));
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-lg);
-  padding: var(--hk-s4) var(--hk-s4) var(--hk-s5);
-  position: sticky;
-  top: var(--hk-s4);
-  max-height: calc(100vh - var(--hk-s6));
-  overflow-y: auto;
+  border-radius: var(--hk-r-xl);
+  box-shadow: var(--hk-shadow-card);
+  padding: var(--hk-s3) var(--hk-s4) var(--hk-s3);
+  margin-bottom: var(--hk-s4);
 }
 
-.sidebarHead {
+.controlRow {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--hk-s2);
-  padding-bottom: var(--hk-s3);
-  margin-bottom: var(--hk-s3);
-  border-bottom: 1px solid var(--hk-border);
+  flex-wrap: wrap;
+  border-top: 1px solid var(--hk-border);
+  padding-top: var(--hk-s3);
 }
 
-.sidebarTitle {
-  font-family: var(--hk-font-display);
-  font-size: 17px;
+.pillBar {
+  flex: 1;
+  min-width: 0;
+}
+
+.controlRow > :last-child {
+  margin-left: auto;
+}
+
+.chipsRow {
+  margin-bottom: var(--hk-s4);
+}
+
+.resultCount {
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--hk-ink);
+  color: var(--hk-ink-2);
+  white-space: nowrap;
 }
 
-.sidebarClear {
-  border: none;
-  background: none;
-  padding: 2px 0;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--hk-ink-3);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
+.pricePanel {
+  padding: var(--hk-s2) var(--hk-s2) var(--hk-s3);
+  min-width: 240px;
 }
 
-.sidebarClear:hover {
-  color: var(--hk-ink);
+.pricePanelTitle {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+  margin-bottom: var(--hk-s3);
 }
 
 .filterTitle {
@@ -71,72 +79,6 @@
   padding-top: var(--hk-s4);
   margin-top: var(--hk-s3);
 }
-
-.main {
-  min-width: 0;
-}
-
-/* ---- toolbar ---- */
-
-/* Sticky, same as /shop — see ShopClient.module.css for why top: 0. */
-.toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hk-s3);
-  flex-wrap: wrap;
-  padding-block: var(--hk-s2);
-  margin-bottom: var(--hk-s3);
-  background: var(--hk-bg);
-  box-shadow: 0 10px 12px -12px rgba(35, 66, 51, 0.18);
-}
-
-.chipsRow {
-  margin-bottom: var(--hk-s4);
-}
-
-.filterToggle {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
-  padding: 0 16px;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--hk-ink-2);
-  min-height: 40px;
-  cursor: pointer;
-}
-
-.filterBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--hk-r-pill);
-  background: var(--hk-pine);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.resultCount {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--hk-ink-2);
-  white-space: nowrap;
-}
-
-/* ---- grid & empties ---- */
 
 .grid {
   display: grid;
@@ -163,7 +105,7 @@
 }
 
 /* The vertical-still-filling state — a card with somewhere to go next
-   rather than a one-line apology (ported from Gifts.module.css). */
+   rather than a one-line apology. */
 .empty {
   display: flex;
   flex-direction: column;
@@ -198,26 +140,13 @@
   color: var(--hk-pine);
 }
 
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-    gap: var(--hk-s3);
-  }
-
-  .filterToggle {
-    display: inline-flex;
-  }
-
-  .sidebar {
-    display: none;
-    position: static;
-    max-height: none;
-  }
-}
-
-/* Two products per row on a phone, not one — the M26 H13 rule every
-   browse grid carries. */
 @media (max-width: 640px) {
+  .controlCard {
+    margin-top: calc(-1 * var(--hk-s4));
+    padding: var(--hk-s3) var(--hk-s3);
+  }
+
+  /* Two products per row on a phone, not one — the M26 H13 rule. */
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--hk-s3);

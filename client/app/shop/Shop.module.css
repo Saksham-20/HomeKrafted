@@ -1,9 +1,17 @@
-.breadcrumbWrap {
-  padding-block: var(--hk-s5) var(--hk-s2);
+/* The browse hero (M59b). Full-bleed tinted band; the container inside
+   keeps the page measure. Tint is `--hk-pine-tint` fading into the
+   canvas — an accent on the white-first ground, not a new surface. */
+.hero {
+  background: linear-gradient(180deg, var(--hk-pine-tint), var(--hk-bg));
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.heroInner {
+  padding-block: var(--hk-s6) var(--hk-s6);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--hk-s2);
+  gap: var(--hk-s3);
 }
 
 .breadcrumb {
@@ -20,12 +28,48 @@
 .title {
   font-family: var(--hk-font-display);
   font-weight: 600;
-  font-size: clamp(28px, 4vw, 38px);
+  font-size: clamp(34px, 5vw, 52px);
+  line-height: 1.05;
   color: var(--hk-pine);
-  margin: var(--hk-s3) 0 4px;
+  margin: 0;
 }
 
-.subtitle {
-  font-size: 14.5px;
-  color: var(--hk-muted);
+/* Fraunces italic — the accent word. Terracotta is the marketplace's
+   accent-for-words token (gold never carries text). */
+.titleAccent {
+  font-style: italic;
+  color: var(--hk-terracotta);
+}
+
+.tagline {
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-3);
+  max-width: 520px;
+  margin: 0;
+}
+
+.statRow {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 6px 13px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  font-size: 13px;
+  color: var(--hk-ink-3);
+}
+
+.stat strong {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-pine);
 }

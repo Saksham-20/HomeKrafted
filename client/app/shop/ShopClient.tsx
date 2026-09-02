@@ -2,16 +2,17 @@
 
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { KitchenCard } from "@/components/kitchen/KitchenCard";
 import { ActiveFilterBar, type ActiveFilterChip } from "@/components/browse/ActiveFilterBar";
 import { BrowsePagination } from "@/components/browse/BrowsePagination";
-import { FilterGroup } from "@/components/browse/FilterGroup";
+import { FilterGroup, FilterOptionList } from "@/components/browse/FilterGroup";
+import { FilterPillBar } from "@/components/browse/FilterPillBar";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
 import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
+import { CATEGORY_EMOJI } from "@/lib/category-emoji";
 import { splitCategorySections } from "@/lib/category-sections";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
@@ -267,6 +268,64 @@ export function ShopClient({
     checked: selectedCategories.has(category.id),
   });
 
+  // One set of option arrays feeds the pill popovers AND the sheet's
+  // groups, so the two controls cannot drift apart.
+  const dietaryFacets = DIETARY_OPTIONS.map((tag) => ({
+    id: tag as string,
+    label: DIETARY_LABELS[tag],
+    count: counts.dietary.get(tag) ?? 0,
+    checked: selectedDietary.has(tag),
+  }));
+  const shippingFacets = (["national", "local"] as const).map((scope) => ({
+    id: scope as string,
+    label: SHIPPING_LABELS[scope],
+    count: counts.shipping.get(scope) ?? 0,
+    checked: selectedShipping.has(scope),
+  }));
+  const occasionFacets = occasions.map((occasion) => ({
+    id: occasion.id,
+    label: occasion.name,
+    count: counts.occasion.get(occasion.id) ?? 0,
+    checked: selectedOccasions.has(occasion.id),
+  }));
+  const picksFacets = [
+    ...PRODUCT_TAG_VALUES.map((tag) => ({
+      id: tag as string,
+      label: tag as string,
+      count: counts.tag.get(tag) ?? 0,
+      checked: selectedTags.has(tag),
+    })),
+    { id: "__sale", label: "On sale", count: counts.sale, checked: saleOnly },
+  ];
+  const onDietary = (id: string) =>
+    toggle(selectedDietary, setSelectedDietary, id as (typeof DIETARY_OPTIONS)[number]);
+  const onShipping = (id: string) =>
+    toggle(selectedShipping, setSelectedShipping, id as "local" | "national");
+  const onPick = (id: string) => {
+    if (id === "__sale") {
+      setSaleOnly(!saleOnly);
+      setPage(1);
+      return;
+    }
+    toggle(selectedTags, setSelectedTags, id as (typeof PRODUCT_TAG_VALUES)[number]);
+  };
+
+  const pricePanel = (
+    <div className={styles.pricePanel}>
+      <div className={styles.pricePanelTitle}>Price</div>
+      <PriceRange
+        min={priceBounds[0]}
+        max={priceBounds[1]}
+        valueMin={priceRange[0]}
+        valueMax={priceRange[1]}
+        onChange={(range) => {
+          setPriceRange(range);
+          setPage(1);
+        }}
+      />
+    </div>
+  );
+
   const filterControls = (
     <>
       <FilterGroup
@@ -285,64 +344,15 @@ export function ShopClient({
         the hour. This facet is that split, straight off
         `Product.shippingScope`.
       */}
-      <FilterGroup
-        title="Delivery"
-        options={(["national", "local"] as const).map((scope) => ({
-          id: scope,
-          label: SHIPPING_LABELS[scope],
-          count: counts.shipping.get(scope) ?? 0,
-          checked: selectedShipping.has(scope),
-        }))}
-        onToggle={(id) =>
-          toggle(selectedShipping, setSelectedShipping, id as "local" | "national")
-        }
-      />
-      <FilterGroup
-        title="Dietary"
-        options={DIETARY_OPTIONS.map((tag) => ({
-          id: tag,
-          label: DIETARY_LABELS[tag],
-          count: counts.dietary.get(tag) ?? 0,
-          checked: selectedDietary.has(tag),
-        }))}
-        onToggle={(id) => toggle(selectedDietary, setSelectedDietary, id as (typeof DIETARY_OPTIONS)[number])}
-      />
+      <FilterGroup title="Delivery" options={shippingFacets} onToggle={onShipping} />
+      <FilterGroup title="Dietary" options={dietaryFacets} onToggle={onDietary} />
       <FilterGroup
         title="Occasion"
         defaultOpen={selectedOccasions.size > 0}
-        options={occasions.map((occasion) => ({
-          id: occasion.id,
-          label: occasion.name,
-          count: counts.occasion.get(occasion.id) ?? 0,
-          checked: selectedOccasions.has(occasion.id),
-        }))}
+        options={occasionFacets}
         onToggle={(id) => toggle(selectedOccasions, setSelectedOccasions, id)}
       />
-      <FilterGroup
-        title="Picks"
-        options={[
-          ...PRODUCT_TAG_VALUES.map((tag) => ({
-            id: tag as string,
-            label: tag as string,
-            count: counts.tag.get(tag) ?? 0,
-            checked: selectedTags.has(tag),
-          })),
-          {
-            id: "__sale",
-            label: "On sale",
-            count: counts.sale,
-            checked: saleOnly,
-          },
-        ]}
-        onToggle={(id) => {
-          if (id === "__sale") {
-            setSaleOnly(!saleOnly);
-            setPage(1);
-            return;
-          }
-          toggle(selectedTags, setSelectedTags, id as (typeof PRODUCT_TAG_VALUES)[number]);
-        }}
-      />
+      <FilterGroup title="Picks" options={picksFacets} onToggle={onPick} />
       <div className={styles.priceGroup}>
         <div className={styles.filterTitle}>Price</div>
         <PriceRange
@@ -367,22 +377,11 @@ export function ShopClient({
     label: category.name,
     count: counts.category.get(category.id) ?? 0,
     selected: selectedCategories.has(category.id),
+    icon: CATEGORY_EMOJI[category.slug],
   }));
 
   return (
     <section className={clsx("container", styles.layout)}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHead}>
-          <span className={styles.sidebarTitle}>Filters</span>
-          {(activeCount > 0 || priceNarrowed) && (
-            <button type="button" className={styles.sidebarClear} onClick={clearFilters}>
-              Clear all
-            </button>
-          )}
-        </div>
-        {filterControls}
-      </aside>
-
       <MobileFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -393,33 +392,25 @@ export function ShopClient({
       </MobileFilterSheet>
 
       <div className={styles.main}>
-        {/* One-tap categories over the grid; same toggle() as the
-            sidebar's checkboxes, so the rail and the checklist are one
-            state, not two filters. */}
-        <QuickFilterChips
-          label="Filter by category"
-          chips={categoryChips}
-          onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
-        />
-
-        <div className={styles.toolbar}>
-          <button
-            type="button"
-            className={styles.filterToggle}
-            onClick={() => setSheetOpen(true)}
-            aria-expanded={sheetOpen}
-          >
-            <SlidersHorizontal size={15} strokeWidth={2} aria-hidden />
-            Filters
-            {activeCount > 0 && <span className={styles.filterBadge}>{activeCount}</span>}
-          </button>
-          {/*
-            The food page's two shapes (M51). A radio group rather than
-            two buttons or a link pair: it is one question with two
-            answers, and a screen reader should hear "Browse by, kitchens,
-            selected, 1 of 2" instead of two unrelated toggles.
-          */}
-          <div className={styles.viewSwitch} role="radiogroup" aria-label="Browse by">
+        {/* The floating control card (M59b): category rail over the
+            pill-filter bar, lifted over the hero's bottom edge — the
+            whole filter surface in one place, catalogue full-width
+            under it. The old 256px checkbox sidebar is gone. */}
+        <div className={styles.controlCard}>
+          <QuickFilterChips
+            label="Filter by category"
+            chips={categoryChips}
+            onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
+          />
+          <div className={styles.controlRow}>
+            {/*
+              The food page's two shapes (M51). A radio group rather than
+              two buttons or a link pair: it is one question with two
+              answers, and a screen reader should hear "Browse by,
+              kitchens, selected, 1 of 2" instead of two unrelated
+              toggles.
+            */}
+            <div className={styles.viewSwitch} role="radiogroup" aria-label="Browse by">
             <button
               type="button"
               role="radio"
@@ -430,18 +421,29 @@ export function ShopClient({
               Kitchens
               <span className={styles.viewCount}>{kitchens.length}</span>
             </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!isKitchens}
-              className={clsx(styles.viewBtn, !isKitchens && styles.viewBtnActive)}
-              onClick={() => switchView("dishes")}
-            >
-              Dishes
-              <span className={styles.viewCount}>{sorted.length}</span>
-            </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={!isKitchens}
+                className={clsx(styles.viewBtn, !isKitchens && styles.viewBtnActive)}
+                onClick={() => switchView("dishes")}
+              >
+                Dishes
+                <span className={styles.viewCount}>{sorted.length}</span>
+              </button>
+            </div>
+            <FilterPillBar
+              className={styles.pillBar}
+              pills={[
+                { key: "dietary", label: "Dietary", activeCount: selectedDietary.size, content: <FilterOptionList options={dietaryFacets} onToggle={onDietary} /> },
+                { key: "price", label: "Price", activeCount: priceNarrowed ? 1 : 0, content: pricePanel },
+                { key: "delivery", label: "Delivery", activeCount: selectedShipping.size, content: <FilterOptionList options={shippingFacets} onToggle={onShipping} /> },
+              ]}
+              allFiltersCount={activeCount + (priceNarrowed ? 1 : 0)}
+              onAllFilters={() => setSheetOpen(true)}
+            />
+            <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
           </div>
-          <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
         </div>
 
         {activeChips.length > 0 && (

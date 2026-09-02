@@ -3,15 +3,16 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { ActiveFilterBar, type ActiveFilterChip } from "@/components/browse/ActiveFilterBar";
 import { BrowsePagination } from "@/components/browse/BrowsePagination";
-import { FilterGroup } from "@/components/browse/FilterGroup";
+import { FilterGroup, FilterOptionList } from "@/components/browse/FilterGroup";
+import { FilterPillBar } from "@/components/browse/FilterPillBar";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
 import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
+import { CATEGORY_EMOJI } from "@/lib/category-emoji";
 import { splitCategorySections } from "@/lib/category-sections";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
@@ -190,7 +191,57 @@ export function GiftsClient({
     checked: selectedCategories.has(category.id),
   });
 
-  /** Rendered twice — desktop aside + mobile sheet; only one is ever visible. */
+  // One set of option arrays feeds the pill popovers AND the sheet.
+  const shippingFacets = (["national", "local"] as const).map((scope) => ({
+    id: scope as string,
+    label: SHIPPING_LABELS[scope],
+    count: counts.shipping.get(scope) ?? 0,
+    checked: selectedShipping.has(scope),
+  }));
+  const occasionFacets = occasions.map((occasion) => ({
+    id: occasion.id,
+    label: occasion.name,
+    count: counts.occasion.get(occasion.id) ?? 0,
+    checked: selectedOccasions.has(occasion.id),
+  }));
+  const picksFacets = [
+    ...PRODUCT_TAG_VALUES.map((tag) => ({
+      id: tag as string,
+      label: tag as string,
+      count: counts.tag.get(tag) ?? 0,
+      checked: selectedTags.has(tag),
+    })),
+    { id: "__sale", label: "On sale", count: counts.sale, checked: saleOnly },
+  ];
+  const onShipping = (id: string) =>
+    toggle(selectedShipping, setSelectedShipping, id as "local" | "national");
+  const onOccasion = (id: string) => toggle(selectedOccasions, setSelectedOccasions, id);
+  const onPick = (id: string) => {
+    if (id === "__sale") {
+      setSaleOnly(!saleOnly);
+      setPage(1);
+      return;
+    }
+    toggle(selectedTags, setSelectedTags, id as (typeof PRODUCT_TAG_VALUES)[number]);
+  };
+
+  const pricePanel = (
+    <div className={styles.pricePanel}>
+      <div className={styles.pricePanelTitle}>Price</div>
+      <PriceRange
+        min={priceBounds[0]}
+        max={priceBounds[1]}
+        valueMin={priceRange[0]}
+        valueMax={priceRange[1]}
+        onChange={(range) => {
+          setPriceRange(range);
+          setPage(1);
+        }}
+      />
+    </div>
+  );
+
+  /** The "All filters" sheet's contents. */
   const filterControls = (
     <>
       <FilterGroup
@@ -202,49 +253,14 @@ export function GiftsClient({
         }))}
         onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
       />
-      <FilterGroup
-        title="Delivery"
-        options={(["national", "local"] as const).map((scope) => ({
-          id: scope,
-          label: SHIPPING_LABELS[scope],
-          count: counts.shipping.get(scope) ?? 0,
-          checked: selectedShipping.has(scope),
-        }))}
-        onToggle={(id) =>
-          toggle(selectedShipping, setSelectedShipping, id as "local" | "national")
-        }
-      />
+      <FilterGroup title="Delivery" options={shippingFacets} onToggle={onShipping} />
       <FilterGroup
         title="Occasion"
         defaultOpen={selectedOccasions.size > 0}
-        options={occasions.map((occasion) => ({
-          id: occasion.id,
-          label: occasion.name,
-          count: counts.occasion.get(occasion.id) ?? 0,
-          checked: selectedOccasions.has(occasion.id),
-        }))}
-        onToggle={(id) => toggle(selectedOccasions, setSelectedOccasions, id)}
+        options={occasionFacets}
+        onToggle={onOccasion}
       />
-      <FilterGroup
-        title="Picks"
-        options={[
-          ...PRODUCT_TAG_VALUES.map((tag) => ({
-            id: tag as string,
-            label: tag as string,
-            count: counts.tag.get(tag) ?? 0,
-            checked: selectedTags.has(tag),
-          })),
-          { id: "__sale", label: "On sale", count: counts.sale, checked: saleOnly },
-        ]}
-        onToggle={(id) => {
-          if (id === "__sale") {
-            setSaleOnly(!saleOnly);
-            setPage(1);
-            return;
-          }
-          toggle(selectedTags, setSelectedTags, id as (typeof PRODUCT_TAG_VALUES)[number]);
-        }}
-      />
+      <FilterGroup title="Picks" options={picksFacets} onToggle={onPick} />
       <div className={styles.priceGroup}>
         <div className={styles.filterTitle}>Price</div>
         <PriceRange
@@ -287,22 +303,11 @@ export function GiftsClient({
     label: category.name,
     count: counts.category.get(category.id) ?? 0,
     selected: selectedCategories.has(category.id),
+    icon: CATEGORY_EMOJI[category.slug],
   }));
 
   return (
     <section className={clsx("container", styles.layout)}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHead}>
-          <span className={styles.sidebarTitle}>Filters</span>
-          {(activeCount > 0 || priceNarrowed) && (
-            <button type="button" className={styles.sidebarClear} onClick={clearFilters}>
-              Clear all
-            </button>
-          )}
-        </div>
-        {filterControls}
-      </aside>
-
       <MobileFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
@@ -313,29 +318,29 @@ export function GiftsClient({
       </MobileFilterSheet>
 
       <div className={styles.main}>
-        {/* One-tap categories; the same toggle() as the sidebar, so the
-            rail and the checklist are one state. */}
-        <QuickFilterChips
-          label="Filter by category"
-          chips={categoryChips}
-          onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
-        />
-
-        <div className={styles.toolbar}>
-          <button
-            type="button"
-            className={styles.filterToggle}
-            onClick={() => setSheetOpen(true)}
-            aria-expanded={sheetOpen}
-          >
-            <SlidersHorizontal size={15} strokeWidth={2} aria-hidden />
-            Filters
-            {activeCount > 0 && <span className={styles.filterBadge}>{activeCount}</span>}
-          </button>
-          <span className={styles.resultCount}>
-            {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
-          </span>
-          <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
+        {/* The floating control card (M59b) — see ShopClient. */}
+        <div className={styles.controlCard}>
+          <QuickFilterChips
+            label="Filter by category"
+            chips={categoryChips}
+            onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
+          />
+          <div className={styles.controlRow}>
+            <span className={styles.resultCount}>
+              {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
+            </span>
+            <FilterPillBar
+              className={styles.pillBar}
+              pills={[
+                { key: "occasion", label: "Occasion", activeCount: selectedOccasions.size, content: <FilterOptionList options={occasionFacets} onToggle={onOccasion} /> },
+                { key: "price", label: "Price", activeCount: priceNarrowed ? 1 : 0, content: pricePanel },
+                { key: "delivery", label: "Delivery", activeCount: selectedShipping.size, content: <FilterOptionList options={shippingFacets} onToggle={onShipping} /> },
+              ]}
+              allFiltersCount={activeCount + (priceNarrowed ? 1 : 0)}
+              onAllFilters={() => setSheetOpen(true)}
+            />
+            <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
+          </div>
         </div>
 
         {activeChips.length > 0 && (
