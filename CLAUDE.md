@@ -502,6 +502,13 @@ to undo by accident:
 listing sits on several shelves). Seeded trees: **Shop by recipient** on
 the gifts side, **Shop by cuisine** and **Shop by meal** on the food side
 (`prisma/seed-subcategories.ts` — additive, idempotent, never overwrites).
+The client's own shelf lists for the two browse pages live in
+`prisma/seed-client-categories.ts`, same contract — it creates only the
+names that are not already in the tree anywhere (top-level *or* as
+somebody's child), so a list that repeats a live shelf never mints a
+second one. "Gifts Under ₹999" is deliberately absent: a price band is
+the price filter's job, and a hand-tagged shelf goes stale the moment a
+maker edits a price.
 
 - **One level deep, enforced from both ends.** A category under a
   subcategory is refused, and a category that *has* children cannot become
