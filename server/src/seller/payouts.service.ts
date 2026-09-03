@@ -39,8 +39,18 @@ export class SellerPayoutsService {
     // arithmetic (M37). While `commissionEnabled` is off the split is an
     // *estimate at the configured rate* and `netPending === grossPending`;
     // the client says which — this is the transparency /terms promised.
-    const split = computePayoutSplit(grossPending, settings.commissionPct, settings.commissionEnabled);
-    const estimate = computePayoutSplit(grossPending, settings.commissionPct, true);
+    const split = computePayoutSplit(
+      grossPending,
+      settings.commissionPct,
+      settings.commissionEnabled,
+      settings.commissionGstPct,
+    );
+    const estimate = computePayoutSplit(
+      grossPending,
+      settings.commissionPct,
+      true,
+      settings.commissionGstPct,
+    );
 
     return {
       items: rows.map(mapPayout),
@@ -49,8 +59,12 @@ export class SellerPayoutsService {
       commission: {
         enabled: settings.commissionEnabled,
         pct: settings.commissionPct,
+        // GST on the fee (2026-09-02) — same estimate-vs-applied rule as
+        // the commission figures beside it.
+        gstPct: settings.commissionGstPct,
         grossPending: split.grossAmount,
         commissionOnPending: settings.commissionEnabled ? split.commissionAmount : estimate.commissionAmount,
+        gstOnPending: settings.commissionEnabled ? split.gstAmount : estimate.gstAmount,
         netPending: settings.commissionEnabled ? split.amount : estimate.amount,
       },
     };
@@ -100,7 +114,12 @@ export class SellerPayoutsService {
       // it say what was deducted at what rate — so a payout from a
       // disabled era reads gross/0/0 rather than looking like a 0% rate
       // was ever decided.
-      const split = computePayoutSplit(grossPending, settings.commissionPct, settings.commissionEnabled);
+      const split = computePayoutSplit(
+        grossPending,
+        settings.commissionPct,
+        settings.commissionEnabled,
+        settings.commissionGstPct,
+      );
 
       const periodStart = latestPayout ? new Date(latestPayout.periodEnd.getTime() + 24 * 60 * 60 * 1000) : seller.createdAt;
       const periodEnd = new Date();
@@ -112,6 +131,8 @@ export class SellerPayoutsService {
           grossAmount: split.grossAmount,
           commissionAmount: split.commissionAmount,
           commissionPct: split.commissionPct,
+          gstAmount: split.gstAmount,
+          gstPct: split.gstPct,
           periodStart,
           periodEnd,
           status: 'pending',
@@ -124,7 +145,12 @@ export class SellerPayoutsService {
   /** Non-tx read used by the dashboard + `GET /seller/payouts` — what a payout request would actually pay right now (net when commission is enabled). */
   async getPendingBalance(seller: Seller): Promise<number> {
     const [grossPending, settings] = await Promise.all([this.grossPending(seller), this.settings.get()]);
-    return computePayoutSplit(grossPending, settings.commissionPct, settings.commissionEnabled).amount;
+    return computePayoutSplit(
+      grossPending,
+      settings.commissionPct,
+      settings.commissionEnabled,
+      settings.commissionGstPct,
+    ).amount;
   }
 
   /** Delivered earnings not yet claimed by any payout row, in gross terms. */

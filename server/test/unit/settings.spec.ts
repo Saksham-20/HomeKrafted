@@ -69,6 +69,7 @@ describe('get', () => {
     ]);
     expect(Object.keys(await service.get()).sort()).toEqual([
       'commissionEnabled',
+      'commissionGstPct',
       'commissionPct',
       'defaultDeliveryRadiusKm',
       'menuLockTime',

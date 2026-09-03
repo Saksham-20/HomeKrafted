@@ -23,7 +23,7 @@
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-xl);
   box-shadow: var(--hk-shadow-card);
-  padding: var(--hk-s3) var(--hk-s4) var(--hk-s3);
+  padding: var(--hk-s2) var(--hk-s3) var(--hk-s2);
   margin-bottom: var(--hk-s4);
 }
 
@@ -33,7 +33,7 @@
   gap: var(--hk-s2);
   flex-wrap: wrap;
   border-top: 1px solid var(--hk-border);
-  padding-top: var(--hk-s3);
+  padding-top: var(--hk-s2);
 }
 
 .pillBar {

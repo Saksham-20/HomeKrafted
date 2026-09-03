@@ -21,6 +21,17 @@ export class UpdateSettingsDto {
   @Max(100)
   commissionPct?: number;
 
+  /**
+   * GST the platform charges on its commission fee (2026-09-02) — rides
+   * on the fee, applied only while `commissionEnabled` is on.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  commissionGstPct?: number;
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

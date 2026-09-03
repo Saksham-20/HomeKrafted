@@ -31,6 +31,17 @@ export interface PlatformSettings {
    */
   commissionEnabled: boolean;
   /**
+   * GST the platform charges on its own commission fee (2026-09-02) —
+   * Homekrafted is the supplier of that service, so the tax rides on the
+   * fee and **never** on the HomeKrafter's earnings. Read by
+   * `computePayoutSplit` through `SellerPayoutsService`; applied only
+   * while `commissionEnabled` is on, because without a fee there is
+   * nothing to tax. Default 18 — the standard rate on marketplace
+   * commission; changing it is a tax decision, audited like every write
+   * here.
+   */
+  commissionGstPct: number;
+  /**
    * Delivery radius given to a new HomeKrafter whose application didn't
    * state one. Read by `AdminSellersService.approveApplication`.
    */
@@ -91,6 +102,7 @@ export type PublicPlatformSettings = Pick<
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionPct: 10,
   commissionEnabled: false,
+  commissionGstPct: 18,
   defaultDeliveryRadiusKm: 10,
   /** The Chandigarh tricity: Chandigarh, Mohali, Kharar, Zirakpur, Panchkula, Ambala. */
   servicedPincodePrefixes: '160,1401,1403,1341,1346',
@@ -119,6 +131,7 @@ export class AdminSettingsService {
       // literal 'true' — a stale row, a typo, a half-written value —
       // reads as off, which is the direction that fails safe for money.
       commissionEnabled: byKey.get('commissionEnabled') === 'true',
+      commissionGstPct: numberOr(byKey.get('commissionGstPct'), DEFAULT_SETTINGS.commissionGstPct),
       defaultDeliveryRadiusKm: numberOr(
         byKey.get('defaultDeliveryRadiusKm'),
         DEFAULT_SETTINGS.defaultDeliveryRadiusKm,
@@ -174,6 +187,13 @@ export class AdminSettingsService {
       // a negative one is a rebate. Neither is a setting, both are typos.
       if (patch.commissionPct < 0 || patch.commissionPct > 100) {
         throw new BadRequestException('Commission must be between 0 and 100 percent');
+      }
+    }
+    if (patch.commissionGstPct !== undefined) {
+      // Same reasoning as the take rate: outside 0–100 is a typo, not a
+      // tax decision.
+      if (patch.commissionGstPct < 0 || patch.commissionGstPct > 100) {
+        throw new BadRequestException('GST on commission must be between 0 and 100 percent');
       }
     }
     if (patch.defaultDeliveryRadiusKm !== undefined) {

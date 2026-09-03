@@ -1,0 +1,67 @@
+{
+  "pkg": "homekrafted-web",
+  "globalName": "Homekrafted",
+  "shape": "package",
+  "srcDir": "components/ui",
+  "tsconfig": ".design-sync/tsconfig.dssync.json",
+  "cssEntry": ".design-sync/ds-styles.css",
+  "componentSrcMap": {},
+  "libOverrides": {
+    "bundle.mjs": "Next.js app source reads process.env.NEXT_PUBLIC_* at module scope - esbuild needs defines"
+  },
+  "overrides": {
+    "AmountPicker": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "CategoryTile": {
+      "cardMode": "column"
+    },
+    "OccasionTile": {
+      "cardMode": "column"
+    },
+    "PhotoUpload": {
+      "cardMode": "column"
+    },
+    "PreOrderPicker": {
+      "cardMode": "column"
+    },
+    "ProductCard": {
+      "cardMode": "column"
+    },
+    "PromoBand": {
+      "cardMode": "column"
+    },
+    "SearchField": {
+      "cardMode": "column"
+    },
+    "ServiceCard": {
+      "cardMode": "column"
+    },
+    "SlotPicker": {
+      "cardMode": "column"
+    },
+    "SnackCard": {
+      "cardMode": "column"
+    },
+    "StatusTimeline": {
+      "cardMode": "column"
+    },
+    "StepPills": {
+      "cardMode": "column"
+    },
+    "StickySummary": {
+      "cardMode": "column"
+    },
+    "Textarea": {
+      "cardMode": "column"
+    },
+    "WalletBalanceCard": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md",
+  "projectId": "4a9a2ca9-d29d-47c5-8730-dff9c97703bf"
+}

@@ -2412,6 +2412,13 @@ model Payout {
   commissionAmount Decimal?     @db.Decimal(12, 2)
   /// The rate *applied* (0 when disabled), not the configured rate.
   commissionPct    Decimal?     @db.Decimal(5, 2)
+  /// GST charged on the commission fee (2026-09-02) — the platform's tax
+  /// on its own service, never on the HomeKrafter's earnings. Null on
+  /// rows written before the field existed; 0 when commission was off or
+  /// the fee was 0 (nothing to tax). gross = amount + commission + gst.
+  gstAmount        Decimal?     @db.Decimal(12, 2)
+  /// The GST rate *applied* to the fee (0 when no fee was charged).
+  gstPct           Decimal?     @db.Decimal(5, 2)
   periodStart      DateTime
   periodEnd        DateTime
   status           PayoutStatus @default(pending)

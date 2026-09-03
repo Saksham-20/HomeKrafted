@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { getHamperProducts, getVendors } from "@/lib/api";
 import { getBuyerCoords } from "@/lib/location/server";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
+import { HeroBanner } from "@/components/browse/HeroBanner";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Hamper.module.css";
 
@@ -72,22 +73,26 @@ export default async function HamperPage() {
 
   return (
     <>
-      <div className={clsx("container", styles.heroWrap)}>
-        <span className={styles.breadcrumb}>
-          Home / <span className={styles.breadcrumbCurrent}>Gift hampers</span>
-        </span>
-        <h1 className={styles.title}>Gift hampers</h1>
-        <p className={styles.description}>
-          Put together by the kitchens that make what&rsquo;s inside them.
-          Every hamper below is assembled, wrapped and priced by one
-          HomeKrafter, so what arrives is what they&rsquo;d send their own
-          family.
-        </p>
-        {hampers.length > 0 && (
-          <p className={styles.count}>
-            {hampers.length} hamper{hampers.length === 1 ? "" : "s"} available
+      <div className={styles.hero}>
+        {/* Long banner behind the copy (M59c) — committed photography only. */}
+        <HeroBanner src="/images/categories/hampers.jpg" tint="gold" />
+        <div className={clsx("container", styles.heroWrap)}>
+          <span className={styles.breadcrumb}>
+            Home / <span className={styles.breadcrumbCurrent}>Gift hampers</span>
+          </span>
+          <h1 className={styles.title}>Gift hampers</h1>
+          <p className={styles.description}>
+            Put together by the kitchens that make what&rsquo;s inside them.
+            Every hamper below is assembled, wrapped and priced by one
+            HomeKrafter, so what arrives is what they&rsquo;d send their own
+            family.
           </p>
-        )}
+          {hampers.length > 0 && (
+            <p className={styles.count}>
+              {hampers.length} hamper{hampers.length === 1 ? "" : "s"} available
+            </p>
+          )}
+        </div>
       </div>
 
       <section className={clsx("container", styles.section)}>

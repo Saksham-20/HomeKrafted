@@ -16,6 +16,7 @@ import styles from "./SettingsClient.module.css";
 interface Draft {
   commissionPct: string;
   commissionEnabled: boolean;
+  commissionGstPct: string;
   defaultDeliveryRadiusKm: string;
   servicedPincodePrefixes: string;
   menuLockTime: string;
@@ -48,6 +49,7 @@ export function SettingsClient() {
       setDraft({
         commissionPct: String(loaded.commissionPct),
         commissionEnabled: loaded.commissionEnabled ?? false,
+        commissionGstPct: String(loaded.commissionGstPct ?? 18),
         defaultDeliveryRadiusKm: String(loaded.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: loaded.servicedPincodePrefixes ?? "",
         menuLockTime: loaded.menuLockTime ?? "20:00",
@@ -75,6 +77,7 @@ export function SettingsClient() {
       const updated = await updatePlatformSettings({
         commissionPct: Number(draft.commissionPct),
         commissionEnabled: draft.commissionEnabled,
+        commissionGstPct: Number(draft.commissionGstPct),
         defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: draft.servicedPincodePrefixes.trim(),
         menuLockTime: draft.menuLockTime.trim(),
@@ -129,6 +132,24 @@ export function SettingsClient() {
                 screen and listing form — all of which say they are estimates.
               </>
             )}
+          </p>
+        </div>
+
+        <div className={styles.setting}>
+          <label className={styles.field}>
+            <span className={styles.label}>GST on commission (%)</span>
+            <input
+              className={styles.input}
+              inputMode="decimal"
+              value={draft.commissionGstPct}
+              onChange={(event) => edit({ commissionGstPct: event.target.value })}
+            />
+          </label>
+          <p className={styles.help}>
+            The tax Homekrafted charges on its own commission fee — it rides on the fee, never on a
+            HomeKrafter&rsquo;s earnings, so it deducts only while the switch below is on. 18% is the
+            standard rate on marketplace commission; changing it is a tax decision, and like
+            everything here it is audited.
           </p>
         </div>
 

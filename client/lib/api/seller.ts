@@ -536,8 +536,11 @@ const livePayouts: Payout[] = [];
 export interface SellerPayoutCommission {
   enabled: boolean;
   pct: number;
+  /** GST rate on the fee (2026-09-02) — same estimate-vs-applied rule as the figures below. */
+  gstPct: number;
   grossPending: number;
   commissionOnPending: number;
+  gstOnPending: number;
   netPending: number;
 }
 
@@ -563,6 +566,7 @@ export async function getSellerPayoutsPage(sellerId: string): Promise<SellerPayo
     // split at the shipped defaults (10%, deduction off).
     const grossPending = summary.totalPending;
     const commissionOnPending = Math.round(grossPending * 10) / 100;
+    const gstOnPending = Math.round(commissionOnPending * 18) / 100;
     return {
       items,
       summary,
@@ -570,9 +574,12 @@ export async function getSellerPayoutsPage(sellerId: string): Promise<SellerPayo
       commission: {
         enabled: false,
         pct: 10,
+        gstPct: 18,
         grossPending,
         commissionOnPending,
-        netPending: Math.round((grossPending - commissionOnPending) * 100) / 100,
+        gstOnPending,
+        netPending:
+          Math.round((grossPending - commissionOnPending - gstOnPending) * 100) / 100,
       },
     };
   }

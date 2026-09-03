@@ -12,6 +12,43 @@ context to pick them up cold.
 
 ---
 
+## Launch blockers — consolidated checklist (2026-09-02)
+
+Compiled from `docs/LAUNCH-READINESS.md`, `CLAUDE.md` and the M34 review.
+The readiness doc stays the source of reasoning; this is the working
+checklist. Tick here *and* there.
+
+### Hard gates
+- [ ] Rotate seeded admin password on production (`scripts/rotate-admin.sh` on the box; §0.1 — the only ⛔)
+- [ ] SendGrid **or** Twilio key — the single blocker on onboarding any real HomeKrafter (§0.3)
+- [ ] Twilio (`TWILIO_*`) — phone OTP sign-in for everyone
+- [ ] Razorpay: live keys + dashboard webhook (`payment.captured` → `/api/v1/payments/webhook` + `RAZORPAY_WEBHOOK_SECRET`) + KYC for settlement account
+- [ ] WhatsApp Cloud API keys — snacks module is dead without them
+- [ ] Off-box backups (private GCS bucket) — dumps and every photo live only on the VPS
+- [ ] `NEXT_PUBLIC_SITE_URL` set to the real host
+- [ ] `client/lib/legal.ts` placeholders (registered name/address/phone) + qualified legal review of the policy pages
+- [ ] GST registration / invoicing / TCS question; FSSAI aggregator obligations
+- [ ] Real support contact on the site
+- [ ] Take-rate decision — flip `commissionEnabled` or write down why not (§3b; meal subscriptions multiply the loss per cycle)
+- [ ] Delete demo accounts + `OTP_TEST_CODE` the day real customers arrive (§0.2 — one action, same accounts)
+
+### Ops
+- [ ] `SENTRY_DSN` — a 500 on checkout is currently invisible (largest ops gap)
+- [ ] External uptime check (UptimeRobot at `/health` — the on-box healthcheck watches itself)
+- [ ] Staging environment; CI gate on deploy
+
+### Workflows a real user hits
+- [ ] Refund-to-card execution (Razorpay refunds unwired; settlement is wallet credit)
+- [ ] Payout execution (hand-recorded; ceiling ~20 orders/week per M27)
+- [ ] Support-ticket reply notifications (reply reopens, nobody told)
+
+### Production data (operator, not deploy)
+- [ ] Rename two storefronts named after an email address (`/admin/sellers`; M34 review)
+- [ ] Re-run `ReviewAggregatesService` recompute on prod (seeded "4.9 · 204" vs 2 real rows)
+- [ ] Confirm the three "Backed by" relationships in writing before promoting the site
+
+---
+
 ## Owner decisions, not engineering ones
 
 ### Commission collection

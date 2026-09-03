@@ -110,7 +110,13 @@ export class SellerService {
       createdAt: seller.createdAt.toISOString(),
       rating: seller.rating !== null ? Number(seller.rating) : undefined,
       reviewCount: seller.reviewCount ?? undefined,
-      commission: { pct: settings.commissionPct, enabled: settings.commissionEnabled },
+      commission: {
+        pct: settings.commissionPct,
+        enabled: settings.commissionEnabled,
+        // GST on the fee (2026-09-02) — so the listing form and payout
+        // screen can show the full deduction without a second fetch.
+        gstPct: settings.commissionGstPct,
+      },
     };
   }
 

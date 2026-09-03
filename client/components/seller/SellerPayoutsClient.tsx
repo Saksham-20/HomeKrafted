@@ -96,6 +96,12 @@ export function SellerPayoutsClient() {
             Earnings not yet requested: <strong>{formatCurrency(commission.grossPending)}</strong>
             {" · "}platform commission at {commission.pct}%:{" "}
             <strong>{formatCurrency(commission.commissionOnPending)}</strong>
+            {commission.gstOnPending > 0 && (
+              <>
+                {" · "}GST at {commission.gstPct}% on that fee:{" "}
+                <strong>{formatCurrency(commission.gstOnPending)}</strong>
+              </>
+            )}
             {" · "}you receive: <strong>{formatCurrency(commission.netPending)}</strong>
           </p>
           <p className={styles.requestHint}>

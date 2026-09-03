@@ -378,6 +378,7 @@ export function ShopClient({
     count: counts.category.get(category.id) ?? 0,
     selected: selectedCategories.has(category.id),
     icon: CATEGORY_EMOJI[category.slug],
+    imageSrc: category.imageSrc,
   }));
 
   return (

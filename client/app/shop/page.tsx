@@ -6,6 +6,8 @@ import { buildKitchens } from "@/lib/kitchens";
 import { LocationBar } from "@/components/location/LocationBar";
 import { ShopClient } from "./ShopClient";
 import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
+import { FeaturedKitchens } from "@/components/browse/FeaturedKitchens";
+import { HeroBanner } from "@/components/browse/HeroBanner";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
 
@@ -76,39 +78,58 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   // number in the heading and the number on the toggle cannot disagree —
   // and computed on the server rather than in an effect, so it is in the
   // HTML rather than appearing a moment later.
-  const kitchenCount = buildKitchens(products, vendors, categories).length;
+  const kitchens = buildKitchens(products, vendors, categories);
+  const kitchenCount = kitchens.length;
+
+  // Featured kitchens (M59c): best-rated first, and only a reviewed rating
+  // counts — an unreviewed kitchen carries `rating: 0` and would otherwise
+  // sort as the worst on the platform (the M53 "most loved" rule). Ties
+  // and the unreviewed tail break on how much is live.
+  const featuredKitchens = [...kitchens]
+    .sort((a, b) => {
+      const aRating = a.vendor.reviewCount > 0 ? a.vendor.rating : -1;
+      const bRating = b.vendor.reviewCount > 0 ? b.vendor.rating : -1;
+      return bRating - aRating || b.dishes.length - a.dishes.length;
+    })
+    .slice(0, 12);
 
   return (
     <>
-      {/* The hero band (M59b): the page opens as a place, not a settings
-          screen — tinted ground, display title with an italic accent,
-          the two counts as stat pills. Warmth stays accent-only: the
-          tint is the pine selected-fill token fading to the canvas. */}
+      {/* The hero band (M59b, photos + featured row M59c): the page opens
+          as a place, not a settings screen — tinted ground, display title
+          with an italic accent, the two counts as stat pills, three real
+          photographs, and the best-rated kitchens one click away. Warmth
+          stays accent-only: the tint is the pine selected-fill token
+          fading to the canvas. */}
       <div className={styles.hero}>
+        <HeroBanner src="/images/site/maker-kitchen.jpg" tint="pine" />
         <div className={clsx("container", styles.heroInner)}>
-          <span className={styles.breadcrumb}>
-            Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
-          </span>
-          <h1 className={styles.title}>
-            Homemade <em className={styles.titleAccent}>Food</em>
-          </h1>
-          <p className={styles.tagline}>
-            Cooked to order in real home kitchens — never off a shelf.
-          </p>
-          <div className={styles.statRow}>
-            <span className={styles.stat}>
-              <strong>{kitchenCount}</strong> home {kitchenCount === 1 ? "kitchen" : "kitchens"}
-            </span>
-            <span className={styles.stat}>
-              <strong>{products.length}</strong> small-batch{" "}
-              {products.length === 1 ? "dish" : "dishes"}
-            </span>
+          <div className={styles.heroCopy}>
+              <span className={styles.breadcrumb}>
+                Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
+              </span>
+              <h1 className={styles.title}>
+                Homemade <em className={styles.titleAccent}>Food</em>
+              </h1>
+              <p className={styles.tagline}>
+                Cooked to order in real home kitchens — never off a shelf.
+              </p>
+              <div className={styles.statRow}>
+                <span className={styles.stat}>
+                  <strong>{kitchenCount}</strong> home {kitchenCount === 1 ? "kitchen" : "kitchens"}
+                </span>
+                <span className={styles.stat}>
+                  <strong>{products.length}</strong> small-batch{" "}
+                  {products.length === 1 ? "dish" : "dishes"}
+                </span>
+              </div>
+              {/* Says whether this count is the whole catalogue or a filtered
+                  one, and gives the only route back to the prompt — see
+                  `LocationBar`. */}
+              <LocationBar />
+              <KitchenCrossLinks current="/shop" />
           </div>
-          {/* Says whether this count is the whole catalogue or a filtered
-              one, and gives the only route back to the prompt — see
-              `LocationBar`. */}
-          <LocationBar />
-          <KitchenCrossLinks current="/shop" />
+          <FeaturedKitchens kitchens={featuredKitchens} />
         </div>
       </div>
       <ShopClient

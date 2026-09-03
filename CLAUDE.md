@@ -876,7 +876,14 @@ paragraphs over appending new ones.
   anybody.
 - **Browse machinery is shared (M56, rebuilt M59/M59b): `components/browse/`**
   — the two listing pages are **sidebarless**: a hero band (tinted
-  full-bleed, italic terracotta accent word — gold never carries text),
+  full-bleed, italic terracotta accent word — gold never carries text;
+  since M59c it also carries a `HeroBanner` — one committed photograph
+  behind the copy under a wash that stays solid tint over the text
+  column — and a rotating featured row: `FeaturedKitchens` on /shop,
+  `FeaturedPicks` on /gifts, both derived from the catalogue the page
+  already fetched, ratings only where reviews exist,
+  `useFeaturedRotation` pausing under pointer/focus and still under
+  reduced motion),
   then one floating control card holding `QuickFilterChips` (every
   shelf as an emoji pill — `lib/category-emoji.ts`, decoration only,
   `aria-hidden`; zero-count dimmed+disabled after the populated ones,
@@ -2075,6 +2082,15 @@ automatically.
 
 Superseded: the hardcoded laundry day-picker dates (server now generates
 rolling days from today — see `lib/schedule.ts`).
+
+## Design System
+
+Read `DESIGN.md` before making any visual or UI decision — it is the
+approved "Maker's Table" refinement direction (2026-09-02): same brand,
+warmer paper canvas, Fraunces pushed harder, Hanken Grotesk body, receipt
+provenance, rationed Kalam annotations. It layers over `handoff/` via
+`tokens.extend.css` and never edits `tokens.css`. Do not deviate without
+explicit owner approval; in QA, flag code that doesn't match it.
 
 ## Skill routing
 

@@ -85,3 +85,12 @@ review-shots/
 
 # playwright output
 test-results/
+
+# design-sync (claude.ai/design import) — generated, never committed
+client/.ds-sync/
+client/ds-bundle/
+client/dist/
+client/.design-sync/.cache/
+client/.design-sync/learnings/
+client/.design-sync/node_modules
+client/.design-sync/ds-styles.css

@@ -58,6 +58,12 @@ export interface Seller {
 export interface SellerCommission {
   pct: number;
   enabled: boolean;
+  /**
+   * GST charged on the commission fee (2026-09-02) — the platform's tax
+   * on its own service, applied only while `enabled`. Optional because
+   * older mocks don't carry it; screens treat absent as 0.
+   */
+  gstPct?: number;
 }
 
 /** The onboarding half of a HomeKrafter's record, as the admin panel reads it (M32). */
@@ -113,6 +119,9 @@ export interface Payout {
   grossAmount?: number;
   commissionAmount?: number;
   commissionPct?: number;
+  /** GST charged on the fee (2026-09-02); absent on rows from before it existed. */
+  gstAmount?: number;
+  gstPct?: number;
   paidAt?: ISODateString;
   /**
    * The bank/UPI reference the transfer moved under. Settlement happens

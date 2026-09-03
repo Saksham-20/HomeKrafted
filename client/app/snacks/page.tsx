@@ -7,6 +7,7 @@ import { getChannelRule } from "@/lib/channel";
 import { ChannelBadge } from "@/components/ui/ChannelBadge";
 import { SnacksClient } from "@/components/snacks/SnacksClient";
 import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
+import { HeroBanner } from "@/components/browse/HeroBanner";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Snacks.module.css";
 
@@ -44,7 +45,9 @@ export default async function SnacksPage() {
 
   return (
     <>
-      <section>
+      <section className={styles.hero}>
+        {/* Long banner behind the copy (M59c) — committed photography only. */}
+        <HeroBanner src="/images/categories/snacks.jpg" tint="pine" />
         <div className={clsx("container", styles.heroInner)}>
           <div className={styles.badgeRow}>
             <ChannelBadge channel="snacks" />

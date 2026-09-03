@@ -58,6 +58,11 @@ export function PayoutRow({ payout, className }: PayoutRowProps) {
           <span className={styles.date}>
             {formatCurrency(payout.grossAmount)} earned − {formatCurrency(payout.commissionAmount)}{" "}
             commission ({payout.commissionPct}%)
+            {payout.gstAmount !== undefined && payout.gstAmount > 0 ? (
+              <>
+                {" "}− {formatCurrency(payout.gstAmount)} GST on the fee ({payout.gstPct}%)
+              </>
+            ) : null}
           </span>
         ) : null}
       </div>

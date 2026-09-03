@@ -1,5 +1,72 @@
 # Changelog
 
+## 2026-09-02 — GST on the platform's fee, photo category tiles, name-wrap fix
+
+- **GST on commission (platform-side, owner: "GST is for the Homekrafted
+  platform").** New `commissionGstPct` platform setting (default 18,
+  audited, validated 0–100 in DTO and service); `computePayoutSplit`
+  extends to `gstAmount`/`gstPct` — the tax rides on the commission fee,
+  never on a HomeKrafter's earnings, so a disabled commission or a 0%
+  fee means 0 GST with an applied rate of 0. Stored on every payout row
+  (`Payout.gstAmount`/`gstPct`, NULL before the field existed), shown on
+  the seller payout breakdown, payout history rows, the admin queue and
+  `/admin/settings`, and carried on `GET /seller/me`'s `commission`
+  block. gross = amount + commission + gst, to the paisa — pinned in
+  `payout-split.spec.ts`. Charging order-level GST and invoices remain
+  open (need the CA's Section 9(5) answer; see the GST plan in the
+  session notes + `docs/LAUNCH-READINESS.md` §4).
+- **Category rail is photo tiles** (owner: "images for categories, text
+  below") — `QuickFilterChips` renders each shelf's `Category.imageSrc`
+  as a tile with the name under it, count as a corner seal, emoji-on-tint
+  fallback for shelves without a photo; selection is a pine ring. All
+  M56/M59 rules kept: zero-count dimmed after populated, same `toggle()`
+  state as the sheet.
+- **Kitchen name overlap fixed** — a storefront named as one long token
+  (`CHOCLATES_HOME_MADE`, production) painted across the "New kitchen"
+  badge on phones; `.name` now takes `overflow-wrap: anywhere`.
+
+## M59c — browse heroes get a photo banner and a rotating featured row
+
+The section pages' hero bands (M59b) were type-only and read as flat.
+All four (`/shop`, `/gifts`, `/snacks`, `/hamper`) now carry, in the
+band itself, above the floating control card whose overlap arithmetic
+is untouched:
+
+- **A long photo banner behind the copy** (`components/browse/
+  HeroBanner`) — one committed photograph covering the band under a
+  wash that stays **solid tint over the text column** (identical
+  contrast ground to the pre-photo band; the M34 audit is not
+  reopened) and lets the photo through on the right, where no text
+  sits. Under 780 the wash holds the whole band and the photo becomes
+  texture. Started as a side collage; the owner asked for the banner
+  (2026-09-02) and the collage was deleted with it.
+- **The featured strips rotate** (`useFeaturedRotation`): a window of
+  four sliding one item at a time through a pool of up to twelve.
+  Rotation starts only after hydration (server and first paint agree —
+  the M12 rule), pauses under pointer or focus, never runs under
+  `prefers-reduced-motion` (via `lib/motion.ts` — a script interval is
+  what the CSS floor cannot stop), and doesn't run at all when
+  everything fits.
+- **`/shop`: "Featured kitchens"** (`FeaturedKitchens`) — best-rated
+  kitchens as pill cards (MakerPortrait, rating, dish count) linking to
+  storefronts. Derived from the same `buildKitchens` set the page
+  already holds; only a reviewed rating ranks (unreviewed carries
+  `rating: 0` and would sort worst — the M53 "most loved" rule), and an
+  unreviewed kitchen's card says "New kitchen", never 0.0.
+- **`/gifts`: "Featured picks"** (`FeaturedPicks`) — the admin's
+  `featured` flag first, then best-rated reviewed, then catalogue order,
+  at most one listing per maker while that is possible (four picks from
+  one storefront reads as an advert). The strip prints price + maker
+  and no rating, so featuring an unreviewed listing claims nothing.
+- Both strips scroll sideways in their own box under 640 instead of
+  stacking the filters a screen down.
+- **`/snacks` and `/hamper`** get the banner with no featured row —
+  snacks is a WhatsApp menu with its own aside, and the hamper
+  catalogue is one listing deep.
+
+Verified: tsc, lint, 299 client tests, `sweep.mjs` clean on all four
+routes at both viewports.
+
 ## M59 — the two browse pages, rebuilt
 
 The listing pages worked and looked like a settings screen: a

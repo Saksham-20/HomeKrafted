@@ -5,13 +5,26 @@
 
 /* Full-bleed band (M59b) — the tint used to stop at the container's
    edge, which read as a rendering fault at wide viewports. */
+/* The long-banner hero (M59c): `HeroBanner` fills this behind the copy —
+   its wash carries the gold tint the gradient used to, solid over the
+   text column. `relative` is what the banner's `inset: 0` sizes to. */
 .hero {
-  background: linear-gradient(180deg, var(--hk-gold-tint), var(--hk-bg));
+  position: relative;
+  background: var(--hk-bg);
   border-bottom: 1px solid var(--hk-border);
 }
 
 .heroInner {
+  position: relative;
+  z-index: 1;
   padding-block: var(--hk-s6) var(--hk-s6);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--hk-s4);
+}
+
+.heroCopy {
   display: flex;
   flex-direction: column;
   align-items: flex-start;

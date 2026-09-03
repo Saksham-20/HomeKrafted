@@ -11,6 +11,9 @@ export function mapPayout(payout: Payout) {
     grossAmount: payout.grossAmount !== null ? Number(payout.grossAmount) : undefined,
     commissionAmount: payout.commissionAmount !== null ? Number(payout.commissionAmount) : undefined,
     commissionPct: payout.commissionPct !== null ? Number(payout.commissionPct) : undefined,
+    // GST on the fee (2026-09-02) — same absent-on-older-rows rule.
+    gstAmount: payout.gstAmount !== null ? Number(payout.gstAmount) : undefined,
+    gstPct: payout.gstPct !== null ? Number(payout.gstPct) : undefined,
     periodStart: payout.periodStart.toISOString().slice(0, 10),
     periodEnd: payout.periodEnd.toISOString().slice(0, 10),
     status: payout.status,

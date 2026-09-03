@@ -227,6 +227,9 @@ export function PayoutsClient() {
                     <span className={styles.meta}>
                       {formatCurrency(payout.grossAmount)} − {formatCurrency(payout.commissionAmount)}{" "}
                       ({payout.commissionPct}%)
+                      {payout.gstAmount !== undefined && payout.gstAmount > 0 ? (
+                        <> − {formatCurrency(payout.gstAmount)} GST</>
+                      ) : null}
                     </span>
                   ) : null}
                   <StatusPill status={payout.status} />

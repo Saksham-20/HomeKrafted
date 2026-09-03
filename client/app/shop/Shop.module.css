@@ -1,13 +1,26 @@
 /* The browse hero (M59b). Full-bleed tinted band; the container inside
    keeps the page measure. Tint is `--hk-pine-tint` fading into the
    canvas — an accent on the white-first ground, not a new surface. */
+/* The long-banner hero (M59c): `HeroBanner` fills this behind the copy —
+   its wash carries the pine tint the gradient used to, solid over the
+   text column. `relative` is what the banner's `inset: 0` sizes to. */
 .hero {
-  background: linear-gradient(180deg, var(--hk-pine-tint), var(--hk-bg));
+  position: relative;
+  background: var(--hk-bg);
   border-bottom: 1px solid var(--hk-border);
 }
 
 .heroInner {
+  position: relative;
+  z-index: 1;
   padding-block: var(--hk-s6) var(--hk-s6);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--hk-s4);
+}
+
+.heroCopy {
   display: flex;
   flex-direction: column;
   align-items: flex-start;

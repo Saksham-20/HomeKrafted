@@ -31,6 +31,11 @@
   line-height: 1.2;
   color: var(--hk-pine);
   margin: 0;
+  /* A real storefront named as one long token ("CHOCLATES_HOME_MADE",
+     production, 2026-09-02) has no break opportunity: the text painted
+     straight across the sibling rating/"New kitchen" badge on a phone.
+     `anywhere` lets the token wrap inside itself instead. */
+  overflow-wrap: anywhere;
 }
 
 .nameLink {

@@ -3,9 +3,15 @@
    since both are "a curated slice of the catalogue" and looking different
    would imply they behave differently. */
 
+.hero {
+  position: relative;
+  border-bottom: 1px solid var(--hk-border);
+}
+
 .heroWrap {
+  position: relative;
+  z-index: 1;
   padding-block: var(--hk-s6) var(--hk-s5);
-  background: linear-gradient(180deg, var(--hk-gold-tint), transparent);
 }
 
 .breadcrumb {
@@ -106,3 +112,4 @@
     gap: var(--hk-s3);
   }
 }
+

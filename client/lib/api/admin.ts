@@ -1816,6 +1816,11 @@ export interface PlatformSettings {
    * it is in.
    */
   commissionEnabled: boolean;
+  /**
+   * GST the platform charges on its commission fee (2026-09-02) — rides
+   * on the fee, so it deducts only while `commissionEnabled` is on.
+   */
+  commissionGstPct: number;
   /** Given to a new HomeKrafter whose application didn't state one. */
   defaultDeliveryRadiusKm: number;
   /**
@@ -1844,6 +1849,7 @@ export async function getPlatformSettings(): Promise<PlatformSettings | undefine
     return {
       commissionPct: 10,
       commissionEnabled: false,
+      commissionGstPct: 18,
       defaultDeliveryRadiusKm: 10,
       servicedPincodePrefixes: "160,1401,1403,1341,1346",
       menuLockTime: "20:00",
@@ -1862,6 +1868,7 @@ export async function updatePlatformSettings(
       return {
         commissionPct: 10,
         commissionEnabled: false,
+        commissionGstPct: 18,
         defaultDeliveryRadiusKm: 10,
         servicedPincodePrefixes: "160,1401,1403,1341,1346",
         menuLockTime: "20:00",
@@ -2237,6 +2244,9 @@ export interface AdminPayout {
   grossAmount?: number;
   commissionAmount?: number;
   commissionPct?: number;
+  /** GST charged on the fee (2026-09-02); absent on rows from before it existed. */
+  gstAmount?: number;
+  gstPct?: number;
   periodStart: string;
   periodEnd: string;
   status: PayoutStatus;
