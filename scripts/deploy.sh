@@ -10,7 +10,8 @@
 # things that have actually bitten us before touching a running service.
 #
 # Flags:
-#   --skip-install   reuse node_modules (faster when only app code changed)
+#   --skip-install   never install, whatever changed
+#   --install        always install (use when node_modules is damaged)
 #   --api-only       rebuild + restart the API, leave the web app alone
 #   --web-only       rebuild + restart the web app, leave the API alone
 
@@ -19,12 +20,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# 0 = decide per package (the default, see `needs_install`), 1 = never
+# install, 2 = always install.
 SKIP_INSTALL=0
 DO_API=1
 DO_WEB=1
 for arg in "$@"; do
   case "$arg" in
     --skip-install) SKIP_INSTALL=1 ;;
+    --install) SKIP_INSTALL=2 ;;
     --api-only) DO_WEB=0 ;;
     --web-only) DO_API=0 ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
@@ -32,6 +36,29 @@ for arg in "$@"; do
 done
 
 say() { printf '\n\033[1;32m==>\033[0m %s\n' "$1"; }
+
+# Install only when this pull actually changed that package's dependencies
+# (2026-09-04).
+#
+# `npm ci` deletes node_modules and rebuilds it from scratch — including
+# sharp's native binary — and this is a 1 vCPU box, so it is several
+# minutes of the deploy, every deploy, for an app-code change that needs
+# none of it. The check compares the lockfile and manifest between the
+# commit we were on and the one we just pulled; on a first run (no
+# node_modules) it installs regardless, because "nothing changed" and
+# "nothing is there" are different states.
+#
+# `--install` forces it, which is the escape hatch when node_modules on
+# the box has been damaged by hand.
+needs_install() {
+  local dir="$1"
+  [ "$SKIP_INSTALL" = 1 ] && return 1
+  [ "$SKIP_INSTALL" = 2 ] && return 0
+  [ -d "$ROOT/$dir/node_modules" ] || return 0
+  [ "$BEFORE" = "$AFTER" ] && return 1
+  git -C "$ROOT" diff --name-only "$BEFORE" "$AFTER" \
+    | grep -qE "^${dir}/(package\.json|package-lock\.json)$"
+}
 die() { printf '\n\033[1;31mERROR:\033[0m %s\n' "$1" >&2; exit 1; }
 
 # --- preflight ---------------------------------------------------------------
@@ -67,7 +94,7 @@ fi
 if [ "$DO_API" = 1 ]; then
   say "Building API"
   cd "$ROOT/server"
-  [ "$SKIP_INSTALL" = 1 ] || npm ci
+  if needs_install server; then npm ci; else echo "Dependencies unchanged — reusing node_modules (--install to force)"; fi
   npx prisma generate
   npx prisma migrate deploy
   npm run build
@@ -102,7 +129,7 @@ if [ "$DO_WEB" = 1 ]; then
 
   say "Building web"
   cd "$ROOT/client"
-  [ "$SKIP_INSTALL" = 1 ] || npm ci
+  if needs_install client; then npm ci; else echo "Dependencies unchanged — reusing node_modules (--install to force)"; fi
   # 1 vCPU / ~4GB box: cap the heap so the build can't OOM the machine.
   NODE_OPTIONS="--max-old-space-size=3072" npm run build
 

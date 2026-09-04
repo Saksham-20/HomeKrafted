@@ -88,17 +88,31 @@ ssh -i ~/.ssh/homekrafted_vps root@187.127.171.48 \
   '/var/www/homekrafted/HomeKrafted/scripts/deploy.sh'
 ```
 
-That pulls `main`, installs, runs migrations, rebuilds both apps, restarts
-pm2 and health-checks the result. It's safe to re-run, and it stops on the
-first error rather than half-deploying.
+That pulls `main`, runs migrations, rebuilds both apps, restarts pm2 and
+health-checks the result. It's safe to re-run, and it stops on the first
+error rather than half-deploying.
 
-Faster variants when you know what changed:
+**It installs only when the pull actually changed a `package.json` or
+`package-lock.json`** (2026-09-04). `npm ci` deletes `node_modules` and
+rebuilds it, sharp's native binary included, and this is a 1 vCPU box —
+several minutes of every deploy for an app-code change that needs none of
+it. A deploy that skips it prints "Dependencies unchanged". A box with no
+`node_modules` installs regardless: "nothing changed" and "nothing is
+there" are different states.
+
+Variants:
 
 ```bash
-scripts/deploy.sh --skip-install   # no dependency changes
+scripts/deploy.sh --skip-install   # never install, whatever changed
+scripts/deploy.sh --install        # always install (node_modules damaged)
 scripts/deploy.sh --web-only       # frontend-only change
 scripts/deploy.sh --api-only       # backend-only change
 ```
+
+**Expect 4–8 minutes on a normal deploy even so** — the Next build is the
+bulk of it, and it is capped at a 3 GB heap so it cannot OOM the box. Slow
+is not the same as stuck: `pm2 list` shows both processes still serving
+the old build until the very end.
 
 ## How it's wired
 
