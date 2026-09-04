@@ -1,0 +1,80 @@
+.bar {
+  position: sticky;
+  bottom: var(--hk-s3);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+  padding: var(--hk-s3) var(--hk-s4);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  box-shadow: var(--hk-shadow-card);
+  transition: border-color var(--hk-dur) var(--hk-ease);
+}
+
+.dirty {
+  border-color: var(--hk-gold-border);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 12ch;
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--hk-ink-3);
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hk-gold);
+}
+
+.saved {
+  color: var(--hk-success);
+}
+
+.error {
+  color: var(--hk-terracotta);
+}
+
+.error svg {
+  flex-shrink: 0;
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .bar {
+    bottom: 0;
+    border-radius: var(--hk-r-md);
+    padding: var(--hk-s2) var(--hk-s3);
+  }
+
+  .status {
+    width: 100%;
+    order: -1;
+  }
+
+  .buttons {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .buttons > * {
+    flex: 1;
+  }
+}

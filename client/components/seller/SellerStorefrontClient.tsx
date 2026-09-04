@@ -3,18 +3,24 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { formatCurrency } from "@/lib/format";
-import { Textarea } from "@/components/ui/Textarea";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { CharacterPicker } from "@/components/ui/CharacterPicker";
 import { isChefCharacter } from "@/lib/avatars/chef-characters";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { Field, FieldGrid, Input, TextArea } from "@/components/portal/Field";
+import { FormPage } from "@/components/portal/FormPage";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { SaveBar } from "@/components/portal/SaveBar";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerVendor, setSellerDiscount, updateSellerStorefront } from "@/lib/api";
 import { apiErrorMessage } from "@/lib/api/errors";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
+import { isDirty } from "@/lib/portal/dirty";
 import type { Vendor } from "@/lib/types";
 import styles from "./SellerStorefrontClient.module.css";
 
@@ -28,7 +34,7 @@ interface FormState {
 
 /**
  * `/seller/storefront` (M10a) — edits the exact `Vendor` fields the
- * consumer `/storefront/[vendor]` page renders in its header: bio,
+ * consumer `/storefront/[vendor]` page renders in its header: name, bio,
  * location, avatar and banner. Since M8.4b these are a real
  * `PATCH /seller/storefront` against the row every request reads, so an
  * edit here shows up on the public storefront immediately.
@@ -39,6 +45,10 @@ interface FormState {
  * kitchen photos and licence live on `/seller/profile` (M16), because
  * these four fields ride on every product card and a return policy has
  * no business in a listing query.
+ *
+ * Three sections since 2026-09-04 — the pictures, the words, the sale —
+ * with the first two saved by the page's SaveBar and the sale by its own
+ * button, because it is its own endpoint and its own kind of decision.
  */
 /**
  * The ceiling, mirrored from `server/src/catalog/vendor-discount.ts`.
@@ -71,6 +81,12 @@ function lastDayFromEndsAt(endsAt?: string): string {
 const DISCOUNT_EXAMPLE_PCT = 10;
 const DISCOUNT_EXAMPLE_PRICE = 250;
 
+const SECTIONS = [
+  { id: "shop-look", label: "Photo & banner" },
+  { id: "shop-words", label: "Name & bio" },
+  { id: "shop-sale", label: "Run a sale" },
+];
+
 export function SellerStorefrontClient() {
   const { ready, seller, sellerDataReady } = useAuth();
   const [vendor, setVendor] = useState<Vendor | undefined>(undefined);
@@ -81,17 +97,20 @@ export function SellerStorefrontClient() {
     avatarSrc: "",
     bannerSrc: "",
   });
+  const [initialForm, setInitialForm] = useState<FormState | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  /** What the server said when it refused. Rendered next to Save, like `/seller/profile`. */
+  /** What the server said when it refused. Rendered in the SaveBar, announced. */
   const [error, setError] = useState<string | undefined>();
   const [unavailable, setUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // M46 — the discount is its own form with its own save, because it is
-  // its own endpoint and its own kind of decision: the four fields above
-  // are how a storefront looks, and this one changes the price of
-  // everything in it.
+  // its own endpoint and its own kind of decision: the fields above are
+  // how a storefront looks, and this one changes the price of everything
+  // in it.
   const [discountPct, setDiscountPct] = useState("");
   const [discountEnds, setDiscountEnds] = useState("");
   const [discountSaving, setDiscountSaving] = useState(false);
@@ -113,19 +132,28 @@ export function SellerStorefrontClient() {
           return;
         }
         setVendor(v);
-        setForm({
+        const loaded = {
           name: v.name,
           bio: v.bio,
           location: v.location,
           avatarSrc: v.avatarSrc ?? "",
           bannerSrc: v.bannerSrc ?? "",
-        });
+        };
+        setForm(loaded);
+        setInitialForm(loaded);
         setDiscountPct(v.discount ? String(v.discount.pct) : "");
         setDiscountEnds(lastDayFromEndsAt(v.discount?.endsAt));
       } catch (error) {
         if (cancelled) return;
-        if (!isForbidden(error)) throw error;
-        setUnavailable(true);
+        if (isForbidden(error)) {
+          setUnavailable(true);
+          return;
+        }
+        // A failed read is not an empty screen. Rethrowing here reached no
+        // boundary (an effect's rejection is not a render error), so a
+        // rate-limited fetch rendered the empty state over real data — the
+        // M37 dashboard rule, applied to every list (2026-09-04).
+        setLoadError(apiErrorMessage(error, "Couldn't load your shop page. Try again."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -133,7 +161,12 @@ export function SellerStorefrontClient() {
     return () => {
       cancelled = true;
     };
-  }, [sellerDataReady, seller]);
+  }, [sellerDataReady, seller, reloadToken]);
+
+  function edit(patch: Partial<FormState>) {
+    setForm((current) => ({ ...current, ...patch }));
+    setSaved(false);
+  }
 
   async function handleSave() {
     if (!seller?.vendorId) return;
@@ -146,8 +179,8 @@ export function SellerStorefrontClient() {
     try {
       const updated = await updateSellerStorefront(seller.vendorId, form);
       setVendor(updated);
+      setInitialForm(form);
       setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
     } catch (err) {
       setError(apiErrorMessage(err, "That did not save. Try again."));
     } finally {
@@ -191,19 +224,53 @@ export function SellerStorefrontClient() {
   }
 
   const noStorefront = ready && !!seller && !seller.vendorId;
+  if (loadError) {
+    return (
+      <div>
+        <SellerPageHeader title="Shop page" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
+
   if (noStorefront || unavailable) {
     return <ModuleUnavailable module="Storefront" />;
   }
 
   if (!ready || loading || !vendor) {
-    return <div className={styles.loading}>Loading your storefront…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Shop page" />
+        <LoadingRows rows={3} showLabel label={kitchenLoading("seller/storefront", MAKER_LOADING)} />
+      </div>
+    );
   }
+
+  const dirty = isDirty(initialForm, form);
+  const liveDiscountPct = Number(discountPct) || 0;
 
   return (
     <div>
       <SellerPageHeader
-        title="Storefront"
-        subtitle="This is what shoppers see on your public maker page."
+        title="Shop page"
+        subtitle="What shoppers see at the top of your storefront and on every one of your product cards."
         actions={
           <Link href={`/storefront/${vendor.slug}`} className={styles.previewLink} target="_blank">
             View live storefront →
@@ -211,13 +278,16 @@ export function SellerStorefrontClient() {
         }
       />
 
-      <Card className={styles.card}>
-        <div className={styles.bannerPreview}>
-          <ImageSlot ratio="16/5" label={vendor.bannerPlaceholder} src={form.bannerSrc || undefined} />
-        </div>
-
-        <div className={styles.row}>
-          <div className={styles.fields}>
+      <FormPage sections={SECTIONS} navLabel="Sections">
+        <FormSection
+          id="shop-look"
+          title="Photo and banner"
+          description="The round photo sits next to your name everywhere; the banner runs across the top of your storefront."
+        >
+          <div className={styles.bannerPreview}>
+            <ImageSlot ratio="16/5" label={vendor.bannerPlaceholder} src={form.bannerSrc || undefined} />
+          </div>
+          <FieldGrid>
             <ImageUpload
               label="Shop photo"
               purpose="storefront"
@@ -238,7 +308,7 @@ export function SellerStorefrontClient() {
                  asks for a real photo. */
               value={isChefCharacter(form.avatarSrc) ? "" : form.avatarSrc}
               previewSrc={isChefCharacter(form.avatarSrc) ? form.avatarSrc : undefined}
-              onChange={(url) => setForm((f) => ({ ...f, avatarSrc: url }))}
+              onChange={(url) => edit({ avatarSrc: url })}
             />
             <ImageUpload
               label="Banner"
@@ -247,145 +317,136 @@ export function SellerStorefrontClient() {
               placeholderLabel={vendor.bannerPlaceholder}
               hint="A wide shot of your workspace or what you make, roughly 3:1."
               value={form.bannerSrc}
-              onChange={(url) => setForm((f) => ({ ...f, bannerSrc: url }))}
+              onChange={(url) => edit({ bannerSrc: url })}
             />
-            <CharacterPicker
-              value={form.avatarSrc}
-              onChange={(src) => setForm((f) => ({ ...f, avatarSrc: src }))}
-            />
-            <label className={styles.field}>
-              <span className={styles.label}>Shop name</span>
-              <input
-                className={styles.input}
-                value={form.name}
-                maxLength={80}
-                onChange={(event) => setForm((f) => ({ ...f, name: event.target.value }))}
-              />
-              {/*
-                Said before they type, not after they save. Two kitchens
-                sharing a name is fine — accounts are told apart by phone
-                and email — and the address stays put, which is the part
-                somebody would otherwise fear losing by renaming.
-              */}
-              <span className={styles.hint}>
-                What buyers see on every listing and order. Another kitchen may have the same name.
-                Your storefront address stays <code>/storefront/{vendor.slug}</code>, so links you
-                have already shared keep working.
+          </FieldGrid>
+          <CharacterPicker value={form.avatarSrc} onChange={(src) => edit({ avatarSrc: src })} />
+        </FormSection>
+
+        <FormSection id="shop-words" title="Name, place and bio">
+          <FieldGrid>
+            {/*
+              Said before they type, not after they save. Two kitchens
+              sharing a name is fine — accounts are told apart by phone
+              and email — and the address stays put, which is the part
+              somebody would otherwise fear losing by renaming.
+            */}
+            <Field
+              label="Shop name"
+              hint={
+                <>
+                  On every listing and order. Another kitchen may have the same name. Your storefront
+                  address stays <code>/storefront/{vendor.slug}</code>, so links you have already shared
+                  keep working.
+                </>
+              }
+            >
+              <Input value={form.name} maxLength={80} onChange={(event) => edit({ name: event.target.value })} />
+            </Field>
+            <Field label="Location" hint="The area, as buyers should read it — never your street.">
+              <Input value={form.location} onChange={(event) => edit({ location: event.target.value })} />
+            </Field>
+          </FieldGrid>
+          <Field label="Bio" hint="Two or three sentences. The longer story lives under About your kitchen.">
+            <TextArea rows={3} autoGrow value={form.bio} onChange={(event) => edit({ bio: event.target.value })} />
+          </Field>
+        </FormSection>
+
+        <SaveBar
+          dirty={dirty}
+          saving={saving}
+          saved={saved}
+          error={error}
+          onSave={handleSave}
+          onDiscard={() => {
+            if (initialForm) setForm(initialForm);
+            setError(undefined);
+          }}
+          saveLabel="Save shop page"
+        />
+
+        {/*
+          M46 — your own sale, on your own things.
+
+          A separate section with its own save, because it is a separate
+          endpoint and a separate kind of decision: everything above is how
+          the storefront *looks*, and this changes what everything in it
+          *costs*. The sentence about whose money it is sits above the
+          input rather than under it, because it is the thing somebody needs
+          to know before they type a number, not after.
+        */}
+        <FormSection
+          id="shop-sale"
+          title="Run a sale"
+          status={vendor.discount ? { label: `${vendor.discount.pct}% off, live`, tone: "done" } : undefined}
+          description={
+            <>
+              Take a percentage off <strong>everything you make</strong>. Shoppers see the new price
+              with the old one crossed out, on every one of your listings at once.
+            </>
+          }
+          footer={
+            <>
+              <Button variant="primary" size="sm" onClick={handleDiscountSave} disabled={discountSaving}>
+                {discountSaving
+                  ? "Saving…"
+                  : liveDiscountPct > 0
+                    ? vendor.discount
+                      ? "Update the sale"
+                      : "Start the sale"
+                    : "Turn the sale off"}
+              </Button>
+              <span
+                className={discountError ? styles.saveError : styles.savedNote}
+                role="status"
+                aria-live="polite"
+              >
+                {discountError ?? (discountSaved ? "Saved." : "")}
               </span>
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Location</span>
-              <input
-                className={styles.input}
-                value={form.location}
-                onChange={(event) => setForm((f) => ({ ...f, location: event.target.value }))}
+            </>
+          }
+        >
+          <Notice tone="warning" className={styles.saleNotice}>
+            It comes out of what you earn, not out of our fee — a {DISCOUNT_EXAMPLE_PCT}% sale on a{" "}
+            {formatCurrency(DISCOUNT_EXAMPLE_PRICE)} jar means the buyer pays{" "}
+            {formatCurrency(Math.round((DISCOUNT_EXAMPLE_PRICE * (100 - DISCOUNT_EXAMPLE_PCT)) / 100))}{" "}
+            and you are paid on that. Set it back to 0 any time to stop.
+          </Notice>
+
+          <FieldGrid>
+            <Field label="Percent off" hint={`0 turns it off. ${MAX_DISCOUNT_PCT}% is the most we allow.`}>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={MAX_DISCOUNT_PCT}
+                affixEnd="%"
+                value={discountPct}
+                onChange={(event) => setDiscountPct(event.target.value)}
+                placeholder="0"
               />
-            </label>
-            <div className={styles.fieldWide}>
-              <Textarea
-                label="Bio"
-                value={form.bio}
-                onChange={(event) => setForm((f) => ({ ...f, bio: event.target.value }))}
+            </Field>
+            <Field label="Last day of the sale" optional hint="Leave it empty to run until you turn it off.">
+              <Input
+                type="date"
+                value={discountEnds}
+                onChange={(event) => setDiscountEnds(event.target.value)}
+                disabled={liveDiscountPct <= 0}
               />
-            </div>
-          </div>
-        </div>
+            </Field>
+          </FieldGrid>
 
-        <div className={styles.actions}>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
-          </Button>
-          {saved && !error && <span className={styles.savedNote}>Saved.</span>}
-          {error && (
-            <span className={styles.saveError} role="status" aria-live="polite">
-              {error}
-            </span>
+          {vendor.discount && (
+            <p className={styles.discountLive} role="status">
+              Live now: {vendor.discount.pct}% off everything
+              {vendor.discount.endsAt
+                ? `, through ${new Date(new Date(vendor.discount.endsAt).getTime() - 86_400_000).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}`
+                : ", until you turn it off"}
+              .
+            </p>
           )}
-        </div>
-      </Card>
-
-      {/*
-        M46 — your own sale, on your own things.
-
-        A separate card with its own save, because it is a separate
-        endpoint and a separate kind of decision: everything above is how
-        the storefront *looks*, and this changes what everything in it
-        *costs*. The sentence about whose money it is sits above the
-        input rather than under it, because it is the thing somebody needs
-        to know before they type a number, not after.
-      */}
-      <Card className={styles.card}>
-        <h2 className={styles.discountTitle}>Run a sale</h2>
-        <p className={styles.discountLead}>
-          Take a percentage off <strong>everything you make</strong>. Shoppers see the new price
-          with the old one crossed out, on every one of your listings at once.
-        </p>
-        <p className={styles.discountWarning}>
-          It comes out of what you earn, not out of our fee — a {DISCOUNT_EXAMPLE_PCT}% sale on a{" "}
-          {formatCurrency(DISCOUNT_EXAMPLE_PRICE)} jar means the buyer pays{" "}
-          {formatCurrency(Math.round((DISCOUNT_EXAMPLE_PRICE * (100 - DISCOUNT_EXAMPLE_PCT)) / 100))}{" "}
-          and you are paid on that. Set it back to 0 any time to stop.
-        </p>
-
-        <div className={styles.discountRow}>
-          <label className={styles.discountField}>
-            <span className={styles.discountLabel}>Percent off</span>
-            <input
-              className={styles.discountInput}
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={MAX_DISCOUNT_PCT}
-              value={discountPct}
-              onChange={(event) => setDiscountPct(event.target.value)}
-              placeholder="0"
-            />
-            <span className={styles.discountHelp}>
-              0 turns it off. {MAX_DISCOUNT_PCT}% is the most we allow.
-            </span>
-          </label>
-
-          <label className={styles.discountField}>
-            <span className={styles.discountLabel}>Last day of the sale</span>
-            <input
-              className={styles.discountInput}
-              type="date"
-              value={discountEnds}
-              onChange={(event) => setDiscountEnds(event.target.value)}
-              disabled={(Number(discountPct) || 0) <= 0}
-            />
-            <span className={styles.discountHelp}>
-              Leave it empty to run until you turn it off.
-            </span>
-          </label>
-        </div>
-
-        {vendor.discount && (
-          <p className={styles.discountLive} role="status">
-            Live now: {vendor.discount.pct}% off everything
-            {vendor.discount.endsAt
-              ? `, through ${new Date(new Date(vendor.discount.endsAt).getTime() - 86_400_000).toLocaleDateString("en-IN", { day: "numeric", month: "long" })}`
-              : ", until you turn it off"}
-            .
-          </p>
-        )}
-
-        <div className={styles.actions}>
-          <Button variant="primary" onClick={handleDiscountSave} disabled={discountSaving}>
-            {discountSaving
-              ? "Saving…"
-              : (Number(discountPct) || 0) > 0
-                ? "Start the sale"
-                : "Turn the sale off"}
-          </Button>
-          {discountSaved && !discountError && <span className={styles.savedNote}>Saved.</span>}
-          {discountError && (
-            <span className={styles.saveError} role="status" aria-live="polite">
-              {discountError}
-            </span>
-          )}
-        </div>
-      </Card>
+        </FormSection>
+      </FormPage>
     </div>
   );
 }

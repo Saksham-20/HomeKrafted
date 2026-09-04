@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
+import { LoadingRows } from "@/components/portal/LoadingRows";
 import { apiErrorMessage, getAdminSellerProfile, setSellerVerification } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { AdminSellerProfile } from "@/lib/types";
@@ -58,7 +59,7 @@ export function SellerVerificationPanel({ sellerId, onChanged }: SellerVerificat
     };
   }, [sellerId]);
 
-  if (!profile) return <div className={styles.loading}>Loading profile…</div>;
+  if (!profile) return <LoadingRows rows={2} />;
 
   /** Pending overrides the stored value, so an unsaved toggle shows what the admin is about to do. */
   function valueOf(key: CheckKey): boolean {

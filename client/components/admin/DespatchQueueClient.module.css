@@ -30,3 +30,12 @@
   .row { flex-direction: column; }
   .actions { width: 100%; }
 }
+
+/* The inline call-off form (2026-09-04) — where a `window.prompt` was. */
+.reasonBox {
+  display: grid;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s3);
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-border);
+}

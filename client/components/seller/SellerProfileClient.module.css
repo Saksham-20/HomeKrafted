@@ -1,18 +1,9 @@
-/* Field/label/input recipe deliberately matches SellerStorefrontClient's —
-   the two pages sit next to each other in the nav and edit the same
-   storefront, so they should not look like two different products. */
+/* Fields, labels and inputs come from `components/portal/Field` since
+   2026-09-04; this file holds only what is particular to this screen. */
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s5);
-}
-
-.loading {
-  color: var(--hk-muted);
-  font-size: 14px;
-  padding: var(--hk-s6);
-  text-align: center;
 }
 
 .previewLink {
@@ -24,98 +15,44 @@
 .completion {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s3);
+  gap: var(--hk-s2);
 }
 
 .completionNote {
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--hk-ink-3);
-  max-width: 64ch;
-}
-
-.missing {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  list-style: none;
   margin: 0;
-  padding: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--hk-ink-3);
+  max-width: 68ch;
 }
 
-.missing li {
-  padding: 5px 11px;
-  border-radius: var(--hk-r-pill);
-  border: 1px dashed var(--hk-border-2);
-  background: var(--hk-surface-3);
-  font-size: 12.5px;
-  color: var(--hk-ink-2);
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s4);
-}
-
-.sectionTitle {
-  font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 18px;
-  color: var(--hk-pine);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.label {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
-}
-
-.input {
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-sm);
-  padding: 11px 13px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--hk-ink);
-  min-height: 44px;
-}
-
-.input:focus-visible {
-  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
-  outline-offset: 1px;
-}
-
-.hint {
-  font-size: 12.5px;
+.note {
+  margin: 0;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--hk-muted);
   max-width: 64ch;
 }
 
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--hk-s4);
+.note strong {
+  color: var(--hk-ink-2);
 }
 
-.fieldset {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.status {
+  font-size: 13px;
+  color: var(--hk-ink-3);
 }
+
+.statusError {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.inlineNotice {
+  margin-bottom: 0;
+}
+
+/* ---- Days you cook -------------------------------------------------- */
 
 .days {
   display: flex;
@@ -133,6 +70,9 @@
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease);
 }
 
 .dayOn {
@@ -147,10 +87,57 @@
   color: var(--hk-ink-2);
 }
 
+.dayOff:hover {
+  border-color: var(--hk-pine);
+}
+
 .dayOn:focus-visible,
 .dayOff:focus-visible {
   outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 2px;
+}
+
+/* ---- Days off (M16) ------------------------------------------------- */
+
+.blackouts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.blackout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  padding: 8px 12px;
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface-3);
+  border: 1px solid var(--hk-border-2);
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+}
+
+.removeBlackout {
+  background: none;
+  border: 0;
+  padding: 4px;
+  min-height: 24px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--hk-terracotta);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.blackoutForm {
+  display: grid;
+  grid-template-columns: 170px 1fr auto;
+  gap: var(--hk-s3);
+  align-items: center;
 }
 
 /* ---- Verification (read-only here) --------------------------------- */
@@ -197,121 +184,50 @@
   opacity: 0.8;
 }
 
-.verificationNote {
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: var(--hk-ink-2);
-  padding: var(--hk-s3);
+/* ---- The kitchen pin ------------------------------------------------ */
+
+.pinBlock {
+  display: flex;
+  gap: var(--hk-s3);
+  align-items: flex-start;
+  padding: var(--hk-s4);
+  border: 1px dashed var(--hk-border-2);
   border-radius: var(--hk-r-md);
-  background: var(--hk-gold-tint);
-  border: 1px solid var(--hk-gold-border);
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 14px;
-  color: var(--hk-ink-2);
-  cursor: pointer;
-}
-
-.checkbox input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--hk-pine);
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--hk-s3);
-  position: sticky;
-  bottom: 0;
-  padding: var(--hk-s4) 0;
-  background: linear-gradient(to top, var(--hk-bg) 70%, transparent);
-}
-
-/* ---- What you make (M33) -------------------------------------------- */
-
-.specialtyGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s2);
-  margin-top: var(--hk-s4);
-}
-
-.chipRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hk-s2);
-}
-
-/*
- * Deliberately not `.actions`: that one is the page's sticky save bar,
- * and a second element pinned to the bottom of the viewport would put two
- * competing save buttons over each other on a phone. This card saves in
- * place, where the chips are.
- */
-.specialtyActions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--hk-s3);
-  margin-top: var(--hk-s5);
-}
-
-.status {
-  font-size: 13px;
-  color: var(--hk-ink-3);
-}
-
-@media (max-width: 720px) {
-  .row {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ---- Days off (M16) ------------------------------------------------- */
-
-.blackouts {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.blackout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hk-s3);
-  padding: 8px 12px;
-  border-radius: var(--hk-r-sm);
   background: var(--hk-surface-3);
-  border: 1px solid var(--hk-border-2);
-  font-size: 13.5px;
-  color: var(--hk-ink-2);
 }
 
-.removeBlackout {
-  background: none;
-  border: 0;
-  padding: 4px;
-  font-family: inherit;
-  font-size: 12.5px;
-  color: var(--hk-terracotta);
-  cursor: pointer;
-  text-decoration: underline;
+.pinIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--hk-pine);
 }
 
-.blackoutForm {
-  display: grid;
-  grid-template-columns: 170px 1fr auto;
-  gap: var(--hk-s3);
+.pinBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pinTitle {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.pinText {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+  max-width: 64ch;
+}
+
+.pinActions {
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s3);
 }
 
 @media (max-width: 720px) {

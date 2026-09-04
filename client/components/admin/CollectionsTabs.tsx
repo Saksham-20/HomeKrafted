@@ -6,10 +6,18 @@ export interface CollectionsTabsProps {
   active: "collections" | "occasions" | "promo";
 }
 
-/** Shared sub-nav for the three merchandising screens — reuses `CatalogTabs`'s CSS recipe. "Occasions" (M16) is where festival dates are rolled forward each year. */
+/**
+ * Shared sub-nav for the three merchandising screens — reuses
+ * `CatalogTabs`'s CSS recipe. "Occasions" (M16) is where festival dates
+ * are rolled forward each year.
+ *
+ * A `<nav>`, not a `role="tablist"`, for the reason written on
+ * `CatalogTabs`: these are links to pages, and axe fails a tablist whose
+ * children are anchors.
+ */
 export function CollectionsTabs({ active }: CollectionsTabsProps) {
   return (
-    <div className={styles.tabs} role="tablist" aria-label="Collections view">
+    <nav className={styles.tabs} aria-label="Collections view">
       <Link
         href="/admin/collections"
         className={clsx(styles.tab, active === "collections" && styles.tabActive)}
@@ -29,8 +37,8 @@ export function CollectionsTabs({ active }: CollectionsTabsProps) {
         className={clsx(styles.tab, active === "promo" && styles.tabActive)}
         aria-current={active === "promo" ? "page" : undefined}
       >
-        Home promo content
+        Home page bands
       </Link>
-    </div>
+    </nav>
   );
 }

@@ -6,14 +6,20 @@ import { Button } from "@/components/ui/Button";
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { FormPage } from "@/components/portal/FormPage";
+import { SaveBar } from "@/components/portal/SaveBar";
 import { ModerationNotice } from "./ModerationNotice";
 import { GuidedListingForm } from "./GuidedListingForm";
 import { sellerTaxonomyActions } from "@/lib/taxonomy-actions";
 import { SellerPageHeader } from "./SellerPageHeader";
 import {
   EMPTY_LISTING_FORM,
+  LISTING_FORM_SECTIONS,
   ListingForm,
+  hasListingFormErrors,
   toSellerListingInput,
+  validateListingForm,
+  type ListingFormErrors,
   type ListingFormValues,
 } from "./ListingForm";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -25,6 +31,7 @@ import {
   getSellerListing,
   updateSellerListing,
 } from "@/lib/api";
+import { isDirty } from "@/lib/portal/dirty";
 import type { Category, Occasion, Product } from "@/lib/types";
 import styles from "./SellerListingEditorClient.module.css";
 
@@ -65,7 +72,18 @@ export interface SellerListingEditorClientProps {
   productId?: string;
 }
 
-/** Shared screen for `/seller/listings/new` and `/seller/listings/[id]` — loads catalog reference data (+ the existing product, in edit mode), then renders `ListingForm` and wires up create/update. */
+/**
+ * Shared screen for `/seller/listings/new` and `/seller/listings/[id]` —
+ * loads catalog reference data (+ the existing product, in edit mode),
+ * then renders the guided flow or the long form and wires up
+ * create/update.
+ *
+ * The long form sits in a `FormPage` with a jump-nav and a `SaveBar`
+ * (2026-09-04). A refusal is now two things: the per-field message on
+ * the field that needs it, and one sentence in the bar saying how many
+ * there are — instead of one sentence at the bottom of a two-screen form
+ * naming fields somebody then has to scroll up and find.
+ */
 export function SellerListingEditorClient({ productId }: SellerListingEditorClientProps) {
   const router = useRouter();
   const { ready, seller } = useAuth();
@@ -74,6 +92,8 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
   const [categories, setCategories] = useState<Category[]>([]);
   const [occasions, setOccasions] = useState<Occasion[]>([]);
   const [valuesState, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
+  /** What an edit was loaded with — the SaveBar's baseline. */
+  const [initialValues, setInitialValues] = useState<ListingFormValues | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -82,6 +102,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     note?: string;
   }>({});
   const [error, setError] = useState<string | undefined>(undefined);
+  const [fieldErrors, setFieldErrors] = useState<ListingFormErrors>({});
   /**
    * Guided is the default for a *new* listing and the long form for an
    * edit. Somebody adding their first product is being asked to describe
@@ -105,7 +126,9 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
       setOccasions(occs);
       if (productId) {
         if (product) {
-          setValues(productToFormValues(product));
+          const loaded = productToFormValues(product);
+          setValues(loaded);
+          setInitialValues(loaded);
           // Kept alongside the form values so the review banner can show
           // the admin's reason at the top of the screen — the one place
           // the HomeKrafter can act on it.
@@ -121,6 +144,13 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     };
   }, [ready, seller, productId]);
 
+  function handleChange(next: ListingFormValues) {
+    setValues(next);
+    // A field that was refused clears its message the moment it is
+    // touched — the message was about the value that is no longer there.
+    if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next));
+  }
+
   async function handleSubmit(override?: ListingFormValues) {
     if (!seller?.vendorId) return;
     const values = override ?? valuesState;
@@ -129,17 +159,22 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     // string "description must be longer than or equal to 1 characters" —
     // developer language, on the screen a home cook writes their first
     // listing on.
-    if (
-      !values.name.trim() ||
-      !values.categoryId ||
-      !values.description.trim() ||
-      values.weightRows.some((r) => !r.label.trim())
-    ) {
+    const problems = validateListingForm(values);
+    if (hasListingFormErrors(problems)) {
+      setFieldErrors(problems);
+      const count =
+        Number(Boolean(problems.name)) +
+        Number(Boolean(problems.categoryId)) +
+        Number(Boolean(problems.description)) +
+        Object.keys(problems.weightRows ?? {}).length;
       setError(
-        "Fill in a product name, category and description, and label every weight tier before saving.",
+        count === 1
+          ? "One thing is missing — it is marked on the form."
+          : `${count} things are missing — they are marked on the form.`,
       );
       return;
     }
+    setFieldErrors({});
     setError(undefined);
     setSaving(true);
     const input = toSellerListingInput(values);
@@ -177,16 +212,21 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     );
   }
 
+  // A create screen has no baseline, so its Save is always live; an edit
+  // enables it only once something differs from what was loaded.
+  const dirty = isEdit ? isDirty(initialValues, valuesState) : true;
+
   return (
     <div>
       <SellerPageHeader
-        title={isEdit ? "Edit listing" : "Add listing"}
+        back={{ href: "/seller/listings", label: "Products" }}
+        title={isEdit ? "Edit product" : "Add a product"}
         subtitle={
           isEdit
             ? valuesState.name
             : guided
               ? "Four questions, and you are done."
-              : "Create a new product for your storefront."
+              : "Everything about the product on one page."
         }
       />
       <ModerationNotice status={review.status} note={review.note} />
@@ -209,32 +249,37 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
           submitLabel={isEdit ? "Save changes" : "Put it on my storefront"}
         />
       ) : (
-        <>
+        <FormPage sections={LISTING_FORM_SECTIONS.map((s) => ({ ...s }))} navLabel="Sections">
           <ListingForm
             values={valuesState}
-            onChange={setValues}
+            onChange={handleChange}
             categories={categories}
             occasions={occasions}
             taxonomy={sellerTaxonomyActions}
             commission={seller?.commission}
+            errors={fieldErrors}
           />
-          {error && (
-            <p className={styles.error} role="alert">
-              {error}
-            </p>
-          )}
-          <div className={styles.actions}>
-            <Button variant="primary" onClick={() => void handleSubmit()} disabled={saving}>
-              {saving ? "Saving…" : isEdit ? "Save changes" : "Create listing"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => router.push("/seller/listings")}
-              disabled={saving}
-            >
+          <SaveBar
+            dirty={dirty}
+            saving={saving}
+            error={error}
+            onSave={() => void handleSubmit()}
+            onDiscard={
+              isEdit && initialValues
+                ? () => {
+                    setValues(initialValues);
+                    setFieldErrors({});
+                    setError(undefined);
+                  }
+                : undefined
+            }
+            saveLabel={isEdit ? "Save changes" : "Create product"}
+            alwaysEnabled={!isEdit}
+          >
+            <Button variant="secondary" size="sm" onClick={() => router.push("/seller/listings")} disabled={saving}>
               Cancel
             </Button>
-          </div>
+          </SaveBar>
           {/* The way back. Somebody who switched to look for one field
               should not have to leave and re-enter to get the guided
               flow again — and both write the same values, so nothing is
@@ -250,7 +295,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
               </button>
             </p>
           )}
-        </>
+        </FormPage>
       )}
     </div>
   );

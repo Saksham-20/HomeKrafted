@@ -1,93 +1,37 @@
+/* Fields, labels and inputs come from `components/portal/Field`; this
+   file holds the price table and the two buttons around it. */
+
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s6);
+  gap: var(--hk-s5);
 }
 
-.section {
+.options {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s4);
+  gap: 2px;
+  padding-top: var(--hk-s2);
+  border-top: 1px solid var(--hk-divider);
 }
 
-.sectionTitle {
-  font: var(--hk-card-title);
-  color: var(--hk-ink);
+/* M43 — the occasion picker replaced a chip wall; cap it so a full-width
+   form doesn't stretch a search field across the whole page. */
+.occasionPicker {
+  max-width: 460px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--hk-s4);
-}
-
-.field,
-.fieldWide {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fieldWide {
-  grid-column: 1 / -1;
-}
-
-.label {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
-}
-
-.input,
-.select {
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
+.earnings {
+  margin: 0;
+  padding: var(--hk-s3);
   border-radius: var(--hk-r-sm);
-  padding: 11px 13px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--hk-ink);
-  min-height: 44px;
-}
-
-.input:focus-visible,
-.select:focus-visible {
-  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
-  outline-offset: 1px;
-}
-
-.hint {
-  font-size: 12.5px;
-  color: var(--hk-muted);
-}
-
-.chipGroup {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hk-s2);
-}
-
-.checkboxRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-}
-
-.checkboxRow input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--hk-pine);
-}
-
-.checkboxLabel {
-  font-size: 14px;
+  background: var(--hk-surface-3);
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--hk-ink-2);
 }
 
-/* ---- Weight option rows ---- */
+/* ---- Sizes and prices ----------------------------------------------- */
 
 .weightTable {
   display: flex;
@@ -95,20 +39,15 @@
   gap: var(--hk-s2);
 }
 
+.weightHeadRow,
 .weightRow {
   display: grid;
-  grid-template-columns: 28px 1.4fr 1fr 1fr 1fr 36px;
+  grid-template-columns: 64px 1.4fr 1fr 1fr 0.8fr 36px;
   gap: var(--hk-s2);
-  align-items: center;
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-md);
-  padding: var(--hk-s2) var(--hk-s3);
+  align-items: start;
 }
 
 .weightHeadRow {
-  display: grid;
-  grid-template-columns: 28px 1.4fr 1fr 1fr 1fr 36px;
-  gap: var(--hk-s2);
   padding-inline: var(--hk-s3);
 }
 
@@ -120,22 +59,43 @@
   color: var(--hk-muted-2);
 }
 
-.weightInput {
-  border: 1px solid var(--hk-border-2);
+.weightRow {
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s2) var(--hk-s3);
   background: var(--hk-surface);
-  border-radius: var(--hk-r-sm);
-  padding: 8px 10px;
-  font-size: 13.5px;
-  font-family: inherit;
-  color: var(--hk-ink);
+}
+
+/* On the wide layout the column headings carry the labels, so each
+   cell's own label is hidden from sight (still read by AT). Below 640px
+   the headings go and the labels come back. */
+.cell > :first-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.defaultCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-height: 40px;
-  width: 100%;
+  cursor: pointer;
+}
+
+.cellLabel {
+  font-size: 13px;
+  color: var(--hk-ink-2);
 }
 
 .defaultRadio {
   width: 18px;
   height: 18px;
   accent-color: var(--hk-pine);
+  cursor: pointer;
 }
 
 .removeRowButton {
@@ -143,10 +103,12 @@
   align-items: center;
   justify-content: center;
   width: 36px;
-  height: 36px;
+  height: 40px;
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
   color: var(--hk-muted);
+  cursor: pointer;
 }
 
 .removeRowButton:hover:not(:disabled) {
@@ -154,63 +116,84 @@
   border-color: var(--hk-terracotta);
 }
 
+.removeRowButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.removeRowButton:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
 .addRowButton {
   align-self: flex-start;
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  font-family: inherit;
   font-size: 13.5px;
   font-weight: 500;
   color: var(--hk-pine);
-  min-height: 40px;
+  cursor: pointer;
 }
 
 .addRowButton:hover {
   color: var(--hk-gold-text-sm);
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--hk-s3);
-}
-
-.error {
-  color: var(--hk-terracotta);
-  font-size: 13px;
+.addRowButton:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+  border-radius: var(--hk-r-sm);
 }
 
 @media (max-width: 640px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
   .weightHeadRow {
     display: none;
   }
 
   .weightRow {
-    display: flex;
-    flex-wrap: wrap;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--hk-s3);
   }
 
-  .weightRow > * {
-    flex: 1 1 100px;
+  .defaultCell {
+    grid-column: 1 / -1;
+  }
+
+  .cellLabel {
+    display: inline;
+  }
+
+  .cell > :first-child {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .removeRowButton {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 40px;
+    border-radius: var(--hk-r-sm);
   }
 }
 
-/* Sits under a checkbox to explain what ticking it actually does — used by
-   the hamper toggle, where "does this leave the main shop?" is the first
-   question a HomeKrafter asks. */
-.checkboxHelp {
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--hk-muted);
-  padding-left: 26px;
-}
-
-/* M43 — the occasion picker replaced a chip wall; cap it so a full-width
-   form doesn't stretch a search field across the whole page. */
-.occasionPicker {
-  max-width: 460px;
+@media (min-width: 641px) {
+  .cellLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
 }

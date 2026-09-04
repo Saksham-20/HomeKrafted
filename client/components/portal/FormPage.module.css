@@ -1,0 +1,139 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--hk-s5);
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+  min-width: 0;
+}
+
+/* ---- Jump-nav ------------------------------------------------------- */
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.navTitle {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+  padding: 0 10px 6px;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: var(--hk-r-md);
+  font-size: 13.5px;
+  line-height: 1.3;
+  color: var(--hk-ink-2);
+  text-decoration: none;
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease);
+}
+
+.navLink:hover {
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+}
+
+.navLinkActive {
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1px var(--hk-border);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.navText {
+  min-width: 0;
+}
+
+.dot {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--hk-border-2);
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  color: var(--hk-muted);
+  background: var(--hk-surface);
+}
+
+.dotDone {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
+}
+
+.dotTodo {
+  border-color: var(--hk-gold);
+  color: var(--hk-gold-text-sm);
+  background: var(--hk-gold-tint);
+}
+
+@media (min-width: 1000px) {
+  .withNav {
+    grid-template-columns: minmax(0, 1fr) 216px;
+  }
+
+  .withNav .nav {
+    position: sticky;
+    top: var(--hk-s5);
+  }
+}
+
+/* Under the two-column width the nav is a chip strip above the form.
+   Horizontal scroll rather than a wrap: eight wrapped chips are three
+   rows of chrome on the screen with the least room for it. */
+@media (max-width: 999px) {
+  .nav {
+    order: -1;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .navTitle {
+    display: none;
+  }
+
+  .navLink {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 6px 12px 6px 8px;
+    border: 1px solid var(--hk-border);
+    border-radius: var(--hk-r-pill);
+    background: var(--hk-surface);
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .navLinkActive {
+    border-color: var(--hk-pine);
+    box-shadow: none;
+  }
+}

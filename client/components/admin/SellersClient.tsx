@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Select } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { SellerRow } from "./SellerRow";
 import { ApplicationRow } from "./ApplicationRow";
@@ -28,24 +32,6 @@ import styles from "./SellersClient.module.css";
 
 type Tab = "sellers" | "queue";
 
-/**
- * Filters map to `SellerSpecialty`, which is a list per HomeKrafter — so
- * these overlap by design.
- *
- * M22: the craft side got filters for the first time. Four of the five
- * used to be food and the fifth was `laundry`, a module withdrawn in M19 —
- * so on a marketplace selling everything homemade, an admin could not
- * filter to a single non-food HomeKrafter. Built from `SPECIALTY_GROUPS`
- * so a new specialty appears here automatically instead of being
- * remembered.
- */
-const TYPE_FILTERS: { value: SellerSpecialty | "all"; label: string }[] = [
-  { value: "all", label: "All HomeKrafters" },
-  ...SPECIALTY_GROUPS.flatMap((group) =>
-    group.values.map((value) => ({ value, label: SPECIALTY_LABELS[value] })),
-  ),
-];
-
 type OnboardingFilter = "all" | "awaiting" | "onboarded" | "no_credentials";
 
 /**
@@ -64,15 +50,21 @@ const ONBOARDING_FILTERS: { value: OnboardingFilter; label: string }[] = [
 ];
 
 /**
- * `/admin/sellers` (M11a) — two tabs sharing one screen: "All sellers"
- * (every `Seller`, unscoped, type-filterable, suspend/reactivate) and
- * "Approval queue" (pending `SellerApplication`s → approve/reject).
- * Approving here is the M7b `/sell` → M11a admin loop CLAUDE.md calls
- * out: `approveSellerApplication` mints a `Vendor` + an `approved`
- * `Seller`, which shows up in the "All sellers" tab immediately after
- * (both lists are refetched post-action rather than hand-patched
- * locally — the dataset is small enough that a refetch is simpler and
- * can't drift from `lib/api/admin.ts`'s actual mutation).
+ * `/admin/sellers` (M11a) — two views sharing one screen: every
+ * HomeKrafter (unscoped, filterable, suspend/reactivate) and the approval
+ * queue (pending `SellerApplication`s → approve/reject). Approving here
+ * is the `/sell` → admin loop CLAUDE.md calls out:
+ * `approveSellerApplication` mints a `Vendor` + an `approved` `Seller`,
+ * which shows up in the list immediately after (both lists are refetched
+ * post-action rather than hand-patched locally — the dataset is small
+ * enough that a refetch is simpler and can't drift from
+ * `lib/api/admin.ts`'s actual mutation).
+ *
+ * The three chip rows this screen had stacked — view, onboarding, and a
+ * sixteen-chip specialty wall — are one toolbar since 2026-09-04: the
+ * view as a segmented control with counts, onboarding as a second, and
+ * the specialty as a select (M22 gave the craft side filters; it did not
+ * need each one to be a button).
  */
 export function SellersClient() {
   const { ready, role } = useAuth();
@@ -151,17 +143,6 @@ export function SellersClient() {
   }, [ready, role, typeFilter, onboardingFilter, page, reloadToken]);
 
   /**
-   * All three actions used to be a bare `await` + `refetch()` with no
-   * `catch`. A rejected mutation threw an unhandled `ApiError`, the refetch
-   * never ran, and the row simply didn't change — so a refusal looked
-   * exactly like a success that hadn't rendered yet.
-   *
-   * That is survivable while every mutation succeeds. It stops being
-   * survivable the moment the server starts refusing approvals on purpose
-   * (an application whose area can't be resolved to a real place), because
-   * the refusal is the whole point and the admin would never see it.
-   */
-  /**
    * The banner the outcome of every queue action lands in.
    *
    * It sits above a queue that runs well past one screen, so an admin
@@ -177,6 +158,12 @@ export function SellersClient() {
     noticeRef.current?.scrollIntoView({ block: "center", behavior: scrollBehavior() });
   }
 
+  /**
+   * All three actions used to be a bare `await` + `refetch()` with no
+   * `catch`. A rejected mutation threw an unhandled `ApiError`, the refetch
+   * never ran, and the row simply didn't change — so a refusal looked
+   * exactly like a success that hadn't rendered yet.
+   */
   async function run(action: () => Promise<unknown>, fallback: string) {
     // Refuse a second action while one is running. Approving a
     // HomeKrafter mints an account and fires an invite; doing it twice
@@ -256,15 +243,15 @@ export function SellersClient() {
     );
   }
 
-  // Filtered by the server now — this is the page it sent back.
-  // `specialties` is a list, so the query is a `has` and a HomeKrafter who
-  // both cooks and does laundry still shows under either filter, matching
-  // how they actually work.
-  const filteredSellers = sellers;
   const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading HomeKrafters…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="HomeKrafters" />
+        <LoadingRows rows={5} />
+      </div>
+    );
   }
 
   return (
@@ -276,156 +263,140 @@ export function SellersClient() {
         } · ${applications.length} pending application${applications.length === 1 ? "" : "s"}`}
       />
 
-      <div className={styles.tabRow} role="tablist" aria-label="Sellers view">
-        <Chip label="All HomeKrafters" selected={tab === "sellers"} onClick={() => setTab("sellers")} />
-        <Chip label={`Approval queue (${applications.length})`} selected={tab === "queue"} onClick={() => setTab("queue")} />
-      </div>
-
       <div aria-live="polite" ref={noticeRef}>
-        {actionError && (
-          <p className={styles.actionError} role="alert">
-            {actionError}
-          </p>
-        )}
+        {actionError && <Notice tone="danger">{actionError}</Notice>}
         {approvedSignIn && (
-          <div className={styles.inviteWarning} role="status">
-            <p className={styles.inviteWarningLead}>
-              Approved. Here is how {approvedSignIn.displayName} signs in.
+          <Notice
+            tone="success"
+            title={`Approved. Here is how ${approvedSignIn.displayName} signs in.`}
+            onDismiss={() => setApprovedSignIn(null)}
+          >
+            <p>
+              Read these out now and note them down — the password is shown only this once. If
+              it&apos;s lost, re-issue from their row; the old one stops working. Nothing else on the
+              site works for them until they sign in and choose their own.
             </p>
-            <p className={styles.inviteWarningBody}>
-              Read these out now and note them down — the password is shown
-              only this once. If it&apos;s lost, re-issue from their row; the
-              old one stops working. Nothing else on the site works for them
-              until they sign in and choose their own.
+            <p>
+              <code>
+                {approvedSignIn.email ?? approvedSignIn.phone} · {approvedSignIn.temporaryPassword}
+              </code>
             </p>
-            <code className={styles.inviteLink}>
-              {approvedSignIn.email ?? approvedSignIn.phone} ·{" "}
-              {approvedSignIn.temporaryPassword}
-            </code>
-            <button
-              type="button"
-              className={styles.inviteDismiss}
-              onClick={() => setApprovedSignIn(null)}
-            >
-              Dismiss
-            </button>
-          </div>
+          </Notice>
         )}
         {placementWarning && (
-          <div className={styles.inviteWarning} role="status">
-            <p className={styles.inviteWarningLead}>Check where we put them on the map.</p>
-            <p className={styles.inviteWarningBody}>
-              Pincode {placementWarning.pincode} ({placementWarning.label}) covers a wide area —
-              its post offices are up to {Math.round(placementWarning.spreadKm)} km apart, so we
-              may have placed this kitchen that far from where it really is. That decides which
-              buyers can see them at all. They can fix it themselves — their profile asks them to
-              pin the kitchen from where they stand, and it is listed as a gap until they do. If
-              they do not sign in, open their record and set the exact spot.
+          <Notice
+            tone="warning"
+            title="Check where we put them on the map."
+            onDismiss={() => setPlacementWarning(null)}
+            actions={
+              <Link className={styles.noticeLink} href={`/admin/sellers/${placementWarning.sellerId}`}>
+                Open their record →
+              </Link>
+            }
+          >
+            <p>
+              Pincode {placementWarning.pincode} ({placementWarning.label}) covers a wide area — its
+              post offices are up to {Math.round(placementWarning.spreadKm)} km apart, so we may have
+              placed this kitchen that far from where it really is. That decides which buyers can see
+              them at all. They can fix it themselves — their profile asks them to pin the kitchen
+              from where they stand, and it is listed as a gap until they do. If they do not sign
+              in, open their record and set the exact spot.
             </p>
-            <Link
-              className={styles.inviteLinkAction}
-              href={`/admin/sellers/${placementWarning.sellerId}`}
-            >
-              Open their record
-            </Link>
-            <button
-              type="button"
-              className={styles.inviteDismiss}
-              onClick={() => setPlacementWarning(null)}
-            >
-              Dismiss
-            </button>
-          </div>
+          </Notice>
         )}
         {inviteWarning && (
-          <div className={styles.inviteWarning} role="status">
-            <p className={styles.inviteWarningLead}>
-              Approved — but we could not reach them.
-            </p>
-            <p className={styles.inviteWarningBody}>
+          <Notice
+            tone="warning"
+            title="Approved — but we could not reach them."
+            onDismiss={() => setInviteWarning(null)}
+          >
+            <p>
               {inviteWarning.email.stubbed || inviteWarning.sms.stubbed
                 ? "Email and SMS are not configured on this server, so nothing was sent."
                 : "Every delivery attempt failed."}{" "}
-              They cannot sign in until someone gives them this link. It works once and
-              expires in 7 days.
+              They cannot sign in until someone gives them this link. It works once and expires in
+              7 days.
             </p>
             {inviteWarning.fallbackLink && (
-              <code className={styles.inviteLink}>{inviteWarning.fallbackLink}</code>
+              <p>
+                <code>{inviteWarning.fallbackLink}</code>
+              </p>
             )}
-            <button
-              type="button"
-              className={styles.inviteDismiss}
-              onClick={() => setInviteWarning(null)}
-            >
-              Dismiss
-            </button>
-          </div>
+          </Notice>
         )}
       </div>
 
-      {tab === "sellers" ? (
-        <>
-          {/* Onboarding first: "who have we approved but not actually got
-              online" is the question with work attached, and it was
-              unanswerable before M32. Type is the browsing filter and
-              stays below it. */}
-          <div className={styles.chipRow} role="tablist" aria-label="Filter by onboarding">
-            {ONBOARDING_FILTERS.map((f) => (
-              <Chip
-                key={f.value}
-                label={f.label}
-                selected={onboardingFilter === f.value}
-                onClick={() => {
-                  setOnboardingFilter(f.value);
+      <Toolbar>
+        <SegmentedFilter
+          label="View"
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "sellers", label: "All HomeKrafters", count: total },
+            { value: "queue", label: "Approval queue", count: applications.length },
+          ]}
+        />
+        {tab === "sellers" && (
+          <>
+            {/* Onboarding first: "who have we approved but not actually
+                got online" is the question with work attached, and it
+                was unanswerable before M32. */}
+            <SegmentedFilter
+              label="Filter by onboarding"
+              value={onboardingFilter}
+              onChange={(next) => {
+                setOnboardingFilter(next);
+                setPage(1);
+              }}
+              options={ONBOARDING_FILTERS}
+            />
+            <div className={styles.specialtySelect}>
+              <Select
+                dense
+                aria-label="Filter by what they make"
+                value={typeFilter}
+                onChange={(event) => {
+                  setTypeFilter(event.target.value as SellerSpecialty | "all");
                   setPage(1);
                 }}
-              />
-            ))}
-          </div>
-          <div className={styles.chipRow} role="tablist" aria-label="Filter by type">
-            {TYPE_FILTERS.map((f) => (
-              <Chip key={f.value} label={f.label} selected={typeFilter === f.value} onClick={() => {
-                setTypeFilter(f.value);
-                setPage(1);
-              }} />
-            ))}
-          </div>
-          {filteredSellers.length === 0 ? (
-            <Card className={styles.empty}>No HomeKrafters match this filter.</Card>
-          ) : (
-            <>
-              <div className={styles.list}>
-                {filteredSellers.map((seller) => (
-                  <SellerRow key={seller.id} seller={seller} onToggleStatus={handleToggleSellerStatus} />
+              >
+                <option value="all">Everything they make</option>
+                {SPECIALTY_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.values.map((value) => (
+                      <option key={value} value={value}>
+                        {SPECIALTY_LABELS[value]}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
-              </div>
+              </Select>
+            </div>
+          </>
+        )}
+      </Toolbar>
 
-              {lastPage > 1 && (
-                <div className={styles.pager}>
-                  <Button
-                    variant="secondary"
-                    disabled={page <= 1}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  >
-                    Previous
-                  </Button>
-                  <span className={styles.pagerLabel} aria-live="polite">
-                    Page {page} of {lastPage}
-                  </span>
-                  <Button
-                    variant="secondary"
-                    disabled={page >= lastPage}
-                    onClick={() => setPage((current) => current + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </>
+      {tab === "sellers" ? (
+        sellers.length === 0 ? (
+          <EmptyState
+            title="No HomeKrafters match this filter."
+            body="Try another onboarding state or specialty — the list is not empty, this slice of it is."
+          />
+        ) : (
+          <>
+            <div className={styles.list}>
+              {sellers.map((seller) => (
+                <SellerRow key={seller.id} seller={seller} onToggleStatus={handleToggleSellerStatus} />
+              ))}
+            </div>
+            <Pager page={page} lastPage={lastPage} onChange={setPage} />
+          </>
+        )
       ) : applications.length === 0 ? (
-        <Card className={styles.empty}>No pending applications — the queue is clear.</Card>
+        <EmptyState
+          title="The queue is clear."
+          body="Nothing is waiting for a decision. New applications land here the moment somebody submits the form on /sell."
+        />
       ) : (
         <div className={styles.list}>
           {applications.map((application) => (

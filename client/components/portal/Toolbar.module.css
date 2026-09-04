@@ -1,0 +1,33 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s4);
+}
+
+.search {
+  flex: 1 1 240px;
+  max-width: 380px;
+  min-width: 0;
+}
+
+.end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+@media (max-width: 640px) {
+  .search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .end {
+    margin-left: 0;
+  }
+}

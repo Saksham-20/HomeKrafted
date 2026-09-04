@@ -5,15 +5,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { MealPlanRow } from "./MealPlanRow";
 import { MealDeliveryQueue } from "./MealDeliveryQueue";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { closeMyMealPlan, getMyMealDeliveries, getMyMealPlans } from "@/lib/api";
+import { apiErrorMessage, closeMyMealPlan, getMyMealDeliveries, getMyMealPlans } from "@/lib/api";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import type { SellerMealDelivery, SellerMealPlan } from "@/lib/types";
 import styles from "./MealPlansClient.module.css";
+import { Notice } from "@/components/portal/Notice";
 
 /** How many days of the queue get their own panel here. The rest live on `/seller/meal-plans/deliveries`. */
 const NEXT_UP_DAYS = 2;
@@ -48,6 +51,8 @@ export function MealPlansClient() {
   const [now, setNow] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Fires as soon as we know a HomeKrafter is signed in: this screen's
   // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
@@ -68,8 +73,15 @@ export function MealPlansClient() {
         setNow(new Date());
       } catch (error) {
         if (cancelled) return;
-        if (!isForbidden(error)) throw error;
-        setUnavailable(true);
+        if (isForbidden(error)) {
+          setUnavailable(true);
+          return;
+        }
+        // A failed read is not an empty screen. Rethrowing here reached no
+        // boundary (an effect's rejection is not a render error), so a
+        // rate-limited fetch rendered the empty state over real data — the
+        // M37 dashboard rule, applied to every list (2026-09-04).
+        setLoadError(apiErrorMessage(error, "Couldn't load your meal plans. Try again."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -77,7 +89,7 @@ export function MealPlansClient() {
     return () => {
       cancelled = true;
     };
-  }, [sellerDataReady]);
+  }, [sellerDataReady, reloadToken]);
 
   async function handleClose(planId: string) {
     const plan = plans.find((p) => p.id === planId);
@@ -107,7 +119,38 @@ export function MealPlansClient() {
   }
 
   if (!sellerDataReady || loading) {
-    return <div className={styles.loading}>Loading your meal plans…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Meal plans" />
+        <LoadingRows rows={3} showLabel label={kitchenLoading("seller/meal-plans", MAKER_LOADING)} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <SellerPageHeader title="Meal plans" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (unavailable) {
@@ -130,7 +173,7 @@ export function MealPlansClient() {
         actions={
           <Button variant="primary" size="sm" onClick={() => router.push("/seller/meal-plans/new")}>
             <Plus size={16} strokeWidth={2} aria-hidden="true" />
-            Add plan
+            Add a plan
           </Button>
         }
       />
@@ -146,11 +189,19 @@ export function MealPlansClient() {
         </div>
 
         {nextUp.length === 0 ? (
-          <Card className={styles.empty}>
-            {deliveries.length === 0
-              ? "Nothing to cook yet. Meals appear here the moment somebody subscribes."
-              : "Nothing in the next couple of days."}
-          </Card>
+          <EmptyState
+            title={deliveries.length === 0 ? "Nothing to cook yet." : "Nothing in the next couple of days."}
+            body={
+              deliveries.length === 0
+                ? "Meals appear here the moment somebody subscribes to one of your plans."
+                : "The rest of the fortnight is on the full list."
+            }
+            action={
+              deliveries.length === 0
+                ? undefined
+                : { href: "/seller/meal-plans/deliveries", label: "All meals to cook" }
+            }
+          />
         ) : (
           now && (
             <MealDeliveryQueue deliveries={nextUp} now={now} onDelivered={handleDelivered} />
@@ -161,12 +212,11 @@ export function MealPlansClient() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Your plans</h2>
         {plans.length === 0 ? (
-          <Card className={styles.empty}>
-            No subscription plans yet. A plan is anything you&rsquo;d cook on a
-            repeating basis — a daily tiffin, a weekly thali, a monthly pickle
-            box. You set the price, the portion and how many people you can
-            take.
-          </Card>
+          <EmptyState
+            title="No subscription plans yet."
+            body="A plan is anything you'd cook on a repeating basis — a daily tiffin, a weekly thali, a monthly pickle box. You set the price, the portion and how many people you can take."
+            action={{ href: "/seller/meal-plans/new", label: "Create your first plan" }}
+          />
         ) : (
           <div className={styles.list}>
             {plans.map((plan) => (

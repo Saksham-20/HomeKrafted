@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Combobox } from "@/components/ui/Combobox";
-import { Textarea } from "@/components/ui/Textarea";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { ChoiceCards } from "@/components/portal/ChoiceCards";
+import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "@/components/portal/Field";
+import { FormSection } from "@/components/portal/FormSection";
 import type { DietaryTag, ProductKind, ProductShippingScope, ProductTag, SellerCommission } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
 import { commissionBreakdown, priceForTarget } from "@/lib/commission";
@@ -77,6 +79,19 @@ const DIETARY_OPTIONS: { value: DietaryTag; label: string }[] = [
 
 const TAG_OPTIONS: ProductTag[] = ["Bestseller", "New", "Festive", "Curated"];
 
+/**
+ * The long form's sections, for a page's jump-nav. Exported so the
+ * editor screens (seller and admin) list the same anchors this form
+ * renders. `dietary` only exists for food, which the caller filters.
+ */
+export const LISTING_FORM_SECTIONS = [
+  { id: "listing-photo", label: "Photo" },
+  { id: "listing-kind", label: "What it is" },
+  { id: "listing-basics", label: "Name & description" },
+  { id: "listing-prices", label: "Sizes & prices" },
+  { id: "listing-details", label: "Details & tags" },
+] as const;
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -136,6 +151,37 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
   };
 }
 
+/**
+ * What is missing before the form can be saved, keyed by field. The
+ * editors compute it on a submit attempt and hand it back in, so the
+ * refusal lands on the field rather than only in a sentence at the
+ * bottom of a two-screen form.
+ */
+export interface ListingFormErrors {
+  name?: string;
+  categoryId?: string;
+  description?: string;
+  /** Index → message, for a tier with no size label. */
+  weightRows?: Record<number, string>;
+}
+
+export function validateListingForm(values: ListingFormValues): ListingFormErrors {
+  const errors: ListingFormErrors = {};
+  if (!values.name.trim()) errors.name = "Give it a name.";
+  if (!values.categoryId) errors.categoryId = "Pick the shelf it belongs on.";
+  if (!values.description.trim()) errors.description = "A sentence or two is enough.";
+  values.weightRows.forEach((row, index) => {
+    if (!row.label.trim()) {
+      errors.weightRows = { ...(errors.weightRows ?? {}), [index]: "Every size needs a label — “250 g”, “One”, “Box of 6”." };
+    }
+  });
+  return errors;
+}
+
+export function hasListingFormErrors(errors: ListingFormErrors): boolean {
+  return Boolean(errors.name || errors.categoryId || errors.description || errors.weightRows);
+}
+
 export interface ListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
@@ -155,14 +201,23 @@ export interface ListingFormProps {
    * which is pricing on a kitchen's behalf and shows no earnings line.
    */
   commission?: SellerCommission;
+  /** Per-field refusals from the last submit attempt. */
+  errors?: ListingFormErrors;
 }
 
 /**
  * Shared create/edit form for a maker's `Product` — covers the real
  * schema (name, category, occasions, dietary, description, multi-tier
- * `weightOptions`, tags, photo). Both `/seller/listings/new` and
- * `/seller/listings/[id]` render this and only differ in how they submit
- * (`createSellerListing` vs. `updateSellerListing`, `lib/api/seller.ts`).
+ * `weightOptions`, tags, photo). Both `/seller/listings/[id]` and the
+ * admin editor render this and only differ in how they submit.
+ *
+ * Rebuilt on the shared portal kit (2026-09-04): five titled sections
+ * on cards, photo first (the M45 finding — it is the one thing somebody
+ * in a kitchen can produce immediately, and it is what sells), the two
+ * decisions that change the rest of the form as choice cards with their
+ * consequences written on them, and the price table with words in its
+ * headings instead of "Def." and "MRP". Per-field errors arrive through
+ * `errors` so a refusal lands where it can be fixed.
  */
 export function ListingForm({
   values,
@@ -171,6 +226,7 @@ export function ListingForm({
   occasions,
   commission,
   taxonomy,
+  errors,
 }: ListingFormProps) {
   const occasionOptions = useMemo(
     () => occasions.map((o) => ({ value: o.id, label: o.name })),
@@ -245,8 +301,8 @@ export function ListingForm({
 
   /**
    * Switching kind can strand the chosen category on the other side of the
-   * catalogue, where the `<select>` no longer lists it — leaving a value
-   * set that nothing displays. Clearing it makes the empty select honest.
+   * catalogue, where the picker no longer lists it — leaving a value set
+   * that nothing displays. Clearing it makes the empty picker honest.
    */
   function setKind(kind: ProductKind) {
     const stillValid = categories.some(
@@ -268,47 +324,52 @@ export function ListingForm({
 
   return (
     <div className={styles.form}>
-      {/*
-        First, because it decides what the rest of the form asks. A jeweller
-        must not be asked whether their earrings are gluten-free, and the
-        M20 note in the plan is explicit that the FSSAI badge is
-        food-specific.
-      */}
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>What are you listing?</h2>
-        <div className={styles.chipGroup}>
-          <Chip
-            label="Homemade food"
-            selected={!isCraft}
-            onClick={() => setKind("food")}
-          />
-          <Chip
-            label="Handcrafted gift"
-            selected={isCraft}
-            onClick={() => setKind("craft")}
-          />
-        </div>
-        <p className={styles.checkboxHelp}>
-          {isCraft
-            ? "Handcrafted gifts appear on the Gifts page. You won't be asked about ingredients or dietary tags."
-            : "Homemade food appears in the main shop, and can also go on your snacks menu."}
-        </p>
-      </div>
+      <FormSection
+        id="listing-photo"
+        title="Photo"
+        description="One clear photo, taken on your phone in daylight, on a plain surface. It is the thing that decides whether somebody stops scrolling."
+      >
+        <ImageUpload
+          label="Product photo"
+          purpose="listing"
+          ratio="1/1"
+          placeholderLabel={values.name || "Product photo"}
+          hint="You can save without one and add it later — but a listing without a photo sells far less."
+          value={values.imagePath}
+          onChange={(url) => set("imagePath", url)}
+        />
+      </FormSection>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>How does it reach the buyer?</h2>
-        <div className={styles.chipGroup}>
-          <Chip
-            label="I deliver locally"
-            selected={values.shippingScope === "local"}
-            onClick={() => set("shippingScope", "local")}
+      {/*
+        First of the questions, because it decides what the rest of the
+        form asks. A jeweller must not be asked whether their earrings are
+        gluten-free, and the M20 note in the plan is explicit that the
+        FSSAI badge is food-specific.
+      */}
+      <FormSection
+        id="listing-kind"
+        title="What is it, and how does it travel?"
+        description="These two decide where the listing appears and who can see it."
+      >
+        <Fieldset legend="What are you listing?">
+          <ChoiceCards
+            label="What are you listing?"
+            value={values.kind}
+            onChange={setKind}
+            options={[
+              {
+                value: "food",
+                title: "Homemade food",
+                hint: "Appears in the main shop, and can also go on your snacks menu.",
+              },
+              {
+                value: "craft",
+                title: "Handcrafted gift",
+                hint: "Appears on the Gifts page. No ingredient or dietary questions.",
+              },
+            ]}
           />
-          <Chip
-            label="I post it anywhere in India"
-            selected={values.shippingScope === "national"}
-            onClick={() => set("shippingScope", "national")}
-          />
-        </div>
+        </Fieldset>
         {/*
           This is the field that decides whether a buyer 300km away can see
           the listing at all — `national` skips the delivery-radius filter
@@ -316,25 +377,36 @@ export function ListingForm({
           kitchen posting pickles across India is a real case, and deriving
           this from "is it food" would forbid it.
         */}
-        <p className={styles.checkboxHelp}>
-          {values.shippingScope === "national"
-            ? "Shoppers across India will see this, not only people inside your delivery distance. Only choose this if you can genuinely pack and post it."
-            : "Only shoppers inside your delivery distance will see this. Choose the other option if you can post it — a jar of pickle travels further than a hot meal."}
-        </p>
-      </div>
+        <Fieldset legend="How does it reach the buyer?">
+          <ChoiceCards
+            label="How does it reach the buyer?"
+            value={values.shippingScope}
+            onChange={(next) => set("shippingScope", next)}
+            options={[
+              {
+                value: "local",
+                title: "I deliver locally",
+                hint: "Only shoppers inside your delivery distance see it — right for anything eaten fresh.",
+              },
+              {
+                value: "national",
+                title: "I post it anywhere in India",
+                hint: "Shoppers across India see it. Only if you can genuinely pack and post it — a jar of pickle, not a hot meal.",
+              },
+            ]}
+          />
+        </Fieldset>
+      </FormSection>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Basics</h2>
-        <div className={styles.grid}>
-          <label className={styles.fieldWide}>
-            <span className={styles.label}>Product name</span>
-            <input
-              className={styles.input}
-              value={values.name}
-              onChange={(event) => set("name", event.target.value)}
-              placeholder="e.g. Mango Thokku Pickle"
-            />
-          </label>
+      <FormSection id="listing-basics" title="Name, shelf and description">
+        <Field label="Product name" error={errors?.name}>
+          <Input
+            value={values.name}
+            onChange={(event) => set("name", event.target.value)}
+            placeholder="e.g. Mango Thokku Pickle"
+          />
+        </Field>
+        <FieldGrid>
           {/*
             A searchable picker rather than a `<select>` (M50). Two
             reasons, and the second is the one that mattered: the list
@@ -348,13 +420,14 @@ export function ListingForm({
             also why the ask carries `values.kind` rather than leaving an
             admin to guess at review time.
           */}
-          <div className={styles.field}>
+          <Field label="Category" error={errors?.categoryId} labelAsText>
             <Combobox
               label="Category"
+              hideLabel
               value={values.categoryId ? [values.categoryId] : []}
               onChange={(next) => set("categoryId", next[0] ?? "")}
               options={categoryOptions}
-              placeholder="Select category"
+              placeholder="Search shelves…"
               emptyMessage="Nothing by that name — try a shorter word."
               onSuggest={
                 taxonomy?.suggestCategory
@@ -369,7 +442,7 @@ export function ListingForm({
               }
               createNoun="shelf"
             />
-          </div>
+          </Field>
           {/*
             M58 — a listing can sit on more than one shelf. A jar of pickle
             that is both "Pickles" and "Shop by meal › Breakfast" should be
@@ -381,219 +454,134 @@ export function ListingForm({
             canonical URL, so "which one is the main shelf" has to stay an
             answerable question.
           */}
-          <div className={styles.field}>
+          <Field label="Also show it under" optional labelAsText>
             <Combobox
               label="Also show it under"
+              hideLabel
               value={values.categoryIds}
               onChange={(next) => set("categoryIds", next)}
               options={extraCategoryOptions}
-              placeholder="Optional — pick any that fit"
+              placeholder="Pick any that fit"
               emptyMessage="Nothing by that name — try a shorter word."
               multiple
             />
-          </div>
-          {/*
-            The "Cashback %" box used to be here, and it was a promise
-            nothing kept (M46). Whatever a HomeKrafter typed was quoted on
-            the product page as "earn ₹N wallet cashback" while the
-            checkout credited a **flat platform rate on the whole
-            subtotal** — so a listing set to 20% advertised four times what
-            the buyer actually received, on the screen where they decide to
-            buy.
+          </Field>
+        </FieldGrid>
+        {/*
+          The "Cashback %" box used to be here, and it was a promise
+          nothing kept (M46). Whatever a HomeKrafter typed was quoted on
+          the product page as "earn ₹N wallet cashback" while the
+          checkout credited a **flat platform rate on the whole
+          subtotal** — so a listing set to 20% advertised four times what
+          the buyer actually received, on the screen where they decide to
+          buy.
 
-            The column and the payload field stay, so existing values
-            round-trip and no native client breaks; it is simply no longer
-            asked for or quoted as money. A HomeKrafter who wants to give
-            buyers something now has a real lever: their own storefront
-            sale, on `/seller/storefront`.
-          */}
-          <div className={styles.fieldWide}>
-            <Textarea
-              label="Description"
-              value={values.description}
-              onChange={(event) => set("description", event.target.value)}
-              placeholder="What makes it worth buying — ingredients, process, story."
-            />
-          </div>
-        </div>
-      </div>
-
-      {/*
-        A wall of chips (M43): fine at eleven occasions, unusable at
-        thirty, and there was nothing to type into. A searchable picker
-        replaces it — same selection, findable by name.
-
-        **A HomeKrafter still cannot create one, and that has not
-        changed.** Occasions are a shared vocabulary the whole catalogue
-        browses by; one anybody can add to stops being one, and "Diwali",
-        "diwali" and "Deepavali" become three hub pages splitting a
-        festival's traffic. What M50 added is the missing other half: the
-        picker used to say "ask an admin" with no way to, so `onSuggest`
-        files the ask and an admin mints the row. An admin's own copy of
-        this form gets `onCreate` instead. The gate is the server — the
-        create route lives under `/api/v1/admin` — not which prop is
-        passed.
-      */}
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Occasions</h2>
-        <Combobox
-          label="Occasions this suits"
-          hideLabel
-          multiple
-          placeholder="Search occasions…"
-          value={values.occasionIds}
-          onChange={(next) => set("occasionIds", next)}
-          options={occasionOptions}
-          emptyMessage="No occasion by that name."
-          hint="Optional — it puts your listing on the occasion's page."
-          onCreate={taxonomy?.createOccasion}
-          onSuggest={taxonomy?.suggestOccasion}
-          createNoun="occasion"
-          className={styles.occasionPicker}
-        />
-      </div>
-
-      {/* Food only. A candle has no dietary tags, and asking reads as a
-          form that doesn't know what it's selling. */}
-      {!isCraft && (
-        <div className={styles.section}>
-          <h2 className={styles.sectionTitle}>Dietary</h2>
-          <div className={styles.chipGroup}>
-            {DIETARY_OPTIONS.map((option) => (
-              <Chip
-                key={option.value}
-                label={option.label}
-                selected={values.dietary.includes(option.value)}
-                onClick={() => toggleDietary(option.value)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Tags</h2>
-        <div className={styles.chipGroup}>
-          {TAG_OPTIONS.map((tag) => (
-            <Chip key={tag} label={tag} selected={values.tags.includes(tag)} onClick={() => toggleTag(tag)} />
-          ))}
-        </div>
-        <label className={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            checked={values.isPackaged}
-            onChange={(event) => set("isPackaged", event.target.checked)}
+          The column and the payload field stay, so existing values
+          round-trip and no native client breaks; it is simply no longer
+          asked for or quoted as money. A HomeKrafter who wants to give
+          buyers something now has a real lever: their own storefront
+          sale, on `/seller/storefront`.
+        */}
+        <Field
+          label="Description"
+          error={errors?.description}
+          hint="What makes it worth buying — ingredients, process, story."
+        >
+          <TextArea
+            rows={4}
+            autoGrow
+            value={values.description}
+            onChange={(event) => set("description", event.target.value)}
+            placeholder="Slow-cooked strips of raw mango in cold-pressed sesame oil…"
           />
-          <span className={styles.checkboxLabel}>
-            {isCraft
-              ? "Ready to ship (vs. made to order)"
-              : "Ready-to-ship packaged food (vs. made-to-order)"}
-          </span>
-        </label>
-        {!isCraft && (
-          <>
-            <label className={styles.checkboxRow}>
-              <input
-                type="checkbox"
-                checked={values.isSnack}
-                onChange={(event) => set("isSnack", event.target.checked)}
-              />
-              <span className={styles.checkboxLabel}>Also list this on my snacks menu</span>
-            </label>
-            <p className={styles.checkboxHelp}>
-              Snacks are ordered over WhatsApp rather than checked out on the
-              site. Ticking this adds it to that menu; it stays in the main
-              shop either way.
-            </p>
-          </>
-        )}
-        <label className={styles.checkboxRow}>
-          <input
-            type="checkbox"
-            checked={values.isHamper}
-            onChange={(event) => set("isHamper", event.target.checked)}
-          />
-          <span className={styles.checkboxLabel}>
-            This is a ready-made gift hamper
-          </span>
-        </label>
-        <p className={styles.checkboxHelp}>
-          Ticking this also lists it on the Gift hampers page. It stays in the
-          main shop either way — a hamper is a listing like any other, priced
-          and packed by you.
-        </p>
-      </div>
+        </Field>
+      </FormSection>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Weight tiers &amp; pricing</h2>
-        <div className={styles.weightTable}>
-          <div className={styles.weightHeadRow}>
-            <span className={styles.weightHead}>Def.</span>
-            <span className={styles.weightHead}>Label</span>
+      <FormSection
+        id="listing-prices"
+        title="Sizes and prices"
+        description="One row per size you sell. The default row is the price shown on the product card. Leave stock blank for a sensible default; type 0 to show it as sold out."
+      >
+        <div className={styles.weightTable} role="group" aria-label="Sizes and prices">
+          <div className={styles.weightHeadRow} aria-hidden="true">
+            <span className={styles.weightHead}>Default</span>
+            <span className={styles.weightHead}>Size</span>
             <span className={styles.weightHead}>Price</span>
-            <span className={styles.weightHead}>MRP</span>
+            <span className={styles.weightHead}>Was (MRP)</span>
             <span className={styles.weightHead}>Stock</span>
             <span />
           </div>
           {values.weightRows.map((row, index) => (
             <div key={index} className={styles.weightRow}>
-              <input
-                type="radio"
-                name="defaultWeightRow"
-                className={styles.defaultRadio}
-                checked={values.defaultRowIndex === index}
-                onChange={() => set("defaultRowIndex", index)}
-                aria-label={`Make "${row.label || `tier ${index + 1}`}" the default tier`}
-              />
-              <input
-                className={styles.weightInput}
-                placeholder="250 g"
-                value={row.label}
-                onChange={(event) => updateRow(index, { label: event.target.value })}
-                aria-label="Weight/size label"
-              />
-              <input
-                className={styles.weightInput}
-                type="number"
-                min={0}
-                placeholder="Price"
-                value={row.price}
-                onChange={(event) => updateRow(index, { price: event.target.value })}
-                aria-label="Price"
-              />
-              <input
-                className={styles.weightInput}
-                type="number"
-                min={0}
-                placeholder="MRP"
-                value={row.mrp}
-                onChange={(event) => updateRow(index, { mrp: event.target.value })}
-                aria-label="MRP"
-              />
-              <input
-                className={styles.weightInput}
-                type="number"
-                min={0}
-                placeholder={`Stock (blank = ${DEFAULT_STOCK})`}
-                value={row.stock}
-                onChange={(event) => updateRow(index, { stock: event.target.value })}
-                aria-label="Stock — how many you can make; 0 means sold out"
-              />
+              <label className={styles.defaultCell}>
+                <input
+                  type="radio"
+                  name="defaultWeightRow"
+                  className={styles.defaultRadio}
+                  checked={values.defaultRowIndex === index}
+                  onChange={() => set("defaultRowIndex", index)}
+                  aria-label={`Make "${row.label || `size ${index + 1}`}" the default`}
+                />
+                <span className={styles.cellLabel}>Default</span>
+              </label>
+              <Field label="Size" className={styles.cell} error={errors?.weightRows?.[index]}>
+                <Input
+                  dense
+                  placeholder="250 g"
+                  value={row.label}
+                  onChange={(event) => updateRow(index, { label: event.target.value })}
+                />
+              </Field>
+              <Field label="Price" className={styles.cell}>
+                <Input
+                  dense
+                  type="number"
+                  min={0}
+                  inputMode="decimal"
+                  affixStart="₹"
+                  placeholder="0"
+                  value={row.price}
+                  onChange={(event) => updateRow(index, { price: event.target.value })}
+                />
+              </Field>
+              <Field label="Was (MRP)" className={styles.cell}>
+                <Input
+                  dense
+                  type="number"
+                  min={0}
+                  inputMode="decimal"
+                  affixStart="₹"
+                  placeholder="0"
+                  value={row.mrp}
+                  onChange={(event) => updateRow(index, { mrp: event.target.value })}
+                />
+              </Field>
+              <Field label="Stock" className={styles.cell}>
+                <Input
+                  dense
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  placeholder={String(DEFAULT_STOCK)}
+                  value={row.stock}
+                  onChange={(event) => updateRow(index, { stock: event.target.value })}
+                />
+              </Field>
               <button
                 type="button"
                 className={styles.removeRowButton}
                 onClick={() => removeRow(index)}
                 disabled={values.weightRows.length <= 1}
-                aria-label="Remove weight tier"
+                aria-label={`Remove size ${row.label || index + 1}`}
               >
-                <Trash2 size={14} strokeWidth={1.8} />
+                <Trash2 size={14} strokeWidth={1.8} aria-hidden="true" />
               </button>
             </div>
           ))}
         </div>
         <button type="button" className={styles.addRowButton} onClick={addRow}>
           <Plus size={15} strokeWidth={2} aria-hidden="true" />
-          Add weight tier
+          Add another size
         </button>
         {/*
           The M37 earnings line: what the default tier's price works out
@@ -602,7 +590,7 @@ export function ListingForm({
           editor) or no price is typed yet.
         */}
         {commission && defaultRowPrice > 0 ? (
-          <p className={styles.hint} aria-live="polite">
+          <p className={styles.earnings} aria-live="polite">
             Customer pays {formatCurrency(breakdown.gross)} → commission ({commission.pct}%){" "}
             {formatCurrency(breakdown.commission)} → you receive {formatCurrency(breakdown.net)}.
             {commission.enabled ? "" : " Estimate — nothing is deducted yet."}
@@ -614,20 +602,103 @@ export function ListingForm({
             ) : null}
           </p>
         ) : null}
-      </div>
+      </FormSection>
 
-      <div className={styles.section}>
-        <h2 className={styles.sectionTitle}>Photo</h2>
-        <ImageUpload
-          label="Product photo"
-          purpose="listing"
-          ratio="1/1"
-          placeholderLabel={values.name || "Product photo"}
-          hint="Shot in daylight, on a plain surface, sells better than a styled one. Leave blank for a placeholder."
-          value={values.imagePath}
-          onChange={(url) => set("imagePath", url)}
-        />
-      </div>
+      <FormSection
+        id="listing-details"
+        title="Details and tags"
+        description="Everything here is optional. It helps the right buyer find the listing and tells them what to expect."
+      >
+        {/*
+          A wall of chips (M43): fine at eleven occasions, unusable at
+          thirty, and there was nothing to type into. A searchable picker
+          replaces it — same selection, findable by name.
+
+          **A HomeKrafter still cannot create one, and that has not
+          changed.** Occasions are a shared vocabulary the whole catalogue
+          browses by; one anybody can add to stops being one, and "Diwali",
+          "diwali" and "Deepavali" become three hub pages splitting a
+          festival's traffic. What M50 added is the missing other half: the
+          picker used to say "ask an admin" with no way to, so `onSuggest`
+          files the ask and an admin mints the row. An admin's own copy of
+          this form gets `onCreate` instead. The gate is the server — the
+          create route lives under `/api/v1/admin` — not which prop is
+          passed.
+        */}
+        <Field
+          label="Occasions this suits"
+          optional
+          labelAsText
+          hint="Puts the listing on each occasion's page."
+          className={styles.occasionPicker}
+        >
+          <Combobox
+            label="Occasions this suits"
+            hideLabel
+            multiple
+            placeholder="Search occasions…"
+            value={values.occasionIds}
+            onChange={(next) => set("occasionIds", next)}
+            options={occasionOptions}
+            emptyMessage="No occasion by that name."
+            onCreate={taxonomy?.createOccasion}
+            onSuggest={taxonomy?.suggestOccasion}
+            createNoun="occasion"
+          />
+        </Field>
+
+        {/* Food only. A candle has no dietary tags, and asking reads as a
+            form that doesn't know what it's selling. */}
+        {!isCraft && (
+          <Fieldset legend="Dietary" optional>
+            <ChipRow>
+              {DIETARY_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={values.dietary.includes(option.value)}
+                  onClick={() => toggleDietary(option.value)}
+                />
+              ))}
+            </ChipRow>
+          </Fieldset>
+        )}
+
+        <Fieldset legend="Tags" optional>
+          <ChipRow>
+            {TAG_OPTIONS.map((tag) => (
+              <Chip key={tag} label={tag} selected={values.tags.includes(tag)} onClick={() => toggleTag(tag)} />
+            ))}
+          </ChipRow>
+        </Fieldset>
+
+        <div className={styles.options}>
+          <CheckRow
+            label={isCraft ? "Ready to ship" : "Ready-to-ship, packaged"}
+            help={
+              isCraft
+                ? "Untick if each piece is made to order after somebody buys it."
+                : "Untick if you cook it to order — buyers are then offered your preparation time."
+            }
+            checked={values.isPackaged}
+            onChange={(event) => set("isPackaged", event.target.checked)}
+          />
+          {!isCraft && (
+            <CheckRow
+              label="Also list it on my snacks menu"
+              help="Snacks are ordered over WhatsApp rather than checked out on the site. It stays in the main shop either way."
+              checked={values.isSnack}
+              onChange={(event) => set("isSnack", event.target.checked)}
+            />
+          )}
+          <CheckRow
+            label="This is a ready-made gift hamper"
+            help="Also lists it on the Gift hampers page. It stays in the main shop either way — a hamper is a listing like any other, priced and packed by you."
+            checked={values.isHamper}
+            onChange={(event) => set("isHamper", event.target.checked)}
+          />
+        </div>
+      </FormSection>
     </div>
   );
 }

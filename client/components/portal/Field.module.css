@@ -1,0 +1,329 @@
+/* The one field recipe — see Field.tsx. Every value is a token; the
+   sizes (44px control, 15px type) are the ones the guided listing flow
+   settled on, because it is the one form here that was designed for a
+   phone in a kitchen rather than a desk. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--hk-ink);
+}
+
+.optional {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--hk-muted);
+}
+
+.hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+  max-width: 64ch;
+}
+
+.hint code {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+}
+
+/* Terracotta on white is 4.55:1 (M34); this is never set on a tint. */
+.error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hk-terracotta);
+}
+
+/* ---- Controls ------------------------------------------------------- */
+
+.control {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--hk-ink);
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease);
+}
+
+.control::placeholder {
+  color: var(--hk-muted);
+}
+
+.control:hover:not(:disabled):not(:focus-visible) {
+  border-color: var(--hk-muted-2);
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+  border-color: var(--hk-pine);
+}
+
+.control:disabled {
+  background: var(--hk-surface-2);
+  color: var(--hk-muted);
+  cursor: not-allowed;
+}
+
+.invalid,
+.invalid:hover:not(:disabled) {
+  border-color: var(--hk-terracotta);
+}
+
+.dense {
+  min-height: 40px;
+  padding: 8px 11px;
+  font-size: 14px;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.55;
+}
+
+/* ---- Select --------------------------------------------------------- */
+
+.selectWrap {
+  position: relative;
+  display: block;
+}
+
+.select {
+  appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+.chevron {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--hk-muted);
+}
+
+/* ---- Affixes -------------------------------------------------------- */
+
+.affixWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.affixStart,
+.affixEnd {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  color: var(--hk-muted);
+  pointer-events: none;
+}
+
+.affixStart {
+  left: 13px;
+}
+
+.affixEnd {
+  right: 13px;
+}
+
+.hasStart {
+  padding-left: 32px;
+}
+
+.hasEnd {
+  padding-right: 52px;
+}
+
+/* ---- Checkbox row --------------------------------------------------- */
+
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.checkRow input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--hk-pine);
+  cursor: pointer;
+}
+
+.checkText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.checkLabel {
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--hk-ink);
+}
+
+.checkHelp {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+  max-width: 60ch;
+}
+
+/* ---- Switch --------------------------------------------------------- */
+
+.switchRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  color: var(--hk-ink);
+  cursor: pointer;
+  border-radius: var(--hk-r-sm);
+}
+
+.switchRow:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.switchRow:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.switchTrack {
+  position: relative;
+  flex-shrink: 0;
+  width: 40px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-border-2);
+  transition: background var(--hk-dur) var(--hk-ease);
+}
+
+.switchThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(29, 43, 35, 0.25);
+  transition: transform var(--hk-dur) var(--hk-ease);
+}
+
+.switchRow[aria-checked="true"] .switchTrack {
+  background: var(--hk-pine);
+}
+
+.switchRow[aria-checked="true"] .switchThumb {
+  transform: translateX(16px);
+}
+
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.switchLabel {
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.switchHelp {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--hk-muted);
+  max-width: 60ch;
+}
+
+/* ---- Layout helpers ------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hk-s4);
+}
+
+.grid3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: 2px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--hk-ink);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+@media (max-width: 640px) {
+  .grid,
+  .grid3 {
+    grid-template-columns: 1fr;
+  }
+}

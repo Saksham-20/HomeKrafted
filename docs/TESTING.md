@@ -650,10 +650,25 @@ Worth trying to break:
 Sign in as any of the three HomeKrafter accounts.
 
 Every HomeKrafter now sees **one dashboard with the same full menu**:
-Dashboard, Analytics, Listings, Menu, Meal plans, Orders, Storefront,
-Profile, Payouts, Reviews. (Pickups is off the nav — laundry is withdrawn —
-but the screen still exists and the dashboard links to it if you have a
-booking still in flight.)
+Dashboard, Analytics, Products, Snacks menu, Meal plans, Orders, Shop
+page, About your kitchen, Earnings & payouts, Reviews. (Pickups is off
+the nav — laundry is withdrawn — but the screen still exists and the
+dashboard links to it if you have a booking still in flight.)
+
+**The portal was rebuilt on 2026-09-04 — things to look for on every
+screen.** Long forms (About your kitchen, the product form, meal plans,
+Shop page) are split into titled sections with a **jump list** on the
+right (it becomes a chip strip on a phone); a section that still needs
+filling shows "N to fill" and the dot turns gold. At the bottom is a
+**save bar** whose Save button only lights up once you have changed
+something, with **Discard** beside it; after a save it says "Saved".
+Errors appear under the field they belong to, the moment you leave it.
+Lists (Products, Orders, Snack orders) open on a row of **filter pills
+with counts** — Orders opens on *Needs a hand*, the orders you have to
+act on. Report a filter pill whose count disagrees with what the list
+shows, a section the jump list scrolls to the wrong place for, a save
+bar that stays lit after a save, or an error message that appears
+nowhere near its field.
 
 **All three accounts have the same modules working.** There is one role,
 so any HomeKrafter can add food. Pickups is the exception now: laundry is
@@ -751,12 +766,12 @@ bug — report it with the account and module name.
 Then exercise the rest:
 
 - Dashboard summary numbers
-- **Listings / Menu** — create a new one, edit an existing one
+- **Products / Snacks menu** — create a new one, edit an existing one
 - **Orders** — open an order, move it through its statuses
 - **Pickups** — open a pickup, update it
-- **Payouts** — earnings and payout history
+- **Earnings & payouts** — earnings and payout history
 - **Reviews** — customer reviews, and replying to one
-- **Storefront** — edit your public shop page, then view it as a shopper
+- **Shop page** — edit your public shop page, then view it as a shopper
 
 **Important:** a HomeKrafter must only ever see their **own** data. If you
 can see another HomeKrafter's orders, listings, or payouts, **stop and
@@ -850,6 +865,20 @@ Worth trying to break:
 
 ### 8. Admin panel
 Sign in as **admin** at https://homekrafted.in/admin/login
+
+**Rebuilt on 2026-09-04.** The sidebar is grouped (Overview, People,
+Orders & money, Catalogue, Inbox, System) and the queues carry a **count
+badge** — applications, listings waiting, support tickets waiting on us,
+payout requests, new enquiries. Every list opens on the filter that has
+work in it (Waiting, Pending, Not booked) with the same row of filter
+pills and a pager at the bottom; a filter pill's count comes from the
+server, so it should agree with the badge in the sidebar. Detail screens
+have a "← back" link above the title. Nothing uses a browser pop-up any
+more: calling off a parcel, renaming a category, withdrawing a quote
+link and refunding an order each ask inline, with a sentence saying what
+the button does. Report a badge that disagrees with its queue, a pill
+count that disagrees with the rows, or a Save button that stays lit after
+saving.
 
 - **Dashboard** — the top card is the needs-attention queue (M37): one
   row per thing waiting on an admin (applications, listings to approve,

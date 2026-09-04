@@ -236,3 +236,8 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.statusField {
+  flex: 1 1 240px;
+  max-width: 320px;
+}

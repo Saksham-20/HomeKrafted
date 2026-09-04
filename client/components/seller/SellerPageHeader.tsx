@@ -1,21 +1,8 @@
-import type { ReactNode } from "react";
-import styles from "./SellerPageHeader.module.css";
+import { PortalPageHeader, type PortalPageHeaderProps } from "@/components/portal/PortalPageHeader";
 
-export interface SellerPageHeaderProps {
-  title: string;
-  subtitle?: string;
-  actions?: ReactNode;
-}
+export type SellerPageHeaderProps = PortalPageHeaderProps;
 
-/** Shared page-title row for every `/seller/*` screen — title/subtitle left, action buttons (e.g. "Add listing") right, wraps on mobile. */
-export function SellerPageHeader({ title, subtitle, actions }: SellerPageHeaderProps) {
-  return (
-    <div className={styles.header}>
-      <div className={styles.titleGroup}>
-        <h1 className={styles.title}>{title}</h1>
-        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
-      </div>
-      {actions && <div className={styles.actions}>{actions}</div>}
-    </div>
-  );
+/** The `/seller/*` page-title row — `PortalPageHeader`, kept under its old name so forty call sites did not have to change (2026-09-04). */
+export function SellerPageHeader(props: SellerPageHeaderProps) {
+  return <PortalPageHeader {...props} />;
 }

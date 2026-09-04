@@ -5,6 +5,8 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -74,28 +76,35 @@ export function AdminDashboardClient() {
     return (
       <div>
         <AdminPageHeader title="Dashboard" subtitle="Platform-wide overview, unscoped across every HomeKrafter." />
-        <Card className={styles.callout}>
-          <span className={styles.calloutText} role="alert">
-            {error}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setLoading(true);
-              setError(null);
-              setReloadToken((n) => n + 1);
-            }}
-          >
-            Retry
-          </Button>
-        </Card>
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Notice>
       </div>
     );
   }
 
   if (!ready || loading || !snapshot) {
-    return <div className={styles.loading}>Loading platform overview…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Dashboard" subtitle="Platform-wide overview, unscoped across every HomeKrafter." />
+        <LoadingRows rows={5} />
+      </div>
+    );
   }
 
   // The needs-attention queue (M37): one row per thing waiting on an
@@ -132,10 +141,9 @@ export function AdminDashboardClient() {
                 <span className={styles.calloutText}>
                   <strong>{row.count}</strong> {row.label}
                 </span>
-                <Link href={row.href}>
-                  <Button variant="secondary" size="sm">
-                    Open
-                  </Button>
+                {/* A link, not a button inside one: it opens a page. */}
+                <Link href={row.href} className={styles.attentionLink}>
+                  Open →
                 </Link>
               </li>
             ))}

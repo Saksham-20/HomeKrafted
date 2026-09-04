@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Field, Input } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
 import { ApiError } from "@/lib/api/http";
 import { createCategory, getCategoryTree, updateCategory } from "@/lib/api/admin";
@@ -24,9 +28,13 @@ import styles from "./CategoriesClient.module.css";
  * once per parent for a subcategory — because those are two different
  * decisions and a single button with a parent dropdown makes the common
  * case (adding a child to the group you are looking at) the fiddly one.
+ *
+ * Renaming is inline (2026-09-04) where it was a `window.prompt`: the
+ * prompt could not say that the web address stays as it was, which is
+ * the one thing worth knowing before renaming a shelf.
  */
 
-type Draft = { parentId: string | null; group: ProductKind } | null;
+type Draft = { parentId: string | null; group: ProductKind; parentName?: string } | null;
 
 export function CategoriesClient() {
   const [tree, setTree] = useState<CategoryNode[] | null>(null);
@@ -34,6 +42,7 @@ export function CategoriesClient() {
   const [draft, setDraft] = useState<Draft>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
@@ -85,14 +94,21 @@ export function CategoriesClient() {
   }
 
   async function rename(id: string, current: string) {
-    const next = window.prompt("New name for this shelf", current)?.trim();
-    if (!next || next === current) return;
+    const next = renaming?.value.trim();
+    if (!next || next === current) {
+      setRenaming(null);
+      return;
+    }
+    setSaving(true);
     setError(null);
     try {
       await updateCategory(id, { name: next });
+      setRenaming(null);
       setReloadToken((n) => n + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "That did not save.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -109,16 +125,22 @@ export function CategoriesClient() {
           void submit();
         }}
       >
-        <label className={styles.field}>
-          <span className={styles.label}>{draft.parentId ? "Subcategory name" : "Category name"}</span>
-          <input
-            className={styles.input}
+        <Field
+          label={draft.parentId ? "Subcategory name" : "Category name"}
+          hint={
+            draft.parentId
+              ? `Sits under ${draft.parentName ?? "this shelf"} and shows on the same side of the catalogue.`
+              : "A top-level shelf. Buyers see it in the header's menu once something is listed on it."
+          }
+        >
+          <Input
             value={name}
+            maxLength={60}
             onChange={(event) => setName(event.target.value)}
             placeholder={draft.parentId ? "e.g. For Grandparents" : "e.g. Shop by price"}
             autoFocus
           />
-        </label>
+        </Field>
         <div className={styles.addActions}>
           <Button size="sm" type="submit" disabled={saving || !name.trim()}>
             {saving ? "Adding…" : "Add"}
@@ -139,7 +161,7 @@ export function CategoriesClient() {
     );
   }
 
-  function addButton(parentId: string | null, group: ProductKind, label: string) {
+  function addButton(parentId: string | null, group: ProductKind, label: string, parentName?: string) {
     const key = `${group}:${parentId ?? "root"}`;
     return (
       <>
@@ -147,7 +169,7 @@ export function CategoriesClient() {
           className={styles.add}
           type="button"
           onClick={() => {
-            setDraft({ parentId, group });
+            setDraft({ parentId, group, parentName });
             setName("");
           }}
           aria-label={label}
@@ -156,6 +178,49 @@ export function CategoriesClient() {
         </button>
         {addForm(key)}
       </>
+    );
+  }
+
+  function nameControl(node: { id: string; name: string }) {
+    if (renaming?.id === node.id) {
+      return (
+        <form
+          className={styles.renameForm}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void rename(node.id, node.name);
+          }}
+        >
+          <Input
+            dense
+            aria-label={`New name for ${node.name}`}
+            value={renaming.value}
+            maxLength={60}
+            autoFocus
+            onChange={(event) => setRenaming({ id: node.id, value: event.target.value })}
+          />
+          <Button size="sm" type="submit" disabled={saving || !renaming.value.trim()}>
+            {saving ? "Saving…" : "Rename"}
+          </Button>
+          <Button size="sm" type="button" variant="secondary" onClick={() => setRenaming(null)}>
+            Cancel
+          </Button>
+          {/* The one thing worth knowing before renaming a shelf: the slug
+              is in every shared URL and everything Google has indexed, so
+              it never follows the name (M58). */}
+          <span className={styles.renameHint}>The web address stays the same.</span>
+        </form>
+      );
+    }
+    return (
+      <button
+        className={styles.name}
+        onClick={() => setRenaming({ id: node.id, value: node.name })}
+        type="button"
+        aria-label={`Rename ${node.name}`}
+      >
+        {node.name}
+      </button>
     );
   }
 
@@ -174,23 +239,15 @@ export function CategoriesClient() {
               <li className={styles.parent} key={parent.id}>
                 <Card className={styles.parentCard}>
                   <div className={styles.parentHead}>
-                    <button className={styles.name} onClick={() => rename(parent.id, parent.name)} type="button">
-                      {parent.name}
-                    </button>
+                    {nameControl(parent)}
                     <span className={styles.slug}>{parent.slug}</span>
-                    {addButton(parent.id, group, `Add a subcategory under ${parent.name}`)}
+                    {addButton(parent.id, group, `Add a subcategory under ${parent.name}`, parent.name)}
                   </div>
                   {parent.children.length > 0 && (
                     <ul className={styles.children}>
                       {parent.children.map((child) => (
                         <li className={styles.child} key={child.id}>
-                          <button
-                            className={styles.name}
-                            onClick={() => rename(child.id, child.name)}
-                            type="button"
-                          >
-                            {child.name}
-                          </button>
+                          {nameControl(child)}
                           <span className={styles.slug}>{child.slug}</span>
                         </li>
                       ))}
@@ -206,24 +263,19 @@ export function CategoriesClient() {
   }
 
   return (
-    <div className={styles.wrap}>
-      <header className={styles.head}>
-        <h1 className={styles.title}>Categories</h1>
-        <p className={styles.sub}>
-          The shelves buyers browse by. A HomeKrafter can ask for one from their listing form; approving
-          that ask is what creates it, and so is the button here.
-        </p>
-      </header>
+    <div>
+      <AdminPageHeader
+        title="Categories"
+        subtitle="The shelves buyers browse by. A HomeKrafter can ask for one from their listing form; approving that ask is what creates it, and so is the button here. Press a name to rename it."
+      />
 
       <CatalogTabs active="categories" />
 
       {/* `aria-live` so a refusal is announced, not only drawn (M36). */}
-      <div aria-live="polite" className={styles.live}>
-        {error ? <p className={styles.error}>{error}</p> : null}
-      </div>
+      <div aria-live="polite">{error ? <Notice tone="danger">{error}</Notice> : null}</div>
 
       {tree === null ? (
-        <p className={styles.empty}>Loading…</p>
+        <LoadingRows rows={4} />
       ) : (
         <>
           {section("Homemade food", "food", food)}

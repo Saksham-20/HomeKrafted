@@ -3,6 +3,13 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Field, TextArea } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { formatDate } from "@/lib/format";
 import { ApiError } from "@/lib/api/http";
 import {
@@ -38,6 +45,11 @@ export function DespatchQueueClient() {
   const [rows, setRows] = useState<AdminConsignment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // The parcel whose call-off reason is being typed. Inline rather than
+  // `window.prompt`: the prompt cannot say what the reason is for, and a
+  // cancellation here is recorded on somebody's order.
+  const [callingOff, setCallingOff] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   // Bumped to re-run the effect after an action, instead of calling a
   // shared loader — an effect that calls `setState` on a path the linter
@@ -75,6 +87,8 @@ export function DespatchQueueClient() {
     setError(null);
     try {
       await fn();
+      setCallingOff(null);
+      setReason("");
       setReloadToken((n) => n + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "That did not go through.");
@@ -84,37 +98,34 @@ export function DespatchQueueClient() {
   }
 
   return (
-    <div className={styles.wrap}>
-      <header className={styles.head}>
-        <h1 className={styles.title}>Despatch</h1>
-        <p className={styles.sub}>Courier parcels. A parcel that could not be booked is a paid order with no rider.</p>
-      </header>
+    <div>
+      <AdminPageHeader
+        title="Despatch"
+        subtitle="Courier parcels. A parcel that could not be booked is a paid order with no rider."
+      />
 
-      <div className={styles.filters} role="group" aria-label="Filter parcels">
-        {FILTERS.map((f) => (
-          <button
-            className={styles.filter}
-            data-active={filter === f.value ? "true" : undefined}
-            key={f.value}
-            onClick={() => setFilter(f.value)}
-            type="button"
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter parcels"
+          value={filter}
+          onChange={(next) => {
+            setFilter(next);
+            setRows(null);
+          }}
+          options={FILTERS}
+        />
+      </Toolbar>
 
       {/* `aria-live` so a refusal is announced, not just drawn (M36). */}
-      <div aria-live="polite" className={styles.live}>
-        {error ? <p className={styles.error}>{error}</p> : null}
-      </div>
+      <div aria-live="polite">{error ? <Notice tone="danger">{error}</Notice> : null}</div>
 
       {rows === null ? (
-        <p className={styles.empty}>Loading…</p>
+        <LoadingRows rows={4} />
       ) : rows.length === 0 ? (
-        <Card className={styles.emptyCard}>
-          <p className={styles.empty}>Nothing here. Every parcel in this state is accounted for.</p>
-        </Card>
+        <EmptyState
+          title="Nothing here."
+          body="Every parcel in this state is accounted for. A parcel lands in the queue when a kitchen marks an order packed."
+        />
       ) : (
         <ul className={styles.list}>
           {rows.map((row) => (
@@ -138,30 +149,66 @@ export function DespatchQueueClient() {
                     {row.bookAttempts > 0 ? ` · ${row.bookAttempts} booking attempt${row.bookAttempts === 1 ? "" : "s"}` : ""}
                     {row.riderName ? ` · rider ${row.riderName}` : ""}
                   </p>
-                </div>
-                <div className={styles.actions}>
-                  {!row.awbNumber && row.status !== "cancelled" ? (
-                    <Button disabled={busy === row.id} onClick={() => act(row.id, () => bookConsignment(row.id))} size="sm">
-                      {busy === row.id ? "Booking…" : "Book a rider"}
-                    </Button>
+
+                  {callingOff === row.id ? (
+                    <div className={styles.reasonBox}>
+                      <Field
+                        label="Why is this parcel being called off?"
+                        hint="Recorded on the parcel. The order itself is untouched — cancel or refund it from the order's own page."
+                      >
+                        <TextArea
+                          rows={2}
+                          autoFocus
+                          value={reason}
+                          onChange={(event) => setReason(event.target.value)}
+                          placeholder="e.g. Kitchen will hand it over themselves."
+                        />
+                      </Field>
+                      <div className={styles.actions}>
+                        <Button
+                          size="sm"
+                          disabled={busy === row.id || reason.trim().length < 3}
+                          onClick={() => act(row.id, () => cancelConsignment(row.id, reason.trim()))}
+                        >
+                          {busy === row.id ? "Calling off…" : "Call off parcel"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={busy === row.id}
+                          onClick={() => {
+                            setCallingOff(null);
+                            setReason("");
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
                   ) : null}
-                  {row.status !== "delivered" && row.status !== "cancelled" ? (
-                    <Button
-                      disabled={busy === row.id}
-                      onClick={() => {
-                        const reason = window.prompt("Why is this parcel being called off?")?.trim();
-                        // A cancellation needs a reason and the server
-                        // refuses one without it, so an empty prompt is a
-                        // no-op rather than a request that 400s.
-                        if (reason) void act(row.id, () => cancelConsignment(row.id, reason));
-                      }}
-                      size="sm"
-                      variant="secondary"
-                    >
-                      Call off
-                    </Button>
-                  ) : null}
                 </div>
+                {callingOff !== row.id ? (
+                  <div className={styles.actions}>
+                    {!row.awbNumber && row.status !== "cancelled" ? (
+                      <Button disabled={busy === row.id} onClick={() => act(row.id, () => bookConsignment(row.id))} size="sm">
+                        {busy === row.id ? "Booking…" : "Book a rider"}
+                      </Button>
+                    ) : null}
+                    {row.status !== "delivered" && row.status !== "cancelled" ? (
+                      <Button
+                        disabled={busy === row.id}
+                        onClick={() => {
+                          setCallingOff(row.id);
+                          setReason("");
+                        }}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        Call off
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
               </Card>
             </li>
           ))}

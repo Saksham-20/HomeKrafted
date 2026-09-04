@@ -2,14 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { Card } from "@/components/ui/Card";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { Button } from "@/components/ui/Button";
+import { CheckRow, Fieldset, Switch } from "@/components/portal/Field";
+import { FormPage } from "@/components/portal/FormPage";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { SaveBar } from "@/components/portal/SaveBar";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { apiErrorMessage, getUserById, setAdminAccess, setUserSuspended } from "@/lib/api";
-import { Chip } from "@/components/ui/Chip";
+import { isDirty } from "@/lib/portal/dirty";
 import type { AdminScope } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import type { User } from "@/lib/types";
@@ -19,16 +24,28 @@ import styles from "./UserDetailClient.module.css";
  * The sections, in the order they appear in the panel's own sidebar, so
  * ticking them reads as walking down the nav rather than a bag of words.
  */
-const ADMIN_SCOPES: { value: AdminScope; label: string }[] = [
-  { value: "analytics", label: "Dashboard & analytics" },
-  { value: "users", label: "Users & audit" },
-  { value: "sellers", label: "HomeKrafters" },
-  { value: "orders", label: "Orders & corporate" },
-  { value: "catalog", label: "Catalog & collections" },
-  { value: "finance", label: "Wallet & payouts" },
-  { value: "support", label: "Support" },
-  { value: "settings", label: "Settings" },
+const ADMIN_SCOPES: { value: AdminScope; label: string; help: string }[] = [
+  { value: "analytics", label: "Dashboard & analytics", help: "The overview and the reports." },
+  { value: "users", label: "Users & audit", help: "Every account, and the audit trail. This is the section that hands out sections — give it out last." },
+  { value: "sellers", label: "HomeKrafters", help: "Approvals, verification and sign-in details." },
+  { value: "orders", label: "Orders & corporate", help: "Order detail, status corrections, refunds, despatch and bulk enquiries." },
+  { value: "catalog", label: "Catalog & collections", help: "The review queue, categories, occasions and gift guides." },
+  { value: "finance", label: "Wallet & payouts", help: "Moves money." },
+  { value: "support", label: "Support", help: "Customer tickets." },
+  { value: "settings", label: "Settings", help: "Commission, delivery and meal lock time." },
 ];
+
+interface AccessDraft {
+  isAdmin: boolean;
+  scopes: AdminScope[];
+}
+
+function toAccess(user: User | null | undefined): AccessDraft {
+  return {
+    isAdmin: user?.role === "admin",
+    scopes: [...(user?.adminScopes ?? [])].sort(),
+  };
+}
 
 export interface UserDetailClientProps {
   userId: string;
@@ -39,12 +56,13 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
   const { ready, role } = useAuth();
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [suspending, setSuspending] = useState(false);
 
   // M47 — sub-admin access. Its own draft and its own save, because
   // granting somebody the payouts screen and suspending an account are
   // not the same decision and do not share an endpoint.
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [scopes, setScopes] = useState<AdminScope[]>([]);
+  const [access, setAccess] = useState<AccessDraft>({ isAdmin: false, scopes: [] });
+  const [initialAccess, setInitialAccess] = useState<AccessDraft | undefined>(undefined);
   const [accessSaving, setAccessSaving] = useState(false);
   const [accessSaved, setAccessSaved] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
@@ -56,8 +74,9 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
       const found = await getUserById(userId);
       if (cancelled) return;
       setUser(found ?? null);
-      setIsAdmin(found?.role === "admin");
-      setScopes(found?.adminScopes ?? []);
+      const draft = toAccess(found);
+      setAccess(draft);
+      setInitialAccess(draft);
     })();
     return () => {
       cancelled = true;
@@ -65,23 +84,32 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
   }, [ready, role, userId]);
 
   async function handleToggleSuspend() {
-    if (!user) return;
+    if (!user || suspending) return;
     const nextSuspended = !(user.suspended ?? false);
     setError(null);
+    setSuspending(true);
     try {
       const updated = await setUserSuspended(user.id, nextSuspended);
       if (updated) setUser({ ...updated });
     } catch (err) {
       setError(apiErrorMessage(err, "Couldn't change that account. Try again."));
+    } finally {
+      setSuspending(false);
     }
   }
 
-  function toggleScope(scope: AdminScope) {
+  function patchAccess(patch: Partial<AccessDraft>) {
     setAccessSaved(false);
     setAccessError(null);
-    setScopes((current) =>
-      current.includes(scope) ? current.filter((s) => s !== scope) : [...current, scope],
-    );
+    setAccess((current) => ({ ...current, ...patch }));
+  }
+
+  function toggleScope(scope: AdminScope) {
+    patchAccess({
+      scopes: access.scopes.includes(scope)
+        ? access.scopes.filter((s) => s !== scope)
+        : [...access.scopes, scope].sort(),
+    });
   }
 
   async function handleAccessSave() {
@@ -89,11 +117,14 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
     setAccessSaving(true);
     setAccessError(null);
     try {
-      const updated = await setAdminAccess(user.id, { isAdmin, scopes });
+      const updated = await setAdminAccess(user.id, { isAdmin: access.isAdmin, scopes: access.scopes });
       if (updated) {
         setUser({ ...updated });
-        setScopes(updated.adminScopes ?? []);
-        setIsAdmin(updated.role === "admin");
+        const draft = toAccess(updated);
+        setAccess(draft);
+        setInitialAccess(draft);
+      } else {
+        setInitialAccess(access);
       }
       setAccessSaved(true);
     } catch (err) {
@@ -104,7 +135,12 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
   }
 
   if (!ready || user === undefined) {
-    return <div className={styles.loading}>Loading user…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Account" back={{ href: "/admin/users", label: "Users" }} />
+        <LoadingRows rows={4} />
+      </div>
+    );
   }
 
   if (user === null) {
@@ -119,131 +155,119 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
   }
 
   const suspended = user.suspended ?? false;
+  const accessDirty = isDirty(initialAccess, access);
 
   return (
     <div>
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
-      <Link href="/admin/users" className={styles.back}>
-        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-        Back to users
-      </Link>
+      <AdminPageHeader
+        back={{ href: "/admin/users", label: "Users" }}
+        eyebrow="Account"
+        title={user.name}
+        subtitle={user.email ?? user.phone ?? user.id}
+        actions={
+          <>
+            <Link href={`/admin/wallet/${user.id}`} className={styles.linkButton}>
+              Open wallet
+            </Link>
+            <Button variant="secondary" onClick={handleToggleSuspend} disabled={suspending}>
+              {suspending ? "Saving…" : suspended ? "Reactivate account" : "Suspend account"}
+            </Button>
+          </>
+        }
+      />
 
-      <div className={styles.header}>
-        <span className={styles.avatar} aria-hidden="true">
-          {user.name.charAt(0).toUpperCase()}
-        </span>
-        <div className={styles.headerBody}>
-          <h1 className={styles.name}>{user.name}</h1>
-          <div className={styles.badges}>
-            <StatusPill status={user.role} />
-            <StatusPill status={suspended ? "suspended" : "active"} />
-          </div>
-        </div>
-        <div className={styles.headerActions}>
-          <Button variant="secondary" onClick={handleToggleSuspend}>
-            {suspended ? "Reactivate account" : "Suspend account"}
-          </Button>
-        </div>
+      <div className={styles.badges}>
+        <StatusPill status={user.role} />
+        <StatusPill status={suspended ? "suspended" : "active"} />
       </div>
 
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Account details</span>
-        <div className={styles.grid}>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Email</span>
-            <span className={styles.fieldValue}>{user.email ?? "—"}</span>
-          </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Phone</span>
-            <span className={styles.fieldValue}>{user.phone ?? "—"}</span>
-          </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Joined</span>
-            <span className={styles.fieldValue}>{formatDate(user.createdAt)}</span>
-          </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Auth methods</span>
-            <span className={styles.fieldValue}>{user.authProviders.join(", ")}</span>
-          </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Referral code</span>
-            <span className={styles.fieldValue}>{user.referralCode}</span>
-          </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>User ID</span>
-            <span className={styles.fieldValue}>{user.id}</span>
-          </div>
-        </div>
-      </Card>
+      {error && <Notice tone="danger">{error}</Notice>}
 
-      {/*
-        M47 — sub-admins. Sections rather than per-endpoint permissions,
-        because a section is what an operator is actually handed ("you
-        handle the review queue"). Thirty checkboxes read as more rigorous
-        and end with everybody holding all thirty.
-      */}
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Admin access</span>
-        <p className={styles.accessLead}>
-          A sub-admin sees only the sections you tick, and the server refuses the rest — hiding
-          a link is not the gate.
-        </p>
+      <FormPage
+        sections={[
+          { id: "account-details", label: "Account details" },
+          { id: "account-access", label: "Admin access" },
+        ]}
+        navLabel="On this page"
+      >
+        <FormSection id="account-details" title="Account details">
+          <div className={styles.grid}>
+            <Fact label="Email" value={user.email ?? "—"} />
+            <Fact label="Phone" value={user.phone ?? "—"} />
+            <Fact label="Joined" value={formatDate(user.createdAt)} />
+            <Fact label="Sign-in methods" value={user.authProviders.join(", ") || "—"} />
+            <Fact label="Referral code" value={user.referralCode} />
+            <Fact label="User ID" value={user.id} />
+          </div>
+          <p className={styles.footnote}>
+            Suspending takes effect on their next request — they are signed out everywhere and every
+            call is refused until reactivated.
+          </p>
+        </FormSection>
 
-        <label className={styles.accessToggle}>
-          <input
-            type="checkbox"
-            checked={isAdmin}
-            onChange={(event) => {
-              setIsAdmin(event.target.checked);
-              setAccessSaved(false);
-              setAccessError(null);
-            }}
+        {/*
+          M47 — sub-admins. Sections rather than per-endpoint permissions,
+          because a section is what an operator is actually handed ("you
+          handle the review queue"). Thirty checkboxes read as more rigorous
+          and end with everybody holding all thirty.
+        */}
+        <FormSection
+          id="account-access"
+          title="Admin access"
+          description="A sub-admin sees only the sections you tick, and the server refuses the rest — hiding a link is not the gate."
+          status={
+            access.isAdmin
+              ? { label: `${access.scopes.length} of ${ADMIN_SCOPES.length} sections`, tone: "neutral" }
+              : undefined
+          }
+        >
+          <Switch
+            checked={access.isAdmin}
+            onChange={(next) => patchAccess({ isAdmin: next, scopes: next ? access.scopes : [] })}
+            label="This person is an admin"
+            help="Turning it off removes every section at once."
           />
-          <span>This person is an admin</span>
-        </label>
 
-        {isAdmin && (
-          <>
-            <span className={styles.accessLabel}>Sections they cover</span>
-            <div className={styles.accessChips}>
+          {access.isAdmin && (
+            <Fieldset
+              legend="Sections they cover"
+              hint="An admin with no sections is refused — tick at least one."
+            >
               {ADMIN_SCOPES.map((scope) => (
-                <Chip
+                <CheckRow
                   key={scope.value}
                   label={scope.label}
-                  selected={scopes.includes(scope.value)}
-                  onClick={() => toggleScope(scope.value)}
+                  help={scope.help}
+                  checked={access.scopes.includes(scope.value)}
+                  onChange={() => toggleScope(scope.value)}
                 />
               ))}
-            </div>
-            <p className={styles.accessHint}>
-              <strong>Users</strong> is the section that hands out these sections — give it out
-              last.
-            </p>
-          </>
-        )}
-
-        <div className={styles.accessActions}>
-          <Button variant="primary" size="sm" onClick={handleAccessSave} disabled={accessSaving}>
-            {accessSaving ? "Saving…" : "Save admin access"}
-          </Button>
-          {accessSaved && !accessError && <span className={styles.accessSaved}>Saved.</span>}
-          {accessError && (
-            <span className={styles.error} role="alert">
-              {accessError}
-            </span>
+            </Fieldset>
           )}
-        </div>
-      </Card>
+        </FormSection>
 
-      <p className={styles.footnote}>
-        Suspension is a mock flag today — it doesn&rsquo;t yet block sign-in
-        (no real session to gate). Wallet balance, orders and referral
-        history land here in M11b.
-      </p>
+        <SaveBar
+          dirty={accessDirty}
+          saving={accessSaving}
+          saved={accessSaved}
+          error={accessError ?? undefined}
+          onSave={handleAccessSave}
+          onDiscard={() => {
+            if (initialAccess) setAccess(initialAccess);
+            setAccessError(null);
+          }}
+          saveLabel="Save admin access"
+        />
+      </FormPage>
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldLabel}>{label}</span>
+      <span className={styles.fieldValue}>{value}</span>
     </div>
   );
 }

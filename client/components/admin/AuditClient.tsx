@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Input, Select } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatDate } from "@/lib/format";
@@ -73,12 +78,19 @@ export function AuditClient() {
     return (
       <div>
         <AdminPageHeader title="Audit trail" subtitle="Every admin action, newest first." />
-        <RouteSkeleton variant="list" count={8} />
+        {error ? <Notice tone="danger">{error}</Notice> : <LoadingRows rows={8} />}
       </div>
     );
   }
 
   const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
+  const filtered = Boolean(targetType || actorId);
+
+  function clearFilters() {
+    setTargetType("");
+    setActorId("");
+    setPage(1);
+  }
 
   return (
     <div>
@@ -87,11 +99,31 @@ export function AuditClient() {
         subtitle={`Every admin action, newest first. ${data.total} recorded.`}
       />
 
-      <Card className={styles.filters}>
-        <label className={styles.filter}>
-          <span className={styles.filterLabel}>Entity</span>
-          <select
-            className={styles.select}
+      <Toolbar
+        search={
+          <Input
+            dense
+            aria-label="Show only one admin's actions (paste their user id)"
+            value={actorId}
+            placeholder="Paste an admin's user id to see only their actions"
+            onChange={(event) => {
+              setActorId(event.target.value.trim());
+              setPage(1);
+            }}
+          />
+        }
+        end={
+          filtered ? (
+            <Button variant="secondary" size="sm" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          ) : undefined
+        }
+      >
+        <div className={styles.entitySelect}>
+          <Select
+            dense
+            aria-label="Filter by entity"
             value={targetType}
             onChange={(event) => {
               setTargetType(event.target.value);
@@ -104,63 +136,17 @@ export function AuditClient() {
                 {type}
               </option>
             ))}
-          </select>
-        </label>
-        <label className={styles.filter}>
-          <span className={styles.filterLabel}>Admin (user id)</span>
-          <input
-            className={styles.input}
-            value={actorId}
-            placeholder="Paste a user id to see only their actions"
-            onChange={(event) => {
-              setActorId(event.target.value.trim());
-              setPage(1);
-            }}
-          />
-        </label>
-        {(targetType || actorId) && (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setTargetType("");
-              setActorId("");
-              setPage(1);
-            }}
-          >
-            Clear filters
-          </Button>
-        )}
-      </Card>
+          </Select>
+        </div>
+      </Toolbar>
 
-      {error && (
-        <Card className={styles.error} role="alert">
-          {error}
-        </Card>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {data.items.length === 0 ? (
-        <Card className={styles.empty}>
-          <span className={styles.emptyTitle}>Nothing recorded yet</span>
-          <p className={styles.emptyBody}>
-            {targetType || actorId
-              ? "No admin actions match these filters. The log records approvals, refunds, moderation decisions and status changes as they happen."
-              : "Admin actions are recorded here as they happen — approvals, refunds, moderation decisions, status changes. Nothing has been done yet."}
-          </p>
-          {(targetType || actorId) && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setTargetType("");
-                setActorId("");
-                setPage(1);
-              }}
-            >
-              Clear filters
-            </Button>
-          )}
-        </Card>
+        <EmptyState
+          title={filtered ? "No admin actions match these filters." : "Nothing recorded yet."}
+          body="Admin actions are recorded here as they happen — approvals, refunds, moderation decisions, status changes."
+        />
       ) : (
         <div className={styles.list}>
           {data.items.map((entry) => (
@@ -169,29 +155,7 @@ export function AuditClient() {
         </div>
       )}
 
-      {totalPages > 1 && (
-        <div className={styles.pager}>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={data.page <= 1}
-          >
-            Previous
-          </Button>
-          <span className={styles.pageCount}>
-            Page {data.page} of {totalPages}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setPage((p) => p + 1)}
-            disabled={data.page >= totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pager page={data.page} lastPage={totalPages} onChange={setPage} />
     </div>
   );
 }

@@ -2,14 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SellerReviewCard } from "./SellerReviewCard";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { isMockMode } from "@/lib/api/http";
-import { getSellerReviews, replySellerReview } from "@/lib/api";
+import { apiErrorMessage, getSellerReviews, replySellerReview } from "@/lib/api";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import type { Review } from "@/lib/types";
 import styles from "./SellerReviewsClient.module.css";
+import { Notice } from "@/components/portal/Notice";
+import { Button } from "@/components/ui/Button";
 
 /** `/seller/reviews` (M10a) — reviews on this maker's products + vendor storefront, newest first, with a mock reply. */
 export function SellerReviewsClient() {
@@ -17,6 +21,7 @@ export function SellerReviewsClient() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Read through a ref so `load` has a stable identity: it is also the
   // reply handler's refresh, and re-creating it on every `seller` change
@@ -39,8 +44,15 @@ export function SellerReviewsClient() {
       const list = await getSellerReviews(sellerRef.current?.vendorId ?? "");
       setReviews(list);
     } catch (error) {
-      if (!isForbidden(error)) throw error;
-      setUnavailable(true);
+      if (isForbidden(error)) {
+        setUnavailable(true);
+        return;
+      }
+      // A failed read is not an empty screen. Rethrowing here reached no
+      // boundary (an effect's rejection is not a render error), so a
+      // rate-limited fetch rendered the empty state over real data — the
+      // M37 dashboard rule, applied to every list (2026-09-04).
+      setLoadError(apiErrorMessage(error, "Couldn't load your reviews. Try again."));
     } finally {
       setLoading(false);
     }
@@ -62,12 +74,43 @@ export function SellerReviewsClient() {
   }
 
   const noStorefront = ready && !!seller && !seller.vendorId;
+  if (loadError) {
+    return (
+      <div>
+        <SellerPageHeader title="Reviews" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                void load();
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
+
   if (noStorefront || unavailable) {
     return <ModuleUnavailable module="Reviews" />;
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading reviews…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Reviews" />
+        <LoadingRows rows={3} showLabel label={kitchenLoading("seller/reviews", MAKER_LOADING)} />
+      </div>
+    );
   }
 
   return (

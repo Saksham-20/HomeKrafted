@@ -1,5 +1,82 @@
 # Changelog
 
+## 2026-09-04 — the two portals, made usable: one form kit, section nav, save bars, and every queue on the same toolbar
+
+The HomeKrafter portal and the admin panel had grown screen by screen
+across forty milestones, and it showed: thirteen private copies of the
+same input recipe (11px mono uppercase labels on every one), a 4,800px
+single-column profile with no way to jump inside it, chip rows claiming
+`role="tablist"` (an axe *critical*), forty-one places that said
+"Loading…", and nothing anywhere that told you whether what you typed
+had been saved. The owner's brief — long, boring, disorganised forms on
+both sides — was right, and the fix is one kit rather than forty tweaks.
+
+- **`components/portal/` is the kit, and every portal screen is on it.**
+  `Field` (plain 14px label, optional tag, hint, `role="alert"` error,
+  wiring `id`/`aria-describedby`/`aria-invalid` to the control by
+  context) with `Input` (`affixStart`/`affixEnd` for ₹ and %), `Select`,
+  `TextArea` (`autoGrow`), `CheckRow`, `Switch` (`role="switch"`),
+  `FieldGrid`, `Fieldset`; `FormSection` (a card with an id, a status
+  chip and a footer); `FormPage` (the main column plus a sticky
+  `SectionNav` — IntersectionObserver-tracked, moves focus into the
+  section it scrolls to, honours reduced motion); `SaveBar` (sticky,
+  Save enabled only when `isDirty(initial, current)`, Discard, saving /
+  saved / error states); `SegmentedFilter` (`role="group"` of
+  `aria-pressed` buttons with counts); `Toolbar`, `Pager`, `Notice`,
+  `LoadingRows`, `ChoiceCards`, and `PortalPageHeader` with a back link
+  and an eyebrow — `SellerPageHeader`/`AdminPageHeader` are now thin
+  wrappers over it. `lib/portal/dirty.ts` is the one dirty check.
+- **HomeKrafter side, screen by screen.** *About your kitchen* (was
+  Profile) is eight sections with a jump nav whose dots say "3 to fill"
+  from the completion meter, so a gap is a link and not a sentence; the
+  pickup address and the kitchen pin share a section. The long product
+  form is five sections (photo · kind · basics · sizes & prices · details)
+  with inline validation on blur, a price grid instead of a stack of
+  labelled boxes, and a save bar; the guided flow is untouched and still
+  writes the same values. Meal plan and snack forms got the same shape
+  (a `ChoiceCards` mealtime, a `Switch` for "taking subscribers"). *Shop
+  page* (was Storefront) separates the look, the words and the sale.
+  *Products* (was Listings) opens on a toolbar of Live · Waiting for
+  approval · Needs changes · Sold out with counts — the filter label is
+  `moderationPill`'s own word, pinned by `moderation-copy.spec.ts`.
+  *Orders* opens on **Needs a hand** (placed, confirmed, packed) with
+  counts and a pager. Snack orders and pickups got the same filter bar.
+  Every "Loading…" is a `LoadingRows` skeleton, the seller ones labelled
+  from `kitchenLoading`.
+- **Admin side.** The sidebar is six groups (Overview · People · Orders &
+  money · Catalogue · Inbox · System) and the queues carry **badges** —
+  applications, listings (pending + flagged), support, payouts,
+  corporate — read once from the dashboard snapshot and refreshed on
+  window focus after a minute. Every queue (HomeKrafters, catalog,
+  orders, users, payouts, support, reviews, corporate, suggestions,
+  despatch, audit, wallet) is the same `Toolbar` + `SegmentedFilter` +
+  `Pager`, opening on the filter with work in it (Waiting / Pending /
+  Not booked); the sixteen-chip specialty wall is a select. Settings is
+  three annotated sections with a `Switch` for the commission gate and a
+  save bar. Detail screens (HomeKrafter, account, order, wallet,
+  enquiry) have a back link, an eyebrow, sections, and — where they had
+  none — a nav. **No `window.prompt` or `window.confirm` is left in
+  either portal:** despatch call-off, category rename, quote-link
+  withdrawal and the order refund are inline two-step forms in our own
+  type, and each says what it does before the button. Account detail's
+  admin access is a `Switch` plus a fieldset of sections with a
+  sentence each, saved from a dirty-aware bar; its "suspension is a mock
+  flag" footnote — untrue since M21 — is gone.
+- **A failed read is an error with a Try again, never an empty screen.**
+  Every HomeKrafter list and form loaded with `if (!isForbidden(error))
+  throw error` — a rethrow that reached no boundary, because an effect's
+  rejection is not a render error — so a rate-limited fetch rendered
+  "Nothing listed yet" over three live products during this very QA.
+  The eleven screens that shared the pattern now keep a `loadError` and
+  render a `Notice` with a retry (the M37 dashboard rule, applied to
+  everything). Deleting a product or a snack is an inline two-press
+  confirmation with its own `catch`, where it was a `window.confirm`
+  around a bare `await`.
+- **Two accessibility fixes found on the way.** `CollectionsTabs` was a
+  `role="tablist"` of anchors (the `CatalogTabs` fix from M27 had not
+  reached it); the dashboard's needs-attention rows rendered a `<Button>`
+  inside a `<Link>`. Both are links now.
+
 ## 2026-09-04 — email is real: Resend, a branded shell, and the events that had no message
 
 - **The logo is transparent, centred, and has a dark-mode twin** (owner,

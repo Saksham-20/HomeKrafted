@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { StatCard } from "./StatCard";
@@ -73,7 +74,12 @@ export function AnalyticsClient() {
   // `react-hooks/set-state-in-effect`). Keeping the previous chart up
   // while a new range loads also beats blanking the page on every press.
   if (!ready || !snapshot) {
-    return <div className={styles.loading}>Loading analytics…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Analytics" />
+        <LoadingRows rows={4} />
+      </div>
+    );
   }
 
   const maxGmv = Math.max(1, ...snapshot.gmvSeries.map((p) => p.gmv));
@@ -104,16 +110,12 @@ export function AnalyticsClient() {
         title="Analytics"
         subtitle="Reports across GMV, orders, HomeKrafters, products, users and wallet flow."
         actions={
-          <div className={styles.controls}>
-            {RANGES.map((range) => (
-              <Chip
-                key={range.days}
-                label={range.label}
-                selected={days === range.days}
-                onClick={() => setDays(range.days)}
-              />
-            ))}
-          </div>
+          <SegmentedFilter
+            label="Range"
+            value={String(days)}
+            onChange={(next) => setDays(Number(next))}
+            options={RANGES.map((range) => ({ value: String(range.days), label: range.label }))}
+          />
         }
       />
 

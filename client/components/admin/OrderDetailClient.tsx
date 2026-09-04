@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { Field, Select } from "@/components/portal/Field";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
@@ -64,9 +66,9 @@ const STATUS_LABEL: Record<string, string> = {
  * summary is deliberately thin — see `AdminOrderSummary`'s doc comment).
  *
  * **Two actions, and they are not the same kind of thing.** The status
- * control records what happened; the refund control moves money. They sit
- * in one card in that order — routine first, destructive second — and the
- * status control says so in its confirmation, because an operator
+ * control records what happened; the refund control moves money. They are
+ * two sections in that order — routine first, destructive second — and
+ * the status control says so in its description, because an operator
  * reaching for "cancelled" reasonably expects the customer to be made
  * whole and this path would not do that. `cancelled` and `returned` are
  * therefore not offered at all (the server refuses them too).
@@ -80,6 +82,7 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
   const [refundResult, setRefundResult] = useState<{ amount: number } | undefined>(undefined);
   const [refundError, setRefundError] = useState<string | undefined>(undefined);
   const [refunding, setRefunding] = useState(false);
+  const [confirmingRefund, setConfirmingRefund] = useState(false);
   const [pendingStatus, setPendingStatus] = useState("");
   const [confirmingStatus, setConfirmingStatus] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
@@ -157,6 +160,7 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
     try {
       const result = await refundAdminOrder(type, id, refundKey);
       setRefundResult({ amount: result.amount });
+      setConfirmingRefund(false);
       // The order's own `refundStatus` changed server-side; re-read it so
       // the summary panel above stops claiming the order is unrefunded.
       if (type === "marketplace") setMarketplaceOrder(await getAdminMarketplaceOrder(id));
@@ -172,7 +176,12 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
   }
 
   if (!ready || summary === undefined) {
-    return <RouteSkeleton variant="page" />;
+    return (
+      <div>
+        <AdminPageHeader title="Order" back={{ href: "/admin/orders", label: "Orders" }} />
+        <LoadingRows rows={4} />
+      </div>
+    );
   }
 
   if (summary === null) {
@@ -194,33 +203,26 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
 
   return (
     <div>
-      <Link href="/admin/orders" className={styles.back}>
-        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-        Back to orders
-      </Link>
-
-      <div className={styles.header}>
-        <div className={styles.headerBody}>
-          {/* The page's only heading. It was a `span`, so this screen
-              shipped with no `h1` at all — nothing for a screen reader to
-              land on, and nothing naming the record in the document
-              outline. */}
-          <h1 className={styles.reference}>#{summary.reference}</h1>
-          <span className={styles.meta}>
-            {TYPE_LABEL[type]} · {formatDate(summary.placedAt)} · {summary.customerName}
-            {summary.customerPhone ? ` (${summary.customerPhone})` : ""}
-          </span>
-          <span className={styles.meta}>Seller: {summary.sellerNames.join(", ")}</span>
-        </div>
-        <div className={styles.headerRight}>
-          <StatusPill status={summary.status} />
-          <span className={styles.total}>{formatCurrency(summary.total)}</span>
-        </div>
-      </div>
+      <AdminPageHeader
+        back={{ href: "/admin/orders", label: "Orders" }}
+        eyebrow={TYPE_LABEL[type]}
+        /* The page's only heading. It was a `span` once, so this screen
+           shipped with no `h1` at all — nothing for a screen reader to
+           land on, and nothing naming the record in the document outline. */
+        title={`#${summary.reference}`}
+        subtitle={`${formatDate(summary.placedAt)} · ${summary.customerName}${
+          summary.customerPhone ? ` (${summary.customerPhone})` : ""
+        } · HomeKrafter: ${summary.sellerNames.join(", ")}`}
+        actions={
+          <div className={styles.headerRight}>
+            <StatusPill status={summary.status} />
+            <span className={styles.total}>{formatCurrency(summary.total)}</span>
+          </div>
+        }
+      />
 
       {type === "marketplace" && marketplaceOrder && (
-        <Card className={styles.card}>
-          <span className={styles.cardTitle}>Items</span>
+        <FormSection id="order-items" title="Items">
           {marketplaceOrder.items.map((item) => (
             <div key={item.id} className={styles.itemRow}>
               <span className={styles.itemName}>
@@ -231,37 +233,18 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
             </div>
           ))}
           <div className={styles.grid}>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Subtotal</span>
-              <span className={styles.fieldValue}>{formatCurrency(marketplaceOrder.subtotal)}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Shipping</span>
-              <span className={styles.fieldValue}>{formatCurrency(marketplaceOrder.shippingFee)}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Wallet applied</span>
-              <span className={styles.fieldValue}>{formatCurrency(marketplaceOrder.walletApplied)}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Cashback earned</span>
-              <span className={styles.fieldValue}>{formatCurrency(marketplaceOrder.cashbackEarned)}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Payment method</span>
-              <span className={styles.fieldValue}>{marketplaceOrder.paymentMethod}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Refund status</span>
-              <span className={styles.fieldValue}>{marketplaceOrder.refundStatus}</span>
-            </div>
+            <Fact label="Subtotal" value={formatCurrency(marketplaceOrder.subtotal)} />
+            <Fact label="Shipping" value={formatCurrency(marketplaceOrder.shippingFee)} />
+            <Fact label="Wallet applied" value={formatCurrency(marketplaceOrder.walletApplied)} />
+            <Fact label="Cashback earned" value={formatCurrency(marketplaceOrder.cashbackEarned)} />
+            <Fact label="Payment method" value={marketplaceOrder.paymentMethod} />
+            <Fact label="Refund status" value={marketplaceOrder.refundStatus} />
           </div>
-        </Card>
+        </FormSection>
       )}
 
       {type === "laundry" && laundryBooking && (
-        <Card className={styles.card}>
-          <span className={styles.cardTitle}>Lines</span>
+        <FormSection id="order-items" title="Lines">
           {laundryBooking.lines.map((line, index) => (
             <div key={`${line.serviceId}-${index}`} className={styles.itemRow}>
               <span className={styles.itemName}>{line.serviceName ?? line.serviceId}</span>
@@ -269,29 +252,16 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
             </div>
           ))}
           <div className={styles.grid}>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Pickup</span>
-              <span className={styles.fieldValue}>{formatDate(laundryBooking.pickupSlot.date)}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Delivery</span>
-              <span className={styles.fieldValue}>{formatDate(laundryBooking.deliverySlot.date)}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Payment method</span>
-              <span className={styles.fieldValue}>{laundryBooking.paymentMethod}</span>
-            </div>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Wallet cashback</span>
-              <span className={styles.fieldValue}>{formatCurrency(laundryBooking.walletCashback ?? 0)}</span>
-            </div>
+            <Fact label="Pickup" value={formatDate(laundryBooking.pickupSlot.date)} />
+            <Fact label="Delivery" value={formatDate(laundryBooking.deliverySlot.date)} />
+            <Fact label="Payment method" value={laundryBooking.paymentMethod} />
+            <Fact label="Wallet cashback" value={formatCurrency(laundryBooking.walletCashback ?? 0)} />
           </div>
-        </Card>
+        </FormSection>
       )}
 
       {type === "snack" && snackOrder && (
-        <Card className={styles.card}>
-          <span className={styles.cardTitle}>Items</span>
+        <FormSection id="order-items" title="Items">
           {snackOrder.items.map((item) => (
             <div key={item.snackId} className={styles.itemRow}>
               <span className={styles.itemName}>
@@ -302,36 +272,22 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
             </div>
           ))}
           <div className={styles.grid}>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Channel</span>
-              <span className={styles.fieldValue}>{snackOrder.channel}</span>
-            </div>
+            <Fact label="Channel" value={snackOrder.channel} />
           </div>
-        </Card>
+        </FormSection>
       )}
 
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Actions</span>
-
-        {/* Routine first, destructive second. The status control records
-            what happened; the refund below moves money. */}
-        {statusOptions.length > 0 && (
-          <div className={styles.statusOverride}>
-            <span className={styles.fieldLabel}>Correct the status</span>
-            <p className={styles.stubNote}>
-              This records the status only — no money moves, and the buyer is told. To
-              return money, use Issue refund below.
-            </p>
-            <div className={styles.statusRow}>
-              {/* The global screen-reader class, not a local copy — a
-                  re-implemented one that gets `display: none` wrong hides
-                  the label from assistive tech too, and fails silently. */}
-              <label className="hk-sr-only" htmlFor="status-override">
-                New status
-              </label>
-              <select
-                id="status-override"
-                className={styles.statusSelect}
+      {/* Routine first, destructive second. The status control records
+          what happened; the refund below moves money. */}
+      {statusOptions.length > 0 && (
+        <FormSection
+          id="order-status"
+          title="Correct the status"
+          description="Records the status only — no money moves, and the buyer is told. To return money, use the refund below."
+        >
+          <div className={styles.statusRow}>
+            <Field label="New status" className={styles.statusField}>
+              <Select
                 value={pendingStatus}
                 disabled={savingStatus || confirmingStatus}
                 onChange={(event) => {
@@ -347,70 +303,66 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
                     {STATUS_LABEL[option] ?? option}
                   </option>
                 ))}
-              </select>
-              {/* Two-step inline, the pattern `ProductModerationRow`
-                  established — not `window.confirm` (the money sentence
-                  belongs in our own type) and not a modal (which would owe
-                  the M16 focus contract for a one-line confirmation). */}
-              {confirmingStatus ? (
-                <>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleApplyStatus}
-                    disabled={savingStatus}
-                  >
-                    {savingStatus
-                      ? "Saving…"
-                      : `Confirm: mark as ${STATUS_LABEL[pendingStatus] ?? pendingStatus}`}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setConfirmingStatus(false)}
-                    disabled={savingStatus}
-                  >
-                    Cancel
-                  </Button>
-                </>
-              ) : (
+              </Select>
+            </Field>
+            {/* Two-step inline, the pattern `ProductModerationRow`
+                established — not `window.confirm` (the money sentence
+                belongs in our own type) and not a modal (which would owe
+                the M16 focus contract for a one-line confirmation). */}
+            {confirmingStatus ? (
+              <>
+                <Button variant="primary" size="sm" onClick={handleApplyStatus} disabled={savingStatus}>
+                  {savingStatus
+                    ? "Saving…"
+                    : `Confirm: mark as ${STATUS_LABEL[pendingStatus] ?? pendingStatus}`}
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setConfirmingStatus(true)}
-                  disabled={!pendingStatus || pendingStatus === summary.status}
+                  onClick={() => setConfirmingStatus(false)}
+                  disabled={savingStatus}
                 >
-                  Apply
+                  Cancel
                 </Button>
-              )}
-            </div>
-            {statusError && (
-              <p className={styles.refundError} role="alert">
-                {statusError}
-              </p>
-            )}
-            {statusResult && !statusError && (
-              <p className={styles.refundSuccess} role="status">
-                {statusResult}
-              </p>
+              </>
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setConfirmingStatus(true)}
+                disabled={!pendingStatus || pendingStatus === summary.status}
+              >
+                Apply
+              </Button>
             )}
           </div>
-        )}
+          {statusError && <Notice tone="danger">{statusError}</Notice>}
+          {statusResult && !statusError && (
+            <Notice tone="success" live>
+              {statusResult}
+            </Notice>
+          )}
+        </FormSection>
+      )}
 
+      <FormSection
+        id="order-refund"
+        title="Refund"
+        description={
+          summary.customerUserId
+            ? `Credits ${summary.customerName}'s wallet with the full order total and marks the order refunded, so it cannot be refunded twice. For a partial amount, use their wallet instead, where the reason is recorded against the entry.`
+            : undefined
+        }
+        actions={
+          summary.customerUserId ? (
+            <Link href={`/admin/wallet/${summary.customerUserId}`} className={styles.walletLink}>
+              Open their wallet
+            </Link>
+          ) : undefined
+        }
+      >
         {summary.customerUserId ? (
           <>
-            <p className={styles.stubNote}>
-              Refunding credits {summary.customerName}&rsquo;s wallet with the full order total and
-              marks the order refunded, so it cannot be refunded twice — see{" "}
-              <Link href={`/admin/wallet/${summary.customerUserId}`} className={styles.walletLink}>
-                their full ledger
-              </Link>
-              . For a partial adjustment, use{" "}
-              <Link href={`/admin/wallet/${summary.customerUserId}`} className={styles.walletLink}>
-                their wallet
-              </Link>{" "}
-              instead, where the reason is recorded against the entry.
-            </p>
             <div className={styles.refundRow}>
               {/* The amount was an editable number field wired to a raw
                   wallet credit. It looked like a partial-refund control
@@ -423,20 +375,36 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
                 <span className={styles.fieldLabel}>Refund amount</span>
                 <span className={styles.refundAmount}>{formatCurrency(summary.total)}</span>
               </span>
-              <Button variant="primary" size="sm" onClick={handleIssueRefund} disabled={refunding}>
-                {refunding ? "Processing…" : "Issue refund"}
-              </Button>
+              {confirmingRefund ? (
+                <>
+                  <Button variant="primary" size="sm" onClick={handleIssueRefund} disabled={refunding}>
+                    {refunding ? "Processing…" : `Confirm: refund ${formatCurrency(summary.total)}`}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setConfirmingRefund(false)}
+                    disabled={refunding}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setConfirmingRefund(true)}
+                  disabled={refunding || Boolean(refundResult)}
+                >
+                  Issue refund
+                </Button>
+              )}
             </div>
-            {refundError && (
-              <p className={styles.refundError} role="alert">
-                {refundError}
-              </p>
-            )}
+            {refundError && <Notice tone="danger">{refundError}</Notice>}
             {refundResult && !refundError && (
-              <p className={styles.refundSuccess} role="status">
-                Refunded {formatCurrency(refundResult.amount)} to {summary.customerName}&rsquo;s
-                wallet.
-              </p>
+              <Notice tone="success" live>
+                Refunded {formatCurrency(refundResult.amount)} to {summary.customerName}&rsquo;s wallet.
+              </Notice>
             )}
           </>
         ) : (
@@ -446,7 +414,16 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
               : "This booking has no linked wallet, so there is nothing to refund from here. Handle adjustments directly with the customer."}
           </p>
         )}
-      </Card>
+      </FormSection>
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldLabel}>{label}</span>
+      <span className={styles.fieldValue}>{value}</span>
     </div>
   );
 }

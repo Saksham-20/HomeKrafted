@@ -15,6 +15,8 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerDashboard, type SellerDashboardSnapshot } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/ui/Button";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { StatCard } from "./StatCard";
 import { AvailabilityPanel } from "./AvailabilityPanel";
@@ -84,7 +86,12 @@ export function SellerDashboardClient() {
   }, [sellerDataReady]);
 
   if (!sellerDataReady || loading || !seller) {
-    return <div className={styles.loading}>Loading your dashboard…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Today" />
+        <LoadingRows rows={3} showLabel label={kitchenLoading("seller/dashboard", MAKER_LOADING)} />
+      </div>
+    );
   }
 
   // A failed load used to fall through to the render below, where every
@@ -180,10 +187,10 @@ export function SellerDashboardClient() {
 
       <nav className={styles.quickLinks} aria-label="Portal shortcuts">
         <Link href="/seller/listings" className={styles.quickLink}>
-          <Package size={16} strokeWidth={1.7} aria-hidden="true" /> Listings
+          <Package size={16} strokeWidth={1.7} aria-hidden="true" /> Products
         </Link>
         <Link href="/seller/menu" className={styles.quickLink}>
-          <UtensilsCrossed size={16} strokeWidth={1.7} aria-hidden="true" /> Menu
+          <UtensilsCrossed size={16} strokeWidth={1.7} aria-hidden="true" /> Snacks menu
         </Link>
         <Link href="/seller/meal-plans" className={styles.quickLink}>
           <CalendarClock size={16} strokeWidth={1.7} aria-hidden="true" /> Meal plans
@@ -204,7 +211,7 @@ export function SellerDashboardClient() {
           </Link>
         )}
         <Link href="/seller/payouts" className={styles.quickLink}>
-          <Wallet size={16} strokeWidth={1.7} aria-hidden="true" /> Payouts
+          <Wallet size={16} strokeWidth={1.7} aria-hidden="true" /> Earnings
         </Link>
         <Link href="/seller/reviews" className={styles.quickLink}>
           <Star size={16} strokeWidth={1.7} aria-hidden="true" /> Reviews

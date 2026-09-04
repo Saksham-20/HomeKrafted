@@ -241,6 +241,11 @@
     flex-direction: row;
     align-items: center;
     gap: 2px;
+    /* A group is a flex item of the scrolling row, and flex items shrink
+       by default — so each group was squeezed to the row's share and its
+       items painted over the next group's label (measured at 390px,
+       2026-09-04). The strip scrolls; nothing in it may shrink. */
+    flex: 0 0 auto;
   }
 
   .navGroup + .navGroup {
@@ -253,6 +258,7 @@
   .navGroupLabel {
     padding: 0 6px 0 0;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 }
 

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { SearchField } from "@/components/ui/SearchField";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { UserRow } from "./UserRow";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -14,13 +17,13 @@ import styles from "./UsersClient.module.css";
 
 const ROLE_FILTERS: { value: UserRole | "all"; label: string }[] = [
   { value: "all", label: "All roles" },
-  { value: "consumer", label: "Consumer" },
-  { value: "seller", label: "HomeKrafter" },
-  { value: "admin", label: "Admin" },
+  { value: "consumer", label: "Shoppers" },
+  { value: "seller", label: "HomeKrafters" },
+  { value: "admin", label: "Admins" },
 ];
 
 const STATUS_FILTERS: { value: "all" | "active" | "suspended"; label: string }[] = [
-  { value: "all", label: "All statuses" },
+  { value: "all", label: "Any status" },
   { value: "active", label: "Active" },
   { value: "suspended", label: "Suspended" },
 ];
@@ -30,8 +33,7 @@ const STATUS_FILTERS: { value: "all" | "active" | "suspended"; label: string }[]
  * (`lib/api/admin.ts#getAllUsers`, every account across every role
  * surface), searchable by name/email/phone, filterable by role and
  * active/suspended status, with an inline suspend/reactivate action per
- * row that mutates the shared mock `users` array (see
- * `lib/data/admin.ts`'s doc comment on that array).
+ * row.
  */
 export function UsersClient() {
   const { ready, role } = useAuth();
@@ -102,53 +104,58 @@ export function UsersClient() {
   }
 
   const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
-
-  if (!ready || (loading && users.length === 0 && !error)) {
-    return <div className={styles.loading}>Loading users…</div>;
-  }
+  const initialLoad = !ready || (loading && users.length === 0 && !error);
 
   return (
     <div>
-      <AdminPageHeader title="Users" subtitle={
-          // "across every role" is a lie the moment a filter is on — and
-          // the filters are the reason to read this line at all.
-          roleFilter === "all" && statusFilter === "all" && !debouncedQuery
-            ? `${total} account${total === 1 ? "" : "s"} across every role`
-            : `${total} account${total === 1 ? "" : "s"} match these filters`
-        } />
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      <AdminPageHeader
+        title="Users"
+        subtitle={
+          initialLoad
+            ? undefined
+            : // "across every role" is a lie the moment a filter is on — and
+              // the filters are the reason to read this line at all.
+              roleFilter === "all" && statusFilter === "all" && !debouncedQuery
+              ? `${total} account${total === 1 ? "" : "s"} across every role`
+              : `${total} account${total === 1 ? "" : "s"} match these filters`
+        }
+      />
+      {error && <Notice tone="danger">{error}</Notice>}
 
-      <div className={styles.filters}>
-        <SearchField
-          className={styles.search}
-          placeholder="Search by name, email or phone…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+      <Toolbar
+        search={
+          <SearchField
+            placeholder="Search by name, email or phone…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Search accounts"
+          />
+        }
+      >
+        <SegmentedFilter
+          label="Filter by role"
+          value={roleFilter}
+          onChange={(next) => {
+            setRoleFilter(next);
+            setPage(1);
+          }}
+          options={ROLE_FILTERS}
         />
-        <div className={styles.chipRow} role="tablist" aria-label="Filter by role">
-          {ROLE_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={roleFilter === f.value} onClick={() => {
-                setRoleFilter(f.value);
-                setPage(1);
-              }} />
-          ))}
-        </div>
-        <div className={styles.chipRow} role="tablist" aria-label="Filter by status">
-          {STATUS_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => {
-                setStatusFilter(f.value);
-                setPage(1);
-              }} />
-          ))}
-        </div>
-      </div>
+        <SegmentedFilter
+          label="Filter by status"
+          value={statusFilter}
+          onChange={(next) => {
+            setStatusFilter(next);
+            setPage(1);
+          }}
+          options={STATUS_FILTERS}
+        />
+      </Toolbar>
 
-      {users.length === 0 ? (
-        <Card className={styles.empty}>No users match these filters.</Card>
+      {initialLoad ? (
+        <LoadingRows rows={6} />
+      ) : users.length === 0 ? (
+        <EmptyState title="No accounts match these filters." body="Try another role or status, or clear the search." />
       ) : (
         <>
           <div className={styles.list}>
@@ -156,28 +163,7 @@ export function UsersClient() {
               <UserRow key={u.id} user={u} href={`/admin/users/${u.id}`} onToggleSuspend={handleToggleSuspend} />
             ))}
           </div>
-
-          {lastPage > 1 && (
-            <div className={styles.pager}>
-              <Button
-                variant="secondary"
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Previous
-              </Button>
-              <span className={styles.pagerLabel} aria-live="polite">
-                Page {page} of {lastPage}
-              </span>
-              <Button
-                variant="secondary"
-                disabled={page >= lastPage || loading}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <Pager page={page} lastPage={lastPage} onChange={setPage} disabled={loading} />
         </>
       )}
     </div>

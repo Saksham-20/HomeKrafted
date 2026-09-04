@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { FormPage } from "@/components/portal/FormPage";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { SaveBar } from "@/components/portal/SaveBar";
 import {
   EMPTY_LISTING_FORM,
+  LISTING_FORM_SECTIONS,
   ListingForm,
+  hasListingFormErrors,
   toSellerListingInput,
+  validateListingForm,
+  type ListingFormErrors,
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
 import { AdminPageHeader } from "./AdminPageHeader";
@@ -22,8 +27,8 @@ import {
   getAdminProductById,
   updateProductAdmin,
 } from "@/lib/api";
+import { isDirty } from "@/lib/portal/dirty";
 import type { Category, Occasion, Product } from "@/lib/types";
-import styles from "./AdminListingEditorClient.module.css";
 
 function productToFormValues(product: Product): ListingFormValues {
   const defaultRowIndex = Math.max(
@@ -75,10 +80,12 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
   const [categories, setCategories] = useState<Category[]>([]);
   const [occasions, setOccasions] = useState<Occasion[]>([]);
   const [values, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
+  const [initialValues, setInitialValues] = useState<ListingFormValues | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [fieldErrors, setFieldErrors] = useState<ListingFormErrors>({});
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -93,7 +100,9 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
       setCategories(cats);
       setOccasions(occs);
       if (product) {
-        setValues(productToFormValues(product));
+        const loaded = productToFormValues(product);
+        setValues(loaded);
+        setInitialValues(loaded);
       } else {
         setNotFound(true);
       }
@@ -105,10 +114,13 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
   }, [ready, role, productId]);
 
   async function handleSubmit() {
-    if (!values.name.trim() || !values.categoryId || values.weightRows.some((r) => !r.label.trim())) {
-      setError("Fill in a product name, category, and label every weight tier before saving.");
+    const problems = validateListingForm(values);
+    if (hasListingFormErrors(problems)) {
+      setFieldErrors(problems);
+      setError("Something is missing — it is marked on the form.");
       return;
     }
+    setFieldErrors({});
     setError(undefined);
     setSaving(true);
     const input = toSellerListingInput(values);
@@ -123,7 +135,12 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading listing…</div>;
+    return (
+      <div>
+        <AdminPageHeader back={{ href: "/admin/catalog", label: "Catalog" }} title="Edit listing" />
+        <LoadingRows rows={3} />
+      </div>
+    );
   }
 
   if (notFound) {
@@ -140,27 +157,43 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
 
   return (
     <div>
-      <Link href="/admin/catalog" className={styles.back}>
-        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-        Back to catalog
-      </Link>
-      <AdminPageHeader title="Edit listing" subtitle={values.name} />
-      <ListingForm
-        values={values}
-        onChange={setValues}
-        categories={categories}
-        occasions={occasions}
-        taxonomy={adminTaxonomyActions}
+      <AdminPageHeader
+        back={{ href: "/admin/catalog", label: "Catalog" }}
+        title="Edit listing"
+        subtitle={values.name}
       />
-      {error && <p className={styles.error}>{error}</p>}
-      <div className={styles.actions}>
-        <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Saving…" : "Save changes"}
-        </Button>
-        <Button variant="secondary" onClick={() => router.push("/admin/catalog")} disabled={saving}>
-          Cancel
-        </Button>
-      </div>
+      <FormPage sections={LISTING_FORM_SECTIONS.map((s) => ({ ...s }))} navLabel="Sections">
+        <ListingForm
+          values={values}
+          onChange={(next) => {
+            setValues(next);
+            if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next));
+          }}
+          categories={categories}
+          occasions={occasions}
+          taxonomy={adminTaxonomyActions}
+          errors={fieldErrors}
+        />
+        <SaveBar
+          dirty={isDirty(initialValues, values)}
+          saving={saving}
+          error={error}
+          onSave={() => void handleSubmit()}
+          onDiscard={
+            initialValues
+              ? () => {
+                  setValues(initialValues);
+                  setFieldErrors({});
+                  setError(undefined);
+                }
+              : undefined
+          }
+        >
+          <Button variant="secondary" size="sm" onClick={() => router.push("/admin/catalog")} disabled={saving}>
+            Cancel
+          </Button>
+        </SaveBar>
+      </FormPage>
     </div>
   );
 }

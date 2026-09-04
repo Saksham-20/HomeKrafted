@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     // prototype comp) — a visual contract, not app source. It must stay
     // untouched, so it's out of lint scope entirely rather than "fixed".
     "handoff/**",
+    // ds-bundle/ is the design-sync scaffold's vendored bundle (M59c) —
+    // gitignored, generated, and not ours to lint.
+    "ds-bundle/**",
   ]),
 ]);
 

@@ -1,0 +1,65 @@
+.choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hk-s2);
+}
+
+.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 14px;
+  /* A deliberately large target — a phone, in a kitchen. */
+  min-height: 60px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--hk-dur) var(--hk-ease),
+    background var(--hk-dur) var(--hk-ease);
+}
+
+.choice:hover {
+  border-color: var(--hk-pine);
+}
+
+.choice:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.choiceOn {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  box-shadow: inset 0 0 0 1px var(--hk-pine);
+}
+
+.title {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.hint {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hk-muted);
+}
+
+@media (max-width: 560px) {
+  .choices,
+  .three {
+    grid-template-columns: 1fr;
+  }
+
+  .choice {
+    min-height: 52px;
+  }
+}

@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Chip } from "@/components/ui/Chip";
-import { Textarea } from "@/components/ui/Textarea";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Field, Input, TextArea } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
@@ -26,8 +31,8 @@ import styles from "./PayoutsClient.module.css";
 type Filter = "all" | PayoutStatus;
 
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: "all", label: "All" },
   { value: "pending", label: "Pending" },
+  { value: "all", label: "All" },
   { value: "paid", label: "Paid" },
   { value: "rejected", label: "Declined" },
 ];
@@ -45,11 +50,14 @@ const FILTERS: { value: Filter; label: string }[] = [
  * puts the bank reference here, which is the only link between this row
  * and a real transfer. The form says so rather than implying the button
  * moves money.
+ *
+ * Opens on "Pending" (2026-09-04): it is the only filter with work in
+ * it, and the reason to open the screen.
  */
 export function PayoutsClient() {
   const { ready, role } = useAuth();
   const [queue, setQueue] = useState<AdminPayoutQueue | undefined>(undefined);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("pending");
   const [openId, setOpenId] = useState<string | null>(null);
   const [mode, setMode] = useState<"pay" | "reject">("pay");
   const [reference, setReference] = useState("");
@@ -135,7 +143,12 @@ export function PayoutsClient() {
   }
 
   if (!ready || !queue) {
-    return <div className={styles.loading}>Loading payouts…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Payouts" />
+        {error ? <Notice tone="danger">{error}</Notice> : <LoadingRows rows={4} />}
+      </div>
+    );
   }
 
   // Filtered by the server now — this is the page it sent back.
@@ -159,20 +172,17 @@ export function PayoutsClient() {
         split shown, and the thing worth saying is that old rows don't.
       */}
       {commissionEnabled === false && (
-        <Card padding="md" className={styles.grossNotice}>
-          <strong>These amounts are gross.</strong> Commission is configured
-          but switched off (Settings), so nothing is deducted and each figure
-          is the full order value owed to the HomeKrafter. If a cut is meant
-          to be taken, take it before transferring — see{" "}
-          <code>docs/LAUNCH-READINESS.md</code> §3b.
-        </Card>
+        <Notice tone="warning" title="These amounts are gross.">
+          Commission is configured but switched off (Settings), so nothing is deducted and each
+          figure is the full order value owed to the HomeKrafter. If a cut is meant to be taken,
+          take it before transferring — see <code>docs/LAUNCH-READINESS.md</code> §3b.
+        </Notice>
       )}
       {commissionEnabled === true && (
-        <Card padding="md" className={styles.grossNotice}>
-          <strong>Commission is on.</strong> New requests arrive net, with the
-          split on the row. Rows without a split predate the engine — their
-          amount is gross, and nothing recalculates a request already made.
-        </Card>
+        <Notice tone="info" title="Commission is on.">
+          New requests arrive net, with the split on the row. Rows without a split predate the
+          engine — their amount is gross, and nothing recalculates a request already made.
+        </Notice>
       )}
 
       <div className={styles.statGrid}>
@@ -180,31 +190,37 @@ export function PayoutsClient() {
           label="Awaiting settlement"
           value={formatCurrency(queue.summary.pendingTotal)}
           hint={`${queue.summary.pendingCount} request${queue.summary.pendingCount === 1 ? "" : "s"}`}
+          warn={queue.summary.pendingCount > 0}
         />
         <StatCard label="Settled to date" value={formatCurrency(queue.summary.paidTotal)} />
-        <StatCard label="Requests" value={String(queue.items.length)} />
+        <StatCard label="On this page" value={String(queue.items.length)} />
       </div>
 
-      <div className={styles.filters}>
-        {FILTERS.map((f) => (
-          <Chip
-            key={f.value}
-            label={f.label}
-            selected={filter === f.value}
-            onClick={() => {
-              setFilter(f.value);
-              setPage(1);
-            }}
-          />
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter by status"
+          value={filter}
+          onChange={(next) => {
+            setFilter(next);
+            setPage(1);
+          }}
+          options={FILTERS.map((f) =>
+            f.value === "pending" ? { ...f, count: queue.summary.pendingCount } : f,
+          )}
+        />
+      </Toolbar>
+
+      {error && openId === null && <Notice tone="danger">{error}</Notice>}
 
       {visible.length === 0 ? (
-        <Card padding="lg" className={styles.empty}>
-          {filter === "pending"
-            ? "Nothing waiting — every request has been settled or declined."
-            : "No payouts here."}
-        </Card>
+        <EmptyState
+          title={filter === "pending" ? "Nothing waiting." : "No payouts here."}
+          body={
+            filter === "pending"
+              ? "Every request has been settled or declined. A HomeKrafter's next request lands here the moment they make it."
+              : "Try another status."
+          }
+        />
       ) : (
         <div className={styles.list}>
           {visible.map((payout) => (
@@ -240,40 +256,43 @@ export function PayoutsClient() {
                 openId === payout.id ? (
                   <div className={styles.form}>
                     {mode === "pay" ? (
-                      <label className={styles.field}>
-                        <span className={styles.label}>Bank / UPI reference</span>
-                        <input
+                      <Field
+                        label="Bank / UPI reference"
+                        hint="The only link between this row and the real transfer. Leave blank only if it isn't back yet."
+                      >
+                        <Input
                           type="text"
-                          className={styles.input}
                           value={reference}
                           maxLength={120}
                           onChange={(event) => setReference(event.target.value)}
                           placeholder="UTR or transaction id"
+                          autoFocus
                         />
-                        <span className={styles.hint}>
-                          The only link between this row and the real transfer. Leave blank only
-                          if it isn&apos;t back yet.
-                        </span>
-                      </label>
+                      </Field>
                     ) : null}
 
-                    <Textarea
-                      label={mode === "pay" ? "Note (optional)" : "Why is this declined?"}
-                      value={note}
-                      rows={2}
-                      maxLength={500}
-                      onChange={(event) => setNote(event.target.value)}
-                      placeholder={
-                        mode === "pay"
-                          ? "NEFT sent 12:40"
-                          : "Bank details don't match the registered name — please update and re-request."
-                      }
+                    <Field
+                      label={mode === "pay" ? "Note" : "Why is this declined?"}
+                      optional={mode === "pay"}
                       hint={
                         mode === "reject"
-                          ? "The HomeKrafter sees this. Say what they need to fix."
+                          ? "The HomeKrafter sees this word for word. Say what they need to fix."
                           : undefined
                       }
-                    />
+                    >
+                      <TextArea
+                        value={note}
+                        rows={2}
+                        maxLength={500}
+                        autoFocus={mode === "reject"}
+                        onChange={(event) => setNote(event.target.value)}
+                        placeholder={
+                          mode === "pay"
+                            ? "NEFT sent 12:40"
+                            : "Bank details don't match the registered name — please update and re-request."
+                        }
+                      />
+                    </Field>
 
                     {error ? (
                       <p className={styles.error} role="alert">
@@ -339,27 +358,7 @@ export function PayoutsClient() {
         </div>
       )}
 
-      {lastPage > 1 && (
-        <div className={styles.pager}>
-          <Button
-            variant="secondary"
-            disabled={page <= 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-          >
-            Previous
-          </Button>
-          <span className={styles.pagerLabel} aria-live="polite">
-            Page {page} of {lastPage}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= lastPage}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pager page={page} lastPage={lastPage} onChange={setPage} />
     </div>
   );
 }

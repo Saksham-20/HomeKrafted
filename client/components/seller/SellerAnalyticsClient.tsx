@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getSellerAnalytics } from "@/lib/api";
+import { apiErrorMessage, getSellerAnalytics } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import type { SellerAnalytics } from "@/lib/types";
 import styles from "./SellerAnalyticsClient.module.css";
+import { Notice } from "@/components/portal/Notice";
+import { Button } from "@/components/ui/Button";
 
 const RANGES = [
   { days: 7, label: "7 days" },
@@ -56,6 +59,8 @@ export function SellerAnalyticsClient() {
   const [days, setDays] = useState(30);
   const [snapshot, setSnapshot] = useState<SellerAnalytics | undefined>();
   const [unavailable, setUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Fires as soon as we know a HomeKrafter is signed in: this screen's
   // read is JWT-scoped and ignores the `seller` record (`lib/api`), so
@@ -75,14 +80,21 @@ export function SellerAnalyticsClient() {
         setSnapshot(data);
       } catch (caught) {
         if (cancelled) return;
-        if (!isForbidden(caught)) throw caught;
-        setUnavailable(true);
+        if (isForbidden(caught)) {
+          setUnavailable(true);
+          return;
+        }
+        // A failed read is not an empty screen. Rethrowing here reached no
+        // boundary (an effect's rejection is not a render error), so a
+        // rate-limited fetch rendered the empty state over real data — the
+        // M37 dashboard rule, applied to every list (2026-09-04).
+        setLoadError(apiErrorMessage(caught, "Couldn't work out your numbers. Try again."));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sellerDataReady, days]);
+  }, [sellerDataReady, days, reloadToken]);
 
   // Derived rather than a third piece of state. Setting `loading` inside
   // the effect trips `react-hooks/set-state-in-effect`, and the snapshot
@@ -90,9 +102,39 @@ export function SellerAnalyticsClient() {
   // asked for the one I am looking at" is answerable without a flag.
   // Keeping the stale chart on screen while the new range loads also
   // beats blanking the page on every chip press.
+  if (loadError) {
+    return (
+      <div>
+        <SellerPageHeader title="Analytics" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
+
   if (unavailable) return <ModuleUnavailable module="Analytics" />;
   if (!sellerDataReady || !snapshot) {
-    return <div className={styles.loading}>Working out your numbers…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Analytics" />
+        <LoadingRows rows={4} label="Working out your numbers…" showLabel />
+      </div>
+    );
   }
 
   const { totals, series, topItems, byWeekday } = snapshot;
@@ -124,16 +166,12 @@ export function SellerAnalyticsClient() {
         title="Analytics"
         subtitle="What is selling, and when — your share of every order, not the whole basket."
         actions={
-          <div className={styles.ranges}>
-            {RANGES.map((range) => (
-              <Chip
-                key={range.days}
-                label={range.label}
-                selected={days === range.days}
-                onClick={() => setDays(range.days)}
-              />
-            ))}
-          </div>
+          <SegmentedFilter
+            label="Range"
+            value={String(days)}
+            onChange={(next) => setDays(Number(next))}
+            options={RANGES.map((range) => ({ value: String(range.days), label: range.label }))}
+          />
         }
       />
 

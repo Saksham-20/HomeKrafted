@@ -104,6 +104,44 @@
   flex: 1;
 }
 
+/* Grouped nav (2026-09-04) — six headings over fourteen destinations,
+   so "Wallet" is read as money and "Audit" as system rather than as two
+   unrelated neighbours. Same recipe as SellerShell. */
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navGroup + .navGroup {
+  margin-top: var(--hk-s3);
+}
+
+.navGroupLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+  padding: 0 10px 4px;
+}
+
+/* The waiting count on a queue. Gold is a fill here, and the digits take
+   the darkened gold-text token (M34). */
+.navBadge {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-gold-tint);
+  border: 1px solid var(--hk-gold-border);
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--hk-gold-text-sm);
+}
+
 .sidebar {
   flex-shrink: 0;
   width: 220px;
@@ -203,6 +241,37 @@
   }
 
   .navItem {
+    flex-shrink: 0;
+  }
+
+  .navBadge {
+    margin-left: 4px;
+  }
+
+  /* On the strip the groups run left to right on one line; the heading
+     rides *in* the strip as a quiet divider that still says what
+     follows. */
+  .navGroup {
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    /* A group is a flex item of the scrolling row, and flex items shrink
+       by default — so each group was squeezed to the row's share and its
+       items painted over the next group's label (measured at 390px,
+       2026-09-04). The strip scrolls; nothing in it may shrink. */
+    flex: 0 0 auto;
+  }
+
+  .navGroup + .navGroup {
+    margin-top: 0;
+    margin-left: var(--hk-s2);
+    padding-left: var(--hk-s2);
+    border-left: 1px solid var(--hk-border);
+  }
+
+  .navGroupLabel {
+    padding: 0 6px 0 0;
+    white-space: nowrap;
     flex-shrink: 0;
   }
 

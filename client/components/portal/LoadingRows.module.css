@@ -1,0 +1,76 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.label {
+  margin: 0 0 var(--hk-s2);
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+}
+
+.thumb,
+.line,
+.pill {
+  display: block;
+  border-radius: var(--hk-r-sm);
+  background: linear-gradient(90deg, var(--hk-surface-3) 25%, var(--hk-surface-2) 50%, var(--hk-surface-3) 75%);
+  background-size: 200% 100%;
+  animation: hkShimmer 1.4s linear infinite;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+}
+
+.lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.line {
+  height: 12px;
+  width: 60%;
+}
+
+.lineShort {
+  width: 35%;
+}
+
+.pill {
+  width: 72px;
+  height: 22px;
+  border-radius: var(--hk-r-pill);
+}
+
+@keyframes hkShimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumb,
+  .line,
+  .pill {
+    animation: none;
+  }
+}

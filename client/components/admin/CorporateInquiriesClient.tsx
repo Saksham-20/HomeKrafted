@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { getAdminCorporateInquiries, type AdminCorporateList } from "@/lib/api";
@@ -12,7 +16,9 @@ import { formatDate } from "@/lib/format";
 import type { CorporateInquiryStatus } from "@/lib/types";
 import styles from "./CorporateInquiriesClient.module.css";
 
-const FILTERS: { value: CorporateInquiryStatus | "all"; label: string }[] = [
+type Filter = CorporateInquiryStatus | "all";
+
+const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "new", label: "New" },
   { value: "contacted", label: "Contacted" },
@@ -29,7 +35,7 @@ const FILTERS: { value: CorporateInquiryStatus | "all"; label: string }[] = [
  * were the most valuable thing being thrown away.
  */
 export function CorporateInquiriesClient() {
-  const [filter, setFilter] = useState<CorporateInquiryStatus | "all">("all");
+  const [filter, setFilter] = useState<Filter>("all");
   const [data, setData] = useState<AdminCorporateList | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -59,10 +65,14 @@ export function CorporateInquiriesClient() {
   // the loaded rows it read "0 unworked" the moment an admin filtered.
   const lastPage = data && data.pageSize > 0 ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
+  const counts: Partial<Record<Filter, number>> = data
+    ? { new: data.summary.unworked, contacted: data.summary.contacted, quoted: data.summary.quoted }
+    : {};
+
   return (
     <div>
       <AdminPageHeader
-        title="Corporate &amp; bulk"
+        title="Corporate & bulk"
         subtitle={
           data
             ? `${data.summary.unworked} not yet worked · ${data.summary.contacted} contacted · ${data.summary.quoted} quoted`
@@ -70,37 +80,34 @@ export function CorporateInquiriesClient() {
         }
       />
 
-      <div className={styles.filters}>
-        {FILTERS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            selected={filter === option.value}
-            onClick={() => {
-              setLoading(true);
-              setFilter(option.value);
-              setPage(1);
-            }}
-          />
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter by stage"
+          value={filter}
+          onChange={(next) => {
+            setLoading(true);
+            setFilter(next);
+            setPage(1);
+          }}
+          options={FILTERS.map((f) => ({ ...f, count: counts[f.value] }))}
+        />
+      </Toolbar>
 
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {loading ? (
-        <div className={styles.loading}>Loading enquiries…</div>
+        <LoadingRows rows={5} />
       ) : !data || data.items.length === 0 ? (
-        <Card className={styles.empty}>
-          {/* Naming what triggers one, rather than "no items found" — an
-              empty filter is not the same as an empty queue. */}
-          {filter === "all"
-            ? "No enquiries yet. One lands here whenever somebody submits the form on /corporate."
-            : `Nothing at "${filter}". Try another filter — the queue may not be empty.`}
-        </Card>
+        /* Naming what triggers one, rather than "no items found" — an
+           empty filter is not the same as an empty queue. */
+        <EmptyState
+          title={filter === "all" ? "No enquiries yet." : `Nothing at "${filter}".`}
+          body={
+            filter === "all"
+              ? "One lands here whenever somebody submits the form on /corporate."
+              : "Try another stage — the queue may not be empty."
+          }
+        />
       ) : (
         <div className={styles.list}>
           {data.items.map((inquiry) => (
@@ -136,27 +143,7 @@ export function CorporateInquiriesClient() {
         </div>
       )}
 
-      {lastPage > 1 && (
-        <div className={styles.pager}>
-          <Button
-            variant="secondary"
-            disabled={page <= 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-          >
-            Previous
-          </Button>
-          <span className={styles.pagerLabel} aria-live="polite">
-            Page {page} of {lastPage}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= lastPage}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pager page={page} lastPage={lastPage} onChange={setPage} disabled={loading} />
     </div>
   );
 }

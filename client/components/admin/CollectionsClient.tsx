@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CollectionsTabs } from "./CollectionsTabs";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -43,29 +45,38 @@ export function CollectionsClient() {
     };
   }, [ready, role]);
 
+  const newButton = (
+    <Button variant="primary" size="sm" onClick={() => router.push("/admin/collections/new")}>
+      <Plus size={16} strokeWidth={2} aria-hidden="true" />
+      New collection
+    </Button>
+  );
+
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading collections…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Collections" actions={newButton} />
+        <CollectionsTabs active="collections" />
+        <LoadingRows rows={4} />
+      </div>
+    );
   }
 
   return (
     <div>
       <AdminPageHeader
         title="Collections"
-        subtitle={`${collections.length} occasion collection${collections.length === 1 ? "" : "s"}`}
-        actions={
-          <Button variant="primary" size="sm" onClick={() => router.push("/admin/collections/new")}>
-            <Plus size={16} strokeWidth={2} aria-hidden="true" />
-            New collection
-          </Button>
-        }
+        subtitle={`${collections.length} gift guide${collections.length === 1 ? "" : "s"} — each one a page at /guides/[slug], and the curated ordering behind its occasion.`}
+        actions={newButton}
       />
       <CollectionsTabs active="collections" />
 
       {collections.length === 0 ? (
-        <Card className={styles.empty}>
-          No collections yet — create one and it becomes a gift guide at `/guides/[slug]`, plus the
-          curated ordering behind its occasion page.
-        </Card>
+        <EmptyState
+          title="No collections yet."
+          body="Create one and it becomes a gift guide at /guides/[slug], plus the curated ordering behind its occasion page."
+          action={{ href: "/admin/collections/new", label: "New collection" }}
+        />
       ) : (
         <div className={styles.list}>
           {collections.map((c) => {

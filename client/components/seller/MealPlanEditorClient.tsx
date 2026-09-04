@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { FormPage } from "@/components/portal/FormPage";
+import { SaveBar } from "@/components/portal/SaveBar";
 import { ModerationNotice } from "./ModerationNotice";
 import type { ProductModerationStatus } from "@/lib/types";
 import { SellerPageHeader } from "./SellerPageHeader";
-import { MealPlanForm } from "./MealPlanForm";
+import { MEAL_PLAN_FORM_SECTIONS, MealPlanForm } from "./MealPlanForm";
 import { DayMenuEditor } from "./DayMenuEditor";
 import {
   EMPTY_MEAL_PLAN_FORM,
@@ -24,8 +26,8 @@ import {
   getSellerListings,
   updateMyMealPlan,
 } from "@/lib/api";
+import { isDirty } from "@/lib/portal/dirty";
 import type { Product, SellerMealPlan } from "@/lib/types";
-import styles from "./MealPlanEditorClient.module.css";
 
 function planToFormValues(plan: SellerMealPlan): MealPlanFormValues {
   return {
@@ -59,10 +61,10 @@ export interface MealPlanEditorClientProps {
  * so a plan that isn't theirs simply isn't in it, and there is no id to
  * probe with.
  *
- * The submit path has a real `catch` and an `aria-live` error region. The
- * three intake forms M19 fixed all had `try/finally` with no `catch`, so a
- * failed save re-enabled the button and said nothing; this is the same
- * shape of form and must not reintroduce it.
+ * The submit path has a real `catch` and an `aria-live` error region (the
+ * SaveBar's). The three intake forms M19 fixed all had `try/finally` with
+ * no `catch`, so a failed save re-enabled the button and said nothing;
+ * this is the same shape of form and must not reintroduce it.
  */
 export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
   const router = useRouter();
@@ -70,6 +72,7 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
   const isEdit = Boolean(planId);
 
   const [values, setValues] = useState<MealPlanFormValues>(EMPTY_MEAL_PLAN_FORM);
+  const [initialValues, setInitialValues] = useState<MealPlanFormValues | undefined>();
   const [listings, setListings] = useState<Product[]>([]);
   const [brackets, setBrackets] = useState<string[] | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -92,8 +95,10 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
         if (planId) {
           const plan = plans.find((p) => p.id === planId);
           if (plan) {
-            setValues(planToFormValues(plan));
-          setReview({ status: plan.moderationStatus, note: plan.moderationNote });
+            const loaded = planToFormValues(plan);
+            setValues(loaded);
+            setInitialValues(loaded);
+            setReview({ status: plan.moderationStatus, note: plan.moderationNote });
             setBrackets(plan.brackets);
           } else {
             setNotFound(true);
@@ -151,9 +156,12 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
     );
   }
 
+  const dirty = isEdit ? isDirty(initialValues, values) : true;
+
   return (
     <div>
       <SellerPageHeader
+        back={{ href: "/seller/meal-plans", label: "Meal plans" }}
         title={isEdit ? "Edit plan" : "New subscription plan"}
         subtitle={
           isEdit
@@ -163,38 +171,49 @@ export function MealPlanEditorClient({ planId }: MealPlanEditorClientProps) {
       />
       <ModerationNotice status={review.status} note={review.note} />
 
-      <MealPlanForm
-        values={values}
-        onChange={setValues}
-        listings={listings}
-        brackets={brackets}
-      />
+      <FormPage sections={MEAL_PLAN_FORM_SECTIONS.map((s) => ({ ...s }))} navLabel="Sections">
+        <MealPlanForm
+          values={values}
+          onChange={(next) => {
+            setValues(next);
+            if (error) setError(undefined);
+          }}
+          listings={listings}
+          brackets={brackets}
+        />
 
-      {/* `role="alert"` so a validation refusal is announced, not just shown. */}
-      {error && (
-        <p className={styles.error} role="alert" aria-live="polite">
-          {error}
-        </p>
-      )}
-
-      <div className={styles.actions}>
-        <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save changes" : "Create plan"}
-        </Button>
-        <Button
-          variant="secondary"
-          onClick={() => router.push("/seller/meal-plans")}
-          disabled={saving}
+        <SaveBar
+          dirty={dirty}
+          saving={saving}
+          error={error}
+          onSave={() => void handleSubmit()}
+          onDiscard={
+            isEdit && initialValues
+              ? () => {
+                  setValues(initialValues);
+                  setError(undefined);
+                }
+              : undefined
+          }
+          saveLabel={isEdit ? "Save changes" : "Create plan"}
+          alwaysEnabled={!isEdit}
         >
-          Cancel
-        </Button>
-      </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push("/seller/meal-plans")}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+        </SaveBar>
 
-      {/* M37 — dated menus save per-day, independently of the plan form
-          above: changing one date's dal must not re-submit (and re-queue)
-          the whole plan. Edit mode only: a plan that doesn't exist yet
-          has no dates to set. */}
-      {isEdit && planId && <DayMenuEditor planId={planId} />}
+        {/* M37 — dated menus save per-day, independently of the plan form
+            above: changing one date's dal must not re-submit (and re-queue)
+            the whole plan. Edit mode only: a plan that doesn't exist yet
+            has no dates to set. */}
+        {isEdit && planId && <DayMenuEditor planId={planId} />}
+      </FormPage>
     </div>
   );
 }

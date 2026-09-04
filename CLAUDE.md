@@ -840,6 +840,64 @@ name across `docs/` and `CLAUDE.md` before you finish. Keep this file
 compact: it is loaded into every session, so prefer replacing stale
 paragraphs over appending new ones.
 
+## The portal kit (2026-09-04) — every `/seller/*` and `/admin/*` screen
+
+`components/portal/` is the one set of form and list primitives for both
+portals, and `lib/portal/dirty.ts` the one dirty check. It exists
+because thirteen screens each carried a private input recipe (11px mono
+uppercase labels — mono is receipt type for counts and eyebrows, never a
+form label; see `DESIGN.md`), chip rows claimed `role="tablist"` (an axe
+critical: a tablist may only contain tabs), and forty-one places said
+"Loading…". Rules that are easy to undo by accident:
+
+- **A new portal screen composes the kit; it does not write an input.**
+  `Field` wires `id`/`aria-describedby`/`aria-invalid` to the `Input`/
+  `Select`/`TextArea` inside it by context; a bare `<input className=…>`
+  in a portal component is the drift starting again.
+- **A form is `FormSection`s with ids inside a `FormPage`, saved from a
+  `SaveBar`.** Save is enabled by `isDirty(initial, current)` and the
+  baseline is **reset after a successful save** (`setInitial(toForm(
+  updated))`), or the bar stays lit for ever. `alwaysEnabled` is for
+  create screens only. Section ids are what the nav scrolls to and what a
+  validation error focuses, so they are stable strings, not indexes.
+- **A list is `Toolbar` + `SegmentedFilter` + `Pager`.** `SegmentedFilter`
+  is a `role="group"` of `aria-pressed` buttons — never `role="tablist"`
+  on chips, and never `<Chip>` as a pager. A sub-nav of *links* is a
+  `<nav>` with `aria-current="page"` (`CatalogTabs`, `CollectionsTabs`).
+- **The default filter is the one with work in it** — Waiting, Pending,
+  Needs a hand, Not booked — and **counts come from the server's
+  summary**, never re-derived from the page in hand (that is the
+  "increment a denormalised aggregate" pattern, and it read "0 waiting"
+  the moment anybody filtered).
+- **Outcomes are a `Notice`; waiting is `LoadingRows`.** Seller-side
+  loading copy comes from `kitchenLoading("surface", MAKER_LOADING)`;
+  the admin panel stays plain (M28). Danger notices are `role="alert"`,
+  success ones `live`.
+- **A failed read renders a `Notice` with Try again — never the empty
+  state, and never a rethrow.** `if (!isForbidden(error)) throw error`
+  inside a data-loading effect reaches no error boundary (an effect's
+  rejection is not a render error), so the screen falls through to
+  "nothing here yet" over real data. Keep `loadError` next to
+  `unavailable`, bump a `reloadToken` to retry, and keep the two apart:
+  `unavailable` is a 403 and means "not your module", `loadError` means
+  "we could not tell".
+- **No `window.prompt`/`window.confirm` in either portal.** A decision
+  that needs a reason or a confirmation is an inline two-step in our own
+  type, with the sentence saying what the button does *before* it —
+  despatch call-off, category rename, quote-link withdrawal, order
+  refund, status override are the shape to copy.
+- **The admin sidebar's queue badges** (`AdminShell#queueCounts`) read the
+  dashboard snapshot once and refresh on window focus after 60 s. They
+  are a courtesy, not the gate (M47), and they require `analytics` scope
+  or no scopes; a sub-admin without it sees the groups and no numbers.
+- **Nav `aria-label`s stay `"HomeKrafter"` and `"Admin"`** —
+  `e2e/tests/portal-nav.spec.ts` finds the strips by them.
+- **User-facing labels changed with it:** Listings → **Products**, Menu →
+  **Snacks menu**, Profile → **About your kitchen**, Storefront → **Shop
+  page**, Payouts → **Earnings & payouts**. Routes and code names are
+  unchanged (`/seller/listings`, `ListingsClient`), same reasoning as the
+  HomeKrafter/seller split.
+
 ## How to add things
 
 - **New domain field/entity:** edit the right file under `lib/types/`

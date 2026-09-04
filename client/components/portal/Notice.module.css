@@ -1,0 +1,123 @@
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  border: 1px solid var(--hk-border);
+  border-left-width: 3px;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-2);
+  margin-bottom: var(--hk-s4);
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.text p {
+  margin: 0;
+}
+
+.text p + p {
+  margin-top: 6px;
+}
+
+.text code {
+  font-family: var(--hk-font-mono);
+  font-size: 12.5px;
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex-wrap: wrap;
+  margin-top: var(--hk-s2);
+}
+
+.dismiss {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin: -6px -8px -6px 0;
+  border: 0;
+  border-radius: var(--hk-r-pill);
+  background: none;
+  color: var(--hk-muted);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  color: var(--hk-ink);
+  background: rgba(29, 43, 35, 0.06);
+}
+
+.dismiss:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+/* ---- Tones ---------------------------------------------------------- */
+
+.info {
+  border-left-color: var(--hk-pine);
+}
+
+.info .icon {
+  color: var(--hk-pine);
+}
+
+/* Gold is a rule and a fill here, never the words (M34). */
+.warning {
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+  border-left-color: var(--hk-gold);
+  color: var(--hk-ink);
+}
+
+.warning .icon {
+  color: var(--hk-gold-text-sm);
+}
+
+.success {
+  background: var(--hk-pine-tint);
+  border-color: #dbe4d3; /* pine-on-tint line, see VerifiedBadges */
+  border-left-color: var(--hk-pine);
+  color: var(--hk-ink);
+}
+
+.success .icon {
+  color: var(--hk-pine);
+}
+
+/* The terracotta tint (#f6e7e0) is the one TransactionRow uses; the text
+   stays ink and the icon takes the tint-safe shade. */
+.danger {
+  background: #f6e7e0;
+  border-color: #ecd3c6;
+  border-left-color: var(--hk-terracotta);
+  color: var(--hk-ink);
+}
+
+.danger .icon {
+  color: var(--hk-terracotta-text);
+}

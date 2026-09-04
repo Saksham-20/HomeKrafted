@@ -2,14 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { Chip } from "@/components/ui/Chip";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { SnackOrderRow } from "./SnackOrderRow";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getSnackOrders } from "@/lib/api";
+import { apiErrorMessage, getSnackOrders } from "@/lib/api";
 import type { SnackOrder, SnackOrderStatus } from "@/lib/types";
 import styles from "./SnackOrdersClient.module.css";
+import { Notice } from "@/components/portal/Notice";
+import { Button } from "@/components/ui/Button";
 
 const FILTERS: { value: SnackOrderStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -31,6 +35,8 @@ export function SnackOrdersClient() {
   const [orders, setOrders] = useState<SnackOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [filter, setFilter] = useState<SnackOrderStatus | "all">("all");
 
   // Fires as soon as we know a HomeKrafter is signed in: this screen's
@@ -56,8 +62,15 @@ export function SnackOrdersClient() {
         setOrders(list);
       } catch (error) {
         if (cancelled) return;
-        if (!isForbidden(error)) throw error;
-        setUnavailable(true);
+        if (isForbidden(error)) {
+          setUnavailable(true);
+          return;
+        }
+        // A failed read is not an empty screen. Rethrowing here reached no
+        // boundary (an effect's rejection is not a render error), so a
+        // rate-limited fetch rendered the empty state over real data — the
+        // M37 dashboard rule, applied to every list (2026-09-04).
+        setLoadError(apiErrorMessage(error, "Couldn't load your snack orders. Try again."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -65,7 +78,7 @@ export function SnackOrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, [sellerDataReady]);
+  }, [sellerDataReady, reloadToken]);
 
   const filtered = useMemo(
     () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
@@ -73,7 +86,38 @@ export function SnackOrdersClient() {
   );
 
   if (!sellerDataReady || loading) {
-    return <div className={styles.loading}>Loading your orders…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Orders" />
+        <LoadingRows rows={5} />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <SellerPageHeader title="Orders" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (unavailable) {
@@ -87,11 +131,17 @@ export function SnackOrdersClient() {
         subtitle={`${orders.length} incoming WhatsApp order${orders.length === 1 ? "" : "s"}`}
       />
 
-      <div className={styles.filterRow} role="tablist" aria-label="Filter by status">
-        {FILTERS.map((f) => (
-          <Chip key={f.value} label={f.label} selected={filter === f.value} onClick={() => setFilter(f.value)} />
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter by status"
+          value={filter}
+          onChange={setFilter}
+          options={FILTERS.map((f) => ({
+            ...f,
+            count: f.value === "all" ? orders.length : orders.filter((row) => row.status === f.value).length,
+          }))}
+        />
+      </Toolbar>
 
       {filtered.length === 0 ? (
         <EmptyState

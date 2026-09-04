@@ -1,0 +1,61 @@
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+  margin-bottom: var(--hk-s5);
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--hk-ink-3);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--hk-ink);
+  text-decoration: underline;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+.title {
+  font: var(--hk-h3);
+  color: var(--hk-ink);
+  margin: 0;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+  max-width: 70ch;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}

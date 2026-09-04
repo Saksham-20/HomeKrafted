@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { FormPage } from "@/components/portal/FormPage";
+import { SaveBar } from "@/components/portal/SaveBar";
 import { ModerationNotice } from "./ModerationNotice";
 import type { ProductModerationStatus } from "@/lib/types";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -13,6 +15,8 @@ import {
   EMPTY_SNACK_FORM,
   SnackMenuForm,
   toSellerMenuInput,
+  validateSnackForm,
+  type SnackMenuFormErrors,
   type SnackMenuFormValues,
 } from "./SnackMenuForm";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -22,8 +26,8 @@ import {
   getSellerMenuItem,
   updateSellerMenuItem,
 } from "@/lib/api";
+import { isDirty } from "@/lib/portal/dirty";
 import type { Snack } from "@/lib/types";
-import styles from "./SellerMenuEditorClient.module.css";
 
 function snackToFormValues(snack: Snack): SnackMenuFormValues {
   return {
@@ -49,11 +53,13 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
   const isEdit = Boolean(snackId);
 
   const [values, setValues] = useState<SnackMenuFormValues>(EMPTY_SNACK_FORM);
+  const [initialValues, setInitialValues] = useState<SnackMenuFormValues | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [review, setReview] = useState<{ status?: ProductModerationStatus; note?: string }>({});
   const [error, setError] = useState<string | undefined>(undefined);
+  const [fieldErrors, setFieldErrors] = useState<SnackMenuFormErrors>({});
 
   useEffect(() => {
     if (!ready || !seller) return;
@@ -63,7 +69,9 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
         const snack = await getSellerMenuItem(seller.id, snackId);
         if (cancelled) return;
         if (snack) {
-          setValues(snackToFormValues(snack));
+          const loaded = snackToFormValues(snack);
+          setValues(loaded);
+          setInitialValues(loaded);
           setReview({ status: snack.moderationStatus, note: snack.moderationNote });
         } else {
           setNotFound(true);
@@ -78,10 +86,13 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
 
   async function handleSubmit() {
     if (!seller) return;
-    if (!values.name.trim() || !values.price.trim() || Number(values.price) <= 0) {
-      setError("Fill in a snack name and a price above ₹0 before saving.");
+    const problems = validateSnackForm(values);
+    if (problems.name || problems.price) {
+      setFieldErrors(problems);
+      setError("Something is missing — it is marked on the form.");
       return;
     }
+    setFieldErrors({});
     setError(undefined);
     setSaving(true);
     const input = toSellerMenuInput(values);
@@ -116,23 +127,47 @@ export function SellerMenuEditorClient({ snackId }: SellerMenuEditorClientProps)
     );
   }
 
+  const dirty = isEdit ? isDirty(initialValues, values) : true;
+
   return (
     <div>
       <SellerPageHeader
-        title={isEdit ? "Edit snack" : "Add snack"}
-        subtitle={isEdit ? values.name : "Add a new snack to your menu."}
+        back={{ href: "/seller/menu", label: "Snacks menu" }}
+        title={isEdit ? "Edit snack" : "Add a snack"}
+        subtitle={isEdit ? values.name : "Add a new snack to your WhatsApp menu."}
       />
       <ModerationNotice status={review.status} note={review.note} />
-      <SnackMenuForm values={values} onChange={setValues} />
-      {error && <p className={styles.error}>{error}</p>}
-      <div className={styles.actions}>
-        <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save changes" : "Add snack"}
-        </Button>
-        <Button variant="secondary" onClick={() => router.push("/seller/menu")} disabled={saving}>
-          Cancel
-        </Button>
-      </div>
+      <FormPage>
+        <SnackMenuForm
+          values={values}
+          onChange={(next) => {
+            setValues(next);
+            if (fieldErrors.name || fieldErrors.price) setFieldErrors(validateSnackForm(next));
+          }}
+          errors={fieldErrors}
+        />
+        <SaveBar
+          dirty={dirty}
+          saving={saving}
+          error={error}
+          onSave={() => void handleSubmit()}
+          onDiscard={
+            isEdit && initialValues
+              ? () => {
+                  setValues(initialValues);
+                  setFieldErrors({});
+                  setError(undefined);
+                }
+              : undefined
+          }
+          saveLabel={isEdit ? "Save changes" : "Add snack"}
+          alwaysEnabled={!isEdit}
+        >
+          <Button variant="secondary" size="sm" onClick={() => router.push("/seller/menu")} disabled={saving}>
+            Cancel
+          </Button>
+        </SaveBar>
+      </FormPage>
     </div>
   );
 }

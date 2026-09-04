@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Chip } from "@/components/ui/Chip";
-import { Textarea } from "@/components/ui/Textarea";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Field, TextArea } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
@@ -118,7 +123,12 @@ export function SupportQueueClient() {
   }
 
   if (!ready || !queue) {
-    return <div className={styles.loading}>Loading support queue…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Support" />
+        {error ? <Notice tone="danger">{error}</Notice> : <LoadingRows rows={5} />}
+      </div>
+    );
   }
 
   // Filtered by the server now — this is the page it sent back.
@@ -138,31 +148,34 @@ export function SupportQueueClient() {
           label="Waiting on us"
           value={String(queue.summary.awaitingReply)}
           hint="Customer wrote last"
+          warn={queue.summary.awaitingReply > 0}
         />
         <StatCard label="Open" value={String(queue.summary.open)} />
         <StatCard label="In progress" value={String(queue.summary.inProgress)} />
       </div>
 
-      <div className={styles.filters}>
-        {FILTERS.map((f) => (
-          <Chip
-            key={f.value}
-            label={f.label}
-            selected={filter === f.value}
-            onClick={() => {
-              setFilter(f.value);
-              setPage(1);
-            }}
-          />
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter by status"
+          value={filter}
+          onChange={(next) => {
+            setFilter(next);
+            setPage(1);
+          }}
+          options={FILTERS.map((f) =>
+            f.value === "open"
+              ? { ...f, count: queue.summary.open }
+              : f.value === "in-progress"
+                ? { ...f, count: queue.summary.inProgress }
+                : f,
+          )}
+        />
+      </Toolbar>
 
       <div className={styles.layout}>
         <div className={styles.list}>
           {visible.length === 0 ? (
-            <Card padding="lg" className={styles.empty}>
-              No tickets here.
-            </Card>
+            <EmptyState title="No tickets here." body="Try another status. A ticket lands here the moment a customer writes in from /support." />
           ) : (
             visible.map((ticket) => (
               <button
@@ -193,27 +206,7 @@ export function SupportQueueClient() {
             ))
           )}
 
-          {lastPage > 1 && (
-            <div className={styles.pager}>
-              <Button
-                variant="secondary"
-                disabled={page <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Previous
-              </Button>
-              <span className={styles.pagerLabel} aria-live="polite">
-                Page {page} of {lastPage}
-              </span>
-              <Button
-                variant="secondary"
-                disabled={page >= lastPage}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <Pager page={page} lastPage={lastPage} onChange={setPage} />
         </div>
 
         <div className={styles.thread}>
@@ -257,14 +250,16 @@ export function SupportQueueClient() {
                 </p>
               ) : null}
 
-              <Textarea
-                label="Reply"
-                value={reply}
-                rows={3}
-                maxLength={4000}
-                onChange={(event) => setReply(event.target.value)}
-                placeholder="Write back to the customer…"
-              />
+              <Field label="Reply" hint="Posts as Homekrafted and notifies the customer on the channels they allow.">
+                <TextArea
+                  value={reply}
+                  rows={3}
+                  autoGrow
+                  maxLength={4000}
+                  onChange={(event) => setReply(event.target.value)}
+                  placeholder="Write back to the customer…"
+                />
+              </Field>
 
               <div className={styles.actions}>
                 <Button size="sm" onClick={() => sendReply(selected)} disabled={busy || !reply.trim()}>

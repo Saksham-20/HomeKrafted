@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Pager } from "@/components/portal/Pager";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -13,7 +15,7 @@ import styles from "./WalletOverviewClient.module.css";
 
 /**
  * `/admin/wallet` (M11b) — platform-wide wallet oversight: total
- * liability across every seeded wallet, plus a per-user balance table
+ * liability across every wallet, plus a per-user balance table
  * linking through to `/admin/wallet/[userId]` for that account's full
  * ledger + the refund/adjustment actions.
  */
@@ -37,11 +39,13 @@ export function WalletOverviewClient() {
     };
   }, [ready, role, page]);
 
-  if (!ready || (loading && !overview)) {
-    return <div className={styles.loading}>Loading wallet overview…</div>;
-  }
-  if (!overview) {
-    return <div className={styles.loading}>Loading wallet overview…</div>;
+  if (!ready || !overview) {
+    return (
+      <div>
+        <AdminPageHeader title="Wallet" subtitle="Platform-wide wallet liability and per-user balances." />
+        <LoadingRows rows={6} />
+      </div>
+    );
   }
 
   // There is one wallet per user, so this list grows with the whole
@@ -51,7 +55,10 @@ export function WalletOverviewClient() {
 
   return (
     <div>
-      <AdminPageHeader title="Wallet" subtitle="Platform-wide wallet liability and per-user balances." />
+      <AdminPageHeader
+        title="Wallet"
+        subtitle="Platform-wide wallet liability and per-user balances. Open an account to refund or adjust it."
+      />
 
       <div className={styles.statGrid}>
         <StatCard label="Total liability" value={formatCurrency(overview.totalLiability)} hint={`${overview.walletCount} wallets`} />
@@ -60,43 +67,27 @@ export function WalletOverviewClient() {
       </div>
 
       <h2 className={styles.sectionTitle}>Balances</h2>
-      <div className={styles.list}>
-        {overview.balances.map((b) => (
-          <Link key={b.userId} href={`/admin/wallet/${b.userId}`} className={styles.linkWrap}>
-            <Card hoverable padding="sm" className={styles.row}>
-              <div className={styles.body}>
-                <span className={styles.name}>{b.userName}</span>
-                <span className={styles.meta}>
-                  {b.transactionCount} transaction{b.transactionCount === 1 ? "" : "s"} · {formatCurrency(b.lifetimeSaved)} lifetime saved
-                </span>
-              </div>
-              <span className={styles.balance}>{formatCurrency(b.balance)}</span>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {lastPage > 1 && (
-        <div className={styles.pager}>
-          <Button
-            variant="secondary"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-          >
-            Previous
-          </Button>
-          <span className={styles.pagerLabel} aria-live="polite">
-            Page {page} of {lastPage}
-          </span>
-          <Button
-            variant="secondary"
-            disabled={page >= lastPage || loading}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            Next
-          </Button>
+      {overview.balances.length === 0 ? (
+        <EmptyState title="No wallets yet." body="A wallet is created the first time an account earns cashback or tops up." />
+      ) : (
+        <div className={styles.list}>
+          {overview.balances.map((b) => (
+            <Link key={b.userId} href={`/admin/wallet/${b.userId}`} className={styles.linkWrap}>
+              <Card hoverable padding="sm" className={styles.row}>
+                <div className={styles.body}>
+                  <span className={styles.name}>{b.userName}</span>
+                  <span className={styles.meta}>
+                    {b.transactionCount} transaction{b.transactionCount === 1 ? "" : "s"} · {formatCurrency(b.lifetimeSaved)} lifetime saved
+                  </span>
+                </div>
+                <span className={styles.balance}>{formatCurrency(b.balance)}</span>
+              </Card>
+            </Link>
+          ))}
         </div>
       )}
+
+      <Pager page={page} lastPage={lastPage} onChange={setPage} disabled={loading} />
     </div>
   );
 }

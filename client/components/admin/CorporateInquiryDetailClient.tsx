@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Textarea } from "@/components/ui/Textarea";
-import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
-import { AdminPageHeader } from "./AdminPageHeader";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { Field, FieldGrid, Input, Select, TextArea } from "@/components/portal/Field";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import {
   createCorporateQuote,
@@ -28,7 +29,12 @@ import type {
 } from "@/lib/types";
 import styles from "./CorporateInquiryDetailClient.module.css";
 
-const STATUSES: CorporateInquiryStatus[] = ["new", "contacted", "quoted", "closed"];
+const STAGES: { value: CorporateInquiryStatus; label: string }[] = [
+  { value: "new", label: "New" },
+  { value: "contacted", label: "Contacted" },
+  { value: "quoted", label: "Quoted" },
+  { value: "closed", label: "Closed" },
+];
 
 interface LineDraft {
   vendorId: string;
@@ -58,8 +64,13 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState("");
+  const [notesSaved, setNotesSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  // The quote whose link is about to be withdrawn — a two-step inline
+  // confirm rather than `window.confirm`, so the sentence saying what it
+  // does is in our own type.
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
 
   const [building, setBuilding] = useState(false);
   const [validUntil, setValidUntil] = useState(defaultValidUntil());
@@ -101,6 +112,34 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveNotes() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await setCorporateInquiryNotes(inquiryId, notes);
+      await reload();
+      setNotesSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save the notes. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRevoke(quoteId: string) {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await revokeCorporateQuoteLink(quoteId);
+      await reload();
+      setConfirmRevoke(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't withdraw that link. Try again.");
     } finally {
       setBusy(false);
     }
@@ -151,7 +190,14 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
     });
   }
 
-  if (loading) return <RouteSkeleton variant="page" />;
+  if (loading) {
+    return (
+      <div>
+        <AdminPageHeader title="Enquiry" back={{ href: "/admin/corporate", label: "Enquiries" }} />
+        <LoadingRows rows={4} />
+      </div>
+    );
+  }
   if (!inquiry) {
     return (
       <NotFoundCard
@@ -164,33 +210,46 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
     );
   }
 
+  const notesDirty = notes !== (inquiry.internalNotes ?? "");
+
   return (
     <div>
       <AdminPageHeader
+        back={{ href: "/admin/corporate", label: "Enquiries" }}
+        eyebrow="Corporate & bulk"
         title={inquiry.companyName}
-        subtitle={`${inquiry.contactName} · ${inquiry.email} · ${inquiry.phone}`}
+        subtitle={`${inquiry.contactName} · ${inquiry.email} · ${inquiry.phone} · Received ${formatDate(inquiry.createdAt)}`}
+        actions={
+          <div className={styles.headRow}>
+            <StatusPill
+              status={inquiry.orderType ?? "corporate"}
+              label={inquiry.orderType === "bulk" ? "Bulk" : "Corporate"}
+            />
+            <StatusPill status={inquiry.status} />
+          </div>
+        }
       />
 
-      <Link href="/admin/corporate" className={styles.back}>
-        ← All enquiries
-      </Link>
-
       {error && (
-        <p className={styles.error} role="alert" aria-live="polite">
+        <Notice tone="danger" onDismiss={() => setError(undefined)}>
           {error}
-        </p>
+        </Notice>
       )}
 
-      <Card className={styles.section}>
-        <div className={styles.headRow}>
-          <StatusPill
-            status={inquiry.orderType ?? "corporate"}
-            label={inquiry.orderType === "bulk" ? "Bulk" : "Corporate"}
+      <FormSection
+        id="enquiry-ask"
+        title="What they asked for"
+        footer={
+          <SegmentedFilter
+            label="Stage"
+            value={inquiry.status}
+            onChange={(status) => {
+              if (status !== inquiry.status && !busy) void run(() => setCorporateInquiryStatus(inquiryId, status));
+            }}
+            options={STAGES}
           />
-          <StatusPill status={inquiry.status} />
-          <span className={styles.meta}>Received {formatDate(inquiry.createdAt)}</span>
-        </div>
-
+        }
+      >
         <dl className={styles.facts}>
           <div>
             <dt>Quantity</dt>
@@ -211,58 +270,59 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
         </dl>
 
         <p className={styles.message}>{inquiry.message}</p>
+      </FormSection>
 
-        <div className={styles.statusRow}>
-          <span className={styles.label}>Move to</span>
-          {STATUSES.map((status) => (
+      <FormSection
+        id="enquiry-notes"
+        title="Internal notes"
+        description="Only visible here. The customer never sees this."
+        footer={
+          <div className={styles.quoteActions}>
             <Button
-              key={status}
-              variant={inquiry.status === status ? "primary" : "secondary"}
+              variant="secondary"
               size="sm"
-              disabled={busy || inquiry.status === status}
-              onClick={() => run(() => setCorporateInquiryStatus(inquiryId, status))}
+              disabled={busy || !notesDirty}
+              onClick={handleSaveNotes}
             >
-              {status}
+              Save notes
             </Button>
-          ))}
-        </div>
-      </Card>
+            {notesSaved && !notesDirty && (
+              <span className={styles.meta} role="status">
+                Saved.
+              </span>
+            )}
+          </div>
+        }
+      >
+        <Field label="Notes" labelAsText>
+          <TextArea
+            value={notes}
+            rows={3}
+            autoGrow
+            onChange={(event) => {
+              setNotes(event.target.value);
+              setNotesSaved(false);
+            }}
+            placeholder="Who you spoke to, what they liked, what to follow up on."
+          />
+        </Field>
+      </FormSection>
 
-      <Card className={styles.section}>
-        <h2 className={styles.sectionTitle}>Internal notes</h2>
-        <p className={styles.hint}>Only visible here. The customer never sees this.</p>
-        <Textarea
-          label="Notes"
-          value={notes}
-          rows={3}
-          onChange={(event) => setNotes(event.target.value)}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={busy}
-          onClick={() => run(() => setCorporateInquiryNotes(inquiryId, notes))}
-        >
-          Save notes
-        </Button>
-      </Card>
-
-      <Card className={styles.section}>
-        <div className={styles.headRow}>
-          <h2 className={styles.sectionTitle}>Quotes</h2>
-          {!building && (
+      <FormSection
+        id="enquiry-quotes"
+        title="Quotes"
+        description="A quote goes out as an emailed link the customer can accept without an account. Accepting agrees a price — it creates no orders."
+        actions={
+          !building ? (
             <Button variant="primary" size="sm" onClick={() => setBuilding(true)}>
               <Plus size={15} strokeWidth={2} aria-hidden="true" />
               New quote
             </Button>
-          )}
-        </div>
-
+          ) : undefined
+        }
+      >
         {inquiry.quotes.length === 0 && !building && (
-          <p className={styles.hint}>
-            No quotes yet. Build one to send them a price they can accept from an emailed link —
-            no account needed on their side.
-          </p>
+          <p className={styles.hint}>No quotes yet. Build one to send them a price.</p>
         )}
 
         {inquiry.quotes.map((quote) => (
@@ -310,23 +370,33 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
                   {quote.sentAt ? "Re-send (new link)" : "Send"}
                 </Button>
               )}
-              {quote.hasLiveLink && (
+              {quote.hasLiveLink && confirmRevoke !== quote.id && (
                 <Button
                   variant="secondary"
                   size="sm"
                   disabled={busy}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "Withdraw the link? Anyone holding it will stop being able to open or accept this quote.",
-                      )
-                    ) {
-                      void run(() => revokeCorporateQuoteLink(quote.id));
-                    }
-                  }}
+                  onClick={() => setConfirmRevoke(quote.id)}
                 >
                   Withdraw link
                 </Button>
+              )}
+              {confirmRevoke === quote.id && (
+                <>
+                  <span className={styles.meta}>
+                    Anyone holding the link will stop being able to open or accept this quote.
+                  </span>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => handleRevoke(quote.id)}
+                  >
+                    Confirm: withdraw
+                  </Button>
+                  <Button variant="secondary" size="sm" disabled={busy} onClick={() => setConfirmRevoke(null)}>
+                    Keep it
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -338,11 +408,11 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
 
             {lines.map((line, index) => (
               <div key={index} className={styles.lineRow}>
-                <select
-                  className={styles.select}
+                <Select
+                  dense
                   value={line.vendorId}
                   onChange={(event) => updateLine(index, { vendorId: event.target.value })}
-                  aria-label="HomeKrafter"
+                  aria-label={`Line ${index + 1} HomeKrafter`}
                 >
                   <option value="">HomeKrafter…</option>
                   {vendors.map((vendor) => (
@@ -350,38 +420,41 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
                       {vendor.name}
                     </option>
                   ))}
-                </select>
-                <input
-                  className={styles.input}
+                </Select>
+                <Input
+                  dense
                   placeholder="Custom Diwali hamper"
                   value={line.description}
                   onChange={(event) => updateLine(index, { description: event.target.value })}
-                  aria-label="Description"
+                  aria-label={`Line ${index + 1} description`}
                 />
-                <input
-                  className={styles.input}
+                <Input
+                  dense
                   type="number"
                   min={1}
+                  inputMode="numeric"
                   placeholder="Qty"
                   value={line.quantity}
                   onChange={(event) => updateLine(index, { quantity: event.target.value })}
-                  aria-label="Quantity"
+                  aria-label={`Line ${index + 1} quantity`}
                 />
-                <input
-                  className={styles.input}
+                <Input
+                  dense
                   type="number"
                   min={0}
-                  placeholder="Unit ₹"
+                  inputMode="decimal"
+                  affixStart="₹"
+                  placeholder="Unit"
                   value={line.unitPrice}
                   onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
-                  aria-label="Unit price"
+                  aria-label={`Line ${index + 1} unit price`}
                 />
                 <button
                   type="button"
                   className={styles.removeButton}
                   onClick={() => setLines((c) => c.filter((_, i) => i !== index))}
                   disabled={lines.length <= 1}
-                  aria-label="Remove line"
+                  aria-label={`Remove line ${index + 1}`}
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                 </button>
@@ -402,45 +475,37 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
               the work and nobody can be paid for it.
             </p>
 
-            <div className={styles.builderGrid}>
-              <label className={styles.field}>
-                <span className={styles.label}>Valid until</span>
-                <input
-                  className={styles.input}
-                  type="date"
-                  value={validUntil}
-                  onChange={(event) => setValidUntil(event.target.value)}
-                />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Delivery ₹</span>
-                <input
-                  className={styles.input}
+            <FieldGrid columns={3}>
+              <Field label="Valid until">
+                <Input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+              </Field>
+              <Field label="Delivery" optional>
+                <Input
                   type="number"
                   min={0}
+                  inputMode="decimal"
+                  affixStart="₹"
                   value={deliveryFee}
                   onChange={(event) => setDeliveryFee(event.target.value)}
+                  placeholder="0"
                 />
-              </label>
-              <label className={styles.field}>
-                <span className={styles.label}>Tax ₹</span>
-                <input
-                  className={styles.input}
+              </Field>
+              <Field label="Tax" optional>
+                <Input
                   type="number"
                   min={0}
+                  inputMode="decimal"
+                  affixStart="₹"
                   value={taxAmount}
                   onChange={(event) => setTaxAmount(event.target.value)}
+                  placeholder="0"
                 />
-              </label>
-            </div>
+              </Field>
+            </FieldGrid>
 
-            <Textarea
-              label="Notes on the quote"
-              value={quoteNotes}
-              rows={2}
-              onChange={(event) => setQuoteNotes(event.target.value)}
-              hint="Shown to the customer, above the Accept button."
-            />
+            <Field label="Notes on the quote" optional hint="Shown to the customer, above the Accept button.">
+              <TextArea value={quoteNotes} rows={2} onChange={(event) => setQuoteNotes(event.target.value)} />
+            </Field>
 
             {/* The total, before it is created — nobody should have to save
                 a quote to find out what it says. */}
@@ -463,7 +528,7 @@ export function CorporateInquiryDetailClient({ inquiryId }: { inquiryId: string 
             </div>
           </div>
         )}
-      </Card>
+      </FormSection>
     </div>
   );
 }

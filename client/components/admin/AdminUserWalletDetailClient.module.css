@@ -151,3 +151,27 @@
   font-size: 13px;
   margin-top: var(--hk-s4);
 }
+
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--hk-s4);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink);
+  text-decoration: none;
+}
+
+.linkButton:hover {
+  border-color: var(--hk-pine);
+  color: var(--hk-pine);
+}
+
+.linkButton:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}

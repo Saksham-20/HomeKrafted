@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { SearchField } from "@/components/ui/SearchField";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { UnifiedOrderRow } from "./UnifiedOrderRow";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -18,12 +21,11 @@ const TYPE_FILTERS: { value: AdminOrderType | "all"; label: string }[] = [
 ];
 
 /**
- * `/admin/orders` (M11a) — unified, unscoped visibility across all 3
- * order-shaped tables (marketplace `Order`, `LaundryBooking`,
- * `SnackOrder`), filterable by module + a name/reference search.
- * Read-only here: refund/status-override controls are explicitly M11b
- * scope (see `OrderDetailClient`'s stub note) — this screen is "full
- * visibility" per the M11a brief, not action.
+ * `/admin/orders` (M11a) — unified, unscoped visibility across the
+ * order-shaped tables (marketplace `Order`, `SnackOrder`, legacy
+ * `LaundryBooking`), filterable by module + a name/reference search.
+ * Read-only here: refund/status-override controls live on the order's
+ * own detail screen.
  */
 export function OrdersClient() {
   const { ready, role } = useAuth();
@@ -79,45 +81,51 @@ export function OrdersClient() {
   }, [ready, role, typeFilter, debouncedQuery, page]);
 
   const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
-
-  if (!ready || (loading && orders.length === 0 && !error)) {
-    return <div className={styles.loading}>Loading orders…</div>;
-  }
+  const initialLoad = !ready || (loading && orders.length === 0 && !error);
 
   return (
     <div>
       <AdminPageHeader
         title="Orders"
         subtitle={
-          typeFilter === "all" && !debouncedQuery
-            ? `${total} order${total === 1 ? "" : "s"} across marketplace and snacks`
-            : `${total} order${total === 1 ? "" : "s"} match these filters`
+          initialLoad
+            ? undefined
+            : typeFilter === "all" && !debouncedQuery
+              ? `${total} order${total === 1 ? "" : "s"} across marketplace and snacks`
+              : `${total} order${total === 1 ? "" : "s"} match these filters`
         }
       />
 
-      <div className={styles.filters}>
-        <SearchField
-          className={styles.search}
-          placeholder="Search by reference, customer or HomeKrafter…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+      <Toolbar
+        search={
+          <SearchField
+            placeholder="Search by reference, customer or HomeKrafter…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Search orders"
+          />
+        }
+      >
+        <SegmentedFilter
+          label="Filter by module"
+          value={typeFilter}
+          onChange={(next) => {
+            setTypeFilter(next);
+            setPage(1);
+          }}
+          options={TYPE_FILTERS}
         />
-        <div className={styles.chipRow} role="tablist" aria-label="Filter by module">
-          {TYPE_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={typeFilter === f.value} onClick={() => {
-                setTypeFilter(f.value);
-                setPage(1);
-              }} />
-          ))}
-        </div>
-      </div>
+      </Toolbar>
 
       {error ? (
-        <Card className={styles.empty} role="alert">
-          {error}
-        </Card>
+        <Notice tone="danger">{error}</Notice>
+      ) : initialLoad ? (
+        <LoadingRows rows={6} />
       ) : orders.length === 0 ? (
-        <Card className={styles.empty}>No orders match these filters.</Card>
+        <EmptyState
+          title="No orders match these filters."
+          body="Try the other module, or clear the search. An order appears here the moment a buyer places it."
+        />
       ) : (
         <>
           <div className={styles.list}>
@@ -125,28 +133,7 @@ export function OrdersClient() {
               <UnifiedOrderRow key={order.id} order={order} />
             ))}
           </div>
-
-          {lastPage > 1 && (
-            <div className={styles.pager}>
-              <Button
-                variant="secondary"
-                disabled={page <= 1 || loading}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Previous
-              </Button>
-              <span className={styles.pagerLabel} aria-live="polite">
-                Page {page} of {lastPage}
-              </span>
-              <Button
-                variant="secondary"
-                disabled={page >= lastPage || loading}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <Pager page={page} lastPage={lastPage} onChange={setPage} disabled={loading} />
         </>
       )}
     </div>

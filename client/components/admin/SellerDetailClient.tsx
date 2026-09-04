@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
+import { FormPage } from "@/components/portal/FormPage";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { SellerSignInDetails } from "./SellerSignInDetails";
 import { SellerVerificationPanel } from "./SellerVerificationPanel";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { apiErrorMessage, getAdminSellerDetail, setSellerStatus } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { kitchenLoading } from "@/lib/kitchen-copy";
 import { SPECIALTY_LABELS, type AdminSellerDetail } from "@/lib/types";
 import styles from "./SellerDetailClient.module.css";
 
@@ -78,7 +80,12 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
   }
 
   if (!ready || detail === undefined) {
-    return <div className={styles.loading}>{kitchenLoading("admin-seller-detail")}</div>;
+    return (
+      <div>
+        <AdminPageHeader title="HomeKrafter" back={{ href: "/admin/sellers", label: "HomeKrafters" }} />
+        <LoadingRows rows={5} />
+      </div>
+    );
   }
 
   if (detail === null) {
@@ -98,194 +105,188 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
   // unused) and `no_credentials` (none exist) are both "has not arrived",
   // and only they may see a password.
   const pending = signIn.status === "awaiting" || signIn.status === "no_credentials";
+  const showSignIn = pending && !suspended;
+
+  const sections = [
+    { id: "hk-contact", label: "Contact" },
+    ...(showSignIn ? [{ id: "hk-signin", label: "Sign-in details", todo: 1 }] : []),
+    { id: "hk-storefront", label: "Storefront" },
+    { id: "hk-activity", label: "Activity" },
+    { id: "hk-verification", label: "Verification" },
+    { id: "hk-application", label: "Application" },
+  ];
 
   return (
     <div>
-      <Link href="/admin/sellers" className={styles.back}>
-        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-        Back to HomeKrafters
-      </Link>
+      <AdminPageHeader
+        back={{ href: "/admin/sellers", label: "HomeKrafters" }}
+        eyebrow="HomeKrafter"
+        title={seller.displayName}
+        subtitle={`${seller.specialties.map((s) => SPECIALTY_LABELS[s]).join(" · ") || "HomeKrafter"} · Since ${formatDate(seller.createdAt)}`}
+        actions={
+          <>
+            {/* Their public page, as a buyer sees it — the fastest check on
+                whether a kitchen has actually got going. A link, not a
+                button: it opens a page, and open-in-new-tab is exactly what
+                somebody comparing two screens wants. */}
+            <Link href={`/storefront/${vendor.slug}`} className={styles.linkButton}>
+              View storefront
+            </Link>
+            <Button variant="secondary" onClick={toggleStatus} disabled={busy}>
+              {suspended ? "Reactivate" : "Suspend"}
+            </Button>
+          </>
+        }
+      />
 
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
-
-      <div className={styles.header}>
-        <div className={styles.headerBody}>
-          <h1 className={styles.name}>{seller.displayName}</h1>
-          <span className={styles.sub}>
-            {seller.specialties.map((s) => SPECIALTY_LABELS[s]).join(" · ") || "HomeKrafter"} ·
-            Since {formatDate(seller.createdAt)}
-          </span>
-          <div className={styles.badges}>
-            <StatusPill status={seller.status} />
-            {signIn.status === "no_credentials" && (
-              <span className={styles.warnPill}>No sign-in yet</span>
-            )}
-            {signIn.status === "awaiting" && (
-              <span className={styles.warnPill}>Not signed in yet</span>
-            )}
-          </div>
-        </div>
-        <div className={styles.headerActions}>
-          {/* Their public page, as a buyer sees it — the fastest check on
-              whether a kitchen has actually got going. A link, not a
-              button: it opens a page, and open-in-new-tab is exactly what
-              somebody comparing two screens wants. */}
-          <Link href={`/storefront/${vendor.slug}`} className={styles.linkButton}>
-            View storefront
-          </Link>
-          <Button variant="secondary" onClick={toggleStatus} disabled={busy}>
-            {suspended ? "Reactivate" : "Suspend"}
-          </Button>
-        </div>
+      <div className={styles.badges}>
+        <StatusPill status={seller.status} />
+        {signIn.status === "no_credentials" && <span className={styles.warnPill}>No sign-in yet</span>}
+        {signIn.status === "awaiting" && <span className={styles.warnPill}>Not signed in yet</span>}
       </div>
 
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Contact</span>
-        <div className={styles.grid}>
-          <Field label="Contact name" value={contact.name} />
-          <Field
-            label="Email"
-            value={contact.email ?? "—"}
-            note={contact.email ? (contact.emailVerified ? "verified" : "unverified") : undefined}
-          />
-          <Field
-            label="Phone"
-            value={contact.phone ?? "—"}
-            note={contact.phone ? (contact.phoneVerified ? "verified" : "unverified") : undefined}
-          />
-          <Field label="Sign-in methods" value={contact.authProviders.join(", ") || "—"} />
-          <Field label="Account created" value={formatDate(contact.accountCreatedAt)} />
-          <Field label="HomeKrafter ID" value={seller.id} mono />
-        </div>
-      </Card>
+      {error && <Notice tone="danger">{error}</Notice>}
 
-      {/* Only while they have not arrived — once a kitchen chooses its own
-          password there is no path here that mints one, same rule as the
-          list row. */}
-      {pending && !suspended && (
-        <Card className={styles.card}>
-          <span className={styles.cardTitle}>Sign-in details</span>
-          <SellerSignInDetails sellerId={seller.id} signIn={signIn} />
-        </Card>
-      )}
-
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Storefront</span>
-        <div className={styles.grid}>
-          <Field label="Storefront name" value={vendor.name} />
-          <Field label="Where they work from" value={vendor.location} />
-          <Field
-            label="Delivers within"
-            value={vendor.deliveryRadiusKm ? `${vendor.deliveryRadiusKm} km` : "Platform default"}
-          />
-          <Field
-            label="Rating"
-            value={
-              vendor.rating ? `★ ${vendor.rating.toFixed(1)} (${vendor.reviewCount ?? 0})` : "Unrated"
-            }
-          />
-          <Field label="Followers" value={String(vendor.followerCount)} />
-          <Field label="Reviews" value={String(activity.reviewCount)} />
-        </div>
-        {vendor.bio && <p className={styles.bio}>{vendor.bio}</p>}
-      </Card>
-
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Activity</span>
-        <div className={styles.grid}>
-          <Field
-            label="Listings"
-            value={`${activity.listings.available} on / ${activity.listings.total}`}
-            note={
-              activity.listings.awaitingReview
-                ? `${activity.listings.awaitingReview} awaiting review`
-                : undefined
-            }
-          />
-          <Field label="Snacks" value={String(activity.snacks)} />
-          <Field label="Meal plans" value={String(activity.mealPlans)} />
-          <Field label="Orders" value={String(activity.orderCount)} />
-          <Field label="Units sold" value={String(activity.unitsSold)} />
-          <Field label="Their share of sales" value={formatCurrency(activity.revenue)} />
-          <Field
-            label="Snack orders"
-            value={`${activity.snackOrderCount} · ${formatCurrency(activity.snackRevenue)}`}
-          />
-          <Field
-            label="Payouts waiting"
-            value={
-              activity.pendingPayoutCount
-                ? `${activity.pendingPayoutCount} · ${formatCurrency(activity.pendingPayoutAmount)}`
-                : "None"
-            }
-          />
-          <Field
-            label="Last order"
-            value={activity.lastOrderAt ? formatDate(activity.lastOrderAt) : "Never"}
-          />
-        </div>
-        <p className={styles.footnote}>
-          Sales are this kitchen&rsquo;s line-item share, not the order total — an order can span
-          several kitchens.
-        </p>
-      </Card>
-
-      <Card className={styles.card}>
-        <span className={styles.cardTitle}>Verification</span>
-        <SellerVerificationPanel sellerId={seller.id} />
-      </Card>
-
-      {application ? (
-        <Card className={styles.card}>
-          <span className={styles.cardTitle}>What they applied with</span>
+      <FormPage sections={sections} navLabel="On this page">
+        <FormSection id="hk-contact" title="Contact">
           <div className={styles.grid}>
-            <Field label="Business name" value={application.businessName} />
-            <Field label="Contact" value={application.contactName} />
-            <Field label="City" value={application.city} />
-            {/* Pincode since M36; the older two survive for rows filed
-                before it, where they are all there is. */}
-            <Field
-              label={application.pincode ? "Pincode" : "Area"}
-              value={application.pincode ?? application.areaLabel ?? application.area ?? "—"}
+            <Fact label="Contact name" value={contact.name} />
+            <Fact
+              label="Email"
+              value={contact.email ?? "—"}
+              note={contact.email ? (contact.emailVerified ? "verified" : "unverified") : undefined}
             />
-            <Field label="Applied" value={formatDate(application.createdAt)} />
-            <Field label="Status" value={application.status} />
-            {/* M32 — absent on anything filed before the form asked. */}
-            {application.yearsMaking !== undefined && (
-              <Field label="Years making" value={String(application.yearsMaking)} />
-            )}
-            {application.capacityPerDay !== undefined && (
-              <Field label="Orders a day" value={String(application.capacityPerDay)} />
-            )}
-            {application.fssaiNumber && (
-              <Field label="FSSAI (unverified)" value={application.fssaiNumber} mono />
-            )}
-            {application.instagramUrl && (
-              <Field label="Instagram" value={application.instagramUrl} />
-            )}
-            {application.websiteUrl && <Field label="Website" value={application.websiteUrl} />}
+            <Fact
+              label="Phone"
+              value={contact.phone ?? "—"}
+              note={contact.phone ? (contact.phoneVerified ? "verified" : "unverified") : undefined}
+            />
+            <Fact label="Sign-in methods" value={contact.authProviders.join(", ") || "—"} />
+            <Fact label="Account created" value={formatDate(contact.accountCreatedAt)} />
+            <Fact label="HomeKrafter ID" value={seller.id} mono />
           </div>
-          {/* Free text from a public form: rendered as text, never markup. */}
-          <p className={styles.bio}>{application.description}</p>
-        </Card>
-      ) : (
-        <Card className={styles.card}>
-          <span className={styles.cardTitle}>What they applied with</span>
-          <p className={styles.footnote}>
-            No application on file for this email. Either they were set up by hand, or the address on
-            the account has changed since they applied.
-          </p>
-        </Card>
-      )}
+        </FormSection>
+
+        {/* Only while they have not arrived — once a kitchen chooses its own
+            password there is no path here that mints one, same rule as the
+            list row. */}
+        {showSignIn && (
+          <FormSection
+            id="hk-signin"
+            title="Sign-in details"
+            description="They have not signed in yet. Issue details here and read them down the phone."
+            status={{ label: "Needs a hand", tone: "todo" }}
+          >
+            <SellerSignInDetails sellerId={seller.id} signIn={signIn} />
+          </FormSection>
+        )}
+
+        <FormSection id="hk-storefront" title="Storefront">
+          <div className={styles.grid}>
+            <Fact label="Storefront name" value={vendor.name} />
+            <Fact label="Where they work from" value={vendor.location} />
+            <Fact
+              label="Delivers within"
+              value={vendor.deliveryRadiusKm ? `${vendor.deliveryRadiusKm} km` : "Platform default"}
+            />
+            <Fact
+              label="Rating"
+              value={vendor.rating ? `★ ${vendor.rating.toFixed(1)} (${vendor.reviewCount ?? 0})` : "Unrated"}
+            />
+            <Fact label="Followers" value={String(vendor.followerCount)} />
+            <Fact label="Reviews" value={String(activity.reviewCount)} />
+          </div>
+          {vendor.bio && <p className={styles.bio}>{vendor.bio}</p>}
+        </FormSection>
+
+        <FormSection
+          id="hk-activity"
+          title="Activity"
+          description="Sales are this kitchen's line-item share, not the order total — an order can span several kitchens."
+        >
+          <div className={styles.grid}>
+            <Fact
+              label="Listings"
+              value={`${activity.listings.available} on / ${activity.listings.total}`}
+              note={
+                activity.listings.awaitingReview
+                  ? `${activity.listings.awaitingReview} awaiting review`
+                  : undefined
+              }
+            />
+            <Fact label="Snacks" value={String(activity.snacks)} />
+            <Fact label="Meal plans" value={String(activity.mealPlans)} />
+            <Fact label="Orders" value={String(activity.orderCount)} />
+            <Fact label="Units sold" value={String(activity.unitsSold)} />
+            <Fact label="Their share of sales" value={formatCurrency(activity.revenue)} />
+            <Fact
+              label="Snack orders"
+              value={`${activity.snackOrderCount} · ${formatCurrency(activity.snackRevenue)}`}
+            />
+            <Fact
+              label="Payouts waiting"
+              value={
+                activity.pendingPayoutCount
+                  ? `${activity.pendingPayoutCount} · ${formatCurrency(activity.pendingPayoutAmount)}`
+                  : "None"
+              }
+            />
+            <Fact label="Last order" value={activity.lastOrderAt ? formatDate(activity.lastOrderAt) : "Never"} />
+          </div>
+        </FormSection>
+
+        <FormSection
+          id="hk-verification"
+          title="Verification"
+          description="The badges a buyer sees. Only this screen can set them — a HomeKrafter never sets their own."
+        >
+          <SellerVerificationPanel sellerId={seller.id} />
+        </FormSection>
+
+        <FormSection id="hk-application" title="What they applied with">
+          {application ? (
+            <>
+              <div className={styles.grid}>
+                <Fact label="Business name" value={application.businessName} />
+                <Fact label="Contact" value={application.contactName} />
+                <Fact label="City" value={application.city} />
+                {/* Pincode since M36; the older two survive for rows filed
+                    before it, where they are all there is. */}
+                <Fact
+                  label={application.pincode ? "Pincode" : "Area"}
+                  value={application.pincode ?? application.areaLabel ?? application.area ?? "—"}
+                />
+                <Fact label="Applied" value={formatDate(application.createdAt)} />
+                <Fact label="Status" value={application.status} />
+                {/* M32 — absent on anything filed before the form asked. */}
+                {application.yearsMaking !== undefined && (
+                  <Fact label="Years making" value={String(application.yearsMaking)} />
+                )}
+                {application.capacityPerDay !== undefined && (
+                  <Fact label="Orders a day" value={String(application.capacityPerDay)} />
+                )}
+                {application.fssaiNumber && (
+                  <Fact label="FSSAI (unverified)" value={application.fssaiNumber} mono />
+                )}
+                {application.instagramUrl && <Fact label="Instagram" value={application.instagramUrl} />}
+                {application.websiteUrl && <Fact label="Website" value={application.websiteUrl} />}
+              </div>
+              {/* Free text from a public form: rendered as text, never markup. */}
+              <p className={styles.bio}>{application.description}</p>
+            </>
+          ) : (
+            <p className={styles.footnote}>
+              No application on file for this email. Either they were set up by hand, or the address on
+              the account has changed since they applied.
+            </p>
+          )}
+        </FormSection>
+      </FormPage>
     </div>
   );
 }
 
-function Field({
+function Fact({
   label,
   value,
   note,

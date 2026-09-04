@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
 import { AdminReviewRow } from "./AdminReviewRow";
@@ -16,12 +20,6 @@ import {
 import styles from "./CatalogClient.module.css";
 
 type Filter = "all" | "flagged" | "hidden";
-
-const FILTERS: { value: Filter; label: string }[] = [
-  { value: "all", label: "All reviews" },
-  { value: "flagged", label: "Flagged" },
-  { value: "hidden", label: "Hidden" },
-];
 
 /** `/admin/catalog/reviews` (M11b) — every `Review` (product + vendor), flagged/hidden filters, hide/unhide action. Hiding here filters the review out of `getProductReviews`/`getVendorReviews` going forward (see `Review.hidden`'s doc comment for the client/server caveat). */
 export function CatalogReviewsClient() {
@@ -73,34 +71,54 @@ export function CatalogReviewsClient() {
   }, [reviews, filter]);
 
   const flaggedCount = reviews.filter((r) => r.flagged).length;
+  const hiddenCount = reviews.filter((r) => r.hidden).length;
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading reviews…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Reviews" />
+        <CatalogTabs active="reviews" />
+        <LoadingRows rows={5} />
+      </div>
+    );
   }
 
   return (
     <div>
       <AdminPageHeader
         title="Reviews"
-        subtitle={`${total} review${total === 1 ? "" : "s"} · ${flaggedCount} flagged on this page`}
+        subtitle={`${total} review${total === 1 ? "" : "s"}${
+          flaggedCount > 0 ? ` · ${flaggedCount} flagged on this page` : ""
+        }`}
       />
       <CatalogTabs active="reviews" />
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
-      <div className={styles.filters}>
-        <div className={styles.chipRow} role="tablist" aria-label="Filter reviews">
-          {FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={filter === f.value} onClick={() => setFilter(f.value)} />
-          ))}
-        </div>
-      </div>
+      <Toolbar>
+        {/* The filters narrow the current page of 50; the pager stays so a
+            filtered view can reach older pages. */}
+        <SegmentedFilter
+          label="Filter reviews"
+          value={filter}
+          onChange={setFilter}
+          options={[
+            { value: "all", label: "All" },
+            { value: "flagged", label: "Flagged", count: flaggedCount },
+            { value: "hidden", label: "Hidden", count: hiddenCount },
+          ]}
+        />
+      </Toolbar>
 
       {filtered.length === 0 ? (
-        <Card className={styles.empty}>No reviews match this filter.</Card>
+        <EmptyState
+          title={filter === "all" ? "No reviews yet." : `No ${filter} reviews on this page.`}
+          body={
+            filter === "all"
+              ? "A review appears here once a buyer writes one against a delivered order."
+              : "Try another page, or clear the filter."
+          }
+        />
       ) : (
         <div className={styles.list}>
           {filtered.map((review) => (
@@ -109,25 +127,7 @@ export function CatalogReviewsClient() {
         </div>
       )}
 
-      {/* The flagged/hidden chips narrow the current page of 50; the
-          pager stays visible so a filtered view can reach older pages. */}
-      {total > pageSize && (
-        <div className={styles.pager}>
-          <Chip
-            label="Previous"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            selected={false}
-          />
-          <span className={styles.pagerLabel} aria-live="polite">
-            Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
-          </span>
-          <Chip
-            label="Next"
-            onClick={() => setPage((current) => Math.min(Math.ceil(total / pageSize), current + 1))}
-            selected={false}
-          />
-        </div>
-      )}
+      <Pager page={page} lastPage={lastPage} onChange={setPage} />
     </div>
   );
 }

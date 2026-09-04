@@ -4,9 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { SearchField } from "@/components/ui/SearchField";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Select } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { ReviewQueuePanel } from "./ReviewQueuePanel";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
@@ -142,10 +147,7 @@ export function CatalogClient() {
   }
 
   const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
-
-  if (!ready || (loading && products.length === 0 && !loadError)) {
-    return <div className={styles.loading}>Loading catalog…</div>;
-  }
+  const filtered = statusFilter !== "all" || vendorFilter !== "all" || Boolean(debouncedQuery);
 
   return (
     <div>
@@ -153,18 +155,18 @@ export function CatalogClient() {
           somebody's income attached to it. */}
       <AdminPageHeader
         title="Catalog"
-        subtitle={(() => {
-          // `products.length` was the page, not the catalogue, and
-          // "across every vendor" was untrue under any filter — together
-          // that read "0 listings across every vendor" while sitting on
-          // the Waiting tab of a catalogue with seventeen in it.
-          const filtered =
-            statusFilter !== "all" || vendorFilter !== "all" || Boolean(debouncedQuery);
-          const scope = filtered
-            ? `${total} listing${total === 1 ? "" : "s"} match these filters`
-            : `${total} listing${total === 1 ? "" : "s"} across every vendor`;
-          return pendingCount > 0 ? `${pendingCount} waiting for review · ${scope}` : scope;
-        })()}
+        subtitle={
+          loading && products.length === 0
+            ? undefined
+            : (() => {
+                // `products.length` was the page, not the catalogue, and
+                // "across every vendor" was untrue under any filter.
+                const scope = filtered
+                  ? `${total} listing${total === 1 ? " matches" : "s match"} these filters`
+                  : `${total} listing${total === 1 ? "" : "s"} across every vendor`;
+                return pendingCount > 0 ? `${pendingCount} waiting for review · ${scope}` : scope;
+              })()
+        }
         actions={
           /* M44 — until now nothing on the platform could list a product
              except a HomeKrafter's own portal, so Homekrafted could not
@@ -184,63 +186,61 @@ export function CatalogClient() {
           waiting. Renders nothing when the queue is clear. */}
       <ReviewQueuePanel />
 
-      <div className={styles.filters}>
-        <SearchField
-          className={styles.search}
-          placeholder="Search by product, vendor or category…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <select
-          className={styles.select}
-          value={vendorFilter}
-          onChange={(event) => {
-            setVendorFilter(event.target.value);
+      <Toolbar
+        search={
+          <SearchField
+            placeholder="Search by product, vendor or category…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            aria-label="Search the catalogue"
+          />
+        }
+      >
+        <div className={styles.vendorSelect}>
+          <Select
+            dense
+            value={vendorFilter}
+            onChange={(event) => {
+              setVendorFilter(event.target.value);
+              setPage(1);
+            }}
+            aria-label="Filter by vendor"
+          >
+            <option value="all">All vendors</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <SegmentedFilter
+          label="Filter by status"
+          value={statusFilter}
+          onChange={(next) => {
+            setStatusFilter(next);
             setPage(1);
           }}
-          aria-label="Filter by vendor"
-        >
-          <option value="all">All vendors</option>
-          {vendors.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.name}
-            </option>
-          ))}
-        </select>
-        {/* A group of toggles, not a `role="tablist"` — it claimed that
-            role and axe fails it as `aria-required-children` (critical),
-            since a tablist may contain only `role="tab"`. The role also
-            promised arrow-key navigation this never had. `<Chip>` already
-            carries `aria-pressed`, which is the right thing for a filter
-            that stays on the same page. */}
-        <div className={styles.chipRow} role="group" aria-label="Filter by status">
-          {STATUS_FILTERS.map((f) => (
-            <Chip key={f.value} label={f.label} selected={statusFilter === f.value} onClick={() => {
-                setStatusFilter(f.value);
-                setPage(1);
-              }} />
-          ))}
-        </div>
-      </div>
+          options={STATUS_FILTERS.map((f) =>
+            f.value === "pending" ? { ...f, count: pendingCount } : f,
+          )}
+        />
+      </Toolbar>
 
-      {actionError && (
-        <p className={styles.actionError} role="alert">
-          {actionError}
-        </p>
-      )}
+      {actionError && <Notice tone="danger">{actionError}</Notice>}
+      {loadError && <Notice tone="danger">{loadError}</Notice>}
 
-      {loadError && (
-        <Card className={styles.empty} role="alert">
-          {loadError}
-        </Card>
-      )}
-
-      {!loadError && products.length === 0 ? (
-        <Card className={styles.empty}>
-          {statusFilter === "pending"
-            ? "Nothing waiting for review. Every listing has been looked at."
-            : "No products match these filters."}
-        </Card>
+      {!ready || (loading && products.length === 0 && !loadError) ? (
+        <LoadingRows rows={5} />
+      ) : !loadError && products.length === 0 ? (
+        <EmptyState
+          title={statusFilter === "pending" ? "Nothing waiting for review." : "No products match these filters."}
+          body={
+            statusFilter === "pending"
+              ? "Every listing has been looked at. New ones land here the moment a HomeKrafter saves one."
+              : "Try another status or vendor, or clear the search."
+          }
+        />
       ) : (
         !loadError && (
           <>
@@ -249,28 +249,7 @@ export function CatalogClient() {
                 <ProductModerationRow key={product.id} product={product} onAction={handleAction} />
               ))}
             </div>
-
-            {lastPage > 1 && (
-              <div className={styles.pager}>
-                <Button
-                  variant="secondary"
-                  disabled={page <= 1 || loading}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                >
-                  Previous
-                </Button>
-                <span className={styles.pagerLabel} aria-live="polite">
-                  Page {page} of {lastPage}
-                </span>
-                <Button
-                  variant="secondary"
-                  disabled={page >= lastPage || loading}
-                  onClick={() => setPage((current) => current + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
+            <Pager page={page} lastPage={lastPage} onChange={setPage} disabled={loading} />
           </>
         )
       )}

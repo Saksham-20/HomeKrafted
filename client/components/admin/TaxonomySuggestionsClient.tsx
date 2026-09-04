@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Field, Input, TextArea } from "@/components/portal/Field";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -116,35 +121,28 @@ export function TaxonomySuggestionsClient() {
       />
       <CatalogTabs active="suggestions" pendingSuggestions={pendingCount} />
 
-      <div className={styles.filters}>
-        {FILTERS.map((option) => (
-          <Chip
-            key={option.value}
-            label={option.label}
-            selected={filter === option.value}
-            onClick={() => setFilter(option.value)}
-          />
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter requests"
+          value={filter}
+          onChange={setFilter}
+          options={FILTERS.map((f) => (f.value === "pending" ? { ...f, count: pendingCount } : f))}
+        />
+      </Toolbar>
 
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {loading ? (
-        <Card padding="sm">
-          <p className={styles.empty}>Loading…</p>
-        </Card>
+        <LoadingRows rows={3} />
       ) : items.length === 0 ? (
-        <Card padding="sm">
-          <p className={styles.empty}>
-            {filter === "pending"
-              ? "Nothing waiting. Requests land here when a HomeKrafter cannot find the shelf or occasion they need."
-              : "Nothing here."}
-          </p>
-        </Card>
+        <EmptyState
+          title={filter === "pending" ? "Nothing waiting." : "Nothing here."}
+          body={
+            filter === "pending"
+              ? "Requests land here when a HomeKrafter cannot find the shelf or occasion they need on their listing form."
+              : "Try another filter."
+          }
+        />
       ) : (
         <div className={styles.list}>
           {items.map((item) => (
@@ -187,10 +185,10 @@ function SuggestionRow({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
-  const fieldId = useId();
 
   const decided = suggestion.status !== "pending";
   const noun = suggestion.kind === "category" ? "Shelf" : "Occasion";
+  const renamed = name.trim() !== suggestion.name;
 
   function confirmReject() {
     const trimmed = reason.trim();
@@ -223,14 +221,16 @@ function SuggestionRow({
       {decided ? (
         <p className={styles.name}>{suggestion.name}</p>
       ) : (
-        <label className={styles.nameField}>
-          <span className={styles.nameLabel}>Name it will be added under</span>
-          <input
-            className={styles.nameInput}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
+        <Field
+          label="Name it will be added under"
+          hint={
+            renamed
+              ? `They asked for “${suggestion.name}” — it will be added as what you type here.`
+              : "Edit it to fit the vocabulary already on the shelf list."
+          }
+        >
+          <Input value={name} maxLength={60} onChange={(event) => setName(event.target.value)} />
+        </Field>
       )}
 
       <p className={styles.meta}>
@@ -250,7 +250,7 @@ function SuggestionRow({
         <div className={styles.actions}>
           <Button
             size="sm"
-            onClick={() => onApprove(name.trim() === suggestion.name ? undefined : name.trim())}
+            onClick={() => onApprove(renamed ? name.trim() : undefined)}
             disabled={busy || name.trim().length < 2}
           >
             {busy ? "Adding…" : `Add this ${noun.toLowerCase()}`}
@@ -263,27 +263,22 @@ function SuggestionRow({
 
       {!decided && rejecting && (
         <div className={styles.reasonBox}>
-          <label className={styles.nameLabel} htmlFor={`${fieldId}-reason`}>
-            Why not? The HomeKrafter sees this word for word.
-          </label>
-          <textarea
-            id={`${fieldId}-reason`}
-            className={styles.reasonInput}
-            rows={2}
-            autoFocus
-            value={reason}
-            onChange={(event) => {
-              setReason(event.target.value);
-              if (reasonError) setReasonError(null);
-            }}
-            placeholder="e.g. Pickles already covers this — file it under Pickles & Preserves."
-            aria-describedby={reasonError ? `${fieldId}-error` : undefined}
-          />
-          {reasonError && (
-            <p className={styles.error} id={`${fieldId}-error`} role="alert">
-              {reasonError}
-            </p>
-          )}
+          <Field
+            label="Why not?"
+            hint="The HomeKrafter sees this word for word. Point them at the shelf that already covers it."
+            error={reasonError ?? undefined}
+          >
+            <TextArea
+              rows={2}
+              autoFocus
+              value={reason}
+              onChange={(event) => {
+                setReason(event.target.value);
+                if (reasonError) setReasonError(null);
+              }}
+              placeholder="e.g. Pickles already covers this — file it under Pickles & Preserves."
+            />
+          </Field>
           <div className={styles.actions}>
             <Button size="sm" onClick={confirmReject} disabled={busy}>
               Send and decline

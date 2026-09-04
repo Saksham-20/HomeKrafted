@@ -5,6 +5,11 @@ import { Plus } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "@/components/ui/ImageUpload";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { Field, FieldGrid, Input } from "@/components/portal/Field";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CollectionsTabs } from "./CollectionsTabs";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -23,6 +28,10 @@ function toDateInput(iso?: string): string {
   return iso ? iso.slice(0, 10) : "";
 }
 
+function toDraft(occasion: Occasion): RowDraft {
+  return { celebratedOn: toDateInput(occasion.celebratedOn), tagline: occasion.tagline ?? "" };
+}
+
 /**
  * `/admin/collections/occasions` (M16, H8) — where festival dates get
  * rolled forward.
@@ -35,7 +44,8 @@ function toDateInput(iso?: string): string {
  *
  * An occasion with no date is evergreen, not broken: a birthday has no
  * season, and `/collections` lists those separately rather than sorting
- * them into a countdown they don't have. "Clear" is how one goes back.
+ * them into a countdown they don't have. Clearing the date is how one
+ * goes back.
  */
 export function OccasionsClient() {
   const { ready, role } = useAuth();
@@ -71,11 +81,7 @@ export function OccasionsClient() {
       const list = await getOccasionsAdmin();
       if (cancelled) return;
       setOccasions(list);
-      setDrafts(
-        Object.fromEntries(
-          list.map((o) => [o.id, { celebratedOn: toDateInput(o.celebratedOn), tagline: o.tagline ?? "" }]),
-        ),
-      );
+      setDrafts(Object.fromEntries(list.map((o) => [o.id, toDraft(o)])));
       setLoading(false);
     })();
     return () => {
@@ -90,13 +96,7 @@ export function OccasionsClient() {
 
   function replace(updated: Occasion) {
     setOccasions((current) => current.map((o) => (o.id === updated.id ? updated : o)));
-    setDrafts((current) => ({
-      ...current,
-      [updated.id]: {
-        celebratedOn: toDateInput(updated.celebratedOn),
-        tagline: updated.tagline ?? "",
-      },
-    }));
+    setDrafts((current) => ({ ...current, [updated.id]: toDraft(updated) }));
   }
 
   async function save(occasion: Occasion) {
@@ -151,13 +151,7 @@ export function OccasionsClient() {
         imageSrc: draftImage.trim() || undefined,
       });
       setOccasions((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
-      setDrafts((current) => ({
-        ...current,
-        [created.id]: {
-          celebratedOn: toDateInput(created.celebratedOn),
-          tagline: created.tagline ?? "",
-        },
-      }));
+      setDrafts((current) => ({ ...current, [created.id]: toDraft(created) }));
       setJustAdded(created.name);
       resetDraft();
       setAdding(false);
@@ -168,7 +162,30 @@ export function OccasionsClient() {
     }
   }
 
-  if (!ready || loading) return <div className={styles.loading}>Loading occasions…</div>;
+  const addButton = (
+    <Button
+      variant="primary"
+      size="sm"
+      onClick={() => {
+        setAdding(true);
+        setJustAdded(null);
+      }}
+      disabled={adding}
+    >
+      <Plus size={15} strokeWidth={2} aria-hidden="true" />
+      Add an occasion
+    </Button>
+  );
+
+  if (!ready || loading) {
+    return (
+      <div>
+        <AdminPageHeader title="Occasions" actions={addButton} />
+        <CollectionsTabs active="occasions" />
+        <LoadingRows rows={5} />
+      </div>
+    );
+  }
 
   const dated = occasions.filter((o) => o.celebratedOn).length;
 
@@ -176,29 +193,53 @@ export function OccasionsClient() {
     <div>
       <AdminPageHeader
         title="Occasions"
-        subtitle={`${dated} of ${occasions.length} have a date set — the rest show under "any time of year"`}
+        subtitle={`${dated} of ${occasions.length} have a date set — the rest show under "any time of year". Festival dates move every year: set the next date each one falls on, and the hub counts down to it.`}
+        actions={addButton}
       />
       <CollectionsTabs active="occasions" />
-      {error && (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {justAdded && (
-        <p className={styles.saved} role="status">
+        <Notice tone="success" live onDismiss={() => setJustAdded(null)}>
           Added “{justAdded}”. It is now pickable on every listing and gift guide.
-        </p>
+        </Notice>
       )}
 
-      {adding ? (
-        <Card className={styles.addCard} padding="sm">
-          <span className={styles.addTitle}>New occasion</span>
-          <div className={styles.addGrid}>
-            <label className={styles.fieldWide}>
-              <span className={styles.label}>Name</span>
-              <input
-                className={styles.input}
+      {adding && (
+        <FormSection
+          id="occasion-new"
+          title="New occasion"
+          description="A duplicate is refused by name — edit the existing one below instead."
+          footer={
+            <div className={styles.actions}>
+              <Button variant="primary" size="sm" onClick={create} disabled={creating || duplicate}>
+                {creating ? "Adding…" : "Add occasion"}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setAdding(false);
+                  resetDraft();
+                }}
+                disabled={creating}
+              >
+                Cancel
+              </Button>
+            </div>
+          }
+        >
+          <FieldGrid columns={2}>
+            <Field
+              label="Name"
+              span="full"
+              error={
+                duplicate
+                  ? "That one already exists — edit it below instead of adding a second."
+                  : (createError ?? undefined)
+              }
+            >
+              <Input
                 value={draftName}
                 maxLength={60}
                 autoFocus
@@ -208,34 +249,22 @@ export function OccasionsClient() {
                   setCreateError(null);
                 }}
               />
-              {duplicate && (
-                <span className={styles.warn}>
-                  That one already exists — edit it below instead of adding a second.
-                </span>
-              )}
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Next date</span>
-              <input
-                type="date"
-                className={styles.input}
-                value={draftDate}
-                onChange={(event) => setDraftDate(event.target.value)}
-              />
-              <span className={styles.subhint}>
-                Leave empty for occasions with no season — it shows under “any time of year”.
-              </span>
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Tagline</span>
-              <input
-                className={styles.input}
+            </Field>
+            <Field
+              label="Next date"
+              optional
+              hint="Leave empty for occasions with no season — it shows under “any time of year”."
+            >
+              <Input type="date" value={draftDate} onChange={(event) => setDraftDate(event.target.value)} />
+            </Field>
+            <Field label="Tagline" optional hint="One line for the hub card.">
+              <Input
                 value={draftTagline}
                 maxLength={160}
-                placeholder="One line for the hub card"
+                placeholder="Sweets, lamps and gifts for the festival of lights"
                 onChange={(event) => setDraftTagline(event.target.value)}
               />
-            </label>
+            </Field>
             <div className={styles.fieldWide}>
               <ImageUpload
                 value={draftImage}
@@ -246,107 +275,82 @@ export function OccasionsClient() {
                 hint="Optional. Shown on the occasion hub card."
               />
             </div>
-          </div>
-          {createError && (
-            <p className={styles.error} role="alert">
-              {createError}
-            </p>
-          )}
-          <div className={styles.actions}>
-            <Button variant="primary" size="sm" onClick={create} disabled={creating || duplicate}>
-              {creating ? "Adding…" : "Add occasion"}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setAdding(false);
-                resetDraft();
-              }}
-              disabled={creating}
-            >
-              Cancel
-            </Button>
-          </div>
-        </Card>
-      ) : (
-        <div className={styles.addRow}>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              setAdding(true);
-              setJustAdded(null);
-            }}
-          >
-            <Plus size={15} strokeWidth={2} aria-hidden="true" />
-            Add an occasion
-          </Button>
-        </div>
+          </FieldGrid>
+        </FormSection>
       )}
 
-      <Card className={styles.note} padding="sm">
-        Festival dates move every year. Set the <strong>next</strong> date each occasion falls on —
-        the hub counts down to it and the home page promotes it from six weeks out. Leave the date
-        empty for occasions with no season, like birthdays.
-      </Card>
-
-      <div className={styles.list}>
-        {occasions.map((occasion) => {
-          const draft = drafts[occasion.id];
-          if (!draft) return null;
-          return (
-            <Card key={occasion.id} padding="sm" className={styles.row}>
-              <div className={styles.identity}>
-                <span className={styles.ring} aria-hidden="true">
-                  {occasion.initial}
-                </span>
-                <div>
-                  <div className={styles.name}>{occasion.name}</div>
-                  <div className={styles.current}>
-                    {occasion.celebratedOn
-                      ? formatDate(occasion.celebratedOn)
-                      : "No date — any time of year"}
+      {occasions.length === 0 ? (
+        <EmptyState
+          title="No occasions yet."
+          body="Add one and it becomes pickable on every listing and gift guide, with its own hub page."
+        />
+      ) : (
+        <div className={styles.list}>
+          {occasions.map((occasion) => {
+            const draft = drafts[occasion.id];
+            if (!draft) return null;
+            const changed =
+              draft.celebratedOn !== toDateInput(occasion.celebratedOn) ||
+              draft.tagline !== (occasion.tagline ?? "");
+            return (
+              <Card key={occasion.id} padding="sm" className={styles.row}>
+                <div className={styles.identity}>
+                  <span className={styles.ring} aria-hidden="true">
+                    {occasion.initial}
+                  </span>
+                  <div>
+                    <div className={styles.name}>{occasion.name}</div>
+                    <div className={styles.current}>
+                      {occasion.celebratedOn
+                        ? formatDate(occasion.celebratedOn)
+                        : "No date — any time of year"}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <label className={styles.field}>
-                <span className={styles.label}>Next date</span>
-                <input
-                  type="date"
-                  className={styles.input}
-                  value={draft.celebratedOn}
-                  onChange={(event) => edit(occasion.id, { celebratedOn: event.target.value })}
-                />
-              </label>
+                <div className={styles.field}>
+                  <Field label="Next date" optional>
+                    <Input
+                      dense
+                      type="date"
+                      value={draft.celebratedOn}
+                      onChange={(event) => edit(occasion.id, { celebratedOn: event.target.value })}
+                    />
+                  </Field>
+                </div>
 
-              <label className={styles.fieldWide}>
-                <span className={styles.label}>Tagline</span>
-                <input
-                  className={styles.input}
-                  value={draft.tagline}
-                  maxLength={160}
-                  placeholder="One line for the hub card"
-                  onChange={(event) => edit(occasion.id, { tagline: event.target.value })}
-                />
-              </label>
+                <div className={styles.fieldWide}>
+                  <Field label="Tagline" optional>
+                    <Input
+                      dense
+                      value={draft.tagline}
+                      maxLength={160}
+                      placeholder="One line for the hub card"
+                      onChange={(event) => edit(occasion.id, { tagline: event.target.value })}
+                    />
+                  </Field>
+                </div>
 
-              <div className={styles.actions}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => save(occasion)}
-                  disabled={savingId === occasion.id}
-                >
-                  {savingId === occasion.id ? "Saving…" : "Save"}
-                </Button>
-                {savedId === occasion.id && <span className={styles.saved}>Saved.</span>}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                <div className={styles.actions}>
+                  <Button
+                    variant={changed ? "primary" : "secondary"}
+                    size="sm"
+                    onClick={() => save(occasion)}
+                    disabled={savingId === occasion.id || !changed}
+                  >
+                    {savingId === occasion.id ? "Saving…" : "Save"}
+                  </Button>
+                  {savedId === occasion.id && !changed && (
+                    <span className={styles.saved} role="status">
+                      Saved.
+                    </span>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

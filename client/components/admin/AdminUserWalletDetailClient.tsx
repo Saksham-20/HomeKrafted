@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { TransactionRow } from "@/components/ui/TransactionRow";
+import { ChoiceCards } from "@/components/portal/ChoiceCards";
+import { Field, Input } from "@/components/portal/Field";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -36,10 +40,11 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
 
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
+  const [refundError, setRefundError] = useState<string | undefined>(undefined);
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
   const [adjustDirection, setAdjustDirection] = useState<"credit" | "debit">("credit");
-  const [formError, setFormError] = useState<string | undefined>(undefined);
+  const [adjustError, setAdjustError] = useState<string | undefined>(undefined);
   const [lastAction, setLastAction] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -114,10 +119,11 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   async function handleIssueRefund() {
     const amount = Number(refundAmount);
     if (!amount || amount <= 0) {
-      setFormError("Enter a refund amount greater than 0.");
+      setRefundError("Enter a refund amount greater than 0.");
       return;
     }
-    setFormError(undefined);
+    setRefundError(undefined);
+    setLastAction(undefined);
     setSaving(true);
     // `issueRefund` stopped swallowing its refusals in M36, and this is
     // the screen where that mattered most: without a catch, a rejected
@@ -133,7 +139,7 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
         refType: "order",
       });
       if (!txn) {
-        setFormError("Couldn't issue that refund.");
+        setRefundError("Couldn't issue that refund.");
         return;
       }
       prependTxn(txn);
@@ -141,7 +147,7 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
       setRefundReason("");
       setLastAction(`Refund of ${formatCurrency(amount)} issued.`);
     } catch (err) {
-      setFormError(apiErrorMessage(err, "Couldn't issue that refund."));
+      setRefundError(apiErrorMessage(err, "Couldn't issue that refund."));
     } finally {
       setSaving(false);
     }
@@ -150,42 +156,52 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   async function handleAdjust() {
     const amount = Number(adjustAmount);
     if (!amount || amount <= 0) {
-      setFormError("Enter an adjustment amount greater than 0.");
+      setAdjustError("Enter an adjustment amount greater than 0.");
       return;
     }
     if (!adjustReason.trim()) {
-      setFormError("Add a reason for this adjustment.");
+      setAdjustError("Add a reason for this adjustment.");
       return;
     }
-    setFormError(undefined);
+    setAdjustError(undefined);
+    setLastAction(undefined);
     setSaving(true);
-    const txn = await adjustWallet({ userId, amount, direction: adjustDirection, reason: adjustReason.trim() });
-    setSaving(false);
-    if (!txn) {
-      setFormError(
-        adjustDirection === "debit"
-          ? "That debit would take the balance below zero."
-          : "Couldn't make that adjustment.",
-      );
-      return;
+    try {
+      const txn = await adjustWallet({ userId, amount, direction: adjustDirection, reason: adjustReason.trim() });
+      // `adjustWallet` answers `undefined` for exactly one refusal — an
+      // insufficient balance (a 402) — and throws for everything else.
+      if (!txn) {
+        setAdjustError(
+          adjustDirection === "debit"
+            ? "That debit would take the balance below zero."
+            : "Couldn't make that adjustment.",
+        );
+        return;
+      }
+      prependTxn(txn);
+      setAdjustAmount("");
+      setAdjustReason("");
+      setLastAction(`${adjustDirection === "credit" ? "Credited" : "Debited"} ${formatCurrency(amount)}.`);
+    } catch (err) {
+      setAdjustError(apiErrorMessage(err, "Couldn't make that adjustment."));
+    } finally {
+      setSaving(false);
     }
-    prependTxn(txn);
-    setAdjustAmount("");
-    setAdjustReason("");
-    setLastAction(`${adjustDirection === "credit" ? "Credited" : "Debited"} ${formatCurrency(amount)}.`);
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading wallet…</div>;
+    return (
+      <div>
+        <AdminPageHeader title="Wallet" back={{ href: "/admin/wallet", label: "Wallet" }} />
+        <LoadingRows rows={4} />
+      </div>
+    );
   }
 
   if (user === null || !data) {
     return (
       <div>
-        <Link href="/admin/wallet" className={styles.back}>
-          <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-          Back to wallet
-        </Link>
+        <AdminPageHeader title="Wallet" back={{ href: "/admin/wallet", label: "Wallet" }} />
         <Card className={styles.notFound}>No wallet found for this user.</Card>
       </div>
     );
@@ -193,12 +209,19 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
 
   return (
     <div>
-      <Link href="/admin/wallet" className={styles.back}>
-        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-        Back to wallet
-      </Link>
-
-      <AdminPageHeader title={user?.name ?? "User"} subtitle={user?.email ?? user?.phone ?? data.wallet.userId} />
+      <AdminPageHeader
+        back={{ href: "/admin/wallet", label: "Wallet" }}
+        eyebrow="Wallet"
+        title={user?.name ?? "User"}
+        subtitle={user?.email ?? user?.phone ?? data.wallet.userId}
+        actions={
+          user ? (
+            <Link href={`/admin/users/${user.id}`} className={styles.linkButton}>
+              Open account
+            </Link>
+          ) : undefined
+        }
+      />
 
       <div className={styles.statGrid}>
         <StatCard label="Balance" value={formatCurrency(data.wallet.balance)} />
@@ -206,89 +229,106 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
         <StatCard label="Lifetime saved" value={formatCurrency(data.wallet.lifetimeSaved)} />
       </div>
 
-      <div className={styles.formsGrid}>
-        <Card className={styles.formCard}>
-          <span className={styles.cardTitle}>Issue refund</span>
-          <p className={styles.hint}>Credits the wallet with a `category: &quot;refund&quot;` ledger entry.</p>
-          <label className={styles.field}>
-            <span className={styles.label}>Amount (₹)</span>
-            <input
-              className={styles.input}
-              type="number"
-              min={1}
-              value={refundAmount}
-              onChange={(event) => setRefundAmount(event.target.value)}
-              placeholder="e.g. 250"
-            />
-          </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Reason / reference (optional)</span>
-            <input
-              className={styles.input}
-              value={refundReason}
-              onChange={(event) => setRefundReason(event.target.value)}
-              placeholder="e.g. Refund — Order #HK2043 (cancelled)"
-            />
-          </label>
-          <Button variant="primary" size="sm" onClick={handleIssueRefund} disabled={saving}>
-            {saving ? "Processing…" : "Issue refund"}
-          </Button>
-        </Card>
+      {lastAction && (
+        <Notice tone="success" live onDismiss={() => setLastAction(undefined)}>
+          {lastAction}
+        </Notice>
+      )}
 
-        <Card className={styles.formCard}>
-          <span className={styles.cardTitle}>Manual adjustment</span>
-          <p className={styles.hint}>Credit or debit with a reason, `category: &quot;adjustment&quot;`.</p>
-          <div className={styles.directionRow}>
-            <label className={styles.radioLabel}>
-              <input
-                type="radio"
-                name="adjustDirection"
-                checked={adjustDirection === "credit"}
-                onChange={() => setAdjustDirection("credit")}
-              />
-              Credit
-            </label>
-            <label className={styles.radioLabel}>
-              <input
-                type="radio"
-                name="adjustDirection"
-                checked={adjustDirection === "debit"}
-                onChange={() => setAdjustDirection("debit")}
-              />
-              Debit
-            </label>
-          </div>
-          <label className={styles.field}>
-            <span className={styles.label}>Amount (₹)</span>
-            <input
-              className={styles.input}
+      <div className={styles.formsGrid}>
+        <FormSection
+          id="wallet-refund"
+          title="Issue a refund"
+          description="Credits their wallet and records a refund entry. To refund an order, use the order's own page instead — it marks the order refunded so it cannot be refunded twice."
+          footer={
+            <Button variant="primary" size="sm" onClick={handleIssueRefund} disabled={saving}>
+              {saving ? "Processing…" : "Issue refund"}
+            </Button>
+          }
+        >
+          <Field label="Amount" error={refundError}>
+            <Input
               type="number"
               min={1}
+              inputMode="decimal"
+              affixStart="₹"
+              value={refundAmount}
+              onChange={(event) => {
+                setRefundAmount(event.target.value);
+                setRefundError(undefined);
+              }}
+              placeholder="250"
+            />
+          </Field>
+          <Field label="Reason or reference" optional hint="Shown on the ledger entry the customer sees.">
+            <Input
+              value={refundReason}
+              maxLength={120}
+              onChange={(event) => setRefundReason(event.target.value)}
+              placeholder="Refund — order HK2043 (cancelled)"
+            />
+          </Field>
+        </FormSection>
+
+        <FormSection
+          id="wallet-adjust"
+          title="Manual adjustment"
+          description="A credit or debit that is not an order refund — goodwill, a correction, a support case. The reason is recorded against the entry."
+          footer={
+            <Button variant="primary" size="sm" onClick={handleAdjust} disabled={saving}>
+              {saving ? "Processing…" : adjustDirection === "credit" ? "Credit wallet" : "Debit wallet"}
+            </Button>
+          }
+        >
+          <ChoiceCards
+            label="Direction"
+            columns={2}
+            value={adjustDirection}
+            onChange={(next) => {
+              setAdjustDirection(next);
+              setAdjustError(undefined);
+            }}
+            options={[
+              { value: "credit", title: "Credit", hint: "Adds money to their wallet." },
+              { value: "debit", title: "Debit", hint: "Takes money out. Refused if it would go below zero." },
+            ]}
+          />
+          <Field label="Amount" error={adjustError && adjustError.includes("amount") ? adjustError : undefined}>
+            <Input
+              type="number"
+              min={1}
+              inputMode="decimal"
+              affixStart="₹"
               value={adjustAmount}
-              onChange={(event) => setAdjustAmount(event.target.value)}
-              placeholder="e.g. 100"
+              onChange={(event) => {
+                setAdjustAmount(event.target.value);
+                setAdjustError(undefined);
+              }}
+              placeholder="100"
             />
-          </label>
-          <label className={styles.field}>
-            <span className={styles.label}>Reason</span>
-            <input
-              className={styles.input}
+          </Field>
+          <Field
+            label="Reason"
+            error={adjustError && !adjustError.includes("amount") ? adjustError : undefined}
+          >
+            <Input
               value={adjustReason}
-              onChange={(event) => setAdjustReason(event.target.value)}
-              placeholder="e.g. Goodwill credit — support case #4821"
+              maxLength={200}
+              onChange={(event) => {
+                setAdjustReason(event.target.value);
+                setAdjustError(undefined);
+              }}
+              placeholder="Goodwill credit — support case #4821"
             />
-          </label>
-          <Button variant="primary" size="sm" onClick={handleAdjust} disabled={saving}>
-            {saving ? "Processing…" : "Apply adjustment"}
-          </Button>
-        </Card>
+          </Field>
+        </FormSection>
       </div>
 
-      {formError && <p className={styles.error}>{formError}</p>}
-      {lastAction && !formError && <p className={styles.success}>{lastAction}</p>}
-
-      <h2 className={styles.sectionTitle}>Ledger</h2>
-      <Card className={styles.ledgerCard}>
+      <FormSection
+        id="wallet-ledger"
+        title="Ledger"
+        description="Every entry, newest first. Nothing writes a balance directly — every line here went through the same row-locked ledger a purchase does, and every admin write is audited."
+      >
         {data.transactions.length === 0 ? (
           <p className={styles.hint}>No transactions yet.</p>
         ) : (
@@ -316,14 +356,7 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
             )}
           </>
         )}
-      </Card>
-
-      <p className={styles.footnote}>
-        A real, server-authoritative wallet ledger. Every write is
-        audit-logged — who issued it, when, and against which order — and
-        no balance is ever written directly: adjustments and refunds go
-        through the same row-locked ledger primitives a purchase does.
-      </p>
+      </FormSection>
     </div>
   );
 }

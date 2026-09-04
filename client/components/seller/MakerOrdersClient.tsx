@@ -2,17 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
-import { Button } from "@/components/ui/Button";
-import { Chip } from "@/components/ui/Chip";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Pager } from "@/components/portal/Pager";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
+import { Toolbar } from "@/components/portal/Toolbar";
 import { SellerPageHeader } from "./SellerPageHeader";
 import { OrderRow } from "./OrderRow";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { describeSellerOrderItems, getSellerOrders } from "@/lib/api";
+import { apiErrorMessage, describeSellerOrderItems, getSellerOrders } from "@/lib/api";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import type { OrderStatus, SellerOrder } from "@/lib/types";
 import styles from "./MakerOrdersClient.module.css";
+import { Notice } from "@/components/portal/Notice";
+import { Button } from "@/components/ui/Button";
 
-const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
+type Filter = OrderStatus | "all" | "open";
+
+/**
+ * "Open" first: the orders that need a hand today — placed, confirmed,
+ * packed — are the reason a kitchen opens this screen in the morning,
+ * and a list that starts on "All" makes them scroll past last month's
+ * deliveries to find them.
+ */
+const OPEN_STATUSES: OrderStatus[] = ["placed", "confirmed", "packed"];
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "open", label: "Needs a hand" },
   { value: "all", label: "All" },
   { value: "placed", label: "Placed" },
   { value: "confirmed", label: "Confirmed" },
@@ -22,7 +38,7 @@ const FILTERS: { value: OrderStatus | "all"; label: string }[] = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-/** `/seller/orders` for `type: "maker"` sellers (M10a) — orders containing at least one of this seller's products, filterable by fulfilment status, newest first. Rendered by `SellerOrdersClient` (M10b's type router) when `seller.type === "maker"`; otherwise unchanged from M10a. */
+/** `/seller/orders` — orders containing at least one of this seller's products, filterable by fulfilment status, newest first. */
 export function MakerOrdersClient() {
   const { ready, seller } = useAuth();
   const [orders, setOrders] = useState<SellerOrder[]>([]);
@@ -31,7 +47,9 @@ export function MakerOrdersClient() {
   const [pageSize, setPageSize] = useState(50);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
-  const [filter, setFilter] = useState<OrderStatus | "all">("all");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+  const [filter, setFilter] = useState<Filter>("open");
 
   useEffect(() => {
     // No vendor storefront means no marketplace orders to fulfil — a
@@ -49,8 +67,15 @@ export function MakerOrdersClient() {
         setPageSize(result.pageSize);
       } catch (error) {
         if (cancelled) return;
-        if (!isForbidden(error)) throw error;
-        setUnavailable(true);
+        if (isForbidden(error)) {
+          setUnavailable(true);
+          return;
+        }
+        // A failed read is not an empty screen. Rethrowing here reached no
+        // boundary (an effect's rejection is not a render error), so a
+        // rate-limited fetch rendered the empty state over real data — the
+        // M37 dashboard rule, applied to every list (2026-09-04).
+        setLoadError(apiErrorMessage(error, "Couldn't load your orders. Try again."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -58,40 +83,85 @@ export function MakerOrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, seller, page]);
+  }, [ready, seller, page, reloadToken]);
 
-  const filtered = useMemo(
-    () => (filter === "all" ? orders : orders.filter((o) => o.status === filter)),
-    [orders, filter],
+  const matches = (order: SellerOrder, value: Filter) =>
+    value === "all" ? true : value === "open" ? OPEN_STATUSES.includes(order.status) : order.status === value;
+
+  const filtered = useMemo(() => orders.filter((o) => matches(o, filter)), [orders, filter]);
+  // Counts over the page in hand — the same rows the filter narrows.
+  const counts = useMemo(
+    () => Object.fromEntries(FILTERS.map((f) => [f.value, orders.filter((o) => matches(o, f.value)).length])),
+    [orders],
   );
 
   const noStorefront = ready && !!seller && !seller.vendorId;
+  if (loadError) {
+    return (
+      <div>
+        <SellerPageHeader title="Orders" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setLoading(true);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Try again
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
+
   if (noStorefront || unavailable) {
     return <ModuleUnavailable module="Orders" />;
   }
 
   if (!ready || loading) {
-    return <div className={styles.loading}>Loading your orders…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Orders" />
+        <LoadingRows rows={5} showLabel label={kitchenLoading("seller/orders", MAKER_LOADING)} />
+      </div>
+    );
   }
 
   return (
     <div>
       <SellerPageHeader
         title="Orders"
-        subtitle={`${total} order${total === 1 ? "" : "s"} containing your products`}
+        subtitle={`${total} order${total === 1 ? "" : "s"} containing your products${
+          counts.open > 0 ? ` · ${counts.open} need a hand` : ""
+        }`}
       />
 
-      <div className={styles.filterRow} role="tablist" aria-label="Filter by status">
-        {FILTERS.map((f) => (
-          <Chip key={f.value} label={f.label} selected={filter === f.value} onClick={() => setFilter(f.value)} />
-        ))}
-      </div>
+      <Toolbar>
+        <SegmentedFilter
+          label="Filter by status"
+          value={filter}
+          onChange={setFilter}
+          options={FILTERS.map((f) => ({ ...f, count: counts[f.value] }))}
+        />
+      </Toolbar>
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="No orders in this status."
-          body="Orders move through placed, packed, shipped and delivered — try another tab. If every tab is empty, nothing has come in yet; sharing your storefront is the fastest way to change that."
-          action={{ href: "/seller/listings", label: "Your listings" }}
+          title={filter === "open" ? "Nothing needs a hand right now." : "No orders in this status."}
+          body={
+            filter === "open"
+              ? "Every order you have is on its way or done. New ones land here the moment they are placed."
+              : "Orders move through placed, packed, shipped and delivered — try another filter. If every one is empty, nothing has come in yet; sharing your storefront is the fastest way to change that."
+          }
+          action={filter === "open" ? undefined : { href: "/seller/listings", label: "Your products" }}
         />
       ) : (
         <div className={styles.list}>
@@ -108,29 +178,7 @@ export function MakerOrdersClient() {
 
       {/* The status filter narrows the current page, so the pager stays
           visible under a filtered view — the next 50 may hold more. */}
-      {total > pageSize && (
-        <div className={styles.pager}>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page <= 1 || loading}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-          >
-            Previous
-          </Button>
-          <span className={styles.pagerLabel} aria-live="polite">
-            Page {page} of {Math.max(1, Math.ceil(total / pageSize))}
-          </span>
-          <Button
-            variant="secondary"
-            size="sm"
-            disabled={page >= Math.ceil(total / pageSize) || loading}
-            onClick={() => setPage((current) => current + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pager page={page} lastPage={Math.max(1, Math.ceil(total / pageSize))} onChange={setPage} disabled={loading} />
     </div>
   );
 }

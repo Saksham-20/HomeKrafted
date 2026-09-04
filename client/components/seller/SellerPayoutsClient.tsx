@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { LoadingRows } from "@/components/portal/LoadingRows";
 import { StatCard } from "./StatCard";
 import { PayoutRow } from "./PayoutRow";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -15,6 +16,7 @@ import {
   type SellerPayoutsPage,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import styles from "./SellerPayoutsClient.module.css";
 
 /** `/seller/payouts` (M10a) — earnings summary, a mock "request payout" action, and full `Payout` history. */
@@ -65,7 +67,12 @@ export function SellerPayoutsClient() {
   }
 
   if (!sellerDataReady || loading || !page) {
-    return <div className={styles.loading}>Loading your payouts…</div>;
+    return (
+      <div>
+        <SellerPageHeader title="Earnings & payouts" />
+        <LoadingRows rows={3} showLabel label={kitchenLoading("seller/payouts", MAKER_LOADING)} />
+      </div>
+    );
   }
 
   const summary = page.summary;
@@ -74,7 +81,7 @@ export function SellerPayoutsClient() {
 
   return (
     <div>
-      <SellerPageHeader title="Payouts" subtitle="Your earnings and settlement history." />
+      <SellerPageHeader title="Earnings & payouts" subtitle="What you have earned, what has been paid out, and how to request the rest." />
 
       <div className={styles.summaryGrid}>
         <StatCard label="Lifetime earned" value={formatCurrency(summary.lifetimeEarned)} />

@@ -1,108 +1,23 @@
-.loading {
-  color: var(--hk-muted);
-  font-size: 14px;
-  padding: var(--hk-s6);
-  text-align: center;
-}
+/* Fields come from `components/portal/Field` (2026-09-04). */
 
-.card {
+.controls {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s5);
-  max-width: 720px;
+  gap: var(--hk-s4);
 }
 
-.setting {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-bottom: var(--hk-s4);
-  border-bottom: 1px solid var(--hk-border);
+.numberRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hk-s4);
 }
 
-.setting:last-of-type {
-  border-bottom: 0;
-  padding-bottom: 0;
+.number {
+  max-width: 260px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 240px;
-}
-
-.label {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
-}
-
-.input {
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-sm);
-  padding: 11px 13px;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--hk-ink);
-  min-height: 44px;
-}
-
-.input:focus-visible {
-  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
-  outline-offset: 1px;
-}
-
-.help {
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: var(--hk-ink-3);
-  max-width: 68ch;
-}
-
-.actions {
-  display: flex;
-  align-items: center;
-  gap: var(--hk-s3);
-}
-
-.message {
-  font-size: 13px;
-  color: var(--hk-ink-3);
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-/* Enough of a target to hit on a phone — the default checkbox is 13px. */
-.toggle input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--hk-pine);
-  cursor: pointer;
-}
-
-/* The label sits beside the box here rather than above a field, so it
-   drops the uppercase-mono treatment `.label` gives form captions. */
-.toggle .label {
-  font-family: inherit;
-  font-size: 14px;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--hk-ink);
-}
-
-.help code {
-  font-family: var(--hk-font-mono);
-  font-size: 12px;
-  background: var(--hk-surface-3);
-  padding: 1px 5px;
-  border-radius: 4px;
+@media (max-width: 640px) {
+  .numberRow {
+    grid-template-columns: 1fr;
+  }
 }
