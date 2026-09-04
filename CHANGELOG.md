@@ -2,6 +2,18 @@
 
 ## 2026-09-04 — email is real: Resend, a branded shell, and the events that had no message
 
+- **The logo is transparent, centred, and has a dark-mode twin** (owner,
+  same day). On a white plate it *was* a white plate: Gmail's dark mode
+  darkens a message's backgrounds and never touches an image's pixels, so
+  the mark sat in a bright rectangle in the middle of a dark card.
+  Transparency fixes that half and creates the other half — the
+  wordmark's lower line is dark green, which would then sit on
+  near-black — so there are two files, the mark as drawn and one with
+  that green swapped for the cream the design system already uses on dark
+  ground, chosen by a `prefers-color-scheme` media query. The gold half
+  is untouched: it reads on both. A client that drops the one `<style>`
+  block gets the light variant, which is the right default for most
+  inboxes.
 - **The real logo is in every email** (owner, 2026-09-04). A **PNG** —
   no mail client renders SVG, Gmail included — rendered from
   `logo.svg` at 2× (`client/public/email/logo.png`, 15 KB), served

@@ -26,9 +26,19 @@
  * call). It is a **PNG** because no mail client renders SVG — Gmail
  * included — served from our own origin, and it carries `alt="Homekrafted"`
  * so a client with remote images off still shows the brand's name rather
- * than a broken-image icon. It sits on a white band because the mark is
- * green and gold: on the pine header it had been on, the green half of
- * the wordmark would disappear.
+ * than a broken-image icon.
+ *
+ * **Transparent, in two variants, centred.** A logo on a white plate is a
+ * white plate: Gmail's dark mode darkens the message's own backgrounds
+ * but never touches the pixels of an image, so the mark sat in a bright
+ * rectangle in the middle of a dark card. Transparency fixes that half —
+ * and creates the other half, because the wordmark's lower line is dark
+ * green, which then sits on near-black. So there are two files: the mark
+ * as drawn, and one with that green swapped for the cream the design
+ * system already uses on dark ground (`--hk-on-pine`); a
+ * `prefers-color-scheme` media query shows whichever fits. The gold half
+ * is untouched — it reads on both. A client that ignores the query gets
+ * the light one, which is the correct default for the majority of inboxes.
  */
 
 /**
@@ -37,7 +47,9 @@
  * `SITE_URL` the rest of the server uses so a staging box does not link
  * production's asset.
  */
-const LOGO_URL = `${(process.env.SITE_URL ?? 'https://homekrafted.in').replace(/\/$/, '')}/email/logo.png`;
+const SITE = (process.env.SITE_URL ?? 'https://homekrafted.in').replace(/\/$/, '');
+const LOGO_URL = `${SITE}/email/logo.png`;
+const LOGO_DARK_URL = `${SITE}/email/logo-dark.png`;
 
 /** The brand's ink, copied literally — see the note above on why not tokens. */
 const PINE = '#2F4F3F';
@@ -159,6 +171,18 @@ export function renderEmail(content: EmailContent): RenderedEmail {
   const html =
     `<!doctype html><html><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+    // Tells a client we have thought about both schemes, which is what
+    // stops some of them force-inverting the whole message.
+    `<meta name="color-scheme" content="light dark">` +
+    `<meta name="supported-color-schemes" content="light dark">` +
+    // The one <style> block in the message, and it does exactly one job:
+    // swap the logo variant. Everything else stays inline, because Gmail
+    // drops <style> in some contexts and inline styles always survive —
+    // a dropped block here costs the dark variant, nothing more.
+    `<style>@media (prefers-color-scheme: dark){` +
+    `.hk-logo-light{display:none!important}` +
+    `.hk-logo-dark{display:inline-block!important}` +
+    `}</style>` +
     `<title>${escapeHtml(content.heading)}</title></head>` +
     `<body style="margin:0;padding:0;background:${CANVAS};">` +
     // Preheader: the grey line an inbox shows after the subject. Hidden
@@ -167,14 +191,15 @@ export function renderEmail(content: EmailContent): RenderedEmail {
     `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CANVAS};padding:28px 12px;">` +
     `<tr><td align="center">` +
     `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#FFFFFF;border:1px solid ${BORDER};border-radius:14px;overflow:hidden;">` +
-    `<tr><td style="background:#FFFFFF;padding:22px 28px 16px;border-bottom:1px solid ${BORDER};">` +
+    `<tr><td align="center" style="padding:24px 28px 18px;border-bottom:1px solid ${BORDER};">` +
     // `alt` carries the brand when images are blocked; the explicit
     // width/height stop Outlook sizing it from the file's own pixels.
-    `<img src="${LOGO_URL}" alt="Homekrafted" width="180" height="103" style="display:block;border:0;outline:none;text-decoration:none;">` +
+    `<img class="hk-logo-light" src="${LOGO_URL}" alt="Homekrafted" width="180" height="103" style="display:inline-block;border:0;outline:none;text-decoration:none;">` +
+    `<img class="hk-logo-dark" src="${LOGO_DARK_URL}" alt="Homekrafted" width="180" height="103" style="display:none;border:0;outline:none;text-decoration:none;">` +
     // Gold-family text takes the darkened token, never `--hk-gold` — the
     // brand gold fails AA as copy (M34). Literal hex, same reason as the
     // rest of this file.
-    `<span style="display:inline-block;margin-top:10px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${GOLD_TEXT};">Homemade, handpicked</span>` +
+    `<div style="margin-top:8px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${GOLD_TEXT};">Homemade, handpicked</div>` +
     `</td></tr>` +
     `<tr><td style="padding:28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">` +
     `<h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.3;color:${INK};font-weight:600;">${escapeHtml(content.heading)}</h1>` +

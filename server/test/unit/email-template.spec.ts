@@ -74,8 +74,28 @@ describe('the header logo', () => {
   const { html } = renderEmail({ heading: 'Hello', paragraphs: ['Hi'] });
 
   it('is a PNG at an absolute URL', () => {
-    expect(html).toMatch(/<img src="https?:\/\/[^"]+\/email\/logo\.png"/);
+    expect(html).toMatch(/src="https?:\/\/[^"]+\/email\/logo\.png"/);
     expect(html).not.toContain('logo.svg');
+  });
+
+  /**
+   * Gmail's dark mode darkens the message's backgrounds and never touches
+   * the pixels of an image, so one transparent logo is not enough: the
+   * wordmark's dark-green half would sit on near-black. Two variants, and
+   * the light one must stay the default — a client that drops the
+   * <style> block has to fall back to something legible in the common
+   * case, which is a light inbox.
+   */
+  it('ships a dark variant, hidden by default and swapped by a media query', () => {
+    expect(html).toMatch(/src="https?:\/\/[^"]+\/email\/logo-dark\.png"/);
+    expect(html).toContain('prefers-color-scheme: dark');
+    expect(html).toContain('class="hk-logo-dark"');
+    // Default state: light shown, dark hidden.
+    expect(html).toMatch(/class="hk-logo-dark"[^>]*style="display:none/);
+  });
+
+  it('centres the lockup', () => {
+    expect(html).toMatch(/<td align="center"[^>]*>\s*<img class="hk-logo-light"/);
   });
 
   it('names the brand when images are blocked', () => {
