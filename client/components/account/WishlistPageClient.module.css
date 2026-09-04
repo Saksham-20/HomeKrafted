@@ -42,6 +42,16 @@
   padding: 10px 14px;
 }
 
+.toastError {
+  font-size: 13.5px;
+  color: var(--hk-terracotta-text);
+  /* Terracotta tint — no token; the same #f6e7e0 that `--hk-terracotta-text`
+     was measured against (tokens.extend.css). */
+  background: #f6e7e0;
+  border-radius: var(--hk-r-md);
+  padding: 10px 14px;
+}
+
 .toastLink {
   color: var(--hk-pine);
   font-weight: 600;

@@ -268,7 +268,10 @@ SITE_URL=https://homekrafted.in
 # demo accounts and nothing else. Unset OTP_TEST_CODE the day real SMS
 # starts working.
 OTP_TEST_CODE=123456
-OTP_TEST_PHONES=+919845012345,+919876543210,+919822011223,+919008033445
+# Empty on production since 2026-09-03: the seeded demo accounts were
+# purged, so there is no number left for the fixed code to match. Add
+# your own number here only for a deliberate, temporary test.
+OTP_TEST_PHONES=
 ```
 
 The API validates its own env at boot and refuses to start on a missing or

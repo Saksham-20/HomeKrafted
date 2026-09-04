@@ -87,7 +87,16 @@ export interface CartContextValue {
   hampers: Record<string, Hamper>;
   /** True once the cart (mock: + product/hamper-box catalog) has loaded. */
   ready: boolean;
-  addItem: (productId: ID, sku: string, quantity?: number) => void;
+  /**
+   * Resolves once the server has the line; **rejects when it refuses**
+   * (signed-out, delisted, over stock). Until 2026-09-03 this was
+   * fire-and-forget with no `catch`, and every refusal vanished while
+   * the button flipped to "Added ✓" — measured on production against
+   * sixteen listings whose only size had `stock: 0`. Callers show the
+   * rejection (`lib/cart/add-error.ts`) and must not flip to "added"
+   * before it resolves. Mock mode resolves synchronously.
+   */
+  addItem: (productId: ID, sku: string, quantity?: number) => Promise<void>;
   updateQty: (itemId: ID, quantity: number) => void;
   removeItem: (itemId: ID) => void;
   assignAddress: (itemId: ID, addressId: ID | undefined) => void;
@@ -212,7 +221,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [mock, items, hampers]);
 
   const addItem = useCallback(
-    (productId: ID, sku: string, quantity = 1) => {
+    async (productId: ID, sku: string, quantity = 1): Promise<void> => {
       if (mock) {
         setItems((current) => {
           const existing = current.find(
@@ -227,7 +236,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      void addCartItem(productId, sku, quantity).then((cart) => applyServerCart(cart.items));
+      const cart = await addCartItem(productId, sku, quantity);
+      applyServerCart(cart.items);
     },
     [mock, applyServerCart],
   );

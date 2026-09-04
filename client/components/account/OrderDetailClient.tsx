@@ -8,6 +8,7 @@ import { StatusTimeline } from "@/components/ui/StatusTimeline";
 import { AppTrackingBand } from "@/components/laundry/AppTrackingBand";
 import { ReorderButton } from "./ReorderButton";
 import { OrderResolutionPanel } from "./OrderResolutionPanel";
+import { CompletePaymentPanel } from "./CompletePaymentPanel";
 import { ParcelTracking } from "@/components/shipping/ParcelTracking";
 import { getOrderConsignments } from "@/lib/api/shipping";
 import {
@@ -145,6 +146,20 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
             </Link>
           </div>
         </Card>
+      )}
+
+      {/* An order that was created and never paid (2026-09-04). First,
+          above everything else: until this is settled the maker has not
+          started, and the buyer's cart was emptied when the order was
+          created — so this is the only way back to the thing they were
+          buying. Renders nothing unless the status is `pending-payment`. */}
+      {order && (
+        <CompletePaymentPanel
+          order={order}
+          onUpdated={(updated) =>
+            setEntry((current) => (current ? { ...current, order: updated } : current))
+          }
+        />
       )}
 
       {/* Cancel / return (M15). Placed above the item summary because

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { CartBar } from "@/components/cart/CartBar";
 
 export interface ConsumerChromeProps {
   header: ReactNode;
@@ -65,6 +66,9 @@ export function ConsumerChrome({ header, footer, children }: ConsumerChromeProps
       {header}
       {children}
       {footer}
+      {/* After the footer, so its in-flow spacer lands at the very end of
+          the page and the footer's legal row stays clear of the bar. */}
+      <CartBar />
     </>
   );
 }

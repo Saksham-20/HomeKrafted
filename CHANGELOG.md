@@ -1,5 +1,110 @@
 # Changelog
 
+## 2026-09-04 — a kitchen renames itself, an unpaid order can be paid, and the maker cards square up
+
+- **An order created and never paid can now be paid.** Every order is
+  written at `pending_payment` and the cart is emptied in the same
+  transaction; only the Razorpay webhook (or `POST /orders/:id/pay` for a
+  wallet order) moves it to `placed`. So closing the Razorpay modal left
+  an order nothing in the product could pay and a cart that no longer
+  held the items — checkout said "your order is saved and awaiting
+  payment" and no screen could act on that sentence. The client had **no
+  call site for `payOrder` outside checkout at all**.
+  `components/account/CompletePaymentPanel` is the missing button: it
+  renders only for `pending-payment`, reopens the **same** Razorpay order
+  (the server already refuses to mint a second payable page for one
+  order, which is the double-charge guard), and re-reads the order after
+  the SDK reports success rather than assuming — a refetch still saying
+  `pending-payment` is reported as "we're confirming", never as done. The
+  orders list says **"Finish paying"** on that row instead of "Payment
+  pending": it is the one row that needs the buyer to do something.
+
+- **A HomeKrafter can change their shop name** (owner request).
+  `PATCH /seller/storefront` takes `name`; `/seller/storefront` has a
+  "Shop name" field above Location. It writes `Vendor.name` and
+  `Seller.displayName` in one transaction — the same fact, read by the
+  storefront and by the portal/admin queues — and **leaves `slug`
+  alone**, so every storefront link already shared or indexed keeps
+  working (the M58 category-rename rule). The screen says so before
+  anybody types.
+  - **Duplicate names are allowed on purpose.** Two real kitchens can be
+    called "Home Bakes"; the accounts are told apart by phone number and
+    email, which are unique. Nothing here may grow a uniqueness check.
+  - **The shape is still checked**, through the same `checkBusinessName`
+    `/sell` uses — production already holds a storefront named after
+    somebody's email address (M32), and a rename is the same autofill
+    waiting to happen. A refusal is a 400 carrying the sentence.
+  - **No branches, and none coming.** One HomeKrafter is one storefront
+    with one pickup address (`VendorProfile.pickup*`, M36b). A second
+    location would be a second `Vendor`, which splits one kitchen's
+    reviews, followers and payouts in two — the M33 rule from the other
+    direction.
+  - Pinned by `server/test/unit/seller-storefront-name.spec.ts`.
+- **The home page's maker cards are one size** regardless of how long a
+  kitchen's name or bio runs. The name reserves two lines, the location
+  is one line, the bio floors at three lines as well as clamping there,
+  and the top-rated dish sits at the foot of the card (`margin-top:
+  auto`). Four cards in a row now line their portraits, bios and dish
+  rows up instead of each starting wherever the copy above them ended.
+  The dish photograph goes 56px → **72px**: it is the most persuasive
+  thing on the card and it was rendering smaller than the text beside it.
+
+## 2026-09-03 — add-to-cart tells the truth, and the cart follows you
+
+- **Ops: seeded users and kitchens purged from production** (owner
+  instruction). 41 seeded/test users (demo shopper, 3 demo sellers, 32
+  seeded reviewers, the 5 seeded-identity sellers, Simran's test
+  account), 15 kitchens (vd1–vd7, vd9, vd10, The Slow Studio, Maati &
+  Thread, Terracotta & Thread, Kaveri's Kitchen, Sugar & Slate Bakes,
+  Simran Home Kitchen), their 30 demo products, all 30 reviews (every
+  review on the site was seeded), 13 demo orders, 9 seeded payouts, 6
+  seeded snacks, 4 seeded meal plans, 5 seeded/test applications and
+  both corporate enquiries (Northwind seed, one synthetic form test).
+  The admin account and the platform storefront `vd8` stay; `vd8` lost
+  its one seeded product and its seeded aggregates (4.9★ / 57 / 890
+  followers) were recomputed to real zeros, as were every remaining
+  product's. `OTP_TEST_PHONES` on the box emptied (the fixed code now
+  matches nothing). Backup first:
+  `/var/backups/homekrafted/pre-seed-purge-20260903-082943.dump`.
+  Counts: 98→56 users, 66→51 kitchens, 81→51 products, 50 public.
+
+- **Add-to-cart refusals reach the screen.** `CartContext.addItem` was
+  `void addCartItem(...).then(...)` with no `catch`, so every server
+  refusal (401 signed-out, 404 delisted or unknown size, 400 over stock)
+  vanished and the button still flipped to "Added ✓". Measured on
+  production: **sixteen live listings** had `stock: 0` on their only size
+  (rakhi hampers, brownies, cookie tin, biscoff) and could not be added by
+  anybody, silently. `addItem` now returns a promise that rejects, and
+  every caller — product page, grid card, wishlist "Move to cart" —
+  awaits it, flips to "Added" only on success and shows the refusal
+  otherwise (`lib/cart/add-error.ts` maps the server's SKU-naming
+  sentence to buyer copy; unit-tested). Wishlist removes the item only
+  once the cart has it. `/cart` mutations read the cart from the mutation
+  response instead of a second `GET`.
+- **Sold out is said up front.** A size at 0 stock greys the product
+  page's button ("Sold out"), labels its chip, caps the stepper at the
+  size's stock, and a card whose every size is at 0 shows "Sold out"
+  instead of a "+" that would 400. The "+" adds the default size when it
+  has stock and the first size that does otherwise
+  (`lib/cart/purchasable-sku.ts`).
+- **The upstream cause: a blank stock field saved as 0.** `ListingForm`
+  (the edit default and the admin's on-behalf form) did
+  `Number(row.stock) || 0`; the guided flow had always defaulted a blank
+  to 10. Both now share `DEFAULT_STOCK = 10` via `parseStock` — a typed 0
+  is still 0. **The sixteen live rows are data and were not touched**: an
+  admin sets a real stock on each from `/admin/catalog`, or leaves the
+  rakhi ones sold out now that the festival has passed.
+- **`CartBar`** (`components/cart/`, rendered by `ConsumerChrome` on
+  every shopper page except `/cart` and `/checkout`): while the cart
+  holds anything, a pine "N items · ₹subtotal · View cart" strip is
+  docked to the bottom on a phone and floats as a pill in the corner
+  above 640px — the Swiggy/Zomato shape. Renders nothing until the cart
+  has loaded (no hydration disagreement), reserves its own height in
+  flow on a phone so the footer stays reachable, and sits *above* a
+  product page's sticky Add bar via `--hk-dock-h`, which that bar now
+  publishes on the root while showing. Gold focus ring on the pine fill
+  (M34); states its own hover colour because it is an `<a>` (M53).
+
 ## 2026-09-02 — GST on the platform's fee, photo category tiles, name-wrap fix
 
 - **GST on commission (platform-side, owner: "GST is for the Homekrafted

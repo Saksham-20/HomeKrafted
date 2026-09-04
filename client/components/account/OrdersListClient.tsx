@@ -119,9 +119,18 @@ export function OrdersListClient() {
                 </div>
                 <div className={styles.rowEnd}>
                   <span
-                    className={clsx(styles.status, entry.cancelled && styles.statusCancelled)}
+                    className={clsx(
+                      styles.status,
+                      entry.cancelled && styles.statusCancelled,
+                      entry.order?.status === "pending-payment" && styles.statusUnpaid,
+                    )}
                   >
-                    {entry.statusLabel}
+                    {/* An unpaid order is the one row here that needs the
+                        buyer to do something, and "Payment pending" reads
+                        as a state somebody else is working on. Say what
+                        it wants (2026-09-04); the button itself is on the
+                        detail screen, `CompletePaymentPanel`. */}
+                    {entry.order?.status === "pending-payment" ? "Finish paying" : entry.statusLabel}
                   </span>
                   <span className={styles.total}>{formatCurrency(entry.total)}</span>
                 </div>

@@ -8,6 +8,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { useCart } from "@/lib/cart/CartContext";
+import { addToCartErrorMessage } from "@/lib/cart/add-error";
+import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { formatCurrency } from "@/lib/format";
 import type { Product } from "@/lib/types";
 import styles from "./WishlistPageClient.module.css";
@@ -28,13 +30,24 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
   const { productIds, ready, remove } = useWishlist();
   const { addItem } = useCart();
   const [movedNames, setMovedNames] = useState<string[]>([]);
+  const [moveError, setMoveError] = useState<string | null>(null);
 
   const items = products.filter((product) => productIds.includes(product.id));
 
-  function handleMoveToCart(product: Product) {
-    addItem(product.id, product.defaultWeightSku, 1);
-    remove(product.id);
-    setMovedNames((current) => [...current, product.name]);
+  // Removed from the wishlist only once the cart has it. Before
+  // 2026-09-03 this removed first and never heard the refusal, so a
+  // sold-out listing vanished from the wishlist *and* never reached the
+  // cart — the one outcome worse than either alone.
+  async function handleMoveToCart(product: Product) {
+    setMoveError(null);
+    const sku = purchasableSku(product) ?? product.defaultWeightSku;
+    try {
+      await addItem(product.id, sku, 1);
+      remove(product.id);
+      setMovedNames((current) => [...current, product.name]);
+    } catch (err) {
+      setMoveError(`${product.name}: ${addToCartErrorMessage(err)}`);
+    }
   }
 
   if (!ready) {
@@ -55,7 +68,12 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
         </p>
       </div>
 
-      {movedNames.length > 0 && (
+      {moveError && (
+        <p className={styles.toastError} role="alert">
+          {moveError}
+        </p>
+      )}
+      {movedNames.length > 0 && !moveError && (
         <p className={styles.toast} role="status">
           Moved {movedNames[movedNames.length - 1]} to your cart.{" "}
           <Link href="/cart" className={styles.toastLink}>

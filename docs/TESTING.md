@@ -57,6 +57,14 @@ would, which is also what makes this a real test of sign-in.
 
 ### Testing the one-time code
 
+> **Production has no demo accounts since 2026-09-03.** Every seeded
+> user and kitchen was purged from the live database that day (only the
+> admin account remains), and `OTP_TEST_PHONES` on the box is empty, so
+> the fixed code below matches nothing there. Everything in this section
+> and in "Demo accounts" describes a **locally seeded** environment
+> (`npx prisma db seed`). To test as a shopper on production, sign up
+> with your own email through the normal form.
+
 Codes now go to **either** channel — SMS for a number, email for an
 address — but neither provider is connected, so a real code is written to
 the server log and nowhere else. To make that path testable there is a
@@ -108,6 +116,9 @@ that's a bug — report it.
 
 ## Demo accounts
 
+> **Local seed only** — see the note under "Testing the one-time code".
+> On production these accounts do not exist; only the admin does.
+
 | Role | What they see | Email |
 |---|---|---|
 | **Shopper** | The normal customer site — browse, cart, checkout, wallet, orders | `ananya.iyer@example.com` |
@@ -142,6 +153,46 @@ admin panel" on hover; a labelled row in the phone drawer) to come back.
 Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
 seeded demo kitchen's name and storefront link, because the portal
 resolved the seller record from mock data.
+
+### An order that was never paid
+
+Place an order with **Card / UPI** and close the Razorpay window instead
+of paying. The order exists, at "Payment pending", and your cart is empty
+— that is by design (the order holds the items).
+
+Open it from **Account → Orders**. The row says **"Finish paying"**, and
+the order itself carries a **Complete payment** panel with the total and
+a button that reopens the same Razorpay payment. Three things to check:
+
+- **Paying from there places the order** — status moves off "Payment
+  pending" and the maker sees it.
+- **Closing the window again changes nothing** and says so; the order is
+  still there.
+- **A paid order shows no such panel.** A pay button beside a paid order
+  is how somebody pays twice.
+
+### Renaming a kitchen
+
+`/seller/storefront` has a **Shop name** field above Location. Change it,
+save, and the new name is on the storefront header, every product card,
+search and the admin queues at once — `Vendor.name` and
+`Seller.displayName` move together.
+
+Three things worth testing:
+
+- **The storefront URL does not change.** The field says which address it
+  stays on; open the "View live storefront" link before and after a
+  rename and it is the same `/storefront/<slug>`. Any link shared before
+  the rename must still work.
+- **Two kitchens may share a name.** Rename a second kitchen to the same
+  thing and it saves. Accounts are told apart by phone and email.
+- **A name that is really an email address or a phone number is
+  refused**, with a sentence next to Save saying which box it belongs in
+  — the same check the `/sell` form applies.
+
+There is **no branches / second pickup address** feature, deliberately: a
+second location would be a second storefront, splitting one kitchen's
+reviews, followers and payouts.
 
 ### Picking a character for the storefront
 
@@ -403,6 +454,19 @@ Sign in as **Ananya**.
 
 ### 2. Shopper — buy something
 - Add items to **cart**, change quantities, remove a line
+- As soon as the cart holds anything, a pine **"N items · ₹… · View
+  cart"** strip appears — docked to the bottom on a phone, a floating pill
+  in the bottom-right corner on a laptop — on every shopper page except
+  the cart and checkout themselves. On a product page on a phone it sits
+  *above* the page's own sticky Add bar, never on top of it. It goes
+  away when the cart is emptied.
+- Find a listing whose size is **sold out** (an admin can set a size's
+  stock to 0 from the catalogue editor): the product page's button reads
+  "Sold out" and is greyed, the size chip says so, and the grid card
+  shows "Sold out" instead of a "+". Pressing Add on anything the server
+  refuses (signed out, more than the stock left counting what is already
+  in your cart) must show a sentence saying why — the button must
+  **never** say "Added ✓" over a cart that did not change.
 - Go through **checkout**: pick an address, pick a delivery date, place the order
 - Pay with **wallet balance**, and separately try **Card / UPI** — the card
   route is test mode, no real charge and no real card details needed

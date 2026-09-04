@@ -85,6 +85,24 @@ function slugify(value: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+/**
+ * What a blank stock field means. The guided flow has always defaulted
+ * a blank to this; the long form turned it into **0** — and 0 is "sold
+ * out", so every listing saved here with the field left empty (an edit
+ * opens this form, and so does the admin's on-behalf listing) could not
+ * be added to a cart. Sixteen live listings were in that state on
+ * 2026-09-03. A typed 0 is still 0: "sold out until next week" is a
+ * real thing to say. Blank is not.
+ */
+export const DEFAULT_STOCK = 10;
+
+export function parseStock(raw: string): number {
+  const trimmed = raw.trim();
+  if (trimmed === "") return DEFAULT_STOCK;
+  const n = Number(trimmed);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_STOCK;
+}
+
 /** Builds the `lib/api/seller` mutation payload from form state, deriving each weight row's `sku` (stable for existing rows, freshly slugified for new ones) and `defaultWeightSku` from the marked default row. */
 export function toSellerListingInput(values: ListingFormValues): SellerListingInput {
   const weightOptions = values.weightRows.map((row) => ({
@@ -92,7 +110,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     label: row.label,
     price: Number(row.price) || 0,
     mrp: Number(row.mrp) || 0,
-    stock: Number(row.stock) || 0,
+    stock: parseStock(row.stock),
   }));
 
   return {
@@ -556,10 +574,10 @@ export function ListingForm({
                 className={styles.weightInput}
                 type="number"
                 min={0}
-                placeholder="Stock"
+                placeholder={`Stock (blank = ${DEFAULT_STOCK})`}
                 value={row.stock}
                 onChange={(event) => updateRow(index, { stock: event.target.value })}
-                aria-label="Stock"
+                aria-label="Stock — how many you can make; 0 means sold out"
               />
               <button
                 type="button"

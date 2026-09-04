@@ -695,6 +695,17 @@ export async function replySellerReview(reviewId: string, body: string): Promise
 // ---------------------------------------------------------------------------
 
 export interface SellerStorefrontInput {
+  /**
+   * What the storefront is called (M60). Becomes `Vendor.name` and
+   * `Seller.displayName` server-side, in one transaction.
+   *
+   * Two kitchens may share a name — accounts are told apart by phone and
+   * email — and the `slug` never changes with it, so every shared or
+   * indexed storefront URL keeps working. The server checks the shape
+   * (`checkBusinessName`); this call sends what was typed and shows the
+   * refusal.
+   */
+  name: string;
   bio: string;
   location: string;
   avatarSrc?: string;
@@ -741,6 +752,9 @@ export async function updateSellerStorefront(
   if (isMockMode()) {
     const vendor = getVendorByIdData(vendorId);
     if (!vendor) return undefined;
+    // The slug is left alone on purpose, mock mode included — see
+    // `SellerStorefrontInput.name`.
+    if (input.name.trim()) vendor.name = input.name.trim();
     vendor.bio = input.bio;
     vendor.location = input.location;
     vendor.avatarSrc = input.avatarSrc || undefined;

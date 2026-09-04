@@ -163,6 +163,14 @@
   color: var(--hk-terracotta);
 }
 
+/* An order awaiting payment is an action, not a state — it reads in the
+   ink the rest of the row uses for things you can still do, and carries
+   its weight so it is not mistaken for a status line. */
+.statusUnpaid {
+  color: var(--hk-pine);
+  font-weight: 600;
+}
+
 .total {
   font-family: var(--hk-font-display);
   font-weight: 600;

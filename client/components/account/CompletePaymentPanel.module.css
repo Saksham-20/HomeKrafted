@@ -1,0 +1,59 @@
+/*
+  An unpaid order is the one thing on this screen that needs doing, so it
+  sits on the warm gold surface rather than plain card white — the same
+  "this is information you must act on" treatment `OrderResolutionPanel`
+  uses for a resolution in progress.
+*/
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s5);
+  background: var(--hk-gold-tint);
+  border-color: var(--hk-gold-border);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s1);
+}
+
+.title {
+  font: var(--hk-card-title);
+  color: var(--hk-pine);
+}
+
+.copy {
+  font: var(--hk-body);
+  color: var(--hk-ink-3);
+  max-width: 52ch;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+}
+
+.amount {
+  font-family: var(--hk-font-mono);
+  font-size: 1.05rem;
+  color: var(--hk-ink);
+}
+
+.error {
+  font: var(--hk-small);
+  /* Terracotta on the gold tint, matching `OrderResolutionPanel`'s
+     refusal line — the gold family may never carry words (M34). */
+  color: var(--hk-terracotta);
+  margin: 0;
+}
+
+.note {
+  font: var(--hk-small);
+  color: var(--hk-ink-2);
+  margin: 0;
+}

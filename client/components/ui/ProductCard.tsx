@@ -31,6 +31,14 @@ export interface ProductCardProps {
   added?: boolean;
   onAdd?: () => void;
   /**
+   * Every size is out of stock. The "+" becomes a plain "Sold out" mark:
+   * a button that 400s on press and then says "✓" is what this card
+   * shipped until 2026-09-03.
+   */
+  soldOut?: boolean;
+  /** The server's refusal for the last press, shown under the price row. */
+  addError?: string | null;
+  /**
    * Eager-load this card's image. Set it on the **first card of an
    * above-the-fold grid only** — that card is usually the page's LCP
    * element, and left lazy it is fetched only after layout, which delays
@@ -84,6 +92,8 @@ export function ProductCard({
   onToggleWishlist,
   added = false,
   onAdd,
+  soldOut = false,
+  addError = null,
   priority = false,
   className,
 }: ProductCardProps) {
@@ -184,18 +194,27 @@ export function ProductCard({
               <span className={styles.discountBadge}>{product.discountPct}% off</span>
             )}
           </span>
-          <button
-            type="button"
-            className={clsx(styles.add, added && styles.added)}
-            onClick={(event) => {
-              stop(event);
-              onAdd?.();
-            }}
-            aria-label={added ? `${product.name} added` : `Add ${product.name}`}
-          >
-            {added ? "✓" : "+"}
-          </button>
+          {soldOut ? (
+            <span className={styles.soldOut}>Sold out</span>
+          ) : (
+            <button
+              type="button"
+              className={clsx(styles.add, added && styles.added)}
+              onClick={(event) => {
+                stop(event);
+                onAdd?.();
+              }}
+              aria-label={added ? `${product.name} added` : `Add ${product.name}`}
+            >
+              {added ? "✓" : "+"}
+            </button>
+          )}
         </div>
+        {addError && (
+          <p className={styles.addError} role="alert">
+            {addError}
+          </p>
+        )}
       </div>
     </div>
   );

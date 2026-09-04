@@ -194,3 +194,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The storefront address inside a hint (M60) — mono so it reads as the
+   URL it is, not as emphasis. */
+.hint code {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+}

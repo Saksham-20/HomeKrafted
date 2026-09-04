@@ -80,9 +80,12 @@ describe("opening Razorpay Checkout", () => {
       if (!/\.mock\b/.test(source)) ungated.push(relative);
     }
 
-    // Both known call sites must still be found. If a refactor moves them,
+    // Every known call site must still be found. If a refactor moves one,
     // this fails and the rule gets re-pointed rather than silently lapsing.
+    // `CompletePaymentPanel` joined them on 2026-09-04 — reopening the
+    // payment for an order created and never paid.
     expect(callers.sort()).toEqual([
+      "components/account/CompletePaymentPanel.tsx",
       "components/checkout/CheckoutClient.tsx",
       "lib/wallet/WalletContext.tsx",
     ]);

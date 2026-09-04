@@ -75,6 +75,7 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
               "bestseller" with no sales behind it is a claim (M52). */}
           <span className={styles.pickLabel}>Their top-rated</span>
           <span className={styles.pickRow}>
+            {/* 72px since M60 — see `.pickThumb`. */}
             <span className={styles.pickThumb}>
               <ImageSlot
                 ratio="1/1"
@@ -83,7 +84,7 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
                 label={bestseller.images[0]?.placeholder ?? bestseller.name}
                 src={bestseller.images[0]?.src}
                 alt=""
-                sizes="56px"
+                sizes="72px"
               />
             </span>
             <span className={styles.pickName}>{bestseller.name}</span>

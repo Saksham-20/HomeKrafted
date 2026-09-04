@@ -210,6 +210,33 @@
   border: 1px solid #b7d0bd;
 }
 
+/* In the "+" button's slot when nothing can be added. Muted, not
+   terracotta: it is a fact about the listing, not a refusal of a press. */
+.soldOut {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--hk-muted);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-pill);
+  padding: 6px 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The server's refusal for the last press. Above the stretched link so
+   it can be selected/read without opening the product. */
+.addError {
+  position: relative;
+  z-index: 1;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--hk-terracotta);
+}
+
 /* M46 — the maker's own discount. Terracotta on its tint is the
    marketplace's price colour; `--hk-terracotta-text` is the ramp that
    clears AA there (the flat token is 3.77:1 on this background). */

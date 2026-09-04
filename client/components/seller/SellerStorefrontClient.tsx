@@ -19,6 +19,7 @@ import type { Vendor } from "@/lib/types";
 import styles from "./SellerStorefrontClient.module.css";
 
 interface FormState {
+  name: string;
   bio: string;
   location: string;
   avatarSrc: string;
@@ -73,7 +74,13 @@ const DISCOUNT_EXAMPLE_PRICE = 250;
 export function SellerStorefrontClient() {
   const { ready, seller, sellerDataReady } = useAuth();
   const [vendor, setVendor] = useState<Vendor | undefined>(undefined);
-  const [form, setForm] = useState<FormState>({ bio: "", location: "", avatarSrc: "", bannerSrc: "" });
+  const [form, setForm] = useState<FormState>({
+    name: "",
+    bio: "",
+    location: "",
+    avatarSrc: "",
+    bannerSrc: "",
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -107,6 +114,7 @@ export function SellerStorefrontClient() {
         }
         setVendor(v);
         setForm({
+          name: v.name,
           bio: v.bio,
           location: v.location,
           avatarSrc: v.avatarSrc ?? "",
@@ -235,6 +243,26 @@ export function SellerStorefrontClient() {
               value={form.avatarSrc}
               onChange={(src) => setForm((f) => ({ ...f, avatarSrc: src }))}
             />
+            <label className={styles.field}>
+              <span className={styles.label}>Shop name</span>
+              <input
+                className={styles.input}
+                value={form.name}
+                maxLength={80}
+                onChange={(event) => setForm((f) => ({ ...f, name: event.target.value }))}
+              />
+              {/*
+                Said before they type, not after they save. Two kitchens
+                sharing a name is fine — accounts are told apart by phone
+                and email — and the address stays put, which is the part
+                somebody would otherwise fear losing by renaming.
+              */}
+              <span className={styles.hint}>
+                What buyers see on every listing and order. Another kitchen may have the same name.
+                Your storefront address stays <code>/storefront/{vendor.slug}</code>, so links you
+                have already shared keep working.
+              </span>
+            </label>
             <label className={styles.field}>
               <span className={styles.label}>Location</span>
               <input

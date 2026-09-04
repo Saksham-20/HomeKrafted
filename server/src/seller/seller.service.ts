@@ -7,6 +7,7 @@ import {
 import { Seller, SellerSpecialty } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminSettingsService } from '../admin/settings.service';
+import { checkBusinessName } from '../seller-applications/application-fields';
 import {
   isWithdrawnSpecialty,
   vendorTypeForSpecialties,
@@ -137,18 +138,62 @@ export class SellerService {
     return mapVendor(vendor, undefined, { preciseLocation: true });
   }
 
+  /**
+   * The four catalogue-facing fields, plus the storefront's name (M60).
+   *
+   * **A rename writes two columns and no third.** `Vendor.name` is what a
+   * buyer reads and `Seller.displayName` is what the portal and the admin
+   * queues read; they are the same fact, so they move together in one
+   * transaction or the panel starts disagreeing with the product card.
+   * `slug` is **not** re-derived — it is in every storefront URL anybody
+   * has shared and everything Google has indexed (the M58 rule for a
+   * category rename, for the same reason).
+   *
+   * **A duplicate name is allowed, deliberately.** Two real kitchens can
+   * be called "Home Bakes"; the accounts are told apart by phone and
+   * email, which are unique, and refusing the second one would refuse a
+   * real person their own shop's name. Shape is still checked through
+   * `checkBusinessName` — the same function `/sell` applies — so a rename
+   * cannot slip in the email address the application form would have
+   * refused.
+   *
+   * There are no branches: one HomeKrafter is one storefront with one
+   * pickup address (`VendorProfile.pickup*`, M36b). A second location
+   * would be a second `Vendor`, which splits one kitchen's reviews,
+   * followers and payouts in two — the M33 rule, arrived at from the
+   * other direction.
+   */
   async updateStorefront(vendorId: string, dto: UpdateStorefrontDto) {
     const vendor = await this.prisma.vendor.findUnique({ where: { id: vendorId } });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
-    const updated = await this.prisma.vendor.update({
-      where: { id: vendorId },
-      data: {
-        bio: dto.bio ?? undefined,
-        location: dto.location ?? undefined,
-        avatarSrc: dto.avatarSrc,
-        bannerSrc: dto.bannerSrc,
-      },
+    const name = dto.name?.trim();
+    if (name !== undefined) {
+      const problem = checkBusinessName(name);
+      // The sentence is the server's, and it names the box and the reason
+      // — a bare "invalid" leaves somebody guessing at their own shop's
+      // name (M22: a refusal carries a reason).
+      if (problem) throw new BadRequestException(problem);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.vendor.update({
+        where: { id: vendorId },
+        data: {
+          name: name ?? undefined,
+          bio: dto.bio ?? undefined,
+          location: dto.location ?? undefined,
+          avatarSrc: dto.avatarSrc,
+          bannerSrc: dto.bannerSrc,
+        },
+      });
+      if (name) {
+        // `updateMany`: the seller is resolved from the session, and this
+        // is keyed on the vendor it manages rather than re-reading a row
+        // the caller already owns.
+        await tx.seller.updateMany({ where: { vendorId }, data: { displayName: name } });
+      }
+      return row;
     });
     // Their own record again — see `getStorefront`.
     return mapVendor(updated, undefined, { preciseLocation: true });

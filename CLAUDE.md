@@ -41,6 +41,14 @@ accounts).
 
 ## Standing blockers (true as of 2026-08-15)
 
+**Production carries no seeded data since 2026-09-03.** Every demo
+user and kitchen was purged from the live database (only the admin
+account and the platform storefront `vd8` remain — `vd8` is the default
+vendor for admin-created listings, M44). The demo accounts in
+`docs/TESTING.md` exist in a *local* seed only, and `OTP_TEST_PHONES` on
+the box is empty. Don't re-run `seed.ts`/`seed-crafts.ts`/
+`seed-catalogue.ts` against production: they would put all of it back.
+
 **Social sign-in is verified since M27; the remaining gap is config.**
 `POST /auth/social/:provider` requires a real Google/Apple **id-token**,
 checked by `server/src/auth/social-token-verifier.ts` (jose + JWKS,
@@ -679,6 +687,20 @@ and every valid Indian pincode is approvable.
   flag, not the shared `verifiedAt`/`verificationNote`, which belong to
   the identity and licence checks too. Pinned by
   `server/test/unit/seller-profile-address.spec.ts`.
+- **A HomeKrafter renames their own storefront (M60), and a rename is not
+  a re-registration.** `name` on `PATCH /seller/storefront` writes
+  `Vendor.name` **and** `Seller.displayName` in one transaction and
+  **never re-derives `slug`** — it is in every shared and indexed
+  storefront URL (the M58 category rule). **Duplicate names are allowed
+  on purpose**: two real kitchens can be "Home Bakes", and the accounts
+  are told apart by phone and email, which are unique — don't add a
+  uniqueness check. The shape is still `checkBusinessName`, the `/sell`
+  function, because production already holds a storefront named after
+  somebody's email address (M32). **There are no branches**: one
+  HomeKrafter is one storefront with one pickup address, since a second
+  location would be a second `Vendor` and split one kitchen's reviews,
+  followers and payouts in two (the M33 rule). Pinned by
+  `server/test/unit/seller-storefront-name.spec.ts`.
 - **The pickup address is private, and that promise is enforced (M36b).**
   `/sell` asks for the address a rider collects from — a home cook's
   **home address** — and says on the form that buyers never see it.
@@ -848,6 +870,21 @@ paragraphs over appending new ones.
   `adjustWallet`, which keeps its documented "insufficient balance is not
   an exception" contract by testing for a 402. Pinned by
   `client/lib/silent-failure.spec.ts`, which now covers `lib/api` itself.
+- **`addItem` rejects, and "Added ✓" waits for it (2026-09-03).** The
+  cart store was the one `lib/api`-shaped swallower the M36 rule above
+  missed: `void addCartItem(...).then(...)`, no `catch`, so a refusal
+  (signed-out, delisted, over stock) vanished while the button said
+  "Added ✓" — and sixteen live listings sat at `stock: 0` because the
+  long listing form turned a blank stock into 0 (now `parseStock`,
+  blank = `DEFAULT_STOCK`, a typed 0 stays 0). Every add-to-cart surface
+  awaits `addItem`, maps the rejection through `lib/cart/add-error.ts`,
+  and says sold out up front (`lib/cart/purchasable-sku.ts` for a card's
+  one-press "+"). While the cart holds anything, `components/cart/CartBar`
+  (rendered by `ConsumerChrome`, hidden on `/cart` and `/checkout`) keeps
+  it one press away on every shopper page; a page with its own docked
+  bottom bar publishes its height as `--hk-dock-h` on the root so the
+  two stack instead of overlap — `ProductPurchasePanel` is the one that
+  does today.
 - **New loading state or buyer-facing status label:** take the words from
   `lib/kitchen-copy.ts` (M28), don't write "Loading…". Three rules live
   there and each is a trap: **never pick a line randomly** (server and

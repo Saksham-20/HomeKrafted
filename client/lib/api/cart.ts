@@ -16,9 +16,15 @@ export async function getServerCart(): Promise<ServerCart> {
   return http.get<ServerCart>("/cart");
 }
 
+/**
+ * Every `/cart` mutation answers with the refreshed cart (`CartService`
+ * ends each one in `getCart`), so the response *is* the new state — no
+ * second `GET`. A refusal (401 signed-out, 404 delisted/unknown size,
+ * 400 over stock) **rejects**; `CartContext` is the one caller and it
+ * hands the rejection to the screen that pressed the button.
+ */
 export async function addCartItem(productId: ID, sku: string, quantity = 1): Promise<ServerCart> {
-  await http.post("/cart/items", { productId, sku, quantity });
-  return getServerCart();
+  return http.post<ServerCart>("/cart/items", { productId, sku, quantity });
 }
 
 export interface AddHamperCartItemInput {
@@ -34,23 +40,19 @@ export interface AddHamperCartItemInput {
 
 /** `POST /cart/hamper-items` — creates a real `Hamper` row + one `CartItem` line. Returns the refreshed cart so the caller can resolve the new line's id (the newest hamper-shaped item). */
 export async function addHamperCartItem(input: AddHamperCartItemInput): Promise<ServerCart> {
-  await http.post("/cart/hamper-items", input);
-  return getServerCart();
+  return http.post<ServerCart>("/cart/hamper-items", input);
 }
 
 export async function updateCartItemQty(itemId: ID, quantity: number): Promise<ServerCart> {
-  await http.patch(`/cart/items/${encodeURIComponent(itemId)}`, { quantity });
-  return getServerCart();
+  return http.patch<ServerCart>(`/cart/items/${encodeURIComponent(itemId)}`, { quantity });
 }
 
 export async function removeCartItem(itemId: ID): Promise<ServerCart> {
-  await http.delete(`/cart/items/${encodeURIComponent(itemId)}`);
-  return getServerCart();
+  return http.delete<ServerCart>(`/cart/items/${encodeURIComponent(itemId)}`);
 }
 
 export async function assignCartItemAddress(itemId: ID, addressId: ID | undefined): Promise<ServerCart> {
-  await http.post(`/cart/items/${encodeURIComponent(itemId)}/address`, { addressId });
-  return getServerCart();
+  return http.post<ServerCart>(`/cart/items/${encodeURIComponent(itemId)}/address`, { addressId });
 }
 
 export async function clearServerCart(): Promise<void> {

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { commissionBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
-import type { ListingFormValues } from "./ListingForm";
+import { DEFAULT_STOCK, type ListingFormValues } from "./ListingForm";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
@@ -231,7 +231,7 @@ export function GuidedListingForm({
         // render a strikethrough against nothing; inflating it would
         // invent a discount the cook never offered.
         mrp: onOffer ? row.mrp : row.price,
-        stock: row.stock.trim() || "10",
+        stock: row.stock.trim() || String(DEFAULT_STOCK),
       };
       const finished = { ...values, weightRows: filled };
       onChange(finished);

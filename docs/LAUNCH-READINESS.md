@@ -170,6 +170,11 @@ Files: `server/src/auth/auth.service.ts` (`socialLogin`),
 
 ### 0.2 Demo accounts: kept, deliberately, for now
 
+> **Done 2026-09-03.** Every seeded user and kitchen was purged from
+> production (admin and the platform storefront `vd8` kept), and
+> `OTP_TEST_PHONES` is empty on the box. `OTP_TEST_CODE` is still set but
+> matches nothing. The paragraphs below describe the state before that.
+
 The seed creates demo shoppers and three demo HomeKrafters sharing one
 password. **Decision (2026-08-03): they stay** while the site is being
 tested, and their phone numbers are the `OTP_TEST_PHONES` allowlist.

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { CASHBACK_RATE } from "@/lib/cart/pricing";
 import { useCart } from "@/lib/cart/CartContext";
+import { addToCartErrorMessage, SOLD_OUT_COPY } from "@/lib/cart/add-error";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import {
   EMPTY_GIFT_INTENT,
@@ -47,6 +48,14 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const [selectedSku, setSelectedSku] = useState(product.defaultWeightSku);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [adding, setAdding] = useState(false);
+  /**
+   * The server's refusal, shown where "Added" would have gone. Before
+   * 2026-09-03 nothing here could show one: `addItem` swallowed its own
+   * rejection and this button said "Added ✓" over a cart that had not
+   * changed — on every listing whose size had `stock: 0`.
+   */
+  const [addError, setAddError] = useState<string | null>(null);
 
   /**
    * The "Make it a gift" block (see `lib/gift/gift-intent.ts`). These
@@ -77,6 +86,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   // above; the observer runs harmlessly). Appearance is a CSS
   // transition, so the global reduced-motion floor already covers it.
   const buyRowRef = useRef<HTMLDivElement | null>(null);
+  const stickyRef = useRef<HTMLDivElement | null>(null);
   const [buyRowVisible, setBuyRowVisible] = useState(true);
 
   useEffect(() => {
@@ -90,17 +100,54 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
     return () => observer.disconnect();
   }, []);
 
-  function handleAdd() {
-    addItem(product.id, selectedSku, quantity);
-    // Written on add, not on every toggle: the hand-off is about *this
-    // order*, and somebody who plays with the chips and leaves should not
-    // find checkout pre-ticked next time they visit.
-    writeGiftIntent(gift);
-    setAdded(true);
-  }
+  // The site-wide cart bar (`components/cart/CartBar`) docks to the
+  // bottom edge too. While this sticky bar is showing, it publishes its
+  // height as `--hk-dock-h` on the root so the cart bar sits above it
+  // instead of on top of it. Measured, not hardcoded — the bar's height
+  // is a function of the button and the safe-area inset. A genuinely
+  // dynamic value, so this is the one place an inline custom property is
+  // the right tool; it is cleared on unmount so no other page inherits it.
+  useEffect(() => {
+    const root = document.documentElement;
+    const h = !buyRowVisible ? (stickyRef.current?.offsetHeight ?? 0) : 0;
+    if (h > 0) root.style.setProperty("--hk-dock-h", `${h}px`);
+    else root.style.removeProperty("--hk-dock-h");
+    return () => {
+      root.style.removeProperty("--hk-dock-h");
+    };
+  }, [buyRowVisible]);
 
   const weight =
     product.weightOptions.find((w) => w.sku === selectedSku) ?? product.weightOptions[0];
+  const stock = weight?.stock ?? 0;
+  const soldOut = stock <= 0;
+
+  async function handleAdd() {
+    if (soldOut || adding) return;
+    setAdding(true);
+    setAddError(null);
+    try {
+      await addItem(product.id, selectedSku, quantity);
+      // Written on add, not on every toggle: the hand-off is about *this
+      // order*, and somebody who plays with the chips and leaves should not
+      // find checkout pre-ticked next time they visit.
+      writeGiftIntent(gift);
+      setAdded(true);
+    } catch (err) {
+      setAddError(addToCartErrorMessage(err));
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  function selectSize(sku: string, sizeStock: number) {
+    setSelectedSku(sku);
+    setAdded(false);
+    setAddError(null);
+    // A quantity chosen for a 20-stock size must not ride over to a
+    // 2-stock one and be refused on press.
+    setQuantity((q) => Math.max(1, Math.min(q, Math.max(1, sizeStock))));
+  }
   /**
    * M46 — three prices, two shown. `salePrice` is what the maker's
    * storefront sale brings it to and is what the checkout actually
@@ -154,12 +201,11 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         {product.weightOptions.map((option) => (
           <Chip
             key={option.sku}
-            label={option.label}
+            // A sold-out size stays pickable so the price can still be
+            // read; the label says why the button is greyed.
+            label={option.stock > 0 ? option.label : `${option.label} · sold out`}
             selected={option.sku === selectedSku}
-            onClick={() => {
-              setSelectedSku(option.sku);
-              setAdded(false);
-            }}
+            onClick={() => selectSize(option.sku, option.stock)}
           />
         ))}
       </div>
@@ -169,9 +215,20 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
       </div>
 
       <div className={styles.buyRow} ref={buyRowRef}>
-        <QuantityStepper value={quantity} onChange={setQuantity} aria-label="Quantity" />
-        <Button variant="primary" className={styles.addToCart} onClick={handleAdd}>
-          {added ? "Added ✓" : "Add to cart"}
+        <QuantityStepper
+          value={quantity}
+          onChange={setQuantity}
+          max={soldOut ? 1 : stock}
+          disabled={soldOut}
+          aria-label="Quantity"
+        />
+        <Button
+          variant="primary"
+          className={styles.addToCart}
+          onClick={handleAdd}
+          disabled={soldOut || adding}
+        >
+          {soldOut ? "Sold out" : added ? "Added ✓" : adding ? "Adding…" : "Add to cart"}
         </Button>
         <button
           type="button"
@@ -183,12 +240,22 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
           <Heart size={20} strokeWidth={1.6} fill={wishlisted ? "currentColor" : "none"} />
         </button>
       </div>
-      {added && (
-        <p className={styles.toast}>
+      {added && !addError && (
+        <p className={styles.toast} role="status">
           Added to cart —{" "}
           <button type="button" className={styles.toastLink} onClick={() => router.push("/cart")}>
             view cart
           </button>
+        </p>
+      )}
+      {addError && (
+        <p className={styles.toastError} role="alert">
+          {addError}
+        </p>
+      )}
+      {soldOut && !addError && (
+        <p className={styles.soldOutNote} role="status">
+          {SOLD_OUT_COPY}
         </p>
       )}
 
@@ -258,20 +325,22 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
       {/* Phone-only (≤640 rail, CSS-gated); `aria-hidden` while the real
           controls are on screen so nothing is announced twice. */}
       <div
+        ref={stickyRef}
         className={clsx(styles.stickyBar, !buyRowVisible && styles.stickyBarVisible)}
         aria-hidden={buyRowVisible}
       >
         <div className={styles.stickyInfo}>
           <span className={styles.stickyName}>{product.name}</span>
-          {weight && <span className={styles.stickyPrice}>{formatCurrency(weight.price)}</span>}
+          {weight && <span className={styles.stickyPrice}>{formatCurrency(payable)}</span>}
         </div>
         <Button
           variant="primary"
           size="sm"
           onClick={handleAdd}
+          disabled={soldOut || adding}
           tabIndex={buyRowVisible ? -1 : 0}
         >
-          {added ? "Added ✓" : "Add to cart"}
+          {soldOut ? "Sold out" : added ? "Added ✓" : "Add to cart"}
         </Button>
       </div>
     </div>
