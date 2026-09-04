@@ -374,6 +374,44 @@ arrived".
 `EMAIL_PROVIDER=sendgrid` still selects the old transport; with a
 `RESEND_API_KEY` set, Resend is used.
 
+### The sender logo (BIMI) — what is done and what it still needs
+
+`client/public/bimi/logo.svg` is the website wordmark rebuilt to BIMI's
+rules: **SVG Tiny PS** (`version="1.2" baseProfile="tiny-ps"`), a
+`<title>`, absolute `width="96" height="96"`, square, on a **solid white
+background** (BIMI forbids transparency), 20 KB against a 32 KB ceiling.
+It is served from the web app at `https://homekrafted.in/bimi/logo.svg`
+after a deploy.
+
+**It will not appear in Gmail yet, and that is not a code problem.**
+Gmail needs all three:
+
+1. **DMARC at enforcement.** Ours is `v=DMARC1; p=none` today, and BIMI
+   ignores `p=none`. It needs `p=quarantine` (or `reject`) with
+   `pct=100`. Do not jump straight there: the policy applies to *every*
+   sender on this domain, Hostinger mailboxes included. Publish
+   `v=DMARC1; p=none; rua=mailto:dmarc@homekrafted.in; pct=100` first,
+   read a week of aggregate reports, confirm both Resend and Hostinger
+   pass, then raise it.
+2. **A certificate.** A **VMC** (needs a registered trademark, ~$1k/yr)
+   gets the logo *and* Gmail's blue check; a **CMC** (needs 12 months of
+   documented continuous use of the mark, cheaper) gets the logo alone.
+   Google has accepted CMCs since September 2024. The PEM goes in the
+   BIMI record's `a=`.
+3. **The BIMI record**, once the two above hold:
+
+   ```
+   default._bimi.homekrafted.in  TXT  "v=BIMI1; l=https://homekrafted.in/bimi/logo.svg; a=https://homekrafted.in/bimi/cert.pem;"
+   ```
+
+   Without `a=` the record is still valid and **Yahoo, AOL and Fastmail
+   will show the logo** — that half is free and worth publishing as soon
+   as DMARC is enforced.
+
+If the yarnball mark ever exists as vector art, prefer it over the
+wordmark here: the avatar is rendered as a small circle, and a two-line
+lockup is at its legibility limit by ~28px.
+
 **Razorpay is on real test keys as of 2026-09-01** — the `rzp_test_…` pair in the owner-supplied CSV.
 `cardPaymentsEnabled` is therefore `true` and checkout opens a real
 Razorpay test-mode widget. Verified end to end: order creation, wallet
