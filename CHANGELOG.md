@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026-09-04 — email is real: Resend, a branded shell, and the events that had no message
+
+- **Resend is the email transport.** `EmailProviderService` speaks both
+  Resend and SendGrid (`EMAIL_PROVIDER`, defaulting to Resend the moment
+  a `RESEND_API_KEY` exists), and no key still means a logged stub —
+  which is a supported state the admin approve screen reads, not a
+  failure. `EMAIL_FROM` may carry a display name; `EMAIL_REPLY_TO` is
+  new. `validateEnv` now refuses to boot when a real key is paired with
+  an empty or placeholder `EMAIL_FROM`, because that combination fails
+  **silently**, days later, as "the invite never arrived".
+  `server/scripts/send-test-email.mjs` sends one real message and prints
+  the provider's own answer, so domain verification can be proved without
+  approving a real kitchen to find out.
+- **Every email is branded, and every email has a text part.**
+  `notifications/email-template.ts` is the one shell — table layout,
+  inline styles, literal hex (a CSS custom property resolves to nothing
+  in an inbox), no images at all (a blocked remote logo on the message
+  carrying somebody's sign-in link is worse than type). It escapes
+  everything it renders and refuses a non-`http(s)` button URL; the
+  button's target is always repeated as a bare URL underneath, because a
+  button is not a link you can copy. Pinned by `email-template.spec.ts`.
+- **Notification emails now carry a way back in.** Every `deliver()`
+  email used to be a title and one line of plain text with no link;
+  they now render through the shell with a destination derived from
+  `refType`/`category` — the order, the meal plan, the wallet, the
+  review — plus a line saying why they got it and where to change it.
+- **The messages that had no email at all:**
+  - **Welcome**, on every account that is created with an address —
+    fired from `createUserWithAccounts` so no signup route can forget it,
+    after the transaction commits (a mail provider must never hold a
+    database transaction open) and never awaited.
+  - **Despatch details.** A parcel's waybill existed on `Consignment`
+    from the moment of booking and reached the buyer on no channel: the
+    one identifier a courier's support line asks for was ours and not
+    theirs. `notifyBuyerOfDespatch` sends carrier, waybill and the
+    carrier's own tracking URL when the booking succeeds — distinct from
+    the status message, which answers *when* rather than *how to find
+    it*.
+  - **A new review**, to the HomeKrafter it is about. It moves the rating
+    on every card they own and it arrived nowhere — they learned about a
+    one-star by finding it.
+- **The HomeKrafter invite and the password reset are branded**, and the
+  invite still sends a single-use link rather than a password: a mailed
+  password sits readable in an inbox forever, cannot be rotated, and on
+  this platform is the credential that can change payout details.
+
 ## 2026-09-04 — the cart tells the truth, unpaid orders can be paid, kitchens rename themselves, everybody gets a face
 
 - **A shopper can put a picture on their account.** `User.avatarSrc` —

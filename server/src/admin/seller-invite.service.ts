@@ -127,17 +127,21 @@ export class SellerInviteService {
     const emailResult = input.email
       ? await this.trySend(() =>
           this.email
-            .send(
+            .sendTemplate(
               input.email as string,
               'Your Homekrafted HomeKrafter account is ready',
-              `Hi ${input.displayName},\n\n` +
-                `Your application to sell on Homekrafted has been approved — your storefront is live.\n\n` +
-                `Set your password and sign in here (the link works once, and expires in ${INVITE_TTL_DAYS} days):\n\n` +
-                `${link}\n\n` +
-                `After that you can sign in any time at ${siteUrl}/login with this email address.\n\n` +
-                `Your first job is to add what you make: open the Listings tab, add your items, ` +
-                `and switch them on when you are ready to take orders.\n\n` +
-                `— Homekrafted`,
+              {
+                heading: 'Your kitchen is approved',
+                greeting: `Hi ${input.displayName},`,
+                paragraphs: [
+                  'Your application to sell on Homekrafted has been approved, and your storefront is live.',
+                  `Set your password with the button below. The link works once and expires in ${INVITE_TTL_DAYS} days — after that you can sign in any time at ${siteUrl}/login with this email address.`,
+                  'Then add what you make: open Products in your portal, add your items with a photo and a price, and switch them on when you are ready to take orders.',
+                ],
+                button: { label: 'Set your password', url: link },
+                footnote:
+                  'If you did not apply to sell on Homekrafted, ignore this email — nothing has been set up in your name that this link does not create.',
+              },
             )
             .then((r) => r.mock),
         )

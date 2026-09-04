@@ -376,17 +376,17 @@ export class AuthService {
     const siteUrl = this.configService.get('siteUrl', { infer: true });
     const link = `${siteUrl}/reset-password?token=${token}`;
 
-    await this.emailProvider.send(
-      email,
-      'Reset your Homekrafted password',
-      `Hi ${user.name},\n\n` +
-        `Someone asked to reset the password for your Homekrafted account. ` +
-        `If that was you, open this link within ${PASSWORD_RESET_TTL_MINUTES} minutes:\n\n` +
-        `${link}\n\n` +
-        `The link can only be used once. If it wasn't you, you can ignore this ` +
-        `email — nothing has changed and your current password still works.\n\n` +
-        `— Homekrafted`,
-    );
+    await this.emailProvider.sendTemplate(email, 'Reset your Homekrafted password', {
+      heading: 'Reset your password',
+      greeting: `Hi ${user.name},`,
+      paragraphs: [
+        `Someone asked to reset the password for your Homekrafted account. If that was you, use the button below within ${PASSWORD_RESET_TTL_MINUTES} minutes.`,
+        'The link can only be used once.',
+      ],
+      button: { label: 'Choose a new password', url: link },
+      footnote:
+        "If it wasn't you, ignore this email — nothing has changed and your current password still works.",
+    });
   }
 
   /**
@@ -963,6 +963,45 @@ export class AuthService {
    * and a lost race just tries the next candidate. The pre-check is kept
    * as a fast path so the common case still allocates in one round trip.
    */
+  /**
+   * "Welcome" — the first email a new account gets (2026-09-04).
+   *
+   * Called from `createUserWithAccounts`, so every route that mints an
+   * account gets it: email+password signup, the one-field `continue`
+   * flow, and social. A path that creates a user and forgets to say
+   * hello is the failure this placement prevents.
+   *
+   * **Never awaited, never allowed to throw.** A provider outage must not
+   * turn a successful signup into a 500 — the same rule order
+   * notifications follow. And an account created by phone OTP has no
+   * address, so there is simply nothing to send.
+   */
+  private sendWelcomeEmail(user: User): void {
+    if (!user.email) return;
+    void this.emailProvider
+      .sendTemplate(user.email, 'Welcome to Homekrafted', {
+        heading: 'Welcome to Homekrafted',
+        greeting: `Hi ${user.name.split(' ')[0]},`,
+        paragraphs: [
+          'Your account is ready. Homekrafted is home-cooked food and handmade gifts from real home kitchens around Chandigarh, Mohali, Panchkula and Zirakpur — everything here is made by a person, to order.',
+          'Tell us your area when you browse and we will only show you kitchens that deliver to you. Nothing is hidden if you would rather not say.',
+        ],
+        facts: [
+          { label: 'Your referral code', value: user.referralCode },
+          { label: 'Signed up with', value: user.email },
+        ],
+        button: {
+          label: 'Start browsing',
+          url: `${this.configService.get('siteUrl', { infer: true })}/shop`,
+        },
+        footnote:
+          'Share your referral code with a friend — you both get wallet credit on their first order.',
+      })
+      .catch((err: unknown) => {
+        this.logger.warn(`Welcome email to ${user.email} failed: ${String(err)}`);
+      });
+  }
+
   private async createUserWithAccounts(
     nameSeed: string,
     build: (referralCode: string) => Prisma.UserCreateInput,
@@ -973,13 +1012,18 @@ export class AuthService {
           ? await this.uniqueReferralCode(nameSeed)
           : generateReferralCode(nameSeed, attempt);
       try {
-        return await this.prisma.$transaction(async (tx) => {
-          const created = await tx.user.create({ data: build(code) });
-          await tx.wallet.create({ data: { userId: created.id } });
-          await tx.loyaltyAccount.create({ data: { userId: created.id } });
-          await this.recordReferralTx(tx, created);
-          return created;
+        const created = await this.prisma.$transaction(async (tx) => {
+          const row = await tx.user.create({ data: build(code) });
+          await tx.wallet.create({ data: { userId: row.id } });
+          await tx.loyaltyAccount.create({ data: { userId: row.id } });
+          await this.recordReferralTx(tx, row);
+          return row;
         });
+        // After the transaction commits, never inside it: a mail provider
+        // taking two seconds would otherwise hold a database transaction
+        // open for two seconds.
+        this.sendWelcomeEmail(created);
+        return created;
       } catch (err) {
         if (isReferralCodeCollision(err)) continue;
         throw err;

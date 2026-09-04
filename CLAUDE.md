@@ -88,6 +88,20 @@ assume is already handled.
   invite arrives, and it does not. Retire the whole mechanism once
   SendGrid/Twilio are set. The M21 machinery below still exists and still
   runs alongside it.
+- **Email is Resend now, and the remaining gap is DNS (2026-09-04).**
+  `EmailProviderService` speaks Resend (default) and SendGrid; no key is
+  still a logged stub, and that stub is a *supported* state the admin
+  approve screen reads — never make it throw. Three rules: **every
+  message goes through `notifications/email-template.ts`** (one shell,
+  inline styles and literal hex because a CSS variable resolves to
+  nothing in an inbox, no images because a blocked remote logo on a
+  sign-in email is worse than type, and always an HTML **and** a text
+  part); **never email a plaintext password** — the invite is a
+  single-use expiring link, and that has not changed; and **Resend
+  refuses an unverified sending domain**, so `EMAIL_FROM` and the DKIM/SPF
+  records at Hostinger are the whole remaining task
+  (`server/scripts/send-test-email.mjs` proves it without approving a
+  real kitchen to find out).
 - **The invite link half (M21).** Approval now mints a single-use,
   7-day set-password link and sends it by **email and SMS**
   (`SellerInviteService`), so phone OTP is no longer the only door. What

@@ -1,5 +1,6 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { ReviewAggregatesService } from './review-aggregates.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { mapReview } from './reviews.mapper';
@@ -8,9 +9,12 @@ type ReviewTarget = 'product' | 'vendor' | 'service';
 
 @Injectable()
 export class ReviewsService {
+  private readonly logger = new Logger(ReviewsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly aggregates: ReviewAggregatesService,
+    private readonly delivery: NotificationsDeliveryService,
   ) {}
 
   /** Excludes moderator-hidden reviews — same rule `lib/api/reviews.ts#getProductReviews`/`getVendorReviews` apply. */
@@ -147,7 +151,60 @@ export class ReviewsService {
       return created;
     });
 
+    // The kitchen hears about it (2026-09-04). A review moves the rating
+    // on every card they own and is the main thing a buyer reads before
+    // trusting them, and until now it arrived on no channel at all — a
+    // HomeKrafter learned about a one-star by finding it.
+    void this.notifySeller(dto.targetType, dto.targetId, dto.rating);
+
     return mapReview(review);
+  }
+
+  /**
+   * Tell the HomeKrafter behind a reviewed product or storefront.
+   *
+   * `void`-called and swallowing: a review that saved must not fail
+   * because a message did (the M18 rule). Category `account`, not
+   * `promo`, for the M18 reason — a promo block is per-sender and costs
+   * every future order update.
+   *
+   * A laundry `service` review reaches nobody: the module is withdrawn
+   * (M19) and there is no seller to route it to.
+   */
+  private async notifySeller(targetType: ReviewTarget, targetId: string, rating: number): Promise<void> {
+    try {
+      const vendorId =
+        targetType === 'vendor'
+          ? targetId
+          : targetType === 'product'
+            ? (await this.prisma.product.findUnique({ where: { id: targetId }, select: { vendorId: true } }))
+                ?.vendorId
+            : undefined;
+      if (!vendorId) return;
+
+      const seller = await this.prisma.seller.findFirst({
+        where: { vendorId },
+        select: { userId: true },
+      });
+      if (!seller?.userId) return;
+
+      const what =
+        targetType === 'vendor'
+          ? 'your storefront'
+          : ((await this.prisma.product.findUnique({ where: { id: targetId }, select: { name: true } }))?.name ??
+            'one of your listings');
+
+      await this.delivery.deliver({
+        userId: seller.userId,
+        category: 'account',
+        title: `New ${rating}-star review`,
+        body: `Somebody reviewed ${what}. You can read it and reply from Reviews in your portal.`,
+        refType: 'review',
+        refId: targetId,
+      });
+    } catch (err) {
+      this.logger.warn(`Could not notify seller of review on ${targetType} ${targetId}: ${String(err)}`);
+    }
   }
 
   private async assertTargetExists(targetType: ReviewTarget, targetId: string): Promise<void> {

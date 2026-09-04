@@ -425,7 +425,7 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
     // "do you deliver to me?" question, where being advisory is fine.
     try {
       const result = await this.client.createOrder(payload);
-      return await this.prisma.consignment.update({
+      const booked = await this.prisma.consignment.update({
         where: { id: consignmentId },
         data: {
           awbNumber: result.awbNumber,
@@ -436,6 +436,12 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
           bookAttempts: { increment: 1 },
         },
       });
+      // The waybill is the number a courier's support line asks for, and
+      // until now it existed only on this row (2026-09-04). `void`, like
+      // every other notification here: a message that fails must not
+      // un-book a parcel that a rider is already coming for.
+      void this.orderNotifications.notifyBuyerOfDespatch(booked.id);
+      return booked;
     } catch (err) {
       return this.markFailed(consignmentId, (err as Error).message);
     }

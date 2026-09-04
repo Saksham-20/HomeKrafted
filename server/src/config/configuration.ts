@@ -97,9 +97,18 @@ export interface AppConfig {
     fromNumber: string;
   };
   email: {
-    /** SendGrid-shaped (Bearer API key) — an SMTP transport is a drop-in alternative behind the same `EmailProviderService.send`. */
+    /**
+     * Which transport `EmailProviderService` uses. `resend` is the one
+     * with a key in production; `sendgrid` is kept because it was here
+     * first and switching provider should not need a code change.
+     */
+    provider: 'resend' | 'sendgrid';
+    /** Bearer API key for whichever provider is selected. */
     apiKey: string;
+    /** `Name <address@domain>` or a bare address. The domain must be verified with the provider. */
     fromAddress: string;
+    /** Where a reply goes. Empty means the provider's default (the from address). */
+    replyTo: string;
   };
   throttle: {
     ttlSeconds: number;
@@ -217,10 +226,24 @@ export default (): AppConfig => ({
     authToken: process.env.TWILIO_AUTH_TOKEN ?? '',
     fromNumber: process.env.TWILIO_FROM_NUMBER ?? '',
   },
-  email: {
-    apiKey: process.env.SENDGRID_API_KEY ?? '',
-    fromAddress: process.env.EMAIL_FROM ?? 'notifications@homekrafted.example',
-  },
+  email: (() => {
+    // Resend when it has a key, whatever else is set — a box carrying
+    // both keys is a box mid-migration, and the new one is the one
+    // somebody just configured. `EMAIL_PROVIDER` overrides explicitly.
+    const explicit = (process.env.EMAIL_PROVIDER ?? '').trim().toLowerCase();
+    const resendKey = (process.env.RESEND_API_KEY ?? '').trim();
+    const sendgridKey = (process.env.SENDGRID_API_KEY ?? '').trim();
+    const provider: 'resend' | 'sendgrid' =
+      explicit === 'sendgrid' || (explicit !== 'resend' && !resendKey && !!sendgridKey)
+        ? 'sendgrid'
+        : 'resend';
+    return {
+      provider,
+      apiKey: provider === 'resend' ? resendKey : sendgridKey,
+      fromAddress: process.env.EMAIL_FROM ?? 'notifications@homekrafted.example',
+      replyTo: (process.env.EMAIL_REPLY_TO ?? '').trim(),
+    };
+  })(),
   throttle: {
     ttlSeconds: parseInt(process.env.THROTTLE_TTL_SECONDS ?? '60', 10),
     limit: parseInt(process.env.THROTTLE_LIMIT ?? '120', 10),

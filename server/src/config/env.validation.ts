@@ -55,6 +55,29 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
     }
   }
 
+  /**
+   * Email: catch the two mistakes that produce a *silent* non-delivery
+   * (2026-09-04) — a key with no from address to send from, and Resend's
+   * hard requirement that the from domain is one it has verified. Neither
+   * throws at boot today; both surface as "the invite never arrived",
+   * days later, from a HomeKrafter who cannot sign in.
+   *
+   * A missing key is deliberately *not* an error: the logged stub is a
+   * supported state (`docs/LAUNCH-READINESS.md`), and refusing to boot
+   * without a mail provider would take the whole site down over it.
+   */
+  const emailKey = String(env.RESEND_API_KEY ?? env.SENDGRID_API_KEY ?? '').trim();
+  const emailFrom = String(env.EMAIL_FROM ?? '').trim();
+  if (emailKey && emailKey !== 'placeholder_resend_key' && emailKey !== 'placeholder_sendgrid_key') {
+    if (!emailFrom) {
+      errors.push('An email API key is set but EMAIL_FROM is empty — every send would be refused by the provider.');
+    } else if (/@homekrafted\.example/i.test(emailFrom)) {
+      errors.push(
+        'EMAIL_FROM is still the placeholder domain (homekrafted.example). Set it to an address on a domain verified with your email provider.',
+      );
+    }
+  }
+
   if (errors.length > 0) {
     throw new Error(`Invalid environment configuration:\n  - ${errors.join('\n  - ')}`);
   }

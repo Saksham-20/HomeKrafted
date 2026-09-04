@@ -154,6 +154,31 @@ Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
 seeded demo kitchen's name and storefront link, because the portal
 resolved the seller record from mock data.
 
+### Emails
+
+With `RESEND_API_KEY` set (and the sending domain verified — see
+`docs/DEPLOY.md`), these arrive as real, branded email:
+
+- **Welcome**, on signing up with an email address.
+- **Set your password**, when an admin approves a HomeKrafter. This is
+  the one that matters most: it is how a kitchen gets in. The link works
+  once and expires in seven days.
+- **Reset your password**, from "Forgot your password?".
+- **Order updates** — placed, accepted, packed, on the way, delivered —
+  each with a button through to that order.
+- **Despatch details**, when a courier booking succeeds: carrier,
+  waybill number and the carrier's tracking link.
+- **A new review**, to the HomeKrafter it is about.
+
+Two things to check on any of them: the message renders with images
+turned **off** (there are none by design), and the button's URL is also
+printed underneath as plain text.
+
+With no key, nothing is sent and the message is written to the API log
+prefixed `[EMAIL STUB]` — that is the expected state on a box with no
+provider configured, and the admin approve screen says "we could not
+reach them" rather than claiming success.
+
 ### A picture on your own account
 
 **Account → Profile → Edit** now offers a picture: upload one, or pick

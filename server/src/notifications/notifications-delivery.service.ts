@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NotificationCategory, Prisma } from '@prisma/client';
+import { AppConfig } from '../config/configuration';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { SmsProviderService } from './providers/sms.provider';
@@ -51,6 +53,7 @@ export class NotificationsDeliveryService {
     private readonly sms: SmsProviderService,
     private readonly whatsapp: WhatsAppService,
     private readonly email: EmailProviderService,
+    private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
   async deliver(input: DeliverNotificationInput) {
@@ -95,7 +98,7 @@ export class NotificationsDeliveryService {
   /** Returns `false` when the channel should be skipped entirely (no contact info, or the provider call failed) — the caller then persists nothing for it. */
   private async sendOnChannel(
     channel: ChannelKey,
-    user: { id: string; phone: string | null; email: string | null },
+    user: { id: string; name: string; phone: string | null; email: string | null },
     input: DeliverNotificationInput,
   ): Promise<boolean> {
     try {
@@ -115,7 +118,22 @@ export class NotificationsDeliveryService {
 
       if (channel === 'email') {
         if (!user.email) return this.skipNoContact(channel, user.id);
-        await this.email.send(user.email, input.title, input.body);
+        // Branded, and with a way back into the site (2026-09-04). The
+        // same notification used to leave as `title` + one line of plain
+        // text with no link in it, so the commonest reply to an order
+        // email was somebody asking where to look.
+        await this.email.sendTemplate(user.email, input.title, {
+          heading: input.title,
+          greeting: user.name ? `Hi ${user.name.split(' ')[0]},` : undefined,
+          paragraphs: [input.body],
+          button: this.linkFor(input),
+          footnote:
+            input.category === 'promo'
+              ? 'You are getting this because you opted in to offers. Change what we send you at ' +
+                `${this.siteUrl()}/account/notifications.`
+              : 'You are getting this because it is about your account or an order. ' +
+                `Choose how we reach you at ${this.siteUrl()}/account/notifications.`,
+        });
         return true;
       }
 
@@ -124,6 +142,38 @@ export class NotificationsDeliveryService {
       this.logger.error(`${channel} delivery failed for user ${user.id}: ${(err as Error).message}`);
       return false;
     }
+  }
+
+  private siteUrl(): string {
+    return this.config.get('siteUrl', { infer: true });
+  }
+
+  /**
+   * Where this message's button goes.
+   *
+   * Driven off `refType`, which every caller already sets, rather than a
+   * per-caller URL field nobody would remember to fill in. An unknown
+   * ref lands on the account page, which is never wrong — and never a
+   * dead link, which a guessed deep URL would be.
+   */
+  private linkFor(input: DeliverNotificationInput): { label: string; url: string } {
+    const site = this.siteUrl();
+    if (input.refType === 'order' && input.refId) {
+      return { label: 'Track your order', url: `${site}/account/orders/${input.refId}` };
+    }
+    if (input.refType === 'mealSubscription' && input.refId) {
+      return { label: 'View your meal plan', url: `${site}/account/subscriptions` };
+    }
+    if (input.refType === 'review') {
+      return { label: 'Read the review', url: `${site}/seller/reviews` };
+    }
+    if (input.category === 'wallet') {
+      return { label: 'Open your wallet', url: `${site}/wallet` };
+    }
+    if (input.category === 'order') {
+      return { label: 'View your orders', url: `${site}/account/orders` };
+    }
+    return { label: 'Open Homekrafted', url: `${site}/account/notifications` };
   }
 
   private skipNoContact(channel: ChannelKey, userId: string): false {

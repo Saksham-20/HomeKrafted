@@ -305,9 +305,55 @@ NEXT_PUBLIC_SITE_URL=https://homekrafted.in
 `NEXT_PUBLIC_*` values are inlined **at build time**, so changing one means a
 rebuild, not just a restart.
 
-WhatsApp, Twilio and SendGrid keys are still placeholders. The server
-degrades gracefully around each (logged-only sends), so the flows stay
-exercisable without real accounts.
+WhatsApp and Twilio keys are still placeholders. The server degrades
+gracefully around each (logged-only sends), so the flows stay exercisable
+without real accounts.
+
+### Email — Resend (2026-09-04)
+
+Email is the channel the whole supply side depends on: an approved
+HomeKrafter's set-password invite goes out on it, and with no key that
+invite reaches nobody (the standing blocker in `CLAUDE.md`).
+
+Three env vars on the box, in `server/.env`:
+
+```bash
+RESEND_API_KEY=re_…                       # from resend.com → API Keys
+EMAIL_FROM=Homekrafted <hello@homekrafted.in>
+EMAIL_REPLY_TO=                            # optional; empty = replies go to EMAIL_FROM
+```
+
+**Resend refuses to send from an unverified domain**, so the DNS step is
+not optional and is the thing that will actually bite:
+
+1. Resend dashboard → **Domains** → add `homekrafted.in`.
+2. It gives you a DKIM `TXT` (usually `resend._domainkey`) and an SPF
+   `TXT`. Publish both at **Hostinger**, where the rest of this domain's
+   DNS lives (see the DNS section above — the existing DKIM `CNAME`s and
+   `autodiscover`/`autoconfig` records are Hostinger *email* and are
+   unrelated; do not remove them).
+3. Wait for Resend to show the domain **Verified**.
+4. Restart the API (`pm2 restart homekrafted-api`) — the key is read at
+   boot.
+
+Then prove it, rather than approving a real kitchen to find out:
+
+```bash
+cd /var/www/homekrafted/HomeKrafted/server
+node scripts/send-test-email.mjs you@example.com
+```
+
+It prints the provider's own answer. The two failures that matter read
+completely differently — `403 ... domain is not verified` means step 2 or
+3 is incomplete, `401` means the key is wrong or revoked.
+
+`validateEnv` refuses to boot if a real key is set with an empty
+`EMAIL_FROM`, or with the placeholder `@homekrafted.example` domain — both
+of those otherwise fail silently, days later, as "the invite never
+arrived".
+
+`EMAIL_PROVIDER=sendgrid` still selects the old transport; with a
+`RESEND_API_KEY` set, Resend is used.
 
 **Razorpay is on real test keys as of 2026-09-01** — the `rzp_test_…` pair in the owner-supplied CSV.
 `cardPaymentsEnabled` is therefore `true` and checkout opens a real
