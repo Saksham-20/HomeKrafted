@@ -2,6 +2,10 @@
 
 ## 2026-09-04 — email is real: Resend, a branded shell, and the events that had no message
 
+- **`docs/NOTIFICATIONS.md`** — every message the platform sends, its
+  recipient, its channel and the line of code it comes from. The corporate
+  quote email moved onto the shared shell with it.
+
 - **Resend is the email transport.** `EmailProviderService` speaks both
   Resend and SendGrid (`EMAIL_PROVIDER`, defaulting to Resend the moment
   a `RESEND_API_KEY` exists), and no key still means a logged stub —

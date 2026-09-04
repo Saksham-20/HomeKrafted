@@ -161,18 +161,19 @@ export class AdminCorporateService {
       year: 'numeric',
     });
 
-    await this.email.send(
-      inquiry.email,
-      `Your Homekrafted quote for ${inquiry.companyName}`,
-      `Hi ${inquiry.contactName},\n\n` +
-        `Here is the quote for ${inquiry.companyName}` +
-        `${inquiry.occasion ? ` (${inquiry.occasion})` : ''}.\n\n` +
-        `Total: ₹${quote.total.toLocaleString('en-IN')}\n` +
-        `Valid until: ${validUntil}\n\n` +
-        `Open it here to see the full breakdown and accept:\n${link}\n\n` +
-        `The link is unique to you — please don't forward it.\n\n` +
-        `— Homekrafted`,
-    );
+    await this.email.sendTemplate(inquiry.email, `Your Homekrafted quote for ${inquiry.companyName}`, {
+      heading: 'Your quote is ready',
+      greeting: `Hi ${inquiry.contactName},`,
+      paragraphs: [
+        `Here is the quote for ${inquiry.companyName}${inquiry.occasion ? ` (${inquiry.occasion})` : ''}. Open it to see the full breakdown and accept.`,
+      ],
+      facts: [
+        { label: 'Total', value: `₹${quote.total.toLocaleString('en-IN')}` },
+        { label: 'Valid until', value: validUntil },
+      ],
+      button: { label: 'Open your quote', url: link },
+      footnote: "The link is unique to you — please don't forward it.",
+    });
 
     await this.auditLog.log({
       actorId: adminUserId,

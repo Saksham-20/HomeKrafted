@@ -37,6 +37,11 @@ accounts).
   four-phase roadmap. **Phase 1 shipped (M15); phases 2–4 are the
   standing backlog** — check it before proposing new work, so a "great
   idea" isn't already a ranked item there.
+- **Notifications (what the platform sends, and when):**
+  `docs/NOTIFICATIONS.md` — every trigger, its recipient, its channel and
+  the line of code it comes from. Two paths: direct email (credentials
+  and documents, preferences do not apply) and `deliver()` (everything
+  else, gated per person per category). Add a trigger, add a row.
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
 ## Standing blockers (true as of 2026-08-15)
