@@ -21,7 +21,15 @@ export type UploadPurpose =
   | 'application'
   | 'laundry'
   /** Admin-authored occasion/guide cover art (M42). Not seller content: it is platform merchandising, and only an admin route writes it. */
-  | 'collection';
+  | 'collection'
+  /**
+   * A shopper's own profile picture (2026-09-04). Its own purpose rather
+   * than reusing `storefront`, because `buildScope` files an upload under
+   * `sellerId ?? userId` — a HomeKrafter's profile photo would otherwise
+   * land in the same folder as their shop's artwork, which is a different
+   * thing owned by a different screen.
+   */
+  | 'profile';
 
 const PURPOSES: readonly UploadPurpose[] = [
   'listing',
@@ -30,6 +38,7 @@ const PURPOSES: readonly UploadPurpose[] = [
   'application',
   'laundry',
   'collection',
+  'profile',
 ];
 
 export function isUploadPurpose(value: string): value is UploadPurpose {

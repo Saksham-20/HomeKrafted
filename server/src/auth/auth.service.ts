@@ -116,6 +116,10 @@ export type PublicUser = Pick<
   | 'suspended'
   | 'emailVerified'
   | 'phoneVerified'
+  // 2026-09-04. The shopper's own picture — a photo they uploaded or a
+  // chef character they picked. Public by definition: it is rendered
+  // wherever their name is.
+  | 'avatarSrc'
   // M32. The client reads this to send somebody straight to the
   // set-a-password screen; the server does not trust it to — see
   // `JwtAuthGuard`, which refuses every other route regardless.
@@ -1068,6 +1072,7 @@ export class AuthService {
       suspended: user.suspended,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
+      avatarSrc: user.avatarSrc,
       mustChangePassword: user.mustChangePassword,
       adminScopes: user.adminScopes,
     };

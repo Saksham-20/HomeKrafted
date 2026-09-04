@@ -146,6 +146,17 @@ Consequences for this box:
   arrives. Raising it does not increase what is stored; it only widens
   what will be decoded, so keep it under the 15MB multipart hard limit.
 
+**On a dev box, set `UPLOAD_DIR` to somewhere you can write**
+(2026-09-04). The default is the box path above, which a developer's user
+cannot `mkdir`, so every upload failed with `EACCES` — the failure looked
+like a broken upload feature rather than a missing env var. `server/.env`
+on a laptop wants something like `UPLOAD_DIR=<repo>/server/.uploads`
+(gitignored). Reading them back is handled: when `STORAGE_DRIVER=local`
+the API serves `UPLOAD_DIR` at `/uploads/`, which is what
+`next.config.ts`'s dev rewrite has always assumed. In production nginx
+matches `/uploads/` before anything reaches Node, so that route is never
+used there.
+
 **`UPLOAD_DIR` must stay outside `/var/www/homekrafted/HomeKrafted`.**
 Deploys `git merge --ff-only` in that clone and the clone is disposable;
 anything written inside it is one `git clean` away from gone. The default

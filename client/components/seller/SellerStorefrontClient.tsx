@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { formatCurrency } from "@/lib/format";
 import { Textarea } from "@/components/ui/Textarea";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
-import { CharacterPicker } from "./CharacterPicker";
+import { CharacterPicker } from "@/components/ui/CharacterPicker";
 import { isChefCharacter } from "@/lib/avatars/chef-characters";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { SellerPageHeader } from "./SellerPageHeader";
@@ -224,10 +224,20 @@ export function SellerStorefrontClient() {
               shape="circle"
               ratio="1/1"
               placeholderLabel={vendor.avatarPlaceholder}
-              hint="Square works best — this is the round photo buyers see next to your name."
+              hint={
+                isChefCharacter(form.avatarSrc)
+                  ? "Showing the character you picked. Drop a real photo here any time — a photo of you is what buyers trust most."
+                  : "Square works best — this is the round photo buyers see next to your name."
+              }
               /* A chosen character lives in the same column, so the
-                 upload must not show one back as "your photo". */
+                 upload must not show one back as "your photo" — but it
+                 does show it as a *preview* (2026-09-04). Picking a
+                 character used to leave this slot on the empty hatch,
+                 which read as nothing having happened; `previewSrc` is
+                 not a value, so "Remove" stays off it and the zone still
+                 asks for a real photo. */
               value={isChefCharacter(form.avatarSrc) ? "" : form.avatarSrc}
+              previewSrc={isChefCharacter(form.avatarSrc) ? form.avatarSrc : undefined}
               onChange={(url) => setForm((f) => ({ ...f, avatarSrc: url }))}
             />
             <ImageUpload

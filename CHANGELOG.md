@@ -1,6 +1,40 @@
 # Changelog
 
-## 2026-09-04 — a kitchen renames itself, an unpaid order can be paid, and the maker cards square up
+## 2026-09-04 — the cart tells the truth, unpaid orders can be paid, kitchens rename themselves, everybody gets a face
+
+- **A shopper can put a picture on their account.** `User.avatarSrc` —
+  the same column shape as `Vendor.avatarSrc`, so an uploaded photo
+  (`POST /uploads?purpose=profile`, its own purpose because
+  `buildScope` files by `sellerId ?? userId` and a shop's artwork is not
+  a person's face) and one of the sixteen chef characters are both just
+  a path. `/account/profile` offers both, upload first. **Nothing is
+  ever assigned**: an account with neither keeps the initial-letter disc
+  (the M38b rule — a portrait nobody chose is an invention).
+  `CharacterPicker` moved to `components/ui/` and took `legend`/`lead`/
+  `name` props, since a shopper is not choosing a shop photo.
+- **Picking a character updates the photo slot.** It set the stored
+  value and the shop-photo control went on showing the empty hatch, so
+  the one control the choice was about gave no sign anything had
+  happened. `ImageUpload` gained `previewSrc` — a preview that is not a
+  value, so "Remove" stays hidden and the zone still asks for a real
+  photo.
+- **Uploads work on a dev box again.** `UPLOAD_DIR` defaults to
+  `/var/lib/homekrafted/uploads`, which is the box's path and not
+  writable by a dev user — every upload failed with `EACCES: mkdir`. And
+  even once written, nothing served them: `next.config.ts` has always
+  said uploads are "served by the API in dev" and no route ever did, so
+  a stored photo rendered 404. `main.ts` now serves the local upload
+  directory when `STORAGE_DRIVER=local`; in production nginx answers
+  `/uploads/` first, so it is inert there.
+- **The HomeKrafter nav is grouped and relabelled.** Ten flat rows in
+  build order became four groups — Overview, What you sell, Your shop,
+  Money — and the labels say what the screens hold: Dashboard → Today,
+  Analytics → Sales & trends, Listings → **Products**, Menu → **Snacks
+  menu** (it is the WhatsApp menu, and beside "Listings" the bare word
+  read as a synonym), Storefront → **Shop page**, Profile → **About your
+  kitchen** (most people read "profile" as their own account), Payouts →
+  Earnings & payouts. Routes are untouched — they are bookmarked.
+
 
 - **An order created and never paid can now be paid.** Every order is
   written at `pending_payment` and the cart is emptied in the same

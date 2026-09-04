@@ -1489,6 +1489,18 @@ it hid the gap from the only people who can close it. A kitchen with
 neither a photo nor a character shows the **labelled hatch
 placeholder** — which looks like a missing asset because it is one.
 
+**A shopper picks a picture the same two ways (2026-09-04).**
+`User.avatarSrc` mirrors `Vendor.avatarSrc` — an upload
+(`POST /uploads?purpose=profile`, its own purpose because the folder is
+`sellerId ?? userId`) or a chef character, a path either way — and
+`/account/profile` offers both, upload first. **Nothing is ever
+assigned**: no picture means the initial-letter disc, for the same reason
+a kitchen with neither shows the hatch. `CharacterPicker` lives in
+`components/ui/` and takes `legend`/`lead`/`name`. `ImageUpload`'s
+`previewSrc` shows a chosen character in the photo slot **without it
+counting as a value** — picking one used to leave the slot on the empty
+hatch, so the control the choice was about said nothing had happened.
+
 **The seeded DEMO storefronts carry assigned characters (M56, owner
 2026-08-31), and that does not reopen the rule above.** A demo fixture is
 not a person; each demo kitchen gets a *distinct* character (never one

@@ -127,6 +127,28 @@
   flex: 1;
 }
 
+/* Grouped nav (2026-09-04) — four headings over the ten modules, so a
+   short label like "Products" or "Reviews" is read inside the question it
+   answers rather than against nine unrelated neighbours. */
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navGroup + .navGroup {
+  margin-top: var(--hk-s3);
+}
+
+.navGroupLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+  padding: 0 10px 4px;
+}
+
 .sidebar {
   flex-shrink: 0;
   width: 220px;
@@ -208,6 +230,29 @@
 
   .navItem {
     flex-shrink: 0;
+  }
+
+  /* On the strip the groups run left to right with everything on one
+     line, and a stacked heading above four items would put three rows of
+     chrome on the screen with the least room (the note above). The
+     heading rides *in* the strip instead, as a quiet divider that still
+     says what follows. */
+  .navGroup {
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .navGroup + .navGroup {
+    margin-top: 0;
+    margin-left: var(--hk-s2);
+    padding-left: var(--hk-s2);
+    border-left: 1px solid var(--hk-border);
+  }
+
+  .navGroupLabel {
+    padding: 0 6px 0 0;
+    white-space: nowrap;
   }
 }
 

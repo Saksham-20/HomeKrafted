@@ -17,6 +17,7 @@ const PUBLIC_USER_SELECT = {
   suspended: true,
   emailVerified: true,
   phoneVerified: true,
+  avatarSrc: true,
   mustChangePassword: true,
   // M47 — the admin user screen shows and edits these.
   adminScopes: true,

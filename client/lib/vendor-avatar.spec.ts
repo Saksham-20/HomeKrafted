@@ -40,6 +40,8 @@ const ALLOWED: Record<string, string> = {
     "a HomeKrafter editing their own avatar; the form must show the stored value, stock or not",
   "app/storefront/[vendor]/page.tsx":
     "metadata + JSON-LD, both routed through ownAvatarSrc — asserted separately below",
+  "components/account/ProfileClient.tsx":
+    "a shopper's own picture — `User.avatarSrc`, a different column from `Vendor.avatarSrc`. The stock-face problem this spec exists for is a *vendor* one (seeded kitchens sharing one photograph); a person editing their own face is not that, and nothing here renders a kitchen",
   "app/gallery/GalleryClient.tsx":
     "dev-only, unlinked: it *constructs* throwaway vendors to show every character, and renders them through MakerPortrait like everything else",
 };

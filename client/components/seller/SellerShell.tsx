@@ -26,7 +26,26 @@ interface SellerNavItem {
   label: string;
   href: string;
   icon: typeof LayoutGrid;
+  /**
+   * Which group heading this sits under (2026-09-04). The nav was ten
+   * flat rows in the order the modules happened to be built, so
+   * "Storefront" sat next to "Profile" with nothing saying which one held
+   * a kitchen's story, and "Menu" — the snack menu that is ordered on
+   * WhatsApp, not the product catalogue — sat next to "Listings" reading
+   * like a synonym for it. Grouping is what lets a label be short and
+   * still be unambiguous.
+   */
+  group: SellerNavGroup;
 }
+
+/**
+ * The four questions a HomeKrafter opens the portal to answer, in the
+ * order they matter: how am I doing, what am I selling, what does my shop
+ * look like, what have I been paid.
+ */
+type SellerNavGroup = "Overview" | "What you sell" | "Your shop" | "Money";
+
+const NAV_GROUPS: SellerNavGroup[] = ["Overview", "What you sell", "Your shop", "Money"];
 
 /**
  * The one HomeKrafter nav — every module, shown to every HomeKrafter
@@ -41,31 +60,41 @@ interface SellerNavItem {
  * a given module simply sees that module's empty state.
  */
 const HOMEKRAFTER_NAV: SellerNavItem[] = [
-  { label: "Dashboard", href: "/seller", icon: LayoutGrid },
+  { label: "Today", href: "/seller", icon: LayoutGrid, group: "Overview" },
   // M16 (H6). Sits right after the dashboard: the dashboard answers
   // "what is happening today", this answers "what is selling, and when".
-  { label: "Analytics", href: "/seller/analytics", icon: BarChart3 },
-  { label: "Listings", href: "/seller/listings", icon: Package },
-  { label: "Menu", href: "/seller/menu", icon: UtensilsCrossed },
+  { label: "Sales & trends", href: "/seller/analytics", icon: BarChart3, group: "Overview" },
+  // "Products", not "Listings": a listing is our word for the row, and
+  // the thing a home cook has is a product. `/seller/listings` keeps its
+  // URL — it is bookmarked, and a rename is not worth a redirect.
+  { label: "Products", href: "/seller/listings", icon: Package, group: "What you sell" },
+  // The snack menu is ordered over WhatsApp, never checked out on the
+  // site (`lib/channel.ts`), and beside "Products" the bare word "Menu"
+  // read as a second name for the same screen.
+  { label: "Snacks menu", href: "/seller/menu", icon: UtensilsCrossed, group: "What you sell" },
   // M20. Sits with the other catalogue screens rather than under Orders:
   // a plan is something a kitchen offers, and the meals it owes hang off
   // it. Every HomeKrafter gets it, like every other module here — a plan
   // is no longer tied to being a meal, so "do you cook?" is not a
   // question this nav needs to answer.
-  { label: "Meal plans", href: "/seller/meal-plans", icon: CalendarClock },
-  { label: "Orders", href: "/seller/orders", icon: ShoppingBag },
+  { label: "Meal plans", href: "/seller/meal-plans", icon: CalendarClock, group: "What you sell" },
+  { label: "Orders", href: "/seller/orders", icon: ShoppingBag, group: "Overview" },
   // Pickups removed in M19 with the rest of laundry. The ROUTE still
   // resolves on purpose: `POST /laundry/bookings` is now gone (410), so no
   // new bookings arrive, but anyone with one already in flight must still
   // be able to fulfil it. `SellerDashboardClient` shows a link to it when
   // they have outstanding pickups.
-  { label: "Storefront", href: "/seller/storefront", icon: Store },
-  // M16. Separate from Storefront on purpose: that page is the four
+  // "Shop page", because that is what it edits — the name, photo, banner
+  // and blurb a shopper sees at the top of the storefront.
+  { label: "Shop page", href: "/seller/storefront", icon: Store, group: "Your shop" },
+  // M16. Separate from the shop page on purpose: that one is the four
   // catalogue fields on every product card; this one is the story,
-  // hours, policies and licence a buyer reads before trusting a kitchen.
-  { label: "Profile", href: "/seller/profile", icon: UserRound },
-  { label: "Payouts", href: "/seller/payouts", icon: Wallet },
-  { label: "Reviews", href: "/seller/reviews", icon: Star },
+  // hours, policies and licence a buyer reads before trusting a kitchen —
+  // so it is labelled by what it holds, not by the word "profile", which
+  // most people read as their own account.
+  { label: "About your kitchen", href: "/seller/profile", icon: UserRound, group: "Your shop" },
+  { label: "Reviews", href: "/seller/reviews", icon: Star, group: "Your shop" },
+  { label: "Earnings & payouts", href: "/seller/payouts", icon: Wallet, group: "Money" },
 ];
 
 /**
@@ -249,7 +278,18 @@ export function SellerShell({ children }: { children: ReactNode }) {
             active item into view was attempted and removed — see
             `TODOS.md`; the scroll position is reset after the effect runs. */}
         <nav ref={navRef} className={clsx(styles.sidebar, "hk-scroll", "hk-strip-fade")} aria-label="HomeKrafter">
-          {navItems.map((item) => {
+          {NAV_GROUPS.map((group) => (
+            <div key={group} className={styles.navGroup}>
+              {/* A heading, not a separator: on the mobile strip the rows
+                  run horizontally and a bare rule between them says
+                  nothing about what changed. `aria-hidden` — the group is
+                  announced through the nav's own structure below. */}
+              <span className={styles.navGroupLabel} aria-hidden="true">
+                {group}
+              </span>
+              {navItems
+                .filter((item) => item.group === group)
+                .map((item) => {
             const active =
               item.href === "/seller" ? pathname === "/seller" : pathname.startsWith(item.href);
             const Icon = item.icon;
@@ -284,7 +324,9 @@ export function SellerShell({ children }: { children: ReactNode }) {
                 <span>{item.label}</span>
               </Link>
             );
-          })}
+                })}
+            </div>
+          ))}
         </nav>
         <div className={styles.content}>{children}</div>
       </div>

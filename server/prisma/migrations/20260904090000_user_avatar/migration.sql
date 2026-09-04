@@ -1,0 +1,12 @@
+-- A shopper's own picture (2026-09-04).
+--
+-- Same column shape and same two sources as `Vendor.avatarSrc`: an
+-- uploaded photo (`/uploads/profile/...`) or one of the committed chef
+-- characters (`/images/avatars/*.webp`), stored as a path either way, so
+-- nothing here has to branch on which it is.
+--
+-- Nullable, and nothing is backfilled: NULL means "no picture chosen",
+-- which is what every existing account is, and the initial-letter disc
+-- stays the fallback. An assigned face would be a portrait nobody chose
+-- (the M38b rule).
+ALTER TABLE "User" ADD COLUMN "avatarSrc" TEXT;

@@ -15,7 +15,7 @@ import type {
   WalletTransaction,
 } from "@/lib/types";
 
-import { CharacterPicker } from "@/components/seller/CharacterPicker";
+import { CharacterPicker } from "@/components/ui/CharacterPicker";
 import { CHEF_CHARACTERS } from "@/lib/avatars/chef-characters";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { AmountPicker } from "@/components/ui/AmountPicker";

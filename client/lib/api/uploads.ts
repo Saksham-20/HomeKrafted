@@ -14,7 +14,14 @@ import { getAccessToken } from "@/lib/auth/session";
  *
  * `collection` is admin-authored occasion/guide cover art (M42).
  */
-export type UploadPurpose = "listing" | "menu" | "storefront" | "application" | "collection";
+export type UploadPurpose =
+  | "listing"
+  | "menu"
+  | "storefront"
+  | "application"
+  | "collection"
+  /** A shopper's own profile picture (2026-09-04) — mirrors the server's closed set. */
+  | "profile";
 
 export interface UploadedImage {
   /** What to persist and render. Relative (`/uploads/...`) on local-disk storage, absolute once a CDN driver is in use. */

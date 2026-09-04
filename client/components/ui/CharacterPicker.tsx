@@ -7,6 +7,15 @@ import { CHEF_CHARACTERS, isChefCharacter } from "@/lib/avatars/chef-characters"
 import styles from "./CharacterPicker.module.css";
 
 export interface CharacterPickerProps {
+  /** Heading over the grid. Defaults to the HomeKrafter wording. */
+  legend?: string;
+  /** The sentence under it — a shopper is not choosing a shop photo, so the copy is the caller's. */
+  lead?: string;
+  /**
+   * Radio-group name. Only matters when two pickers share a page; the
+   * default is fine everywhere it is used today.
+   */
+  name?: string;
   /** The stored `avatarSrc` — a character, an uploaded photo, or nothing. */
   value: string;
   onChange: (src: string) => void;
@@ -32,16 +41,19 @@ export interface CharacterPickerProps {
  * verified, said to a buyer, or read by anything but the avatar slot —
  * it is a picture, and the copy under the grid says so.
  */
-export function CharacterPicker({ value, onChange }: CharacterPickerProps) {
+export function CharacterPicker({
+  value,
+  onChange,
+  legend = "Or pick a character",
+  lead = "No photo yet? Choose someone to stand in. You can swap it for a real photo whenever you like — a photo of you is what buyers trust most.",
+  name = "hk-character",
+}: CharacterPickerProps) {
   const selected = isChefCharacter(value) ? value : undefined;
 
   return (
     <fieldset className={styles.wrap}>
-      <legend className={styles.legend}>Or pick a character</legend>
-      <p className={styles.lead}>
-        No photo yet? Choose someone to stand in. You can swap it for a real
-        photo whenever you like — a photo of you is what buyers trust most.
-      </p>
+      <legend className={styles.legend}>{legend}</legend>
+      <p className={styles.lead}>{lead}</p>
 
       <div className={styles.grid}>
         {CHEF_CHARACTERS.map((character) => {
@@ -53,7 +65,7 @@ export function CharacterPicker({ value, onChange }: CharacterPickerProps) {
             >
               <input
                 type="radio"
-                name="hk-character"
+                name={name}
                 className={styles.radio}
                 value={character.src}
                 checked={isSelected}

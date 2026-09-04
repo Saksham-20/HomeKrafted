@@ -62,6 +62,18 @@ export interface ImageUploadProps {
   shape?: "rect" | "square" | "circle";
   /** Placeholder caption when empty, reusing the `ImageSlot` convention. */
   placeholderLabel?: string;
+  /**
+   * What to show in the preview when nothing has been *uploaded* — a
+   * stand-in the parent already has (2026-09-04: the chef character a
+   * HomeKrafter picked below this control).
+   *
+   * It is a preview and nothing else: it never counts as a value, so
+   * "Remove" stays hidden and the zone still invites a real photo. Before
+   * this, picking a character left the shop-photo slot showing the empty
+   * hatch, so the one control the choice was *about* gave no sign it had
+   * worked.
+   */
+  previewSrc?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -94,6 +106,7 @@ export function ImageUpload({
   ratio = "1/1",
   shape = "rect",
   placeholderLabel = "No image yet",
+  previewSrc,
   disabled = false,
   className,
 }: ImageUploadProps) {
@@ -241,7 +254,7 @@ export function ImageUpload({
             ratio={ratio}
             shape={shape}
             label={placeholderLabel}
-            src={value || undefined}
+            src={value || previewSrc || undefined}
             compact
           />
         </div>

@@ -49,6 +49,8 @@ export interface SessionUser {
    */
   emailVerified?: boolean;
   phoneVerified?: boolean;
+  /** Their profile picture, if they have chosen one (2026-09-04). */
+  avatarSrc?: string;
   /**
    * The password on this account was issued by an admin and has to be
    * replaced before anything else works (M32).
@@ -210,6 +212,7 @@ export function toAppUser(sessionUser: SessionUser): User {
     name: sessionUser.name,
     email: sessionUser.email,
     phone: sessionUser.phone,
+    avatarSrc: sessionUser.avatarSrc,
     authProviders: [],
     createdAt: sessionUser.createdAt,
     walletId: `wallet-${sessionUser.id}`,

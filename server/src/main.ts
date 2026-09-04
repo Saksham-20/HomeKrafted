@@ -87,6 +87,26 @@ async function bootstrap(): Promise<void> {
   // expect it at the root.
   app.setGlobalPrefix('api/v1', { exclude: ['health', 'health/db'] });
 
+  /**
+   * Serve the local upload directory (2026-09-04, dev).
+   *
+   * In production nginx matches `/uploads/` from disk before anything
+   * reaches this process, and `next.config.ts` has always said uploads
+   * are "served by the API in dev" — but nothing here ever served them,
+   * so a photo uploaded on a dev box stored correctly and then rendered
+   * 404, including through `next/image`'s loopback fetch. This closes
+   * that, and is inert in production: nginx answers first, so these
+   * routes are never reached there.
+   *
+   * Only for `STORAGE_DRIVER=local` — with GCS the bucket serves the
+   * files and `uploads.dir` holds application documents (FSSAI licences,
+   * identity photos), which must never be publicly readable.
+   */
+  const uploads = configService.get('uploads', { infer: true });
+  if (uploads.driver === 'local') {
+    app.useStaticAssets(uploads.dir, { prefix: `${uploads.publicPrefix}/`, fallthrough: false });
+  }
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

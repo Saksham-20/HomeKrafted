@@ -35,6 +35,17 @@ export interface User {
   email?: string;
   phone?: string;
   avatarPlaceholder?: string;
+  /**
+   * The shopper's own picture (2026-09-04) — an uploaded photo
+   * (`/uploads/profile/...`) or one of the chef characters
+   * (`/images/avatars/*.webp`), a path either way, the same shape as
+   * `Vendor.avatarSrc`.
+   *
+   * Absent means they have not chosen one, and stays that: the
+   * initial-letter disc is the fallback rather than a face nobody picked
+   * (the M38b rule).
+   */
+  avatarSrc?: string;
   authProviders: AuthProvider[];
   createdAt: ISODateString;
   walletId: ID;

@@ -94,3 +94,6 @@ client/.design-sync/.cache/
 client/.design-sync/learnings/
 client/.design-sync/node_modules
 client/.design-sync/ds-styles.css
+
+# Local dev upload store (see UPLOAD_DIR in server/.env)
+server/.uploads/

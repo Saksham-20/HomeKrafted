@@ -46,6 +46,26 @@
   gap: var(--hk-s3);
 }
 
+/* The saved picture in the read-only row, at the same 52px the
+   initial-letter disc occupies so the row does not jump between the two
+   states (2026-09-04). */
+.avatarImage {
+  display: block;
+  width: 52px;
+  flex-shrink: 0;
+  border-radius: var(--hk-r-pill);
+  overflow: hidden;
+}
+
+/* Upload and character grid stacked, spanning the form's full width —
+   the fields below it are a two-column grid and a face is not a field. */
+.avatarField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  grid-column: 1 / -1;
+}
+
 .avatar {
   display: flex;
   align-items: center;

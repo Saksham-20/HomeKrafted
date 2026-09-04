@@ -114,6 +114,12 @@ export interface UpdateUserInput {
   name?: string;
   email?: string;
   phone?: string;
+  /**
+   * Their profile picture (2026-09-04) — an uploaded URL or a chef
+   * character path. `""` clears it, which is how "use no picture" is
+   * expressed; `undefined` means "not part of this edit".
+   */
+  avatarSrc?: string;
 }
 
 /**

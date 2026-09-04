@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { ImageUpload } from "@/components/ui/ImageUpload";
+import { CharacterPicker } from "@/components/ui/CharacterPicker";
+import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { isChefCharacter } from "@/lib/avatars/chef-characters";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { apiErrorMessage, updateUser } from "@/lib/api";
 import type { User } from "@/lib/types";
@@ -15,10 +19,17 @@ interface FormState {
   name: string;
   email: string;
   phone: string;
+  /** A photo they uploaded, a chef character they picked, or "" for neither. */
+  avatarSrc: string;
 }
 
 function formFromUser(user: User): FormState {
-  return { name: user.name, email: user.email ?? "", phone: user.phone ?? "" };
+  return {
+    name: user.name,
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    avatarSrc: user.avatarSrc ?? "",
+  };
 }
 
 /**
@@ -100,6 +111,11 @@ function ProfileDetails({
         name: form.name.trim(),
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
+        // Sent as `""` when cleared, never `undefined` — the server reads
+        // the empty string as "use no picture" and `undefined` as "not
+        // part of this edit", so collapsing the two would make removing a
+        // picture impossible.
+        avatarSrc: form.avatarSrc,
       });
       await onSaved();
       setEditing(false);
@@ -126,6 +142,36 @@ function ProfileDetails({
       <Card className={styles.card}>
         {editing ? (
           <div className={styles.form}>
+            {/*
+              A picture, on the same two terms the HomeKrafter storefront
+              offers (2026-09-04): upload your own face, or pick one of
+              the drawn characters. Nothing is ever assigned — an account
+              with neither keeps the initial-letter disc, because a
+              portrait nobody chose is an invention (the M38b rule).
+            */}
+            <div className={styles.avatarField}>
+              <ImageUpload
+                label="Your picture"
+                purpose="profile"
+                shape="circle"
+                ratio="1/1"
+                placeholderLabel="No picture yet"
+                hint={
+                  isChefCharacter(form.avatarSrc)
+                    ? "Showing the character you picked. Drop a real photo here any time."
+                    : "A photo of you, square works best. It shows next to your reviews."
+                }
+                value={isChefCharacter(form.avatarSrc) ? "" : form.avatarSrc}
+                previewSrc={isChefCharacter(form.avatarSrc) ? form.avatarSrc : undefined}
+                onChange={(url) => set("avatarSrc", url)}
+              />
+              <CharacterPicker
+                value={form.avatarSrc}
+                name="hk-profile-character"
+                lead="Rather not use a photo? Pick someone to stand in. You can swap it for a real one whenever you like."
+                onChange={(src) => set("avatarSrc", src)}
+              />
+            </div>
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Full name</span>
               <input
@@ -176,9 +222,16 @@ function ProfileDetails({
           </div>
         ) : (
           <div className={styles.view}>
-            <div className={styles.avatar} aria-hidden="true">
-              {user.name.charAt(0)}
-            </div>
+            {user.avatarSrc ? (
+              // `alt=""` — their name is the very next node.
+              <span className={styles.avatarImage}>
+                <ImageSlot ratio="1/1" shape="circle" label={user.name} src={user.avatarSrc} alt="" sizes="52px" compact />
+              </span>
+            ) : (
+              <div className={styles.avatar} aria-hidden="true">
+                {user.name.charAt(0)}
+              </div>
+            )}
             <div className={styles.viewBody}>
               <span className={styles.viewName}>{user.name}</span>
               {user.email && <span className={styles.viewMeta}>{user.email}</span>}

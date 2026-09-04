@@ -154,6 +154,19 @@ Anjali's. Until M17 every real (non-seeded) HomeKrafter was shown a
 seeded demo kitchen's name and storefront link, because the portal
 resolved the seller record from mock data.
 
+### A picture on your own account
+
+**Account → Profile → Edit** now offers a picture: upload one, or pick
+one of the same sixteen drawn characters HomeKrafters get. Save, and it
+replaces the initial-letter disc on the profile row.
+
+- **Nobody is assigned a face.** An account that picks neither keeps the
+  letter disc — that is deliberate, not a missing feature.
+- **Picking a character updates the photo slot straight away**, with the
+  hint changing to say a real photo can replace it. The same is true on
+  a HomeKrafter's **Shop page**.
+- **"Use no picture" clears it**, and the letter disc comes back.
+
 ### An order that was never paid
 
 Place an order with **Card / UPI** and close the Razorpay window instead
@@ -170,6 +183,15 @@ a button that reopens the same Razorpay payment. Three things to check:
   still there.
 - **A paid order shows no such panel.** A pay button beside a paid order
   is how somebody pays twice.
+
+### The HomeKrafter menu
+
+The portal nav is four groups now — **Overview** (Today, Sales & trends,
+Orders), **What you sell** (Products, Snacks menu, Meal plans), **Your
+shop** (Shop page, About your kitchen, Reviews) and **Money** (Earnings
+& payouts). The URLs did not change, so old bookmarks still work; check
+the strip is still scrollable on a phone and that the group dividers
+read as dividers, not as items.
 
 ### Renaming a kitchen
 

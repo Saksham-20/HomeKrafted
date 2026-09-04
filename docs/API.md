@@ -245,7 +245,7 @@ All three return the same shape:
 | Endpoint | Auth | Returns |
 |---|---|---|
 | `GET /users/me` | any authed role | `PublicUser` |
-| `PATCH /users/me` | any authed role | updated `PublicUser` |
+| `PATCH /users/me` | any authed role | updated `PublicUser`. Also takes `avatarSrc` (2026-09-04) — the URL `POST /uploads?purpose=profile` returned, or one of the committed chef-character paths; `""` clears it ("use no picture"), `undefined` leaves it alone. Returned on every `PublicUser`. |
 | `GET /users/me/addresses` | any authed role | `Address[]`, own addresses only |
 | `POST /users/me/addresses` | any authed role | created `Address` |
 | `PATCH /users/me/addresses/:id` | any authed role, own address only (404 otherwise) | updated `Address` |
@@ -276,8 +276,12 @@ question decided elsewhere. See `addresses.e2e-spec.ts`.
 
 `multipart/form-data` with the image in a `file` field. `purpose` is
 required and must be one of `listing` \| `menu` \| `storefront` \|
-`application` \| `laundry` — it picks the folder, and a value outside that
-set is a `400` rather than a path.
+`application` \| `laundry` \| `collection` \| `profile` — it picks the
+folder, and a value outside that set is a `400` rather than a path.
+`profile` (2026-09-04) is a person's own account picture: its own value
+rather than reusing `storefront`, because the folder is
+`sellerId ?? userId`, so a HomeKrafter's face would otherwise land in
+their shop's artwork folder.
 
 Deliberately **not** role-gated: buyers upload dry-clean photos as well as
 HomeKrafters uploading product shots, so authorization is "a valid

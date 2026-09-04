@@ -24,6 +24,7 @@ export class UsersService {
       suspended: user.suspended,
       emailVerified: user.emailVerified,
       phoneVerified: user.phoneVerified,
+      avatarSrc: user.avatarSrc,
       // M32 — `GET /users/me` is what a reload reads, so this is what
       // makes the forced password change survive one.
       mustChangePassword: user.mustChangePassword,
