@@ -333,9 +333,14 @@ Three env vars on the box, in `server/.env`:
 
 ```bash
 RESEND_API_KEY=re_…                       # from resend.com → API Keys
-EMAIL_FROM=Homekrafted <hello@homekrafted.in>
-EMAIL_REPLY_TO=                            # optional; empty = replies go to EMAIL_FROM
+EMAIL_FROM=Homekrafted <no-reply@homekrafted.in>
+EMAIL_REPLY_TO=support@homekrafted.in      # where replies actually land
 ```
+
+**Set `EMAIL_REPLY_TO` while the from address is `no-reply@`.** People
+reply to an order update or an approval invite whatever the from line
+says — a HomeKrafter who cannot sign in will reply to the invite — and
+with it empty those replies land in a mailbox nobody opens.
 
 **Resend refuses to send from an unverified domain**, so the DNS step is
 not optional and is the thing that will actually bite:
