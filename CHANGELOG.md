@@ -2,6 +2,15 @@
 
 ## 2026-09-04 — email is real: Resend, a branded shell, and the events that had no message
 
+- **The real logo is in every email** (owner, 2026-09-04). A **PNG** —
+  no mail client renders SVG, Gmail included — rendered from
+  `logo.svg` at 2× (`client/public/email/logo.png`, 15 KB), served
+  absolute from `SITE_URL`, with `alt="Homekrafted"` so a client with
+  remote images off shows the name rather than a broken-image icon, and
+  explicit `width`/`height` so Outlook does not size it off the file.
+  The header band went white with it: the mark is green and gold, and
+  on the pine bar it had been on, the green half of the wordmark would
+  have disappeared.
 - **`docs/NOTIFICATIONS.md`** — every message the platform sends, its
   recipient, its channel and the line of code it comes from. The corporate
   quote email moved onto the shared shell with it.

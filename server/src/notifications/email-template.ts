@@ -22,17 +22,27 @@
  * literal hex, which is the one place in this repo where that is correct,
  * because `var(--hk-pine)` resolves to nothing in an inbox.
  *
- * **No images.** Not the logo either: a remote image is blocked by
- * default in most clients, and a wordmark that renders as a broken-image
- * icon on the message that carries somebody's sign-in link is worse than
- * type. The header is the name set in a serif, which is what the mark
- * says anyway.
+ * **One image: the logo, with a text fallback** (2026-09-04, owner's
+ * call). It is a **PNG** because no mail client renders SVG — Gmail
+ * included — served from our own origin, and it carries `alt="Homekrafted"`
+ * so a client with remote images off still shows the brand's name rather
+ * than a broken-image icon. It sits on a white band because the mark is
+ * green and gold: on the pine header it had been on, the green half of
+ * the wordmark would disappear.
  */
+
+/**
+ * Where the logo is fetched from. Absolute, because an email has no
+ * origin to resolve a relative path against, and read from the same
+ * `SITE_URL` the rest of the server uses so a staging box does not link
+ * production's asset.
+ */
+const LOGO_URL = `${(process.env.SITE_URL ?? 'https://homekrafted.in').replace(/\/$/, '')}/email/logo.png`;
 
 /** The brand's ink, copied literally — see the note above on why not tokens. */
 const PINE = '#2F4F3F';
-const PINE_DEEP = '#1F3A2C';
-const GOLD = '#B98724';
+/** `--hk-gold-text-sm`: the only gold that may carry words (M34). The brand gold itself is a fill, and the header's mark is where it lives now. */
+const GOLD_TEXT = '#886815';
 const INK = '#22201C';
 const INK_2 = '#4A463E';
 const MUTED = '#766C5D';
@@ -157,9 +167,14 @@ export function renderEmail(content: EmailContent): RenderedEmail {
     `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${CANVAS};padding:28px 12px;">` +
     `<tr><td align="center">` +
     `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:560px;background:#FFFFFF;border:1px solid ${BORDER};border-radius:14px;overflow:hidden;">` +
-    `<tr><td style="background:${PINE_DEEP};padding:18px 28px;">` +
-    `<span style="font-family:Georgia,'Times New Roman',serif;font-size:19px;font-weight:600;color:#FFFFFF;letter-spacing:0.01em;">Homekrafted</span>` +
-    `<span style="display:inline-block;margin-left:10px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${GOLD};">Homemade, handpicked</span>` +
+    `<tr><td style="background:#FFFFFF;padding:22px 28px 16px;border-bottom:1px solid ${BORDER};">` +
+    // `alt` carries the brand when images are blocked; the explicit
+    // width/height stop Outlook sizing it from the file's own pixels.
+    `<img src="${LOGO_URL}" alt="Homekrafted" width="180" height="103" style="display:block;border:0;outline:none;text-decoration:none;">` +
+    // Gold-family text takes the darkened token, never `--hk-gold` — the
+    // brand gold fails AA as copy (M34). Literal hex, same reason as the
+    // rest of this file.
+    `<span style="display:inline-block;margin-top:10px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${GOLD_TEXT};">Homemade, handpicked</span>` +
     `</td></tr>` +
     `<tr><td style="padding:28px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">` +
     `<h1 style="margin:0 0 16px;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.3;color:${INK};font-weight:600;">${escapeHtml(content.heading)}</h1>` +

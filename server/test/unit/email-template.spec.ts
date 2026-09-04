@@ -60,3 +60,29 @@ describe('renderEmail', () => {
     expect(text).toContain('Waybill: SF123456');
   });
 });
+
+/**
+ * The logo (2026-09-04, owner's call).
+ *
+ * Three things about it are load-bearing and all three are invisible
+ * until somebody opens the mail: a PNG (no mail client renders SVG,
+ * Gmail included), an absolute URL (an email has no origin to resolve a
+ * relative path against), and an `alt` (a client with remote images off
+ * must show the brand's name, not a broken-image icon).
+ */
+describe('the header logo', () => {
+  const { html } = renderEmail({ heading: 'Hello', paragraphs: ['Hi'] });
+
+  it('is a PNG at an absolute URL', () => {
+    expect(html).toMatch(/<img src="https?:\/\/[^"]+\/email\/logo\.png"/);
+    expect(html).not.toContain('logo.svg');
+  });
+
+  it('names the brand when images are blocked', () => {
+    expect(html).toContain('alt="Homekrafted"');
+  });
+
+  it('states its own size, so Outlook does not read it off the file', () => {
+    expect(html).toMatch(/width="180" height="103"/);
+  });
+});
