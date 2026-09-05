@@ -26,7 +26,7 @@ export function LegalPage({ title, intro, children }: LegalPageProps) {
   const incomplete = hasPlaceholders();
 
   return (
-    <article className={clsx("container", styles.page)}>
+    <article className={clsx("container", "container-prose", styles.page)}>
       <header className={styles.header}>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.intro}>{intro}</p>

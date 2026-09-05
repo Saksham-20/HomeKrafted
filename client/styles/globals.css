@@ -264,6 +264,40 @@ p {
   max-width: 1440px;
 }
 
+/*
+  ---- Consumer pages take the header's width (2026-09-05 design review) ----
+
+  The header and footer moved to `container-wide` in the morning and the
+  inner pages did not, so on every route but `/`, `/shop` and `/gifts` the
+  lockup sat at x=44 and the page's first word at x=94 — a 50px kink
+  between chrome and content that the eye reads as "something is off"
+  without being able to say what. Measured on /product, /storefront,
+  /collections, /meal-plans, /corporate, /cart, /wallet, /account.
+
+  `ConsumerChrome` renders a hidden `[data-surface="consumer"]` marker on
+  every route it wraps — in the server HTML, so the first paint is already
+  the right width — and `body:has()` turns it into a surface rule.
+  The two portals keep 1180px untouched: they have their own shells and
+  their kit was measured against it yesterday. `container-wide` becomes a
+  no-op inside the consumer surface and is kept as the explicit spelling
+  for a grid that should stay wide if this rule ever moves.
+
+  Running copy opts *out* with `container-prose` — the legal pages and
+  the home page's explainer band — because a 1352px line of body text is
+  a readability failure, not a layout win.
+*/
+body:has([data-surface="consumer"]) .container {
+  max-width: 1440px;
+}
+
+.container-prose {
+  max-width: 1180px;
+}
+
+body:has([data-surface="consumer"]) .container-prose {
+  max-width: 1180px;
+}
+
 @media (max-width: 780px) {
   .container {
     padding-inline: var(--hk-s5);

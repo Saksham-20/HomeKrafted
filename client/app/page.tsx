@@ -378,7 +378,7 @@ export default async function Home() {
           this is the section that stops and explains, so the page stops
           with it. See `.explainerBand`. */}
       <div className={styles.explainerBand}>
-        <section className={clsx("container", styles.section, styles.explainer)}>
+        <section className={clsx("container", "container-prose", styles.section, styles.explainer)}>
           <div className={styles.sectionHead}>
             <div>
               <span className={styles.eyebrow}>Ordering from a home kitchen</span>
