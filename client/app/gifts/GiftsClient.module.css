@@ -22,6 +22,16 @@
   margin-bottom: var(--hk-s4);
 }
 
+/* Desktop: pulled 110px up over the hero band (whose `min-height` is
+   set in `Gifts.module.css` — the two numbers are a pair), so the
+   photograph and its fade run on behind the card. The 20px default
+   above is what the 641–780 range keeps. */
+@media (min-width: 781px) {
+  .controlCard {
+    margin-top: -110px;
+  }
+}
+
 .controlRow {
   display: flex;
   align-items: center;

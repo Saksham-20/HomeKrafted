@@ -149,7 +149,15 @@ facts the food cards could not state.
   middle. The band gains a deeper bottom padding, loses its hairline, and
   the wash is clear of tint from 70% across with the fade to the canvas
   running over the lower 45%, so the photograph is fully seen on the
-  right and dissolves into the page below the copy.
+  right and dissolves into the page below the copy. Then (owner: "add
+  some space right above the filter tab … make the image come behind and
+  fade behind the filter tab, covers at least 30% of the page") the band
+  became **`min-height: max(320px, 34vh)`** on desktop and the control
+  card is pulled **110px** up over it, so the photograph dissolves
+  behind the filters and there is ~70px of open band between the copy
+  and the card. Both numbers are a pair — `Shop.module.css`/
+  `Gifts.module.css` hold the height, `ShopClient`/`GiftsClient` the
+  overlap. Nothing changes under 781px.
 - **Footer rebalanced** onto the wide container: the brand column
   *narrows* (1.4fr → 1.15fr), because past a point it stopped using what
   it was given and the surplus became a hole beside "Services".

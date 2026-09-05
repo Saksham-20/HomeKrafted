@@ -13,6 +13,21 @@
      soft one. */
 }
 
+/* Desktop: the band is at least a third of the viewport (owner,
+   2026-09-05: "make the image … cover at least 30% of the page"), and
+   the control card is pulled up over its lower part so the photograph
+   fades out *behind* the filters rather than stopping above them. The
+   copy stays at the top; everything under it is photograph. The
+   overlap number lives in `ShopClient.module.css` (`.controlCard`)
+   and the two must move together — hero height minus copy minus overlap
+   is the breathing room above the card, which is the other thing the
+   owner asked for. */
+@media (min-width: 781px) {
+  .hero {
+    min-height: max(320px, 34vh);
+  }
+}
+
 /*
   Compacted 2026-09-05 (owner: "this takes up a lot of space, does not
   look nice"). The band ran ~520px before the first result — breadcrumb,
@@ -28,11 +43,10 @@
 .heroInner {
   position: relative;
   z-index: 1;
-  /* More below the copy than above it: the extra bottom is the part of
-     the band where the photograph shows under nothing but the fade. The
-     control card overlaps the band by `--hk-s5` (`ShopClient.module.css`
-     / `GiftsClient.module.css`), so ~50px of that is actually seen. */
-  padding-block: var(--hk-s5) calc(var(--hk-s8) + var(--hk-s6));
+  /* Symmetric padding; on desktop the band's height comes from `.hero`'s
+     `min-height` below, not from padding, so the photograph under the
+     copy is a share of the viewport rather than a fixed pixel count. */
+  padding-block: var(--hk-s5) var(--hk-s5);
   display: flex;
   flex-direction: column;
   align-items: stretch;

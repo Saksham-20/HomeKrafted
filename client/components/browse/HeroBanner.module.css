@@ -34,8 +34,9 @@
    (`.heroInner`'s bottom padding), the photographs were re-cut as 3:1
    strips that fit the frame (`hero-food.jpg`, `hero-gifts.jpg`; see
    `process-stock-images.mjs --banner`), the right half is clear of tint
-   from 70% on, and the fade to `--hk-bg` runs over the lower 45% so the
-   band hands over to the page with no rule under it. The copy column
+   from 70% on, and the fade to `--hk-bg` runs over the lower half —
+   the control card sits over the last 110px of it on desktop, so the
+   photograph dissolves behind the filters rather than above them. The copy column
    caps itself at 780px (`Shop.module.css`) so nothing sits over the
    clear part. */
 .wash {
@@ -45,7 +46,7 @@
 
 .pine .wash {
   background:
-    linear-gradient(180deg, transparent 55%, var(--hk-bg) 100%),
+    linear-gradient(180deg, transparent 50%, var(--hk-bg) 100%),
     linear-gradient(
       90deg,
       var(--hk-pine-tint) 0%,
@@ -57,7 +58,7 @@
 
 .gold .wash {
   background:
-    linear-gradient(180deg, transparent 55%, var(--hk-bg) 100%),
+    linear-gradient(180deg, transparent 50%, var(--hk-bg) 100%),
     linear-gradient(
       90deg,
       var(--hk-gold-tint) 0%,
