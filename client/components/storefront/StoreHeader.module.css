@@ -37,7 +37,10 @@
 .name {
   font-family: var(--hk-font-display);
   font-weight: 600;
-  font-size: 26px;
+  /* The kitchen's name is this page's <h1>, so it takes the shared
+     page-title size; 26px read as a card heading on a full page. */
+  font-size: var(--hk-page-title);
+  line-height: 1.05;
   color: var(--hk-pine);
 }
 

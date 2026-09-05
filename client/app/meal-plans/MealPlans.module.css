@@ -17,7 +17,7 @@
 
 .title {
   font-family: var(--hk-font-display);
-  font-size: clamp(28px, 5vw, 42px);
+  font-size: var(--hk-page-title);
   font-weight: 600;
   color: var(--hk-ink);
   margin: var(--hk-s2) 0 var(--hk-s3);

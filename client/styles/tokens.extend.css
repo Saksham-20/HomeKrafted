@@ -109,4 +109,16 @@
      tabs). Decorative only, low stakes. Ported verbatim from the
      prototype's #D9CDB4. */
   --hk-scrollbar: #d9cdb4;
+
+  /* ---- The inner-page title (2026-09-05 design review) ----
+     Nine consumer pages hand-rolled a `clamp()` for their <h1>, with five
+     different vw slopes — 26/28/34/36/40/42/56px at 1440 for the same
+     role, and ramps that crossed each other at intermediate widths. The
+     handoff's `--hk-h1` (34–58px) is the *landing hero's* size and was
+     used by none of them. This is the size a page title takes on every
+     inner consumer page: shop, gifts, hamper, collections, meal plans,
+     product, storefront, cart, wallet, corporate. Set it with `font-size`
+     (the family/weight rules stay per-module), so a page that genuinely
+     needs to differ says so in one line next to this name. */
+  --hk-page-title: clamp(30px, 3.4vw, 40px);
 }

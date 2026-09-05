@@ -22,6 +22,10 @@
 
 .title {
   font: var(--hk-h2);
+  /* A page <h1> at the shared page-title size, not the 28px section-h2
+     shorthand — see `--hk-page-title`. */
+  font-size: var(--hk-page-title);
+  line-height: 1.05;
   color: var(--hk-ink);
 }
 

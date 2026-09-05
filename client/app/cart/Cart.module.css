@@ -12,7 +12,7 @@
 .title {
   font-family: var(--hk-font-display);
   font-weight: 600;
-  font-size: clamp(26px, 3.6vw, 34px);
+  font-size: var(--hk-page-title);
   color: var(--hk-pine);
 }
 
