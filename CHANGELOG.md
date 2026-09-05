@@ -100,6 +100,31 @@ facts the food cards could not state.
   and the title's clamp tops out at 40px instead of 52px. **246px.**
   `/gifts` got the same treatment, because the two verticals have to keep
   one composition.
+- **`/design-review` pass over the consumer pages (same day, after the
+  above shipped) — 11 findings fixed, one commit each.** The one that
+  mattered most was a consequence of the morning's work: the header and
+  footer had moved to 1440px and the inner pages had not, so on every
+  route but `/`, `/shop` and `/gifts` the lockup sat at x=44 and the
+  content at x=94. `ConsumerChrome` now renders a server-side
+  `[data-surface="consumer"]` marker and `.container` is 1440 inside it
+  (`body:has()`), portals untouched, `container-prose` for running copy.
+  The rest: the landing split-panel CTA 15px/38px → **18px/48px** and
+  its blurb 15 → 17px (owner ask); **one page-title size**
+  (`--hk-page-title`) replacing nine hand-rolled clamps at 26–56px;
+  **nine dead `--hk-radius-*` references** (a token family that never
+  existed) rendering square corners on the pre-order picker, location
+  prompt and checkout since they shipped; a **height contract for
+  buttons** (md 48, sm 40 — the same `md` measured 49/51/52/54 by
+  inherited line-height) with the 35px snack "+ Add" joining it; chips
+  32px/12.5px → **36px/13.5px** and the shop stat pills (30) and location
+  bar (37) both to 36; emoji in the product gift chips → lucide; the
+  price slider's inputs from a **4px** hit area to 28px; the corporate
+  page's form and pitch **side by side** from 900px (the right 40% of
+  the canvas was empty); inner-page top padding to one value; rail
+  arrows 36 → 40. Deferred to `TODOS.md`: the 14-value body type ramp,
+  the on-dark ink hexes that bypass `tokens.extend.css`, and the pill
+  radius monoculture. Codex was over its usage cap, so the outside
+  voice was the Claude subagent alone.
 - **Footer rebalanced** onto the wide container: the brand column
   *narrows* (1.4fr → 1.15fr), because past a point it stopped using what
   it was given and the surplus became a hole beside "Services".

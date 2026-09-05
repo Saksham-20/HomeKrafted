@@ -380,19 +380,28 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   `.container` utility class (`styles/globals.css`), grace­fully down to
   360px.
 
-  **Two widths since 2026-09-05, split by what a block holds, not by
-  route.** `.container` (1180px) is for running copy — the 65–75ch
-  readability rule is real, and the home page's explainer band and every
-  policy page keep it. **`container-wide` (1440px, so 1352px of content)
-  is for grids, card rails and editorial bands**, and it is a
-  *composed* modifier: `clsx("container", "container-wide", …)`, so a
-  widened block keeps every padding rule. Applied to `/`, `/shop`,
-  `/gifts`, the header and the footer; a new listing page should take it
-  too. The owner's brief was that the site read empty with 414px of dead
-  canvas either side on a 1920 monitor — which is `DESIGN.md`'s own
-  diagnosis ("premium = specificity + texture, never emptier
-  whitespace"). It is **not a new breakpoint**: the five rails below are
-  untouched and nothing changes under 1268px.
+  **The consumer surface is 1440px wide; the portals stay 1180
+  (2026-09-05).** `ConsumerChrome` renders a hidden
+  `[data-surface="consumer"]` marker in the server HTML, and
+  `styles/globals.css` widens `.container` inside `body:has()` of it — so
+  every consumer page, the header and the footer share one left edge.
+  The morning's version widened only `/`, `/shop`, `/gifts` and the
+  chrome, and the design review measured the result: on every other
+  route the lockup sat at x=44 and the page's first word at x=94, a 50px
+  kink the eye reads as "off" without naming. The two portals have their
+  own shells and their kit was measured against 1180 the day before, so
+  they are deliberately outside the marker. **Running copy opts out with
+  `container-prose`** (1180 — the legal pages and the home explainer
+  band), because a 1352px line of body text is a readability failure.
+  `container-wide` is now a no-op inside the consumer surface and is kept
+  as the explicit spelling for a grid that must stay wide if this rule
+  ever moves. The marker is server-rendered on purpose: setting a body
+  attribute in an effect renders 1180 first and jumps to 1440, a layout
+  shift on every navigation. The owner's brief was that the site read
+  empty with 414px of dead canvas either side on a 1920 monitor — which
+  is `DESIGN.md`'s own diagnosis ("premium = specificity + texture, never
+  emptier whitespace"). It is **not a new breakpoint**: the five rails
+  below are untouched and nothing changes under 1268px.
 
   Two things move with it. **Page sizes are a whole number of rows**:
   `/shop` dishes and `/gifts` page in **24** (divides by 6, 4, 3 and 2 —
@@ -1288,6 +1297,13 @@ it is already a decelerating curve). Everything else adds.
   #2c473a` (divider above the legal row).
 - `--hk-scrollbar: #d9cdb4` — the `.hk-scroll` scrollbar-thumb tint
   (decorative, low stakes; see `styles/globals.css`).
+- `--hk-page-title: clamp(30px, 3.4vw, 40px)` — the inner-page `<h1>`
+  size (2026-09-05 design review). Nine consumer pages hand-rolled a
+  `clamp()` with five different vw slopes — 26/28/34/36/40/42/56px at
+  1440 for the same role — and the handoff's `--hk-h1` (34–58px) is the
+  landing hero's size, used by none of them. Set it with `font-size` only;
+  family and weight stay per-module. A page that genuinely needs to
+  differ says so in one line next to this name.
 - `--hk-terracotta-text: #a04d2e` — terracotta *on the terracotta tint*
   (#f6e7e0), where `--hk-terracotta` is 3.77:1: the "Cancelled" and
   "Returned" pills in both order queues. On white it is 4.55:1, so a

@@ -230,3 +230,34 @@ audit is the ranked source.
 - **Pagination** on `/admin/catalog/reviews` and `/admin/collections` —
   fine now, slow at volume. The `/admin/orders` pattern is the one to
   copy.
+
+## Deferred from the 2026-09-05 `/design-review` (consumer pages)
+
+Source-audit findings the review measured but did not fix, because each
+is a sweep across many files rather than a defect on one page. Report:
+`~/.gstack/projects/Saksham-20-HomeKrafted/designs/design-audit-20260905/`.
+
+- [ ] **Collapse the body type ramp** (medium, typography). 14 distinct
+  body-range sizes in the consumer modules (9.5–17px), 123 declarations
+  under 14px, half-pixel sizes (`12.5px` ×15, `13.5px` ×21, `14.5px` ×15)
+  no scale produces. Target: `--hk-body` 15 / `--hk-small` 13 / one
+  12px caption, nothing under 12. Do it file-by-file when each is
+  touched for a real defect, the M29 rule for the `max-width` tail.
+- [ ] **Route the on-dark inks through `tokens.extend.css`** (medium,
+  color). Five light-on-pine hexes coexist (`#e4ebe4`, `#d3ddd4`,
+  `#cddace` ×2 files, `#d3e0d2`, `#c7d3c5`) though `--hk-footer-ink`/
+  `-ink-2` already exist for the ramp; `#f6e7e0` (terracotta tint) is
+  hardcoded in two files and is a genuine missing token; `#2f5545` in
+  `ReelCard.module.css` looks like drift off `--hk-pine-grad-a`.
+- [ ] **A radius hierarchy** (polish). `--hk-r-pill` is used 57× against
+  22/19/12/7 for md/lg/xl/sm — there is "pill, and occasionally a box",
+  no nesting rule (inner radius = outer − gap). Decide before the next
+  card-heavy surface, not as a sweep.
+- [ ] **Spacing literals** (polish). 192 off-scale `padding`/`gap`/
+  `margin` values across 31 distinct px numbers; `FilterGroup`, `Hero`,
+  `ProductCard`, `Combobox`, `Header` are the worst. Same treatment as
+  the body ramp: fold when touched.
+- [ ] **Storefront banner is the hatch placeholder on real kitchens**
+  (content, not code). `VendorProfile` has no banner for most seeded
+  storefronts; the M28/M56 imagery rules mean the fix is a real
+  photograph per kitchen, uploaded by them.
