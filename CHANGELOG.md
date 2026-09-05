@@ -137,6 +137,19 @@ facts the food cards could not state.
   starting at 78% instead of 62%, so the photograph — which the shorter
   band had all but hidden — is visible again. The split-panel eyebrows
   ("Order in" / "Send one") go 11px → **13px on a 36px pill**.
+- **The hero photographs came back, re-cut for the shorter band (owner,
+  same day: "add the images back … find new ones that fit the newer
+  frame and extend it down a little fading it to the background").**
+  `maker-kitchen.jpg` (1000² square) and `split-gifts.jpg` (the portrait
+  split-panel frame) never fit a ~5:1 band — the crop showed a blurred
+  centre of each. Two new Pexels photographs (`hero-food.jpg`, a thali;
+  `hero-gifts.jpg`, kraft-wrapped parcels — `docs/IMAGE-LICENSES.md`)
+  are cut as 2400×800 strips by a new `process-stock-images.mjs
+  --banner --focus=` mode that crops around the subject rather than the
+  middle. The band gains a deeper bottom padding, loses its hairline, and
+  the wash is clear of tint from 70% across with the fade to the canvas
+  running over the lower 45%, so the photograph is fully seen on the
+  right and dissolves into the page below the copy.
 - **Footer rebalanced** onto the wide container: the brand column
   *narrows* (1.4fr → 1.15fr), because past a point it stopped using what
   it was given and the surplus became a hole beside "Services".

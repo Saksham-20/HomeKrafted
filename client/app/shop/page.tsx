@@ -92,7 +92,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           is what the grid cannot say about itself. Warmth is accent-only:
           the tint is the pine selected-fill token fading to the canvas. */}
       <div className={styles.hero}>
-        <HeroBanner src="/images/site/maker-kitchen.jpg" tint="pine" />
+        <HeroBanner src="/images/site/hero-food.jpg" tint="pine" />
         <div className={clsx("container", "container-wide", styles.heroInner)}>
           <div className={styles.heroCopy}>
             <span className={styles.breadcrumb}>

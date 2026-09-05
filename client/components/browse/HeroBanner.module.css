@@ -27,13 +27,17 @@
    the side the text never occupies, and a bottom fade into the canvas so
    the band still hands over to the page the way the old gradient did.
 
-   Re-tuned 2026-09-05 when the hero shrank to ~200px: the bottom fade
-   used to start at 62% of the height, which on a 520px band was the
-   last 200px and on a 200px band was most of it — the photograph had
-   all but disappeared. It starts at 78% now, and the right edge thins to
-   10% tint rather than 24%, so the image is seen, not just present. The
-   copy column caps itself at 780px (`Shop.module.css`) so nothing sits
-   over the thin part. */
+   Re-tuned twice on 2026-09-05. When the hero shrank to ~200px the
+   bottom fade (from 62%) ate most of the band and the photograph all but
+   disappeared. Then the owner asked for the image back "like it was
+   before" — extended down and fading into the canvas — so the band grew
+   (`.heroInner`'s bottom padding), the photographs were re-cut as 3:1
+   strips that fit the frame (`hero-food.jpg`, `hero-gifts.jpg`; see
+   `process-stock-images.mjs --banner`), the right half is clear of tint
+   from 70% on, and the fade to `--hk-bg` runs over the lower 45% so the
+   band hands over to the page with no rule under it. The copy column
+   caps itself at 780px (`Shop.module.css`) so nothing sits over the
+   clear part. */
 .wash {
   position: absolute;
   inset: 0;
@@ -41,25 +45,25 @@
 
 .pine .wash {
   background:
-    linear-gradient(180deg, transparent 78%, var(--hk-bg) 100%),
+    linear-gradient(180deg, transparent 55%, var(--hk-bg) 100%),
     linear-gradient(
       90deg,
       var(--hk-pine-tint) 0%,
-      var(--hk-pine-tint) 46%,
-      color-mix(in srgb, var(--hk-pine-tint) 55%, transparent) 64%,
-      color-mix(in srgb, var(--hk-pine-tint) 10%, transparent) 100%
+      var(--hk-pine-tint) 44%,
+      color-mix(in srgb, var(--hk-pine-tint) 55%, transparent) 58%,
+      transparent 72%
     );
 }
 
 .gold .wash {
   background:
-    linear-gradient(180deg, transparent 78%, var(--hk-bg) 100%),
+    linear-gradient(180deg, transparent 55%, var(--hk-bg) 100%),
     linear-gradient(
       90deg,
       var(--hk-gold-tint) 0%,
-      var(--hk-gold-tint) 46%,
-      color-mix(in srgb, var(--hk-gold-tint) 55%, transparent) 64%,
-      color-mix(in srgb, var(--hk-gold-tint) 10%, transparent) 100%
+      var(--hk-gold-tint) 44%,
+      color-mix(in srgb, var(--hk-gold-tint) 55%, transparent) 58%,
+      transparent 72%
     );
 }
 

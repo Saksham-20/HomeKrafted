@@ -7,7 +7,10 @@
 .hero {
   position: relative;
   background: var(--hk-bg);
-  border-bottom: 1px solid var(--hk-border);
+  /* No bottom rule: the banner's wash fades the photograph into the
+     canvas (owner, 2026-09-05: "extend it down a little, fading it to
+     the background"), and a hairline under a fade is a hard edge on a
+     soft one. */
 }
 
 /*
@@ -25,7 +28,11 @@
 .heroInner {
   position: relative;
   z-index: 1;
-  padding-block: var(--hk-s5) var(--hk-s5);
+  /* More below the copy than above it: the extra bottom is the part of
+     the band where the photograph shows under nothing but the fade. The
+     control card overlaps the band by `--hk-s5` (`ShopClient.module.css`
+     / `GiftsClient.module.css`), so ~50px of that is actually seen. */
+  padding-block: var(--hk-s5) calc(var(--hk-s8) + var(--hk-s6));
   display: flex;
   flex-direction: column;
   align-items: stretch;

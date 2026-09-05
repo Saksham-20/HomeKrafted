@@ -42,6 +42,25 @@ owner asset; `candles-home` ← sandalwood-soy-candle; `handmade-jewellery`
 | embroidered-hoop-art.jpg | https://www.pexels.com/photo/10566067/ | Mohamed Rizly | 2026-08-31 |
 | crochet-amigurumi-soft-toy.jpg | https://www.pexels.com/photo/39018328/ | anilknhk | 2026-08-31 |
 
+## Browse-hero banners (`client/public/images/site/`)
+
+The photographs behind the `/shop` and `/gifts` hero bands (2026-09-05).
+Same licence and the same "never an AI-labelled image" check; cut as
+2400×800 strips by `process-stock-images.mjs --banner --focus=…` because
+the band is ~5:1 and a square crop of a landscape frame showed one
+blurred bowl at 3× zoom. Decorative (`aria-hidden`) — not a listing's
+photo, so nothing here is replaced by a maker's upload; swap them only
+for owner-shot photography.
+
+| Committed file | Source | Photographer | Focus | Downloaded |
+|---|---|---|---|---|
+| hero-food.jpg | https://www.pexels.com/photo/29148133/ | Eyes2Soul | 0.68 | 2026-09-05 |
+| hero-gifts.jpg | https://www.pexels.com/photo/34769301/ | betül nur akyürek | 0.58 | 2026-09-05 |
+
+Two candidates from the same search were rejected and are not committed:
+34711401 (jars — retail brand names legible on the lids) and 8312083 /
+10011988 (portrait frames; a 3:1 strip of either was one object).
+
 Unrelated but neighbouring licences, for one place to look: the chef
 character avatars are Open Peeps by Pablo Stanley (CC0 1.0 — see
 `client/scripts/build-chef-avatars.mjs`), and the pincode table is

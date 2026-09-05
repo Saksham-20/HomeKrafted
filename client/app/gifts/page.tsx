@@ -71,7 +71,7 @@ export default async function GiftsPage({ searchParams }: GiftsPageProps) {
           composition. The banner photo sits behind the copy under a wash
           that stays solid tint over the text column. */}
       <div className={styles.hero}>
-        <HeroBanner src="/images/site/split-gifts.jpg" tint="gold" />
+        <HeroBanner src="/images/site/hero-gifts.jpg" tint="gold" />
         <div className={clsx("container", "container-wide", styles.heroInner)}>
           <div className={styles.heroCopy}>
             <span className={styles.breadcrumb}>
