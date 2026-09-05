@@ -57,10 +57,14 @@
   background: var(--hk-pine);
   color: #fff;
   font-family: inherit;
-  font-size: 13px;
+  /* 14px on a 40px box, up from 13px on ~35px (2026-09-05): this is the
+     primary add action on every snack card and it was under the pointer
+     floor. 40 matches Button `.sm`, the secondary-action height. */
+  font-size: 14px;
   font-weight: 600;
   border-radius: var(--hk-r-pill);
-  padding: 7px 14px;
+  min-height: 40px;
+  padding: 0 16px;
   cursor: pointer;
   transition:
     background var(--hk-dur) var(--hk-ease),

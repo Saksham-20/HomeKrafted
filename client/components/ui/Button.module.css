@@ -33,15 +33,24 @@
   pointer-events: none;
 }
 
-/* ---- Sizes (non-icon) ---- */
+/* ---- Sizes (non-icon) ----
+   Heights are declared, not left to padding + inherited line-height
+   (2026-09-05 design review). Without a `min-height` the same `md` button
+   measured 49, 51, 52 and 54px on four consumer pages depending on what
+   line-height it inherited, and page-local CTAs invented their own on top
+   (42, 44, 46, 48). Two heights: 48 for a primary action, 40 for a
+   secondary one — both at or above the 44/40 pointer floors, both on the
+   4px scale, and `md` is the one every page-level CTA should match. */
 .md {
+  min-height: 48px;
   font-size: 15px;
-  padding: 15px 28px;
+  padding: 0 28px;
 }
 
 .sm {
+  min-height: 40px;
   font-size: 14px;
-  padding: 12px 22px;
+  padding: 0 22px;
 }
 
 /* ---- Variants ---- */

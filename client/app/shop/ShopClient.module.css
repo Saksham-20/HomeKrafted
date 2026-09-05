@@ -95,13 +95,15 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  /* 40px, the height of the filter pills it sits beside (2026-09-05) —
+     it was 36 in a 40px row. */
+  min-height: 40px;
   padding: 0 14px;
   border: none;
   background: none;
   border-radius: var(--hk-r-pill);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--hk-ink-2);
   cursor: pointer;
