@@ -53,8 +53,10 @@
   transform: translateY(-50%);
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  /* 40px, up from 36 (2026-09-05): the 40px row height the filter pills
+     and sort control already use, and closer to the 44px pointer floor. */
+  width: 40px;
+  height: 40px;
   border-radius: var(--hk-r-pill);
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
