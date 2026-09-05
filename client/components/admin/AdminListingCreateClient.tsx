@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
-import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
+import { FormPage } from "@/components/portal/FormPage";
+import { FormSection } from "@/components/portal/FormSection";
+import { LoadingRows } from "@/components/portal/LoadingRows";
+import { SaveBar } from "@/components/portal/SaveBar";
 import {
   EMPTY_LISTING_FORM,
+  LISTING_FORM_SECTIONS,
   ListingForm,
+  hasListingFormErrors,
   toSellerListingInput,
+  validateListingForm,
+  type ListingFormErrors,
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
 import { AdminPageHeader } from "./AdminPageHeader";
@@ -25,7 +29,6 @@ import {
   getOccasions,
 } from "@/lib/api";
 import type { Category, Occasion, Seller } from "@/lib/types";
-import styles from "./AdminListingEditorClient.module.css";
 
 /**
  * The picker's first row. An empty value rather than a vendor id, because
@@ -40,6 +43,12 @@ const PLATFORM_OPTION: ComboboxOption = {
   label: "Homekrafted",
   hint: "the platform's own storefront",
 };
+
+/** Whose storefront, then the listing itself — the one decision that changes what everything below means comes first. */
+const CREATE_SECTIONS = [
+  { id: "listing-vendor", label: "Whose storefront" },
+  ...LISTING_FORM_SECTIONS,
+];
 
 /**
  * `/admin/catalog/new` (M44) — an admin lists a product.
@@ -71,6 +80,7 @@ export function AdminListingCreateClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [fieldErrors, setFieldErrors] = useState<ListingFormErrors>({});
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
@@ -111,10 +121,13 @@ export function AdminListingCreateClient() {
     vendorOptions.find((option) => option.value === vendorId)?.label ?? "Homekrafted";
 
   async function handleSubmit() {
-    if (!values.name.trim() || !values.categoryId || values.weightRows.some((r) => !r.label.trim())) {
-      setError("Fill in a product name, category, and label every weight tier before saving.");
+    const problems = validateListingForm(values);
+    if (hasListingFormErrors(problems)) {
+      setFieldErrors(problems);
+      setError("Something is missing — it is marked on the form.");
       return;
     }
+    setFieldErrors({});
     setError(undefined);
     setSaving(true);
     try {
@@ -131,51 +144,70 @@ export function AdminListingCreateClient() {
     }
   }
 
-  if (!ready || loading) return <RouteSkeleton variant="page" />;
+  if (!ready || loading) {
+    return (
+      <div>
+        <AdminPageHeader back={{ href: "/admin/catalog", label: "Catalog" }} title="New listing" />
+        <LoadingRows rows={3} />
+      </div>
+    );
+  }
 
   return (
     <div>
-      <Link href="/admin/catalog" className={styles.back}>
-        <ChevronLeft size={15} strokeWidth={1.8} aria-hidden="true" />
-        Back to catalog
-      </Link>
       <AdminPageHeader
+        back={{ href: "/admin/catalog", label: "Catalog" }}
         title="New listing"
         subtitle="Goes live straight away — you are the review."
       />
+      <FormPage sections={CREATE_SECTIONS.map((s) => ({ ...s }))} navLabel="Sections">
+        <FormSection
+          id="listing-vendor"
+          title="Whose storefront"
+          description="A platform listing, or one typed up on a HomeKrafter's behalf — against their storefront, their reviews, their payout."
+          status={vendorId ? { label: attributedTo, tone: "neutral" } : undefined}
+        >
+          <Combobox
+            label="Whose storefront"
+            value={vendorId ? [vendorId] : []}
+            onChange={(next) => setVendorId(next[0] ?? "")}
+            options={vendorOptions}
+            placeholder="Search HomeKrafters…"
+            emptyMessage="No HomeKrafter by that name."
+            hint={
+              vendorId
+                ? `Lists on ${attributedTo}'s storefront — their reviews, their followers, their payout.`
+                : "Leave as Homekrafted for a platform listing, or pick a HomeKrafter to type one up on their behalf."
+            }
+          />
+        </FormSection>
 
-      <Card className={styles.attribution} padding="sm">
-        <Combobox
-          label="Whose storefront"
-          value={vendorId ? [vendorId] : []}
-          onChange={(next) => setVendorId(next[0] ?? "")}
-          options={vendorOptions}
-          placeholder="Search HomeKrafters…"
-          emptyMessage="No HomeKrafter by that name."
-          hint={
-            vendorId
-              ? `Lists on ${attributedTo}'s storefront — their reviews, their followers, their payout.`
-              : "Leave as Homekrafted for a platform listing, or pick a HomeKrafter to type one up on their behalf."
-          }
+        <ListingForm
+          values={values}
+          onChange={(next) => {
+            setValues(next);
+            if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next));
+          }}
+          categories={categories}
+          occasions={occasions}
+          taxonomy={adminTaxonomyActions}
+          errors={fieldErrors}
         />
-      </Card>
 
-      <ListingForm
-        values={values}
-        onChange={setValues}
-        categories={categories}
-        occasions={occasions}
-        taxonomy={adminTaxonomyActions}
-      />
-      {error && <p className={styles.error}>{error}</p>}
-      <div className={styles.actions}>
-        <Button variant="primary" onClick={handleSubmit} disabled={saving}>
-          {saving ? "Creating…" : `Create listing for ${attributedTo}`}
-        </Button>
-        <Button variant="secondary" onClick={() => router.push("/admin/catalog")} disabled={saving}>
-          Cancel
-        </Button>
-      </div>
+        <SaveBar
+          dirty
+          alwaysEnabled
+          saving={saving}
+          error={error}
+          onSave={() => void handleSubmit()}
+          saveLabel={`Create listing for ${attributedTo}`}
+          savingLabel="Creating…"
+        >
+          <Button variant="secondary" size="sm" onClick={() => router.push("/admin/catalog")} disabled={saving}>
+            Cancel
+          </Button>
+        </SaveBar>
+      </FormPage>
     </div>
   );
 }

@@ -267,6 +267,13 @@ npm run lint             # ESLint (flat config, eslint.config.mjs)
 npx tsc --noEmit         # standalone type-check
 ```
 
+**`npx tsc --noEmit` does not resolve a CSS module path** — `*.module.css`
+is a wildcard ambient declaration, so deleting one and leaving an import
+behind passes typecheck, lint and jest and fails only in `next build`.
+That is how a portal commit reached the box and broke the deploy on
+2026-09-04. **Run `npm run build` before pushing anything that deletes or
+renames a file.**
+
 `handoff/**` is excluded from lint scope (see `eslint.config.mjs`) — it's a
 reference file, not app source; don't "fix" lint errors in it, and don't
 remove the ignore.
