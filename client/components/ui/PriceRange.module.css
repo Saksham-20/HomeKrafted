@@ -50,9 +50,16 @@
   border-radius: var(--hk-r-pill);
 }
 
+/* 28px tall over a 4px track (2026-09-05): the inputs used to be the
+   track's own height, so the only place a finger could land was the 16px
+   thumb itself and a 4px line — the sweep measured "Minimum price 1240x4".
+   The track stays 4px; the *input* is the grab zone, and a press anywhere
+   in this band moves the nearer thumb, which is how every native slider
+   behaves. */
 .range {
   position: absolute;
   top: 50%;
+  height: 28px;
   /* The inputs are half a thumb wider than the track at each end, so the
      thumb's *centre* can reach the track's true ends — that is the span
      the fill's arithmetic assumes. */
