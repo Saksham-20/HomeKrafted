@@ -95,9 +95,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  /* 40px, the height of the filter pills it sits beside (2026-09-05) —
-     it was 36 in a 40px row. */
-  min-height: 40px;
+  /* 36px inside `.viewSwitch`'s 2px padding and 1px border, so the
+     *switch* measures 40 — the height of the filter pills beside it. The
+     button is not the control the row sees; the pill around it is. (The
+     2026-09-05 review briefly set this to 40 and made the switch 46 —
+     measured, reverted.) */
+  min-height: 36px;
   padding: 0 14px;
   border: none;
   background: none;
