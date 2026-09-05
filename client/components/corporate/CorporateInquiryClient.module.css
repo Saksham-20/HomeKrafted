@@ -1,15 +1,44 @@
+/*
+  Two columns from 900px (2026-09-05 design review). The page was a
+  760px form under a 680px header on a 1352px canvas — the right 40% of
+  the screen was empty on every visit, which on a page asking a buyer to
+  commit ₹25k–₹5L reads as unfinished. The pitch (eyebrow, title, blurb,
+  "browse the picks") moves beside the form and sticks while the form
+  scrolls; the form takes the wider track. Below 900 it stacks in DOM
+  order, header first, exactly as before.
+*/
 .page {
   padding-block: var(--hk-s6) var(--hk-s8);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--hk-s5);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .page {
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr);
+    grid-template-areas: "form pitch";
+    column-gap: var(--hk-s8);
+  }
+
+  .header {
+    grid-area: pitch;
+    position: sticky;
+    top: calc(72px + var(--hk-s5));
+  }
+
+  .formCard,
+  .confirmationCard {
+    grid-area: form;
+  }
 }
 
 .header {
   max-width: 680px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--hk-s2);
 }
 
 .eyebrow {
@@ -53,7 +82,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--hk-s4);
-  max-width: 760px;
+  /* No max-width: the grid track is the width now (see `.page`). */
 }
 
 .formHeader {
