@@ -9,9 +9,18 @@
   rails — enough for a catalogue index, not enough for a page that is
   making an argument one section at a time. Fluid so a phone does not pay
   desktop rhythm out of its scroll budget.
+
+  **Pulled back from 84px to 60px (owner, 2026-09-05: "reduce the white
+  spaces overall").** The rhythm above is still the intent — sections are
+  further apart than the old 34px and the argument still reads one band
+  at a time — but 84px between eleven bands is ~900px of the scroll
+  budget spent on nothing, and the page was read as empty rather than
+  paced. 60px keeps the separation legible at roughly a third less air.
+  The fluid middle drops with it (6vw -> 4.2vw) so a phone stays in
+  proportion rather than closing up faster than the desktop.
 */
 .section {
-  padding-block: clamp(var(--hk-s7), 6vw, 84px) 0;
+  padding-block: clamp(var(--hk-s6), 4.2vw, 60px) 0;
 }
 
 /*
@@ -27,7 +36,7 @@
   other section and only the ground runs edge to edge.
 */
 .explainerBand {
-  margin-block-start: clamp(var(--hk-s7), 6vw, 84px);
+  margin-block-start: clamp(var(--hk-s6), 4.2vw, 60px);
   background: var(--hk-surface);
   border-block: 1px solid var(--hk-border);
 }

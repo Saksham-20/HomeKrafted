@@ -103,31 +103,46 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           fading to the canvas. */}
       <div className={styles.hero}>
         <HeroBanner src="/images/site/maker-kitchen.jpg" tint="pine" />
-        <div className={clsx("container", styles.heroInner)}>
+        <div className={clsx("container", "container-wide", styles.heroInner)}>
           <div className={styles.heroCopy}>
-              <span className={styles.breadcrumb}>
-                Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
-              </span>
+            <span className={styles.breadcrumb}>
+              Home / <span className={styles.breadcrumbCurrent}>Homemade Food</span>
+            </span>
+            {/*
+              Title and tagline on one baseline (2026-09-05, owner: "this
+              takes up a lot of space"). The band was five stacked rows
+              before the filters — breadcrumb, title, tagline, stat pills,
+              location, cross-links, then the featured strip — about 520px
+              of chrome above the first kitchen. It is the same information,
+              on two rows instead of five.
+            */}
+            <div className={styles.titleRow}>
               <h1 className={styles.title}>
                 Homemade <em className={styles.titleAccent}>Food</em>
               </h1>
               <p className={styles.tagline}>
                 Cooked to order in real home kitchens — never off a shelf.
               </p>
-              <div className={styles.statRow}>
-                <span className={styles.stat}>
-                  <strong>{kitchenCount}</strong> home {kitchenCount === 1 ? "kitchen" : "kitchens"}
-                </span>
-                <span className={styles.stat}>
-                  <strong>{products.length}</strong> small-batch{" "}
-                  {products.length === 1 ? "dish" : "dishes"}
-                </span>
-              </div>
-              {/* Says whether this count is the whole catalogue or a filtered
-                  one, and gives the only route back to the prompt — see
-                  `LocationBar`. */}
+            </div>
+            {/*
+              The counts, the area and the sibling surfaces share one wrapping
+              row: each is a short phrase, and stacked they read as three
+              separate announcements rather than one line of context. The
+              location bar is the only one that must stay a control — it
+              carries the route back to the prompt (see `LocationBar`) — so
+              it keeps its own box and the rest sit beside it.
+            */}
+            <div className={styles.metaRow}>
+              <span className={styles.stat}>
+                <strong>{kitchenCount}</strong> home {kitchenCount === 1 ? "kitchen" : "kitchens"}
+              </span>
+              <span className={styles.stat}>
+                <strong>{products.length}</strong> small-batch{" "}
+                {products.length === 1 ? "dish" : "dishes"}
+              </span>
               <LocationBar />
               <KitchenCrossLinks current="/shop" />
+            </div>
           </div>
           <FeaturedKitchens kitchens={featuredKitchens} />
         </div>

@@ -40,11 +40,29 @@ export interface FooterColumn {
  * three destinations up here and let the landing page carry the rest,
  * where a tile can say what a thing *is* instead of naming it in 90px.
  *
- * The rule for adding an item back: **is it a catalogue you browse?** If
- * it is a flow, an occasion hub or an enquiry, it belongs in
- * `secondaryNav`, which is more visible on the home page than a seventh
- * nav link would be. And re-measure against 1092px — see
- * `Header.module.css` and `e2e/tests/header-capacity.spec.ts`.
+ * **2026-09-05: the row is six again, because it is no longer one row.**
+ * The owner asked for Subscription Plans, Bulk & Party Orders and About
+ * Us in the navbar. Everything above is still true of a *single* row —
+ * so the header was split instead: the lockup, the search field and the
+ * controls keep the top row, and the tabs get a strip of their own
+ * (`.navBar` in `Header.module.css`) at the full 1352px of
+ * `container-wide`. M34's arithmetic was never wrong; it was arithmetic
+ * about a row that no longer has to hold all of this.
+ *
+ * The rule that replaces "is it a catalogue you browse?": **the tabs
+ * strip is the site's table of contents, so an item earns a slot by
+ * being somewhere a visitor decides to go, not by being a catalogue.**
+ * That is what lets About Us sit beside Homemade Food. What has not
+ * changed is the measuring: the strip holds ~1352px, these six labels
+ * spend roughly 800px of it, and a *seventh* is still a decision to
+ * make with a tape measure — see `Header.module.css` and
+ * `e2e/tests/header-capacity.spec.ts`.
+ *
+ * Three of these six are also in `secondaryNav`, and that repetition is
+ * deliberate: the quick-entry strip explains what a thing is to somebody
+ * who has not decided yet, and the tab is the shortcut for somebody who
+ * has. `MobileDrawer` drops the duplicates, because there both groups
+ * are the same kind of list.
  */
 export const primaryNav: NavLink[] = [
   { label: "Homemade Food", href: "/shop" },
@@ -56,6 +74,13 @@ export const primaryNav: NavLink[] = [
   // to the quick-entry strip; put them back here when the catalogue is
   // deep enough to deserve it (~6+ live hampers).
   { label: "Occasions", href: "/collections" },
+  // The three added on 2026-09-05 (owner). "Subscription Plans" and
+  // "Bulk & Party Orders" are the owner's words for `/meal-plans` and
+  // `/corporate`; `secondaryNav` keeps its own shorter labels for the
+  // quick-entry tiles, which have a blurb underneath to carry the rest.
+  { label: "Subscription Plans", href: "/meal-plans" },
+  { label: "Bulk & Party Orders", href: "/corporate" },
+  { label: "About Us", href: "/about" },
 ];
 
 /**

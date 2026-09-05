@@ -397,9 +397,22 @@ export interface ProductImage {
   ratio: string; // '1/1' | '4/5' | ...
 }
 
+/**
+ * A listing's dietary facts, as stated by the HomeKrafter who makes it.
+ *
+ * `"non-vegetarian"` and `"contains-egg"` were added 2026-09-05, because
+ * **absence of `"vegetarian"` never meant non-veg** — a candle carries no
+ * dietary tags, and so does a curry whose cook left the question blank.
+ * Read the two apart: `dietOf()` in `lib/diet.ts` is the only thing that
+ * should be deciding which mark a card shows, and it answers `undefined`
+ * for a listing nobody has asked. Never infer one from the other's
+ * absence; a wrong veg mark is the one mistake here that matters.
+ */
 export type DietaryTag =
   | "vegetarian"
   | "vegan"
+  | "non-vegetarian"
+  | "contains-egg"
   | "gluten-free"
   | "sugar-free"
   | "contains-nuts";
@@ -477,6 +490,20 @@ export interface Product {
    * Decides whether "delivers to your area" is a true thing to say.
    */
   shippingScope?: ProductShippingScope;
+  /**
+   * Minutes of notice this listing needs, when its maker said
+   * (2026-09-05). Drives the "Pre-order" badge and nothing else.
+   *
+   * **Absent means "not stated", never "no notice needed".** It is
+   * deliberately *not* resolved against `VendorProfile.prepTimeMins`:
+   * that is the kitchen's default, it lives on a separate 1:1 row that
+   * listing queries do not fetch (M16), and it falls back to the
+   * platform's 90 minutes for a kitchen that has stated nothing — so
+   * reading the badge through it would put "Pre-order" on essentially
+   * every food listing. The badge is a claim the maker made about *this*
+   * dish, or it is not made. See `lib/pre-order.ts`.
+   */
+  prepTimeMins?: number;
   /**
    * On the WhatsApp snacks menu (M20). Absent reads as `false`.
    *

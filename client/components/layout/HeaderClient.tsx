@@ -116,12 +116,61 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     router.push("/seller");
   }
 
+  /*
+   * The catalogue strip. One node, two homes (2026-09-05).
+   *
+   * On `/` it stays where M52 put it: centred in the single floating bar
+   * over the hero, absolutely positioned so it shares the row with
+   * nothing. On every other route it is the header's **second row** —
+   * see `.navBar` — which is what made the owner's six-item nav possible
+   * at all. The old single row had 1092px for the lockup, six labels, a
+   * typable search field and five controls, and it demonstrably could not
+   * hold them: `e2e/tests/header-capacity.spec.ts` exists because that
+   * exact set rendered a 0px-wide search box at every width from 1190 to
+   * 1920. Splitting the rows removes the competition rather than
+   * re-refereeing it.
+   *
+   * Each tab is still a plain link to its hub; the dropdown (M56) is a
+   * shortcut panel revealed on hover or focus-within — CSS-only,
+   * absolutely positioned, so it takes no width from the row it sits in
+   * and keyboard users reach every entry by tabbing through it.
+   */
+  const nav = (
+    <nav className={styles.nav} aria-label="Primary">
+      {navItems.map((item) => {
+        const menu = navMenus?.[item.href];
+        return (
+          <div key={item.href + item.label} className={styles.navItem}>
+            <Link href={item.href} className={styles.navLink}>
+              {item.label}
+            </Link>
+            {menu && menu.length > 0 && (
+              <div className={styles.navMenu}>
+                <div className={styles.navMenuPanel}>
+                  {menu.map((link) => (
+                    <Link
+                      key={link.href + link.label}
+                      href={link.href}
+                      className={styles.navMenuLink}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  );
+
   return (
     <header
       className={clsx(styles.header, onLanding && styles.landing)}
       data-revealed={onLanding ? String(revealed) : undefined}
     >
-      <div className={clsx("container", styles.row)}>
+      <div className={clsx("container", "container-wide", styles.row)}>
         {/* Rendered on every route, the landing page included — there it
             starts invisible (opacity 0 + visibility hidden, so it also
             leaves the tab order) and appears with `data-revealed` once the
@@ -137,38 +186,28 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
           <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
         </Link>
 
-        <nav className={styles.nav} aria-label="Primary">
-          {/* Each tab is still a plain link to its hub; the dropdown (M56)
-              is a shortcut panel revealed on hover or focus-within —
-              CSS-only, absolutely positioned, so the row's 1092px
-              capacity arithmetic is untouched and keyboard users reach
-              every row by tabbing through it. */}
-          {navItems.map((item) => {
-            const menu = navMenus?.[item.href];
-            return (
-              <div key={item.href + item.label} className={styles.navItem}>
-                <Link href={item.href} className={styles.navLink}>
-                  {item.label}
-                </Link>
-                {menu && menu.length > 0 && (
-                  <div className={styles.navMenu}>
-                    <div className={styles.navMenuPanel}>
-                      {menu.map((link) => (
-                        <Link
-                          key={link.href + link.label}
-                          href={link.href}
-                          className={styles.navMenuLink}
-                        >
-                          {link.label}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </nav>
+        {onLanding && nav}
+
+        {/* Was a `<Link href="/shop">` dressed as a search box — a dead
+            affordance, since nothing in the app could search. Real form
+            now; the pill styling moved into `SearchForm.module.css`.
+
+            **It is a sibling of the actions run, not a member of it
+            (2026-09-05).** While the nav shared this row the field was
+            the last thing in a queue of controls and got whatever they
+            left — which for a long time was nothing (a 0px input; see
+            `header-capacity.spec.ts`). With the tabs on their own row it
+            is the row's middle and takes the slack, which is the shape
+            every catalogue site uses and the reason it can now be wide
+            enough to read a query back to you.
+
+            Not on the landing page (M52): search is a browsing tool, and
+            the drawer still carries one for a phone. */}
+        {!onLanding && (
+          <div className={styles.searchSlot}>
+            <SearchForm className={styles.searchPill} />
+          </div>
+        )}
 
         <div className={styles.actions}>
           {/* Icon-only, and the label is a real accessible name rather than
@@ -208,26 +247,6 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
             >
               <ShieldCheck size={16} strokeWidth={1.7} />
             </Link>
-          )}
-
-          {/* Was a `<Link href="/shop">` dressed as a search box — a dead
-              affordance, since nothing in the app could search. Real form
-              now; the pill styling moved into `SearchForm.module.css`.
-
-              The wrapper is load-bearing, not tidiness. The row has room
-              for about 38px of search (see `.searchSlot`), so the field
-              expands over the nav on focus — and expanding means going
-              `position: absolute`, which takes it out of the flex line.
-              Without a slot holding the 38px open, the wallet chip and
-              the three icons all jump 46px left the instant the caret
-              lands, and back again on blur. The slot keeps the flow
-              width; only the form moves. */}
-          {/* Not on the landing page (M52): search is a browsing tool, and
-              the drawer still carries one for a phone. */}
-          {!onLanding && (
-            <div className={styles.searchSlot}>
-              <SearchForm className={styles.searchPill} />
-            </div>
           )}
 
           {/* The amount is hidden below the mobile breakpoint, which left
@@ -285,6 +304,25 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
           </button>
         </div>
       </div>
+
+      {/*
+        The catalogue row (2026-09-05). Full-bleed ground, its own
+        hairline, the same wide container as the row above so the tabs
+        line up under the lockup.
+
+        Only on inner routes: `/`'s bar floats over the hero and carries
+        the tabs centred in its single row (M52), and a second strip
+        under a transparent bar would be two washes over the same
+        photograph.
+
+        It is hidden at the same 1190px the tabs always were — below that
+        the drawer is the navigation, and it now carries all six.
+      */}
+      {!onLanding && (
+        <div className={styles.navBar}>
+          <div className={clsx("container", "container-wide", styles.navBarInner)}>{nav}</div>
+        </div>
+      )}
 
       <MobileDrawer
         open={drawerOpen}

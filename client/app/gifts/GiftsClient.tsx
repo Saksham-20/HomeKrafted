@@ -22,10 +22,18 @@ import { listingPrice } from "@/lib/kitchens";
 import type { Category, Occasion, Product } from "@/lib/types";
 import styles from "./GiftsClient.module.css";
 
-/** First grid row at the sidebar layout's widest — see ShopClient's note. */
+/** The leading cards of the first row, where LCP lands — see ShopClient's note for why it is not the whole row. */
 const PRIORITY_CARDS = 3;
 
-const PAGE_SIZE = 8;
+/**
+ * 24 (2026-09-05, up from 8). The grid runs six across on
+ * `container-wide`, so eight was a full row plus a two-card orphan.
+ * 24 divides evenly by every column count this grid produces (6, 4, 3,
+ * 2), so no page ends ragged, and it is inside the 24–48 band Baymard's
+ * product-list research points at. Costs no extra request: the page
+ * fetches 100 and filters client-side (M49).
+ */
+const PAGE_SIZE = 24;
 
 const priceOf = listingPrice;
 
@@ -308,7 +316,7 @@ export function GiftsClient({
   }));
 
   return (
-    <section className={clsx("container", styles.layout)}>
+    <section className={clsx("container", "container-wide", styles.layout)}>
       <MobileFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}

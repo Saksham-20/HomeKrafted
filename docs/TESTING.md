@@ -443,6 +443,44 @@ Open the site in a **fresh browser window** (or clear site data).
 ### 1. Shopper — browse
 Sign in as **Ananya**.
 
+**New on 2026-09-05 — check these first on a wide screen (1440px+):**
+
+- **The header has two rows.** Top: the logo, a wide search box, then
+  wallet, wishlist, account and cart. Underneath: **Homemade Food ·
+  Handcrafted Gifts · Occasions · Subscription Plans · Bulk & Party
+  Orders · About Us**. Click into the search box without clicking
+  anything else first — it must be typable where it stands and must not
+  change size when you focus it. Hovering the first three tabs still
+  opens their dropdown panels. On the **home page only** the bar is
+  different on purpose: one row, tabs centred over the hero, no search
+  and no wallet, and the logo fades in as you scroll past the big
+  lockup. Narrow the window below ~1190px and the whole tab strip should
+  disappear into the hamburger — and inside the drawer, nothing should be
+  listed twice.
+- **Pages are wider.** Content should run to about 1440px instead of
+  1180px, so there is much less empty margin at the sides. Running
+  copy — "How this works" on the home page, the policy pages — stays
+  narrow, which is deliberate.
+- **More cards per row.** `/shop` on **Kitchens** should show three
+  kitchen cards a row (it was two); Dishes and `/gifts` should show six
+  (they were five). No page should end on a lonely half-row.
+- **Bigger people.** On the home page's "Who is cooking", the chef
+  portraits and their top-rated dish photo should both be noticeably
+  larger than before.
+- **The veg mark.** Every food card should carry the small green square
+  beside the product name. A listing whose maker has **not** answered the
+  question shows **no mark at all** — that is correct, not a missing
+  icon. The demo catalogue is entirely vegetarian, so you will not see a
+  red non-veg mark until a real maker tags something; you can prove the
+  filter by opening **Dietary** and ticking **Non-veg**, which should
+  correctly return nothing.
+- **The Pre-order badge.** Open **Gift hampers**. The Festive Assorted
+  Hamper should carry a dark "Pre-order · 2 days" chip on its photograph;
+  Walnut Jaggery Brownies should say "Pre-order · 4 hours". Nothing else
+  should carry one — the badge only appears when the maker stated a
+  notice time over 30 minutes for **that listing**, so most cards
+  correctly have none.
+
 - Home page — the **split landing screen** first: two halves, food on the
   left and gifts on the right. Move the pointer onto one and it should
   open to about three quarters of the width, smoothly, and give the width
@@ -1122,6 +1160,12 @@ page. Four screens, one question each, photo first:
   is no fake discount.
 - **A few words about it** — description, plus optional dietary tags,
   delivery, occasions, and a **preview of the card a shopper will see**.
+  Since 2026-09-05 the diet question is asked as its own pair first —
+  **Is it veg or non-veg?** — and the two chips are exclusive: picking
+  one clears the other, and pressing the picked one again clears both.
+  Leaving both unpicked is a legitimate answer and the listing then shows
+  **no mark** to shoppers. "Anything else a buyer should know?" carries
+  the rest, now including **Has egg in it**.
 
 Then **Put it on my storefront**. It lands in Listings marked *Waiting for
 approval*, exactly as before — the review gate has not moved.
@@ -1130,6 +1174,15 @@ approval*, exactly as before — the review gate has not moved.
 > bottom of every step and everything typed carries over; the way back is
 > under the long form. Editing an existing listing still opens the long
 > form first, because an edit usually means one specific field.
+
+The long form has one more food-only question since 2026-09-05: **Notice
+you need for this dish**, in minutes. Put 2880 in it, save, and the
+listing's card should carry a "Pre-order · 2 days" chip on its
+photograph. Clear the box and the chip goes; a **0** typed in is treated
+the same as blank, because "0 minutes of notice" is not something anybody
+means to say. Changing it must **not** send the listing back to *Waiting
+for approval* — a schedule is not a material change to what is being
+sold.
 
 The **/sell** application also got shorter: Instagram, website, years
 making and daily capacity are folded behind one optional trigger. The

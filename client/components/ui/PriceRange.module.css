@@ -1,3 +1,22 @@
+/*
+  Dual-handle price range.
+
+  The 2026-09-05 pass fixed two things that made this read as broken
+  rather than adjustable, and both were about the extremes — which is the
+  state it is in every time somebody opens the filter, so it was the
+  first impression of the control.
+
+  1. The fill ran past both handles (see `PriceRange.tsx` for the
+     arithmetic — a native thumb travels `100% - THUMB`, not `100%`).
+  2. A pine fill under pine handles meant that at full range the whole
+     thing was one solid dark bar with two dark blobs on it. Nothing said
+     "these move". The handles are white with a pine ring now, so they
+     read as grips against the fill rather than lumps in it.
+
+  `--thumb` is set by the component. Don't hardcode 16px here — the
+  positions in the TSX are computed from the same number.
+*/
+
 .wrap {
   width: 100%;
 }
@@ -10,27 +29,35 @@
   pointer-events: none;
 }
 
+/*
+  The side margin is half a thumb, so the handles at the extremes sit
+  inside the component's own box instead of overhanging whatever contains
+  it — in the filter popover that overhang was clipped.
+*/
 .track {
   position: relative;
-  height: 3px;
+  height: 4px;
   background: var(--hk-border-2);
-  border-radius: 3px;
-  margin: 16px 8px 10px;
+  border-radius: var(--hk-r-pill);
+  margin: calc(var(--thumb) / 2 + 2px) calc(var(--thumb) / 2) var(--hk-s2);
 }
 
 .fill {
   position: absolute;
   top: 0;
-  height: 3px;
+  height: 4px;
   background: var(--hk-pine);
-  border-radius: 3px;
+  border-radius: var(--hk-r-pill);
 }
 
 .range {
   position: absolute;
   top: 50%;
-  left: 0;
-  width: 100%;
+  /* The inputs are half a thumb wider than the track at each end, so the
+     thumb's *centre* can reach the track's true ends — that is the span
+     the fill's arithmetic assumes. */
+  left: calc(var(--thumb) / -2);
+  width: calc(100% + var(--thumb));
   margin: 0;
   transform: translateY(-50%);
   appearance: none;
@@ -46,36 +73,50 @@
 .range::-webkit-slider-runnable-track {
   -webkit-appearance: none;
   background: transparent;
-  height: 3px;
+  height: 4px;
 }
 
 .range::-moz-range-track {
   background: transparent;
-  height: 3px;
+  height: 4px;
   border: none;
 }
 
+/* White with a pine ring, not solid pine: at full range the fill is pine
+   too, and a solid handle on it disappears into the bar. */
 .range::-webkit-slider-thumb {
   -webkit-appearance: none;
   pointer-events: auto;
-  width: 16px;
-  height: 16px;
+  width: var(--thumb);
+  height: var(--thumb);
   border-radius: var(--hk-r-pill);
-  background: var(--hk-pine);
-  border: 2px solid var(--hk-surface);
-  box-shadow: 0 1px 3px rgba(27, 51, 39, 0.3);
-  cursor: pointer;
+  background: var(--hk-surface);
+  border: 2.5px solid var(--hk-pine);
+  box-shadow: 0 1px 4px rgba(27, 51, 39, 0.25);
+  cursor: grab;
+  transition: box-shadow var(--hk-dur) var(--hk-ease);
 }
 
 .range::-moz-range-thumb {
   pointer-events: auto;
-  width: 16px;
-  height: 16px;
+  box-sizing: border-box;
+  width: var(--thumb);
+  height: var(--thumb);
   border-radius: var(--hk-r-pill);
-  background: var(--hk-pine);
-  border: 2px solid var(--hk-surface);
-  box-shadow: 0 1px 3px rgba(27, 51, 39, 0.3);
-  cursor: pointer;
+  background: var(--hk-surface);
+  border: 2.5px solid var(--hk-pine);
+  box-shadow: 0 1px 4px rgba(27, 51, 39, 0.25);
+  cursor: grab;
+}
+
+.range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  box-shadow: 0 0 0 5px rgba(31, 59, 44, 0.14);
+}
+
+.range:active::-moz-range-thumb {
+  cursor: grabbing;
+  box-shadow: 0 0 0 5px rgba(31, 59, 44, 0.14);
 }
 
 .range:focus-visible::-webkit-slider-thumb {
@@ -88,10 +129,22 @@
   outline-offset: 2px;
 }
 
+/*
+  One line, not two ends of a wide row. Split left/right, the two numbers
+  were as far apart as the control is wide and read as two unrelated
+  figures; joined by a dash they read as the range they are. Mono is
+  right here — these are counted values, the receipt type (`DESIGN.md`).
+*/
 .labels {
   display: flex;
-  justify-content: space-between;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
   font-family: var(--hk-font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
+  color: var(--hk-ink-2);
+}
+
+.labelDash {
   color: var(--hk-muted);
 }

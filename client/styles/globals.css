@@ -238,6 +238,32 @@ p {
   padding-inline: var(--hk-s8);
 }
 
+/* ---- The wide container (2026-09-05) ----
+   `.container` caps content at 1180px at *every* screen width, so a
+   1920px monitor spends 414px a side on nothing. That is fine for a
+   column of prose — the 65-75ch readability rule is real — and wrong for
+   a grid of cards, where the empty margins are the whole "the site feels
+   empty" complaint (`DESIGN.md`: "premium = specificity + texture, never
+   emptier whitespace").
+
+   So the width is split by what the block *holds*, not by route: grids,
+   card rails and editorial bands take `container-wide` (1440px, which is
+   1352px of content), running copy keeps `.container`. Compose them —
+   `clsx("container", "container-wide")` — so a block that is widened
+   keeps every padding rule below.
+
+   **Not a new breakpoint.** The five rails (420/560/640/780/900) are
+   untouched; this is a max-width, and it changes nothing under 1268px.
+
+   **The header row is measured against this now.** `header-capacity.spec.ts`
+   documents a 1092px budget, which was `.container` minus its 44px-a-side
+   padding. The two-row header uses `container-wide`, so that budget is
+   1352px — re-measure against the number the row actually gets, and read
+   that spec's comment before adding anything to the strip. */
+.container-wide {
+  max-width: 1440px;
+}
+
 @media (max-width: 780px) {
   .container {
     padding-inline: var(--hk-s5);

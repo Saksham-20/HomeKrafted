@@ -98,18 +98,23 @@ export default async function GiftsPage({ searchParams }: GiftsPageProps) {
           copy under a wash that stays solid tint over the text column. */}
       <div className={styles.hero}>
         <HeroBanner src="/images/site/split-gifts.jpg" tint="gold" />
-        <div className={clsx("container", styles.heroInner)}>
+        <div className={clsx("container", "container-wide", styles.heroInner)}>
           <div className={styles.heroCopy}>
             <span className={styles.breadcrumb}>
               Home / <span className={styles.breadcrumbCurrent}>Handcrafted gifts</span>
             </span>
-            <h1 className={styles.title}>
-              Handcrafted <em className={styles.titleAccent}>Gifts</em>
-            </h1>
-            <p className={styles.description}>
-              Handmade décor, candles, art, jewellery and personalised pieces, made by independent
-              HomeKrafters.
-            </p>
+            {/* Title and blurb on one baseline — the /shop compaction
+                (2026-09-05), applied here so the two verticals keep the
+                same composition. */}
+            <div className={styles.titleRow}>
+              <h1 className={styles.title}>
+                Handcrafted <em className={styles.titleAccent}>Gifts</em>
+              </h1>
+              <p className={styles.description}>
+                Handmade décor, candles, art, jewellery and personalised pieces, made by
+                independent HomeKrafters.
+              </p>
+            </div>
             {/*
               The genuinely useful difference between the two verticals, said
               plainly rather than discovered at checkout: food is cooked nearby

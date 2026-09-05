@@ -378,7 +378,31 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
 - Mobile-first, fluid. No fixed 430/1180 "stage" (that was the
   prototype's reviewer chrome). Container maxes out at 1180px via the
   `.container` utility class (`styles/globals.css`), grace­fully down to
-  360px. Header collapses to a hamburger + `<MobileDrawer>` below ~1190px.
+  360px.
+
+  **Two widths since 2026-09-05, split by what a block holds, not by
+  route.** `.container` (1180px) is for running copy — the 65–75ch
+  readability rule is real, and the home page's explainer band and every
+  policy page keep it. **`container-wide` (1440px, so 1352px of content)
+  is for grids, card rails and editorial bands**, and it is a
+  *composed* modifier: `clsx("container", "container-wide", …)`, so a
+  widened block keeps every padding rule. Applied to `/`, `/shop`,
+  `/gifts`, the header and the footer; a new listing page should take it
+  too. The owner's brief was that the site read empty with 414px of dead
+  canvas either side on a 1920 monitor — which is `DESIGN.md`'s own
+  diagnosis ("premium = specificity + texture, never emptier
+  whitespace"). It is **not a new breakpoint**: the five rails below are
+  untouched and nothing changes under 1268px.
+
+  Two things move with it. **Page sizes are a whole number of rows**:
+  `/shop` dishes and `/gifts` page in **24** (divides by 6, 4, 3 and 2 —
+  every column count the grid produces — and is inside Baymard's 24–48
+  band), `/shop` kitchens in **9** (three clean rows of three). Both are
+  free, because the page fetches 100 and filters client-side (M49).
+  **And a rail of fixed-width cards that now under-fills takes
+  `justify-content: safe center`**, never a plain `center` — an
+  overflowing centred flex row clips its first item unreachably
+  (`ReelsRailClient.module.css`). Header collapses to a hamburger + `<MobileDrawer>` below ~1190px.
   **1190 is not a fit width, and there isn't one** — corrected 2026-08-11.
   M21 recorded the row as needing "1170px plus 20px of container padding";
   the padding is `--hk-s8`, **44px a side**, so the row has **1092px**, not
@@ -407,14 +431,37 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   slot (~325–370px by role, 210px floor), so the field is typable at
   rest.
 
-  Three rules. **The drawer keeps both groups** — dropping the secondary
+  **2026-09-05 split the header into two rows, and that is what makes six
+  items affordable (owner).** The ask was Homemade Food · Handcrafted
+  Gifts · Occasions · Subscription Plans · Bulk & Party Orders · About Us
+  — the exact set M34 measured as unaffordable. Everything above stays
+  true of a *single* row, so the row was split instead of the nav cut
+  again: the lockup, the search field and the controls keep the top row,
+  and the tabs get a strip of their own (`.navBar` in
+  `Header.module.css`), both on `container-wide`. The search field is a
+  **sibling of `.actions`, not a member of it**, so it takes the row's
+  slack rather than its leftovers — 509px measured at a 1280px viewport,
+  against the 210px floor.
+
+  Four rules. **The drawer keeps both groups** — dropping the secondary
   one there would leave the footer as the only route to `/corporate` on a
-  phone. **A new nav item must be a catalogue you browse**; a flow, a hub
-  or an enquiry goes in `secondaryNav`. And **re-measure against 1092px,
-  not 1180px**: a fourth item costs ~100px of a ~170px surplus, a fifth
-  puts the row back under the typable floor. Pinned by
-  `e2e/tests/header-capacity.spec.ts`, which now asserts the field works
-  with **no interaction** and does not resize on focus.
+  phone — but it now **drops entries `primaryNav` already carries**,
+  compared on `href` (the two lists word the same destination
+  differently, and on the home page a tab and an explaining tile are two
+  offers; in one vertical list they are the same link twice). **The tabs
+  strip is the site's table of contents**, so an item earns a slot by
+  being somewhere a visitor decides to go, not by being a catalogue —
+  that is what lets About Us sit beside Homemade Food, and it replaces
+  M34's "is it a catalogue you browse?". **Re-measure against 1352px**
+  (`container-wide` less its 44px-a-side padding), not 1092px: these six
+  labels spend ~800px of it, and a seventh is still a decision made with
+  a tape measure. And **`/` is exempt** — the landing bar floats over the
+  hero and keeps its single row with the tabs centred (M52), so a second
+  strip is never rendered there. Pinned by
+  `e2e/tests/header-capacity.spec.ts`, which asserts the field works with
+  **no interaction** and does not resize on focus; it reads the row's box
+  off the live DOM, which is why widening the container needed no edit in
+  it.
 - **Five breakpoint rails, by convention (M29): 420 · 560 · 640 · 780 ·
   900.** Roughly: 420 small phone, 560 phone, 640 large phone (and where
   fixed CTA bars engage), 780 shell/sidebar collapse, 900 two-pane goes
@@ -583,6 +630,45 @@ maker edits a price.
 - **Uniqueness is scoped to the parent**, so "Sweets" under two different
   groups are two shelves — and a duplicate is a **409 naming the existing
   row**, never a silent hand-back (M43).
+
+## Diet marks and the pre-order badge (2026-09-05)
+
+Two owner asks, and both turned on the same rule: **absence is not an
+answer.**
+
+- **`DietaryTag` gained `non_vegetarian` and `contains_egg`, because
+  absence of `vegetarian` never meant non-veg.** A candle carries no
+  dietary tags; so does a curry whose cook left the question blank. Read
+  the mark through **`client/lib/diet.ts#dietOf`** and nowhere else — it
+  answers `undefined` for a listing nobody asked, so no mark is drawn and
+  it matches **neither** browse filter. Never
+  `!dietary.includes("vegetarian") → non-veg`, which is the shortcut that
+  function exists to stop. The asymmetry is the design: a wrong green
+  mark means somebody eats something they would not have, a wrong red one
+  is merely unhelpful — so contradictory data resolves to **non-veg**.
+  **Egg is not a third mark** (FSSAI's scheme has two, and whether egg is
+  vegetarian is answered differently by different people); it is a
+  filterable fact that leaves the mark where the maker left it. **Nothing
+  is backfilled** — a pre-2026-09-05 row reads as "we never asked", and
+  the listing form closes the gap one listing at a time (the M36 pincode
+  shape). The veg/non-veg pair is **exclusive in the form and not on the
+  column**: one `dietary` array, one server contract, one browse OR.
+- **`Product.prepTimeMins` is per-listing, and the badge reads it and
+  nothing else.** The owner's rule was "prep time over 30 minutes gives a
+  Pre-order tag"; `VendorProfile.prepTimeMins` is the *kitchen's* default
+  and falls back to the platform's 90 minutes when unstated, so reading
+  the badge through it would have stamped it on essentially every food
+  listing — a badge every card carries is decoration. A kitchen answering
+  "90 minutes" is describing a thali; its celebration cake needs two days.
+  So `lib/pre-order.ts#isPreOrder` reads the listing's own figure,
+  **never falls back to the vendor**, and a listing nobody asked gets no
+  badge. NULL/blank is "not stated", **never 0** — `parsePrepTime` returns
+  `undefined` for both, the same lesson as `parseStock`, where a blank
+  becoming 0 took sixteen live listings off sale. The threshold is one
+  exported constant. Editing it **does not re-queue** a listing (M22: a
+  material change is name, description, category or photo, not a
+  schedule). The kitchen's own figure still drives the scheduler,
+  untouched.
 
 ## Courier despatch (M57) — a rider, and what a webhook may not do
 
@@ -1039,7 +1125,9 @@ critical: a tablist may only contain tabs), and forty-one places said
   in `components/layout/Header.tsx` from the live category/occasion
   tables (never a second hand-kept list) and revealed by CSS
   `:hover`/`:focus-within` in `HeaderClient` — absolutely positioned, so
-  the 1092px row-capacity arithmetic is untouched; `visibility: hidden`
+  the row-capacity arithmetic is untouched (1092px then, 1352px since the
+  header went two-row and both rows moved to `container-wide`);
+  `visibility: hidden`
   keeps closed panels out of the tab order; hover reveal is wrapped in
   `(hover: hover)` so a touch tap just follows the tab's own link.
 - **New milestone:** read the plan's milestone table + this file, build

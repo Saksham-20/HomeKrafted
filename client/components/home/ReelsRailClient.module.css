@@ -9,8 +9,24 @@
   1024px tablet is a touch device and a 700px desktop window is not, and
   the width test got both of those wrong.
 */
+/*
+  Centred when the clips fit, a rail when they do not (2026-09-05).
+
+  The home page moved to `container-wide` (1352px) and this rail carries
+  four fixed 256px cards — 1072px of content, so widening the band bought
+  it 280px of nothing on the right. That is the opposite of what the
+  widening was for.
+
+  `safe center` is the whole fix: it centres while the content fits and
+  falls back to flex-start the moment it overflows, which is the bug a
+  plain `center` has here — an overflowing centred flex row clips its
+  first item and no scroll position can reach it. A browser that does not
+  know the `safe` keyword throws the declaration out and gets
+  flex-start, which is exactly the old behaviour.
+*/
 .rail {
   gap: var(--hk-s4);
+  justify-content: safe center;
   scroll-snap-type: x mandatory;
   /* Room for the cards' lift-on-hover + drop shadow, which would otherwise
      be clipped by the scroll container. */

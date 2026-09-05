@@ -3,6 +3,7 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -87,10 +88,47 @@ export class CreateListingDto {
   @IsString({ each: true })
   occasionIds?: string[];
 
+  /**
+   * `non-vegetarian` and `contains-egg` joined the list on 2026-09-05 —
+   * see the `DietaryTag` enum comment in `schema.prisma` for why absence
+   * of `vegetarian` was never a usable stand-in for either.
+   *
+   * Still optional, and it must stay optional: a craft listing has no
+   * dietary facts at all, and requiring the question of everybody is how
+   * a candle maker gets asked whether their candle contains egg.
+   */
   @IsOptional()
   @IsArray()
-  @IsIn(['vegetarian', 'vegan', 'gluten-free', 'sugar-free', 'contains-nuts'], { each: true })
+  @IsIn(
+    [
+      'vegetarian',
+      'vegan',
+      'non-vegetarian',
+      'contains-egg',
+      'gluten-free',
+      'sugar-free',
+      'contains-nuts',
+    ],
+    { each: true },
+  )
   dietary?: string[];
+
+  /**
+   * Minutes of notice this listing needs (2026-09-05). Drives the
+   * "Pre-order" badge on the buyer's card, and nothing else — the
+   * scheduler still reads the kitchen's own `VendorProfile.prepTimeMins`.
+   *
+   * Optional, and **absence is not zero**: a listing that has never been
+   * asked carries `null` and gets no badge, which is the M16 rule ("no
+   * stated prep time means the platform default, never zero") applied one
+   * level down. The ceiling is 30 days in minutes — past that the honest
+   * product is a custom order, not a listing with a long badge.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(43200)
+  prepTimeMins?: number;
 
   @IsString()
   @MinLength(1)

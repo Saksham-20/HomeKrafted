@@ -106,6 +106,9 @@ export class SellerListingsService {
         name: dto.name,
         categoryId: dto.categoryId,
         dietary: dietaryTagsFromFrontend(dto.dietary ?? []),
+        // `?? null` rather than `?? 0`: an unanswered question is not an
+        // answer of "no notice needed" (see the column's own comment).
+        prepTimeMins: dto.prepTimeMins ?? null,
         defaultWeightSku: dto.defaultWeightSku,
         tags: (dto.tags ?? []) as ProductTag[],
         isPackaged: dto.isPackaged,
@@ -240,6 +243,7 @@ export class SellerListingsService {
           name: dto.name,
           categoryId: dto.categoryId,
           dietary: dto.dietary ? dietaryTagsFromFrontend(dto.dietary) : undefined,
+          prepTimeMins: dto.prepTimeMins,
           defaultWeightSku: dto.defaultWeightSku,
           tags: dto.tags as ProductTag[] | undefined,
           isPackaged: dto.isPackaged,

@@ -125,11 +125,29 @@
 
 /* ---- grids ---- */
 
-/* Two kitchen cards a row once the full width allows it — each still
-   gets ~540px, enough for the portrait, bio and four thumbnails. */
+/* Three kitchen cards a row on a wide screen, two on a laptop
+   (2026-09-05).
+
+   The floor was 460px, which was two-up at the old 1092px content width
+   and *still* two-up after the page moved to `container-wide` — three
+   columns need 1412px and the wide container gives 1352px. Two 660px
+   cards on a 1920px monitor is the sparsest surface on the site, and
+   `/shop` opens on this view (M51), so it is the first thing a shopper
+   sees.
+
+   420px is the number that buys the third column and nothing more:
+   3 x 420 + 2 x 16px gap = 1292px, inside 1352px, and a fourth column
+   would need 1760px so no screen silently gets one. Below 1268px the
+   container is back to 1092px, where three columns do not fit and this
+   renders exactly as it did before.
+
+   The card still carries the portrait, bio and its dish strip at 420px —
+   `KitchenCard.module.css` wraps the thumbnails at 560px and the strip
+   items are 150px, so three fit across a 420px card with the padding
+   taken off. */
 .kitchenGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(460px, 100%), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(420px, 100%), 1fr));
   gap: var(--hk-s4);
 }
 

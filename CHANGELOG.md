@@ -1,5 +1,115 @@
 # Changelog
 
+## 2026-09-05 — the site stops looking empty: two-row header, a wide container, denser browse, and the two facts a food card was missing
+
+The owner's brief, with two reference sites (hotcrums.com, parvaa.com):
+too much white space down the sides, an outdated-feeling header and
+footer, chef images too small, too few cards per row — plus a veg/non-veg
+filter and a "Pre-order" tag. The diagnosis was already written down and
+unbuilt: `DESIGN.md`'s own reading of the site is "white-first minimalism
+designed for a catalogue we don't have yet; uniform card grids with no
+editorial scale". This is the density half of that, plus the two data
+facts the food cards could not state.
+
+- **`container-wide` (1440px) beside `.container` (1180px), split by what
+  a block holds.** Grids, card rails and editorial bands widen; running
+  copy does not, because the 65–75ch rule is real — the home page's
+  explainer band and every policy page keep the narrow measure. Composed
+  (`clsx("container", "container-wide", …)`) so a widened block keeps
+  every padding rule, and not a new breakpoint: nothing changes under
+  1268px. On a 1920px monitor this reclaims 260px of dead canvas.
+- **The header is two rows, which is what makes six nav items
+  affordable.** The ask — Homemade Food · Handcrafted Gifts · Occasions ·
+  Subscription Plans · Bulk & Party Orders · About Us — is the exact set
+  M34 measured as unaffordable, and `e2e/tests/header-capacity.spec.ts`
+  exists because that set once rendered a **0px-wide search box** for
+  every role from 1190px to 1920px. Cutting the nav again was the wrong
+  answer twice; the row was split instead. Top row: lockup, search,
+  wallet, wishlist, account, cart. Second row: the tabs, full width, with
+  the M56 dropdown panels intact. The field is now a **sibling** of the
+  actions run rather than the last thing in its queue — measured 509px at
+  a 1280px viewport, against a 210px floor. `/` is exempt: its bar floats
+  over the hero and keeps the single centred row (M52). Below 1190px the
+  whole strip goes and the drawer is the navigation, as before — and the
+  drawer now drops the entries `primaryNav` has taken back, compared on
+  `href`, so nothing is listed twice.
+- **More cards per row, and page sizes that are whole rows.** `/shop`'s
+  kitchen view — the view `/shop` opens on — was **two** cards a row at
+  any screen width; the floor drops 460px → 420px, which buys the third
+  column and no fourth. Dish and gift grids go 5 → 6. Page sizes follow:
+  24 for dishes and gifts (divides by 6, 4, 3 and 2 — every column count
+  the grid produces — and inside Baymard's 24–48 band), 9 for kitchens
+  (three clean rows, where 8 left an orphan). Free, because the page
+  already fetches 100 and filters client-side (M49).
+- **The people got bigger.** "Who is cooking" portraits 68px → 96px and
+  their top-rated thumbnail 72px → 104px. The section's whole claim is
+  that a real person cooked this, and the person was the smallest thing
+  on the card. Landing section rhythm comes down from 84px to 60px —
+  ~900px of scroll across eleven bands that was being spent on nothing.
+- **A rail that under-fills now centres.** Widening the home page left
+  the four reel clips with 280px of dead space; `justify-content: safe
+  center` centres while they fit and falls back to flex-start the moment
+  they overflow. Never a plain `center` — an overflowing centred flex row
+  clips its first item unreachably.
+- **`DietaryTag` gained `non_vegetarian` and `contains_egg`, because
+  absence of `vegetarian` never meant non-veg.** A candle carries no
+  dietary tags; so does a curry whose cook left the question blank. Every
+  surface wanting a non-veg filter had to guess, and the guesses are not
+  symmetric — a wrong green mark means somebody eats something they would
+  not have. `lib/diet.ts#dietOf` is now the only thing that decides a
+  mark: veg when the maker said veg or vegan, non-veg when they said
+  non-veg, **nothing at all otherwise**, and non-veg when the data
+  contradicts itself. Egg is not a third mark (FSSAI's scheme has two,
+  and whether egg counts as vegetarian is answered differently by
+  different people) — it is a filterable fact. Nothing is backfilled: a
+  pre-today row reads as "we never asked" and appears under neither
+  filter. `<DietDot>`, which has existed unused since the M20 food types,
+  finally renders on the product card. Both listing forms ask the
+  question as its own exclusive pair.
+- **`Product.prepTimeMins`, and the "Pre-order · 2 days" badge.** The
+  rule asked for was ">30 minutes"; `VendorProfile.prepTimeMins` is the
+  *kitchen's* default and falls back to the platform's 90 minutes when
+  unstated, so reading the badge through it would have stamped it on
+  essentially every food listing — a badge every card carries is
+  decoration. A kitchen answering "90 minutes" is describing a thali; its
+  celebration cake needs two days. The badge reads the listing's own
+  figure and never falls back, so a listing nobody asked carries nothing.
+  Blank is `undefined`, **never 0** — the `parseStock` lesson, where a
+  blank becoming 0 took sixteen live listings off sale. Editing it does
+  not re-queue the listing (M22: a schedule is not a material change).
+- **The price slider's fill was misaligned with its own handles, and now
+  is not.** A native range thumb travels `100% - THUMB`, not `100%` — at
+  `min` its centre sits half a thumb in from the left edge — but the fill
+  was positioned as a plain percentage of the full width, so at both
+  extremes it ran ~8px past the handles and every position in between was
+  wrong by a shrinking amount. Dragging a handle showed the bar sliding
+  out from under it. The fill maps onto the reduced span now. The handles
+  also went from solid pine to white with a pine ring: at full range —
+  which is the state every time somebody opens the filter — a pine handle
+  on a pine fill was one dark bar with two dark blobs, and nothing said
+  they moved. The two prices join into one reading ("₹140 – ₹1,499")
+  instead of sitting at opposite ends of the control as two unrelated
+  figures.
+- **The browse hero was half a screen of chrome; it is half that now
+  (owner: "this takes up a lot of space, does not look nice").** `/shop`
+  ran ~420px before the filters — breadcrumb, a 52px title, a tagline, a
+  row of stat pills, the location bar, the cross-link rail, then the
+  featured strip, each on its own line. Nothing was dropped: the title
+  and tagline share a baseline, the counts / area / sibling links share
+  one wrapping row, the featured strip's label moved beside its pills,
+  and the title's clamp tops out at 40px instead of 52px. **246px.**
+  `/gifts` got the same treatment, because the two verticals have to keep
+  one composition.
+- **Footer rebalanced** onto the wide container: the brand column
+  *narrows* (1.4fr → 1.15fr), because past a point it stopped using what
+  it was given and the surplus became a hole beside "Services".
+- Nine new unit tests (`lib/diet.spec.ts`) pinning the two rules above,
+  including the contradictory-tags case and blank-is-not-zero. Docs
+  updated: `CLAUDE.md` (the two container widths, the new nav rule, a
+  section for the two facts), `docs/API.md`, `docs/DATA-MODEL.md`,
+  `docs/TESTING.md`, and `header-capacity.spec.ts`'s own account of the
+  budget it guards.
+
 ## 2026-09-04 — the two portals, made usable: one form kit, section nav, save bars, and every queue on the same toolbar
 
 The HomeKrafter portal and the admin panel had grown screen by screen

@@ -42,7 +42,14 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
   return (
     <article className={styles.card}>
       <div className={styles.head}>
-        <MakerPortrait vendor={vendor} />
+        {/* 96px, up from the 68px default (owner, 2026-09-05: "increase
+            the size of the images under chefs"). This section's whole
+            claim is that a real person cooked it, and the person was the
+            smallest thing on the card — smaller than the dish thumbnail
+            below them. The card grew with `container-wide`, so the
+            portrait grows into the room rather than at the copy's
+            expense; `.head`'s `min-height` moves with it. */}
+        <MakerPortrait vendor={vendor} size={96} />
         <div className={styles.who}>
           <h3 className={styles.name}>{vendor.name}</h3>
           <p className={styles.location}>{vendor.location}</p>
@@ -62,7 +69,7 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
           `ImageSlot` handles both halves — a bundled or uploaded photo,
           or the hatch placeholder for a kitchen that has not added one.
           `alt=""` because the product's name is the very next node
-          (`ImageSlot`'s own rule), and `sizes` because this is a 56px
+          (`ImageSlot`'s own rule), and `sizes` because this is a 104px
           thumbnail, not a grid card: without it the browser downloads a
           viewport-wide image to fill it.
         */
@@ -75,7 +82,7 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
               "bestseller" with no sales behind it is a claim (M52). */}
           <span className={styles.pickLabel}>Their top-rated</span>
           <span className={styles.pickRow}>
-            {/* 72px since M60 — see `.pickThumb`. */}
+            {/* 104px since 2026-09-05 — see `.pickThumb`. */}
             <span className={styles.pickThumb}>
               <ImageSlot
                 ratio="1/1"
@@ -84,7 +91,7 @@ export function MakerCard({ vendor, bestseller, bestsellerPrice }: MakerCardProp
                 label={bestseller.images[0]?.placeholder ?? bestseller.name}
                 src={bestseller.images[0]?.src}
                 alt=""
-                sizes="72px"
+                sizes="104px"
               />
             </span>
             <span className={styles.pickName}>{bestseller.name}</span>

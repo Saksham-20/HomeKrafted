@@ -42,7 +42,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | `Category` | name, productCount | referenced by `Product.categoryId` |
 | `Occasion` | name, initial, **celebratedOn? / tagline? / imageSrc? (M16)** | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
 | `Collection` | title, productIds[], **imageSrc? / featured / sortOrder (M16)** | many-to-many with `Product` (by id list, not a join table yet) |
-| `Product` | vendorId, categoryId, occasionIds[], dietary[], images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[], isPackaged, cashbackPct, moderationStatus? (`pending`\|`active`\|`rejected`\|`hidden`\|`flagged` — **defaults to `pending` since M22**), moderationNote?/moderatedAt?/submittedAt? (M22), featured? (M11b) | belongs to `Vendor` |
+| `Product` | vendorId, categoryId, occasionIds[], dietary[], prepTimeMins? (2026-09-05 — minutes of notice **this listing** needs; NULL is "not stated", never zero, and drives the buyer-facing "Pre-order" badge and nothing else. Deliberately not resolved against `VendorProfile.prepTimeMins`, which is the kitchen default and falls back to 90 minutes when unstated — reading the badge through it would stamp it on nearly every food listing), images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[], isPackaged, cashbackPct, moderationStatus? (`pending`\|`active`\|`rejected`\|`hidden`\|`flagged` — **defaults to `pending` since M22**), moderationNote?/moderatedAt?/submittedAt? (M22), featured? (M11b) | belongs to `Vendor` |
 | `Cart` (+`CartItem`) | items[{productId?, sku?, hamperId?, quantity, giftWrap?, addressId?}] | belongs to `User`; a line is *either* a product (`productId`+`sku`) *or* an assembled hamper (`hamperId`), never both — see "Polymorphic cart/order lines" below; `CartItem.addressId` enables multi-address checkout |
 | `Wishlist` | items[{productId, addedAt}] | belongs to `User` |
 | `HamperBox` | name, maxItems, price | referenced by `Hamper.boxId` |
@@ -771,10 +771,21 @@ new kind of subscription or a new snack meant a migration:
   kitchen already listed disappears. New items should go through
   `Product`; don't add a third table.
 - **An untagged product reads as non-veg on the snacks menu**, not veg.
-  `DietaryTag` has no "non-veg" member, so absence is genuinely unknown —
-  and the two guesses are not symmetric. A vegetarian buyer relies on that
-  label, so the wrong "veg" is harmful and the wrong "non-veg" is only
-  unhelpful.
+  Absence is genuinely unknown — and the two guesses are not symmetric. A
+  vegetarian buyer relies on that label, so the wrong "veg" is harmful
+  and the wrong "non-veg" is only unhelpful.
+
+  `DietaryTag` gained **`non_vegetarian`** and **`contains_egg`** on
+  2026-09-05, so the guess above is now only for rows written before
+  that date. Nothing is backfilled: a listing carrying neither member
+  reads as "we never asked", `dietOf()` (`client/lib/diet.ts`) answers
+  `undefined` for it, no mark is drawn on its card, and it appears under
+  **neither** the Veg nor the Non-veg browse filter. Contradictory data
+  (both members present) resolves to non-veg — the reading that cannot
+  mislead. Egg is deliberately *not* a third mark: FSSAI's own scheme has
+  two, and whether egg counts as vegetarian is answered differently by
+  different people, so it rides as a filterable fact and leaves the mark
+  where the maker left it.
 
 ## Indexes (M37 perf pass)
 

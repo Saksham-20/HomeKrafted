@@ -8,17 +8,41 @@ import type { ShippingScopeFilter } from "@/lib/browse-params";
  * without a browser (`browse-facets.spec.ts`).
  */
 
+/**
+ * Veg and non-veg lead, because on an Indian food marketplace they are
+ * the filter people reach for first and the rest are refinements. Both
+ * are `DietaryTag` members like any other (added 2026-09-05) — there is
+ * no separate veg column and no tri-state boolean, so the OR-within-a-
+ * facet rule below already gives "veg or non-veg" the right meaning.
+ *
+ * Ticking Veg cannot show an untagged listing, which is the point: a
+ * listing whose maker was never asked matches neither box. See
+ * `lib/diet.ts` for why absence is never read as an answer.
+ */
 export const DIETARY_OPTIONS: DietaryTag[] = [
   "vegetarian",
+  "non-vegetarian",
   "vegan",
+  "contains-egg",
   "gluten-free",
   "sugar-free",
   "contains-nuts",
 ];
 
+/**
+ * The subset the "Veg / Non-veg" quick filter offers, kept apart from
+ * the full list so the pill and the sheet cannot drift into offering
+ * different things.
+ */
+export const DIET_MARK_OPTIONS: DietaryTag[] = ["vegetarian", "non-vegetarian"];
+
 export const DIETARY_LABELS: Record<DietaryTag, string> = {
-  vegetarian: "Vegetarian",
+  // "Pure veg" rather than "Vegetarian": it is the phrase every Indian
+  // food surface uses, and `KitchenCard` has printed it since M51.
+  vegetarian: "Pure veg",
+  "non-vegetarian": "Non-veg",
   vegan: "Vegan",
+  "contains-egg": "Contains egg",
   "gluten-free": "Gluten-free",
   "sugar-free": "No added sugar",
   "contains-nuts": "Contains nuts",

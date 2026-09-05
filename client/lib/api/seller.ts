@@ -162,6 +162,13 @@ export interface SellerListingInput {
   categoryIds?: string[];
   occasionIds: string[];
   dietary: DietaryTag[];
+  /**
+   * Minutes of notice *this listing* needs (2026-09-05). Optional, and
+   * `undefined` means "not stated" — the server writes NULL and the
+   * buyer's card carries no "Pre-order" badge. Never send 0 for
+   * unanswered: that is a claim of no notice needed.
+   */
+  prepTimeMins?: number;
   description: string;
   isPackaged: boolean;
   /** Lists it on `/hamper` as a ready-made gift hamper (M18). */
@@ -200,6 +207,7 @@ export async function createSellerListing(
       categoryIds: input.categoryIds,
       occasionIds: input.occasionIds,
       dietary: input.dietary,
+      prepTimeMins: input.prepTimeMins,
       images: [
         {
           placeholder: `${input.name} product photo`,
@@ -240,6 +248,7 @@ export async function updateSellerListing(
     product.categoryId = input.categoryId;
     product.occasionIds = input.occasionIds;
     product.dietary = input.dietary;
+    product.prepTimeMins = input.prepTimeMins;
     product.description = input.description;
     product.isPackaged = input.isPackaged;
     product.isHamper = input.isHamper;

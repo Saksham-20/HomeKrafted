@@ -234,12 +234,12 @@ export default async function Home() {
         "anything else?" row, and it only makes sense after the page's
         two main answers.
       */}
-      <section className={clsx("container", styles.quickEntry)}>
+      <section className={clsx("container", "container-wide", styles.quickEntry)}>
         <QuickEntryRow items={quickEntries} detail={quickEntryDetail} />
       </section>
 
       {seasonal && (
-        <section className={clsx("container", styles.seasonal)}>
+        <section className={clsx("container", "container-wide", styles.seasonal)}>
           <SeasonalBand
             occasion={seasonal.occasion}
             days={seasonal.days}
@@ -255,7 +255,7 @@ export default async function Home() {
         was rendering below four rails of jars.
       */}
       {makers.length > 0 && (
-        <section className={clsx("container", styles.section)}>
+        <section className={clsx("container", "container-wide", styles.section)}>
           <div className={styles.sectionHead}>
             <div>
               <span className={styles.eyebrow}>Real people, real kitchens</span>
@@ -285,7 +285,7 @@ export default async function Home() {
         rails. Framed as what arrives, not "watch it being made": the
         clips show tiffins landing, not kadais.
       */}
-      <section className={clsx("container", styles.section)}>
+      <section className={clsx("container", "container-wide", styles.section)}>
         <div className={styles.sectionHead}>
           <div>
             <span className={styles.eyebrow}>From real orders</span>
@@ -299,7 +299,7 @@ export default async function Home() {
       </section>
 
       {loved.length > 0 && (
-        <section className={clsx("container", styles.section)}>
+        <section className={clsx("container", "container-wide", styles.section)}>
           <div className={styles.sectionHead}>
             <div>
               <span className={styles.eyebrow}>Reviewed by people who ate it</span>
@@ -322,7 +322,7 @@ export default async function Home() {
         </section>
       )}
 
-      <section className={clsx("container", styles.section)}>
+      <section className={clsx("container", "container-wide", styles.section)}>
         <div className={styles.sectionHead}>
           <div>
             {/* Every photographed category is food (M33) — the eyebrow
@@ -348,7 +348,7 @@ export default async function Home() {
         </ScrollRail>
       </section>
 
-      <section className={clsx("container", styles.section)}>
+      <section className={clsx("container", "container-wide", styles.section)}>
         <div className={styles.sectionHead}>
           <div>
             <span className={styles.eyebrow}>Handcrafted gifts</span>
@@ -391,7 +391,7 @@ export default async function Home() {
 
       {/* Admin-editable copy (M11b `/admin/collections`) — see
           `getHomePromoBands`. */}
-      <section className={clsx("container", styles.section)}>
+      <section className={clsx("container", "container-wide", styles.section)}>
         <div className={styles.bandsGrid}>
           {promoBands.map((band) => (
             <PromoBand
@@ -410,11 +410,11 @@ export default async function Home() {
       {/* The supply side. A two-sided marketplace whose home page never
           addressed the supply half was leaving the harder side of the
           problem to the footer. */}
-      <section className={clsx("container", styles.section)}>
+      <section className={clsx("container", "container-wide", styles.section)}>
         <SellCta />
       </section>
 
-      <section className={clsx("container", styles.section)}>
+      <section className={clsx("container", "container-wide", styles.section)}>
         <AppInstallPanel />
       </section>
     </>

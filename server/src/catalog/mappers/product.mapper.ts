@@ -95,6 +95,23 @@ export function mapProduct(product: ProductWithRelations) {
     // decides whether "delivers to your area" is the right thing to say.
     kind: product.kind,
     shippingScope: product.shippingScope,
+    /**
+     * How much notice this listing needs, when its maker said (2026-09-05).
+     * `undefined` rather than `null` for "not stated", so the card can
+     * branch on presence — and it must, because nothing may be inferred
+     * from absence here.
+     *
+     * **Deliberately not resolved against `VendorProfile.prepTimeMins`.**
+     * That is the kitchen's default and it lives on a separate 1:1 row
+     * that M16 keeps off listing queries on purpose — joining it here
+     * would put a profile fetch on every browse query to decide a badge.
+     * It also would not mean what the badge says: the platform default is
+     * 90 minutes for a kitchen that has stated nothing, so resolving
+     * through it would stamp "Pre-order" on essentially every food
+     * listing on the site. The badge is a claim the maker made about
+     * *this* dish, or it is not made.
+     */
+    prepTimeMins: product.prepTimeMins ?? undefined,
     // Round-trips with the seller's edit form. Without it the "also list
     // this on my snacks menu" checkbox reads as unticked on a listing that
     // is already on the menu, and saving would quietly take it off.

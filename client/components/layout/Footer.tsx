@@ -38,7 +38,7 @@ export async function Footer() {
 
   return (
     <footer className={styles.footer}>
-      <div className={clsx("container", styles.top)}>
+      <div className={clsx("container", "container-wide", styles.top)}>
         <div className={styles.brandCol}>
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
           <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
@@ -77,7 +77,7 @@ export async function Footer() {
           something has gone wrong, and the ones Razorpay requires to be
           published before a live account is activated — so they live in
           the footer of every page rather than behind Support. */}
-      <div className={clsx("container", styles.legal)}>
+      <div className={clsx("container", "container-wide", styles.legal)}>
         <span>
           © {year} Homekrafted · Made with love in real homes ·{" "}
           {/* Studio credit, owner's request 2026-08-30 (linked since the

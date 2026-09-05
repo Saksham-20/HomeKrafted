@@ -253,6 +253,9 @@ export const products: Product[] = [
     featured: true,
     occasionIds: ["oc3", "oc5", "oc7"],
     dietary: ["vegetarian"],
+    // Two days. A hamper is assembled per order, so it is the honest
+    // demo case for the "Pre-order" badge (2026-09-05).
+    prepTimeMins: 2880,
     images: [
       {
         placeholder: "Festive Assorted Hamper product photo",
@@ -558,6 +561,9 @@ export const products: Product[] = [
     categoryId: "ct4",
     occasionIds: ["oc1", "oc2", "oc8"],
     dietary: ["vegetarian", "contains-nuts"],
+    // Baked to order — four hours, so the badge reads in hours rather
+    // than days and both label branches are visible in the demo.
+    prepTimeMins: 240,
     images: [
       {
         placeholder: "Walnut Jaggery Brownies \u2014 product photo",

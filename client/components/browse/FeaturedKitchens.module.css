@@ -1,10 +1,19 @@
 /* "Featured kitchens" row at the foot of the browse hero (M59c). */
 
+/*
+  The label sits **beside** the row rather than above it (2026-09-05).
+  It is four words of 11px mono, and a line of its own cost the browse
+  hero ~30px for something that is only saying what the pills next to it
+  already look like. `align-items: center` keeps it on the pills' middle;
+  it wraps above them on a narrow screen, where the row needs the width
+  more than the alignment.
+*/
 .strip {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: var(--hk-s2);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s2) var(--hk-s4);
   padding-top: var(--hk-s3);
   border-top: 1px solid var(--hk-border-2);
 }
@@ -15,6 +24,13 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--hk-muted);
+  flex: none;
+}
+
+/* Takes the width the label leaves, instead of sitting at its intrinsic
+   size and leaving a gap on the right. */
+.row {
+  flex: 1 1 320px;
 }
 
 .row {

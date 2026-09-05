@@ -12,10 +12,23 @@
   margin-top: var(--hk-s5);
 }
 
+/* Four columns at the wide container (2026-09-05, owner: "the footer
+   feels outdated"). The grid itself is unchanged in kind; what changed
+   is that it now has 1352px rather than 1092px, so the brand column can
+   hold its blurb on two lines instead of four and the three link
+   columns stop sitting shoulder to shoulder. The brand column takes
+   1.6fr of it — it carries the lockup, a paragraph and the social row,
+   and at 1.4fr those wrapped harder than the single-word links beside
+   them.
+
+   `column-gap` is bigger than `row-gap`: at 780px the grid folds to two
+   columns and the rows want less air between them than the columns do,
+   which one `gap` cannot say. */
 .top {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1fr;
-  gap: var(--hk-s6);
+  grid-template-columns: 1.6fr 1fr 1fr 1fr;
+  column-gap: var(--hk-s8);
+  row-gap: var(--hk-s6);
   padding-block: var(--hk-s7) var(--hk-s6);
   border-bottom: 1px solid var(--hk-footer-border);
 }
@@ -46,7 +59,11 @@
   line-height: 1.6;
   color: var(--hk-footer-muted);
   margin-top: var(--hk-s3);
-  max-width: 270px;
+  /* 270px until 2026-09-05 — four lines in the widened column, which is
+     a paragraph pretending to be a column. Still capped rather than
+     free: this is running copy, so it keeps a readable measure while the
+     grid gets the rest. */
+  max-width: 340px;
 }
 
 /* Social profiles (M56). 40px targets on the dark ground; the ring is

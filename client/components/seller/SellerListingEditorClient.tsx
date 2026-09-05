@@ -46,6 +46,8 @@ function productToFormValues(product: Product): ListingFormValues {
     categoryIds: product.categoryIds ?? [],
     occasionIds: product.occasionIds,
     dietary: product.dietary,
+    // Blank when the listing has never been asked — see `parsePrepTime`.
+    prepTimeMins: product.prepTimeMins === undefined ? "" : String(product.prepTimeMins),
     description: product.description,
     isPackaged: product.isPackaged,
     isHamper: product.isHamper ?? false,

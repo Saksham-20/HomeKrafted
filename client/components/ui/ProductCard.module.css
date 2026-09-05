@@ -249,3 +249,46 @@
   font-weight: 500;
   white-space: nowrap;
 }
+
+/* ---- The diet mark (2026-09-05) ----
+   Beside the product name, which is where FSSAI's own scheme puts it and
+   where a shopper scanning a grid is already looking. `<DietDot>` owns
+   the square and its accessible name; this rule only places it.
+
+   `vertical-align` rather than a flex row on `.name`: the name wraps to
+   two lines in a 212px column, and a flex row would put the mark beside
+   the *block* instead of beside the first word. */
+.diet {
+  margin-right: 5px;
+  vertical-align: baseline;
+}
+
+/* ---- The pre-order badge (2026-09-05) ----
+   Bottom-left of the photograph, opposite the wishlist heart at the top
+   right, so the two overlays never meet. Pine rather than gold: gold
+   never carries text (M34), and this badge is words.
+
+   Not a `<Tag>`: `.tag` is the merchandising chip (Bestseller, Festive)
+   and sits top-left. Two chips in one corner would stack; two meanings
+   in one component would be worse. */
+.preOrder {
+  position: absolute;
+  left: var(--hk-s2);
+  bottom: var(--hk-s2);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: var(--hk-on-pine);
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  /* The photograph is the badge's only backdrop and it can be any
+     colour, so the chip carries its own separation rather than trusting
+     the image under it. */
+  box-shadow: 0 1px 6px -2px rgba(20, 40, 30, 0.55);
+}

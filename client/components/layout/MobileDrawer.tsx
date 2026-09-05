@@ -41,6 +41,13 @@ export function MobileDrawer({
   showAdminSwitch,
 }: MobileDrawerProps) {
   const { count: wishlistCount } = useWishlist();
+  /* Only the secondary entries the primary group does not already
+     carry — see the "More ways to order" block below. Compared on
+     `href`, not on `label`, because the two lists deliberately word the
+     same destination differently ("Meal plans" in the strip, the
+     owner's "Subscription Plans" in the nav). */
+  const primaryHrefs = new Set(navItems.map((item) => item.href));
+  const extraItems = secondaryItems.filter((item) => !primaryHrefs.has(item.href));
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -137,20 +144,30 @@ export function MobileDrawer({
             above and labelled, because these are flows rather than
             things to browse — but they are in the same panel at the same
             tap size, which is the point: the desktop row lost them, the
-            phone did not. */}
-        <nav className={styles.secondaryList} aria-label="More ways to order">
-          <span className={styles.secondaryHeading}>More ways to order</span>
-          {secondaryItems.map((item) => (
-            <Link
-              key={item.href + item.label}
-              href={item.href}
-              className={styles.secondaryItem}
-              onClick={onClose}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+            phone did not.
+
+            Deduplicated against the group above since 2026-09-05, when
+            the desktop nav grew to six and took Meal plans and Corporate
+            & bulk back. On the home page a tab and a quick-entry tile
+            saying the same thing are two different offers — the tile
+            explains, the tab shortcuts. In one vertical list they are
+            just the same link printed twice, which reads as a bug. The
+            group disappears entirely if nothing is left in it. */}
+        {extraItems.length > 0 && (
+          <nav className={styles.secondaryList} aria-label="More ways to order">
+            <span className={styles.secondaryHeading}>More ways to order</span>
+            {extraItems.map((item) => (
+              <Link
+                key={item.href + item.label}
+                href={item.href}
+                className={styles.secondaryItem}
+                onClick={onClose}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
 
         <div className={styles.divider} />
 

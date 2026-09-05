@@ -1,9 +1,13 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import clsx from "clsx";
+import { Clock } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { Tag } from "./Tag";
+import { DietDot } from "./DietDot";
 import { formatCurrency } from "@/lib/format";
+import { dietOf } from "@/lib/diet";
+import { preOrderLabel } from "@/lib/pre-order";
 import type { Product } from "@/lib/types";
 import styles from "./ProductCard.module.css";
 
@@ -102,6 +106,8 @@ export function ProductCard({
     product.weightOptions[0];
   const image = product.images[0];
   const tag = product.tags[0];
+  const diet = dietOf(product);
+  const preOrder = preOrderLabel(product);
 
   return (
     // No click handling here on purpose: the stretched `<Link>` below is
@@ -121,6 +127,23 @@ export function ProductCard({
           compact
         />
         {tag && <Tag label={tag} className={styles.tag} />}
+        {/*
+          "Pre-order · 2 days" (2026-09-05, owner). On the photograph
+          rather than in the meta line, because it changes whether
+          somebody can have this today — that is a decision made while
+          scanning a grid, not after opening the listing.
+
+          `preOrderLabel` returns `undefined` unless the *listing's own*
+          `prepTimeMins` clears the threshold, so a listing whose maker
+          was never asked carries nothing. See `lib/pre-order.ts` for why
+          it never falls back to the kitchen's default.
+        */}
+        {preOrder && (
+          <span className={styles.preOrder}>
+            <Clock size={12} strokeWidth={2} aria-hidden="true" />
+            {preOrder}
+          </span>
+        )}
         <button
           type="button"
           className={clsx(styles.wishlist, wishlisted && styles.wishlisted)}
@@ -146,6 +169,15 @@ export function ProductCard({
       <div className={styles.content}>
         <span className={styles.maker}>{makerName}</span>
         <span className={styles.name}>
+          {/*
+            The FSSAI-style mark, beside the name where that scheme puts
+            it. Absent for a craft listing and for any food listing whose
+            maker has not been asked — `dietOf` answers `undefined` for
+            both and never guesses between them, because a green mark on
+            an untagged dish is the one mistake here that can hurt
+            somebody (`lib/diet.ts`).
+          */}
+          {diet && <DietDot diet={diet} className={styles.diet} />}
           {href ? (
             <Link href={href} className={styles.nameLink}>
               {product.name}

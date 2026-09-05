@@ -14,6 +14,8 @@ import { DietaryTag as PrismaDietaryTag } from '@prisma/client';
 const TO_FRONTEND: Record<PrismaDietaryTag, string> = {
   vegetarian: 'vegetarian',
   vegan: 'vegan',
+  non_vegetarian: 'non-vegetarian',
+  contains_egg: 'contains-egg',
   gluten_free: 'gluten-free',
   sugar_free: 'sugar-free',
   contains_nuts: 'contains-nuts',
@@ -22,6 +24,8 @@ const TO_FRONTEND: Record<PrismaDietaryTag, string> = {
 const FROM_FRONTEND: Record<string, PrismaDietaryTag> = {
   vegetarian: 'vegetarian',
   vegan: 'vegan',
+  'non-vegetarian': 'non_vegetarian',
+  'contains-egg': 'contains_egg',
   'gluten-free': 'gluten_free',
   'sugar-free': 'sugar_free',
   'contains-nuts': 'contains_nuts',

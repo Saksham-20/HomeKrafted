@@ -18,9 +18,24 @@ import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
 
+/**
+ * Veg or non-veg, asked ahead of the notes below and answered once.
+ *
+ * The guided flow hides questions, never capability (M45) — so it asks
+ * this one, because it is the answer buyers filter on and the mark on
+ * the card. It stays optional here as it is in the long form: a maker
+ * who skips it publishes a listing with no mark, which is honest, and
+ * demanding it would block a listing over a question the platform only
+ * started asking on 2026-09-05.
+ */
+const DIET_MARK_OPTIONS: { value: DietaryTag; label: string }[] = [
+  { value: "vegetarian", label: "Veg" },
+  { value: "non-vegetarian", label: "Non-veg" },
+];
+
 const DIETARY_OPTIONS: { value: DietaryTag; label: string }[] = [
-  { value: "vegetarian", label: "Vegetarian" },
   { value: "vegan", label: "Vegan" },
+  { value: "contains-egg", label: "Has egg in it" },
   { value: "gluten-free", label: "Gluten-free" },
   { value: "sugar-free", label: "Sugar-free" },
   { value: "contains-nuts", label: "Has nuts in it" },
@@ -158,6 +173,14 @@ export function GuidedListingForm({
         ? values.dietary.filter((d) => d !== tag)
         : [...values.dietary, tag],
     );
+  }
+
+  /** Exclusive, and pressing the selected chip clears it — see `ListingForm.setDietMark`. */
+  function setDietMark(mark: DietaryTag) {
+    const withoutMarks = values.dietary.filter(
+      (d) => d !== "vegetarian" && d !== "non-vegetarian",
+    );
+    set("dietary", values.dietary.includes(mark) ? withoutMarks : [...withoutMarks, mark]);
   }
 
   /** Subcategories carry their parent's name — see `ListingForm` for why. */
@@ -472,7 +495,26 @@ export function GuidedListingForm({
             {!isCraft && (
               <fieldset className={styles.choiceSet}>
                 <legend className={styles.question}>
-                  Anything a buyer should know? <span className={styles.optional}>optional</span>
+                  Is it veg or non-veg? <span className={styles.optional}>optional</span>
+                </legend>
+                <div className={styles.chipGroup}>
+                  {DIET_MARK_OPTIONS.map((option) => (
+                    <Chip
+                      key={option.value}
+                      label={option.label}
+                      selected={values.dietary.includes(option.value)}
+                      onClick={() => setDietMark(option.value)}
+                    />
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
+            {values.kind === "food" && (
+              <fieldset className={styles.fieldset}>
+                <legend className={styles.question}>
+                  Anything else a buyer should know?{" "}
+                  <span className={styles.optional}>optional</span>
                 </legend>
                 <div className={styles.chipGroup}>
                   {DIETARY_OPTIONS.map((option) => (

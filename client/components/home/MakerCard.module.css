@@ -25,9 +25,12 @@
   align-items: center;
   gap: var(--hk-s3);
   width: 100%;
-  /* The portrait is 72px and the name block is two lines — pinning the
-     row keeps every card's bio starting on the same y. */
-  min-height: 68px;
+  /* The portrait is 96px and the name block is two lines — pinning the
+     row keeps every card's bio starting on the same y. This number
+     tracks the `size` passed to `<MakerPortrait>` in `MakerCard.tsx`;
+     they are two halves of one measurement, so change them together or
+     the bios stop lining up across the row. */
+  min-height: 96px;
 }
 
 /* `min-width: 0` so a long storefront name wraps inside the row instead
@@ -137,12 +140,15 @@
 
 /* The bestseller's own photograph. Fixed square so a portrait and a
    landscape listing produce the same row height across the four cards. */
-/* 72px, up from 56px (M60): the photograph is the most persuasive thing
-   on the card and it was rendering smaller than the line of text beside
-   it. */
+/* 104px, up from 72px (2026-09-05), which was itself up from 56px
+   (M60): the photograph is the most persuasive thing on the card and it
+   was rendering smaller than the line of text beside it. The card's
+   track grew when the home page moved to `container-wide`, and a
+   thumbnail that does not grow with its card just re-opens the gap the
+   last two increases closed. */
 .pickThumb {
   flex: none;
-  width: 72px;
+  width: 104px;
   border-radius: var(--hk-r-sm);
   overflow: hidden;
   border: 1px solid var(--hk-border);

@@ -156,12 +156,32 @@ enum VendorType {
   homekrafted
 }
 
+/// A listing's dietary facts, as stated by the HomeKrafter who makes it.
+///
+/// `non_vegetarian` and `contains_egg` were added 2026-09-05, and the
+/// reason is that **absence of `vegetarian` never meant non-veg**. A
+/// candle carries no dietary tags; so does a curry whose cook left the
+/// question blank. Every surface that wanted to offer a non-veg filter
+/// therefore had to guess, and the guesses are not symmetric — a
+/// vegetarian buyer relies on this label, so labelling an untagged dish
+/// "veg" is a claim that can be wrong in a way that matters, while
+/// labelling it "non-veg" is merely unhelpful (see
+/// `snacks.service.ts`, which has been failing towards the harmless one
+/// since M20).
+///
+/// **Nothing is backfilled.** A pre-2026-09-05 row carries neither new
+/// member, which correctly reads as "we never asked", and such a listing
+/// appears under *neither* the Veg nor the Non-veg filter rather than
+/// under a guessed one. The listing form asks food makers directly and
+/// the gap closes listing by listing — the same shape as M36's pincodes.
 enum DietaryTag {
   vegetarian
   vegan
-  gluten_free   @map("gluten-free")
-  sugar_free    @map("sugar-free")
-  contains_nuts @map("contains-nuts")
+  non_vegetarian @map("non-vegetarian")
+  contains_egg   @map("contains-egg")
+  gluten_free    @map("gluten-free")
+  sugar_free     @map("sugar-free")
+  contains_nuts  @map("contains-nuts")
 }
 
 enum ProductTag {
@@ -1757,6 +1777,23 @@ model Product {
   /// Defaults to `local`, which is what every pre-M20 listing was.
   shippingScope       ProductShippingScope    @default(local)
   dietary             DietaryTag[]
+  /// How much notice *this listing* needs, in minutes (2026-09-05).
+  ///
+  /// `VendorProfile.prepTimeMins` is the kitchen's default and stays the
+  /// fallback; this is the per-listing override, and it exists because
+  /// the two are genuinely different questions. A kitchen that answers
+  /// "90 minutes" is telling you about a thali, and the same kitchen's
+  /// celebration cake needs two days. Without this column the "Pre-order"
+  /// badge could only be a kitchen-wide fact, and since the platform
+  /// default is 90 minutes when unstated, a ">30 minutes" rule would have
+  /// stamped the badge on essentially every food listing on the site —
+  /// which is noise, not information.
+  ///
+  /// NULL means "not stated for this listing", never zero: read it
+  /// through `effectivePrepTimeMins` in `catalog/pre-order.ts`, which
+  /// falls back to the kitchen and then to the platform default. Same
+  /// absence-is-not-a-closure rule as M16's `workingDays`.
+  prepTimeMins        Int?
   defaultWeightSku    String
   rating              Decimal                 @default(0) @db.Decimal(2, 1)
   reviewCount         Int                     @default(0)

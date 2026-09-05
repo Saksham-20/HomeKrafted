@@ -23,13 +23,19 @@ import type { Category, Occasion, Product, Vendor } from "@/lib/types";
 import styles from "./ShopClient.module.css";
 
 /**
- * How many cards get `priority` — the first row at the widest layout this
- * grid reaches. Three here, not five like the sidebar-less grids, because
- * this page gives a column to filters; measured at 1280px.
+ * How many cards get `priority` — the leading cards of the first row,
+ * which is where the LCP element lands.
  *
  * A single card is not enough: every card renders the same size, so which
  * one wins LCP is decided by paint order, and at 1280px Next named the
  * second one. Marking one card was a fix that happened to miss.
+ *
+ * Deliberately **not** raised to match the row (2026-09-05). The row went
+ * from three cards to six when the page moved to `container-wide`, and
+ * the sidebar this comment used to blame for the difference is gone
+ * (M59b) — but priority is a *ranking*, and marking six is the same as
+ * marking none (`ImageSlot`'s own rule). Three still covers whichever
+ * card paints first at every width.
  */
 const PRIORITY_CARDS = 3;
 
@@ -48,14 +54,33 @@ export interface ShopClientProps {
   initialQuery: string;
 }
 
-const PAGE_SIZE = 6;
+/**
+ * Dishes page in 24s (2026-09-05, up from 6).
+ *
+ * 6 was two rows of three at the old 1092px content width. The grid now
+ * runs six across on `container-wide`, so six was **one row** — a
+ * paginator under a single line of cards, which reads as a catalogue
+ * that has run out. 24 is four full rows at the widest and stays a
+ * whole number of rows at every column count the grid produces (6, 4, 3,
+ * 2), so no page ever ends on a ragged half-row.
+ *
+ * It is also inside the 24–48 band Baymard's product-list research puts
+ * the sweet spot in, and well inside what one fetch already holds: the
+ * page fetches 100 and filters client-side (M49), so a bigger page costs
+ * no request.
+ */
+const PAGE_SIZE = 24;
 
 /**
- * Kitchens page in eights, dishes in sixes. A kitchen card is taller than
- * a product card but carries four listings of its own, so eight of them
- * is roughly the same amount of catalogue per page.
+ * Kitchens page in nines, dishes in 24s. A kitchen card is much taller
+ * than a product card but carries four listings of its own, so a smaller
+ * number is roughly the same amount of catalogue per page.
+ *
+ * 8 until 2026-09-05, when the kitchen grid went from two columns to
+ * three — eight is two rows plus an orphan, and the orphan reads as a
+ * layout accident. Nine is three clean rows.
  */
-const KITCHEN_PAGE_SIZE = 8;
+const KITCHEN_PAGE_SIZE = 9;
 
 /** Shared with the kitchen cards so a "from ₹220" and the dish card under it cannot disagree. */
 const priceOf = listingPrice;
@@ -382,7 +407,7 @@ export function ShopClient({
   }));
 
   return (
-    <section className={clsx("container", styles.layout)}>
+    <section className={clsx("container", "container-wide", styles.layout)}>
       <MobileFilterSheet
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}

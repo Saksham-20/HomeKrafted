@@ -34,6 +34,21 @@ import { skipLocationPrompt } from '../fixtures/location';
  * but cannot be typed in, or a typable field that shoves the cart off the
  * screen.
  *
+ * **2026-09-05: the row stopped competing with the nav at all.** The
+ * owner asked for six nav items, which is the exact set M34 measured as
+ * unaffordable — so the header was split in two rows rather than the nav
+ * cut again: the lockup, the field and the controls keep the top row and
+ * the tabs get a strip of their own (`.navBar` in `Header.module.css`).
+ * Both rows are on `container-wide` (1440px, so 1352px of content), and
+ * the top row now holds four things instead of ten.
+ *
+ * Two consequences for this file. The budget it talks about is **1352px,
+ * not 1092px** — `rowRight` is read from the live DOM, so the assertions
+ * were already measuring the right box and did not change. And the
+ * failure advice changes: a regression here is no longer "cut the nav",
+ * because the nav is not in this row. It is something new in the actions
+ * strip, or the field's own `max-width`.
+ *
  * **Why this file asserts per-child geometry rather than page overflow.**
  * That same `overflow-x: hidden` is why `documentElement.scrollWidth`
  * never grew, so the QA sweep's OVERFLOW flag could not see any of this
@@ -143,7 +158,10 @@ for (const role of ROLES) {
       ).toEqual([]);
 
       // And the weaker-but-earlier signal: staying on the screen is the
-      // floor, staying inside the 1180px `.container` box is the contract.
+      // floor, staying inside the row's own container box is the
+      // contract — 1440px since 2026-09-05, read live off the element
+      // rather than hardcoded, which is why widening it needed no edit
+      // here.
       // Checked second so a failure reports the severe breach first.
       const spilled = geo.children.filter((c) => c.right > geo.rowRight + 1);
       expect(
@@ -178,7 +196,7 @@ for (const role of ROLES) {
       const geo = await headerGeometry(page);
       expect(
         geo.formWidth,
-        'the search pill is back to a stub — the row is over budget again, cut the nav rather than hiding the field',
+        'the search pill is back to a stub — the row is over budget again. The nav is not in this row any more (see the header comment), so look at what was added to the actions strip, or at `.searchSlot`\'s own max-width',
       ).toBeGreaterThanOrEqual(200);
       expect(geo.inputWidth, 'the pill is wide but the input inside it is not').toBeGreaterThanOrEqual(120);
     });

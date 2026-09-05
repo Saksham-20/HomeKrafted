@@ -14,6 +14,7 @@ import { commissionBreakdown, priceForTarget } from "@/lib/commission";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
+import { PRE_ORDER_THRESHOLD_MINS } from "@/lib/pre-order";
 import styles from "./ListingForm.module.css";
 
 export interface ListingFormWeightRow {
@@ -36,6 +37,16 @@ export interface ListingFormValues {
   categoryIds: string[];
   occasionIds: string[];
   dietary: DietaryTag[];
+  /**
+   * How much notice this listing needs, as typed — a string like every
+   * other numeric field in this form, so an empty box stays empty rather
+   * than becoming a 0 the moment it is focused. `toSellerListingInput`
+   * turns blank into `undefined`, never 0: 0 would be a claim that no
+   * notice is needed, and the whole point of the column is that "not
+   * stated" is a real answer. Same lesson as `parseStock` below, where a
+   * blank turning into 0 took sixteen live listings off sale.
+   */
+  prepTimeMins: string;
   description: string;
   isPackaged: boolean;
   isHamper: boolean;
@@ -56,6 +67,7 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   categoryIds: [],
   occasionIds: [],
   dietary: [],
+  prepTimeMins: "",
   description: "",
   isPackaged: true,
   isHamper: false,
@@ -69,9 +81,30 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   defaultRowIndex: 0,
 };
 
+/**
+ * The veg/non-veg question, asked on its own and answered exactly once
+ * (2026-09-05).
+ *
+ * It is separated from the notes below because it is a different kind of
+ * question: the others are "also true of this dish", this one is "which
+ * of two". Before today `DietaryTag` had no non-veg member at all, so
+ * every buyer-facing filter had to read the *absence* of `vegetarian` —
+ * which is also how a dish nobody asked about looks, and how a candle
+ * looks. See `lib/diet.ts`.
+ *
+ * Deliberately not required. A maker who skips it publishes a listing
+ * that carries no mark and appears under neither filter, which is
+ * honest; refusing to save without it would block a listing over a
+ * question the platform only started asking today.
+ */
+const DIET_MARK_OPTIONS: { value: DietaryTag; label: string }[] = [
+  { value: "vegetarian", label: "Veg" },
+  { value: "non-vegetarian", label: "Non-veg" },
+];
+
 const DIETARY_OPTIONS: { value: DietaryTag; label: string }[] = [
-  { value: "vegetarian", label: "Vegetarian" },
   { value: "vegan", label: "Vegan" },
+  { value: "contains-egg", label: "Contains egg" },
   { value: "gluten-free", label: "Gluten-free" },
   { value: "sugar-free", label: "Sugar-free" },
   { value: "contains-nuts", label: "Contains nuts" },
@@ -111,6 +144,24 @@ function slugify(value: string): string {
  */
 export const DEFAULT_STOCK = 10;
 
+/**
+ * Blank means "not stated", and that is `undefined` — never 0.
+ *
+ * A 0 here would read as "no notice needed", which is a claim, and it is
+ * the exact shape of the `parseStock` bug below: an empty box quietly
+ * becoming a number that means something. A typed 0 is also `undefined`
+ * rather than a stored zero, because "0 minutes of notice" is not a
+ * thing anybody means to say — the honest way to say it is to leave the
+ * box empty.
+ */
+export function parsePrepTime(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === "") return undefined;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.floor(n);
+}
+
 export function parseStock(raw: string): number {
   const trimmed = raw.trim();
   if (trimmed === "") return DEFAULT_STOCK;
@@ -137,6 +188,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     // before the kind was switched. Sending stale food fields on a candle
     // would put it on the snacks menu and label it vegan.
     dietary: values.kind === "craft" ? [] : values.dietary,
+    prepTimeMins: parsePrepTime(values.prepTimeMins),
     description: values.description,
     isPackaged: values.isPackaged,
     isHamper: values.isHamper,
@@ -242,6 +294,25 @@ export function ListingForm({
       "dietary",
       values.dietary.includes(tag) ? values.dietary.filter((d) => d !== tag) : [...values.dietary, tag],
     );
+  }
+
+  /**
+   * The veg/non-veg pair is one answer, not two independent ticks:
+   * picking one clears the other, and pressing the selected chip again
+   * clears both (back to "not stated", which is a legitimate state — see
+   * `DIET_MARK_OPTIONS`).
+   *
+   * Storing them in the same `dietary` array as the notes is what keeps
+   * the server contract a single list and the browse facet a single OR;
+   * the exclusivity is a property of this control, not of the column.
+   * `dietOf` resolves a contradictory pair safely anyway, because a
+   * payload can arrive from somewhere this control never touched.
+   */
+  function setDietMark(mark: DietaryTag) {
+    const withoutMarks = values.dietary.filter(
+      (d) => d !== "vegetarian" && d !== "non-vegetarian",
+    );
+    set("dietary", values.dietary.includes(mark) ? withoutMarks : [...withoutMarks, mark]);
   }
 
   function toggleTag(tag: ProductTag) {
@@ -650,7 +721,26 @@ export function ListingForm({
         {/* Food only. A candle has no dietary tags, and asking reads as a
             form that doesn't know what it's selling. */}
         {!isCraft && (
-          <Fieldset legend="Dietary" optional>
+          <Fieldset
+            legend="Veg or non-veg"
+            optional
+            hint="Shows as the green or red mark on your listing, and it is how buyers filter. Leave it blank if it does not apply — we would rather show nothing than the wrong mark."
+          >
+            <ChipRow>
+              {DIET_MARK_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={values.dietary.includes(option.value)}
+                  onClick={() => setDietMark(option.value)}
+                />
+              ))}
+            </ChipRow>
+          </Fieldset>
+        )}
+
+        {!isCraft && (
+          <Fieldset legend="Other dietary notes" optional>
             <ChipRow>
               {DIETARY_OPTIONS.map((option) => (
                 <Chip
@@ -662,6 +752,36 @@ export function ListingForm({
               ))}
             </ChipRow>
           </Fieldset>
+        )}
+
+        {/*
+          How much notice *this* listing needs (2026-09-05).
+
+          Asked on the listing rather than only on the kitchen because
+          they are different questions: a kitchen answering "90 minutes"
+          on its profile is describing a thali, and the same kitchen's
+          celebration cake needs two days. The kitchen's own figure stays
+          the scheduler's input and is untouched by this.
+
+          Food only, for the same reason the dietary questions are: a
+          craft listing's lead time is a shipping question, which
+          `shippingScope` already asks.
+        */}
+        {!isCraft && (
+          <Field
+            label="Notice you need for this dish"
+            optional
+            hint={`Minutes. Over ${PRE_ORDER_THRESHOLD_MINS} and buyers see a "Pre-order" badge with the time on it, so they know it is not for today. Leave it blank if this one goes out with everything else.`}
+          >
+            <Input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              value={values.prepTimeMins}
+              onChange={(event) => set("prepTimeMins", event.target.value)}
+              placeholder="e.g. 2880 for two days"
+            />
+          </Field>
         )}
 
         <Fieldset legend="Tags" optional>
