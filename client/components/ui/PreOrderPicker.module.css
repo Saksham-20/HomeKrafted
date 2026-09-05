@@ -8,7 +8,7 @@
  *   text-muted-foreground           -> --hk-ink-muted
  *   bg-primary / primary-foreground -> --hk-pine / #fff
  *   border                          -> --hk-border
- *   rounded-2xl / shadow-lg         -> --hk-radius-lg + a soft token-tinted shadow
+ *   rounded-2xl / shadow-lg         -> --hk-r-lg + a soft token-tinted shadow
  */
 
 .card {
@@ -17,7 +17,13 @@
   background: var(--hk-surface);
   color: var(--hk-ink);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-lg);
+  /* `--hk-r-*`, not `--hk-radius-*`. Four files referenced a token
+     family that has never existed in `tokens.css`, so every one of these
+     corners rendered square — on the product page, the location prompt
+     and checkout — from the day they shipped until the 2026-09-05 design
+     review. An undefined custom property fails silently; it is worth a
+     grep before naming one. */
+  border-radius: var(--hk-r-lg);
   box-shadow: 0 6px 20px rgba(20, 28, 24, 0.06);
 }
 
@@ -66,7 +72,7 @@
   color: var(--hk-ink);
   background: none;
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-sm);
+  border-radius: var(--hk-r-sm);
   cursor: pointer;
   transition: background var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
 }
@@ -115,7 +121,7 @@
   color: var(--hk-ink);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--hk-radius-md);
+  border-radius: var(--hk-r-md);
   cursor: pointer;
   transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
 }
@@ -163,7 +169,7 @@
   color: var(--hk-ink);
   background: transparent;
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-md);
+  border-radius: var(--hk-r-md);
   cursor: pointer;
   transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
 }

@@ -6,7 +6,7 @@
   padding: 28px;
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-lg);
+  border-radius: var(--hk-r-lg);
 }
 
 .icon {

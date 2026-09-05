@@ -7,7 +7,7 @@
   margin-bottom: 14px;
   background: var(--hk-sand);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-md);
+  border-radius: var(--hk-r-md);
 }
 
 .icon {
@@ -46,7 +46,7 @@
   color: var(--hk-ink);
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-radius-sm);
+  border-radius: var(--hk-r-sm);
 }
 
 .change {
