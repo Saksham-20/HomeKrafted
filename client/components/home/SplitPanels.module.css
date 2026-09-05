@@ -297,21 +297,32 @@
   letter-spacing: -0.02em;
 }
 
+/* 17px, up from the 15px body token (owner, 2026-09-05: "increase the
+   size of text on the landing page buttons"). This is hero copy over a
+   photograph at half a screen wide, not a card caption; 15px read as an
+   afterthought under a 46px title. `--hk-footer-ink` is the on-dark ink
+   the token layer already ships for exactly this ramp. */
 .blurb {
-  font: var(--hk-body);
-  color: #e4ebe4;
+  font-family: var(--hk-font-body);
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--hk-footer-ink);
 }
 
 /* ---- the call to action ---- */
 
+/* 18px on a 48px disc (owner, 2026-09-05), up from 15px on 38px. The
+   CTA is the only action on each half of the first screen and it was set
+   smaller than the nav links above it; 48px also clears the 44px pointer
+   floor the disc had been under. */
 .cta {
   display: inline-flex;
   align-items: center;
   gap: var(--hk-s3);
-  margin-top: var(--hk-s2);
+  margin-top: var(--hk-s3);
   font-family: var(--hk-font-body);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 18px;
 }
 
 .gifts .cta {
@@ -323,10 +334,10 @@
 .ctaDisc {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
   transition: background-color var(--hk-dur) var(--hk-ease),
     border-color var(--hk-dur) var(--hk-ease),
     color var(--hk-dur) var(--hk-ease);
