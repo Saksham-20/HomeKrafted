@@ -270,23 +270,27 @@
   text-align: right;
 }
 
+/* 13px on a 36px pill, up from 11px on ~28 (owner, 2026-09-05:
+   "increase the size of order in and send one"). It is the first word on
+   each half and it was the smallest type on the screen. */
 .eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: var(--hk-r-pill);
-  background: rgba(27, 51, 39, 0.42);
+  background: rgba(27, 51, 39, 0.46);
   font-family: var(--hk-font-mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
 .icon {
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
 }
 
 .title {

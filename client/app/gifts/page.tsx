@@ -2,7 +2,6 @@ import clsx from "clsx";
 import { getCategories, getCraftProducts, getOccasions, getVendors } from "@/lib/api";
 import { getBuyerCoords } from "@/lib/location/server";
 import { GiftsClient } from "./GiftsClient";
-import { FeaturedPicks } from "@/components/browse/FeaturedPicks";
 import { HeroBanner } from "@/components/browse/HeroBanner";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Gifts.module.css";
@@ -60,42 +59,17 @@ export default async function GiftsPage({ searchParams }: GiftsPageProps) {
 
   const vendorNameById = Object.fromEntries(vendors.map((vendor) => [vendor.id, vendor.name]));
 
-  // Featured picks (M59c): the admin's merchandising flag first, then the
-  // best-rated of the rest — and only a reviewed rating counts (the M53
-  // "most loved" rule: an unreviewed listing carries `rating: 0`). The
-  // unreviewed tail fills leftover slots in catalogue order: the strip
-  // prints no rating, so featuring an unreviewed listing claims nothing —
-  // it is merchandising, same as the flag.
-  // One listing per maker while it can be — four picks from one storefront
-  // reads as an advert for that shop, not a picture of the catalogue.
-  const picksRanked = [
-    ...gifts.filter((gift) => gift.featured),
-    ...gifts
-      .filter((gift) => !gift.featured && gift.reviewCount > 0)
-      .sort((a, b) => b.rating - a.rating),
-    ...gifts.filter((gift) => !gift.featured && gift.reviewCount === 0),
-  ];
-  // A pool of up to 12 for the rotating window (4 visible at a time) —
-  // vendor-diverse first so any adjacent four aren't one storefront.
-  const featuredPicks: typeof picksRanked = [];
-  const featuredVendors = new Set<string>();
-  for (const pick of picksRanked) {
-    if (featuredPicks.length === 12) break;
-    if (featuredVendors.has(pick.vendorId)) continue;
-    featuredVendors.add(pick.vendorId);
-    featuredPicks.push(pick);
-  }
-  for (const pick of picksRanked) {
-    if (featuredPicks.length === 12) break;
-    if (!featuredPicks.includes(pick)) featuredPicks.push(pick);
-  }
+  // Counted from the listings that reached this buyer, like /shop's kitchen
+  // count — a maker appears exactly when something of theirs is live here.
+  const makerCount = new Set(gifts.map((gift) => gift.vendorId)).size;
 
   return (
     <>
-      {/* The hero band (M59b; long photo banner + rotating featured row
-          M59c) — same shape as /shop's, on the gold tint: two verticals,
-          two grounds, one composition. The banner photo sits behind the
-          copy under a wash that stays solid tint over the text column. */}
+      {/* The hero band (M59b; photo M59c; featured row removed 2026-09-05
+          with /shop's — it duplicated the grid under it) — same shape as
+          /shop's, on the gold tint: two verticals, two grounds, one
+          composition. The banner photo sits behind the copy under a wash
+          that stays solid tint over the text column. */}
       <div className={styles.hero}>
         <HeroBanner src="/images/site/split-gifts.jpg" tint="gold" />
         <div className={clsx("container", "container-wide", styles.heroInner)}>
@@ -111,21 +85,28 @@ export default async function GiftsPage({ searchParams }: GiftsPageProps) {
                 Handcrafted <em className={styles.titleAccent}>Gifts</em>
               </h1>
               <p className={styles.description}>
-                Handmade décor, candles, art, jewellery and personalised pieces, made by
-                independent HomeKrafters.
+                Décor, candles, art and jewellery by independent makers.
               </p>
             </div>
             {/*
-              The genuinely useful difference between the two verticals, said
-              plainly rather than discovered at checkout: food is cooked nearby
-              and driven to you, craft goes in the post.
+              One line of counts, the same shape as /shop's, ending on the one
+              fact the grid cannot say about itself: food is cooked nearby and
+              driven to you, craft goes in the post. It used to be its own
+              two-line paragraph under a two-line description (owner,
+              2026-09-05: "reduce the number of elements").
             */}
-            <p className={styles.shipping}>
-              Most gifts here ship <strong>anywhere in India</strong> — unlike homemade food,
-              which only travels as far as the kitchen delivers.
+            <p className={styles.stats}>
+              <strong>{gifts.length}</strong> handmade {gifts.length === 1 ? "gift" : "gifts"}
+              <span className={styles.statsDot} aria-hidden="true">
+                ·
+              </span>
+              <strong>{makerCount}</strong> {makerCount === 1 ? "maker" : "makers"}
+              <span className={styles.statsDot} aria-hidden="true">
+                ·
+              </span>
+              most ship <b className={styles.statsEm}>anywhere in India</b>
             </p>
           </div>
-          <FeaturedPicks products={featuredPicks} vendorNameById={vendorNameById} />
         </div>
       </div>
 

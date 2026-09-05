@@ -464,6 +464,12 @@ Sign in as **Ananya**.
 - **More cards per row.** `/shop` on **Kitchens** should show three
   kitchen cards a row (it was two); Dishes and `/gifts` should show six
   (they were five). No page should end on a lonely half-row.
+- **A leaner browse hero.** `/shop` and `/gifts` open with the
+  breadcrumb, the title and its one-line tagline, a single line of counts
+  ("8 home kitchens · 18 small-batch dishes") and the area control — the
+  featured-kitchens / featured-picks strip and the "Also from home
+  kitchens" links are gone on purpose. The photograph on the right of
+  the band should be clearly visible, not a faint tint.
 - **Bigger people.** On the home page's "Who is cooking", the chef
   portraits and their top-rated dish photo should both be noticeably
   larger than before.

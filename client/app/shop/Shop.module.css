@@ -17,9 +17,10 @@
   cross-link rail and the featured strip, each on its own line. Every one
   of those is worth keeping; none of them is worth a line of its own.
 
-  Same content, half the height: the title and tagline share a baseline,
-  the counts / area / sibling links share one wrapping row, and the
-  featured strip puts its label inline (see `FeaturedKitchens.module.css`).
+  Then cut further the same day (owner: "reduce the number of elements"):
+  the featured strip and the sibling-link rail are gone, the stat pills
+  are one mono line. What is left: the title and tagline on one baseline,
+  the counts and the area control on one wrapping row.
 */
 .heroInner {
   position: relative;
@@ -36,6 +37,11 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--hk-s2);
+  /* The copy keeps to the left ~60% so the photograph on the right is
+     seen, not just present (owner, 2026-09-05: "keep the background
+     image"). The wash in `HeroBanner.module.css` is solid to 44% and
+     thin past 70%; copy that ran the full width sat over the thin part. */
+  max-width: min(100%, 780px);
 }
 
 /*
@@ -88,45 +94,39 @@
   margin: 0;
 }
 
-/*
-  Counts, area and sibling surfaces on one wrapping row. `center`
-  alignment, because the location bar is a bordered control and the
-  others are pills and text — their boxes are different heights and only
-  their middles line up.
-
-  `.rail`'s own top margin is zeroed here: it was spacing itself off the
-  thing that used to be above it, and there is nothing above it now.
-*/
+/* The counts and the area control on one wrapping row. */
 .metaRow {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--hk-s2) var(--hk-s4);
+  gap: var(--hk-s2) var(--hk-s5);
   margin-top: 2px;
 }
 
-.metaRow > nav {
-  margin-top: 0;
-}
-
-.stat {
+/* One counted line, receipt type (2026-09-05, owner: "reduce the number
+   of elements"). It was two bordered pills; a sentence in mono says the
+   same thing with no boxes, and the numbers are still the loud part. */
+.stats {
   display: inline-flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 5px;
-  /* 36px, the same height as the location bar beside it — the row was
-     30 against 37 with `align-items: center` papering over it. */
+  margin: 0;
   min-height: 36px;
-  padding: 0 13px;
-  border: 1px solid var(--hk-border-2);
-  border-radius: var(--hk-r-pill);
-  background: var(--hk-surface);
+  font-family: var(--hk-font-mono);
   font-size: 13px;
+  letter-spacing: 0.02em;
   color: var(--hk-ink-3);
 }
 
-.stat strong {
+.stats strong {
   font-family: var(--hk-font-display);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--hk-pine);
+}
+
+.statsDot {
+  margin-inline: 4px;
+  color: var(--hk-muted);
 }

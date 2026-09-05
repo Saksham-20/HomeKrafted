@@ -85,7 +85,9 @@ direction is reversible in one commit.
 - **Edge-to-edge photo rows** between card bands (real photography only —
   the M56/M25 imagery rules are untouched).
 - **Carousels only where rotation means something:** freshness ("cooking
-  today"), makers, occasions. The M59c featured-rotation rules (pause on
+  today"), makers, occasions. The M59c featured rows themselves were
+  removed on 2026-09-05 (they duplicated the grids under them); the
+  rotation rules they set still apply (pause on
   hover/focus, reduced-motion off, no rotation when everything fits) apply
   to any new one.
 

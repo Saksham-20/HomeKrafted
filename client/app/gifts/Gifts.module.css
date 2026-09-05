@@ -31,6 +31,8 @@
   flex-direction: column;
   align-items: flex-start;
   gap: var(--hk-s2);
+  /* Leaves the photograph its half — see `Shop.module.css`. */
+  max-width: min(100%, 780px);
 }
 
 /* The blurb beside the title, on its baseline — see `Shop.module.css`. */
@@ -132,11 +134,38 @@
 
 /* M20 — the one thing a buyer must not learn at checkout: this vertical
    posts nationally, food does not. */
-.shipping {
-  font-size: 0.9rem;
-  color: var(--hk-ink-2);
-  margin: 0;
-  line-height: 1.55;
+/* One counted line, the same `.stats` as `Shop.module.css`, so the two
+   verticals keep one composition. It wraps as prose on a phone. */
+.stats {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 2px 0 0;
+  min-height: 36px;
+  font-family: var(--hk-font-mono);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--hk-ink-3);
+}
+
+.stats strong {
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.statsDot {
+  margin-inline: 4px;
+  color: var(--hk-muted);
+}
+
+/* The shipping clause's one emphasised phrase — ink, not the 17px
+   display numerals, because it is a word and not a count. */
+.statsEm {
+  font-weight: 500;
+  color: var(--hk-ink);
 }
 
 /* Two products per row on a phone, not one.

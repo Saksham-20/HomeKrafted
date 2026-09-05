@@ -5,8 +5,6 @@ import { getCategories, getFoodProducts, getOccasions, getVendors } from "@/lib/
 import { buildKitchens } from "@/lib/kitchens";
 import { LocationBar } from "@/components/location/LocationBar";
 import { ShopClient } from "./ShopClient";
-import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
-import { FeaturedKitchens } from "@/components/browse/FeaturedKitchens";
 import { HeroBanner } from "@/components/browse/HeroBanner";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
@@ -81,26 +79,18 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const kitchens = buildKitchens(products, vendors, categories);
   const kitchenCount = kitchens.length;
 
-  // Featured kitchens (M59c): best-rated first, and only a reviewed rating
-  // counts — an unreviewed kitchen carries `rating: 0` and would otherwise
-  // sort as the worst on the platform (the M53 "most loved" rule). Ties
-  // and the unreviewed tail break on how much is live.
-  const featuredKitchens = [...kitchens]
-    .sort((a, b) => {
-      const aRating = a.vendor.reviewCount > 0 ? a.vendor.rating : -1;
-      const bRating = b.vendor.reviewCount > 0 ? b.vendor.rating : -1;
-      return bRating - aRating || b.dishes.length - a.dishes.length;
-    })
-    .slice(0, 12);
-
   return (
     <>
-      {/* The hero band (M59b, photos + featured row M59c): the page opens
-          as a place, not a settings screen — tinted ground, display title
-          with an italic accent, the two counts as stat pills, three real
-          photographs, and the best-rated kitchens one click away. Warmth
-          stays accent-only: the tint is the pine selected-fill token
-          fading to the canvas. */}
+      {/* The hero band (M59b, photo M59c, cut to the bone 2026-09-05): the
+          page opens as a place, not a settings screen — the photograph,
+          the display title with its italic accent, one line of counts, and
+          the area control. Everything else that used to be here left on the
+          owner's instruction ("reduce the number of elements"): the
+          featured-kitchens strip duplicated the kitchen grid it sat on top
+          of, the stat pills were two boxes for one sentence, and the
+          sibling-surface rail repeated the nav and the footer. What stays
+          is what the grid cannot say about itself. Warmth is accent-only:
+          the tint is the pine selected-fill token fading to the canvas. */}
       <div className={styles.hero}>
         <HeroBanner src="/images/site/maker-kitchen.jpg" tint="pine" />
         <div className={clsx("container", "container-wide", styles.heroInner)}>
@@ -125,26 +115,24 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               </p>
             </div>
             {/*
-              The counts, the area and the sibling surfaces share one wrapping
-              row: each is a short phrase, and stacked they read as three
-              separate announcements rather than one line of context. The
-              location bar is the only one that must stay a control — it
-              carries the route back to the prompt (see `LocationBar`) — so
-              it keeps its own box and the rest sit beside it.
+              One line of counts and the one control. The counts are receipt
+              type — mono, honestly counted, the DESIGN.md provenance voice —
+              rather than two bordered pills, which were two boxes for one
+              sentence. The location bar stays a control because it carries
+              the only route back to the prompt (see `LocationBar`).
             */}
             <div className={styles.metaRow}>
-              <span className={styles.stat}>
+              <p className={styles.stats}>
                 <strong>{kitchenCount}</strong> home {kitchenCount === 1 ? "kitchen" : "kitchens"}
-              </span>
-              <span className={styles.stat}>
+                <span className={styles.statsDot} aria-hidden="true">
+                  ·
+                </span>
                 <strong>{products.length}</strong> small-batch{" "}
                 {products.length === 1 ? "dish" : "dishes"}
-              </span>
+              </p>
               <LocationBar />
-              <KitchenCrossLinks current="/shop" />
             </div>
           </div>
-          <FeaturedKitchens kitchens={featuredKitchens} />
         </div>
       </div>
       <ShopClient

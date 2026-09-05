@@ -125,6 +125,18 @@ facts the food cards could not state.
   the on-dark ink hexes that bypass `tokens.extend.css`, and the pill
   radius monoculture. Codex was over its usage cap, so the outside
   voice was the Claude subagent alone.
+- **Browse hero cut to the bone (owner, same day: "this area looks
+  messy… reduce the number of elements… keep the background image").**
+  The M59c featured rows (`FeaturedKitchens`, `FeaturedPicks`,
+  `useFeaturedRotation`) are deleted — each sat directly above the grid
+  it was a sample of. The two stat pills became one mono line of counts;
+  the sibling-surface rail left `/shop` (Meal plans is a tab, Snacks is
+  in the footer). What remains: breadcrumb, title + tagline on one
+  baseline, counts, the location control. The copy column caps at 780px
+  and the banner wash thins to 10% on the right with the bottom fade
+  starting at 78% instead of 62%, so the photograph — which the shorter
+  band had all but hidden — is visible again. The split-panel eyebrows
+  ("Order in" / "Send one") go 11px → **13px on a 36px pill**.
 - **Footer rebalanced** onto the wide container: the brand column
   *narrows* (1.4fr → 1.15fr), because past a point it stopped using what
   it was given and the surplus became a hole beside "Services".

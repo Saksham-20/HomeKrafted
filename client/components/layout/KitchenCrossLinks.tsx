@@ -10,14 +10,14 @@ import styles from "./KitchenCrossLinks.module.css";
  * items, so the answer was one quiet line on each food page naming its
  * siblings, not a wider nav.
  *
- * **Half of that is now solved elsewhere (2026-09-05).** The header went
- * two-row and Meal plans is in it as "Subscription Plans", so this rail's
- * remaining job on `/shop` is Snacks on WhatsApp — which is still in
- * neither nav, only the home page's quick-entry strip and the footer.
- * That is enough to keep it, and it is why it is now folded into the
- * hero's one meta row rather than given a line of its own. If Snacks ever
- * reaches the nav, delete this component rather than leaving a rail that
- * repeats the tabs.
+ * **It left `/shop` on 2026-09-05.** The header went two-row and Meal
+ * plans is in it as "Subscription Plans", which left this rail one job
+ * there — Snacks on WhatsApp — and the owner's "reduce the number of
+ * elements" on the browse hero outweighed one link the footer also
+ * carries. It still renders on `/snacks` and `/meal-plans`, whose visitors
+ * arrived from a tile or a link and have no tab of their own to get back
+ * to the other two. If Snacks ever reaches the nav, delete this component
+ * rather than leaving a rail that repeats the tabs.
  *
  * Kept to the food trio on purpose: gifts and hampers are already one nav
  * click away on every page, and a rail that lists everything is a second

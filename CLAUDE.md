@@ -1095,11 +1095,18 @@ critical: a tablist may only contain tabs), and forty-one places said
   full-bleed, italic terracotta accent word — gold never carries text;
   since M59c it also carries a `HeroBanner` — one committed photograph
   behind the copy under a wash that stays solid tint over the text
-  column — and a rotating featured row: `FeaturedKitchens` on /shop,
-  `FeaturedPicks` on /gifts, both derived from the catalogue the page
-  already fetched, ratings only where reviews exist,
-  `useFeaturedRotation` pausing under pointer/focus and still under
-  reduced motion),
+  column. **The M59c rotating featured row is gone (owner, 2026-09-05:
+  "this area looks messy… reduce the number of elements").**
+  `FeaturedKitchens`, `FeaturedPicks` and `useFeaturedRotation` were
+  deleted, not parked: on `/shop` the strip sat directly above the
+  kitchen grid it was a sample of, and on `/gifts` above the product
+  grid. The hero now holds the breadcrumb, the title with its tagline on
+  one baseline, one mono line of counts and the location control — and
+  the copy column caps at 780px so the photograph is seen, not just
+  present. The `KitchenCrossLinks` rail also left `/shop` (Meal plans
+  is a nav tab; Snacks stays in the footer and the home strip); it
+  remains on `/snacks` and `/meal-plans`. Don't put a "featured" strip
+  back on a page whose grid already shows the same objects.),
   then one floating control card holding `QuickFilterChips` (every
   shelf as an emoji pill — `lib/category-emoji.ts`, decoration only,
   `aria-hidden`; zero-count dimmed+disabled after the populated ones,
