@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Heart } from "lucide-react";
+import { Check, Gift, Heart, PenLine, Send } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
@@ -26,10 +26,18 @@ export interface ProductPurchasePanelProps {
 }
 
 /** The three gift asks, in the order the parcel gets them. */
-const GIFT_OPTIONS: { key: "messageCard" | "wrap" | "shipToRecipient"; icon: string; label: string }[] = [
-  { key: "messageCard", icon: "✎", label: "Message card" },
-  { key: "wrap", icon: "🎀", label: "Gift wrap" },
-  { key: "shipToRecipient", icon: "📮", label: "Ship to recipient" },
+/* Line icons, not emoji (2026-09-05 design review). An emoji renders in
+   whatever colour glyph the visitor's OS ships — a pink bow on a pine
+   surface, a red postbox beside grey type — and is the one element on the
+   page not drawn in the brand's line weight. Same set as everywhere else. */
+const GIFT_OPTIONS: {
+  key: "messageCard" | "wrap" | "shipToRecipient";
+  icon: typeof PenLine;
+  label: string;
+}[] = [
+  { key: "messageCard", icon: PenLine, label: "Message card" },
+  { key: "wrap", icon: Gift, label: "Gift wrap" },
+  { key: "shipToRecipient", icon: Send, label: "Ship to recipient" },
 ];
 
 /**
@@ -283,7 +291,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
                 {on ? (
                   <Check size={13} strokeWidth={2.4} aria-hidden="true" />
                 ) : (
-                  <span aria-hidden="true">{option.icon}</span>
+                  <option.icon size={14} strokeWidth={1.8} aria-hidden="true" />
                 )}
                 {option.label}
               </button>
