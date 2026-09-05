@@ -18,16 +18,18 @@
 /* Standalone <button class="chip"> — no remove affordance. */
 button.chip {
   color: var(--hk-ink-3);
-  font-size: 12.5px;
+  /* 13.5px on a 36px box (2026-09-05 design review), up from 12.5px on
+     32. Chips are how filters, categories, weights and occasions are
+     picked — overwhelmingly on a phone, with a thumb, in a row of
+     near-identical neighbours. 12.5px was the smallest body-range type on
+     the site and it was on the controls people press most; 36 is the
+     height the stat pills and location bar now share, so a row of mixed
+     controls lines up. */
+  font-size: 13.5px;
   font-weight: 500;
   font-family: inherit;
-  padding: 6px 13px;
-  /* 6px of padding on 12.5px text is a ~28px box. Chips are how filters,
-     categories and occasions are picked — overwhelmingly on a phone, with
-     a thumb, in a row of near-identical neighbours, which is the exact
-     situation the 32px floor exists for. The type size and the horizontal
-     rhythm are unchanged. */
-  min-height: 32px;
+  padding: 6px 14px;
+  min-height: 36px;
   cursor: pointer;
 }
 

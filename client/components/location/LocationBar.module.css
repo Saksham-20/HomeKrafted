@@ -3,7 +3,9 @@
   align-items: center;
   gap: var(--hk-s2);
   flex-wrap: wrap;
-  padding: var(--hk-s2) var(--hk-s3);
+  /* 36px to match the stat pills it shares a row with on /shop. */
+  min-height: 36px;
+  padding: 5px var(--hk-s3);
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-md);
   background: var(--hk-surface);

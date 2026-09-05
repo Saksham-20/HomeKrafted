@@ -113,11 +113,14 @@
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  padding: 5px 12px;
+  /* 36px, the same height as the location bar beside it — the row was
+     30 against 37 with `align-items: center` papering over it. */
+  min-height: 36px;
+  padding: 0 13px;
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-pill);
   background: var(--hk-surface);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--hk-ink-3);
 }
 
