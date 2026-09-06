@@ -1,4 +1,16 @@
-import { API_PREFIX, Actor, Harness, auth, createActor, createHarness, resetDatabase } from './harness';
+import {
+  API_PREFIX,
+  Actor,
+  Harness,
+  auth,
+  createActor,
+  createCategory,
+  createHarness,
+  createKitchen,
+  createOrder,
+  createProduct,
+  resetDatabase,
+} from './harness';
 
 /**
  * An address is the one record on this platform that a person physically
@@ -116,5 +128,84 @@ describe('a delivery address', () => {
 
     const unchanged = await h.prisma.address.findUniqueOrThrow({ where: { id: created.body.id } });
     expect(unchanged.pincode).toBe('160034');
+  });
+
+  /**
+   * **Deleting an address archives it** (2026-09-06).
+   *
+   * `prisma.address.delete` raised a foreign-key violation for any
+   * address that had ever been in a cart or on an order — eight tables
+   * reference `Address` under `Restrict`, correctly, because an order has
+   * to keep saying where it went — and the global filter turns that into
+   * a bare 500 with a reference number. So the address a buyer most wants
+   * to tidy away, the one they have ordered to, was the one the endpoint
+   * could not remove.
+   */
+  describe('deleting one', () => {
+    /** An address with an order line against it — the case that used to 500. */
+    async function usedAddress() {
+      const created = await post(VALID).expect(201);
+      const kitchen = await createKitchen(h);
+      const category = await createCategory(h);
+      const product = await createProduct(h, kitchen.vendor.id, category.id);
+      await createOrder(h, {
+        userId: buyer.userId,
+        addressId: created.body.id,
+        items: [{ productId: product.id, name: product.name, price: 250 }],
+      });
+      return created.body.id as string;
+    }
+
+    it('succeeds for an address that is on a past order, and keeps the order intact', async () => {
+      const addressId = await usedAddress();
+
+      await h.api().delete(`${API_PREFIX}/users/me/addresses/${addressId}`).set(auth(buyer)).expect(204);
+
+      // Gone from the buyer's book...
+      const list = await h.api().get(`${API_PREFIX}/users/me/addresses`).set(auth(buyer)).expect(200);
+      expect(list.body).toHaveLength(0);
+
+      // ...and still on the order, which is the whole point. A deleted
+      // row here would leave a six-month-old order unable to say where
+      // it was delivered.
+      const row = await h.prisma.address.findUniqueOrThrow({ where: { id: addressId } });
+      expect(row.archivedAt).not.toBeNull();
+      expect(await h.prisma.orderItem.count({ where: { addressId } })).toBe(1);
+    });
+
+    it('will not let a stale client order to one afterwards', async () => {
+      const addressId = await usedAddress();
+      await h.api().delete(`${API_PREFIX}/users/me/addresses/${addressId}`).set(auth(buyer)).expect(204);
+
+      // An archived address answers exactly like somebody else's: to this
+      // account it is gone, so editing it, re-defaulting it and deleting
+      // it twice all 404.
+      await h
+        .api()
+        .patch(`${API_PREFIX}/users/me/addresses/${addressId}`)
+        .set(auth(buyer))
+        .send({ label: 'Back please' })
+        .expect(404);
+      await h.api().delete(`${API_PREFIX}/users/me/addresses/${addressId}`).set(auth(buyer)).expect(404);
+    });
+
+    it('hands the default to the oldest survivor', async () => {
+      // The first address created becomes the default automatically.
+      const first = await post(VALID).expect(201);
+      const second = await post({ ...VALID, label: 'Office' }).expect(201);
+      expect(first.body.isDefault).toBe(true);
+
+      await h.api().delete(`${API_PREFIX}/users/me/addresses/${first.body.id}`).set(auth(buyer)).expect(204);
+
+      // Not "no default": checkout falls back to it, so an account with
+      // none turns into "we could not work out where to send this" at the
+      // till.
+      const promoted = await h.prisma.address.findUniqueOrThrow({ where: { id: second.body.id } });
+      expect(promoted.isDefault).toBe(true);
+      // And the archived row does not keep the flag, or `findFirst({
+      // isDefault: true })` would hand checkout an invisible address.
+      const archived = await h.prisma.address.findUniqueOrThrow({ where: { id: first.body.id } });
+      expect(archived.isDefault).toBe(false);
+    });
   });
 });

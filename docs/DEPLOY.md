@@ -453,6 +453,23 @@ working untouched.
 | `SHADOWFAX_CALLBACK_TOKEN` | A secret **you** choose and enter in their client portal. Empty = the callback endpoint refuses everything. |
 | `SHADOWFAX_POLL_SECONDS` | `0` = no background poll. `900` is a sensible value. Floored at 60. |
 
+**A courier carries gifts and never food (2026-09-06).** Only listings
+with `Product.kind = 'craft'` — the `/gifts` catalogue — book a parcel.
+Food is delivered by the kitchen exactly as it was before M57, so turning
+this module on cannot change anything about the food half of the platform.
+
+**Prove the account before trusting it:**
+
+```bash
+cd server
+node scripts/verify-shadowfax.mjs          # host, token, tricity pickup coverage
+node scripts/verify-shadowfax.mjs --book   # + one real create/track/cancel round trip
+```
+
+It reads `server/.env`, touches no database of ours, and is the cheap way
+to find out that a staging token is pointed at the production host (a bare
+401) rather than discovering it on a live order.
+
 **Two things must be done in Shadowfax's client portal, not here:**
 
 1. **Webhook tab** — set the callback URL to

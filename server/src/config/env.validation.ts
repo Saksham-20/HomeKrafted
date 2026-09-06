@@ -71,7 +71,7 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
   if (emailKey && emailKey !== 'placeholder_resend_key' && emailKey !== 'placeholder_sendgrid_key') {
     if (!emailFrom) {
       errors.push('An email API key is set but EMAIL_FROM is empty — every send would be refused by the provider.');
-    } else if (/@homekrafted\.example/i.test(emailFrom)) {
+    } else if (/@homekrafted\.example/i.test(emailFrom)) {
       errors.push(
         'EMAIL_FROM is still the placeholder domain (homekrafted.example). Set it to an address on a domain verified with your email provider.',
       );

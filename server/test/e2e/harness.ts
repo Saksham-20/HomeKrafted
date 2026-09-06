@@ -1,6 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { PrismaClient, ProductModerationStatus, UserRole } from '@prisma/client';
+import { PrismaClient, ProductKind, ProductModerationStatus, UserRole } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { ALL_ADMIN_SCOPES } from '../../src/common/admin-scopes';
@@ -339,7 +339,17 @@ export async function createProduct(
   h: Harness,
   vendorId: string,
   categoryId: string,
-  overrides: { name?: string; price?: number; moderationStatus?: ProductModerationStatus } = {},
+  overrides: {
+    name?: string;
+    price?: number;
+    moderationStatus?: ProductModerationStatus;
+    /**
+     * `food` (the column default) or `craft`. It decides whether a
+     * courier carries this line at all — see `courier-eligibility.ts` —
+     * so a spec that wants a parcel has to ask for `craft` explicitly.
+     */
+    kind?: ProductKind;
+  } = {},
 ) {
   // `WeightOption.sku` is globally unique, not unique per product — two
   // products in one test would collide on a shared literal.
@@ -350,6 +360,7 @@ export async function createProduct(
       vendorId,
       categoryId,
       name: overrides.name ?? 'Mango thokku pickle',
+      kind: overrides.kind ?? 'food',
       defaultWeightSku: sku,
       description: 'Slow-cooked in small batches.',
       moderationStatus: overrides.moderationStatus ?? 'active',

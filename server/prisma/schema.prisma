@@ -674,9 +674,9 @@ model User {
 }
 
 model Address {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   label         String
   recipientName String
   phone         String
@@ -685,16 +685,36 @@ model Address {
   city          String
   state         String
   pincode       String
-  country       String   @default("India")
-  isDefault     Boolean  @default(false)
+  country       String    @default("India")
+  isDefault     Boolean   @default(false)
   /// Set when the buyer allows the browser location prompt or picks an area
   /// at checkout. Null is normal (typed address, permission denied).
   lat           Float?
   lng           Float?
   area          String?
   instructions  String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  /// When the buyer deleted this address (2026-09-06). **Deleting an
+  /// address archives it; nothing removes the row.**
+  ///
+  /// Eight tables point here — cart items, order lines, shipments,
+  /// hampers, meal subscriptions, gift-recipient orders, laundry
+  /// bookings and consignments — and every one of those relations is
+  /// `Restrict`, which is correct: an order has to keep saying where it
+  /// went. The consequence was that `DELETE /users/me/addresses/:id`
+  /// raised a foreign-key violation for any address that had ever been
+  /// in a cart, and the global filter turns that into a bare 500
+  /// ("Something went wrong") — so the one address a buyer actually
+  /// wants to tidy away, the one they have ordered to, was the one that
+  /// could not be deleted.
+  ///
+  /// Archiving keeps both promises: the address disappears from every
+  /// list and every picker, and the six-month-old order still renders
+  /// the street it was delivered to. **Every read that offers an address
+  /// to choose must filter `archivedAt: null`**; a read that displays a
+  /// past order must not, or history goes blank.
+  archivedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   cartItems             CartItem[]
   orderItemsShippedTo   OrderItem[]
@@ -705,7 +725,10 @@ model Address {
   laundryBookings       LaundryBooking[]
   consignments          Consignment[]
 
-  @@index([userId])
+  /// `archivedAt` in the key because every list of a buyer's addresses
+  /// now asks for the live ones, and that is the only query this table
+  /// serves in any volume.
+  @@index([userId, archivedAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -901,6 +924,12 @@ model Referral {
   createdAt      DateTime       @default(now())
 
   @@index([referrerUserId])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([refereeUserId])
 }
 
 model LoyaltyAccount {
@@ -1025,6 +1054,12 @@ model CorporateQuote {
 
   @@index([inquiryId])
   @@index([status])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([createdById])
 }
 
 model CorporateQuoteLine {
@@ -1716,6 +1751,14 @@ model TaxonomySuggestion {
   /// The queue is read newest-pending-first, and that is the only listing.
   @@index([status, createdAt])
   @@index([suggestedById])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([parentCategoryId])
+  @@index([reviewedById])
+  @@index([vendorId])
 }
 
 model Collection {
@@ -1906,6 +1949,12 @@ model Product {
   /// ascending on `rating` cannot serve a descending scan without a sort
   /// step, which is the cost being removed.
   @@index([moderationStatus, isAvailable, rating(sort: Desc), reviewCount(sort: Desc), id])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([moderatedById])
 }
 
 model ProductOccasion {
@@ -2034,6 +2083,12 @@ model Hamper {
   @@index([userId])
   // M37 perf pass.
   @@index([boxId])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([recipientAddressId])
 }
 
 model HamperItem {
@@ -2112,6 +2167,12 @@ model Order {
   /// `VendorProfileService.stats` counts delivered/cancelled per vendor,
   /// and the admin dashboard buckets by status.
   @@index([status])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([giftRecipientAddressId])
 }
 
 model OrderItem {
@@ -2153,6 +2214,12 @@ model OrderShipment {
   deliveryDate DateTime?
 
   @@unique([orderId, addressId])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([addressId])
 }
 
 // ---------------------------------------------------------------------------
@@ -2230,6 +2297,13 @@ model LaundryBooking {
   // M37 perf pass.
   @@index([addressId])
   @@index([subscriptionId])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([deliverySlotId])
+  @@index([pickupSlotId])
 }
 
 model LaundryBookingLine {
@@ -2304,6 +2378,12 @@ model Snack {
 
   @@index([sellerId])
   @@index([moderationStatus, submittedAt])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([moderatedById])
 }
 
 /// The customer's in-progress selection that becomes a WhatsApp payload —
@@ -2489,6 +2569,12 @@ model Payout {
 
   @@index([sellerId])
   @@index([status])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([decidedById])
 }
 
 // ---------------------------------------------------------------------------
@@ -2637,6 +2723,12 @@ model MealPlan {
   @@index([mealType, isActive])
   // M37 perf pass.
   @@index([productId])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([moderatedById])
 }
 
 /// One date's actual menu for one plan (M37).
@@ -2866,6 +2958,12 @@ model Consignment {
   @@index([status])
   @@index([orderId])
   @@index([vendorId, status])
+  // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
+  // columns that reference one, so an unindexed foreign key means every
+  // DELETE of the parent row sequentially scans this whole table to prove
+  // nothing points at it — and `Address` really is deleted, by buyers,
+  // from /account/addresses. Same pass M37 ran over `OrderItem`.
+  @@index([addressId])
 }
 
 /// Every carrier callback, kept. The `Consignment` row holds the latest

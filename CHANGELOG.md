@@ -1,5 +1,119 @@
 # Changelog
 
+## 2026-09-06 — a courier carries gifts and never food, and the backend pass that came with it
+
+The owner's brief: "Shadowfax is only for the long deliveries for the
+gifts only, for food leave it as is." Plus a review of the server and a
+database hardening pass. The courier change is small; what it exposed is
+most of this entry.
+
+- **`courier-eligibility.ts` is the one place that decides who gets a
+  rider**, and the predicate is `Product.kind === 'craft'` — the same one
+  `/gifts` browses on, so the catalogue a buyer sees under "Handcrafted
+  Gifts" is exactly the set a rider collects, with no third definition of
+  "gift" for anybody to discover later. Deliberately not `shippingScope`,
+  which answers how far a listing may travel and would have pulled in a
+  jar of pickle marked `national`; nor `Vendor.type`/`specialties`, which
+  are discovery tags that must never decide anything (M12). Food keeps
+  the pre-M57 pipeline untouched: no `Consignment` row, the kitchen marks
+  packed/shipped/delivered itself. Narrowing this to long deliveries only
+  is one `&&` in that file.
+- **The mixed basket is the case the change turns on, and it is one rule
+  read from both ends.** A candle and a curry from one kitchen books a
+  parcel for the candle alone, and a rider delivering it says nothing
+  whatever about the curry. So `reconcileOrderStatus` refuses to drive
+  `Order.status` while any line is uncarried — otherwise the callback
+  stamps `deliveredAt`, starts the buyer's seven-day return window and
+  sets every kitchen's payout basis (M15/M37) on food still in an oven —
+  and `hasParcelInFlight` therefore answers `false` on such an order, so
+  the HomeKrafter can still close it by hand. Fix one without the other
+  and a real order is stuck until an admin overrides it.
+- **`ensureConsignments` raced itself, and losing the race lost the whole
+  order's despatch.** `bookForOrder` is fired as `void` when a kitchen
+  marks an order packed, and an admin can press Retry at the same moment:
+  two runs both found no row, both inserted, and the loser's `P2002`
+  propagated to the `try` wrapping the *whole* loop — so a two-kitchen
+  order lost both parcels because one of them was asked for twice. The
+  duplicate is now what idempotent means and is swallowed at the row.
+- **`server/scripts/verify-shadowfax.mjs`** — host, token, authentication
+  and tricity `seller_pickup` coverage, with `--book` for a real
+  create/track/cancel round trip. Measured against staging today: the
+  account authenticates and **none of 160022 / 160034 / 140301 / 134109
+  is covered for pickup**, which is the known staging gap and the thing
+  to re-run against production before anything ships.
+
+### Deleting an address raised a 500
+
+`DELETE /users/me/addresses/:id` called `prisma.address.delete`. Eight
+tables reference `Address` — five `RESTRICT`, three `SET NULL`, read off
+`pg_constraint` rather than assumed — so an address that had ever been in
+a cart or on an order raised a foreign-key violation, and the global
+filter renders that as a bare `500 Something went wrong` with a reference
+number. The one address a buyer actually wants to tidy away is the one
+they have ordered to, so this was the endpoint failing at its only job.
+
+- **`Address.archivedAt`.** Deleting archives: the row survives so a
+  six-month-old order can still say which street it went to, and the
+  address leaves every list and every picker. Every read that *offers* an
+  address to choose now filters `archivedAt: null` — the address book,
+  checkout's default-address fallback, cart line assignment, hamper
+  recipients, meal subscriptions — and an archived one 404s on edit,
+  re-default and a second delete, exactly as a stranger's would.
+- **The default is handed to the oldest survivor**, and the archived row
+  drops the flag. Leaving an account with no default is worse than
+  choosing for them: checkout falls back to it, so "no default" becomes
+  "we could not work out where to send this" at the till. A default flag
+  left on an archived row would hand checkout an address the buyer cannot
+  see.
+- Had the delete *succeeded*, the three `SET NULL` relations would have
+  silently forgotten which address a gift order was posted to.
+
+### Database and test-harness hardening
+
+- **Sixteen missing foreign-key indexes.** Postgres indexes a primary key,
+  never the columns that reference one, so each meant a DELETE of the
+  parent sequentially scanning the child table. Four of them are on
+  `Address`, which buyers really do delete. The rest finish the pass M37
+  ran over `OrderItem`. Additive; no data moves.
+- **The e2e suite was red on `main` and had been since the GST commit.**
+  `payout-commission.e2e-spec.ts` still asserted pre-GST figures (₹675 on
+  a ₹750 gross where the platform now pays ₹661.50 — 10% fee plus 18% GST
+  on the fee) and used `toEqual` against response objects that had grown
+  `gstPct`/`gstOnPending`. Five assertions corrected, and the GST figures
+  are now asserted explicitly rather than by omission.
+- **`test/jest-e2e.json` resolved `.json` ahead of `.ts`.**
+  `src/common/pincodes.ts` sits beside `src/common/pincodes.json`, so
+  every `import { lookupPincode } from '../common/pincodes'` in the e2e
+  suite silently bound to the raw 19k-row data file. There is no error for
+  that: the import succeeds, the function is `undefined`, and the first
+  call throws inside whatever catches its own exceptions — which the
+  courier booking path does by design. `ts` first now.
+- **The courier module runs in the e2e suite**, in stub mode, instead of
+  being switched off — which is what had left every despatch path
+  asserted against a module that returned at its first line. Safe to turn
+  on globally precisely *because* a courier now carries gifts only: the
+  suite's fixtures are food, and food mints nothing.
+- **`shipping-gifts-only.e2e-spec.ts`** — six cases over the rules above,
+  including the mixed basket from both ends. There was no shipping e2e
+  spec at all before.
+
+### Also
+
+- **A stray `0x08` byte inside a regex meant a guard had never fired.**
+  `env.validation.ts` refuses to boot with `EMAIL_FROM` still on the
+  placeholder domain — except the pattern was
+  `/@homekrafted\.example\x08/i`, so it required a literal backspace
+  after "example" and matched nothing, ever. It was also the one error in
+  `npm run lint:check`, which means the lint gate has been red on `main`
+  and read as noise rather than as the finding it was.
+- **`/shop`: the area control moves under the counts line** (owner). Side
+  by side, at 1440 it sat in the middle of the hero band with the
+  photograph behind it and nothing to its right, reading as a widget
+  dropped in rather than a control belonging to the line above. "3
+  kitchens · 14 dishes" is only true of a place, so the count and the area
+  it is counted over are now one block on one left edge.
+
+
 ## 2026-09-05 — the site stops looking empty: two-row header, a wide container, denser browse, and the two facts a food card was missing
 
 The owner's brief, with two reference sites (hotcrums.com, parvaa.com):

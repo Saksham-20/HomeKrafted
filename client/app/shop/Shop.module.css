@@ -115,12 +115,20 @@
   margin: 0;
 }
 
-/* The counts and the area control on one wrapping row. */
+/* The counts, then the area control under them (2026-09-06, owner).
+   They were side by side, and at 1440 the control sat in the middle of
+   the band with the photograph behind it — a white pill floating in the
+   hero with nothing to its right, reading as a widget somebody dropped
+   in rather than a control belonging to the line above it. Stacked, the
+   counts and the area they are counted over are one block against the
+   same left edge, which is what they actually are: "3 kitchens, 14
+   dishes" is only true of a place. `align-items: flex-start` so the pill
+   is its own width and not the column's. */
 .metaRow {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--hk-s2) var(--hk-s5);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s2);
   margin-top: 2px;
 }
 
@@ -133,7 +141,6 @@
   flex-wrap: wrap;
   gap: 5px;
   margin: 0;
-  min-height: 36px;
   font-family: var(--hk-font-mono);
   font-size: 13px;
   letter-spacing: 0.02em;

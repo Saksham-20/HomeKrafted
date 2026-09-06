@@ -17,6 +17,7 @@ import { OrderNotificationsService } from '../orders/order-notifications.service
 import { BULK_TRACK_MAX, ShadowfaxClient } from './shadowfax.client';
 import { buildCreateOrderPayload, ShadowfaxPayloadError } from './shadowfax-payload';
 import { advancesConsignment, consignmentStatusFor, orderStatusFor, statusRank } from './shadowfax-status';
+import { COURIER_ELIGIBLE_PRODUCT, isCourierEligible, NON_COURIER_LINE } from './courier-eligibility';
 
 /** Where a courier-driven order may be pushed to. Never past `delivered`, never backwards. */
 const ORDER_RANK: Record<OrderStatus, number> = {
@@ -280,7 +281,7 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
   private async ensureConsignments(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: { include: { product: { select: { vendorId: true } } } } },
+      include: { items: { include: { product: { select: { vendorId: true, kind: true } } } } },
     });
     if (!order) throw new NotFoundException('Order not found');
 
@@ -291,24 +292,51 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
       // kitchen to collect from, so it cannot be a parcel — recording one
       // would send a rider to nobody.
       if (!vendorId) continue;
+      // Gifts get a rider; food never does. `courier-eligibility.ts` is
+      // the one place that decides, and a mixed basket books a parcel for
+      // its craft lines alone — see `courierOwnsOrder`, which is what
+      // stops that parcel closing the food half of the same order.
+      if (!isCourierEligible(item.product)) continue;
       groups.set(`${vendorId}:${item.addressId}`, { vendorId, addressId: item.addressId });
     }
+    // Nothing on this order travels by courier — the usual case, since
+    // most of this platform is cooked food. No rows, no carrier call.
+    if (!groups.size) return [];
 
     for (const { vendorId, addressId } of groups.values()) {
-      await this.prisma.consignment.upsert({
-        where: { orderId_vendorId_addressId: { orderId, vendorId, addressId } },
-        create: {
-          orderId,
-          vendorId,
-          addressId,
-          provider: ShippingProvider.shadowfax,
-          // Minted before the carrier is called, so a booking that times
-          // out is retried against the same id instead of creating a
-          // second parcel on the carrier's side.
-          clientOrderId: `HK-${order.orderNumber}-${vendorId}-${addressId}`.slice(0, 100),
-        },
-        update: {},
-      });
+      try {
+        await this.prisma.consignment.upsert({
+          where: { orderId_vendorId_addressId: { orderId, vendorId, addressId } },
+          create: {
+            orderId,
+            vendorId,
+            addressId,
+            provider: ShippingProvider.shadowfax,
+            // Minted before the carrier is called, so a booking that times
+            // out is retried against the same id instead of creating a
+            // second parcel on the carrier's side.
+            clientOrderId: `HK-${order.orderNumber}-${vendorId}-${addressId}`.slice(0, 100),
+          },
+          update: {},
+        });
+      } catch (err) {
+        // **`upsert` is read-then-write, and this method races itself.**
+        // `bookForOrder` is fired as `void` when a kitchen marks an order
+        // packed, and an admin can press Retry on `/admin/shipping` at the
+        // same moment — two runs both find no row, both insert, and the
+        // loser gets a P2002 on `@@unique([orderId, vendorId, addressId])`
+        // or on the `clientOrderId` derived from the same three columns.
+        //
+        // That is not an error: the row it was going to create is the row
+        // that now exists, which is exactly what idempotent means. Left
+        // to propagate it aborted the enclosing `try` in `bookForOrder`
+        // and **took every other parcel on the order with it** — a
+        // two-kitchen order lost both despatches because one of them was
+        // asked for twice. Measured in
+        // `shipping-gifts-only.e2e-spec.ts`, which books the same order
+        // twice on purpose.
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
+      }
     }
 
     return this.prisma.consignment.findMany({
@@ -347,11 +375,56 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
     if (!consignment) throw new NotFoundException('Consignment not found');
     if (consignment.awbNumber) return consignment; // already booked — idempotent
 
+    /**
+     * **Claim the parcel before calling the carrier.**
+     *
+     * The read above is not the guard it looks like. `bookForOrder` is
+     * fired as `void` when a kitchen marks an order packed, and an admin
+     * can press Retry on `/admin/shipping` in the same second: both runs
+     * read `awbNumber: null`, both call `POST /v3/clients/orders/`, and
+     * the carrier — which has no idea they are the same parcel, since
+     * `client_order_id` is not enforced unique on its side — issues **two
+     * waybills**. Both then write to this row and the later one wins, so
+     * we remember one AWB and a second rider is on the road against an
+     * order nobody can track. That is a duplicate collection and a
+     * duplicate bill, and it was measured as a flaky test before it was
+     * understood as a defect (`shipping-gifts-only.e2e-spec.ts` books the
+     * same order twice on purpose).
+     *
+     * An optimistic claim rather than a lock: `bookAttempts` is the
+     * version token, so exactly one caller's `updateMany` matches and
+     * every other sees `count: 0` and hands back the row untouched. A
+     * `SELECT ... FOR UPDATE` would work too and would hold a Postgres
+     * transaction open across a 15-second HTTP call to a third party,
+     * which is the trade this codebase already refuses in `ingest`.
+     *
+     * It is also why nothing below increments `bookAttempts` again — the
+     * claim *is* the attempt, whether it goes on to succeed or fail.
+     */
+    const claim = await this.prisma.consignment.updateMany({
+      where: { id: consignmentId, awbNumber: null, bookAttempts: consignment.bookAttempts },
+      data: { bookAttempts: { increment: 1 } },
+    });
+    if (claim.count !== 1) {
+      this.logger.debug(`Consignment ${consignmentId} is already being booked by another caller`);
+      return this.prisma.consignment.findUniqueOrThrow({ where: { id: consignmentId } });
+    }
+
+    // The parcel's contents, and the figure declared to the carrier. Held
+    // to the same courier-eligible filter that minted the row: on a mixed
+    // basket the box holds the candle and not the curry, so declaring the
+    // curry's value would over-insure a parcel it is not in — and put a
+    // food line on the manifest a rider is asked to carry.
     const items = await this.prisma.orderItem.findMany({
       where: {
         orderId: consignment.orderId,
         addressId: consignment.addressId,
-        product: { vendorId: consignment.vendorId },
+        // Merged into the one `product` filter, never spread alongside
+        // it: two object literals both keyed `product` means the later
+        // one silently replaces the earlier, and the vendor scope — the
+        // thing that keeps a two-kitchen order's parcels apart — would
+        // vanish without a type error to say so.
+        product: { is: { vendorId: consignment.vendorId, ...COURIER_ELIGIBLE_PRODUCT } },
       },
       select: { sku: true, name: true, quantity: true, price: true },
     });
@@ -433,7 +506,6 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
           courierStatus: result.status ?? 'new',
           bookedAt: new Date(),
           failureReason: null,
-          bookAttempts: { increment: 1 },
         },
       });
       // The waybill is the number a courier's support line asks for, and
@@ -454,7 +526,6 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
       data: {
         status: ConsignmentStatus.failed,
         failureReason: reason,
-        bookAttempts: { increment: 1 },
       },
     });
   }
@@ -850,6 +921,20 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
       const consignments = await tx.consignment.findMany({ where: { orderId }, select: { status: true } });
       if (!consignments.length) return null;
 
+      // **A courier may only close an order it is carrying all of**
+      // (2026-09-06). Gifts go by rider and food does not, so a basket
+      // holding both books a parcel for the craft lines alone — and a
+      // rider delivering that candle says nothing whatever about the
+      // curry from the same kitchen. Without this check the callback
+      // would write `delivered`, stamp `deliveredAt`, start the buyer's
+      // seven-day return window and set every kitchen's payout basis
+      // (M15/M37) on food still in an oven. On a mixed order the
+      // HomeKrafter keeps the manual pipeline they had before M57 —
+      // `courierOwnsFulfilment` is the other half of this rule, and
+      // deliberately unblocks them to do it.
+      const uncarried = await tx.orderItem.count({ where: { orderId, ...NON_COURIER_LINE } });
+      if (uncarried > 0) return null;
+
       const implied = consignments.map((c) => orderStatusFor(c.status));
       if (implied.some((s) => s === null)) return null;
 
@@ -984,18 +1069,33 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Is a carrier actually holding this kitchen's parcel right now?
+   * Has a carrier taken over this order's fulfilment from this kitchen?
    *
-   * `booked` counts: the AWB exists and a rider is coming, so the kitchen
-   * has already handed the job over. `pending` and `failed` do not — those
-   * are parcels nobody has collected, and a kitchen that decides to drive
-   * it over itself must not be locked out of saying so.
+   * The question `SellerOrdersService.advance` asks before refusing a
+   * manual `shipped`/`delivered`, and it is deliberately narrower than
+   * "is a rider holding a parcel". **Two things must both be true.**
+   *
+   * First, a parcel is genuinely with the carrier. `booked` counts — the
+   * AWB exists and a rider is coming, so the kitchen has already handed
+   * the job over. `pending` and `failed` do not: those are parcels nobody
+   * has collected, and a kitchen that decides to drive it over itself
+   * must not be locked out of saying so.
+   *
+   * Second, **the courier is carrying the whole order** (2026-09-06).
+   * Gifts go by rider and food does not, so a basket with a candle and a
+   * curry in it has one parcel and one dish the kitchen still delivers
+   * itself. `reconcileOrderStatus` refuses to touch such an order for
+   * exactly that reason — so if this blocked the manual move as well,
+   * nobody at all could advance it and a real order would sit stuck until
+   * an admin overrode it. The two rules are one rule read from both ends.
    *
    * `false` whenever the module is switched off, so the pre-M57 manual
    * pipeline is bit-for-bit unchanged on a deployment with no carrier.
    */
   async hasParcelInFlight(orderId: string, vendorId?: string): Promise<boolean> {
     if (!this.isEnabled()) return false;
+    const uncarried = await this.prisma.orderItem.count({ where: { orderId, ...NON_COURIER_LINE } });
+    if (uncarried > 0) return false;
     const count = await this.prisma.consignment.count({
       where: {
         orderId,

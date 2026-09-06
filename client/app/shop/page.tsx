@@ -115,11 +115,14 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               </p>
             </div>
             {/*
-              One line of counts and the one control. The counts are receipt
-              type — mono, honestly counted, the DESIGN.md provenance voice —
-              rather than two bordered pills, which were two boxes for one
-              sentence. The location bar stays a control because it carries
-              the only route back to the prompt (see `LocationBar`).
+              One line of counts, and the area control under it (2026-09-06,
+              owner). The counts are receipt type — mono, honestly counted,
+              the DESIGN.md provenance voice — rather than two bordered
+              pills, which were two boxes for one sentence. The location bar
+              stays a control because it carries the only route back to the
+              prompt (see `LocationBar`), and it sits below rather than
+              beside because "3 kitchens · 14 dishes" is only true of a
+              place: the count and the area it counts over are one block.
             */}
             <div className={styles.metaRow}>
               <p className={styles.stats}>

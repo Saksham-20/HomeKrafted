@@ -108,14 +108,19 @@ export class OrdersService {
       const recipientAddress = await this.prisma.address.findUnique({
         where: { id: dto.gift!.recipientAddressId! },
       });
-      if (!recipientAddress || recipientAddress.userId !== userId) {
+      // `archivedAt` here and at every other point an address is *chosen*
+      // (2026-09-06). A deleted address is archived rather than removed,
+      // so without this a stale tab — or a client that cached the list
+      // before the delete — posts an id the buyer has already thrown away
+      // and the parcel goes to it.
+      if (!recipientAddress || recipientAddress.userId !== userId || recipientAddress.archivedAt) {
         throw new NotFoundException('Gift recipient address not found');
       }
     }
 
     const defaultAddress = dto.defaultAddressId
       ? undefined
-      : await this.prisma.address.findFirst({ where: { userId, isDefault: true } });
+      : await this.prisma.address.findFirst({ where: { userId, isDefault: true, archivedAt: null } });
     const fallbackAddressId = dto.defaultAddressId ?? defaultAddress?.id;
 
     const resolvedLines = await Promise.all(rawItems.map((item) => resolveCartLine(this.prisma, item)));
@@ -135,7 +140,7 @@ export class OrdersService {
 
     const distinctAddressIds = [...new Set(addressIdByItemId.values())];
     const ownedAddresses = await this.prisma.address.findMany({
-      where: { id: { in: distinctAddressIds }, userId },
+      where: { id: { in: distinctAddressIds }, userId, archivedAt: null },
     });
     if (ownedAddresses.length !== distinctAddressIds.length) {
       throw new NotFoundException('One or more shipping addresses were not found on this account');

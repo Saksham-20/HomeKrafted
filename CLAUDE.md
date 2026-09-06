@@ -686,9 +686,33 @@ answer.**
 rider collects from the HomeKrafter's own kitchen. Booked when the
 kitchen marks an order **packed** — that is when a parcel exists.
 
+- **A courier carries gifts and never food (2026-09-06, owner).**
+  `courier-eligibility.ts` is the one place that decides, and the
+  predicate is `Product.kind === 'craft'` — the same one `/gifts` browses
+  on, so what a buyer sees under "Handcrafted Gifts" is exactly what a
+  rider collects. It is deliberately **not** `shippingScope`, which
+  answers how far a listing may travel and would pull in a jar of pickle
+  marked `national`; nor `Vendor.type` or `specialties`, which are
+  discovery tags that must never decide anything (M12). The food half is
+  bit-for-bit its pre-M57 self: no `Consignment`, the kitchen marks
+  packed/shipped/delivered itself. Narrowing this to long deliveries only
+  is `&& shippingScope === national` **in that file and nowhere else**.
+- **A mixed basket is the case to hold in your head, and it is one rule
+  read from both ends.** A candle and a curry from one kitchen books a
+  parcel for the candle alone. So (a) `reconcileOrderStatus` refuses to
+  drive `Order.status` while any line is uncarried — a rider delivering
+  the candle must not stamp `deliveredAt`, start the buyer's seven-day
+  return window and set every kitchen's payout basis on food still in an
+  oven — and (b) `hasParcelInFlight` therefore returns **false** on such
+  an order, so the HomeKrafter can still close it by hand. Change one
+  without the other and a real order is stuck until an admin overrides.
+  Pinned by `shipping-gifts-only.e2e-spec.ts`.
 - **`SHADOWFAX_ENABLED` is off by default and the module is dormant
   without it.** Booking a rider costs money, and every kitchen that hands
   its own parcels over must keep working untouched.
+  `server/scripts/verify-shadowfax.mjs` proves an account works — host,
+  token, tricity `seller_pickup` coverage, and with `--book` a real
+  create/track/cancel round trip — without finding out on a live order.
 - **A carrier callback may move a parcel forward and nothing else.**
   Shadowfax does **not** sign callback bodies — there is no HMAC, unlike
   Razorpay, only an `Authorization` value we chose and gave them
@@ -703,7 +727,8 @@ kitchen marks an order **packed** — that is when a parcel exists.
   its URL is registered in **Shadowfax's client portal**, which no code
   here can do — so `SHADOWFAX_POLL_SECONDS` is the whole auto-update
   until somebody does that, and the safety net afterwards.
-- **The weakest parcel decides the order.** `shipped` when every parcel
+- **The weakest parcel decides the order**, and only on an order the
+  courier carries all of (above). `shipped` when every parcel
   has left, `delivered` when every parcel has arrived — never the first.
   `delivered` stamps `deliveredAt`, which starts the return window and is
   every kitchen's payout basis (M15/M37).

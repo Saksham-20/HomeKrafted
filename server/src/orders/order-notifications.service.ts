@@ -81,7 +81,13 @@ export class OrderNotificationsService {
       await this.delivery.deliver({
         userId: consignment.order.userId,
         category: 'order',
-        title: `Order ${consignment.order.orderNumber} has a rider`,
+        // "A parcel", not "your order". A courier carries the gift half of
+        // this platform and never the food half (`courier-eligibility.ts`),
+        // so a basket holding a candle and a curry has one parcel on a
+        // rider and one dish the kitchen still brings over itself.
+        // "Order 1234 has a rider" would tell that buyer their dinner was
+        // with a courier.
+        title: `Order ${consignment.order.orderNumber}: a parcel is on its way`,
         body:
           `${carrier} is collecting it from the kitchen. Waybill ${consignment.awbNumber} — ` +
           `quote that number if you need to ask the courier about it. ` +

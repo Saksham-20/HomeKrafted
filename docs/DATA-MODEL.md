@@ -13,7 +13,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | Entity | Key fields | Relationships |
 |---|---|---|
 | `User` | name, email?, phone?, authProviders[], referralCode, role (`consumer`\|`seller`\|`admin`), suspended? (M11a) | 1:1 `Wallet` (`walletId`), 1:1 `LoyaltyAccount` (`loyaltyAccountId`) |
-| `Address` | label, recipientName, phone, line1/2, city, state, pincode, isDefault | belongs to `User` (`userId`) |
+| `Address` | label, recipientName, phone, line1/2, city, state, pincode, isDefault, **archivedAt? (2026-09-06)** | belongs to `User` (`userId`); eight tables reference it under `Restrict`, so deleting **archives** — see below |
 | `Review` | targetType (`product`\|`vendor`\|`service`), targetId, rating 1–5, body, verifiedPurchase, flagged? (M11b), hidden? (M11b) | belongs to `User`; polymorphic target; **unique on `(userId, targetType, targetId)`** (M15 — one review per person per thing) |
 | `Notification` | channel (`sms`\|`whatsapp`\|`email`\|`inapp`), category, read | belongs to `User`; optional polymorphic ref (`refType`/`refId`) |
 | `NotificationPreference` | one row per (user, category): sms/whatsapp/email/inapp booleans | belongs to `User` |
@@ -823,6 +823,43 @@ timestamp insert a second event and re-drive the order.
 
 Both enums (`ShippingProvider`, `ConsignmentStatus`) and both tables are
 **additive** — the M57 migration touches no existing table.
+
+**A `Consignment` is only ever minted for a gift (2026-09-06, owner.)**
+`server/src/shipping/courier-eligibility.ts` is the one place that
+decides, and the predicate is `Product.kind = 'craft'` — the same one
+`/gifts` browses on, so the catalogue a buyer sees under "Handcrafted
+Gifts" is exactly the set a rider collects. Not `shippingScope`, which
+answers how far a listing may travel and would have pulled in a jar of
+pickle marked `national`. Food keeps the pre-M57 pipeline: the kitchen
+marks packed, shipped and delivered itself.
+
+The consequence to hold on to is the **mixed basket** — a candle and a
+curry from one kitchen, one order, one parcel. `Order.status` is then a
+statement about lines the courier is not carrying, so
+`reconcileOrderStatus` refuses to drive it (a rider must not stamp
+`deliveredAt` and start the return window on food still in an oven) and
+`hasParcelInFlight` answers `false` so the kitchen can still close the
+order by hand. The two are one rule read from both ends; changing either
+alone strands a real order.
+
+## Address archiving (2026-09-06)
+
+`Address.archivedAt` exists because `DELETE /users/me/addresses/:id`
+could not delete. Eight tables reference `Address`, five of them
+`RESTRICT` (`OrderItem`, `OrderShipment`, `Consignment`,
+`LaundryBooking`, `MealSubscription`) and three `SET NULL` (`CartItem`,
+`Hamper`, `Order.giftRecipientAddressId`) — verified against
+`pg_constraint`, not inferred. So an address that had ever been ordered to
+raised a foreign-key violation, which the global filter renders as a bare
+`500 Something went wrong`; and had it succeeded, the `SET NULL` three
+would have silently forgotten which address a gift order was posted to.
+
+Archiving keeps both halves: the row survives so history can still say
+where a parcel went, and the address leaves every list and every picker.
+**Every read that offers an address to choose filters `archivedAt: null`**
+— the address book, the default-address fallback at checkout, cart line
+assignment, hamper recipients and meal subscriptions. A read that
+*displays* a past order must not filter, or the history goes blank.
 
 ## Category tree + ProductCategory (M58)
 

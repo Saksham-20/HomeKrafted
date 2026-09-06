@@ -249,7 +249,7 @@ All three return the same shape:
 | `GET /users/me/addresses` | any authed role | `Address[]`, own addresses only |
 | `POST /users/me/addresses` | any authed role | created `Address` |
 | `PATCH /users/me/addresses/:id` | any authed role, own address only (404 otherwise) | updated `Address` |
-| `DELETE /users/me/addresses/:id` | any authed role, own address only | `204` |
+| `DELETE /users/me/addresses/:id` | any authed role, own address only | `204`. **Archives, does not delete** (2026-09-06): eight tables reference `Address` under `Restrict`, so a hard delete raised a foreign-key violation — surfaced as a bare 500 — for any address that had ever been in a cart or on an order. It now sets `archivedAt`, disappears from every list and picker, and 404s on any later edit/default/delete; the past order still renders the street it went to. If it was the default, the oldest survivor takes over. |
 | `POST /users/me/addresses/:id/default` | any authed role, own address only | `Address` with `isDefault: true` |
 
 **`phone` and `pincode` are validated as of the 2026-08-07 audit**, on

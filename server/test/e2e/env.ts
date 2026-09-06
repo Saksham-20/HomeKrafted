@@ -61,3 +61,24 @@ process.env.RAZORPAY_KEY_SECRET = 'placeholder_secret';
 process.env.RAZORPAY_WEBHOOK_SECRET = 'placeholder_webhook_secret';
 process.env.WHATSAPP_TOKEN = 'placeholder_whatsapp_token';
 process.env.WHATSAPP_PHONE_NUMBER_ID = 'placeholder_phone_number_id';
+
+// The courier module, on and in stub mode (2026-09-06).
+//
+// On, because `SHADOWFAX_ENABLED=false` made every despatch path in the
+// suite unreachable — `bookForOrder` returned at its first line, so the
+// gifts-only rule, the mixed-basket guard and the manual-advance block
+// were all asserted against a module that had switched itself off. Stub,
+// because `SHADOWFAX_API_TOKEN` is the `.env.example` placeholder, which
+// `ShadowfaxClient.isStubMode` answers locally: the real booking code runs
+// and the network call does not, so a suite run can never book a rider.
+//
+// Safe to turn on globally *because* a courier now carries gifts only: the
+// suite's fixtures are food, food mints no `Consignment`, and every spec
+// that predates this sees exactly what it saw before. A spec that wants a
+// parcel asks for one by creating a `craft` listing.
+process.env.SHADOWFAX_ENABLED = 'true';
+process.env.SHADOWFAX_API_TOKEN = 'placeholder_shadowfax_token';
+process.env.SHADOWFAX_CALLBACK_TOKEN = 'e2e-shadowfax-callback-token';
+// No background poll. A timer firing mid-suite would race the assertions,
+// and `reconcile()` is called directly by the spec that tests it.
+process.env.SHADOWFAX_POLL_SECONDS = '0';

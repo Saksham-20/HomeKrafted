@@ -116,7 +116,7 @@ export class MealSubscriptionsService {
       // The address must be the caller's. Reading it by id alone would let
       // anyone subscribe a meal to a stranger's front door.
       const address = await tx.address.findFirst({
-        where: { id: dto.addressId, userId },
+        where: { id: dto.addressId, userId, archivedAt: null },
       });
       if (!address) {
         throw new NotFoundException('Address not found');

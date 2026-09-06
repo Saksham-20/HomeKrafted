@@ -109,7 +109,9 @@ export class CartService {
     }
     if (dto.recipientAddressId) {
       const address = await this.prisma.address.findUnique({ where: { id: dto.recipientAddressId } });
-      if (!address || address.userId !== userId) throw new NotFoundException('Recipient address not found');
+      if (!address || address.userId !== userId || address.archivedAt) {
+        throw new NotFoundException('Recipient address not found');
+      }
     }
 
     const cart = await this.getOrCreateCart(userId);
@@ -161,7 +163,11 @@ export class CartService {
     const item = await this.assertOwnedItem(userId, itemId);
     if (addressId) {
       const address = await this.prisma.address.findUnique({ where: { id: addressId } });
-      if (!address || address.userId !== userId) throw new NotFoundException('Address not found');
+      // An archived address is gone as far as this account is concerned,
+      // so assigning a cart line to one 404s like a stranger's would.
+      if (!address || address.userId !== userId || address.archivedAt) {
+        throw new NotFoundException('Address not found');
+      }
     }
     await this.prisma.cartItem.update({ where: { id: itemId }, data: { addressId: addressId ?? null } });
     await this.touch(item.cartId);

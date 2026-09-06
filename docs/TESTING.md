@@ -1489,6 +1489,21 @@ Only visible when the deployment has `SHADOWFAX_ENABLED=true`. Most orders
 have no parcel — a kitchen usually delivers itself — and the delivery panel
 then does not render at all. That is correct, not a missing section.
 
+**A rider is booked for gifts and never for food (2026-09-06).** Anything
+in the `/gifts` catalogue can get a parcel; nothing on `/shop` ever does,
+whatever the deployment's settings say. So the first thing to check is
+that a food order marked packed produces **no** row in `/admin/shipping`
+— and that this is true even with the module switched on.
+
+The case worth going out of your way for is an order with **one gift and
+one dish from the same kitchen**. Expect exactly one parcel, holding the
+gift; expect the courier's "delivered" callback to move that parcel to
+delivered and leave the *order* where it was; and expect the HomeKrafter
+to still be able to mark the order shipped and delivered by hand, because
+they are the one who still has the dish. If the order closes itself when
+the gift arrives, the buyer's seven-day return window and the kitchen's
+payout have both started on food nobody has delivered.
+
 When a parcel does exist:
 
 - **Buyer** — order detail shows a progress rail, where the parcel is, and
@@ -1502,6 +1517,10 @@ When a parcel does exist:
   **parcels that could not be booked**, each showing the carrier's own
   refusal. "Book a rider" retries; "Call off" cancels (a reason is
   required). "Reconcile" polls the carrier for anything missed.
+
+Note the HomeKrafter block is narrower than it reads: it bites only when
+the courier is carrying the **whole** order. On a mixed order the buttons
+stay live, deliberately — see above.
 
 Worth testing: mark an order packed for a kitchen with **no pickup address
 on file**. The order must still advance to `packed`, and the parcel must
