@@ -1,15 +1,21 @@
-import type { LoyaltyAccount, LoyaltyTier, Referral } from "@/lib/types";
+import type { LoyaltyAccount, Referral } from "@/lib/types";
 
-/**
- * Current invite reward rate — what the demo "apply referral credit"
- * button on `/account/referrals` credits today. Kept separate from
- * `referrals[0]`'s historical `rewardAmount` (₹100, matching the existing
- * "Referral credit — Priya" row already seeded in `lib/data/wallet.ts`'s
- * ledger) — reward rates can change over time in a real program, and
- * rewriting an already-settled ledger row to match a new rate would be
- * wrong.
- */
-export const REFERRAL_REWARD_AMOUNT = 250;
+/*
+  The reward rate, the tier ladder and the "how this works" steps moved to
+  `lib/referrals/loyalty-copy.ts` on 2026-09-06. They are display copy
+  returned unconditionally — no `isMockMode()` branch — and the native app
+  resolves this whole directory to a throwing stub, so three `lib/api`
+  functions threw on a device while passing every check here. Re-exported
+  so nothing importing them from `@/lib/data` has to change.
+*/
+export {
+  LOYALTY_TIERS,
+  REFERRAL_REWARD_AMOUNT,
+  referralHowItWorks,
+  type HowItWorksStep,
+  type LoyaltyTierInfo,
+} from "@/lib/referrals/loyalty-copy";
+
 
 /**
  * Referrals sent by the demo user, exercising all 3 `ReferralStatus`
@@ -50,20 +56,6 @@ export const referrals: Referral[] = [
   },
 ];
 
-/** One row per `LoyaltyTier`, ordered — `lifetimePoints` threshold to reach it, plus display copy for the tier ladder on `/account/referrals`. */
-export interface LoyaltyTierInfo {
-  tier: LoyaltyTier;
-  label: string;
-  threshold: number;
-  perk: string;
-}
-
-export const LOYALTY_TIERS: LoyaltyTierInfo[] = [
-  { tier: "bronze", label: "Bronze", threshold: 0, perk: "Base cashback on every order" },
-  { tier: "silver", label: "Silver", threshold: 1000, perk: "+0.5% extra cashback · priority support" },
-  { tier: "gold", label: "Gold", threshold: 2500, perk: "+1% extra cashback · early sale access" },
-  { tier: "platinum", label: "Platinum", threshold: 5000, perk: "+1.5% extra cashback · free gift wrap, always" },
-];
 
 /**
  * Seeded loyalty account for the demo user — `lifetimePoints: 1820` sits
@@ -83,26 +75,3 @@ export const loyaltyAccount: LoyaltyAccount = {
   pointsToNextTier: 680,
 };
 
-export interface HowItWorksStep {
-  title: string;
-  description: string;
-}
-
-export const referralHowItWorks: HowItWorksStep[] = [
-  {
-    title: "Share your code",
-    description: "Send your referral code or link to a friend via WhatsApp, SMS or email.",
-  },
-  {
-    title: "They sign up & order",
-    description: "Once they create an account and place their first order, the invite counts.",
-  },
-  {
-    title: "You both get credited",
-    description: `₹${REFERRAL_REWARD_AMOUNT} lands in each of your wallets — no expiry, usable on any module.`,
-  },
-  {
-    title: "Earn loyalty points too",
-    description: "Every order earns points toward Silver, Gold and Platinum tiers — better cashback at each step.",
-  },
-];

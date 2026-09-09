@@ -198,8 +198,68 @@ export function describeSlot(
   availability?: ScheduleAvailability,
 ): string {
   const day = getScheduleDays(SCHEDULE_HORIZON_DAYS, now, availability).find((d) => d.id === dayId);
-  const window = DELIVERY_WINDOWS.find((w) => w.id === windowId);
-  if (!day || !window) return "As soon as possible";
+  // Named `slot`, not `window`: a local shadowing a DOM global is what
+  // makes "does this file touch `window`" unanswerable by reading, and
+  // `shared-boundary.spec.ts` now asks exactly that question of every
+  // file under `lib/`. This one is pure and must be able to prove it.
+  const slot = DELIVERY_WINDOWS.find((w) => w.id === windowId);
+  if (!day || !slot) return "As soon as possible";
   const when = day.isToday || day.day === "Tomorrow" ? day.day : `${day.day} ${day.date}`;
-  return `${when}, ${window.label}`;
+  return `${when}, ${slot.label}`;
+}
+
+// ---------------------------------------------------------------------------
+// Delivery dates (marketplace checkout)
+// ---------------------------------------------------------------------------
+
+/** One pickable delivery day, as the checkout picker renders it. */
+export interface DeliveryDateOption {
+  id: string;
+  /** "Sun" */
+  day: string;
+  /** "26 Jul" */
+  date: string;
+  /** "2026-07-26" */
+  isoDate: string;
+}
+
+/** How many days the marketplace checkout offers. Four fits one row of the picker. */
+export const DELIVERY_DATE_COUNT = 4;
+
+/**
+ * The next `count` delivery days, rolling from **tomorrow**.
+ *
+ * It lived in `lib/data/orders.ts` as a module-scope `const` until
+ * 2026-09-06, which meant it was computed **once per process**: the
+ * checkout page is a Server Component, so a Next server up for three days
+ * handed every buyer a picker whose first option was two days in the
+ * past. That is the exact failure this file's own header describes ("how
+ * the laundry picker ended up offering dates in the past"), one module
+ * over, and it was invisible locally because a dev server restarts
+ * constantly.
+ *
+ * So `now` is a parameter, like every other time rule in this codebase —
+ * and the caller is a client component, because the buyer's "today" is
+ * the buyer's, not the VPS's (which runs `Etc/UTC`, five and a half hours
+ * behind the people using it).
+ *
+ * Ids stay `dd1..ddN`: they are what the picker's `value` compares on and
+ * what `dateByAddress` is keyed by.
+ */
+export function deliveryDateOptions(
+  now: Date = new Date(),
+  count: number = DELIVERY_DATE_COUNT,
+): DeliveryDateOption[] {
+  const base = new Date(now);
+  base.setHours(0, 0, 0, 0);
+  return Array.from({ length: count }, (_unused, index) => {
+    const day = new Date(base);
+    day.setDate(day.getDate() + index + 1);
+    return {
+      id: `dd${index + 1}`,
+      day: DAY_NAMES[day.getDay()],
+      date: `${day.getDate()} ${MONTH_NAMES[day.getMonth()]}`,
+      isoDate: isoDateOf(day),
+    };
+  });
 }

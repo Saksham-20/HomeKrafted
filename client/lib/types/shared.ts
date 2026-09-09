@@ -690,3 +690,22 @@ export interface Reel {
   ctaHref: string;
   publishedAt: ISODateString;
 }
+
+/**
+ * One row in a `<Combobox>` list.
+ *
+ * Lives here, not beside the component, because `lib/taxonomy-actions.ts`
+ * needs it and `client/lib` may not import from `client/components` — the
+ * native app compiles the same `lib/` files, and an `import type` reaching
+ * into a component is not elided by `tsc`, so it followed the chain into a
+ * CSS module whose ambient declaration lives in the untracked
+ * `next-env.d.ts` and broke the app's typecheck on a fresh clone
+ * (2026-09-06). `components/ui/Combobox` re-exports it, so every existing
+ * import site still works.
+ */
+export interface ComboboxOption {
+  value: string;
+  label: string;
+  /** Optional second line — a date, a count, whatever disambiguates two similar names. */
+  hint?: string;
+}

@@ -1,18 +1,16 @@
 /**
  * Support screen content — the phone number the `/support` call CTA
- * (`tel:` link) points at, and the greeting the mock chat widget opens
- * with. Not a domain entity (no `lib/types` shape), so this stays a
- * small content seed rather than growing its own type.
+ * (`tel:` link) points at, and the greeting the chat widget opens with.
+ *
+ * **The values themselves moved to `lib/support/contact.ts` on
+ * 2026-09-06.** They are returned by `lib/api/support.ts` with no
+ * `isMockMode()` branch, and the native app resolves this directory to a
+ * throwing stub — so reading them from here made two `lib/api` functions
+ * throw on a device. Re-exported so every existing importer is unchanged.
  */
-
-/** Human-readable display form, for the visible CTA label. */
-export const SUPPORT_PHONE_DISPLAY = "+91 80 4718 2020";
-
-/** Digits-only `tel:` target. */
-export const SUPPORT_PHONE_TEL = "+918047182020";
-
-export const SUPPORT_HOURS = "Mon–Sat, 9am–8pm IST";
-
-/** First message the mock chat widget shows before the shopper types anything. */
-export const SUPPORT_CHAT_GREETING =
-  "Hi! I'm the Homekrafted support bot. Ask me about an order, refund, or wallet — or raise a ticket below for anything else.";
+export {
+  SUPPORT_CHAT_GREETING,
+  SUPPORT_HOURS,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_TEL,
+} from "@/lib/support/contact";

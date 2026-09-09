@@ -212,7 +212,7 @@ export function AddressBookClient() {
       <div className={styles.header}>
         <span className={styles.eyebrow}>Account</span>
         <h1 className={styles.title}>Address book</h1>
-        <p className={styles.subtitle}>Manage where your orders and laundry pickups ship to.</p>
+        <p className={styles.subtitle}>Manage where your orders ship to.</p>
       </div>
 
       {!showForm && (
@@ -317,7 +317,7 @@ export function AddressBookClient() {
         <Card className={styles.empty}>
           <MapPin size={22} strokeWidth={1.6} className={styles.emptyIcon} />
           <p className={styles.emptyTitle}>No saved addresses</p>
-          <p className={styles.emptyCopy}>Add one to speed up checkout and laundry pickups.</p>
+          <p className={styles.emptyCopy}>Add one to speed up checkout.</p>
         </Card>
       ) : (
         <div className={styles.list}>

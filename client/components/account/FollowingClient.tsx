@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
-import { getFollowedVendors, unfollowVendor } from "@/lib/api";
+import { apiErrorMessage, getFollowedVendors, unfollowVendor } from "@/lib/api";
 import type { Vendor } from "@/lib/types";
 import { kitchenLoading } from "@/lib/kitchen-copy";
 import styles from "./FollowingClient.module.css";
@@ -19,6 +19,10 @@ import styles from "./FollowingClient.module.css";
 export function FollowingClient() {
   const [vendors, setVendors] = useState<Vendor[] | undefined>(undefined);
   const [failed, setFailed] = useState(false);
+  /** Bumped by Try again — the screen had no in-page path back at all. */
+  const [reloadToken, setReloadToken] = useState(0);
+  /** A refused unfollow, said out loud rather than only undone. */
+  const [unfollowError, setUnfollowError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,15 +36,21 @@ export function FollowingClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
   async function handleUnfollow(vendor: Vendor) {
     const previous = vendors ?? [];
+    setUnfollowError(null);
     setVendors(previous.filter((row) => row.id !== vendor.id));
     try {
       await unfollowVendor(vendor.slug);
-    } catch {
+    } catch (err) {
+      // Restoring the row is right — the follow is still there — but
+      // doing it silently made the button look like it had simply
+      // bounced. The row reappearing with no sentence is a lie about
+      // server state told by omission.
       setVendors(previous);
+      setUnfollowError(apiErrorMessage(err, `We couldn't unfollow ${vendor.name}. Try again.`));
     }
   }
 
@@ -56,10 +66,32 @@ export function FollowingClient() {
         </p>
       </div>
 
-      {failed ? (
+      {unfollowError ? (
         <p className={styles.error} role="alert">
-          Couldn&apos;t load who you follow. Reload the page to try again.
+          {unfollowError}
         </p>
+      ) : null}
+
+      {failed ? (
+        <div className={styles.error} role="alert">
+          {/* "Reload the page" is not a thing an app has, and it was the
+              only remedy this screen offered — there was no retry
+              control at all (DS-5). It also named the wrong party: we
+              cannot tell from here whether it is their network or our
+              box. */}
+          <p>We couldn&apos;t load who you follow. That&apos;s on us, not your connection.</p>
+          <button
+            type="button"
+            className={styles.retry}
+            onClick={() => {
+              setFailed(false);
+              setVendors(undefined);
+              setReloadToken((token) => token + 1);
+            }}
+          >
+            Try again
+          </button>
+        </div>
       ) : vendors === undefined ? (
         <p className={styles.loading} role="status" aria-live="polite">
           {kitchenLoading("account/following")}

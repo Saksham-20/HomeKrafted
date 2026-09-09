@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import { getDeliveryDateOptions } from "@/lib/api";
 import { CheckoutClient } from "@/components/checkout/CheckoutClient";
 
 /**
- * Checkout (M3; M8.4a swap) — server wrapper: fetches the (still static,
- * non-auth) delivery-date options. The address book + wallet balance used
- * to be fetched here too — both are owner-scoped real reads now, so
- * `CheckoutClient` fetches them itself on mount instead (same reasoning as
- * `LaundryBookingClient`).
+ * Checkout (M3; M8.4a swap) — server wrapper, and now a thin one.
+ *
+ * It used to fetch the delivery-date options here and hand them down.
+ * They roll from tomorrow and were a module-scope `const`, so this
+ * Server Component captured them **once per process**: a box up for
+ * three days offered every buyer a picker starting two days in the past.
+ * The address book and wallet moved into the client for being
+ * owner-scoped; the dates move for the M12 reason — anything keyed on
+ * the current time is computed after mount, where "today" is the
+ * buyer's and not the VPS's.
  */
 /**
  * Never indexable: a checkout is per-visitor and behind a session. `robots.ts` disallows the path too — this is
@@ -19,8 +23,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function CheckoutPage() {
-  const deliveryDateOptions = await getDeliveryDateOptions();
-
-  return <CheckoutClient deliveryDateOptions={deliveryDateOptions} />;
+export default function CheckoutPage() {
+  return <CheckoutClient />;
 }

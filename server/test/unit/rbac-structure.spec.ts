@@ -1,6 +1,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  every line to the next closer — `seller.controller.ts` was 54% visible
+  to the RBAC scan. Kept in step with the client copy by
+  `strip-comments-parity.spec.ts`.
+*/
+import { stripComments } from './strip-comments';
+
 /**
  * Every admin and seller controller carries its role gate, structurally.
  *
@@ -70,26 +80,6 @@ function fileName(path: string): string {
   return path.split('/').pop() ?? path;
 }
 
-/**
- * Decorators only — comments stripped.
- *
- * **Why this is not cosmetic.** Every scan below looks for the literal
- * `@Roles('admin')`, and this codebase's doc comments quote decorators
- * constantly (`users.controller.ts` opens by describing "the trailing
- * `@Roles('admin') GET :id`"). Without this, a controller whose only
- * mention of the decorator is *prose about* the decorator reads as
- * gated — the scan fails open, in the one direction a security guard
- * must never fail. Found by the mixed-controller assertion below, which
- * expected three ungated classes and got three "gated" ones, all three
- * gated only in English.
- *
- * Crude on purpose: a `//` or block comment inside a string literal
- * would be mangled, and no controller here has one. It is a decorator
- * scan, not a parser.
- */
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-}
 
 /**
  * Class-level means the decorator sits between `@Controller(...)` and the

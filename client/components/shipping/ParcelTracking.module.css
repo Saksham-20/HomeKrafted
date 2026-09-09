@@ -101,3 +101,12 @@
   outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 2px;
 }
+
+/* A failed courier read. Deliberately quieter than a Notice: the order's
+   own timeline is still on screen and still correct, so this names the
+   one missing piece rather than presenting itself as the page's problem. */
+.unavailable {
+  color: var(--hk-muted);
+  font-size: 13.5px;
+  margin: var(--hk-s3) 0;
+}

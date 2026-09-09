@@ -23,7 +23,21 @@ import styles from "./Search.module.css";
 const PRIORITY_CARDS = 5;
 
 export interface SearchPageProps {
-  searchParams: Promise<{ q?: string }>;
+  /**
+   * `string | string[]`, because a repeated parameter is legal in a URL
+   * and Next hands it through as an array. This was declared `q?: string`
+   * and narrowed nowhere, so `/search?q=a&q=b` reached `query.trim()`
+   * with an array and 500'd — on the one route whose entire input is a
+   * raw URL anybody can construct or share. Parse defensively: it is a
+   * URL, so it comes from anybody.
+   */
+  searchParams: Promise<{ q?: string | string[] }>;
+}
+
+/** First value wins; absent is the empty string, which is already the ask-me state. */
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
 }
 
 export const metadata: Metadata = {
@@ -50,7 +64,7 @@ const SUGGESTIONS = ["Pickle", "Ladoo", "Diwali", "Masala", "Cake"];
  * the prompt still gets results.
  */
 export default async function SearchPage({ searchParams }: SearchPageProps) {
-  const { q = "" } = await searchParams;
+  const q = firstParam((await searchParams).q);
   const near = await getBuyerCoords();
   const [results, vendors] = await Promise.all([search(q, near), getVendors()]);
   const vendorNameById = Object.fromEntries(vendors.map((vendor) => [vendor.id, vendor.name]));

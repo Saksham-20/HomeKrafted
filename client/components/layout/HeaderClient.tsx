@@ -93,7 +93,12 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     return () => window.removeEventListener("scroll", onScroll);
   }, [onLanding]);
   const { count: cartCount } = useCart();
-  const { balance: walletBalance, ready: walletReady } = useWallet();
+  const { balance: walletBalance, ready: walletReady, loadFailed: walletFailed } = useWallet();
+  // A failed read is not a balance. The chip's existing contract is
+  // "never a misleading ₹0" (see `MobileDrawer`'s prop comment), and a
+  // read that answered nothing is exactly that case — the explanation
+  // belongs on /wallet, which has room for it.
+  const walletKnown = walletReady && !walletFailed;
   const { count: wishlistCount } = useWishlist();
   const { role, ready: authReady, switchToShopping, switchToSelling } = useAuth();
   const isSeller = authReady && role === "seller";
@@ -258,11 +263,11 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
             <Link
               href="/wallet"
               className={styles.walletChip}
-              aria-label={walletReady ? `Wallet, ${formatCurrency(walletBalance)}` : "Wallet"}
+              aria-label={walletKnown ? `Wallet, ${formatCurrency(walletBalance)}` : "Wallet"}
             >
               <Wallet size={17} strokeWidth={1.7} />
               <span className={styles.walletAmount}>
-                {walletReady ? formatCurrency(walletBalance) : "…"}
+                {walletKnown ? formatCurrency(walletBalance) : "…"}
               </span>
             </Link>
           )}
@@ -329,7 +334,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
         onClose={() => setDrawerOpen(false)}
         navItems={navItems}
         secondaryItems={secondaryItems}
-        walletBalance={walletReady ? walletBalance : undefined}
+        walletBalance={walletKnown ? walletBalance : undefined}
         onSwitchToSelling={isSeller ? handleSwitchToSelling : undefined}
         showAdminSwitch={isAdmin}
       />

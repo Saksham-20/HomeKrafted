@@ -1,6 +1,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex, and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  everything to the next closer. 27 files under `client/` were partly
+  invisible to these scans. See `lib/testing/strip-comments.ts`.
+*/
+import { stripComments } from "@/lib/testing/strip-comments";
+
 /**
  * A save that fails must say so.
  *
@@ -42,11 +51,6 @@ function sourceFiles(dir: string): string[] {
   return found;
 }
 
-function stripComments(source: string): string {
-  // So a file that only *describes* the rule is never credited with
-  // following it — and so this file's own prose can never satisfy it.
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
-}
 
 describe("an await inside try/finally", () => {
   const files = SCANNED_DIRS.flatMap((dir) => sourceFiles(join(CLIENT_ROOT, dir)));
@@ -209,6 +213,18 @@ describe("a component that mutates server state", () => {
    */
   const PASSES_THE_REFUSAL_UP: { path: string; why: string }[] = [
     { path: join("lib", "api"), why: "the transport itself — M36: a wrapper that reports nothing has discarded the only explanation" },
+    {
+      path: join("lib", "cart", "CartContext.tsx"),
+      why: "2026-09-06 — the cart provider is the transport for its own call sites. Its mutations were `void promise.then(...)` with no catch; they now await and reject, and `CartPageClient` and `CheckoutClient` map the rejection through `cartUpdateErrorMessage`. A catch *here* would swallow the refusal before the screen that renders it ever sees it — the same reasoning as `taxonomy-actions.ts` below, and the bug this rule exists to stop.",
+    },
+    {
+      path: join("lib", "wishlist", "WishlistContext.tsx"),
+      why: "2026-09-06 — the same shape and the same reasoning as `CartContext.tsx` above, and the fourth instance of one defect. `toggle`/`remove` were `void promise.then(...)` with no catch, so a refused heart did nothing and said nothing, which reads as a broken control rather than a refusal. They now await and reject; `ProductGridCard`, `ProductPurchasePanel` and `WishlistPageClient` map the rejection through `wishlistErrorMessage`. A catch here would swallow it before any of them saw it.",
+    },
+    {
+      path: join("lib", "auth", "AuthContext.tsx"),
+      why: "2026-09-06 — the auth provider is the transport for the sign-in screens, same as `CartContext` above. `requestOtp` wraps `requestOtpCode` in try/finally so the busy flag always clears, and lets the rejection through; `LoginClient#sendCode` awaits it, catches, and renders `friendlyError(err)` — a catch here would swallow the server's sentence before the form that shows it. It surfaced only when this spec stopped stripping comments with a regex that read `/seller/*` in prose as a comment opener: **42% of this file, including `requestOtp`, had been invisible to the scan.**",
+    },
     {
       path: join("lib", "taxonomy-actions.ts"),
       why: "M50 — two-line adapters handed to `<Combobox onCreate/onSuggest>`, whose documented contract is that it awaits them inside its own try/catch and renders the server's sentence verbatim. A catch here would swallow the message before the component that displays it ever sees it.",

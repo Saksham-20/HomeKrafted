@@ -6,6 +6,7 @@ import { useCart } from "@/lib/cart/CartContext";
 import { addToCartErrorMessage } from "@/lib/cart/add-error";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
+import { wishlistErrorMessage } from "@/lib/wishlist/wishlist-error";
 import type { Product } from "@/lib/types";
 
 export interface ProductGridCardProps {
@@ -37,6 +38,12 @@ export function ProductGridCard({ product, makerName, href, priority, className 
   const [added, setAdded] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  /**
+   * A refused heart used to do nothing and say nothing — the press
+   * vanished and the control read as broken. Shown in the same slot as
+   * the add refusal: one card, one place a refusal lands.
+   */
+  const [wishlistError, setWishlistError] = useState<string | null>(null);
   const sku = purchasableSku(product);
 
   async function handleAdd() {
@@ -65,10 +72,13 @@ export function ProductGridCard({ product, makerName, href, priority, className 
       // from the keyboard, which a `role="button"` div never could.
       href={href}
       wishlisted={has(product.id)}
-      onToggleWishlist={() => toggle(product.id)}
+      onToggleWishlist={() => {
+        setWishlistError(null);
+        void toggle(product.id).catch((err: unknown) => setWishlistError(wishlistErrorMessage(err)));
+      }}
       added={added}
       soldOut={sku === null}
-      addError={addError}
+      addError={addError ?? wishlistError}
       onAdd={handleAdd}
     />
   );

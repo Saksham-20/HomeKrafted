@@ -9,14 +9,15 @@
  * truth for pricing/stock/line resolution now (`docs/API.md`'s
  * recommended M8.4 path: drop client-side `lineInfo()` catalog math
  * entirely and read the server's resolved `ServerCartLine` fields
- * directly). Every mutation is exposed as a synchronous, fire-and-forget
- * function (same signatures as before) — each just kicks off the async
- * server round trip and updates state when it resolves, so no call site
- * needs to `await` a cart mutation. The one exception is `addHamperItem`,
- * whose return type changes from a synchronous `ID` to a `Promise<ID>` —
- * a hamper's id genuinely doesn't exist until the server creates it,
- * and its one call site (`HamperBuilderClient`) already needed to wait
- * before navigating to `/checkout` anyway.
+ * directly).
+ *
+ * **Every mutation rejects, and every call site awaits it.** Until
+ * 2026-09-06 all of them but `addItem` were `void promise.then(...)` with
+ * no `catch`, so a refusal vanished and the screen carried on showing the
+ * old number as though the change had landed — the same shape as the
+ * `addItem` bug fixed on 2026-09-03, and the same shape `lib/api`'s M36
+ * rule exists to stop. `addHamperItem` has always returned a `Promise<ID>`,
+ * because a hamper's id doesn't exist until the server creates it.
  *
  * `NEXT_PUBLIC_USE_MOCK=true` keeps the exact pre-M8.4a behavior: a
  * `localStorage`-persisted cart with client-side `lineInfo()` computed
@@ -85,8 +86,23 @@ export interface CartLineInfo {
 export interface CartContextValue {
   items: CartItem[];
   hampers: Record<string, Hamper>;
-  /** True once the cart (mock: + product/hamper-box catalog) has loaded. */
+  /** True once the first read has settled **either way** (mock: + product/hamper-box catalog). */
   ready: boolean;
+  /**
+   * The read failed, kept apart from an empty cart (2026-09-06).
+   *
+   * `getServerCart().then(...)` had no rejection handler and set `ready`
+   * only on success — the sixth instance of one defect, after
+   * `WishlistContext`, `WalletContext`, both order screens and the
+   * subscriptions list. Three things came out of it: an unhandled
+   * rejection on **every page** (the providers are in the root layout),
+   * `ready` stuck false so `/cart` and `/checkout` waited for ever, and —
+   * the one that costs money — a cart somebody had filled rendering as
+   * empty.
+   */
+  loadFailed: boolean;
+  /** Re-runs the failed first read. */
+  retryLoad: () => void;
   /**
    * Resolves once the server has the line; **rejects when it refuses**
    * (signed-out, delisted, over stock). Until 2026-09-03 this was
@@ -97,12 +113,12 @@ export interface CartContextValue {
    * before it resolves. Mock mode resolves synchronously.
    */
   addItem: (productId: ID, sku: string, quantity?: number) => Promise<void>;
-  updateQty: (itemId: ID, quantity: number) => void;
-  removeItem: (itemId: ID) => void;
-  assignAddress: (itemId: ID, addressId: ID | undefined) => void;
+  updateQty: (itemId: ID, quantity: number) => Promise<void>;
+  removeItem: (itemId: ID) => Promise<void>;
+  assignAddress: (itemId: ID, addressId: ID | undefined) => Promise<void>;
   /** Hands an assembled hamper off from `/hamper` into the cart as one line. Real mode: `Promise<ID>` — the hamper doesn't exist until the server creates it. */
   addHamperItem: (hamper: Omit<Hamper, "id" | "userId" | "createdAt">) => ID | Promise<ID>;
-  clear: () => void;
+  clear: () => Promise<void>;
   /**
    * Re-pull the server cart. Needed when something *other* than this
    * store changed it — M15's reorder adds lines server-side (it has to
@@ -152,6 +168,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { ready: authReady, isSignedIn, role } = useAuth();
 
   const [items, setItems] = useState<CartItem[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [hampers, setHampers] = useState<Record<string, Hamper>>({});
   const [serverLines, setServerLines] = useState<ServerCartLine[]>([]);
   const [catalog, setCatalog] = useState<Product[]>([]);
@@ -170,14 +188,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mock) return;
     const stored = readStorage();
-    Promise.all([getProducts(), getHamperBoxes()]).then(([products, hamperBoxes]) => {
-      setItems(stored.items);
-      setHampers(stored.hampers);
-      setCatalog(products);
-      setBoxes(hamperBoxes);
-      setReady(true);
-      hydrated.current = true;
-    });
+    Promise.all([getProducts(), getHamperBoxes()])
+      .then(([products, hamperBoxes]) => {
+        setItems(stored.items);
+        setHampers(stored.hampers);
+        setCatalog(products);
+        setBoxes(hamperBoxes);
+        setLoadFailed(false);
+        hydrated.current = true;
+      })
+      .catch(() => setLoadFailed(true))
+      // Settles either way — mock mode too, so an offline dev session
+      // does not sit on a loading state for ever.
+      .finally(() => setReady(true));
   }, [mock]);
 
   // Real mode: wait for the auth session, then hydrate the signed-in
@@ -201,16 +224,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
       };
     }
     let cancelled = false;
-    getServerCart().then((cart) => {
-      if (cancelled) return;
-      applyServerCart(cart.items);
-      setReady(true);
-      hydrated.current = true;
-    });
+    getServerCart()
+      .then((cart) => {
+        if (cancelled) return;
+        applyServerCart(cart.items);
+        setLoadFailed(false);
+        hydrated.current = true;
+      })
+      .catch(() => {
+        // Deliberately does NOT `applyServerCart([])`: an empty cart and
+        // a cart we could not read look identical to the visitor, and one
+        // of them is a basket they filled.
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [mock, authReady, isSignedIn, role, applyServerCart]);
+  }, [mock, authReady, isSignedIn, role, applyServerCart, reloadToken]);
+
+  const retryLoad = useCallback(() => {
+    setReady(false);
+    setLoadFailed(false);
+    setReloadToken((token) => token + 1);
+  }, []);
 
   // Mock mode only — persist on every change, once initial hydration has
   // happened.
@@ -243,7 +282,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const updateQty = useCallback(
-    (itemId: ID, quantity: number) => {
+    async (itemId: ID, quantity: number): Promise<void> => {
       const safeQuantity = Math.max(1, quantity);
       if (mock) {
         setItems((current) =>
@@ -251,13 +290,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
         );
         return;
       }
-      void updateCartItemQty(itemId, safeQuantity).then((cart) => applyServerCart(cart.items));
+      const cart = await updateCartItemQty(itemId, safeQuantity);
+      applyServerCart(cart.items);
     },
     [mock, applyServerCart],
   );
 
   const removeItem = useCallback(
-    (itemId: ID) => {
+    async (itemId: ID): Promise<void> => {
       if (mock) {
         setItems((current) => {
           const target = current.find((item) => item.id === itemId);
@@ -272,20 +312,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      void removeCartItem(itemId).then((cart) => applyServerCart(cart.items));
+      const cart = await removeCartItem(itemId);
+      applyServerCart(cart.items);
     },
     [mock, applyServerCart],
   );
 
   const assignAddress = useCallback(
-    (itemId: ID, addressId: ID | undefined) => {
+    async (itemId: ID, addressId: ID | undefined): Promise<void> => {
       if (mock) {
         setItems((current) =>
           current.map((item) => (item.id === itemId ? { ...item, addressId } : item)),
         );
         return;
       }
-      void assignCartItemAddress(itemId, addressId).then((cart) => applyServerCart(cart.items));
+      const cart = await assignCartItemAddress(itemId, addressId);
+      applyServerCart(cart.items);
     },
     [mock, applyServerCart],
   );
@@ -323,13 +365,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [mock, applyServerCart],
   );
 
-  const clear = useCallback(() => {
+  const clear = useCallback(async (): Promise<void> => {
     if (mock) {
       setItems([]);
       setHampers({});
       return;
     }
-    void clearServerCart().then(() => applyServerCart([]));
+    await clearServerCart();
+    applyServerCart([]);
   }, [mock, applyServerCart]);
 
   const lineInfo = useCallback(
@@ -411,6 +454,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     items,
     hampers,
     ready,
+    loadFailed,
+    retryLoad,
     addItem,
     updateQty,
     removeItem,

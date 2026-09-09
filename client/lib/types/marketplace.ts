@@ -417,6 +417,35 @@ export type DietaryTag =
   | "sugar-free"
   | "contains-nuts";
 
+/**
+ * Every `DietaryTag`, as a value — the one list, checked by the compiler.
+ *
+ * It is written as a `Record<DietaryTag, true>` and then keyed rather
+ * than as a plain array, because an array can only be checked for
+ * *invalid* members and the failure here was a **missing** one: when
+ * `non-vegetarian` and `contains-egg` were added to the union on
+ * 2026-09-05, `browse-params.ts` was carrying a private five-entry copy
+ * that nobody updated. `browseParamsToQuery` wrote
+ * `?diet=non-vegetarian` and `parseBrowseParams` dropped it on the way
+ * back — so ticking the veg/non-veg pair, the filter this market reaches
+ * for first, survived until a refresh, a Back press, or somebody opening
+ * the shared link. This shape makes adding a union member without adding
+ * it here a type error.
+ *
+ * Order is the union's; anything buyer-facing that needs its own order
+ * says so (`DIETARY_OPTIONS` in `lib/browse-facets.ts` leads with the
+ * veg/non-veg pair, and its spec asserts it covers exactly this set).
+ */
+export const DIETARY_TAG_VALUES = Object.keys({
+  vegetarian: true,
+  vegan: true,
+  "non-vegetarian": true,
+  "contains-egg": true,
+  "gluten-free": true,
+  "sugar-free": true,
+  "contains-nuts": true,
+} satisfies Record<DietaryTag, true>) as DietaryTag[];
+
 export type ProductTag = "Bestseller" | "New" | "Festive" | "Curated";
 
 /**

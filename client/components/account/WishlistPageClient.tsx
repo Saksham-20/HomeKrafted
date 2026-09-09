@@ -7,8 +7,9 @@ import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
+import { wishlistErrorMessage } from "@/lib/wishlist/wishlist-error";
 import { useCart } from "@/lib/cart/CartContext";
-import { addToCartErrorMessage } from "@/lib/cart/add-error";
+import { SOLD_OUT_COPY, addToCartErrorMessage } from "@/lib/cart/add-error";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { formatCurrency } from "@/lib/format";
 import type { Product } from "@/lib/types";
@@ -27,7 +28,7 @@ export interface WishlistPageClientProps {
  * it from the wishlist in one action.
  */
 export function WishlistPageClient({ products, vendorNameById }: WishlistPageClientProps) {
-  const { productIds, ready, remove } = useWishlist();
+  const { productIds, ready, loadFailed, remove } = useWishlist();
   const { addItem } = useCart();
   const [movedNames, setMovedNames] = useState<string[]>([]);
   const [moveError, setMoveError] = useState<string | null>(null);
@@ -40,20 +41,62 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
   // cart — the one outcome worse than either alone.
   async function handleMoveToCart(product: Product) {
     setMoveError(null);
-    const sku = purchasableSku(product) ?? product.defaultWeightSku;
+    // `null` is the answer "nothing here can be bought", and it used to be
+    // thrown away with `?? product.defaultWeightSku` — which posts the
+    // sold-out default anyway and 400s with "Only 0 in stock". Sixteen
+    // live listings sat at stock 0, so this was not a rare branch. The
+    // card renders a sold-out state instead and never reaches here.
+    const sku = purchasableSku(product);
+    if (!sku) {
+      setMoveError(`${product.name}: ${SOLD_OUT_COPY}`);
+      return;
+    }
+
     try {
       await addItem(product.id, sku, 1);
-      remove(product.id);
-      setMovedNames((current) => [...current, product.name]);
     } catch (err) {
       setMoveError(`${product.name}: ${addToCartErrorMessage(err)}`);
+      return;
     }
+
+    try {
+      // Awaited, now that it can reject: an unwishlist the server refused
+      // used to leave the card on screen with no explanation, after the
+      // line had already reached the cart.
+      await remove(product.id);
+    } catch (err) {
+      // Its own catch and its own vocabulary. One `try` around both put a
+      // refused *unwishlist* into the cart's error copy — "sign in to add
+      // things to your cart", said to somebody whose add just worked.
+      setMoveError(`${product.name}: ${wishlistErrorMessage(err)}`);
+      return;
+    }
+
+    setMovedNames((current) => [...current, product.name]);
   }
 
   if (!ready) {
     return (
       <div className={styles.wrap}>
         <p className={styles.loading}>Loading your wishlist…</p>
+      </div>
+    );
+  }
+
+  /**
+   * A failed read is its own state, never the empty one. Before
+   * 2026-09-06 a rejected `GET /wishlist` never set `ready`, so this page
+   * sat on "Loading your wishlist…" for ever; the fix made the read
+   * settle either way, which without this branch would have traded a
+   * hang for "0 saved items" over a wishlist that has things in it.
+   */
+  if (loadFailed) {
+    return (
+      <div className={styles.wrap}>
+        <p className={styles.loading} role="alert">
+          We couldn&rsquo;t load your wishlist. That&rsquo;s on us, not your connection — try again
+          in a moment.
+        </p>
       </div>
     );
   }
@@ -103,7 +146,12 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
                 <button
                   type="button"
                   className={styles.removeButton}
-                  onClick={() => remove(product.id)}
+                  onClick={() => {
+                    setMoveError(null);
+                    void remove(product.id).catch((err: unknown) =>
+                      setMoveError(`${product.name}: ${wishlistErrorMessage(err)}`),
+                    );
+                  }}
                   aria-label={`Remove ${product.name} from wishlist`}
                 >
                   <X size={14} strokeWidth={1.8} />
@@ -120,26 +168,46 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
                 </Link>
                 <div className={styles.body}>
                   <span className={styles.maker}>
-                    {vendorNameById[product.vendorId] ?? "Homekrafted"}
+                    {/* A miss in the map used to fall back to
+                        "Homekrafted", which is a **real vendor** — vd8,
+                        the platform's own storefront (M44) — so a listing
+                        whose maker we failed to resolve was attributed to
+                        us by name. Say nothing instead: the listing name
+                        is the next node and carries the card. */}
+                    {vendorNameById[product.vendorId] ?? ""}
                   </span>
                   <Link href={`/product/${product.slug}`} className={styles.name}>
                     {product.name}
                   </Link>
-                  <span className={styles.price}>{formatCurrency(weight?.price ?? 0)}</span>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className={styles.moveButton}
-                    // Every card's button reads "Move to cart", so a screen
-                    // reader walking the grid hears the same three words
-                    // repeated with nothing to tell them apart. The visible
-                    // label stays short; the accessible one names the item,
-                    // same fix as `QuantityStepper`'s `itemName`.
-                    aria-label={`Move ${product.name} to cart`}
-                    onClick={() => handleMoveToCart(product)}
-                  >
-                    Move to cart
-                  </Button>
+                  {/* `?? 0` printed ₹0 for a listing with no sizes at
+                      all — a price nobody set, on a card offering to buy
+                      it. No size, no price. */}
+                  {weight ? (
+                    <span className={styles.price}>{formatCurrency(weight.price)}</span>
+                  ) : null}
+                  {/* Says sold out up front rather than offering a button
+                      that 400s. `purchasableSku` answers `null` for
+                      "nothing here can be bought", and this card is the
+                      one place on the site that used to ignore that
+                      answer — the same rule every product grid follows. */}
+                  {purchasableSku(product) === null ? (
+                    <span className={styles.soldOut}>Sold out for now</span>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className={styles.moveButton}
+                      // Every card's button reads "Move to cart", so a screen
+                      // reader walking the grid hears the same three words
+                      // repeated with nothing to tell them apart. The visible
+                      // label stays short; the accessible one names the item,
+                      // same fix as `QuantityStepper`'s `itemName`.
+                      aria-label={`Move ${product.name} to cart`}
+                      onClick={() => handleMoveToCart(product)}
+                    >
+                      Move to cart
+                    </Button>
+                  )}
                 </div>
               </Card>
             );

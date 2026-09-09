@@ -213,6 +213,17 @@ export interface UpdateMeInput {
   name?: string;
   email?: string;
   phone?: string;
+  /**
+   * Their profile picture — an uploaded URL or a chef character path.
+   * `""` clears it; `undefined` means "not part of this edit".
+   *
+   * Missing from this type until 2026-09-06 while `UpdateUserInput`
+   * carried it and `updateUser` passed the same object straight through,
+   * so the field reached the server and the type said it could not. A
+   * native screen written against this interface would have dropped the
+   * one control `/account/profile` was rebuilt around.
+   */
+  avatarSrc?: string;
 }
 
 /** `PATCH /users/me` — Profile screen's save action. */

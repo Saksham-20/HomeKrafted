@@ -390,3 +390,30 @@
     flex: 1;
   }
 }
+
+/* The loyalty read failed, or the account genuinely has no row yet
+   (2026-09-06). Replaces the screen rather than rendering a tier ladder
+   with nothing marked on it. */
+.loadFailedCard {
+  padding: var(--hk-s5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+}
+
+.loadFailedBody {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--hk-muted);
+}
+
+/* Shown when the code read failed — the Copy and Share buttons are
+   disabled beside it, so the sentence has to say why. */
+.codeError {
+  margin: var(--hk-s2) 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+}

@@ -13,8 +13,9 @@ was a third module and is **withdrawn as of M19** — the route 404s, the
 create endpoints return 410, and the models stay so existing bookings
 still render. Don't build on it; see the channel table below. It ships as a **monorepo**: `client/` (the Next.js
 web app — all web source lives here), `server/` (a standalone backend API
-**shared by the web + the native apps**, arriving in M8), and `app/` (the
-native mobile apps — React Native/Expo, future). The web is built
+**shared by the web + the native apps**, arriving in M8), and `mobile/` (the
+native mobile apps — React Native/Expo; scaffolded 2026-09-06, see
+`docs/APP.md`). The web is built
 frontend-first with typed mock data before the backend lands; `client/lib/api`
 now makes **real calls** against `server/` (`NEXT_PUBLIC_USE_MOCK=true`
 reverts every module to the old in-memory mocks for offline frontend work).
@@ -42,6 +43,12 @@ accounts).
   the line of code it comes from. Two paths: direct email (credentials
   and documents, preferences do not apply) and `deliver()` (everything
   else, gated per person per category). Add a trigger, add a row.
+- **Native apps (`mobile/`):** `docs/APP.md` — the bootstrap, which API URL
+  to point a device at, the `client/lib` shared-code contract and the
+  aliases that make it resolve, the native-module ledger, and a catalogue
+  of the build failures this architecture produces. Read it before
+  touching `mobile/`, and note its shared-boundary rules bind `client/`
+  too (see Non-negotiable rules).
 - **Changelog:** `CHANGELOG.md`, one entry per milestone
 
 ## Standing blockers (true as of 2026-08-15)
@@ -318,7 +325,9 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
     src/common/geo.ts        haversine, TRICITY_AREAS (source of truth for kitchen coords)
   scripts/deploy.sh        pull main + build + migrate + pm2 restart on the box
   ecosystem.config.cjs     pm2 process definitions
-  app/                     native mobile apps — React Native/Expo (future; placeholder now)
+  mobile/                  native app — Expo SDK 57, expo-router; see docs/APP.md
+    src/platform/            the 5 shims — env, session, http, reachability, upload
+    metro.config.js          watchFolders + resolveRequest ALIASES into client/lib
   handoff/                 DESIGN SYSTEM ONLY — read, never edit, never delete
   docs/                    PRD, API, architecture, data model, design system, ADRs
   CLAUDE.md  CHANGELOG.md
@@ -471,6 +480,39 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   **no interaction** and does not resize on focus; it reads the row's box
   off the live DOM, which is why widening the container needed no edit in
   it.
+- **`client/lib` is a two-package contract (2026-09-06).** The native app
+  compiles these exact files through Metro rather than copying them, so a
+  file under `lib/` may not import `react`, `react-dom`, `next`,
+  `@/components/*`, or any `@/` alias that is not `@/lib/` — and may not
+  touch a DOM global. Divergence goes in the app's own `platform/` shim,
+  never here. Pinned by `client/lib/shared-boundary.spec.ts`, whose
+  allowlist is a registry with a reason per entry (the React providers and
+  `seo.ts` are web-only by construction and are listed there). Two of the
+  bans are already scars: `lib/taxonomy-actions.ts` imported a type from
+  `@/components/ui/Combobox`, which `tsc` follows into a CSS module whose
+  ambient declaration lives in the **gitignored** `next-env.d.ts`; and a
+  shared file importing `react` resolves to `client/node_modules/react`
+  rather than the app's, which is "Invalid hook call" with a stack trace
+  naming neither package. The app does not merely *avoid* the three
+  web-coupled modules, it **aliases** them (`metro.config.js`), because
+  with the path map in place a wrong import resolves rather than failing —
+  so `client/lib/api/http.ts`, `auth/session.ts` and `api/unreachable.ts`
+  are the three files a `client/` change must never assume the app is
+  running. **The DOM-global half of the ban is only scanned since
+  2026-09-06, and it took a year** — the rule was written here from the
+  start and nothing checked it, so `lib/gift/gift-intent.ts` shipped
+  reading `window.sessionStorage` and **catching its own TypeError**. On
+  Hermes `window` exists and `sessionStorage` does not, so every read
+  answers empty and every write vanishes, in silence, from a module whose
+  comments promise the opposite. It resolves, compiles and typechecks and
+  is wrong only on a device, so it is **refused** — a throw in Metro and
+  at import under jest — rather than aliased or stubbed; `docs/APP.md`
+  §5d says when each of the three applies. The scan matches property
+  reads, not bare words (`vendor.location` and `orderHistory` are not DOM
+  globals), and it will not special-case a local shadowing one of the
+  names: a shadowing heuristic fails open, which is what this rule
+  already did for a year. Everything else about the app — Expo, EAS,
+  Metro — lives in `docs/APP.md` and stays out of this file.
 - **Five breakpoint rails, by convention (M29): 420 · 560 · 640 · 780 ·
   900.** Roughly: 420 small phone, 560 phone, 640 large phone (and where
   fixed CTA bars engage), 780 shell/sidebar collapse, 900 two-pane goes
@@ -1045,6 +1087,35 @@ critical: a tablist may only contain tabs), and forty-one places said
   `lib/api`) from a `"use client"` component (interaction) the way
   `Header.tsx` → `HeaderClient.tsx` does — don't make an entire
   data-fetching tree client-side just because one button needs state.
+- **A failed request is never an answer, and a credential is deleted only
+  on one (2026-09-06).** `lib/auth/session-answer.ts` is the single place
+  that decides: **401/403 are the server saying the session is over**;
+  status 0 (no response at all), any 5xx, a timeout and anything that is
+  not an `ApiError` are **not**, and the session survives them.
+  `AuthContext`'s restore used a bare `catch` that ran `clearSession()`,
+  so a browser smoke test measured a valid 874-byte token pair **deleted
+  by one page load with the API unreachable** — every account screen said
+  "You're signed out" to somebody who was not, and the network coming
+  back could not heal it because the credential was gone. That is M39's
+  rule one layer down and destructive rather than confusing. It fails
+  toward keeping somebody signed in on purpose: that costs one retry, the
+  other direction costs them their account, and for a HomeKrafter the
+  door back needs SMS that is not wired. `sessionUnverified` is kept
+  apart from `isSignedIn`, and a screen offers `retrySession`, never a
+  sign-in form.
+- **A failed read is a Notice with Try again — never the empty state, on
+  the consumer side too.** The portal kit has said this since 2026-09-04;
+  the shopper screens learned it one context at a time, and the count is
+  now six (`CartContext`, `WishlistContext`, `WalletContext`, both order
+  screens, the subscriptions list). The shape is always the same: a
+  `.then()` with no rejection handler and `setReady(true)` inside it, so
+  the screen either waits for ever or renders "your cart is empty" over a
+  filled basket. Every store keeps `loadFailed` apart from empty, settles
+  in a `.finally`, and never writes the zero value on failure — zero is a
+  real balance and an empty cart is a real cart. **`e2e/smoke-a5.mjs` is
+  what checks it**: it blocks the API at the browser and asserts each
+  screen settles, names the right party, and does not show its empty
+  state.
 - **Anything that can fail:** read `docs/ERROR-HANDLING.md` — it is the
   project standard and it exists because a misconfigured nginx vhost
   locked real users out of their accounts while every dashboard stayed
@@ -1354,6 +1425,14 @@ it is already a decelerating curve). Everything else adds.
   Same hue, minimum darkening that clears AA on the hardest background.
   `tokens.css` is still untouched and still law; reverting is deleting
   two lines from `tokens.extend.css`.
+
+**The native app generates its theme from BOTH files** (`mobile/npm run
+theme`), which is why the two overrides above matter beyond the web: a
+port of `lib/tokens.ts` — which mirrors `tokens.css` alone, by hand —
+ships `--hk-muted` at the failing `#8A8070` and `--hk-dur` at the old
+`.28s`, and carries none of the added names below. Add a token here and
+it reaches the app on the next `npm run theme`; a spec fails the build if
+one has no theme key. See `docs/APP.md` §5a.
 
 A few narrower one-off gaps (each used in exactly one component) stayed as
 local hardcoded-plus-comment values rather than joining `tokens.extend.css`,
@@ -2173,13 +2252,32 @@ of it plus typecheck, lint and both builds.
 one caught a silent failure.** `vendor-privacy.spec.ts` (no public read of
 a pickup address), `rbac-structure.spec.ts` (every portal controller
 role-gated), `focus-trap.spec.ts`, `keyboard-activation.spec.ts`,
-`silent-failure.spec.ts`, `vendor-avatar.spec.ts`. They scan source text,
+`silent-failure.spec.ts`, `vendor-avatar.spec.ts`,
+`shared-boundary.spec.ts` (nothing in `client/lib` reaches for something
+only the web has). They scan source text,
 so two rules: **strip comments before scanning** — this repo quotes
 decorators in prose constantly, and a scan that counts a comment as code
 fails *open*, which is how `rbac-structure.spec.ts` reported three
 ungated controllers as gated — and **keep the allowlist a registry with a
 stated reason per entry**, so a rename fails the build instead of
 silently widening it.
+
+**And strip them with `lib/testing/strip-comments.ts`, never a regex
+(2026-09-06).** Every one of these specs carried the same one-liner, and
+it failed open in the *other* direction: this file writes route patterns
+in prose constantly — `/seller/*`, `/admin/*`, `POST /auth/*` — and each
+contains the two characters that open a block comment, so the regex read
+one as an opener and deleted every line to the next closer. Measured:
+**27 files under `client/` and 10 under `server/src`** carry unmatched
+openers; `AuthContext.tsx` was 58% visible, `ConsumerChrome.tsx` 21%, and
+`seller/seller.controller.ts` **54% visible to the RBAC scan that fails
+the build on an ungated portal controller**. The replacement is a state
+machine (inside a block comment nothing opens a second one, and strings
+are tracked); `server/` keeps a pinned twin because it is a separate
+package, held in step by `strip-comments-parity.spec.ts` the way
+`geo-parity` holds `geo.ts`. The rule underneath both directions: **a
+structural scan that fails open is worse than no scan, because it reports
+success.**
 
 **`RolesGuard`'s fail-closed rule only covers `/api/v1/admin`.** Three
 admin-privileged routes hang off controllers most of whose routes belong

@@ -1,3 +1,4 @@
+import { DIETARY_TAG_VALUES } from "@/lib/types";
 import type { DietaryTag, ProductTag } from "@/lib/types";
 
 /**
@@ -41,13 +42,6 @@ export const BROWSE_SORT_KEYS: BrowseSortKey[] = [
 
 export const DEFAULT_BROWSE_SORT: BrowseSortKey = "most-loved";
 
-const DIETARY_TAGS: DietaryTag[] = [
-  "vegetarian",
-  "vegan",
-  "gluten-free",
-  "sugar-free",
-  "contains-nuts",
-];
 
 /**
  * The merchandising tags a listing can carry (M56). Validated the same
@@ -163,8 +157,13 @@ export function parseBrowseParams(input: string | URLSearchParams): BrowseParams
   // the grid to nothing with no way to see why.
   const price = min !== null && max !== null && min <= max ? ([min, max] as [number, number]) : null;
 
+  // Validated against `DIETARY_TAG_VALUES`, never a private copy. This
+  // file carried its own five-entry list and silently dropped
+  // `non-vegetarian` and `contains-egg` from every URL it parsed for a
+  // day — the writer emitted them, the reader threw them away, and the
+  // filter evaporated on refresh, on Back, and in every shared link.
   const dietary = parseList(params.get("diet")).filter((tag): tag is DietaryTag =>
-    DIETARY_TAGS.includes(tag as DietaryTag),
+    DIETARY_TAG_VALUES.includes(tag as DietaryTag),
   );
 
   const tags = parseList(params.get("tag")).filter((tag): tag is ProductTag =>

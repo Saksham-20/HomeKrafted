@@ -11,7 +11,7 @@ import { buildWhatsAppLink, HOMEKRAFTED_WHATSAPP_NUMBER } from "@/lib/messaging"
 import { buildSnackListMessage } from "@/lib/snacks/message";
 import { PreOrderPicker, type PreOrderSelection } from "@/components/ui/PreOrderPicker";
 import { describeSlot } from "@/lib/schedule";
-import { CHANNEL_RULES } from "@/lib/channel";
+import { getChannelRule } from "@/lib/channel";
 import { formatCurrency } from "@/lib/format";
 import type { Snack, SnackListItem } from "@/lib/types";
 import type { SnackCategoryFilter } from "@/lib/api";
@@ -169,7 +169,7 @@ export function SnacksClient({ snacks, categories }: SnacksClientProps) {
               `hasCartOnWeb`/`hasCheckoutOnWeb` stay false — scheduling is
               not a transaction, and the chosen slot travels in the WhatsApp
               message rather than into an order record here. */}
-          {hasItems && CHANNEL_RULES.snacks.hasPreOrderOnWeb && (
+          {hasItems && getChannelRule("snacks").hasPreOrderOnWeb && (
             <PreOrderPicker value={preOrder} onChange={setPreOrder} title="When do you want it?" />
           )}
           <Button variant="whatsapp" onClick={handleSend} disabled={!hasItems}>

@@ -1,5 +1,14 @@
 import type { SupportChannel, SupportTicket } from "@/lib/types";
-import { SUPPORT_CHAT_GREETING, SUPPORT_HOURS, SUPPORT_PHONE_DISPLAY, SUPPORT_PHONE_TEL, currentUser } from "@/lib/data";
+import { currentUser } from "@/lib/data";
+// From `lib/support/`, never `lib/data/` — the two functions below return
+// these with no `isMockMode()` branch, and `lib/data` does not ship to the
+// phone (see `lib/support/contact.ts`).
+import {
+  SUPPORT_CHAT_GREETING,
+  SUPPORT_HOURS,
+  SUPPORT_PHONE_DISPLAY,
+  SUPPORT_PHONE_TEL,
+} from "@/lib/support/contact";
 import { http, isMockMode } from "./http";
 
 /** Static contact copy — not per-user data, stays client-side content. */

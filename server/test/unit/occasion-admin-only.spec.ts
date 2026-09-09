@@ -1,6 +1,16 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  every line to the next closer — `seller.controller.ts` was 54% visible
+  to the RBAC scan. Kept in step with the client copy by
+  `strip-comments-parity.spec.ts`.
+*/
+import { stripComments } from './strip-comments';
+
 /**
  * An occasion is minted by an admin, and by nobody else.
  *
@@ -30,15 +40,6 @@ import { join, relative } from 'node:path';
 
 const SERVER_SRC = join(__dirname, '..', '..', 'src');
 
-/**
- * Prose in this repo quotes decorators and Prisma calls constantly. A
- * scan that counts a comment as code fails *open* — that is precisely how
- * `rbac-structure.spec.ts` once reported three ungated controllers as
- * gated.
- */
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-}
 
 function sourceFiles(dir: string): string[] {
   const found: string[] = [];

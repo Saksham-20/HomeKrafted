@@ -119,7 +119,7 @@ The standalone API from the plan's stack section, now real. **NestJS**
 (TypeScript) + **Prisma** over **Postgres**, living in `server/`, entirely
 separate from `client/`'s Next.js process — the two communicate over
 HTTP once M8.4 wires `client/lib/api` up to it, never by sharing a
-process or importing each other's code. `app/` (native, future) hits the
+process or importing each other's code. `mobile/` (native, future) hits the
 same API.
 
 **Why JWT, not Auth.js:** the plan's stack line named Auth.js, but that

@@ -17,7 +17,7 @@ and `docs/TESTING.md` for the tester handout and demo accounts.
 |------|------|
 | `client/` | **Next.js web app** (App Router, CSS Modules over `styles/tokens.css`) — all web source. `client/lib/api` makes real HTTP calls to `server/`; `NEXT_PUBLIC_USE_MOCK=true` reverts every module to typed in-memory mocks for offline frontend work. |
 | `server/` | **NestJS + Prisma + Postgres 16 backend** — live, shared by the web and the future native apps. JWT auth/RBAC, wallet ledger, payouts + commission engine, Razorpay (test keys), moderation queue, meal subscriptions, uploads pipeline. |
-| `app/` | Native mobile apps (React Native / Expo) — future; placeholder. |
+| `mobile/` | Native mobile apps (React Native / Expo) — future; placeholder. Named `mobile/` so it is never confused with `client/app/`. |
 | `e2e/` | Playwright suite + `sweep.mjs` (87 routes × 4 roles × 2 viewports). |
 | `scripts/` | `deploy.sh` (pull + build + migrate + pm2 restart), `healthcheck.sh`. |
 | `handoff/` | Design system (tokens, components, reference prototype) — **read-only, never edit**. |

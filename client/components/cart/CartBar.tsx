@@ -31,6 +31,10 @@ import styles from "./CartBar.module.css";
  */
 export function CartBar() {
   const { count, subtotal, ready } = useCart();
+  // Deliberately still gated on `count`, not on `loadFailed`: a docked
+  // bar is not the place to report a failed read, and a bar that appears
+  // saying "0 items" would be worse than one that stays away. `/cart`
+  // owns that message.
   const pathname = usePathname();
 
   if (!ready || count === 0) return null;

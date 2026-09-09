@@ -70,6 +70,17 @@ export function SubscriptionsListClient() {
 
   const [subscriptions, setSubscriptions] = useState<MealSubscription[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The read failed, kept apart from "no meal plans yet".
+   *
+   * Until 2026-09-06 a failed read did `setSubscriptions([])`, so the
+   * screen rendered "You don't have a meal plan yet" over a run of meals
+   * somebody has already paid for — the empty state standing in for an
+   * error, on money. The copy also said "Reload the page", which is not
+   * a thing an app has (DS-5) and was the only remedy offered.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(highlightId);
   /**
@@ -80,13 +91,23 @@ export function SubscriptionsListClient() {
   const [deliveriesById, setDeliveriesById] = useState<
     Record<string, MealSubscription["deliveries"]>
   >({});
+  /**
+   * Expanding a plan failed, per plan. `getMySubscription` narrowed its
+   * catch to a 404 on 2026-09-06, so this can now reject — and an
+   * unreported rejection here is an expanded row that draws nothing,
+   * which reads as "this plan has no meals" over meals somebody paid for.
+   */
+  const [deliveriesFailed, setDeliveriesFailed] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     try {
       setSubscriptions(await getMySubscriptions());
+      setLoadFailed(false);
     } catch {
-      setError("We couldn't load your meal plans. Reload the page to try again.");
-      setSubscriptions([]);
+      // Never `setSubscriptions([])` — that is the failed read falling
+      // through to the empty state, over a prepaid run of meals.
+      setError(null);
+      setLoadFailed(true);
     }
   }, []);
 
@@ -98,9 +119,18 @@ export function SubscriptionsListClient() {
       }
       setExpandedId(id);
       if (deliveriesById[id]) return;
-      const detail = await getMySubscription(id);
-      if (detail?.deliveries) {
-        setDeliveriesById((current) => ({ ...current, [id]: detail.deliveries }));
+      setDeliveriesFailed((current) => ({ ...current, [id]: false }));
+      try {
+        const detail = await getMySubscription(id);
+        if (detail?.deliveries) {
+          setDeliveriesById((current) => ({ ...current, [id]: detail.deliveries }));
+        } else {
+          // A 404 on a plan the list just handed us: it is gone, and that
+          // is not the same as "no meals".
+          setDeliveriesFailed((current) => ({ ...current, [id]: true }));
+        }
+      } catch {
+        setDeliveriesFailed((current) => ({ ...current, [id]: true }));
       }
     },
     [expandedId, deliveriesById],
@@ -116,12 +146,14 @@ export function SubscriptionsListClient() {
   */
   useEffect(() => {
     getMySubscriptions()
-      .then((list) => setSubscriptions(list))
+      .then((list) => {
+        setSubscriptions(list);
+        setLoadFailed(false);
+      })
       .catch(() => {
-        setError("We couldn't load your meal plans. Reload the page to try again.");
-        setSubscriptions([]);
+        setLoadFailed(true);
       });
-  }, []);
+  }, [reloadToken]);
 
   async function run(id: string, work: () => Promise<unknown>) {
     setBusyId(id);
@@ -151,6 +183,39 @@ export function SubscriptionsListClient() {
     }
   }
 
+  /*
+    The failure is checked BEFORE the null gate, not inside the render
+    below it (2026-09-06). A failed read leaves `subscriptions` at `null`
+    on purpose — that is what keeps "we could not load it" apart from
+    "you have no meal plan" — so a loading line gated on `null` alone
+    never clears, and the screen waits for ever. Which is the defect this
+    file was being fixed for, moved one branch along; a browser smoke
+    test caught it.
+  */
+  if (loadFailed && subscriptions === null) {
+    return (
+      <div className={styles.wrap}>
+        <header className={styles.header}>
+          <h1 className={styles.title}>Meal plans</h1>
+        </header>
+        <div className={styles.empty} role="alert">
+          <p className={styles.emptyLead}>We couldn&rsquo;t load your meal plans</p>
+          <p className={styles.emptyBody}>
+            That&rsquo;s on us, not your connection. Nothing about your plans has changed — any
+            meals you have paid for are still owed to you.
+          </p>
+          <button
+            type="button"
+            className={styles.emptyLink}
+            onClick={() => setReloadToken((token) => token + 1)}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (subscriptions === null) {
     return <p className={styles.loading}>Loading your meal plans…</p>;
   }
@@ -168,6 +233,23 @@ export function SubscriptionsListClient() {
       <div aria-live="polite" role="alert" className={styles.errorRegion}>
         {error && <p className={styles.error}>{error}</p>}
       </div>
+
+      {/* Reached only with a list already in hand — a refresh that
+          failed after a good first read. The plans below are still drawn;
+          this says the screen may be out of date. */}
+      {loadFailed ? (
+        <p className={styles.error} role="alert">
+          We couldn&rsquo;t refresh your meal plans just now, so this may be out of date.
+          That&rsquo;s on us.{" "}
+          <button
+            type="button"
+            className={styles.emptyLink}
+            onClick={() => setReloadToken((token) => token + 1)}
+          >
+            Try again
+          </button>
+        </p>
+      ) : null}
 
       {subscriptions.length === 0 ? (
         <div className={styles.empty}>
@@ -278,6 +360,23 @@ export function SubscriptionsListClient() {
                       Cancel plan
                     </button>
                   </div>
+                )}
+
+                {isOpen && deliveriesFailed[sub.id] && (
+                  <p className={styles.deliveriesError} role="alert">
+                    We couldn&rsquo;t load the meals on this plan just now. That&rsquo;s on us —
+                    every meal you have paid for is still owed to you.{" "}
+                    <button
+                      type="button"
+                      className={styles.linkButton}
+                      onClick={() => {
+                        setExpandedId(null);
+                        void toggleExpanded(sub.id);
+                      }}
+                    >
+                      Try again
+                    </button>
+                  </p>
                 )}
 
                 {isOpen && deliveriesById[sub.id] && (

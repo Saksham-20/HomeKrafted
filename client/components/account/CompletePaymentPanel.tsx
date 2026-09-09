@@ -65,11 +65,31 @@ export function CompletePaymentPanel({ order, onUpdated }: CompletePaymentPanelP
     // the SDK's callback. One re-read, reported as it comes back.
     const fresh = await getOrder(order.id);
     if (fresh) onUpdated(fresh);
-    if (!fresh || fresh.status === "pending-payment") {
-      setNote("Payment received — we're confirming it with the bank. This page will show it shortly.");
-    } else {
+
+    if (fresh && fresh.status !== "pending-payment") {
       setNote(null);
+      return;
     }
+
+    /**
+     * Two different sentences, and they were one until 2026-09-06.
+     *
+     * `getOrder` ends in a bare `catch { return undefined }`, so a 500, a
+     * 403 and a dropped connection all arrive here indistinguishable from
+     * "no such order" — and the old copy answered every one of them with
+     * **"Payment received"**. That is a fact only the webhook owns; the
+     * client's entire evidence is that Razorpay's SDK fired `onSuccess`,
+     * which this file's own header says is not proof.
+     *
+     * The old line also promised "This page will show it shortly", and
+     * nothing polls — `settle()` reads once and there is no interval
+     * anywhere. So it described an automatic update that never came.
+     */
+    setNote(
+      fresh
+        ? "Payment received — we're confirming it with the bank. Refresh in a moment to see it."
+        : "We couldn't confirm that payment just now. Nothing is lost — check this order again in a moment before paying twice.",
+    );
   }
 
   async function handlePay() {

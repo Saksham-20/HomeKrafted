@@ -1,5 +1,1569 @@
 # Changelog
 
+## 2026-09-06 — A5 (part 8): the second design pass, screen by screen
+
+Every screen re-read on a simulator against what a 2026 phone app is
+expected to be, with two questions: does it *show* what it is talking
+about, and is each control the right one for its question. Fourteen
+screens changed. The palette, the faces and the tokens are untouched.
+
+**A screen that lists products now shows them.** Cart rows, the snacks
+menu, the checkout basket and the occasion hub each named a product and
+drew nothing — on a marketplace whose whole pitch is that a real person
+made this. The occasion hub is the clearest case: nine identical white
+cards each holding one word, on a page whose own subtitle promises
+"something to give" and then showed nothing to give. Each row now
+previews the listings **actually filed under that occasion**, grouped
+from the catalogue the screen has already fetched, with a count — never
+a stock photograph and never a coloured emoji disc, which is the generic
+delivery-app tile row `DESIGN.md` exists to avoid.
+
+**The cart row was three columns and could not say what was in it.**
+Photo, name and price beside a stepper left the name about 130pt on a
+393pt screen, so "Festive Assorted Hamper" rendered as "Festive Assorted
+H…". The controls dropped to a second line, which gives the name the
+full width and bought the room for the **Remove** control the row never
+had — until now the only way to take something out was to press "−" down
+to zero, which is a rule you have to already know. The Checkout button
+is docked with the total on it rather than being the last thing in the
+list: four items pushed it past the fold, which is the whole reason
+`--hk-dock-h` exists on the web.
+
+**The order timeline was a radio group.** `● Order received` above four
+`○` stages, drawn as characters inside a `Text` — a filled disc above
+four hollow ones is the exact vocabulary of a single-choice control, on
+a screen where nothing is choosable. `components/StatusTrail` draws a
+connected rail: three states rather than two (reached · current · still
+to come), and a segment lit only between two **reached** dots, so the
+track stops exactly where the order does. Still no bar, no percentage
+and no ETA — the stages are discrete facts a kitchen recorded, and there
+is no rider GPS from any party to interpolate between them. The screen
+also finally says **when it arrives**: `shipments[].deliveryDate` was on
+the payload from the day the order screen shipped and on no screen in
+the app. Same on the orders list, where the row that needs the buyer now
+carries a **Pay now** rather than only a badge naming the state — and
+where an unpaid order deliberately shows **no** arrival date, because
+the kitchen has not been told to make anything and printing one beside
+"Needs payment" promises a delivery on the strength of a payment that
+has not happened.
+
+**Twenty-eight switches became seven rows of chips.** Notification
+preferences are seven categories times four channels; as `Toggle`s that
+is a column of identical switches in which nothing tells you at a glance
+which categories you are reachable on. A `ChipGroup` per category makes
+the answer the shape of the row, and the sentence under it names the
+"no channels" state, which is real and choosable and reads as a bug
+without one. A switch is still right for one setting with a sentence
+beside it; it was never right for a grid.
+
+**The snacks row opened at `− 0 +`.** Nobody presses "−" first, so it
+was a control that could only be pressed by mistake. It is `Add` until
+there is a quantity to step — plus the photograph, the diet mark and the
+description the row never showed.
+
+**Checkout opened on three unticked gift checkboxes**, above both the
+address and the money, so the first question a buyer met was one most of
+them do not have. It opens on the basket now — thumbnails, lines and the
+total — and the gift block sits after the address. The delivery-day
+chips **wrap** rather than scrolling: four rolling days come to about
+410pt inside a card on a 393pt screen, and the fourth rendered clipped
+mid-word with nothing to say it could be scrolled to.
+
+**Search offered a field and a sentence over 1,400pt of empty canvas.**
+It takes focus on open and offers the live category table as chips;
+pressing one runs the search rather than navigating away.
+
+**Sign-in had no brand on it.** The mark reached the app icon and the
+splash and no screen inside the app. The committed lockup — the same
+file the transactional emails use — sits above the heading, and the
+three stacked full-width buttons became one primary, a rule, one
+secondary and a text link, because they were never three equal choices.
+
+**Two docking defects, both found in a screenshot.** `CartBar` sat
+`aboveTabBar` on every route including pushed screens that have no tab
+bar, so it hovered 112pt off the bottom with page content visible
+underneath *and* below it; and twenty-seven scrolling screens padded a
+flat `space.s8`, so every one of them hid its last row the moment
+somebody had a cart. `dock.ts` now owns both — `isTabRoute()` for where
+a bar sits, `useDockPadding()` for what a scroll container owes — and
+`CART_BAR_HIDDEN_ON` is one list read by the bar and by the padding that
+makes room for it.
+
+`mobile/test/status-trail.spec.tsx` and `mobile/test/dock.spec.ts` pin
+the two new pieces. 624 tests, 40 suites; the simulator sweep is 24
+routes with 0 stuck, 0 unlabelled and 0 undersized targets.
+
+## 2026-09-06 — A5 (part 7): the design pass, and the control vocabulary
+
+A screen-by-screen review on the simulator against what a 2026 phone app
+is expected to be. Research went to Zomato's own redesign work and the
+current bottom-navigation literature, and to `/ui-ux-pro-max` for the
+floor rules (44pt targets, 8pt between them, 150–300ms transitions,
+transform/opacity only, reduced motion, "animate one or two things per
+view"). **The palette, the faces and the tokens are untouched** — the
+generic recommendation that came back was a red/gold delivery-app scheme
+with a handwriting display face, and `handoff/tokens.css` is law.
+
+**The tab bar floats.** `components/FloatingTabBar` — a detached, inset,
+fully-rounded bar with one animated pill sliding between equal-width
+slots. Content scrolls *under* it, which gives a phone screen back its
+last 80pt; every label stays (hiding the inactive ones looks excellent in
+a portfolio and costs a first-time visitor the map of the app); the whole
+slot is the target and the pill is drawn behind it; and under reduced
+motion the pill arrives rather than travels, because it is information.
+`components/dock.ts` is now the one place that knows how tall the docked
+furniture is — `CartBar` was `bottom: 16` under a comment claiming it
+cleared a bar whose top edge is at 794 on an 874pt window, and nobody had
+seen it because the bar only appears with something in the basket.
+
+**Switches became the control the question actually is.** `Toggle`'s own
+header draws the line — a switch takes effect immediately, a checkbox
+states a value a later Save commits — and then every gift option and both
+payment tiles used the switch. So: `Checkbox` for the four gift options
+(ticking "gift wrap" wraps nothing; Place order does), `ChoiceGroup` +
+`ChoiceRow` for payment (two switches can express both-on and both-off,
+neither of which is a way to pay, and a screen reader heard two unrelated
+settings), `SegmentedControl` for the food tab's view (the old button was
+labelled with the view you were *not* in, so the screen never said which
+one you were looking at). `Toggle` now has exactly one caller left, the
+notification preferences, which do save on the spot.
+
+**Pages got one shape.** `PageHeader` — eyebrow, title, lead, meta —
+replaces the same three hand-rolled elements on twelve screens and adds
+the `accessibilityRole="header"` none of them had. `LinkList`/`LinkRow`
+replaces fourteen `secondary` buttons on the account screen: a secondary
+button on a white card is a white box, so what a person saw was fourteen
+centred green words down the middle of the screen with nothing saying
+they were rows or where they led.
+
+**The storefront's trust block was the worst screen in the app.** It
+printed `✓` and `·` glued to the front of each sentence at the same size
+and nearly the same colour — and a screen reader read the characters out.
+Now `TrustList`: a real mark, earned first, and the unearned ones as
+wrapped outline pills so five of them take two lines instead of five
+(**every signal still shows** — that rule is not negotiable, and a new
+kitchen is the normal case). `StatStrip` gives the three figures a
+bordered strip and mono numerals. And a **shared** rule now guards what
+those figures may say: `client/lib/vendor/trust-display.ts` hides a
+cancellation rate under ten delivered orders, because the demo kitchen
+with one delivered order rendered **"50% Cancelled"** in the same weight
+as its rating, under a real person's name and face. It also fixes "1
+Orders delivered". The web should adopt the same module.
+
+**Photographs where there were none.** The home screen's two doors are
+`EntryTile`s over `split-food.jpg` and `split-gifts.jpg` — the web's own
+landing photographs, through the same optimiser, under a two-band scrim
+(a gradient would need `expo-linear-gradient`, a native module and a
+dev-client rebuild for everybody). `EmptyState` gained a line mark in a
+tinted disc and a second action, so the empty cart offers both halves.
+
+**Motion, and the regression it caused.** Every `Button` now presses —
+`usePressScale`, spring, transform only, native driver, and reduced
+motion keeps the opacity and drops the scale. The first version passed a
+**function** style to `Animated.createAnimatedComponent(Pressable)`,
+which silently drops it: every button in the app lost its background, and
+the product page's primary "Add to cart" rendered as pale `--hk-on-pine`
+text on the canvas at about 2:1. It looked disabled. Caught in a
+screenshot, not in a test — the pressed state is held in React now and
+the array is static.
+
+**And the boot flash.** `app.json` had configured a branded splash since
+the icons were generated and nothing in JS ever held it, so the app
+opened on the mark, flashed a bare canvas while the fonts and the
+keychain resolved, then drew the first screen. `preventAutoHideAsync` at
+module scope, hidden in an effect after the first paint.
+
+Two smaller ones from the sweep: the notification screen's "Mark read"
+was a 20pt line of text (now a `Pressable` with `hitSlop`, declared), and
+the sweep itself was flagging every text field in the app because a
+control laid out at exactly 44pt reports 41.666… on a 3× screen. 613
+tests green; 24 routes swept with no hung screen, no unlabelled control
+and no undeclared target under the floor.
+
+## 2026-09-06 — A5 (part 6): the app on a simulator, and the five defects it found
+
+A driven pass over the iOS build — every route opened, every control on
+the four tab screens pressed one at a time, and the whole buy path walked
+by pressing what is on the screen rather than by deep-linking past a
+step. `mobile/scripts/sim-drive.mjs` is the harness (it drives `idb` by
+**accessibility tree**, so everything it can reach is something a
+VoiceOver user can reach), `sim-sweep.mjs` walks the routes, and
+`sim-press-all.mjs` presses each control and records whether anything
+changed. Five defects, in descending order of cost.
+
+**Every screen drew its first line under the Dynamic Island.** Both
+layouts run `headerShown: false` and nothing applied a safe-area inset;
+`react-native-safe-area-context` was installed and referenced nowhere.
+Measured on an iPhone 17 Pro: the Home `h1` read "Homek⬛", and the
+account screen did the same to somebody's name. Fixed in the root layout
+rather than in 28 files — `SafeAreaProvider` plus one
+`SafeAreaView edges={["top"]}` around the stack. `edges` is deliberately
+top-only: the tab bar already owns the bottom inset and adding it here
+would push the docked `CartBar` up on every screen. The heading moved
+from y=16 to y=78.
+
+**Twenty-three of the twenty-four pushed screens had no way back.** Same
+root cause, and invisible in a screenshot: a sighted iOS user still has
+the interactive pop gesture, so nothing looked wrong. A VoiceOver user has
+no gesture and no control, and `/forgot-password` — which happens to end
+in a "Back to sign in" button — was the only screen in the app offering
+one. `components/BackBar.tsx` is the fix, mounted once beside the inset:
+it renders nothing on the five tab roots and nothing on `/set-password`
+(the forced-change gate would redirect straight back, and a control that
+visibly does nothing is worse than none). A deep link has no history, so
+the press falls back to Home rather than being disabled — an order link
+from an email is exactly the case where a way out matters.
+
+**Checkout rendered "Address" over "Address" and would have posted a
+dangling id.** `CartItem.addressId` is a stored column and the address
+book is a different screen, so the ordinary sequence — fill a basket,
+tidy the address book, come back — leaves a line pointing at a deleted
+row. The assign effect read *any* non-empty id as "already handled" and
+the grouping keyed straight off it, so the screen headed the group with
+its own fallback placeholder and Place order would have sent the id
+anyway. An id nobody recognises is now treated exactly as an absent one.
+Found by deleting an address between two simulator runs.
+
+**An unpaid order had no way to be paid, and checkout promised one in as
+many words.** Every order is written at `pending-payment` and the cart is
+emptied in the same transaction; only the webhook (or
+`POST /orders/:id/pay`) moves it on. So a buyer who dismissed the payment
+sheet held an order nothing could pay — and checkout's own refusal copy
+says *"Order #1234 is saved and waiting — you can pay for it from your
+orders"*. Following that sentence reached an order detail offering
+**Cancel this order** and **Order this again** and nothing else. The web
+grew `CompletePaymentPanel` on 2026-09-04; `mobile/src/orders/
+CompletePayment.tsx` is its port, above the timeline, and it needs
+nothing new server-side — the Razorpay order is reused for a
+`pending-payment` order rather than minting a second payable page, and
+`POST /orders/:id/pay` is idempotent.
+
+**Two screens were dead ends.** `account/wishlist` empty rendered **zero
+controls** — the copy points at a heart that is on some other screen —
+and `account/reviews` with both sections empty rendered zero as well.
+Every other empty state on those screens offers the next step ("Browse
+kitchens", "See meal plans"). Wishlist now offers Browse food and Browse
+gifts; reviews offers Your orders, which is the fact its own sentence
+names (a review needs a delivered order).
+
+**Verified working end to end**, against the local API: browse → product →
+add to cart (the button says "Add to cart" until the server agrees, then
+"Added ✓") → cart → checkout → address form → delivery dates → **a
+wallet-paid order** (HK2122: ₹269 debited, ₹11 cashback credited at
+`placed`, cart cleared) → confirmation → orders list → order detail. The
+card path opens Razorpay Standard Checkout with the real test key and the
+right amount; completing it needs a real card and stays owner-checkable,
+as does push and camera capture.
+
+**Four harness lessons, each of which had made a working app look
+broken.** A tap outside the window is a silent no-op, so `tap()` now
+refuses one and says to scroll first — this is what reported a working
+Place order as a dead button. A rail scrolls sideways, so `scrollTo`
+tries the horizontal axis first. A virtualised list does not contain a
+row until it is mounted, so a miss scrolls on and looks again rather than
+throwing. And a swipe must keep both ends inside the window, or scrolling
+*up* is silently clamped and a target that was scrolled past can never be
+recovered. Separately, a `hitSlop` is invisible to the accessibility
+tree: `KitchenCard`'s maker link pays for its 44pt that way, so it now
+declares it with a `testID` and the sweep counts those under their own
+heading — a claim somebody made, listed rather than dropped, because a
+check that cries wolf gets ignored.
+
+## 2026-09-06 — A5 (part 5): a browser smoke test, and the four defects it found
+
+`e2e/smoke-a5.mjs` signs in against a production build, walks every
+account surface, then **blocks the API at the browser** and asks three
+questions of each screen: does it settle, does it name the right party,
+and does it avoid the empty state over data it could not read. It found
+four things, in descending order of cost.
+
+**A momentary network failure destroyed a valid session.** `AuthContext`'s
+session restore wrapped `getMe()` in a bare `catch` that called
+`clearSession()`. A `status: 0` — our own code for no response at all —
+is not the server saying the session is over, but it was treated as one:
+measured in a browser, `hk_session_v1` (874 bytes of live tokens) was
+**gone after a single page load with the API unreachable**, every account
+screen said "You're signed out" to somebody who was not, and the network
+returning did not heal it, because the credential that would have healed
+it had been deleted. For a HomeKrafter, the door back needs SMS that is
+not wired.
+
+`lib/auth/session-answer.ts` now owns the one question that decides
+whether a credential may be deleted: **401 and 403 are answers; status 0,
+any 5xx, a timeout and anything that is not an `ApiError` are not.** It is
+pure and shared, so the app's auth fork cannot answer it differently, and
+it fails toward keeping somebody signed in — that costs one retry, the
+other direction costs them their account. `AuthContext` keeps
+`sessionUnverified` apart from `isSignedIn` and offers `retrySession`.
+This is M39's lesson one layer below where M39 fixed it, and destructive
+rather than merely confusing.
+
+**`getServerCart()` had no rejection handler** — the sixth instance of one
+defect. Because the providers sit in the root layout it threw an
+unhandled rejection on **every page**; `ready` stuck `false`, so `/cart`
+and `/checkout` waited for ever; and the failure path rendered a filled
+basket as empty. It settles either way now, keeps `loadFailed` apart from
+empty, and `/cart` says "We couldn't open your cart — nothing has been
+removed" with a Try again. `CartBar` deliberately stays gated on `count`:
+a docked bar is not where a failed read gets reported.
+
+**`SubscriptionsListClient` traded one hang for another.** Part 4 stopped
+it falling through to "You don't have a meal plan yet" by leaving
+`subscriptions` at `null` — but the loading line is gated on `null`, so
+the failure branch never rendered and the screen waited for ever. The
+failure is checked before the null gate now. Caught by the smoke test,
+not by a unit test, and the mobile twin never had it because TanStack
+Query gives `isError` its own state.
+
+**The wallet quoted a balance it never read.** Covered in part 4; the
+browser run is what confirmed the header chip, the account tile and
+checkout all print "—" rather than ₹0 when the read failed, and that the
+screens recover when the network returns.
+
+**And the scanners were half blind.** Every structural spec in all three
+packages stripped comments with the same one-line regex. This repo writes
+route patterns in prose constantly — "/seller" plus a star — and each
+contains the two characters that open a block comment, so the regex read
+one as an opener and deleted everything to the next closer. Measured:
+**27 files under `client/` and 10 under `server/src` carry unmatched
+openers**. `lib/auth/AuthContext.tsx` was 58% visible (which is why
+`requestOtp` had never been scanned), `lib/api/auth.ts` 41%,
+`components/layout/ConsumerChrome.tsx` 21%, and
+`src/seller/seller.controller.ts` **54% visible to `rbac-structure.spec.ts`
+— the spec that fails the build on an ungated portal controller.**
+
+`CLAUDE.md` already records the inverse of this, and its rule holds in
+both directions: **a structural scan that fails open is worse than no
+scan, because it reports success.** `client/lib/testing/strip-comments.ts`
+is a state machine — inside a block comment nothing opens a second one —
+and the ten local copies now import it (`server/` keeps a pinned twin,
+same as `geo.ts`, with a parity spec). With the scans finally seeing whole
+files, the only new finding was `requestOtp`, which is a legitimate
+pass-the-refusal-up adapter and is now a registry entry with its reason.
+
+Smoke: **34/34, no console errors.** `client` 45 suites / 398 tests,
+`server` 37 / 376, `mobile` 38 / 574 (10 of them new render specs over the
+A5 screens). Typecheck, lint and both builds clean; `npm run build`
+generates 78/78 pages now that the API is up — the `/collections`
+prerender failure reported in earlier entries was that, and nothing else.
+
+## 2026-09-06 — A5 (part 4): the rest of the account section, on both surfaces
+
+Eight native screens — profile, wishlist, following, reviews,
+notifications, referrals, meal plans and support — plus the nine web
+defects the port turned up on the way there. A5 is now code-complete.
+
+**A `lib/api` function that returns `lib/data` unconditionally is a
+device crash, and there were five.** `getLoyaltyTiers`,
+`getReferralHowItWorks`, `getReferralRewardAmount`, `getSupportPhone` and
+`getSupportChatGreeting` return static display copy with **no
+`isMockMode()` branch** — correctly, because a tier ladder and a phone
+number are the same on both sides. The app resolves `lib/data/**` to a
+throwing stub, and the stub's entire safety argument is that every
+fixture read sits behind `isMockMode()`; these five sat in front of it.
+They compiled, typechecked, passed all 43 web suites and threw on a
+phone. The fix is that the values are **content, not fixtures**:
+`lib/referrals/loyalty-copy.ts` and `lib/support/contact.ts` are pure
+shared modules, `lib/data` re-exports them so no existing importer
+changed, and `docs/APP.md` §5d and the failure catalogue record the
+shape. The app imports them directly rather than wrapping a constant in
+`useQuery`.
+
+**The wallet store never settled a failed read, and zero is a real
+balance.** `WalletContext` did `Promise.all([...]).then(...)` with no
+`catch` and `setReady(true)` only on success — the fifth instance of the
+defect `WishlistContext` carried until part 3, and this one is on money.
+It now settles either way, keeps `loadFailed` apart from the zero-value
+state, and exposes `retryLoad`. Three screens read it: `/wallet` renders
+a Notice with Try again instead of the balance card; the header chip and
+the account tile print "…" rather than a ₹0 they never read; and
+**checkout stops quoting it** — "Balance ₹0 — insufficient for this
+order" and "Your wallet balance is ₹0 and this order comes to ₹1,499"
+were a stated figure that is not the person's balance, on the one screen
+where a wrong number costs them an order. Unknown still counts as
+insufficient (the server is the authority and would refuse anyway); what
+changed is what the screen says.
+
+**Three more uncaught `Promise.all` reads, all on account screens.**
+`AccountOverviewClient`, `NotificationsClient` and `ReferralsClient` each
+did `.then()` with no rejection handler; `all` also throws away the half
+that answered. All three are `allSettled` now with per-half state.
+Consequences worth naming: the overview's tiles say "Open your orders"
+rather than "0 placed"; the wishlist tile honours `loadFailed` instead of
+printing "0 saved" over saved listings; notifications renders a Notice
+rather than a preference grid with no switches in it (which reads as "we
+send you nothing"); and referrals stops building a share link out of an
+unread code — `homekrafted.in/join?ref=` and "use my code  and we both
+get ₹250" is an invite somebody would actually send, so Copy and Share
+are disabled and say why.
+
+**`SubscriptionsListClient` fell through to the empty state on a failed
+read** — "You don't have a meal plan yet" over a prepaid run of meals —
+and offered "Reload the page", which is the last of the DS-5 strings.
+Fixed, with a Try again. `getMySubscription`'s bare
+`catch { return undefined }` is narrowed to a 404 (the `getMySeller`
+shape, M39), so expanding a plan can now report that it could not load
+the meals instead of drawing an empty panel over them.
+
+**`UpdateMeInput` was missing `avatarSrc`.** `UpdateUserInput` carries
+it, `updateUser` passes the same object straight through, so the field
+has always reached the server — TypeScript just said it could not, and a
+native screen written against that interface would have dropped the one
+control `/account/profile` was rebuilt around.
+
+**Native.** `AvatarPicker` puts the upload above the sixteen chef
+characters and never hides it, because a photo wins and the picker is the
+second-best answer; nothing is ever assigned, so no picture is the
+initial-letter disc. Notification switches **wait for the server** rather
+than flipping optimistically — on a screen whose job is "what may we send
+you", a switch the server never accepted is the UI stating the opposite
+of the truth, and a phone loses its connection often enough for that to
+be regular. `CHANNEL_LABEL` is a `Record<NotificationChannel, string>` on
+both surfaces, so adding `push` (A7) fails the build instead of silently
+shipping a screen with no switch for a live preference (E9). Cancelling a
+meal plan is an inline two-step in our own type, never `Alert.alert`, and
+says that cancelling moves no money before the button. `useMyReviews` and
+`usePendingReviews` are two queries rather than one `Promise.all`, which
+is the web's fix with less code.
+
+**Two native modules landed**, so **every installed dev client is stale**
+and `expo prebuild` must be re-run: `expo-image-picker` (moved forward
+from A6 — A5's profile screen is the first surface that takes a photo,
+and its config plugin writes the two iOS usage strings, without which the
+app is killed outright when the picker opens) and `expo-clipboard`, which
+rode the same rebuild for free.
+
+`mobile`: 37 suites / 564 tests, typecheck, lint, both bundles exported,
+bundle-content assertion green. `client`: 43 suites / 384 tests,
+typecheck clean, lint 0 errors.
+
+## 2026-09-06 — A5 (part 2): five web defects the port surfaced, fixed at the source
+
+A multi-agent read of the account surfaces, with an adversarial verify
+pass over each brief. Four of the five verifiers died on a session limit,
+so **only the orders-list findings below are independently confirmed** —
+each one was then checked against the file before it was fixed. The
+remaining briefs are unverified and are being treated as leads, not
+facts.
+
+**Two screens hung for ever on a failed read.** `OrdersListClient` and
+`OrderDetailClient` both did `getOrderHistory().then(...)` with no
+rejection handler, and both put `setReady(true)` inside the success
+callback only. So a 5xx or an offline fetch left "Loading your orders…"
+and "Checking today's dabbas…" on screen permanently, with an unhandled
+rejection and no Try again. (A 401 and a 403 PASSWORD_CHANGE_REQUIRED
+navigate on their own in `http.ts`; the indefinite hang was everything
+else.) Both now settle either way, keep `loadFailed` apart from "no
+orders yet", and offer a retry that names the right party.
+
+**Reorder reported failure over a success, and a retry doubled the
+cart.** `await refresh()` sat inside the same `try` as `await reorder()`,
+and the server has committed the cart writes by then — so a failed cart
+re-pull said "Couldn't rebuild that order. Try again in a moment.", and
+pressing again **merges** quantities into the existing lines
+(`orders.service.ts:345`). The claim-a-state-the-server-has-not-confirmed
+rule, inverted: claiming failure over a confirmed success is the more
+expensive direction. The refresh is now outside the try, the bare `catch`
+uses `apiErrorMessage` (the sibling panel in the same card stack already
+did), and a `{ added: [], skipped: [] }` result — which is what mock mode
+returns **unconditionally**, so the button did nothing observable on
+every local dev build — now says so.
+
+**The timeline contradicted the panel on the same screen.**
+`onUpdated` merged `{ ...current, order: updated }`, and `steps`,
+`statusLabel` and `cancelled` are all derived from `order.status`. After
+a successful wallet payment the pay panel vanished while the timeline
+above it still showed the lone "Payment pending" dot; after a
+cancellation the panel said "Cancelled" over a timeline still reading
+"Order received → Being made now". `toOrderEntry` is exported and the
+entry is rebuilt.
+
+**"Payment received" was said on the evidence of nothing.** `getOrder`
+ends in a bare `catch { return undefined }`, so a 500, a 403 and a
+dropped connection all reached `settle()` indistinguishable from "no such
+order" — and every one of them was answered with "Payment received —
+we're confirming it with the bank." That is a fact only the webhook owns,
+and the panel's own header says the SDK firing is not proof. It now says
+either that, when the order genuinely read back unpaid, or "we couldn't
+confirm that payment just now… check again before paying twice". The old
+copy also promised "This page will show it shortly" — nothing polls, so
+it described an update that never came.
+
+**A failed courier read rendered as "no parcel".**
+`ParcelTracking` caught into `setParcels([])`, which renders `null` — so
+a courier-carried gift order whose parcel read 500'd looked exactly like
+a food order the kitchen delivers itself. It also cancelled a deliberate
+decision one layer down: `lib/api/shipping.ts` narrows the **404 only**
+and rethrows a 5xx "so a broken deployment renders as broken rather than
+as 'this order has no parcels'". The one consumer of that throw was
+swallowing it.
+
+**And one divergence in the app, caught by the verifier.** The orders
+list was using the warm `ORDER_STAGE_LABEL` set. There are two sets on
+purpose: the kitchen-diary words belong to the **timeline**, and
+`ORDER_STATUS_LABEL` keeps the plain operational words "for anywhere
+precision beats warmth" — which a scan-down list of orders is. The list
+now takes the plain set, keeping the one deliberate exception ("Needs
+payment", because "Payment pending" reads as somebody else's problem).
+
+Client: **43 suites / 384 tests**. Mobile: **37 suites / 531 tests**.
+
+## 2026-09-06 — A5 (part 1): orders, the resolution windows, and a fourth swallowed refusal
+
+**`WishlistContext.toggle`/`remove` were `void promise.then(...)` with no
+`catch` — the fourth instance of one defect**, after `addItem`
+(2026-09-03) and the three other cart mutations (2026-09-06). The heart
+never *lied*, because it flips off the response; a refused press simply
+did nothing and said nothing, which reads as a broken control rather than
+as a refusal. Worse, the **read** set `ready` only inside its `then`, so a
+rejected `GET /wishlist` left `/account/wishlist` on "Loading your
+wishlist…" for ever. Both mutations now reject, `loadFailed` is kept apart
+from "nothing saved" (fixing the hang without it would have traded it for
+"0 saved items" over a wishlist with things in it), and the three call
+sites map the rejection through a new shared `wishlistErrorMessage`.
+`silent-failure.spec.ts` caught the provider on its next run and it now
+carries a registry entry with its reason — the same one `CartContext`
+earned: a catch there would swallow the refusal before the screen that
+renders it ever sees it.
+
+**Two money windows lifted out of a component and into shared policy.**
+`OrderResolutionPanel` held `CANCELLABLE` as a local array and computed
+the return window with a `Date.now()` subtraction inside an effect. That
+was fine while one screen asked; the native order screen asks the same
+question, and two copies of a rule about refunds is the `geo.ts` hazard
+with money attached. `lib/orders/resolution.ts` now owns both, takes
+`now`, and is pinned by ten cases computed on paper: cancellation closes
+at `packed` (after that the cost lands on a home cook), a return closes
+seven days after `deliveredAt`, and `resolutionState` checks
+already-resolved **first** so an order with a refund in flight can never
+also grow a cancel button.
+
+**The app's order screens are an honest timeline and nothing more.** No
+map, no ETA, no rider — there is no rider GPS from any party, and food is
+driven over by the kitchen itself. A courier carries **gifts only**, so an
+empty parcel list is the common case and the screen says nothing at all
+rather than "no tracking available", which would read as something
+missing. A failed parcel read leaves the order's own stages standing.
+Reorder reports what could **not** be added, because partial success is
+the normal outcome — a kitchen pauses items and retires weights between
+one order and the next.
+
+**One guard the spec found, not review.** `submit()` refused an empty
+return reason only through the button's `disabled` prop — a rendering
+decision, not a lock. Same shape as the checkout `cannotPay` guard one
+entry up, and it now refuses inside the handler.
+
+Also: the app's wishlist fork (memory-backed like the cart, outside
+`PERSISTED_ROOTS`), the orders list reading `getPlacedOrders` rather than
+the laundry-merging `getOrderHistory` (laundry is withdrawn), and the
+`Account` tab wired to wallet and addresses — every row goes somewhere
+real, because a row for an A5 screen that does not exist is the "Make it
+a gift" defect again.
+
+Mobile: **37 suites / 531 tests**, bundle 1,595 modules (Android) / 1,472
+(iOS). Client: **43 suites / 384 tests**.
+
+## 2026-09-06 — A4 (part 3): the wallet, the address book, and a sentence the web should not say
+
+**"Added ₹500 to your wallet" is a claim the client cannot make.**
+`WalletContext.topUp` resolves the moment Razorpay's SDK reports success,
+and `WalletClient` says that — but the credit is applied by the
+`payment.captured` **webhook**, which may not have landed. Same class as
+the checkout defect one entry up, on the other side of the same SDK. The
+app reads the balance back (`confirmTopup`: immediate first read, then no
+faster than the 30-second carrier-NAT floor) and says one of two true
+things — *"Your balance is now ₹1,500"*, or *"we are still confirming"*.
+Never "failed": the charge may well have gone through, and that sentence
+invites a second one.
+
+**The bonus is stated before paying and never after.** `topupBonus` is
+the server's own rule mirrored for the sentence under the picker; what a
+wallet holds comes from `GET /wallet`. Adding the two client-side is how
+a screen reports money nobody credited. It is **strictly above** ₹2,000,
+and the copy says "above" — a ₹2,000 tile earns nothing, and "₹2,000 or
+more" beside that tile would be a lie about the button next to it.
+
+**Two more pure halves split out of places the app cannot reach.**
+`TOPUP_OPTIONS` sat in `lib/data/wallet.ts`, which Metro stubs outright —
+they are platform config, not a fixture — and the two bonus constants sat
+in `WalletContext.tsx`, which imports React. Both now live in
+`lib/wallet/topup.ts` with `topupBonus` and a total `parseTopupAmount`
+(rejects a fractional rupee: Razorpay charges in paise, so ₹10.005 is an
+amount nobody can be charged). Old import sites keep resolving.
+
+**The address book re-reads where the web guesses.** Deleting the default
+makes the server promote another row; the web promotes *its own first
+row*, which is the client's ordering. Which row is default decides where
+every unassigned cart line ships, so it is worth a round trip. Delete is
+an inline two-step in our own type — never `Alert.alert`, which on a
+phone also blocks the JS thread — with the sentence before the button.
+`label` is required here and not at checkout: a list of rows with no
+names is a list nobody can choose from, and a name field between somebody
+and the button they came to press is not.
+
+**The Account tab is real, and every row goes somewhere.** Wallet and
+address book only. Orders, following, wishlist and reviews arrive in A5;
+a row for a screen that does not exist is the shape of the "Make it a
+gift" defect. A balance that has not been read renders "—", not ₹0 — a
+zero nobody checked is a number.
+
+Also: `VirtualizedList` schedules its cell pass on a 50ms timer, so the
+two list specs flush it inside `act`. A green suite that prints act()
+warnings is how everybody learns to ignore warnings.
+
+Mobile: **35 suites / 506 tests**, bundle 1,587 modules (Android) / 1,464
+(iOS). Client: **41 suites / 369 tests**.
+
+## 2026-09-06 — A4 (part 2): checkout, payments, and a picker offering last week
+
+**The delivery-date picker on the live site can offer a date in the
+past, and it has been able to since M3.** `deliveryDateOptions` was a
+module-scope `const` in `lib/data/orders.ts`, computed once when the
+module loaded and read by `app/checkout/page.tsx` — a **Server
+Component**. So the list is fixed for the life of the Next process, and
+the process runs until the next deploy: a box up for three days hands
+every buyer four dates whose first is two days gone. It is exactly the
+failure `lib/schedule.ts`'s own header exists to describe ("how the
+laundry picker ended up offering dates in the past"), one module over,
+and it is invisible locally because a dev server restarts constantly.
+
+Fixed at the source, where a two-package contract's bugs have to be
+fixed. `deliveryDateOptions(now, count)` moves into `lib/schedule.ts` as
+a pure generator that **takes `now`**, `lib/data/orders.ts` keeps a type
+re-export, and the web computes the list **after mount** — which is the
+M12 rule (anything keyed on the current time is client-only) and also the
+right answer for a second reason: production runs `Etc/UTC`, five and a
+half hours behind the people using it, so a server-computed "tomorrow"
+rolls over at half past five in the morning IST. Six cases pin it,
+including the month and year crossing.
+
+**`gift/gift-intent` is split, and the refusal stands.** The pure half —
+the type, `EMPTY_GIFT_INTENT`, `hasGiftIntent`, the storage key and a
+total `parseGiftIntent` — is now `lib/gift/gift-intent-shape.ts`, free of
+DOM globals and imported by both packages. What is left in
+`gift-intent.ts` is the `sessionStorage` store, which stays REFUSED in
+Metro: it catches its own `TypeError`, and on Hermes that turns total
+failure into silence. A refusal is only honest if the shareable half is
+reachable; now it is. The app's store is memory, per launch —
+deliberately not AsyncStorage, because a gift message is somebody's words
+to somebody else and AsyncStorage on Android is a plaintext file.
+
+**The app's checkout ports every money rule and adds nothing.** Server
+prices the order; `computeCashback` is used for one line of copy and
+never to decide what is charged. One `Idempotency-Key` per attempt,
+minted once per mount — never per press, which does nothing for the retry
+a timeout provokes. `submitting` is a **ref**: `setPlacing(true)` does not
+disable a button until React re-renders, and three presses inside one task
+once produced three orders and three wallet debits.
+
+**Razorpay lands as a TurboModule, and its success is not proof.**
+`keyId` comes from the API response with no `EXPO_PUBLIC_` fallback, so a
+live-key switch is a server env change and a restart with **no app
+release** — which matters far more here than on the web, where the fix is
+a deploy and here it is a store review. A `mock: true` order is refused
+rather than opened against. There is no client verify endpoint, so after
+the sheet returns the app re-reads `GET /orders/:id` immediately and then
+no faster than the 30-second carrier-NAT floor; **running out of attempts
+reports "we could not confirm", never "payment failed"**, which would
+invite a second payment for the same basket. A dismissed sheet is an
+outcome, not an exception — the sheet closes the same way for a
+dismissal, a declined card and a timeout, so the copy says the order is
+saved and payable rather than telling somebody they cancelled what their
+bank refused.
+
+**Two guards the specs found, not review.** `cannotPay` was enforced only
+by the Place order button's `disabled` prop — a rendering decision, not a
+lock — and now refuses inside `place()`, because creating an order there
+is no way to collect strands it at `pending-payment`. And the
+`PaymentsUnavailableError` path said "your order was not placed" from a
+`catch` where the order **existed**; it now names the order number, since
+an order somebody does not know they have is an order nobody pays for.
+
+**"Make it a gift" is a real control on the phone from day one.** On the
+web it was three `<span>`s for months — they looked like controls, the
+copy promised wrap "at checkout", and `giftWrap` was a real column on
+`CartItem` and `OrderItem` that nothing anywhere ever set. Here the
+switches write on a **successful** add, so a refused add carries nothing
+and playing with them and leaving does not pre-tick checkout later.
+
+Also: `Toggle` (a labelled switch — the whole row is the target, and a
+switch rather than a checkbox because there is no Save between the tick
+and Place order), an `AddressForm` whose real work is keyboards and
+autofill, `LSApplicationQueriesSchemes` in `app.json` (iOS refuses
+`canOpenURL` for an unlisted scheme, so Razorpay's UPI intent flow
+silently offers no apps without it), and `expo-crypto` for the
+idempotency key — Hermes has no `crypto` global. Both native modules land
+in one dev-client rebuild.
+
+Mobile: **32 suites / 477 tests**, bundle 1,583 modules (Android) / 1,460
+(iOS). Client: **40 suites / 362 tests**.
+
+## 2026-09-06 — A3 (part 5): Snacks, Home, and a flag read the wrong way
+
+**Snacks is the module whose whole shape is a channel decision.**
+Browsable on every surface, and no cart on any of them: the WhatsApp
+message **is** the order, and the kitchen confirms the price and the slot
+back in chat. The failure mode is not a crash — it is a screen that grows
+a cart because a menu usually has one — so the spec scans for
+`addItem`/`useCart`/`/cart`/`/checkout` and finds none.
+
+**`SnacksClient` reached into `CHANNEL_RULES` directly, and the rule is
+to read flags through the accessors.** It gated its pre-order picker on
+`CHANNEL_RULES.snacks.hasPreOrderOnWeb` while `/app-promo` read the same
+flag through `getChannelRule`. That is not hygiene: `enabled` is the odd
+flag out — every other one describes how a **live** module behaves, and a
+withdrawn module keeps its rule so the types and the order history
+referencing it still resolve, so reaching into the object answers the
+wrong question truthfully. Fixed in `client/`, and
+`lib/channel.spec.ts` now scans `app/`, `components/` and `lib/`
+(comments stripped) so nothing outside `lib/channel.ts` names the object
+again.
+
+**Pre-order without checkout is the point.** `hasPreOrderOnWeb` is true
+while `hasCartOnWeb` and `hasCheckoutOnWeb` are false, because scheduling
+is information rather than a transaction. The chosen slot rides **in the
+message**, never into an order record — which is what keeps pre-order
+from quietly reopening the cart question. Nothing is pre-selected: a
+default slot would put a time in the kitchen's chat that nobody asked
+for, on a module where the message is the order.
+
+Two smaller decisions worth the line. `Linking.openURL` runs with **no
+`canOpenURL` gate** — on Android that needs a manifest query entry to
+answer truthfully and answers `false` without one, so gating on it would
+refuse a working handoff; `https://wa.me/…` opens the app when it is
+installed and the web client when it is not. And the `...OnWeb` names are
+the web's: nothing on the server supports a snacks cart for either
+client, so reading them here is the app **agreeing** with the web rather
+than claiming the flags were written for it. `channel.ts` is reconciled
+in A9, where `full-meals`' "app-only" tracking goes too.
+
+**The app does not repeat the web's snacks aside.** "Full meals & live
+rider tracking are on the Homekrafted app" is true of neither: there is
+no same-day module on the server, and no rider GPS exists on either half
+of the platform — a courier carries gifts and never food. Asserted, so it
+cannot be copied in later.
+
+**Home is not a port of the landing page.** The split screen's entire job
+is asking food-or-gifts, and the tab bar below asks it better, in less
+space, permanently — so a Home that repeated it would be a screen with no
+job. This one leads with what is happening now: the seasonal occasion,
+then what people actually order, then the ways in.
+
+**"Ordered again and again" filters on `reviewCount > 0` before it
+sorts.** An unreviewed listing carries `rating: 0`, so sorting the raw
+catalogue by rating ranks new listings last and ties every zero at the
+front — a rail called "most loved" would open on the least-known things
+in the catalogue. **Six weeks** is the seasonal window: long enough that
+tricity festival gifting is being planned rather than remembered, short
+enough that the band is not permanently occupied, because a banner that
+is always there is furniture. It prefers a guide over the occasion hub
+when one exists — a merchandised list is a better first screen than an
+unordered grid, and it is where the web's seasonal band already points.
+And **every number on the screen comes from the catalogue it fetched**:
+there is no "200+ home chefs" strip on the web and there is none here,
+asserted by a scan.
+
+**Two things are absent rather than faked.** Reorder is the first thing
+this screen should carry and it needs order history, which is A5 — a
+reorder rail with nothing behind it is worse than no rail. The reels rail
+is four clips at roughly 8 MB each, which is a budgeting decision on a
+metered plan; it belongs with the release work in A8, not smuggled in
+behind a scroll.
+
+395 tests, 27 suites, `npm run verify` green. Client: 348 tests, 39
+suites. Bundle 1,550 modules (Android) / 1,427 (iOS).
+
+**A3's screens are done.** What remains in the milestone is the capacity
+check the eng review moved here from A7 — one vCPU running Next, the API
+and Postgres together, measured p95 2.06s at 2,017 listings, and the app
+adds a second client class plus the image optimizer as a thumbnail CDN.
+That needs the box under load, not code.
+
+## 2026-09-06 — A3 (part 4): Gifts, Hampers, Search and the occasion hubs
+
+**A facet a screen does not apply must not be decoded either.**
+`GiftsClient` hard-codes `dietary: new Set()` into its predicate while
+`useBrowseFilters` still decodes `?diet=` into state and re-serialises it
+on every write — so `/gifts?diet=vegan` keeps the parameter in the
+address bar permanently, filters nothing, and shows no removable chip,
+because `activeChips` has no diet entry. Invisible, unremovable state on
+a shared link. The hook now takes the facets a screen owns; a grid that
+does not apply dietary neither decodes it nor counts it, and the filter
+sheet reads that ownership off the hook rather than being told a second
+time — told twice, the sheet can offer a facet the grid ignores, which is
+the shape being fixed. Asserted from both ends: with the facet owned, one
+ticked tag empties a craft catalogue, which is *why* it is off.
+
+**One shipping order in the tree.** `GiftsClient` builds its pills from a
+literal `['national','local']` while `SHIPPING_SCOPE_VALUES` is
+`['local','national']` — the same two values with two orderings in one
+product. Everything here reads the constant, so which order is friendlier
+to a gift shopper is an argument about one line rather than a drift.
+
+`ProductGridScreen` is the shared grid behind Gifts and Hampers. `/shop`
+is deliberately **not** built on it: browsing food is browsing cooks, and
+"unifying" the two browse models is the trade that throws away the only
+thing making the food half honest. A hamper stays an ordinary listing
+carrying `isHamper` — the flag is only ever a filter, so a hamper still
+appears in Food, in Gifts, in search and in its category.
+
+**`/search?q=a&q=b` was a 500, and it is fixed on both sides.** A
+repeated parameter is legal in a URL and Next hands it through as
+`string[]`; `app/search/page.tsx` declared `{ q?: string }`, narrowed
+nothing, and passed it to `search()`, which calls `query.trim()` — a
+TypeError on the one public route whose entire input is a raw URL anybody
+can construct, share or crawl. Both the web route and the app screen now
+parse defensively, and a spec scans the route's source (comments
+stripped) so the destructure cannot come back.
+
+**A snack-flagged listing came back twice and counted twice.** Since M20
+a `Product` with `isSnack: true` is on the snacks menu *and* in the
+products catalogue, and neither list endpoint excludes the other's rows:
+`ProductsService.list`'s `where` never mentions `isSnack`, and
+`SnacksService.listFlaggedProducts` maps the product straight through —
+`id: product.id`. So a matching query renders it in two sections of one
+page and the heading's total counts it in both. De-duplicated by id
+(exact, not a name heuristic), dropped from the snacks arm rather than
+the products one — the product card is the richer rendering and its route
+is the one a shopper wants, and the listing is still on the Snacks
+screen, where it is the only rendering there is.
+
+**The occasion hubs are delivery-filtered, and the web's are not.**
+`/collections/[occasion]` and `/guides/[slug]` are the only two product
+grids in the product that call `getProducts()` with no `near`, so a guide
+can point at a listing from a kitchen that does not deliver to the person
+reading it. Location is still never a gate — no coordinates means the
+server returns everything — but a shopping surface pointing at something
+unbuyable is worse than a shorter curated list, and the empty state names
+the reason and offers the picker. `getProducts` is the right reader here
+and the wrong one on `/shop`: an occasion deliberately spans food and
+craft, which is the point of one.
+
+**The hub's three sections are disjoint here and are not on the web.**
+"Gift guides" renders every `Collection`, including ones attached to an
+occasion already shown under "Coming up" — so a Diwali guide appears
+twice on one screen, and the second appearance is also where the home
+page's seasonal band already sends people. A guide whose occasion is on
+the screen is reached through that occasion; one whose occasion has
+passed is still listed, because the guide is then the only route to it.
+
+`lib/occasions.ts` still never reads the clock. There is no server render
+to disagree with here, and the rule is kept anyway: `now` is read once
+per render and threaded down, so a countdown and its own heading cannot
+disagree about what day it is mid-render. `celebratedOn` absent is
+**evergreen**, not missing.
+
+`Card` grew an optional `onPress`, and a card that navigates is a
+**link** — `accessibilityRole="link"`, not a button. On the web that
+distinction was load-bearing for a different reason (React's `onClick` on
+a div does not fire for Enter or Space, so every product grid was
+focusable and un-openable until M22); here it is what a screen reader
+announces and what its rotor lists. A card with no destination stays a
+plain `View`.
+
+Two things the contract flagged that only a server change can close, both
+written down where the first person to hit them will look: `GET /vendors`
+is `take: 60`, name-ascending, unpaginated, and `pageSize` is capped at
+100 by the DTO (`@Max(100)` — a request for 200 is a 400), so a
+collection whose picks reach past the first hundred cannot be completed
+from any client.
+
+377 tests, 25 suites, `npm run verify` green. Client: 347 tests, 39
+suites. Bundle 1,544 modules (Android) / 1,421 (iOS).
+
+**Still owed in A3:** Home and Snacks — and the capacity check moved here
+from A7.
+
+## 2026-09-06 — A3 (part 3): product detail, the storefront, and a size the two screens disagreed about
+
+**The card and the detail page did not agree about whether a listing
+could be bought — on the web, today.** `ProductGridCard` adds
+`purchasableSku(product)` (the default size when it has stock, otherwise
+the first size that does); `ProductPurchasePanel` opened on
+`useState(product.defaultWeightSku)`. So a listing whose default size is
+at `stock: 0` while a second size has stock shows a working "+" on the
+grid and, when opened, a detail page pre-selected to the dead size:
+"Sold out", a disabled Add, a disabled stepper. Sixteen live listings sit
+at `stock: 0`, so this is a state the catalogue is actually in. Fixed in
+`client/` as well as ported correctly — one line and the helper the card
+already uses — and pinned as a property of the two call sites rather than
+by rendering the panel, because what matters is that neither ever picks
+the other's answer.
+
+**`Product.isAvailable` is read on the app's panel and is read nowhere in
+the web's product area.** CLAUDE.md's rule is that there are two
+different is-this-visible switches and a buyer needs both: the admin's
+`moderationStatus` is applied server-side by the fetch, and the kitchen's
+own "am I making this today" is on the payload. A grep across
+`components/product`, `components/ui/ProductCard.tsx` and
+`app/product/[slug]/page.tsx` returns exactly one hit, inside
+`generateMetadata`. So an unavailable listing renders a live Add to cart
+and the refusal arrives only from the server — a whole state with no
+client branch, on the screen where somebody decides to buy. The app
+**states** it rather than merely disabling the control: "this kitchen
+isn't making this today" and "sold out" are different sentences and only
+one of them comes back tomorrow. The web owes the same branch; it is a
+copy decision as much as a code one, so it is written down rather than
+guessed at here.
+
+**The breadcrumb reads `Product.kind`.** The web's is
+`Home / Homemade Food{category}` for every listing in the catalogue, so a
+candle reached from /gifts is headed "Homemade Food / Candles" on its own
+page. `kind` has split the catalogue in two since M20; the breadcrumb
+never noticed.
+
+Two more carried whole: `showStruck`'s **`weight &&` guard is
+load-bearing** (a listing with no sizes reads `undefined?.mrp` and the
+comparison quietly becomes `undefined > 0`), and the **panel derives a
+discount percentage the card refuses to** — the card renders the pill
+only when the server set `discountPct`, because a comparison surface must
+not invent a sale, while here both numbers are on screen together and the
+percentage is arithmetic the reader can check. That difference is
+deliberate and is now asserted from both ends.
+
+**`onAdd` is optional and its absence renders no button.** The cart is
+A4. A control with nothing behind it is the defect the "Make it a gift"
+block shipped for months — three `<span>`s that looked like controls and
+did nothing — and it is the easiest one to re-create while "wiring it up
+later".
+
+**The storefront does not inherit the `Promise.all`.** Four readers, and
+they do not fail alike: only `getVendorProfile` swallows,
+`getVendorAvailability` never rejects at all (it falls back to a working
+empty schedule, because a network blip must not stop a kitchen taking
+orders), and `getProductsByVendor` and `getVendorReviews` throw. Awaited
+together, one slow reviews call takes the kitchen's whole page. Here each
+is its own query and each renders or fails on its own — which is also
+what "an empty profile renders as a shorter page, not an empty one"
+already asked for. `getVendorAvailability` also puts a **slug in a field
+typed as an id** in both fallbacks, so nothing keys a cache on
+`availability.vendorId`; the query key uses the slug we asked with.
+
+Three storefront facts the web withholds, and two are corrections:
+
+* **The stats block has three rows, not two.** "On Homekrafted" renders
+  `monthsActive` unconditionally inside the `ordersDelivered > 0` gate. A
+  `null` cancellation rate is an *unknown* rate rather than a perfect one,
+  so it is omitted rather than printed as 0%.
+* **Custom orders are stated even with no policy text.** The web renders
+  `acceptsCustomOrders && customOrderPolicy && …`, so a kitchen that
+  ticked the box and wrote nothing says nothing about custom orders
+  anywhere on its page — the boolean alone is not a rendered fact, unlike
+  every other policy row, which needs only its own string.
+* **A kitchen's reply to a review is shown to the buyer reading it.**
+  `sellerReply` is written and displayed read-only in `/seller/reviews`
+  and rendered on **no** buyer-facing surface, so a HomeKrafter can answer
+  a review that nobody who reads the review will ever see. The web owes
+  this one too.
+
+The trust score is still never a bare number (the tier plus every signal,
+met and unmet), `reviewCount: 0` is still "New kitchen", and the pickup
+address is still absent — asserted on this screen specifically, since it
+is the one most likely to grow one, with comments stripped before the
+scan. That last detail earned itself: the screen's own doc comment says
+"`fssaiNumber` is absent from the public payload", and the first version
+of the scan failed on the sentence promising the thing it was checking
+for.
+
+**The a11y floor caught its own author again.** `minWidth: 24` on the
+quantity readout tripped the tap-target scan. Widened to `MIN_TAP`
+instead of allowlisted — a 44pt-wide digit readout between two 44pt
+buttons is right anyway, and an allowlist entry is a claim somebody has
+to keep true.
+
+340 tests, 22 suites, `npm run verify` green. Client: 344 tests, 38
+suites. Bundle 1,535 modules (Android) / 1,412 (iOS).
+
+**Still owed in A3:** Home, Gifts, Hampers, Snacks, Collections,
+Occasions, Guides, Search — and the capacity check moved here from A7.
+
+## 2026-09-06 — A3 (part 2): browse state, the filter sheet, and the Food tab
+
+**The codec ports; the transport does not.** `useBrowseFilters` on the
+web is three quarters URL machinery — `router.replace` over `push` (a
+checkbox is not a history entry), `router.replace` over
+`history.replaceState` (the App Router restores its own `renderedSearch`
+and the query is gone before `popstate` fires), a 250 ms debounce because
+`replace` refetches the RSC payload, a popstate adopter, a first-write
+guard, and a merge that preserves a shared link's `utm_source`. None of
+it has an equivalent on a phone: a screen is not re-fetched when its
+state changes, Back pops a stack that kept it mounted, and there is no
+address bar. So `mobile/src/browse/useBrowseFilters.ts` imports
+`lib/browse-params.ts` unchanged and **decodes only** — a
+`homekrafted.in/shop?category=pickles&diet=non-vegetarian` link opens the
+same narrowed screen here that it opens in a browser (A8), with the
+slug↔id mapping, the unknown-slug rule and the price clamp arriving with
+it. The one thing the URL bought that a phone still wants is *sharing* a
+narrowed view, and that is a share sheet writing a link from this state —
+A8's job, not a reason to run a writer nobody reads.
+
+**`priceBounds` is guarded here and is not on the web.** `ShopClient`
+computes `Math.min(...prices)` with no empty-list check, so an empty food
+response hands `Infinity`/`-Infinity` to its slider and to its URL clamp;
+`GiftsClient` — the same derivation, one directory over — has the guard.
+Two screens, one rule, two behaviours, so the shared version takes it.
+
+**Price is bands, not a slider.** RN has no built-in range control and
+`@react-native-community/slider` is a native module, which is a
+dev-client rebuild for something fiddly under a thumb. `price-bands.ts`
+cuts the **terciles of the observed range** — derived, never a hardcoded
+"Under ₹500 / ₹500–1000 / ₹1000+" ladder, which renders two empty bands
+over a ₹80–₹400 pickle catalogue and one over a hamper one. Terciles of
+the *range* rather than of the count, so the labels stay put while the
+catalogue's shape does; quantiles would move "Under ₹340" to "Under ₹355"
+overnight on a control somebody is trying to learn. A band writes the same
+`[min, max]` the codec carries, so a `?minPrice=` deep link round-trips
+and a share back out is still a URL `/shop` understands. A flat catalogue
+gets no bands at all — three identical ones is a control that cannot
+change anything.
+
+**The closed filter sheet is unmounted, and that is a port of a subtle
+rule.** `MobileFilterSheet` keeps its children mounted behind
+`visibility: hidden` + `aria-hidden`; the `visibility` half is what takes
+them out of the tab order, and `aria-hidden` over focusable elements is
+itself a violation. RN's `Modal` has neither, so the honest port is not
+rendering them.
+
+Three more sheet rules carried whole: a **zero-count row is dimmed and
+disabled and partitioned after the usable ones**, never hidden (hiding
+changes the list's length under the reader's thumb every time they tick
+something); an **M58 parent is a heading, not a checkbox** — nothing files
+directly under one, so as a row it is a permanent zero; and **Occasion is
+the one group that starts closed**, opening itself when the screen was
+deep-linked with occasions selected, or every link from an occasion hub
+lands on a sheet with its own filter folded away.
+
+**The Food tab opens on kitchens.** Ordering cooked food is a decision
+about who made it — five identical jars from five kitchens are five
+hygiene standards and five delivery radii — and a tab labelled Food that
+opened a dish wall would quietly reverse the one rule making the food
+half honest. It is an easy reversal to make, because a dish grid is what
+every delivery app ships, so it is asserted. The dish view survives as a
+toggle: "who has ragi cookies" is a real question.
+
+`getFoodProducts`, never `getProducts` — the unfiltered reader is what
+put candles, jewellery and art prints on a screen headed "Homemade Food"
+(8 crafts among 16 listings) with craft categories offered as filters.
+**Coordinates are part of the query key**, which is what replaces the
+`hk_loc` cookie and its `router.refresh()`: a screen cannot show the
+previous area's listings under a header naming the new one, because the
+new area is a different query.
+
+**Two empty copies, and the second is the one a port drops.** `/shop`
+reaches zero results with **no filter active** on the real catalogue:
+`GET /vendors` returns sixty, name-ascending, with no pagination
+parameter, and `buildKitchens` drops a listing whose vendor is missing
+rather than heading a card "undefined" — so a kitchen after roughly 'M'
+vanishes from its own grid. A screen carrying only the chip-join sentence
+shows a blank paragraph in the commonest cold-start case there is, and a
+"Clear filters" button that does nothing. Pinned. The `GET /vendors`
+ceiling itself is a server change and is written down where the first
+person to hit it will look, rather than hunted for in the app.
+
+Paging is a growing window with a "Show more", not numbered pages —
+"page 3 of 7" is a control you have to scroll back up to find. The web's
+24 and 9 are kept as the step, because both still divide cleanly at this
+grid's column counts and it keeps the two products' counts comparable.
+
+**`jest` and Metro disagreed about a file the app ships.** jest-expo's
+transform key is `\.[jt]sx?$`, which does not match `.mjs` — and
+`lucide-react-native/icons/<name>`, the per-icon subpath that keeps 1,800
+barrel modules out of the bundle, resolves to `dist/esm/icons/*.mjs`
+under the `react-native` export condition. Metro transforms it; jest did
+not, and the disagreement surfaced as "Cannot use import statement
+outside a module" the first time a spec rendered a screen with an icon on
+it. `jest.config.js` now transforms `.mjs` with the project's own babel
+config.
+
+313 tests, 20 suites, `npm run verify` green. Bundle 1,529 modules
+(Android) / 1,406 (iOS).
+
+**Still owed in A3:** Home, Gifts, Hampers, Snacks, Collections,
+Occasions, Guides, Product detail, Storefront, Search — and the capacity
+check the eng review moved here from A7.
+
+## 2026-09-06 — A3 (part 1): the location layer, and four defects the contract found
+
+Before writing a browse screen I extracted the web's browse rules with a
+fan-out of readers and then had each extraction adversarially refuted
+against the tree. 225 rules, 344 confirmations — and **21 refutations
+plus 41 things no reader had mentioned**, four of which are live defects
+rather than porting notes. Fixing them at the source was the point of
+sharing `client/lib` at all: a rule that is wrong there is now wrong in
+two products.
+
+**`productMatchesFacets` never saw a secondary shelf (M58, live).** It
+tested `product.categoryId` alone, so a listing filed on an extra shelf
+matched nothing and counted nothing on both listing pages — against the
+M58 contract in `CLAUDE.md`, which says `ProductCategory` "carries the
+complete set". The seller form has written `categoryIds` since M58 and
+browse has never read it, so such a shelf rendered as a chip showing `0`,
+dimmed **and disabled**: an unpressable tile over a shelf with listings on
+it. Now `browse-facets.ts#productShelves` is the one answer and both
+count memos read it. `buildKitchens` deliberately does **not** — a jar
+filed primary "Pickles" and secondary "For Her" *makes pickles*, and a
+kitchen card listing a recipient shelf under "makes" is the same defect
+inverted. Membership and identity are different questions.
+
+**`?diet=non-vegetarian` was written and then dropped (live).**
+`browse-params.ts` carried a private five-entry `DIETARY_TAGS` list that
+nobody updated when `non-vegetarian` and `contains-egg` joined the union
+on 2026-09-05. Demonstrated by running the real functions:
+`browseParamsToQuery` wrote `diet=non-vegetarian,contains-egg,vegan` and
+`parseBrowseParams` read back `["vegan"]`. The veg/non-veg pair is the
+filter this market reaches for first, and it survived in memory and
+evaporated on refresh, on Back, and in every shared link. There is now
+one list, `DIETARY_TAG_VALUES`, written as a `Record<DietaryTag, true>`
+so that a **missing** member is a type error — an array only catches an
+invalid one, and missing was the failure.
+
+**The `ProductCard` owed a fourth thing.** The card renders `salePrice`,
+the struck `price`, **and** a "N% off" pill read from
+`Product.discountPct`; the RN card had the two prices and no pill. Read,
+never derived: the purchase panel falls back to `(mrp - price) / mrp`
+when the field is absent, and a card copying that fallback would print a
+percentage beside a storefront sale the kitchen never declared.
+
+**`gift/gift-intent` is refused in the app, not aliased.** It reads
+`window.sessionStorage` and catches its own TypeError. Hermes defines
+`window` and not `sessionStorage`, so on a device every read answers
+`EMPTY_GIFT_INTENT` and every write is discarded — in silence, from a
+module whose comments promise the hand-off works. It resolves, compiles
+and typechecks, and is wrong only on the phone. `metro.config.js` now
+throws at bundle time; jest routes both alias spellings to
+`src/platform/gift-intent-refused.ts`, which throws at import with the
+reason (a bare resolver throw is rewritten by jest into "Could not locate
+module", which reads as a typo). A4 owns the real fix: split the pure
+half — the type, `EMPTY_GIFT_INTENT`, `hasGiftIntent`, the validating
+parse — from the storage half.
+
+**The fourth ban finally has a scan.** `CLAUDE.md` has said since the
+contract existed that a file under `client/lib` "may not touch a DOM
+global", and nothing checked it — which is how `gift-intent` passed.
+`shared-boundary.spec.ts` now scans for `window`/`document`/`navigator`/
+`localStorage`/`sessionStorage` as property reads (a word-boundary scan
+reported 28 files, almost none of them real: `vendor.location`,
+`orderHistory`) against a registry with a stated reason per entry, sorted
+into three kinds — ALIASED, web-only by construction, and one entry that
+is a record of a defect rather than an exemption. `schedule.ts`'s local
+`const window = DELIVERY_WINDOWS.find(...)` was renamed to `slot` rather
+than special-cased: a shadowing heuristic would fail open, and this rule
+already spent a year failing open.
+
+**The location layer** (`mobile/src/location/`) is A3's foundation, and
+two things in it read backwards from the web source.
+
+`dismiss()` **keeps** what is stored. The web spreads the stored record
+and forces `asked: true` alone; only the two GPS failure branches and
+`clear()` write `source: "none"`. A port written from the doc comment
+gets `{ source: "none", asked: true }` and wipes a buyer's chosen area
+every time they close the sheet — silently, and only for people who had
+already answered once. Pinned, and negative-tested: that exact
+simplification fails one test and only one.
+
+`clear()` sets `asked: false`, which is the whole point of it — it is the
+"change area" affordance, so the next thing the buyer sees is the
+question rather than nothing.
+
+The `hk_loc` cookie and its `router.refresh()` are deliberately **not**
+ported. They exist because six server components read the cookie during
+their server render and a React state change cannot reach one. There is
+no server render here: `coords` goes in the TanStack Query key, so a move
+refetches by itself and cannot leave a grid showing the previous area's
+listings under a header naming the new one — which is the failure
+`router.refresh()` was added to fix.
+
+`LocationBar` is mounted by **every** screen that sends coordinates.
+`/shop`, `/snacks`, `/gifts`, `/hamper`, `/search` and `/meal-plans` all
+pass `near`; only the first two render a bar saying so, so four web
+screens are quietly narrowed with nothing on them naming why and no route
+back to the picker. It says something in all three states, because
+"showing everything" is a fact a shopper needs as much as the other one.
+
+The picker sits **under** the GPS button rather than behind a refusal:
+the web reaches it only after the browser prompt fails, so somebody who
+already knows they live in Sector 35 has to refuse a system dialog to say
+so. On a phone that dialog is a permission grant, and a list of 21
+sectors is cheap. Location still gates nothing — no coordinates means the
+API returns the full catalogue, and `TRICITY_CENTRE` is never a fallback
+(the web tried it once and planted an out-of-area vendor at Chandigarh's
+exact centre, ~0 km from every buyer).
+
+Android takes `ACCESS_COARSE_LOCATION`/`ACCESS_FINE_LOCATION` and
+deliberately **not** `ACCESS_BACKGROUND_LOCATION`, which is a Play review
+question nothing here has an answer to.
+
+287 tests, 18 suites, `npm run verify` green. Bundle 1,506 modules
+(Android) / 1,383 (iOS), up 15 — the hash moved, which is the A0 lesson
+that a kit nothing renders is a kit Metro never sees.
+
+**Still owed in A3:** the browse hook, the filter sheet, and the screens
+themselves — Home, Food, Gifts, Hampers, Snacks, Collections, Occasions,
+Guides, Product detail, Storefront, Search — plus the capacity check the
+eng review moved here from A7.
+
+## 2026-09-06 — A2: sign-in, and the door that has to stay open
+
+`/login`, `/set-password`, `/forgot-password`, a consumer `AuthContext`,
+and the `Select` sheet that finished A1b. 204 tests.
+
+**One box, two doors.** The single field takes an email or a phone and
+decides by shape. `guessIdentifierKind` is imported, not reimplemented,
+and it stays **looser** than the server's `libphonenumber-js` parser on
+purpose: a false positive costs one request and a clear 400, a false
+negative strands somebody at a dead button with a valid number typed in
+and nothing to fix.
+
+**The 409 branch is the load-bearing one.** `POST /auth/continue` answers
+409 — not 401 — when the account exists with `passwordHash: null`, which
+is exactly an approved HomeKrafter on their first visit. The screen
+switches to the code route by itself. `test/auth.spec.tsx` pins all four
+outcomes and pins that they are told apart by **status, never by message
+text**; the `NAME_REQUIRED:` case matches on the prefix because the error
+envelope derives `code` from the HTTP status alone, so every 400 arrives
+as `BAD_REQUEST`. "Use a code instead" is visible from the start, not
+after a failure — no provider key is set, so the code is the only working
+door for a real kitchen, and hiding it makes the recovery path
+conditional on already having failed.
+
+**`/set-password` is the most fragile screen in the app and now has two
+ways out.** It asks for "the password you were given"; a HomeKrafter who
+signed in with a one-time code has none, and on the web that was an
+unfillable form with no link off it. It links to `/forgot-password` — and
+because that goes into an email flow no provider is wired to send, it
+also names a person to reach. `LEGAL_ENTITY.supportPhone` is still
+`"TO BE FILLED"`, so `isPlaceholder` decides whether the phone line is
+printed at all; the support email is real and always shown. Printing
+"TO BE FILLED" at a stranded home cook would be worse than printing
+nothing.
+
+**Two session rules, both asserted.** A sign-in is not complete until the
+keychain has it — `setSession` updates memory synchronously so the next
+request is authed, but the `SecureStore` write is async, and navigating
+before it settles means a cold start an hour later asks a home cook to
+sign in again. And **signing out always signs out locally**: a failed
+`POST /auth/logout` is reported, never allowed to block the local clear,
+or the Sign out button does nothing.
+
+`PasswordGate` reads `mustChangePassword` off the stored session so the
+app does not make a doomed request first and show its refusal on the way.
+`platform/http.ts` remains the authority — the server decides, every
+time. `/forgot-password` is deliberately reachable while the flag is set,
+because gating it would rebuild the closed loop the set-password screen
+exists to open.
+
+`Select` opens a `Sheet` rather than a custom listbox. The web's standing
+rule is "don't swap in a custom listbox" for `SortSelect`, and that is
+about not replacing a *working native control* — there is no native
+`<select>` here to keep, so the right answer is the platform's own modal
+surface, not a hand-rolled listbox with reimplemented focus and
+dismissal.
+
+**Not in A2, and not by omission:** social sign-in waits for the Google
+client IDs and Apple service ID to exist (Decision 7 — the server side is
+built and tested since M27), and the seller half of `AuthContext`
+(`sellerResolving`, `sellerLoadFailed`, `retrySellerRecord`, `sellerMode`
+— six pieces of state no screen before A6 reads) lands with A6. The rule
+those exist for is already enforced on the API side by
+`lib/api/seller-me-contract`.
+
+**A2's DoD is half met.** Agent-checkable — typecheck, lint, 204 tests,
+`expo export`, `check:bundle` — is green. The other half is "an approved
+HomeKrafter with a temporary password can get in and set their own, on
+both platforms", and that needs a device, a paid developer account, and
+**live SMS**, since the code door is the one a real kitchen uses. Those
+are the owner's config week (gate UC1).
+
+## 2026-09-06 — A1b: the cards, and the guard that fixed an API
+
+`ProductCard`, `KitchenCard`, `DietDot`, `Field`, `Sheet`. 177 tests.
+
+**The stretched-link problem does not exist in React Native, and the rule
+it protected does.** On the web the product card was a `<div
+role="button" tabIndex={0} onClick>` — focusable and *not activatable*,
+because React's `onClick` on a div does not fire for Enter or Space, so
+every card on every grid was keyboard-dead until M22. RN has neither half
+of that: `onPress` is the only activation, and the accessibility tree is
+not HTML, so a pressable containing pressables is not axe's
+`nested-interactive`. The card is therefore one `Pressable` with ordinary
+button children — and what survives is the reason: a card with no
+destination is not pressable, and the buttons do not also open the
+listing.
+
+**Eight claims a product card must not make, now asserted by rendering
+it** (`test/product-card.spec.tsx`): `reviewCount: 0` renders "New", never
+"★ 0.0 (0)"; a storefront sale shows `salePrice` struck against `price`
+and drops `mrp`, because two crossed-out numbers beside one real one
+reads as a trick; the pre-order badge reads the listing's own
+`prepTimeMins` and never the kitchen's 90-minute default; `soldOut` is a
+statement rather than a "+" that 400s and then says "✓". `KitchenCard`
+gets the same treatment for "Pure veg" (only when *every* listing is),
+"New kitchen", and a distance that is omitted rather than invented.
+
+**`avatar-reads.spec.ts` caught a bad API, and the fix was the API.**
+`KitchenCard` passed `vendor.avatarSrc` through to `MakerPortrait`, which
+made it a second reader of the column the spec exists to confine to one.
+The tempting fix is an allowlist entry; the right one is that
+`MakerPortrait` takes the **whole vendor**, so no caller ever names the
+field. An `avatarSrc` prop reads as harmless and turns every card into a
+reader, one allowlist line at a time, until the rule means nothing.
+
+**The smoke screen renders a real card now, and that is not decoration.**
+Metro bundles the reachable graph, so the kit typechecked and passed its
+specs while never once going through Metro — the bundle hash did not move
+when five components were added, and `check:bundle` could not see them.
+Rendering one card put them in (1276 → 1290 modules) and proves the parts
+a spec cannot: fonts registered, the optimizer URL resolves at a snapped
+width, and the shared helpers run on the device's engine.
+
+Two lint rules changed the code rather than being silenced: the React
+Compiler refuses `useRef(...).current` during render (the pulse uses a
+lazy `useState` instead) and refuses a synchronous `setState` in an
+effect body (clearing a previous failure moved onto the retry press,
+which is where it belonged).
+
+`Field` deliberately does **not** carry the web's 16px minimum: that
+exists because iOS Safari zooms a focused control under 16px and does not
+zoom back, and React Native does not zoom. `Sheet` carries the dialog
+rules instead — `accessibilityViewIsModal` is the iOS focus trap, and
+`onRequestClose` is Android's Escape; without it Back is a no-op inside
+the sheet and somebody force-quits the app to leave it.
+
+## 2026-09-06 — A1a: the theme is generated, and the kit's first primitives
+
+`npm run theme` reads `client/styles/tokens.css` **then**
+`tokens.extend.css` and writes `mobile/src/theme/tokens.generated.ts` —
+66 tokens, 38 colours, 6 type roles. 147 tests green.
+
+**Porting `client/lib/tokens.ts` would have shipped three bugs.** It is
+the obvious source and it mirrors `tokens.css` alone, by hand: it says
+`muted: "#8A8070"` (the value measuring 3.50:1 on the canvas that the
+extend layer exists to correct, on the token 306 call sites use for a
+maker line), `duration: "0.28s"` (reverting the 2026-08 brand review's
+slower tempo), and `h1.size: "34-58px"` — a range **string**, which no
+layout can consume. It also carries none of `--hk-on-pine`,
+`--hk-gold-text-sm`, `--hk-whatsapp-text`, `--hk-terracotta-text`, the
+`--hk-footer-*` ramp or `--hk-page-title`. A hand-kept mirror does not
+stay a mirror.
+
+`test/theme-parity.spec.ts` regenerates to a temp path and diffs, so a
+stale theme is a test failure; it separately asserts every `--hk-*` is
+reachable from an exported bucket, which is UC5's actual deliverable. A
+later swap to `DESIGN.md` is a regeneration, not a re-port.
+
+**Four things CSS does declaratively that React Native cannot**, each
+resolved once rather than at fifty call sites: `clamp()` needs a window
+(`useTypeScale()` against `useWindowDimensions()`, so it survives a
+rotation); `line-height` is a ratio in CSS and pixels here, so it is
+multiplied against the *resolved* size and not the floor;
+`letter-spacing` is `em` in CSS and pixels here; and a CSS font stack is
+one family name in RN with no synthetic weights — on Android a custom
+family plus `fontWeight: "600"` silently renders the regular face, so
+every weight is its own registered family and the generator builds those
+names from the CSS `font` shorthand.
+
+**Gold never carries text, and the props enforce it rather than the
+reader remembering.** `<Text color=…>` takes a `TextColor`;
+`gold`/`goldBright`/`whatsapp`/`whatsappDeep` are absent from that union,
+so asking for gold gets `--hk-gold-text-sm`. `gold-never-text.spec.ts`
+catches the ways past it — an explicit `style={{ color }}`, a raw hex —
+and additionally fails on any colour that is not a token. It caught the
+A0 smoke screen typing `#1F3D2B`, a near-miss on `--hk-pine-deep`; a
+near-miss is worse than an obvious wrong colour because it looks
+deliberate.
+
+**Images go through the web optimizer, and `w` is snapped or it 400s.**
+Measured against homekrafted.in: the raw asset is 295,956 bytes and
+`/_next/image?w=256&q=75` is 5,874 — fifty times smaller, no server
+change. But `next.config.ts` overrides neither `deviceSizes` nor
+`imageSizes`, so Next validates against its own defaults: `w=173` 400s,
+**`w=400` also 400s** (round, plausible, and exactly what "match `w` to
+the slot" produces), `q=80` 400s. `src/images.ts` snaps **up** — down is
+a blurry photo of somebody's food — and `image-widths.spec.ts` fails the
+build if that config ever starts setting those keys. `ImageSlot` falls
+back to the raw `/uploads/` URL when the optimizer is the thing that is
+down: Next and the API are separate processes, and a heavier photo beats
+a hatch that says there is no photo.
+
+**Primitives:** `Text`, `Eyebrow`, `Button`/`IconButton` (44×44 floor,
+`accessibilityRole` always, an icon button that cannot be built without a
+label), `Card`, `Chip`/`ChipGroup`/`Badge` (a chip row is a group, never
+a tablist — axe calls that critical), `Notice` (with the retry the web
+consumer flow never had; four of its error strings say "reload the page",
+which is not a thing an app has), `EmptyState` (mandatory both sides —
+adopted in 25 web files of which exactly one is a consumer route),
+`Skeleton`, `ImageSlot`, `MakerPortrait`.
+
+Two treatments settled where the web shipped two: **one opacity pulse,
+never a shimmer sweep** (`RouteSkeleton` already names the shimmer "the
+single most common AI-generated loading state tell", and on Android a
+200%-width gradient sweep is a per-frame recomposite on the
+most-rendered component in the product), and **loading copy in two
+tiers** — atmosphere where the wait is the product's character, "Loading
+your ___" for the signed-in person's own records, because applying one
+rule to both hands somebody waiting on their order history "Warming up
+the tawa".
+
+The 4-second slow line is a `setTimeout` here and must stay CSS on the
+web: there the timer version never fired, its JS chunk queued behind
+everything on the 8 kb/s connection it existed for. In an app the bundle
+is already on the device.
+
+**Two structural specs the app owed and the web could not cover:**
+`avatar-reads.spec.ts` (only `MakerPortrait` reads `Vendor.avatarSrc`;
+`platform/session.ts` is allowlisted because `User.avatarSrc` is a
+different column — the same distinction the web draws for
+`ProfileClient`) and `vendor-privacy.spec.ts` — nothing had stopped an RN
+screen putting a home cook's pickup address on a buyer-facing card, since
+the server legitimately hands those columns to a kitchen reading its own
+profile.
+
+`react-native-reanimated` is installed but unused so far; the pulse is
+`Animated` with `useNativeDriver`, which needs no worklet.
+
+## 2026-09-06 — A0: the `mobile/` scaffold
+
+Expo SDK 57, React Native 0.86, New Architecture, Hermes, `expo-router`,
+Continuous Native Generation. The plan said "SDK 54+"; the New
+Architecture is mandatory from SDK 55, so anything lower bought an
+immediate migration. `npm run verify` runs the whole gate:
+`typecheck → lint → test → expo export → check:bundle`, and all five are
+green.
+
+The point of A0 is not the screens — there is one, a smoke screen that
+gets deleted in A3. It is the **mechanism**: `client/lib` compiles into a
+second package without being copied, and the three files that cannot cross
+are redirected rather than merely unmentioned.
+
+- **Metro `resolveRequest` aliases `client/lib/api/http`,
+  `client/lib/auth/session` and `client/lib/api/unreachable` to
+  `mobile/src/platform/*`.** Adding `"@/lib/*": ["../client/lib/*"]` to
+  tsconfig makes those imports *resolve*, which is worse than failing —
+  30 shared `lib/api` modules import `./http`, and Metro would happily
+  bundle a session layer that reads `window.localStorage` and probes a
+  same-origin favicon. `scripts/check-bundle.mjs` proves the alias fires
+  by reading the export's source maps: the three web modules must be
+  absent and `src/platform/http.ts` must be present, because an alias
+  failing *open* is the outcome with no symptom.
+- **`client/lib/data/**` is stubbed, because a hardcoded `isMockMode()`
+  was only half the fix.** A literal `false` makes the mock *branch* dead
+  code and does nothing about the `import { products } from
+  "@/lib/data/products"` at the top of all 22 shared `lib/api` modules —
+  **Metro does not tree-shake**. The directory now resolves to a Proxy
+  that throws on any read, which is safe because every one of those 22
+  importers is behind `isMockMode()`; the 23rd, `AuthContext.tsx`, imports
+  React and is a port rather than a shared file. 204 KB.
+- **jest mirrors Metro with a `resolver`, not a `moduleNameMapper`** —
+  and that is the shape of the problem, not a jest detail. A mapper
+  matches the request *string*, and `client/lib/auth/must-change-password.ts:1`
+  reaches the session layer as `./session`. No pattern over strings can
+  tell that apart from the shim's own `./session`; only the origin module
+  can, which is exactly what `resolveRequest` is handed.
+- **`resolver.blockList` on `client/node_modules/**`, not
+  `disableHierarchicalLookup`.** The review specified the latter and it is
+  too blunt: it also stops Metro finding a package's own nested
+  dependencies, and the very first export died on `expo-router`'s nested
+  `@expo/metro-runtime`. Blocking the one hazardous directory keeps the
+  guarantee — a shared file cannot reach Next's React — without the
+  collateral.
+- **The shims are five files and each divergence is named.**
+  `session.ts` keeps tokens in Keychain/Keystore under three keys rather
+  than one blob (SecureStore warns above 2048 bytes on Android) and
+  hydrates once at boot, because `getAccessToken()` is synchronous by
+  contract and `SecureStore` is not; a failed write is reported, never
+  swallowed. `reachability.ts` probes `/health/db` on an absolute origin —
+  `/health` is liveness only and answers 200 through a Postgres outage,
+  which would have the app tell the user *they* are offline, and it sits
+  outside the `api/v1` prefix so `${API_BASE_URL}/health` is a 404.
+  `http.ts` is a fork with exactly three `#region platform-divergence`
+  blocks, and `test/http-parity.spec.ts` compares the other eight blocks
+  against the web file with comments stripped.
+- **The CI job has five steps, not three.** `tsc`, `eslint` and `jest` are
+  blind to every failure in this list; only Metro sees them. `expo export`
+  is this package's `npm run build` — the same lesson as the 2026-09-04
+  deploy break, where a deleted CSS module passed all three and failed in
+  `next build`.
+
+Two corrections to the plan, both measured rather than argued:
+
+- **`react-native-razorpay` is not an old-architecture liability.** The
+  review called it unmaintained and reached through the disappearing
+  interop layer. Version 3.0.0 was published 2026-07-21, declares a
+  `codegenConfig`, ships an `android/src/newarch` source set and carries a
+  `NewArchSample` app — it is a TurboModule. The `expo-web-browser`
+  fallback stays named in `docs/APP.md` because a payments milestone
+  without a plan B is the wrong shape either way, and neither is installed
+  in A0: a native module invalidates every dev client, for a milestone
+  four away.
+- **`tsc` reads the web `http.ts` and that is expected.** tsconfig `paths`
+  cannot rewrite a relative import, so the typechecker follows
+  `lib/api/products.ts`'s `./http` into `client/`. It is why `npm ci` in
+  `client/` really is required, and why the shim's shape is guarded by the
+  parity spec rather than by the typechecker.
+
+Crash reporting is a seam, not a provider: `src/platform/reporter.ts` has
+a console stub and every failure path already routes through it, following
+the rule the server applies to Resend and Twilio — an unset credential is
+a logged stub, not a throw. `SENTRY_DSN` is the owner's config week.
+
+**What A0 does not claim.** Nothing has been installed on a phone. The
+agent-checkable half of the DoD is the five green steps above; the device
+half needs the paid Apple and Google accounts in `docs/APP.md` §1, and
+stays open.
+
+## 2026-09-06 — clearing the ground for the native app (pre-A0)
+
+The native app plan (`mobile/`) went through a four-phase review. Four of
+its findings are repairs to **this** repo, worth landing whether or not
+the app is ever built — the app is what made them visible, not what makes
+them matter.
+
+- **The cart had four more silent failures, three years after the pattern
+  was first fixed.** `addItem` was corrected on 2026-09-03 to reject and
+  make "Added ✓" wait for the server. `updateQty`, `removeItem`,
+  `assignAddress` and `clear` were left as `void promise.then(...)` with
+  no `catch` — so a refused quantity change still moved the number on
+  screen, and a checkout address that failed to attach surfaced at Place
+  order instead of where it happened. All four now await and reject;
+  `CartPageClient` and `CheckoutClient` map the rejection through the new
+  `cartUpdateErrorMessage`, which is separate copy from the add path
+  because "sign in to add things to your cart" is the wrong sentence when
+  somebody is removing one. `clear()` after a placed order keeps a
+  narrowed catch with the reason written down: the order exists and is
+  paid, and `GET /cart` is the source of truth, so a cart that did not
+  clear corrects itself on the next load.
+- **`silent-failure.spec.ts` caught the fix**, which is the guard working.
+  `CartContext` is now an adapter that hands the refusal *up* — catching
+  inside the provider would swallow the message before the screen that
+  renders it — so it joins the registry beside `lib/taxonomy-actions.ts`,
+  with the reason stated.
+- **`client/lib` is a two-package contract now, and it is pinned.**
+  `lib/taxonomy-actions.ts` imported `ComboboxOption` from
+  `@/components/ui/Combobox`; Babel elides an `import type` and `tsc` does
+  not, so it followed the chain into a CSS module whose ambient
+  declaration lives in the **gitignored** `next-env.d.ts` — a fresh clone
+  of the app would have failed its typecheck on a CSS module, from a
+  package that has neither CSS modules nor React DOM. The type moved to
+  `lib/types` and `Combobox` re-exports it, so no call site changed.
+  `client/lib/shared-boundary.spec.ts` now fails the build on any `react`,
+  `next`, `@/components/*` or non-`@/lib` import under `lib/`, with the
+  nine web-only files (the React providers, `seo.ts`, `location/server.ts`)
+  in a registry that states why each is exempt and asserts it still
+  exists. The rule is in `CLAUDE.md` under Non-negotiable rules, because
+  it binds the people writing `client/`, who will never open `docs/APP.md`.
+- **The native package is `mobile/`, not `app/`.** `client/app/` is the
+  Next App Router and the native package's own routes would have been
+  `app/app/`; `CLAUDE.md`'s directory map already had to warn that a bare
+  `app/` means `client/app/`. Renamed while it cost one README. That
+  README promised app-only full meals and live rider tracking, neither of
+  which is buildable as described — there is no same-day module, and no
+  rider GPS exists on either half — so it was rewritten rather than moved.
+- **`docs/APP.md`** is written before the package exists rather than after,
+  and it is the contract A0 builds to: prerequisites, a verbatim bootstrap,
+  which API URL a device should point at, the shared-code contract and the
+  two aliases that make it resolve, the native-module ledger, and a
+  catalogue of the build failures this architecture produces.
+
 ## 2026-09-06 — a courier carries gifts and never food, and the backend pass that came with it
 
 The owner's brief: "Shadowfax is only for the long deliveries for the

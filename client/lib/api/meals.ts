@@ -8,7 +8,7 @@ import type {
   SellerMealPlan,
   SellerMealPlanInput,
 } from "@/lib/types";
-import { http, isMockMode } from "./http";
+import { ApiError, http, isMockMode } from "./http";
 
 /**
  * Meal subscriptions (M19 server, M20 client).
@@ -64,12 +64,22 @@ export async function getMySubscriptions(): Promise<MealSubscription[]> {
   return http.get<MealSubscription[]>("/meal-subscriptions");
 }
 
+/**
+ * One subscription, with its `deliveries` — the list endpoint carries none.
+ *
+ * **404 alone answers `undefined`; everything else throws** (2026-09-06).
+ * The catch was bare, so a 500 or a dropped connection became "no such
+ * subscription" and the screen expanding a plan rendered an empty panel
+ * over a prepaid run of meals, with nothing said. Same narrowing, and the
+ * same reason, as `getMySeller` (M39).
+ */
 export async function getMySubscription(id: string): Promise<MealSubscription | undefined> {
   if (isMockMode()) return undefined;
   try {
     return await http.get<MealSubscription>(`/meal-subscriptions/${encodeURIComponent(id)}`);
-  } catch {
-    return undefined;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return undefined;
+    throw err;
   }
 }
 

@@ -1,6 +1,15 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex, and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  everything to the next closer. 27 files under `client/` were partly
+  invisible to these scans. See `lib/testing/strip-comments.ts`.
+*/
+import { stripComments } from "@/lib/testing/strip-comments";
+
 /**
  * Nothing may open Razorpay Checkout without first checking that the order
  * behind it is real.
@@ -48,12 +57,6 @@ function sourceFiles(dir: string): string[] {
   return found;
 }
 
-function stripComments(source: string): string {
-  // Comments are removed before matching so a file that *documents* the
-  // rule isn't credited with enforcing it — and so this file's own prose
-  // could never satisfy the check for another one.
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
-}
 
 describe("opening Razorpay Checkout", () => {
   const files = SCANNED_DIRS.flatMap((dir) => sourceFiles(join(CLIENT_ROOT, dir)));

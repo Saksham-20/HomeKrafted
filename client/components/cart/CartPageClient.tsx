@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -9,6 +10,7 @@ import { StickySummary } from "@/components/ui/StickySummary";
 import { CartLineRow } from "@/components/cart/CartLineRow";
 import { useCart } from "@/lib/cart/CartContext";
 import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
+import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
 import { formatCurrency } from "@/lib/format";
 import styles from "@/app/cart/Cart.module.css";
 
@@ -24,7 +26,17 @@ import styles from "@/app/cart/Cart.module.css";
  */
 export function CartPageClient() {
   const router = useRouter();
-  const { items, ready, updateQty, removeItem, lineInfo, subtotal, count } = useCart();
+  const { items, ready, loadFailed, retryLoad, updateQty, removeItem, lineInfo, subtotal, count } =
+    useCart();
+  const [error, setError] = useState<string | null>(null);
+
+  // A refused quantity change used to move the number on screen anyway —
+  // the mutations were fire-and-forget until 2026-09-06. Await them, and
+  // say what the server said.
+  function run(action: () => Promise<void>) {
+    setError(null);
+    void action().catch((err: unknown) => setError(cartUpdateErrorMessage(err)));
+  }
 
   const shipping = computeShipping(subtotal);
   const cashback = computeCashback(subtotal);
@@ -41,6 +53,27 @@ export function CartPageClient() {
 
       {!ready ? (
         <p className={styles.loading}>Loading your cart…</p>
+      ) : loadFailed && items.length === 0 ? (
+        /*
+          Never the empty state. "Your cart is empty" over a basket
+          somebody filled is the most expensive version of the mistake
+          this codebase keeps making, and until 2026-09-06 the read had no
+          rejection handler at all — so this screen sat on "Loading your
+          cart…" for ever instead.
+        */
+        <div className={styles.empty} role="alert">
+          <ShoppingBag size={40} strokeWidth={1.4} />
+          <p className={styles.emptyTitle}>We couldn&rsquo;t open your cart</p>
+          <p className={styles.emptyCopy}>
+            That&rsquo;s on us, not your connection. Nothing has been removed — anything you
+            added is still there.
+          </p>
+          <div className={styles.emptyActions}>
+            <Button variant="primary" onClick={retryLoad}>
+              Try again
+            </Button>
+          </div>
+        </div>
       ) : items.length === 0 ? (
         <div className={styles.empty}>
           <ShoppingBag size={40} strokeWidth={1.4} />
@@ -61,14 +94,19 @@ export function CartPageClient() {
       ) : (
         <div className={styles.layout}>
           <div className={styles.lines}>
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
             {items.map((item) => {
               const info = lineInfo(item);
               return (
                 <CartLineRow
                   key={item.id}
                   info={info}
-                  onQtyChange={(quantity) => updateQty(item.id, quantity)}
-                  onRemove={() => removeItem(item.id)}
+                  onQtyChange={(quantity) => run(() => updateQty(item.id, quantity))}
+                  onRemove={() => run(() => removeItem(item.id))}
                 />
               );
             })}

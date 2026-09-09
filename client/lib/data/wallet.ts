@@ -1,3 +1,4 @@
+import { TOPUP_OPTIONS } from "@/lib/wallet/topup";
 import type { AutoTopupRule, Wallet, WalletTransaction } from "@/lib/types";
 
 /**
@@ -120,8 +121,13 @@ export const walletTransactions: WalletTransaction[] = [
   },
 ];
 
-/** Add-money amount picker tiles. */
-export const topupOptions: number[] = [500, 1000, 2000, 5000];
+/**
+ * Add-money amount picker tiles — moved to `lib/wallet/topup.ts` on
+ * 2026-09-06. They were never mock data: they are platform config, and
+ * living here meant the native app could not read them (Metro stubs
+ * `lib/data/**` outright). Re-exported so existing imports keep resolving.
+ */
+export const topupOptions: number[] = [...TOPUP_OPTIONS];
 
 /**
  * Seeded auto-top-up rule (M6) — off by default (never auto-charge

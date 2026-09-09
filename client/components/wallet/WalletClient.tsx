@@ -56,6 +56,8 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
     loadMoreTransactions,
     autoTopup,
     ready,
+    loadFailed,
+    retryLoad,
     topUp,
   } = useWallet();
 
@@ -203,6 +205,24 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
         <p className={styles.loading} role="status" aria-live="polite">
           {kitchenLoading("wallet", WALLET_LOADING)}
         </p>
+      ) : loadFailed ? (
+        /*
+          A failed read, never the zero-balance card. Until 2026-09-06 the
+          store's `setReady(true)` lived inside its `then`, so this page
+          simply never left the loading line; had it settled, the empty
+          state renders ₹0 — a real balance, and the one number this
+          screen must not invent.
+        */
+        <Card className={styles.loadFailedCard} role="alert">
+          <span className={styles.sectionLabel}>We couldn&rsquo;t open your wallet</span>
+          <p className={styles.autoTopupHint}>
+            That&rsquo;s on us, not your connection. Nothing has moved — your balance,
+            your cashback and every refund are exactly where they were.
+          </p>
+          <Button variant="secondary" onClick={retryLoad}>
+            Try again
+          </Button>
+        </Card>
       ) : (
         <div className={styles.layout}>
           <div className={styles.main}>

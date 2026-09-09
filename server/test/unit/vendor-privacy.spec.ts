@@ -2,6 +2,16 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { mapVendor } from '../../src/catalog/mappers/vendor.mapper';
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  every line to the next closer — `seller.controller.ts` was 54% visible
+  to the RBAC scan. Kept in step with the client copy by
+  `strip-comments-parity.spec.ts`.
+*/
+import { stripComments } from './strip-comments';
+
 /**
  * A home cook's home address never reaches a buyer.
  *
@@ -51,10 +61,6 @@ function sourceFiles(dir: string): string[] {
   return found;
 }
 
-function stripComments(source: string): string {
-  // So a file that only *documents* the rule is never flagged by it.
-  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
-}
 
 /**
  * `vendor-profile.service.ts` holds **both** projections — `publicProfile`

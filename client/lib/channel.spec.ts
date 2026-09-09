@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
 import { CHANNEL_RULES, getChannelBadge, getChannelRule, isChannelEnabled, type ChannelKey } from "@/lib/channel";
 
 /**
@@ -96,5 +99,62 @@ describe("CHANNEL_RULES", () => {
     for (const key of ALL) {
       expect(getChannelBadge(key).label).not.toHaveLength(0);
     }
+  });
+});
+
+/**
+ * A flag nothing consults is decoration.
+ *
+ * `CHANNEL_RULES` is the enforceable form of the channel table, and the
+ * rule is to read it through `isChannelEnabled` / `getChannelRule` rather
+ * than by reaching into the object. `enabled` is the reason: a withdrawn
+ * module keeps its rule so the types and the order history referencing it
+ * still resolve, and a screen that reads `CHANNEL_RULES.laundry.hasCartOnWeb`
+ * directly gets a truthful answer to the wrong question — the module is
+ * off, and the cart flag is about how a *live* module behaves.
+ *
+ * `SnacksClient` gated its pre-order picker on
+ * `CHANNEL_RULES.snacks.hasPreOrderOnWeb` while `/app-promo` read the
+ * same flag through the accessor. Scanned rather than asserted on
+ * behaviour, because the defect is which spelling is used, not what it
+ * evaluates to.
+ */
+describe("consumer screens read channel flags through the accessors", () => {
+  const ROOT = join(__dirname, "..");
+
+  function sources(dir: string): string[] {
+    const found: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      if (entry === "node_modules" || entry.startsWith(".")) continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) found.push(...sources(full));
+      else if (/\.tsx?$/.test(entry) && !entry.endsWith(".spec.ts")) found.push(full);
+    }
+    return found;
+  }
+
+  /**
+   * `lib/channel.ts` defines the object and `lib/data/*` seeds fixtures
+   * from it; both are allowed to name it. Every other file is a consumer.
+   */
+  const ALLOWED = [join("lib", "channel.ts")];
+
+  it("nothing outside lib/channel.ts reaches into CHANNEL_RULES", () => {
+    const offenders: string[] = [];
+    for (const dir of ["app", "components", "lib"]) {
+      for (const file of sources(join(ROOT, dir))) {
+        if (ALLOWED.some((allowed) => file.endsWith(allowed))) continue;
+        const source = readFileSync(file, "utf8")
+          // Comments stripped — this repo quotes flag names in prose
+          // constantly, and a scan that counts prose as code fails on the
+          // paragraph explaining the rule.
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/(^|[^:])\/\/.*$/gm, "$1");
+        if (/CHANNEL_RULES\s*[.[]/.test(source)) {
+          offenders.push(file.replace(`${ROOT}/`, ""));
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

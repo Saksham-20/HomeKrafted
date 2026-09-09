@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { cancelOrder, requestReturn } from "@/lib/api";
+import { RETURN_WINDOW_DAYS, canCancel, canRequestReturn } from "@/lib/orders/resolution";
 import { ApiError } from "@/lib/api/http";
 import { formatDate } from "@/lib/format";
 import type { Order } from "@/lib/types";
@@ -17,8 +18,6 @@ export interface OrderResolutionPanelProps {
 }
 
 /** Cancellation closes once the HomeKrafter starts packing — matches `OrdersService.CANCELLABLE`. */
-const CANCELLABLE: readonly string[] = ["pending-payment", "placed", "confirmed"];
-const RETURN_WINDOW_DAYS = 7;
 
 /**
  * "Something's wrong with this order" — the buyer's side of cancellation
@@ -39,7 +38,7 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canCancel = CANCELLABLE.includes(order.status);
+  const cancellable = canCancel(order);
 
   // "Is the return window still open" depends on the current time, which
   // makes it unsafe to compute during render — the house rule from M12's
@@ -48,12 +47,11 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
   // Starts closed so the control can only ever appear, never vanish.
   const [withinReturnWindow, setWithinReturnWindow] = useState(false);
   useEffect(() => {
-    if (order.status !== "delivered") return;
-    // Pre-M15 orders have no `deliveredAt`; `placedAt` is the only date
-    // they carry, and it's the conservative fallback the server uses too.
-    const from = new Date(order.deliveredAt ?? order.placedAt).getTime();
-    const open = Date.now() - from <= RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    if (!open) return;
+    // The window itself is `lib/orders/resolution.ts` — shared, pure, and
+    // it takes `now`. It lived inline here until 2026-09-06, which was
+    // fine while one screen asked; the native order screen asks the same
+    // question, and two copies of a rule about money drift silently.
+    if (!canRequestReturn(order, new Date())) return;
     // Deferred a tick rather than set straight from the effect body —
     // same pattern as `CartContext`/`WishlistContext`'s hydration effects
     // (`react-hooks/set-state-in-effect`).
@@ -64,7 +62,7 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
     return () => {
       cancelled = true;
     };
-  }, [order.status, order.deliveredAt, order.placedAt]);
+  }, [order]);
 
   async function submit() {
     setBusy(true);
@@ -120,7 +118,7 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
     );
   }
 
-  if (!canCancel && !withinReturnWindow) {
+  if (!cancellable && !withinReturnWindow) {
     // Nothing to offer: too late to cancel, past the return window, or a
     // status where neither applies. Don't render an empty card.
     return null;
@@ -133,12 +131,12 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
       {mode === "idle" ? (
         <>
           <p className={styles.body}>
-            {canCancel
+            {cancellable
               ? "You can still cancel this — nothing has been packed yet."
               : `Delivered orders can be returned within ${RETURN_WINDOW_DAYS} days.`}
           </p>
           <div className={styles.actions}>
-            {canCancel ? (
+            {cancellable ? (
               <Button variant="secondary" size="sm" onClick={() => setMode("cancel")}>
                 Cancel this order
               </Button>

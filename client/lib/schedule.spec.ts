@@ -1,9 +1,11 @@
 import {
+  DELIVERY_DATE_COUNT,
   DEFAULT_LEAD_TIME_MINUTES,
   DELIVERY_WINDOWS,
   SCHEDULE_HORIZON_DAYS,
   bookableDays,
   describeSlot,
+  deliveryDateOptions,
   firstAvailableSlot,
   getScheduleDays,
 } from "@/lib/schedule";
@@ -232,5 +234,63 @@ describe("describeSlot", () => {
     // matter of when, not if.
     expect(describeSlot("sd-1999-01-01", W9, SUNDAY(8))).toBe("As soon as possible");
     expect(describeSlot("sd-2026-08-02", "w-nope", SUNDAY(8))).toBe("As soon as possible");
+  });
+});
+
+describe("deliveryDateOptions", () => {
+  /**
+   * It lived in `lib/data/orders.ts` as a module-scope `const` until
+   * 2026-09-06, so the Server Component that renders checkout computed it
+   * **once per process** — a box up for three days offered a picker whose
+   * first option was two days in the past. Every case here is about the
+   * property that stops that: it is a function, and it takes `now`.
+   */
+  it("rolls from tomorrow, never today", () => {
+    // Sunday 2 Aug 2026, 8am. Cooked food is made after you order it, so
+    // the marketplace picker deliberately starts the day after.
+    const options = deliveryDateOptions(new Date("2026-08-02T08:00:00"));
+    expect(options.map((d) => d.isoDate)).toEqual([
+      "2026-08-03",
+      "2026-08-04",
+      "2026-08-05",
+      "2026-08-06",
+    ]);
+    expect(options.map((d) => d.day)).toEqual(["Mon", "Tue", "Wed", "Thu"]);
+    expect(options[0].date).toBe("3 Aug");
+  });
+
+  it("gives the same four days at any hour of that day", () => {
+    // The list is not slot-aware — a window that has expired is
+    // `getScheduleDays`'s job, and today is not offered here at all.
+    const morning = deliveryDateOptions(new Date("2026-08-02T00:01:00"));
+    const midnight = deliveryDateOptions(new Date("2026-08-02T23:59:00"));
+    expect(morning).toEqual(midnight);
+  });
+
+  it("crosses a month and a year without inventing a date", () => {
+    const options = deliveryDateOptions(new Date("2026-12-30T10:00:00"));
+    expect(options.map((d) => d.isoDate)).toEqual([
+      "2026-12-31",
+      "2027-01-01",
+      "2027-01-02",
+      "2027-01-03",
+    ]);
+    expect(options[1].date).toBe("1 Jan");
+  });
+
+  it("keeps the dd1..ddN ids the picker compares on", () => {
+    // `dateByAddress` is keyed by these and `SlotPicker`'s value is one of
+    // them; renaming them silently unselects every address's date.
+    expect(deliveryDateOptions(new Date("2026-08-02T08:00:00")).map((d) => d.id)).toEqual([
+      "dd1",
+      "dd2",
+      "dd3",
+      "dd4",
+    ]);
+    expect(DELIVERY_DATE_COUNT).toBe(4);
+  });
+
+  it("takes a count, so a caller with a different picker is not stuck at four", () => {
+    expect(deliveryDateOptions(new Date("2026-08-02T08:00:00"), 2)).toHaveLength(2);
   });
 });

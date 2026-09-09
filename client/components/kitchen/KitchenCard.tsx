@@ -6,8 +6,19 @@ import { formatCurrency } from "@/lib/format";
 import { listingPrice, type Kitchen } from "@/lib/kitchens";
 import styles from "./KitchenCard.module.css";
 
-/** How many dishes preview on the card. Four fills the row at every width this grid reaches. */
-const PREVIEW_DISHES = 4;
+/**
+ * How many dishes preview on the card.
+ *
+ * **Two, with a line of what each one is** (2026-09-07). Four thumbnails
+ * with a name under them is a filmstrip: it says a kitchen has a
+ * catalogue without saying what any of it tastes like, and at 150px the
+ * photograph — the one thing that actually sells cooked food — was the
+ * smallest element on a 420px-wide card. Two dishes buy each one a real
+ * photograph and its own first sentence, which is the pair a buyer
+ * decides on. The rest of the menu is one click away and the card says
+ * how many there are.
+ */
+const PREVIEW_DISHES = 2;
 
 export interface KitchenCardProps {
   kitchen: Kitchen;
@@ -16,13 +27,14 @@ export interface KitchenCardProps {
 }
 
 /**
- * One home kitchen on `/shop` — who cooks, what they cook, and four of
- * the things they have live (M51).
+ * One home kitchen on `/shop` — who cooks, what they cook, and two of
+ * the things they have live (M51; two-with-a-description since
+ * 2026-09-07).
  *
  * **It shows the catalogue, not just the cook.** A card that only
  * introduced somebody would be a directory entry: a buyer arriving hungry
  * would have to open a storefront to find out whether this kitchen sells
- * anything they want. The four dishes are real links to real listings, so
+ * anything they want. The two dishes are real links to real listings, so
  * the shortest path from the food page to a product page is still one
  * click, exactly as it was when this page was a dish grid.
  *
@@ -120,12 +132,20 @@ export function KitchenCard({ kitchen, priority }: KitchenCardProps) {
                   label={dish.images[0]?.placeholder ?? dish.name}
                   src={dish.images[0]?.src}
                   alt=""
-                  sizes="(max-width: 640px) 40vw, 150px"
+                  sizes="(max-width: 560px) 30vw, (max-width: 900px) 45vw, 300px"
                   priority={priority && index === 0}
                 />
               </span>
-              <span className={styles.dishName}>{dish.name}</span>
-              <span className={styles.dishPrice}>{formatCurrency(listingPrice(dish))}</span>
+              <span className={styles.dishBody}>
+                <span className={styles.dishName}>{dish.name}</span>
+                {/* A listing nobody described renders no line rather than
+                    an empty one — the card is a shorter card, not a
+                    broken one (the M16 empty-profile rule). */}
+                {dish.description.trim() && (
+                  <span className={styles.dishDesc}>{dish.description}</span>
+                )}
+                <span className={styles.dishPrice}>{formatCurrency(listingPrice(dish))}</span>
+              </span>
             </Link>
           </li>
         ))}

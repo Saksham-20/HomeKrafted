@@ -4,17 +4,19 @@ import { join } from "node:path";
 
 import { ALL_ADMIN_SCOPES } from "../../src/common/admin-scopes";
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  every line to the next closer — `seller.controller.ts` was 54% visible
+  to the RBAC scan. Kept in step with the client copy by
+  `strip-comments-parity.spec.ts`.
+*/
+import { stripComments } from './strip-comments';
+
 const root = join(__dirname, "..", "..");
 const read = (relative: string) => readFileSync(join(root, relative), "utf8");
 
-/**
- * Strip comments before scanning. This repo quotes field names in prose
- * constantly, and a scan that counts a comment as code fails *open* —
- * which is how `rbac-structure.spec.ts` once reported three ungated
- * controllers as gated.
- */
-const stripComments = (source: string) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
 describe("a full admin holds every section (M47)", () => {
   it("covers every value of the Prisma enum", () => {

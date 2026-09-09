@@ -51,14 +51,19 @@ import {
 import { ApiError, isMockMode } from "@/lib/api/http";
 import { openRazorpayCheckout } from "@/lib/payments/razorpay";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD } from "./topup";
 import type { AutoTopupRule, ID, WalletTransaction, WalletTransactionRefType } from "@/lib/types";
 
 const STORAGE_KEY = "hk_wallet_v1";
 const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 
-/** Top-ups above this amount earn a 3% bonus credit — ported from the prototype's "Get 3% extra on top-ups above ₹2,000" copy. Real mode: the server applies the identical rule on webhook capture (`server/src/payments/`) — these constants stay here only for the mock math + the pre-payment "you'll earn a bonus" preview copy in `WalletClient`. */
-export const TOPUP_BONUS_THRESHOLD = 2000;
-export const TOPUP_BONUS_RATE = 0.03;
+/**
+ * The bonus rule lives in `lib/wallet/topup.ts` now — it is pure, both
+ * packages need it, and this file imports React so the app cannot read it
+ * from here. Re-exported because every existing call site imports it from
+ * this module.
+ */
+export { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD } from "./topup";
 
 interface WalletState {
   balance: number;
@@ -98,8 +103,21 @@ export interface WalletContextValue {
   /** Appends the next page of ledger rows. Resolves `false` when there was nothing left to fetch. */
   loadMoreTransactions: () => Promise<boolean>;
   autoTopup: AutoTopupRule;
-  /** True once the wallet has hydrated (mock: localStorage + seed; real: the signed-in consumer's `GET /wallet`, or immediately `true` with zero values for a non-consumer/signed-out session). */
+  /** True once the first read has settled **either way** (mock: localStorage + seed; real: the signed-in consumer's `GET /wallet`, or immediately `true` with zero values for a non-consumer/signed-out session). */
   ready: boolean;
+  /**
+   * The read failed, kept apart from a zero balance (2026-09-06).
+   *
+   * `setReady(true)` used to live inside the `then`, so a rejected read
+   * never set it and every wallet surface waited for ever — the same
+   * defect `WishlistContext` carried, on money. Worse than a hang: the
+   * zero-value state renders as a real ₹0 balance, and a screen telling
+   * somebody their wallet is empty when we could not read it is the one
+   * mistake this store must never make.
+   */
+  loadFailed: boolean;
+  /** Re-runs the failed first read. */
+  retryLoad: () => void;
   /** Credits the wallet. Real mode: opens Razorpay Checkout for `amount`, resolves once the server has re-confirmed the credit; rejects if the checkout is dismissed/fails. */
   topUp: (amount: number) => Promise<void>;
   /** Debits the wallet for a purchase. Real mode: `ref.refType` must be `"order"` with `ref.refId` set to the real `Order.id` — pays via `POST /orders/:id/pay`. Returns `{ ok: false }` without mutating anything when the balance can't cover `amount` (mock) or the server rejects with `INSUFFICIENT_BALANCE` (real). */
@@ -168,6 +186,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const { ready: authReady, isSignedIn, role, user } = useAuth();
   const [state, setState] = useState<WalletState>(EMPTY_STATE);
   const [ready, setReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const hydrated = useRef(false);
   const refreshFromServer = useCallback(async () => {
     const [w, page] = await Promise.all([getWallet(), getTransactions()]);
@@ -255,8 +275,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       };
     }
     let cancelled = false;
-    Promise.all([getWallet(), getTransactions(), getAutoTopupRule()]).then(
-      ([w, page, autoTopup]) => {
+    Promise.all([getWallet(), getTransactions(), getAutoTopupRule()])
+      .then(([w, page, autoTopup]) => {
         if (cancelled) return;
         setState({
           balance: w.balance,
@@ -266,14 +286,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           transactionsCursor: page.nextCursor,
           autoTopup,
         });
-        setReady(true);
+        setLoadFailed(false);
         hydrated.current = true;
-      },
-    );
+      })
+      .catch(() => {
+        // Deliberately leaves `state` at its previous value rather than
+        // writing `EMPTY_STATE`: zero is a real balance, and a failed
+        // read must never be rendered as one.
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        // Settles either way. Inside the `then` this was an infinite
+        // loading state on every wallet surface.
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [mock, authReady, isSignedIn, role]);
+  }, [mock, authReady, isSignedIn, role, reloadToken]);
+
+  const retryLoad = useCallback(() => {
+    setReady(false);
+    setLoadFailed(false);
+    setReloadToken((token) => token + 1);
+  }, []);
 
   // Mock mode only — persist on every change, once initial hydration has
   // happened (so we don't clobber existing storage with the pre-hydration
@@ -554,6 +590,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     loadMoreTransactions,
     autoTopup: state.autoTopup,
     ready,
+    loadFailed,
+    retryLoad,
     topUp,
     pay,
     earnCashback,

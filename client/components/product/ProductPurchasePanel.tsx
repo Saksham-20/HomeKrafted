@@ -11,7 +11,9 @@ import { formatCurrency } from "@/lib/format";
 import { CASHBACK_RATE } from "@/lib/cart/pricing";
 import { useCart } from "@/lib/cart/CartContext";
 import { addToCartErrorMessage, SOLD_OUT_COPY } from "@/lib/cart/add-error";
+import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
+import { wishlistErrorMessage } from "@/lib/wishlist/wishlist-error";
 import {
   EMPTY_GIFT_INTENT,
   hasGiftIntent,
@@ -53,7 +55,25 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
   const wishlisted = has(product.id);
-  const [selectedSku, setSelectedSku] = useState(product.defaultWeightSku);
+  /**
+   * The size the CARD would add, not the listing's stated default.
+   *
+   * `ProductGridCard` adds `purchasableSku(product)` — the default size
+   * when it has stock, otherwise the first size that does. This panel
+   * opened on `defaultWeightSku`, so a listing whose default size is at
+   * `stock: 0` while a second size has stock showed a working "+" on the
+   * grid and, when opened, a detail page pre-selected to the dead size:
+   * "Sold out", a disabled Add, a disabled stepper. The card and the page
+   * disagreed about whether the same listing could be bought. Sixteen
+   * live listings sit at `stock: 0`, so this is a real state.
+   *
+   * `?? defaultWeightSku` covers every-size-sold-out, where there is
+   * nothing purchasable and the panel still needs a selected size to show
+   * a price against.
+   */
+  const [selectedSku, setSelectedSku] = useState(
+    () => purchasableSku(product) ?? product.defaultWeightSku,
+  );
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -64,6 +84,7 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
    * changed — on every listing whose size had `stock: 0`.
    */
   const [addError, setAddError] = useState<string | null>(null);
+  const [wishlistError, setWishlistError] = useState<string | null>(null);
 
   /**
    * The "Make it a gift" block (see `lib/gift/gift-intent.ts`). These
@@ -241,7 +262,14 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         <button
           type="button"
           className={clsx(styles.wishlist, wishlisted && styles.wishlisted)}
-          onClick={() => toggle(product.id)}
+          onClick={() => {
+            setWishlistError(null);
+            // Awaited through a catch: a refused heart used to do nothing
+            // and say nothing, which reads as a broken control.
+            void toggle(product.id).catch((err: unknown) =>
+              setWishlistError(wishlistErrorMessage(err)),
+            );
+          }}
           aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
           aria-pressed={wishlisted}
         >
@@ -256,9 +284,9 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
           </button>
         </p>
       )}
-      {addError && (
+      {(addError || wishlistError) && (
         <p className={styles.toastError} role="alert">
-          {addError}
+          {addError ?? wishlistError}
         </p>
       )}
       {soldOut && !addError && (

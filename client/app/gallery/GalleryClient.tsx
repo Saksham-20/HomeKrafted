@@ -524,7 +524,7 @@ export function GalleryClient({
               variant="tint"
               eyebrow="Homekrafted Wallet"
               title="Earn 5% cashback on every order"
-              description="Top up once, pay in a tap, and watch rewards add up across the store and laundry."
+              description="Top up once, pay in a tap, and watch rewards add up across the store."
               ctaLabel="Open wallet →"
             />
           </div>

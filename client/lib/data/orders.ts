@@ -9,38 +9,15 @@ import { currentUser } from "./user";
  * screen real-shaped data to pick from and confirm against.
  */
 
-export interface DeliveryDateOption {
-  id: string;
-  day: string; // "Sun"
-  date: string; // "26 Jul"
-  isoDate: string; // "2026-07-26"
-}
-
 /**
- * Next 4 delivery days, computed relative to "today" (rolling from
- * tomorrow) so the picker never offers a past date — same convention as
- * `lib/data/laundry.ts`'s pickup days, one module over since this is a
- * Marketplace-only picker. Ids stay dd1..dd4.
+ * `DeliveryDateOption` and its generator moved to `lib/schedule.ts` on
+ * 2026-09-06. It was never mock data — it is a pure rolling-date rule,
+ * and living here as a module-scope `const` meant the Server Component
+ * that renders checkout computed it **once per process**. Re-exported so
+ * pre-existing imports keep resolving; new callers take it from
+ * `@/lib/schedule` with their own `now`.
  */
-function buildDeliveryDateOptions(): DeliveryDateOption[] {
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const base = new Date();
-  base.setHours(0, 0, 0, 0);
-  return [0, 1, 2, 3].map((offset, i) => {
-    const d = new Date(base);
-    d.setDate(d.getDate() + offset + 1); // start tomorrow
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    return {
-      id: `dd${i + 1}`,
-      day: dayNames[d.getDay()],
-      date: `${d.getDate()} ${monthNames[d.getMonth()]}`,
-      isoDate: iso,
-    };
-  });
-}
-
-export const deliveryDateOptions: DeliveryDateOption[] = buildDeliveryDateOptions();
+export type { DeliveryDateOption } from "@/lib/schedule";
 
 /**
  * In-memory order-number sequence, continuing on from the wallet ledger's

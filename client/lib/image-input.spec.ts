@@ -1,6 +1,15 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
+/*
+  The shared scanner, not a local copy (2026-09-06). Every spec here
+  carried the same one-line regex, and it failed open: a route pattern in
+  prose ("/seller" plus a star) reads as a comment opener and swallows
+  everything to the next closer. 27 files under `client/` were partly
+  invisible to these scans. See `lib/testing/strip-comments.ts`.
+*/
+import { stripComments } from "@/lib/testing/strip-comments";
+
 /**
  * No screen asks a human to type where an image lives.
  *
@@ -35,9 +44,6 @@ function sourceFiles(dir: string): string[] {
   return found;
 }
 
-function stripComments(source: string): string {
-  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-}
 
 /**
  * A `<input …>` element whose props mention an image field.

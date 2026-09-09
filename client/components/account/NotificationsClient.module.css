@@ -279,3 +279,37 @@
   font-size: 13px;
   color: var(--hk-terracotta);
 }
+
+/* Neither half of the first read answered (2026-09-06). Replaces the whole
+   screen rather than sitting over an empty preference grid — a grid with no
+   switches in it reads as "we send you nothing". */
+.loadFailedCard {
+  padding: var(--hk-s5);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+}
+
+.loadFailedBody {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--hk-muted);
+}
+
+.retryButton {
+  border: 1px solid var(--hk-line);
+  border-radius: var(--hk-r2);
+  background: var(--hk-surface);
+  padding: var(--hk-s2) var(--hk-s4);
+  min-height: 44px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  background: var(--hk-bg);
+}

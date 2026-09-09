@@ -60,20 +60,49 @@ export interface ParcelTrackingProps {
  */
 export function ParcelTracking({ load, showWaybill = false, heading = "Delivery" }: ParcelTrackingProps) {
   const [parcels, setParcels] = useState<Consignment[] | null>(null);
+  /**
+   * A failed read, kept apart from "there is no parcel".
+   *
+   * This used to be `.catch(() => setParcels([]))`, which then rendered
+   * `null` — so a courier-carried gift order whose parcel read 500'd
+   * looked exactly like a food order the kitchen delivers itself, and the
+   * buyer was silently told the wrong thing. It also cancelled a
+   * deliberate decision one layer down: `lib/api/shipping.ts` narrows the
+   * **404 only** and rethrows a 5xx or a network failure precisely "so a
+   * broken deployment renders as broken rather than as 'this order has no
+   * parcels'". The single consumer of that throw was swallowing it.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
     load()
-      .then((rows) => alive && setParcels(rows))
-      // A failure here is not the buyer's problem and must not replace
-      // the order they came to look at. The panel simply does not appear.
-      .catch(() => alive && setParcels([]));
+      .then((rows) => {
+        if (!alive) return;
+        setParcels(rows);
+        setLoadFailed(false);
+      })
+      .catch(() => {
+        if (alive) setLoadFailed(true);
+      });
     return () => {
       alive = false;
     };
   }, [load]);
 
   const live = (parcels ?? []).filter((p) => LABEL[p.status] !== null);
+
+  if (loadFailed) {
+    // One line, not a card: the order's own status timeline is still on
+    // screen and still correct, and this says only which part is missing.
+    return (
+      <p className={styles.unavailable} role="status">
+        We couldn&rsquo;t reach the courier for an update just now. The order status above is
+        still right.
+      </p>
+    );
+  }
+
   if (!live.length) return null;
 
   return (

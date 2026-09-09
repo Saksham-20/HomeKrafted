@@ -151,7 +151,20 @@ function summarizeOrderItems(items: Order["items"]): string {
   return rest.length > 0 ? `${first.name} +${rest.length} more` : first.name;
 }
 
-function toOrderEntry(order: Order): OrderHistoryEntry {
+/**
+ * One order → the row/screen shape, **including its derived fields**.
+ *
+ * Exported since 2026-09-06 because a screen holding an entry and then
+ * receiving an updated `Order` has to rebuild all of it. `OrderDetailClient`
+ * used to merge only `{ ...current, order: updated }`, leaving `steps`,
+ * `statusLabel` and `cancelled` at the values computed for the *previous*
+ * status — so after a successful wallet payment the panel vanished while
+ * the timeline directly above it still showed the lone "Payment pending"
+ * dot, and after a cancellation the panel said "Cancelled" over a
+ * timeline still reading "Order received → Being made now". A screen
+ * contradicting itself about an order somebody just paid for.
+ */
+export function toOrderEntry(order: Order): OrderHistoryEntry {
   return {
     id: order.id,
     kind: "order",

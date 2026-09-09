@@ -169,38 +169,62 @@
 }
 
 /*
- * A fixed-width strip, not a four-column grid. The card is one to a row
- * (see `.kitchenGrid`), so `1fr` columns made a kitchen with one listing
- * render a 300px square — a single dish photographed like a hero, which
- * is not what "a few of the things they make" looks like.
+ * Two dishes, a column each (2026-09-07). It was a fixed-width strip of
+ * four 150px thumbnails, which made the photograph the smallest thing on
+ * the card; two columns give each dish an image about twice the area and
+ * room for the sentence that says what it is.
+ *
+ * `1fr 1fr`, not `auto-fill`: a kitchen with one live listing renders one
+ * half-width dish rather than a 400px square, which is the failure the
+ * old fixed width existed to avoid.
  */
 .dishes {
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hk-s3);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s4);
   padding: 0;
   margin: var(--hk-s3) 0 0;
 }
 
 .dish {
-  width: 150px;
   min-width: 0;
 }
 
+/*
+ * Each dish is its own bordered tile inside the card. The kitchen card is
+ * already a white card on the canvas, so a photograph sitting loose on it
+ * read as part of the card's own body rather than as a thing to press;
+ * the hairline is the same one every product card uses, so the two
+ * surfaces agree.
+ */
 .dishLink {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  height: 100%;
   text-decoration: none;
   color: inherit;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-md);
+  overflow: hidden;
+}
+
+.dishLink:hover {
+  border-color: var(--hk-border-2);
 }
 
 .dishThumb {
   display: block;
-  border-radius: var(--hk-r-md);
   overflow: hidden;
+}
+
+.dishBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--hk-s3);
 }
 
 .dishLink:hover .dishName {
@@ -208,9 +232,24 @@
 }
 
 .dishName {
-  font-size: 12.5px;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.35;
-  color: var(--hk-ink-2);
+  color: var(--hk-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Two lines, same reason as the kitchen bio above it: descriptions run
+   from a phrase to a paragraph, and a grid whose rows depend on how much
+   a cook wrote looks broken. */
+.dishDesc {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hk-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -219,9 +258,10 @@
 }
 
 .dishPrice {
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--hk-terracotta);
+  margin-top: 2px;
 }
 
 .cta {
@@ -237,10 +277,20 @@
   text-decoration: underline;
 }
 
-/* Two dishes a row once the card is phone-width — four 70px thumbnails
-   read as a filmstrip, not as things you can choose between. */
+/*
+ * One a row on a phone, laid sideways: a full-width square photograph of
+ * one dish reads as a hero for a listing the buyer has not chosen, and
+ * two 150px columns leave the description three words wide.
+ */
 @media (max-width: 560px) {
-  .dish {
-    width: calc(50% - var(--hk-s3) / 2);
+  .dishes {
+    grid-template-columns: 1fr;
+    gap: var(--hk-s3);
+  }
+
+  .dishLink {
+    display: grid;
+    grid-template-columns: 108px 1fr;
+    align-items: center;
   }
 }

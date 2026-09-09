@@ -1,5 +1,6 @@
 import type { AutoTopupRule, Wallet, WalletTransaction } from "@/lib/types";
-import { defaultAutoTopupRule, topupOptions, wallet, walletTransactions } from "@/lib/data/wallet";
+import { defaultAutoTopupRule, wallet, walletTransactions } from "@/lib/data/wallet";
+import { TOPUP_OPTIONS } from "@/lib/wallet/topup";
 import { http, isMockMode } from "./http";
 
 /** Wallet reads (M8.4a — real). `docs/API.md` "Wallet & Payments (M8.2)" — owner-scoped, server-authoritative; there's deliberately no bare top-up/pay/refund endpoint (see `WalletContext`). */
@@ -26,9 +27,14 @@ export async function getTransactions(cursor?: string): Promise<TransactionPage>
   return http.get<TransactionPage>(`/wallet/transactions${query}`);
 }
 
-/** Static amount-picker tiles — not itself a money-moving call, so it stays client-side config. */
+/**
+ * Static amount-picker tiles — not itself a money-moving call, so it
+ * stays client-side config. Read from `lib/wallet/topup.ts` rather than
+ * `lib/data`: these are platform config, not a fixture, and the native
+ * app cannot read the fixture module at all.
+ */
 export async function getTopupOptions(): Promise<number[]> {
-  return topupOptions;
+  return [...TOPUP_OPTIONS];
 }
 
 export async function getAutoTopupRule(): Promise<AutoTopupRule> {

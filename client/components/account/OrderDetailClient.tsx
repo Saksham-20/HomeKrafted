@@ -14,6 +14,7 @@ import { getOrderConsignments } from "@/lib/api/shipping";
 import {
   getAddressById,
   getOrderHistoryEntry,
+  toOrderEntry,
   type OrderHistoryEntry,
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
@@ -41,6 +42,16 @@ const PAYMENT_LABEL: Record<string, string> = {
 export function OrderDetailClient({ id }: OrderDetailClientProps) {
   const [entry, setEntry] = useState<OrderHistoryEntry | null | undefined>(undefined);
   const [addresses, setAddresses] = useState<Record<string, Address>>({});
+  /**
+   * The read failed — as distinct from `entry === null`, which is "there
+   * is no such order". Until 2026-09-06 the `.then` had no rejection
+   * handler at all, so a 5xx or an offline fetch left `entry` at
+   * `undefined` and this screen on its loading line for ever, with no
+   * Notice and no Try again. That is `docs/APP.md` §5c's error row
+   * failing in its worst form: not the empty state, but an infinite wait.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const loadParcels = useCallback(() => getOrderConsignments(id), [id]);
 
@@ -70,11 +81,47 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
         );
         if (!cancelled) setAddresses(resolved);
       },
-    );
+    ).catch(() => {
+      // Covers both legs: the history read and the address resolution
+      // inside it. A partial address read used to leave `addresses` as
+      // `{}` while the page was already on screen, which the row renderer
+      // then reads as "gift recipient" — see `addressLabel` below.
+      if (!cancelled) setLoadFailed(true);
+    });
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, reloadToken]);
+
+  if (loadFailed) {
+    return (
+      <div className={styles.wrap}>
+        <Link href="/account/orders" className={styles.backLink}>
+          <ArrowLeft size={15} strokeWidth={1.8} /> Back to orders
+        </Link>
+        <Card className={styles.notFound}>
+          <p className={styles.emptyTitle}>We couldn&rsquo;t open that order</p>
+          {/* Not "we couldn't find it": we cannot tell a missing order
+              from a failed read here, and claiming the first over the
+              second tells somebody their order is gone. */}
+          <p className={styles.emptyCopy}>
+            That&rsquo;s on us, not your connection. Nothing about the order has changed.
+          </p>
+          <button
+            type="button"
+            className={styles.emptyAction}
+            onClick={() => {
+              setLoadFailed(false);
+              setEntry(undefined);
+              setReloadToken((token) => token + 1);
+            }}
+          >
+            Try again
+          </button>
+        </Card>
+      </div>
+    );
+  }
 
   if (entry === undefined) {
     return (
@@ -156,9 +203,11 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
       {order && (
         <CompletePaymentPanel
           order={order}
-          onUpdated={(updated) =>
-            setEntry((current) => (current ? { ...current, order: updated } : current))
-          }
+          // Rebuilt, not merged: `steps`, `statusLabel` and `cancelled`
+          // are derived from `order.status`, so patching the order alone
+          // left the timeline asserting the status the server had just
+          // changed.
+          onUpdated={(updated) => setEntry(toOrderEntry(updated))}
         />
       )}
 
@@ -168,9 +217,11 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
       {order && (
         <OrderResolutionPanel
           order={order}
-          onUpdated={(updated) =>
-            setEntry((current) => (current ? { ...current, order: updated } : current))
-          }
+          // Rebuilt, not merged: `steps`, `statusLabel` and `cancelled`
+          // are derived from `order.status`, so patching the order alone
+          // left the timeline asserting the status the server had just
+          // changed.
+          onUpdated={(updated) => setEntry(toOrderEntry(updated))}
         />
       )}
 

@@ -26,24 +26,38 @@ import styles from "./MyReviewsClient.module.css";
 export function MyReviewsClient() {
   const [pending, setPending] = useState<PendingReview[] | undefined>(undefined);
   const [mine, setMine] = useState<Review[]>([]);
+  /** Kept apart, so one failed read does not blank the other half. */
+  const [pendingFailed, setPendingFailed] = useState(false);
+  const [mineFailed, setMineFailed] = useState(false);
   const [writingFor, setWritingFor] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  /** Bumped by Try again — the screen offered no in-page path back at all. */
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getPendingReviews(), getMyReviews()])
-      .then(([pendingRows, mineRows]) => {
-        if (cancelled) return;
-        setPending(pendingRows);
-        setMine(mineRows);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
+    /**
+     * `allSettled`, not `all`.
+     *
+     * These are two independent reads answering two halves of one screen,
+     * and `Promise.all` threw the successful half away with the failed
+     * one — so a 500 on "everything you've written" also hid the list of
+     * things waiting to be reviewed, which is the half with an action in
+     * it. `failed` is now reserved for both failing; one failing renders
+     * its own section empty and says so.
+     */
+    void Promise.allSettled([getPendingReviews(), getMyReviews()]).then(([pendingRes, mineRes]) => {
+      if (cancelled) return;
+      setPending(pendingRes.status === "fulfilled" ? pendingRes.value : []);
+      setMine(mineRes.status === "fulfilled" ? mineRes.value : []);
+      setPendingFailed(pendingRes.status === "rejected");
+      setMineFailed(mineRes.status === "rejected");
+      setFailed(pendingRes.status === "rejected" && mineRes.status === "rejected");
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
   function handleSubmitted(review: Review, target: PendingReview) {
     setMine((current) => [review, ...current]);
@@ -62,9 +76,23 @@ export function MyReviewsClient() {
       </div>
 
       {failed ? (
-        <p className={styles.error} role="alert">
-          Couldn&apos;t load your reviews. Reload the page to try again.
-        </p>
+        <div className={styles.error} role="alert">
+          {/* "Reload the page" is not a thing an app has, and it was the
+              only remedy offered — there was no retry control (DS-5).
+              It also named the wrong party. */}
+          <p>We couldn&apos;t load your reviews. That&apos;s on us, not your connection.</p>
+          <button
+            type="button"
+            className={styles.retry}
+            onClick={() => {
+              setFailed(false);
+              setPending(undefined);
+              setReloadToken((token) => token + 1);
+            }}
+          >
+            Try again
+          </button>
+        </div>
       ) : pending === undefined ? (
         <p className={styles.loading}>Loading your reviews…</p>
       ) : (
@@ -76,8 +104,14 @@ export function MyReviewsClient() {
             </h2>
             {pending.length === 0 ? (
               <p className={styles.empty}>
-                Nothing waiting. Items show up here once an order containing them is
-                delivered.
+                {/* One failed read no longer blanks the other half, so it
+                    has to say which half is missing — "nothing waiting"
+                    over a list we could not read is the empty state
+                    standing in for an error, which is the rule this
+                    codebase keeps re-breaking. */}
+                {pendingFailed
+                  ? "We couldn't load this list just now. Nothing is lost — try again in a moment."
+                  : "Nothing waiting. Items show up here once an order containing them is delivered."}
               </p>
             ) : (
               <ul className={styles.pendingList}>
@@ -132,7 +166,11 @@ export function MyReviewsClient() {
               Written by you <span className={styles.count}>{mine.length}</span>
             </h2>
             {mine.length === 0 ? (
-              <p className={styles.empty}>You haven&apos;t written a review yet.</p>
+              <p className={styles.empty}>
+                {mineFailed
+                  ? "We couldn't load your written reviews just now. They are safe — try again in a moment."
+                  : "You haven't written a review yet."}
+              </p>
             ) : (
               <div className={styles.mineList}>
                 {mine.map((review) => (

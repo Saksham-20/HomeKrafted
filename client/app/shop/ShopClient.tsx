@@ -18,7 +18,7 @@ import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
 import { PRODUCT_TAG_VALUES, type BrowseView } from "@/lib/browse-params";
 import { buildKitchens, listingPrice, sortKitchens } from "@/lib/kitchens";
-import { isOnSale, productMatchesFacets, DIETARY_LABELS, DIETARY_OPTIONS, SHIPPING_LABELS } from "@/lib/browse-facets";
+import { DIETARY_LABELS, DIETARY_OPTIONS, isOnSale, productMatchesFacets, productShelves, SHIPPING_LABELS } from "@/lib/browse-facets";
 import type { Category, Occasion, Product, Vendor } from "@/lib/types";
 import styles from "./ShopClient.module.css";
 
@@ -143,7 +143,13 @@ export function ShopClient({
     const shipping = new Map<string, number>();
     let sale = 0;
     for (const product of products) {
-      category.set(product.categoryId, (category.get(product.categoryId) ?? 0) + 1);
+      // Every shelf, not the primary alone (M58) — a chip counting only
+      // `categoryId` reads a smaller number than the catalogue holds, and
+      // a zero-count chip is dimmed AND disabled, so a shelf carrying only
+      // secondary listings rendered as an unpressable "0".
+      for (const shelf of productShelves(product)) {
+        category.set(shelf, (category.get(shelf) ?? 0) + 1);
+      }
       for (const id of product.occasionIds) occasion.set(id, (occasion.get(id) ?? 0) + 1);
       for (const t of product.dietary) dietary.set(t, (dietary.get(t) ?? 0) + 1);
       for (const t of product.tags) tag.set(t, (tag.get(t) ?? 0) + 1);

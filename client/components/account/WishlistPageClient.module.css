@@ -171,3 +171,12 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* A saved listing that cannot be bought today. Stated where the button
+   would be, rather than a disabled control that says nothing about why —
+   the maker may well list it again tomorrow. */
+.soldOut {
+  margin-top: auto;
+  color: var(--hk-muted);
+  font-size: 13px;
+}

@@ -1,7 +1,7 @@
 {
   "name": "homekrafted-server",
   "version": "0.1.0",
-  "description": "Homekrafted backend API — shared by client/ (web) and app/ (native), standalone NestJS service.",
+  "description": "Homekrafted backend API — shared by client/ (web) and mobile/ (native), standalone NestJS service.",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

@@ -113,3 +113,12 @@
     padding-bottom: 84px;
   }
 }
+
+/* A cart mutation the server refused (2026-09-06). `--hk-terracotta-text`
+   rather than `--hk-terracotta`: this sits on the page canvas, not on a
+   white card, where the base token is a shade under AA. */
+.error {
+  font-size: 14px;
+  color: var(--hk-terracotta-text);
+  margin-bottom: var(--hk-s3);
+}

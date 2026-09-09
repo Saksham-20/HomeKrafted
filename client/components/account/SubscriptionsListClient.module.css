@@ -308,3 +308,17 @@
   color: var(--hk-muted-2);
   white-space: nowrap;
 }
+
+/* A failed per-plan deliveries read (2026-09-06). Kept visually apart from
+   the delivery list itself — the row is open and has nothing in it, so the
+   sentence has to say why rather than leaving a gap that reads as "none". */
+.deliveriesError {
+  margin: var(--hk-s3) 0 0;
+  padding: var(--hk-s3);
+  border: 1px solid var(--hk-line);
+  border-radius: var(--hk-r2);
+  background: var(--hk-surface);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--hk-muted);
+}

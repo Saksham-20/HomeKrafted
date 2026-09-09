@@ -107,3 +107,10 @@ picks this up later without the original milestone brief in hand.
   on missing values and on the dev-placeholder secrets specifically once
   `NODE_ENV=production`, so a misconfigured prod deploy can't boot
   insecure.
+
+---
+
+*Path note (2026-09-06): the native package referred to above as `app/` is
+named `mobile/`. The decision is unchanged; only the directory moved, so that
+`app/` never means both the Next App Router and the native package. See the
+`client/lib` two-package rule in `CLAUDE.md`.*

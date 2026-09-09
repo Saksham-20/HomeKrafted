@@ -24,17 +24,27 @@ import styles from "./AccountOverviewClient.module.css";
  */
 export function AccountOverviewClient() {
   const { user } = useAuth();
-  const { balance, ready: walletReady } = useWallet();
-  const { count: wishlistCount } = useWishlist();
-  const [orderCount, setOrderCount] = useState<number | null>(null);
-  const [addressCount, setAddressCount] = useState<number | null>(null);
+  const { balance, ready: walletReady, loadFailed: walletFailed } = useWallet();
+  // Same rule as the header chip: a read that failed is not ₹0.
+  const walletKnown = walletReady && !walletFailed;
+  const { count: wishlistCount, ready: wishlistReady, loadFailed: wishlistFailed } = useWishlist();
+  // `number` = counted, `null` = still reading, `"failed"` = we could not
+  // tell. Three states, because a tile printing "0 placed" over somebody's
+  // order history is the empty-state-over-a-failed-read defect in its
+  // smallest form.
+  const [orderCount, setOrderCount] = useState<number | "failed" | null>(null);
+  const [addressCount, setAddressCount] = useState<number | "failed" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getOrderHistory(), getAddresses()]).then(([orders, addresses]) => {
+    // `allSettled`, not `all` — `all` rejects on the first failure and
+    // throws away the half that answered, so one failed read left both
+    // tiles on "…" for ever. It also had no `catch` at all, which is the
+    // uncaught-`.then` shape this codebase has now fixed four times.
+    void Promise.allSettled([getOrderHistory(), getAddresses()]).then(([orders, addresses]) => {
       if (cancelled) return;
-      setOrderCount(orders.length);
-      setAddressCount(addresses.length);
+      setOrderCount(orders.status === "fulfilled" ? orders.value.length : "failed");
+      setAddressCount(addresses.status === "fulfilled" ? addresses.value.length : "failed");
     });
     return () => {
       cancelled = true;
@@ -60,8 +70,13 @@ export function AccountOverviewClient() {
         <div className={styles.walletBody}>
           <span className={styles.walletLabel}>Wallet balance</span>
           <span className={styles.walletAmount}>
-            {walletReady ? formatCurrency(balance) : "…"}
+            {walletKnown ? formatCurrency(balance) : "…"}
           </span>
+          {walletFailed ? (
+            <span className={styles.walletNote}>
+              We couldn&rsquo;t read your balance just now — open your wallet to try again.
+            </span>
+          ) : null}
         </div>
         <Link href="/wallet" className={styles.walletCta}>
           View wallet →
@@ -76,7 +91,11 @@ export function AccountOverviewClient() {
             </span>
             <span className={styles.tileLabel}>Orders</span>
             <span className={styles.tileMeta}>
-              {orderCount === null ? "…" : `${orderCount} placed`}
+              {orderCount === null
+                ? "…"
+                : orderCount === "failed"
+                  ? "Open your orders"
+                  : `${orderCount} placed`}
             </span>
           </Card>
         </Link>
@@ -88,7 +107,11 @@ export function AccountOverviewClient() {
             </span>
             <span className={styles.tileLabel}>Addresses</span>
             <span className={styles.tileMeta}>
-              {addressCount === null ? "…" : `${addressCount} saved`}
+              {addressCount === null
+                ? "…"
+                : addressCount === "failed"
+                  ? "Open your address book"
+                  : `${addressCount} saved`}
             </span>
           </Card>
         </Link>
@@ -100,7 +123,14 @@ export function AccountOverviewClient() {
             </span>
             <span className={styles.tileLabel}>Wishlist</span>
             <span className={styles.tileMeta}>
-              {wishlistCount} saved
+              {/* A failed wishlist read is not an empty wishlist. The
+                  store kept the two apart on 2026-09-06; before that this
+                  printed "0 saved" over saved listings. */}
+              {wishlistFailed
+                ? "Open your wishlist"
+                : !wishlistReady
+                  ? "…"
+                  : `${wishlistCount} saved`}
             </span>
           </Card>
         </Link>

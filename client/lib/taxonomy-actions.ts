@@ -1,4 +1,4 @@
-import type { ComboboxOption } from "@/components/ui/Combobox";
+import type { ComboboxOption } from "@/lib/types";
 import {
   createOccasion,
   createTaxonomySuggestion,

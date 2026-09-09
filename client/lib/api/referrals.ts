@@ -1,14 +1,19 @@
 import type { LoyaltyAccount, Referral } from "@/lib/types";
+import { currentUser, loyaltyAccount, referrals } from "@/lib/data";
+/*
+  The static copy comes from `lib/referrals/`, never `lib/data/`. The
+  three functions below return it with no `isMockMode()` branch — it is
+  the same on both sides — and the native app resolves `lib/data/` to a
+  throwing stub, so importing them from there made those three throw on a
+  device while every check here passed.
+*/
 import {
   LOYALTY_TIERS,
   REFERRAL_REWARD_AMOUNT,
-  currentUser,
-  loyaltyAccount,
   referralHowItWorks,
-  referrals,
   type HowItWorksStep,
   type LoyaltyTierInfo,
-} from "@/lib/data";
+} from "@/lib/referrals/loyalty-copy";
 import { getSessionUser } from "@/lib/auth/session";
 import { http, isMockMode } from "./http";
 

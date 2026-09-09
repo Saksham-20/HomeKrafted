@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { AddressForm, EMPTY_ADDRESS_FORM, type AddressFormValues } from "./AddressForm";
 import { OrderConfirmation } from "./OrderConfirmation";
 import { useCart } from "@/lib/cart/CartContext";
+import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
 import {
@@ -31,7 +32,7 @@ import { openRazorpayCheckout } from "@/lib/payments/razorpay";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatCurrency } from "@/lib/format";
 import { CHECKOUT_LOADING, kitchenLoading } from "@/lib/kitchen-copy";
-import type { DeliveryDateOption } from "@/lib/data";
+import { deliveryDateOptions as buildDeliveryDates, type DeliveryDateOption } from "@/lib/schedule";
 import {
   clearGiftIntent,
   hasGiftIntent,
@@ -39,10 +40,6 @@ import {
 } from "@/lib/gift/gift-intent";
 import type { Address, Order, OrderGift, OrderShipment, PaymentMethod } from "@/lib/types";
 import styles from "./CheckoutClient.module.css";
-
-export interface CheckoutClientProps {
-  deliveryDateOptions: DeliveryDateOption[];
-}
 
 /** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
 const MOCK_GIFT_ADDRESS_ID = "gift-recipient";
@@ -63,7 +60,22 @@ const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_pla
  * this component fetches them itself on mount instead (same reasoning as
  * `LaundryBookingClient`).
  */
-export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
+export function CheckoutClient() {
+  /**
+   * Computed after mount, never on the server and never at module scope.
+   *
+   * The list rolls from tomorrow, and it used to be a module-scope
+   * `const` read by the Server Component above — so a box up for three
+   * days handed every buyer a picker whose first option was two days
+   * gone. It is also the buyer's "today" that matters here, not the
+   * VPS's: production runs `Etc/UTC`, five and a half hours behind
+   * everyone using it, so a server-computed list rolls over at half past
+   * five in the morning IST. Held behind the same `accountReady` gate
+   * the address book already waits on, so nothing renders an empty
+   * picker (the M12 React #418 shape: build it in an effect behind a
+   * stable placeholder).
+   */
+  const [deliveryDateOptions, setDeliveryDateOptions] = useState<DeliveryDateOption[]>([]);
   const mock = isMockMode();
   const router = useRouter();
   const { user } = useAuth();
@@ -71,7 +83,20 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   // Live wallet balance (M6) — every balance-sufficiency check reads this
   // instead of a static prop, so a top-up/payment made in another tab/
   // screen this session is reflected immediately.
-  const { balance: walletBalance, pay, earnCashback } = useWallet();
+  const {
+    balance: walletBalance,
+    ready: walletReady,
+    loadFailed: walletFailed,
+    pay,
+    earnCashback,
+  } = useWallet();
+  /**
+   * We actually know the balance. A failed read leaves the store at its
+   * zero-value state, and quoting that as "Balance ₹0 — insufficient for
+   * this order" states a figure that is not this person's balance, on the
+   * one screen where a wrong number costs them an order (2026-09-06).
+   */
+  const walletKnown = walletReady && !walletFailed;
 
   const [addressList, setAddressList] = useState<Address[]>([]);
   const [accountReady, setAccountReady] = useState(false);
@@ -79,12 +104,14 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   const [newAddress, setNewAddress] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   const [isGift, setIsGift] = useState(false);
   const [recipient, setRecipient] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
   const [hidePrice, setHidePrice] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
-  const [giftDateId, setGiftDateId] = useState(deliveryDateOptions[0]?.id ?? "");
+  /** Empty until the dates exist; `firstDateId` below is what every read falls back to. */
+  const [giftDateId, setGiftDateId] = useState("");
   /**
    * The two asks the product page's gift block can make that this screen
    * had no control for (see `lib/gift/gift-intent.ts`).
@@ -157,6 +184,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
     Promise.all([getAddresses(), getWallet(), getPaymentsConfig()]).then(
       ([addresses, w, payments]) => {
         if (cancelled) return;
+        setDeliveryDateOptions(buildDeliveryDates());
         setAddressList(addresses);
         if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
         setCardPayments(payments.cardPaymentsEnabled);
@@ -176,7 +204,14 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
   useEffect(() => {
     if (!ready || !accountReady || isGift || !defaultAddress) return;
     for (const item of items) {
-      if (!item.addressId) assignAddress(item.id, defaultAddress.id);
+      // Fire-and-forget until 2026-09-06: a refused assignment left the
+      // line with no address and nothing said so, and the buyer met the
+      // failure at Place order instead of here.
+      if (!item.addressId) {
+        void assignAddress(item.id, defaultAddress.id).catch((err: unknown) =>
+          setCartError(cartUpdateErrorMessage(err)),
+        );
+      }
     }
   }, [ready, accountReady, isGift, items, defaultAddress, assignAddress]);
 
@@ -192,10 +227,16 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
     return map;
   }, [items, defaultAddress]);
 
+  /** What an unset picker means. Every read of a chosen date falls back through it. */
+  const firstDateId = deliveryDateOptions[0]?.id ?? "";
+
   const shipping = computeShipping(subtotal);
   const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
-  const walletSufficient = walletBalance >= total;
+  // Unknown counts as not sufficient — the safe direction, since the
+  // server is the authority and would refuse anyway. What changes is what
+  // the screen *says*: "we could not read it", never a made-up ₹0.
+  const walletSufficient = walletKnown && walletBalance >= total;
   // `false` only once the server has actually said so — `undefined` (still
   // loading) must not read as "cards are off" and flip the tiles mid-render.
   const cardPaymentsOff = cardPayments === false;
@@ -330,13 +371,14 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
       ? [
           {
             addressId: giftAddressId ?? MOCK_GIFT_ADDRESS_ID,
-            deliveryDate: deliveryDateOptions.find((d) => d.id === giftDateId)?.isoDate,
+            deliveryDate: deliveryDateOptions.find((d) => d.id === (giftDateId || firstDateId))
+              ?.isoDate,
           },
         ]
       : Array.from(groups.keys()).map((addressId) => ({
           addressId,
           deliveryDate: deliveryDateOptions.find(
-            (d) => d.id === (dateByAddress[addressId] ?? deliveryDateOptions[0]?.id),
+            (d) => d.id === (dateByAddress[addressId] ?? firstDateId),
           )?.isoDate,
         }));
 
@@ -430,7 +472,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
     }
 
     setOrder(finalOrder);
-    clear();
+    // The order exists and is paid; a failed cart clear must not take the
+    // confirmation down with it. Same narrowing as the `getOrder` catch
+    // above — and `GET /cart` is the source of truth, so a cart that did
+    // not clear here corrects itself on the next load.
+    await clear().catch(() => undefined);
     submittingRef.current = false;
     setPlacing(false);
   }
@@ -596,7 +642,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                       primary: d.day,
                       secondary: d.date,
                     }))}
-                    value={giftDateId}
+                    value={giftDateId || firstDateId}
                     onChange={setGiftDateId}
                   />
                 </div>
@@ -608,6 +654,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
           {!isGift && (
             <div className={styles.section}>
               <span className={styles.sectionTitle}>Shipping address</span>
+              {cartError && (
+                <p className={styles.formError} role="alert">
+                  {cartError}
+                </p>
+              )}
               <div className={styles.addressGroups}>
                 {Array.from(groups.entries()).map(([addressId, groupItems]) => {
                   const address = addressList.find((a) => a.id === addressId);
@@ -627,7 +678,12 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                             <select
                               className={styles.reassignSelect}
                               value={addressId}
-                              onChange={(event) => assignAddress(item.id, event.target.value)}
+                              onChange={(event) => {
+                                setCartError(null);
+                                void assignAddress(item.id, event.target.value).catch(
+                                  (err: unknown) => setCartError(cartUpdateErrorMessage(err)),
+                                );
+                              }}
                               aria-label={`Ship ${lineInfo(item).name} to`}
                             >
                               {addressList.map((a) => (
@@ -650,7 +706,7 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                             primary: d.day,
                             secondary: d.date,
                           }))}
-                          value={dateByAddress[addressId] ?? deliveryDateOptions[0]?.id}
+                          value={dateByAddress[addressId] ?? firstDateId}
                           onChange={(id) =>
                             setDateByAddress((current) => ({ ...current, [addressId]: id }))
                           }
@@ -708,9 +764,11 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
                 <span className={styles.paymentTileBody}>
                   <span className={styles.paymentTileTitle}>Wallet</span>
                   <span className={styles.paymentTileHint}>
-                    {walletSufficient
-                      ? `Balance ${formatCurrency(walletBalance)} · earn ${formatCurrency(cashback)} cashback`
-                      : `Balance ${formatCurrency(walletBalance)} — insufficient for this order`}
+                    {!walletKnown
+                      ? "We couldn't read your balance just now"
+                      : walletSufficient
+                        ? `Balance ${formatCurrency(walletBalance)} · earn ${formatCurrency(cashback)} cashback`
+                        : `Balance ${formatCurrency(walletBalance)} — insufficient for this order`}
                   </span>
                 </span>
               </button>
@@ -787,9 +845,20 @@ export function CheckoutClient({ deliveryDateOptions }: CheckoutClientProps) {
           </StickySummary>
           {cannotPay && (
             <p className={styles.formError} role="alert">
-              Your wallet balance is {formatCurrency(walletBalance)} and this order comes to{" "}
-              {formatCurrency(total)}. Card and UPI payments aren&apos;t available yet, so this
-              order can&apos;t be paid for right now.
+              {walletKnown ? (
+                <>
+                  Your wallet balance is {formatCurrency(walletBalance)} and this order comes to{" "}
+                  {formatCurrency(total)}. Card and UPI payments aren&apos;t available yet, so
+                  this order can&apos;t be paid for right now.
+                </>
+              ) : (
+                <>
+                  We couldn&apos;t read your wallet balance just now, and card and UPI payments
+                  aren&apos;t available yet — so we can&apos;t take this order. That&apos;s on
+                  us, not your connection. Nothing in your cart is lost; open your wallet and
+                  come back.
+                </>
+              )}
             </p>
           )}
           {formError && <p className={styles.formError}>{formError}</p>}

@@ -26,12 +26,27 @@ const CATEGORY_LABEL: Record<NotificationCategory, string> = {
   account: "Account & security",
 };
 
-const CHANNELS: { key: NotificationChannel; label: string }[] = [
-  { key: "sms", label: "SMS" },
-  { key: "whatsapp", label: "WhatsApp" },
-  { key: "email", label: "Email" },
-  { key: "inapp", label: "In-app" },
-];
+/**
+ * Every channel, with its label — **total over `NotificationChannel`**.
+ *
+ * It was a hand-written array until 2026-09-06, so a channel added to the
+ * union compiled clean here and shipped a screen with no switch for it:
+ * the preference would exist server-side, apply to real messages, and be
+ * unreachable. `push` is exactly that addition (plan A7), which is why
+ * this is a `Record` — a missing key is now a build failure. `CHANNEL_ICON`
+ * below has always been total; the order of the switches comes from
+ * `CHANNEL_ORDER`, because `Object.keys` order is not a contract.
+ */
+const CHANNEL_LABEL: Record<NotificationChannel, string> = {
+  sms: "SMS",
+  whatsapp: "WhatsApp",
+  email: "Email",
+  inapp: "In-app",
+};
+
+const CHANNEL_ORDER: NotificationChannel[] = ["sms", "whatsapp", "email", "inapp"];
+
+const CHANNELS = CHANNEL_ORDER.map((key) => ({ key, label: CHANNEL_LABEL[key] }));
 
 const CHANNEL_ICON: Record<NotificationChannel, typeof Bell> = {
   sms: MessageSquare,
@@ -58,19 +73,33 @@ export function NotificationsClient() {
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The first read failed, kept apart from "you have no notifications".
+   *
+   * `setReady(true)` used to live inside the `then` of an uncaught
+   * `Promise.all`, so a rejected read left this screen on "Loading your
+   * notifications…" for ever — and `Promise.all` threw away whichever
+   * half had answered.
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getNotifications(), getNotificationPreferences()]).then(([notifs, prefs]) => {
-      if (cancelled) return;
-      setNotifications(notifs);
-      setPreferences(prefs);
-      setReady(true);
-    });
+    void Promise.allSettled([getNotifications(), getNotificationPreferences()])
+      .then(([notifs, prefs]) => {
+        if (cancelled) return;
+        if (notifs.status === "fulfilled") setNotifications(notifs.value);
+        if (prefs.status === "fulfilled") setPreferences(prefs.value);
+        setLoadFailed(notifs.status === "rejected" || prefs.status === "rejected");
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadToken]);
 
   async function handleToggle(category: NotificationCategory, channel: NotificationChannel, checked: boolean) {
     const key = `${category}:${channel}`;
@@ -138,6 +167,33 @@ export function NotificationsClient() {
     return (
       <div className={styles.wrap}>
         <p className={styles.loading}>Loading your notifications…</p>
+      </div>
+    );
+  }
+
+  if (loadFailed && preferences.length === 0 && notifications.length === 0) {
+    // Neither half answered. Never the empty state: "nothing to see here"
+    // over a screen deciding what we may send somebody is the wrong
+    // answer to give them.
+    return (
+      <div className={styles.wrap}>
+        <Card className={styles.loadFailedCard} role="alert">
+          <span className={styles.sectionLabel}>We couldn&rsquo;t load this</span>
+          <p className={styles.loadFailedBody}>
+            That&rsquo;s on us, not your connection. Your notification settings are unchanged.
+          </p>
+          <button
+            type="button"
+            className={styles.retryButton}
+            onClick={() => {
+              setReady(false);
+              setLoadFailed(false);
+              setReloadToken((token) => token + 1);
+            }}
+          >
+            Try again
+          </button>
+        </Card>
       </div>
     );
   }

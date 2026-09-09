@@ -38,14 +38,40 @@ const LAUNDRY_FILTER: { value: Filter; label: string } = { value: "laundry", lab
 export function OrdersListClient() {
   const [entries, setEntries] = useState<OrderHistoryEntry[]>([]);
   const [ready, setReady] = useState(false);
+  /**
+   * The read failed, and it is kept apart from "no orders yet" — a
+   * screen saying that over somebody's order history is the portal kit's
+   * own rule broken. Until 2026-09-06 there was no error state at all
+   * and `setReady(true)` lived only in the success callback, so a 5xx or
+   * an offline fetch left this page on "Loading your orders…" for ever,
+   * with no Try again and an unhandled rejection in the console. (A 401
+   * and a 403 PASSWORD_CHANGE_REQUIRED navigate on their own, in
+   * `http.ts` — the indefinite hang was every other failure.)
+   */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [filter, setFilter] = useState<Filter>("all");
 
   useEffect(() => {
-    getOrderHistory().then((history) => {
-      setEntries(history);
-      setReady(true);
-    });
-  }, []);
+    let cancelled = false;
+    getOrderHistory()
+      .then((history) => {
+        if (cancelled) return;
+        setEntries(history);
+        setLoadFailed(false);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        // Either way. This is what stops the loading line outliving the
+        // request that put it there.
+        if (!cancelled) setReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadToken]);
 
   const visible = entries.filter((entry) => filter === "all" || entry.kind === filter);
   const hasLaundry = entries.some((entry) => entry.kind === "laundry");
@@ -76,6 +102,27 @@ export function OrdersListClient() {
 
       {!ready ? (
         <p className={styles.loading}>Loading your orders…</p>
+      ) : loadFailed ? (
+        <Card className={styles.empty}>
+          <p className={styles.emptyTitle}>We couldn&rsquo;t load your orders</p>
+          {/* Names the right party: we cannot tell from here whether it
+              is their network or our box, and telling somebody to check a
+              connection that is working is what `docs/ERROR-HANDLING.md`
+              bans. */}
+          <p className={styles.emptyCopy}>
+            That&rsquo;s on us, not your connection. Your orders are safe — try again in a moment.
+          </p>
+          <button
+            type="button"
+            className={styles.emptyAction}
+            onClick={() => {
+              setReady(false);
+              setReloadToken((token) => token + 1);
+            }}
+          >
+            Try again
+          </button>
+        </Card>
       ) : visible.length === 0 ? (
         <Card className={styles.empty}>
           {/*

@@ -72,6 +72,45 @@ export function isOnSale(product: Product): boolean {
   );
 }
 
+/**
+ * Every shelf a listing sits on — the primary and the M58 extras.
+ *
+ * **Membership is not identity, and that is the whole reason this is a
+ * function.** `Product.categoryId` is the *primary* shelf: the
+ * breadcrumb, the canonical URL, what the listing **is**.
+ * `Product.categoryIds` is the extras, primary excluded by the mapper so
+ * the seller's "also show it under" box never offers it twice. The
+ * question "does this listing belong under Sweets" needs both; the
+ * question "what does this kitchen make" needs only the primary, which
+ * is why `lib/kitchens.ts#buildKitchens` deliberately does **not** call
+ * this (a jar filed primary "Pickles" and secondary "For Her" makes
+ * pickles — a recipient shelf is not a thing anybody makes).
+ *
+ * Until 2026-09-06 `productMatchesFacets` tested `categoryId` alone, so
+ * every secondary shelf matched nothing and counted nothing, on both
+ * listing pages — against CLAUDE.md's M58 contract, which says
+ * `ProductCategory` "carries the complete set, primary included ... that
+ * is what makes 'everything in this category' one query instead of an OR
+ * across two places". The seller form has written `categoryIds` since
+ * M58; browse has never read it. A chip therefore showed a count smaller
+ * than the catalogue holds and — because a zero-count chip is dimmed
+ * **and disabled** — a shelf with only secondary listings on it was an
+ * unpressable tile reading 0.
+ *
+ * Absent on a pre-M58 payload, which correctly reads as "the primary is
+ * all we know".
+ */
+export function productShelves(product: Product): string[] {
+  return product.categoryIds?.length
+    ? [product.categoryId, ...product.categoryIds]
+    : [product.categoryId];
+}
+
+/** Whether a listing sits on `categoryId`, primary or secondary. */
+export function isOnShelf(product: Product, categoryId: string): boolean {
+  return product.categoryId === categoryId || Boolean(product.categoryIds?.includes(categoryId));
+}
+
 export interface FacetSelection {
   categories: Set<string>;
   occasions: Set<string>;
@@ -88,7 +127,12 @@ export interface FacetSelection {
  * which this module knows nothing about.
  */
 export function productMatchesFacets(product: Product, selection: FacetSelection): boolean {
-  if (selection.categories.size && !selection.categories.has(product.categoryId)) return false;
+  if (
+    selection.categories.size &&
+    !productShelves(product).some((shelf) => selection.categories.has(shelf))
+  ) {
+    return false;
+  }
   if (selection.dietary.size && !product.dietary.some((tag) => selection.dietary.has(tag)))
     return false;
   if (selection.occasions.size && !product.occasionIds.some((id) => selection.occasions.has(id)))

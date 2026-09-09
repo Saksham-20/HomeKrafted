@@ -6,8 +6,14 @@
  * `/wishlist` endpoints (idempotent adds/removes server-side) and refetch
  * afterward; hydrates from `GET /wishlist` once the signed-in consumer
  * session is ready (`useAuth()`), same gating pattern as `CartContext`/
- * `WalletContext`. Every method stays synchronous/fire-and-forget at the
- * call site — no `useWishlist()` consumer needs to change.
+ * `WalletContext`.
+ *
+ * **`toggle` and `remove` are awaited and they reject** (2026-09-06).
+ * This header said the opposite — "every method stays
+ * synchronous/fire-and-forget at the call site" — which was the defect,
+ * written down as a feature: a refused press did nothing and said
+ * nothing, so the heart read as a broken control. All four call sites
+ * catch them now and map through `wishlistErrorMessage`.
  *
  * `NEXT_PUBLIC_USE_MOCK=true` keeps the exact pre-M8.4a behavior: a
  * `localStorage`-persisted list, no network calls, no auth gating.
@@ -36,11 +42,28 @@ const STORAGE_KEY = "hk_wishlist_v1";
 
 export interface WishlistContextValue {
   productIds: ID[];
-  /** True once the wishlist (mock: localStorage; real: the signed-in consumer's `GET /wishlist`) has loaded. */
+  /** True once the first read has settled **either way** (mock: localStorage; real: `GET /wishlist`). */
   ready: boolean;
+  /**
+   * The read failed. Kept apart from "the wishlist is empty" on purpose:
+   * a screen saying "nothing saved yet" over somebody's saved listings is
+   * the portal kit's own defect, and until 2026-09-06 a failed read here
+   * never even set `ready` — `/account/wishlist` waited for ever.
+   */
+  loadFailed: boolean;
   has: (productId: ID) => boolean;
-  toggle: (productId: ID) => void;
-  remove: (productId: ID) => void;
+  /**
+   * Resolves when the server has it; **rejects when it refuses**.
+   *
+   * `void promise.then(...)` with no `catch` until 2026-09-06 — the same
+   * shape `addItem` had until 2026-09-03 and the other three cart
+   * mutations had until the same day. The heart never lied (it flips off
+   * the response) but a refused press did nothing and said nothing, which
+   * reads as a broken control. Callers map it through
+   * `wishlistErrorMessage`.
+   */
+  toggle: (productId: ID) => Promise<void>;
+  remove: (productId: ID) => Promise<void>;
   count: number;
 }
 
@@ -67,6 +90,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const { ready: authReady, isSignedIn, role } = useAuth();
   const [items, setItems] = useState<WishlistItem[]>([]);
   const [ready, setReady] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const hydrated = useRef(false);
 
   // Mock mode: hydrate from localStorage once, client-side only — exactly
@@ -101,12 +125,24 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       };
     }
     let cancelled = false;
-    getServerWishlist().then((wishlist) => {
-      if (cancelled) return;
-      setItems(wishlist.items);
-      setReady(true);
-      hydrated.current = true;
-    });
+    getServerWishlist()
+      .then((wishlist) => {
+        if (cancelled) return;
+        setItems(wishlist.items);
+        setLoadFailed(false);
+        hydrated.current = true;
+      })
+      .catch(() => {
+        // `setReady(true)` used to live inside the `then`, so a rejected
+        // read never set it and `/account/wishlist` waited for ever on its
+        // loading state. Now the read settles either way and the failure
+        // is a state the screen can render a Notice for — never the empty
+        // one, which would say "nothing saved yet" over saved listings.
+        if (!cancelled) setLoadFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
     return () => {
       cancelled = true;
     };
@@ -125,7 +161,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   );
 
   const toggle = useCallback(
-    (productId: ID) => {
+    async (productId: ID) => {
       const alreadyIn = items.some((item) => item.productId === productId);
 
       if (mock) {
@@ -137,19 +173,28 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const request = alreadyIn ? removeWishlistItem(productId) : addWishlistItem(productId);
-      void request.then((wishlist) => setItems(wishlist.items));
+      // Awaited and unguarded: the rejection is the caller's to show. The
+      // whole list comes back from the response, so nothing here merges —
+      // a local merge is how a client's idea of a wishlist drifts from
+      // the server's.
+      const wishlist = alreadyIn
+        ? await removeWishlistItem(productId)
+        : await addWishlistItem(productId);
+      setItems(wishlist.items);
+      setLoadFailed(false);
     },
     [mock, items],
   );
 
   const remove = useCallback(
-    (productId: ID) => {
+    async (productId: ID) => {
       if (mock) {
         setItems((current) => current.filter((item) => item.productId !== productId));
         return;
       }
-      void removeWishlistItem(productId).then((wishlist) => setItems(wishlist.items));
+      const wishlist = await removeWishlistItem(productId);
+      setItems(wishlist.items);
+      setLoadFailed(false);
     },
     [mock],
   );
@@ -159,6 +204,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const value: WishlistContextValue = {
     productIds,
     ready,
+    loadFailed,
     has,
     toggle,
     remove,

@@ -3,6 +3,7 @@ import {
   DEFAULT_BROWSE_PARAMS,
   parseBrowseParams,
 } from "./browse-params";
+import { DIETARY_TAG_VALUES } from "@/lib/types";
 
 /**
  * Everything here arrives from a URL, which means from anybody. The cases
@@ -185,5 +186,27 @@ describe("writing browse state into a URL", () => {
       page: 4,
     };
     expect(parseBrowseParams(browseParamsToQuery(state))).toEqual(state);
+  });
+});
+
+describe("the diet param round-trips every tag", () => {
+  // Measured before the fix: `browseParamsToQuery` wrote
+  // `diet=non-vegetarian,contains-egg,vegan` and `parseBrowseParams` read
+  // it back as `["vegan"]`, because this file carried a private
+  // five-entry copy of a seven-member union. The filter this market
+  // reaches for first survived in memory and evaporated on refresh, on
+  // Back, and in every shared link.
+  it.each(DIETARY_TAG_VALUES)("%s survives a write and a read", (tag) => {
+    const query = browseParamsToQuery({
+      ...DEFAULT_BROWSE_PARAMS,
+      dietary: [tag],
+    });
+    expect(parseBrowseParams(new URLSearchParams(query)).dietary).toEqual([tag]);
+  });
+
+  it("an unknown value is still dropped rather than filtering to nothing", () => {
+    expect(parseBrowseParams(new URLSearchParams("diet=vegetarian,pescatarian")).dietary).toEqual([
+      "vegetarian",
+    ]);
   });
 });

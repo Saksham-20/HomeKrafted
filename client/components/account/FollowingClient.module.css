@@ -149,3 +149,21 @@
   border-color: var(--hk-terracotta);
   color: var(--hk-terracotta);
 }
+
+/* Try again, on a failed read — the screen used to offer nothing but the
+   sentence "reload the page", which is not a thing an app has. */
+.retry {
+  margin-top: var(--hk-s3);
+  padding: 8px 16px;
+  border: 1px solid var(--hk-pine);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: var(--hk-on-pine);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.retry:hover {
+  background: var(--hk-pine-deep);
+}

@@ -69,6 +69,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -96,6 +97,9 @@ import {
   type AuthResultDto,
 } from "@/lib/api/auth";
 import { isMockMode } from "@/lib/api/http";
+// The rule about when a credential may be deleted lives in one pure
+// module, so the native app's auth fork cannot answer it differently.
+import { isSessionAnswer } from "@/lib/auth/session-answer";
 import {
   clearSession,
   getRefreshToken,
@@ -197,6 +201,24 @@ export interface AuthContextValue {
   isSignedIn: boolean;
   /** True once the session has been hydrated/bootstrapped on the client. */
   ready: boolean;
+  /**
+   * The session could not be **verified** — we asked and got no answer.
+   * Distinct from `isSignedIn: false`, which means the server told us the
+   * session is over (2026-09-06).
+   *
+   * Until this existed, `hydrate`'s bare `catch` treated the two as one:
+   * a `status: 0` from an unreachable API ran `clearSession()`, so a
+   * momentary network blip **destroyed a valid refresh token** and every
+   * account screen said "You're signed out" to somebody who was not. It
+   * did not self-heal when the network returned, because the tokens were
+   * already gone. Measured in a browser, not hypothesised.
+   *
+   * The same lesson as M39's `/seller/me`, one layer down and destructive
+   * rather than merely confusing: **a failed request is never an answer.**
+   */
+  sessionUnverified: boolean;
+  /** Re-runs the hydrate that could not answer. */
+  retrySession: () => void;
   /** True while a real network sign-in/sign-up call is in flight. */
   busy: boolean;
   /**
@@ -363,6 +385,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sellerFetchKey = useRef<string | undefined>(undefined);
   const [sessionUser, setSessionUserState] = useState<SessionUser | undefined>(undefined);
   const [ready, setReady] = useState(false);
+  const [sessionUnverified, setSessionUnverified] = useState(false);
+  const [sessionRetryToken, setSessionRetryToken] = useState(0);
   const [busy, setBusy] = useState(false);
   const hydrated = useRef(false);
 
@@ -441,11 +465,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSessionUserState(me);
           setDemoHomeKrafter(undefined);
           setSellerModeState(me.role === "seller" ? (stored.sellerMode ?? "selling") : undefined);
+          setSessionUnverified(false);
           setReady(true);
           hydrated.current = true;
           return;
-        } catch {
-          clearSession();
+        } catch (cause) {
+          // **Only an answer clears the session.**
+          //
+          // The server refusing the token (401/403) is an answer: the
+          // refresh token is revoked, expired or reused, and clearing is
+          // the M8.5 fix that stopped the "you're all set" loop with no
+          // sign-in form in it.
+          //
+          // A `status: 0` (our own code for no response at all — offline,
+          // or our box is down) and a 5xx are **not** answers. Treating
+          // them as one ran `clearSession()` on a valid session, so one
+          // page load on a dropped connection deleted the refresh token
+          // and told a signed-in person "You're signed out" — and because
+          // the tokens were already gone, the network coming back did not
+          // heal it. Verified in a browser: `hk_session_v1` (874 bytes of
+          // valid tokens) was absent after a single blocked load.
+          //
+          // On a phone this is not a rare branch, and for a HomeKrafter
+          // the way back in needs SMS that is not wired.
+          if (isSessionAnswer(cause)) {
+            clearSession();
+          } else {
+            // Keep the tokens. Say we could not tell, and let the screen
+            // offer a retry — never a sign-in form.
+            setSignedIn(persisted.user ? true : false);
+            setRole(persisted.user?.role);
+            setSessionUserState(persisted.user);
+            setSessionUnverified(true);
+            setReady(true);
+            hydrated.current = true;
+            return;
+          }
         }
       }
 
@@ -490,6 +545,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void hydrate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionRetryToken]);
+
+  /**
+   * Ask again after a read that could not answer. The tokens were never
+   * cleared, so this is a re-verification, not a sign-in.
+   */
+  const retrySession = useCallback(() => {
+    setReady(false);
+    setSessionUnverified(false);
+    setSessionRetryToken((token) => token + 1);
   }, []);
 
   // Persist role/signedIn/sellerMode (mock bookkeeping + the `hk_role`
@@ -878,6 +943,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sellerMode: signedIn && role === "seller" ? sellerMode : undefined,
     isSignedIn: signedIn,
     ready,
+    sessionUnverified,
+    retrySession,
     busy,
     continueWithPassword,
     requestOtp,

@@ -1,12 +1,21 @@
 import type { Order, OrderGift, OrderItem, OrderShipment, PaymentMethod } from "@/lib/types";
-import { deliveryDateOptions, nextOrderNumber } from "@/lib/data/orders";
+import { nextOrderNumber } from "@/lib/data/orders";
 import { currentUser } from "@/lib/data/user";
 import { computeCashback, computeShipping } from "@/lib/cart/pricing";
+import { deliveryDateOptions } from "@/lib/schedule";
 import { http, isMockMode } from "./http";
 
-/** Static content today — no delivery-date-options endpoint, this stays client-side (`docs/API.md`). */
+/**
+ * Static content today — no delivery-date-options endpoint, so this stays
+ * client-side (`docs/API.md`).
+ *
+ * Computed **per call**, never at module scope: the list rolls from
+ * tomorrow, so a value captured once outlives its own first entry. Call
+ * it from the browser — the buyer's "today" is not the VPS's, which runs
+ * `Etc/UTC`.
+ */
 export async function getDeliveryDateOptions() {
-  return deliveryDateOptions;
+  return deliveryDateOptions();
 }
 
 export interface CreateOrderLineInput {

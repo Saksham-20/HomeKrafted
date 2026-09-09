@@ -222,7 +222,7 @@ screenshots, not source-reading.
 
 ## 4. Out of scope
 
-Native apps (`app/`), image CDN / stored upload variants, multi-city
+Native apps (`mobile/`), image CDN / stored upload variants, multi-city
 expansion, rebuilding laundry (withdrawn, M19), take-rate **collection**
 (the decision is in Wave 0; the plumbing is not), and recruiting real
 HomeKrafters — that is M27's job and the CEO review's strongest

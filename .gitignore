@@ -1,5 +1,5 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-# Monorepo-wide patterns (unanchored) so they match under client/, server/, app/.
+# Monorepo-wide patterns (unanchored) so they match under client/, server/, mobile/.
 
 # dependencies
 node_modules/
@@ -97,3 +97,16 @@ client/.design-sync/ds-styles.css
 
 # Local dev upload store (see UPLOAD_DIR in server/.env)
 server/.uploads/
+
+# UI/UX review evidence (2026-09) — screenshots of the running build at two
+# viewports in all four roles, plus the images extracted from the client's
+# change document. Local only, for the same two reasons the entries above
+# give: they are tens of megabytes of PNG that go stale the next time the UI
+# moves, AND `.ux-shots/client-doc/` carries screenshots of the live "Who is
+# cooking" rail and kitchen cards, which name real onboarded HomeKrafters and
+# their areas. This repository is public; those people never agreed to be
+# published (see `screenshots-m36/` above, and
+# `server/test/unit/vendor-privacy.spec.ts` for the same principle in code).
+.ux-shots/
+audit-*.png
+

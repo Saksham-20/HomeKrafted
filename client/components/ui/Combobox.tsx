@@ -4,13 +4,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import clsx from "clsx";
 import { Check, ChevronDown, Plus, X } from "lucide-react";
 import styles from "./Combobox.module.css";
+import type { ComboboxOption } from "@/lib/types";
 
-export interface ComboboxOption {
-  value: string;
-  label: string;
-  /** Optional second line — a date, a count, whatever disambiguates two similar names. */
-  hint?: string;
-}
+// Defined in `lib/types` so `lib/taxonomy-actions.ts` can name it without
+// importing a component (see the note there). Re-exported here because
+// every call site already imports it from this module.
+export type { ComboboxOption };
 
 export interface ComboboxProps {
   options: ComboboxOption[];
