@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowLeft, ArrowRight, Camera, Check, IndianRupee, Tag } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Check, IndianRupee, Plus, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { commissionBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
-import { DEFAULT_STOCK, type ListingFormValues } from "./ListingForm";
+import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
@@ -55,6 +55,13 @@ const STEPS = [
   { key: "price", title: "What does it cost?" },
   { key: "words", title: "A few words about it" },
 ] as const;
+
+/** Name field placeholder examples, rotated for visual interest. */
+const FOOD_PLACEHOLDERS = ["Mango thokku pickle", "Chocolate brownies", "Besan ladoo", "Masala mathri"];
+const CRAFT_PLACEHOLDERS = ["Beeswax candle", "Silver jhumkas", "Hand-painted print", "Macramé wall hanging"];
+
+/** How many top category quick-picks to show. */
+const QUICK_PICK_COUNT = 6;
 
 export interface GuidedListingFormProps {
   values: ListingFormValues;
@@ -113,6 +120,10 @@ export interface GuidedListingFormProps {
  * never a silent zero: `mrp` equals the price (no invented discount),
  * stock is asked in plain words, the size label falls back to "One", and
  * the optional questions on the last step are visibly optional.
+ *
+ * **2026-09-09 redesign.** Multi-size variant cards, colour options for
+ * crafts, connected progress bar, step slide transitions, popular shelf
+ * quick-picks, and marketplace-inspired UX polish.
  */
 export function GuidedListingForm({
   values,
@@ -129,24 +140,61 @@ export function GuidedListingForm({
 }: GuidedListingFormProps) {
   const [step, setStep] = useState(0);
   const [attempted, setAttempted] = useState(false);
-  const [onOffer, setOnOffer] = useState(() => {
-    const row = values.weightRows[0];
-    return Boolean(row?.mrp && Number(row.mrp) > Number(row.price));
+  const [offerByRow, setOfferByRow] = useState<Record<number, boolean>>(() => {
+    const init: Record<number, boolean> = {};
+    values.weightRows.forEach((row, i) => {
+      init[i] = Boolean(row.mrp && Number(row.mrp) > Number(row.price));
+    });
+    return init;
   });
   const headingRef = useRef<HTMLHeadingElement>(null);
   const headingId = useId();
 
   const isCraft = values.kind === "craft";
-  const row = values.weightRows[0] ?? { label: "", price: "", mrp: "", stock: "" };
+  const rows = values.weightRows;
+
+  // Rotating placeholder for the name field
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const placeholders = isCraft ? CRAFT_PLACEHOLDERS : FOOD_PLACEHOLDERS;
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [placeholders.length]);
 
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     onChange({ ...values, [key]: value });
   }
 
-  function setRow(patch: Partial<typeof row>) {
+  function updateRow(index: number, patch: Partial<ListingFormWeightRow>) {
     const next = [...values.weightRows];
-    next[0] = { ...row, ...patch };
+    next[index] = { ...next[index], ...patch };
     onChange({ ...values, weightRows: next });
+  }
+
+  function addRow() {
+    onChange({
+      ...values,
+      weightRows: [...values.weightRows, { label: "", colour: "", price: "", mrp: "", stock: "" }],
+    });
+  }
+
+  function removeRow(index: number) {
+    if (values.weightRows.length <= 1) return;
+    const next = values.weightRows.filter((_, i) => i !== index);
+    // Clean up the offer tracking
+    const newOffers: Record<number, boolean> = {};
+    next.forEach((_, i) => {
+      const oldIndex = i >= index ? i + 1 : i;
+      newOffers[i] = offerByRow[oldIndex] ?? false;
+    });
+    setOfferByRow(newOffers);
+    onChange({
+      ...values,
+      weightRows: next,
+      defaultRowIndex: Math.min(values.defaultRowIndex, next.length - 1),
+    });
   }
 
   function setKind(kind: ProductKind) {
@@ -194,6 +242,18 @@ export function GuidedListingForm({
       });
   }, [categories, values.kind]);
 
+  /**
+   * Quick-pick shelf suggestions — the leaf categories (those with a parent)
+   * are more specific and useful as quick picks. Fall back to top-level if
+   * there are not enough leaves.
+   */
+  const quickPickCategories = useMemo(() => {
+    const filtered = categories.filter((c) => (c.group ?? "food") === values.kind);
+    const leaves = filtered.filter((c) => c.parentId);
+    const pool = leaves.length >= 3 ? leaves : filtered;
+    return pool.slice(0, QUICK_PICK_COUNT);
+  }, [categories, values.kind]);
+
   const occasionOptions = useMemo<ComboboxOption[]>(
     () => occasions.map((o) => ({ value: o.id, label: o.name })),
     [occasions],
@@ -215,9 +275,17 @@ export function GuidedListingForm({
       if (!values.categoryId) return "Pick the shelf it belongs on.";
     }
     if (index === 2) {
-      if (!row.price || Number(row.price) <= 0) return "Put in a price.";
-      if (onOffer && Number(row.mrp) <= Number(row.price)) {
-        return "The usual price has to be higher than the offer price.";
+      // Every variant needs a price
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row.price || Number(row.price) <= 0) {
+          return rows.length > 1 ? `Size ${i + 1} needs a price.` : "Put in a price.";
+        }
+        if (offerByRow[i] && Number(row.mrp) <= Number(row.price)) {
+          return rows.length > 1
+            ? `Size ${i + 1}: the usual price has to be higher than the offer price.`
+            : "The usual price has to be higher than the offer price.";
+        }
       }
     }
     if (index === 3 && !values.description.trim()) {
@@ -246,16 +314,15 @@ export function GuidedListingForm({
     if (isLast) {
       // Fill in what the guided flow never asked, so nothing reaches the
       // server as a silent zero.
-      const filled = [...values.weightRows];
-      filled[0] = {
+      const filled = values.weightRows.map((row, i) => ({
         ...row,
         label: row.label.trim() || DEFAULT_SIZE_LABEL,
         // Not on offer means MRP *is* the price. Leaving it at 0 would
         // render a strikethrough against nothing; inflating it would
         // invent a discount the cook never offered.
-        mrp: onOffer ? row.mrp : row.price,
+        mrp: offerByRow[i] ? row.mrp : row.price,
         stock: row.stock.trim() || String(DEFAULT_STOCK),
-      };
+      }));
       const finished = { ...values, weightRows: filled };
       onChange(finished);
       onSubmit(finished);
@@ -264,11 +331,14 @@ export function GuidedListingForm({
     setStep((s) => s + 1);
   }
 
-  const price = Number(row.price) || 0;
+  // Default row for earnings preview
+  const defaultRow = rows[0] ?? { price: "0" };
+  const price = Number(defaultRow.price) || 0;
   const breakdown = commissionBreakdown(price, commission?.pct ?? 0);
 
   return (
     <div className={styles.wrap}>
+      {/* Connected progress bar */}
       <ol className={styles.progress} aria-label="Progress">
         {STEPS.map((s, index) => (
           <li
@@ -281,9 +351,15 @@ export function GuidedListingForm({
             aria-current={index === step ? "step" : undefined}
           >
             <span className={styles.progressDot} aria-hidden="true">
-              {index < step ? <Check size={12} strokeWidth={2.6} /> : index + 1}
+              {index < step ? <Check size={13} strokeWidth={2.6} /> : index + 1}
             </span>
             <span className={styles.progressLabel}>{s.title}</span>
+            {index < STEPS.length - 1 && (
+              <span
+                className={clsx(styles.progressBar, index < step && styles.progressDone)}
+                aria-hidden="true"
+              />
+            )}
           </li>
         ))}
       </ol>
@@ -297,7 +373,7 @@ export function GuidedListingForm({
         </h2>
 
         {step === 0 && (
-          <div className={styles.stepBody}>
+          <div className={styles.stepBody} key="step-0">
             <p className={styles.lead}>
               One clear photo, taken on your phone, in daylight if you can. This is the thing
               that decides whether somebody stops scrolling.
@@ -320,7 +396,7 @@ export function GuidedListingForm({
         )}
 
         {step === 1 && (
-          <div className={styles.stepBody}>
+          <div className={styles.stepBody} key="step-1">
             <fieldset className={styles.choiceSet}>
               <legend className={styles.question}>Is it something to eat, or something to keep?</legend>
               <div className={styles.choices}>
@@ -330,7 +406,10 @@ export function GuidedListingForm({
                   onClick={() => setKind("food")}
                   aria-pressed={!isCraft}
                 >
-                  <span className={styles.choiceTitle}>Something to eat</span>
+                  <span className={styles.choiceTitle}>
+                    <span className={styles.choiceEmoji} aria-hidden="true">🍯</span>
+                    Something to eat
+                  </span>
                   <span className={styles.choiceHint}>Pickles, sweets, cakes, snacks</span>
                 </button>
                 <button
@@ -339,7 +418,10 @@ export function GuidedListingForm({
                   onClick={() => setKind("craft")}
                   aria-pressed={isCraft}
                 >
-                  <span className={styles.choiceTitle}>Something to keep</span>
+                  <span className={styles.choiceTitle}>
+                    <span className={styles.choiceEmoji} aria-hidden="true">🎨</span>
+                    Something to keep
+                  </span>
                   <span className={styles.choiceHint}>Candles, jewellery, art, gifts</span>
                 </button>
               </div>
@@ -351,9 +433,31 @@ export function GuidedListingForm({
                 className={styles.bigInput}
                 value={values.name}
                 onChange={(event) => set("name", event.target.value)}
-                placeholder={isCraft ? "Beeswax candle, small" : "Mango thokku pickle"}
+                placeholder={placeholders[placeholderIndex]}
               />
             </label>
+
+            {/* Quick-pick shelf chips */}
+            {quickPickCategories.length > 0 && (
+              <div className={styles.field}>
+                <span className={styles.question}>Which shelf does it belong on?</span>
+                <div className={styles.quickPicks}>
+                  {quickPickCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={clsx(
+                        styles.quickPick,
+                        values.categoryId === cat.id && styles.quickPickSelected,
+                      )}
+                      onClick={() => set("categoryId", cat.id)}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/*
               The shelf list is filtered to the side of the catalogue
@@ -363,12 +467,12 @@ export function GuidedListingForm({
               having to guess at what somebody meant.
             */}
             <Combobox
-              label="Which shelf does it belong on?"
+              label={quickPickCategories.length > 0 ? "Or search for it" : "Which shelf does it belong on?"}
               labelTone="plain"
               value={values.categoryId ? [values.categoryId] : []}
               onChange={(next) => set("categoryId", next[0] ?? "")}
               options={categoryOptions}
-              placeholder="Start typing…"
+              placeholder={isCraft ? "e.g. Earrings, Candles, Wall Art…" : "e.g. Pickles, Sweets, Breakfast…"}
               emptyMessage="Nothing by that name — try a shorter word."
               hint="This is how shoppers find it when they are browsing."
               onSuggest={
@@ -388,95 +492,137 @@ export function GuidedListingForm({
         )}
 
         {step === 2 && (
-          <div className={styles.stepBody}>
-            <label className={styles.field}>
-              <span className={styles.question}>How much for one?</span>
-              <div className={styles.moneyRow}>
-                <IndianRupee size={18} strokeWidth={2} aria-hidden="true" className={styles.rupee} />
-                <input
-                  className={styles.bigInput}
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  value={row.price}
-                  onChange={(event) => setRow({ price: event.target.value })}
-                  placeholder="249"
-                />
-              </div>
-              {commission?.enabled && price > 0 && (
-                <span className={styles.help}>
-                  You receive {formatCurrency(breakdown.net)} of that; the rest is the platform
-                  fee.
-                </span>
-              )}
-            </label>
+          <div className={styles.stepBody} key="step-2">
+            <div className={styles.variantList}>
+              {rows.map((row, index) => (
+                <div key={index} className={styles.variantCard}>
+                  <div className={styles.variantHeader}>
+                    <span className={styles.variantNumber}>
+                      {rows.length > 1 ? `Size ${index + 1}` : "Pricing"}
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.removeVariant}
+                      onClick={() => removeRow(index)}
+                      disabled={rows.length <= 1}
+                      aria-label={`Remove size ${row.label || index + 1}`}
+                    >
+                      <X size={16} strokeWidth={1.8} aria-hidden="true" />
+                    </button>
+                  </div>
 
-            <label className={styles.field}>
-              <span className={styles.question}>How many can you make right now?</span>
-              <input
-                className={styles.bigInput}
-                type="number"
-                inputMode="numeric"
-                min={0}
-                value={row.stock}
-                onChange={(event) => setRow({ stock: event.target.value })}
-                placeholder="10"
-              />
-              <span className={styles.help}>
-                A rough number is fine. You can change it any day, and mark the listing sold out
-                in one tap.
-              </span>
-            </label>
+                  <div className={styles.variantGrid}>
+                    <label className={styles.field}>
+                      <span className={styles.question}>
+                        Size <span className={styles.optional}>optional</span>
+                      </span>
+                      <input
+                        className={styles.bigInput}
+                        value={row.label}
+                        onChange={(event) => updateRow(index, { label: event.target.value })}
+                        placeholder={isCraft ? "Small" : "250 g"}
+                      />
+                    </label>
+                    {isCraft && (
+                      <label className={styles.field}>
+                        <span className={styles.question}>
+                          Colour <span className={styles.optional}>optional</span>
+                        </span>
+                        <input
+                          className={styles.bigInput}
+                          value={row.colour ?? ""}
+                          onChange={(event) => updateRow(index, { colour: event.target.value })}
+                          placeholder="Rose gold"
+                        />
+                      </label>
+                    )}
+                  </div>
 
-            <label className={styles.field}>
-              <span className={styles.question}>
-                What size is that? <span className={styles.optional}>optional</span>
-              </span>
-              <input
-                className={styles.bigInput}
-                value={row.label}
-                onChange={(event) => setRow({ label: event.target.value })}
-                placeholder={isCraft ? "Small" : "250 g"}
-              />
-              <span className={styles.help}>
-                Leave it empty and we will just call it “{DEFAULT_SIZE_LABEL}”. More sizes can be
-                added later from the full form.
-              </span>
-            </label>
+                  <div className={styles.variantPriceRow}>
+                    <label className={styles.field}>
+                      <span className={styles.question}>Price</span>
+                      <div className={styles.moneyRow}>
+                        <IndianRupee size={18} strokeWidth={2} aria-hidden="true" className={styles.rupee} />
+                        <input
+                          className={styles.bigInput}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={row.price}
+                          onChange={(event) => updateRow(index, { price: event.target.value })}
+                          placeholder="249"
+                        />
+                      </div>
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.question}>Stock</span>
+                      <input
+                        className={styles.bigInput}
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        value={row.stock}
+                        onChange={(event) => updateRow(index, { stock: event.target.value })}
+                        placeholder="How many are ready?"
+                      />
+                    </label>
+                  </div>
 
-            <label className={styles.checkRow}>
-              <input
-                type="checkbox"
-                checked={onOffer}
-                onChange={(event) => {
-                  setOnOffer(event.target.checked);
-                  if (!event.target.checked) setRow({ mrp: row.price });
-                }}
-              />
-              <span>It is on offer — show a crossed-out higher price</span>
-            </label>
-            {onOffer && (
-              <label className={styles.field}>
-                <span className={styles.question}>What is the usual price?</span>
-                <div className={styles.moneyRow}>
-                  <IndianRupee size={18} strokeWidth={2} aria-hidden="true" className={styles.rupee} />
-                  <input
-                    className={styles.bigInput}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={row.mrp}
-                    onChange={(event) => setRow({ mrp: event.target.value })}
-                    placeholder="299"
-                  />
+                  {index === 0 && commission?.enabled && price > 0 && (
+                    <span className={styles.help}>
+                      You receive {formatCurrency(breakdown.net)} of that; the rest is the platform
+                      fee.
+                    </span>
+                  )}
+
+                  <label className={styles.checkRow}>
+                    <input
+                      type="checkbox"
+                      checked={offerByRow[index] ?? false}
+                      onChange={(event) => {
+                        setOfferByRow((prev) => ({ ...prev, [index]: event.target.checked }));
+                        if (!event.target.checked) updateRow(index, { mrp: row.price });
+                      }}
+                    />
+                    <span>It is on offer — show a crossed-out higher price</span>
+                  </label>
+
+                  {offerByRow[index] && (
+                    <label className={styles.field}>
+                      <span className={styles.question}>What is the usual price?</span>
+                      <div className={styles.moneyRow}>
+                        <IndianRupee size={18} strokeWidth={2} aria-hidden="true" className={styles.rupee} />
+                        <input
+                          className={styles.bigInput}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={row.mrp}
+                          onChange={(event) => updateRow(index, { mrp: event.target.value })}
+                          placeholder="299"
+                        />
+                      </div>
+                    </label>
+                  )}
                 </div>
-              </label>
+              ))}
+            </div>
+
+            <button type="button" className={styles.addVariantButton} onClick={addRow}>
+              <Plus size={16} strokeWidth={2} aria-hidden="true" />
+              Add another size
+            </button>
+
+            {rows.length <= 1 && (
+              <p className={styles.help}>
+                Leave the size empty and we will just call it “{DEFAULT_SIZE_LABEL}”.
+              </p>
             )}
           </div>
         )}
 
         {step === 3 && (
-          <div className={styles.stepBody}>
+          <div className={styles.stepBody} key="step-3">
             <Textarea
               label="Tell a buyer what it is"
               value={values.description}
@@ -487,10 +633,9 @@ export function GuidedListingForm({
                   : "Raw mangoes from the market, sesame oil, no preservatives. Keeps three months."
               }
             />
-            <p className={styles.help}>
-              Two or three sentences is plenty. What is in it, how you make it, how long it
-              keeps.
-            </p>
+            <div className={styles.charCount}>
+              {values.description.length} / ~200 characters — two or three sentences is plenty
+            </div>
 
             {!isCraft && (
               <fieldset className={styles.choiceSet}>
@@ -589,10 +734,25 @@ export function GuidedListingForm({
                   <span className={styles.previewName}>{values.name || "Your product"}</span>
                   <span className={styles.previewPrice}>
                     {price > 0 ? formatCurrency(price) : "—"}
-                    {onOffer && Number(row.mrp) > price && (
-                      <s className={styles.previewMrp}>{formatCurrency(Number(row.mrp))}</s>
+                    {offerByRow[0] && Number(rows[0]?.mrp) > price && (
+                      <s className={styles.previewMrp}>{formatCurrency(Number(rows[0].mrp))}</s>
                     )}
                   </span>
+                  {/* Show size labels as chips if more than one variant */}
+                  {rows.length > 1 && (
+                    <div className={styles.previewSizes}>
+                      {rows.map((r, i) => {
+                        const colour = r.colour?.trim();
+                        const size = r.label.trim();
+                        const chipLabel = colour
+                          ? size ? `${size} · ${colour}` : colour
+                          : size || `Size ${i + 1}`;
+                        return (
+                          <span key={i} className={styles.previewSizeChip}>{chipLabel}</span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

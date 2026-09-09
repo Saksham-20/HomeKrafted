@@ -8,8 +8,8 @@
 
 .progress {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--hk-s2) var(--hk-s4);
+  align-items: center;
+  gap: 0;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -18,51 +18,83 @@
 .progressStep {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--hk-muted);
+  gap: 0;
+  flex: 1;
+}
+
+/* The last step should not stretch to fill — it is just the dot. */
+.progressStep:last-child {
+  flex: 0 0 auto;
 }
 
 .progressDot {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
   border-radius: var(--hk-r-pill);
-  border: 1px solid var(--hk-border-2);
+  border: 2px solid var(--hk-border-2);
   background: var(--hk-surface);
   font-family: var(--hk-font-mono);
-  font-size: 11.5px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--hk-muted);
+  transition: all var(--hk-dur) var(--hk-ease);
+  position: relative;
+  z-index: 1;
 }
 
-.progressCurrent {
-  color: var(--hk-ink);
-  font-weight: 500;
+.progressLabel {
+  font-size: 12px;
+  color: var(--hk-muted);
+  white-space: nowrap;
+  margin-left: 6px;
+  display: none;
+}
+
+/* The connecting line between dots */
+.progressBar {
+  flex: 1;
+  height: 2px;
+  background: var(--hk-border-2);
+  margin: 0 -1px;
+  position: relative;
+  z-index: 0;
+  transition: background var(--hk-dur) var(--hk-ease);
 }
 
 .progressCurrent .progressDot {
   border-color: var(--hk-pine);
   background: var(--hk-pine);
   color: #fff;
+  box-shadow: 0 0 0 3px var(--hk-pine-tint);
+}
+
+.progressCurrent .progressLabel {
+  color: var(--hk-ink);
+  font-weight: 500;
 }
 
 .progressDone .progressDot {
   border-color: var(--hk-pine);
-  color: var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
 }
 
-/* Below the phone rail the labels stop fitting on one line and the strip
-   becomes four wrapped rows of text, which reads as a list rather than a
-   progress bar. Dots only. */
-@media (max-width: 640px) {
-  .progressLabel {
-    display: none;
-  }
+.progressDone .progressBar {
+  background: var(--hk-pine);
+}
 
+@media (min-width: 641px) {
+  .progressLabel {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
   .progress {
-    gap: var(--hk-s2);
+    gap: 0;
   }
 }
 
@@ -96,10 +128,24 @@
   outline-offset: 4px;
 }
 
+/* --- Step transitions ------------------------------------------------ */
+
 .stepBody {
   display: flex;
   flex-direction: column;
   gap: var(--hk-s4);
+  animation: slideIn 250ms var(--hk-ease) both;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .lead {
@@ -246,9 +292,17 @@
 }
 
 .choiceTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15.5px;
   font-weight: 500;
   color: var(--hk-ink);
+}
+
+.choiceEmoji {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .choiceHint {
@@ -282,6 +336,165 @@
   .choices {
     grid-template-columns: 1fr;
   }
+}
+
+/* --- Quick-pick shelf chips ------------------------------------------ */
+
+.quickPicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quickPick {
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+  transition: all var(--hk-dur) var(--hk-ease);
+  white-space: nowrap;
+}
+
+.quickPick:hover {
+  border-color: var(--hk-pine);
+  color: var(--hk-ink);
+}
+
+.quickPickSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  font-weight: 500;
+}
+
+/* --- Variant cards --------------------------------------------------- */
+
+.variantList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.variantCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  transition: border-color var(--hk-dur) var(--hk-ease);
+}
+
+.variantCard:hover {
+  border-color: var(--hk-border-3, var(--hk-border-2));
+}
+
+.variantHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.variantNumber {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.removeVariant {
+  border: 0;
+  background: none;
+  padding: 4px;
+  color: var(--hk-muted);
+  cursor: pointer;
+  border-radius: var(--hk-r-sm);
+  transition: color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+  line-height: 0;
+}
+
+.removeVariant:hover {
+  color: var(--hk-terracotta);
+  background: var(--hk-terracotta-tint, rgba(200, 80, 60, 0.08));
+}
+
+.removeVariant:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.removeVariant:disabled:hover {
+  color: var(--hk-muted);
+  background: none;
+}
+
+.variantGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s2);
+}
+
+@media (max-width: 480px) {
+  .variantGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.variantPriceRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s2);
+}
+
+@media (max-width: 480px) {
+  .variantPriceRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.addVariantButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  border: 2px dashed var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-muted);
+  cursor: pointer;
+  transition: all var(--hk-dur) var(--hk-ease);
+}
+
+.addVariantButton:hover {
+  border-color: var(--hk-pine);
+  color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+}
+
+.addVariantButton:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+/* --- Character counter ----------------------------------------------- */
+
+.charCount {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+  text-align: right;
+  margin-top: -4px;
 }
 
 /* --- Preview --------------------------------------------------------- */
@@ -340,6 +553,21 @@
   color: var(--hk-muted);
 }
 
+.previewSizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.previewSizeChip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-border);
+  color: var(--hk-ink-3);
+}
+
 /* --- Nav + errors ---------------------------------------------------- */
 
 .nav {
@@ -380,4 +608,13 @@
 .escapeLink:focus-visible {
   outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
   outline-offset: 2px;
+}
+
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
