@@ -1,30 +1,40 @@
 /*
- * Four tiles, one row, directly under the hero. Deliberately lighter than
- * a `Card`: this is navigation furniture, so it reads as a strip a visitor
- * scans past, not as four things competing with the catalogue below.
+ * Four tiles, directly under the hero/ticker.
+ * Responsive: 4-column row on desktop, 2x2 grid on mobile & tablet.
  */
 .row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--hk-s3);
+  gap: 14px;
 }
 
 .tile {
+  position: relative;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: var(--hk-s3);
-  padding: var(--hk-s4);
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-lg);
+  gap: 14px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid var(--hk-border, #e5e0d8);
+  border-radius: 16px;
+  text-decoration: none;
+  box-shadow:
+    0 2px 8px -2px rgba(28, 43, 34, 0.05),
+    0 1px 2px rgba(28, 43, 34, 0.03);
   transition:
-    border-color var(--hk-dur) var(--hk-ease),
-    box-shadow var(--hk-dur) var(--hk-ease);
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.22s ease;
+  overflow: hidden;
 }
 
 .tile:hover {
-  border-color: var(--hk-gold-border);
-  box-shadow: var(--hk-shadow-card);
+  transform: translateY(-3px);
+}
+
+.tile:active {
+  transform: translateY(-1px) scale(0.99);
 }
 
 .tile:focus-visible {
@@ -32,71 +42,245 @@
   outline-offset: 2px;
 }
 
+/* Desktop: .topRow has display: contents so .iconWrap and .arrowWrap are direct flex children of .tile */
+.topRow {
+  display: contents;
+}
+
 .iconWrap {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   flex: none;
-  border-radius: var(--hk-r-md);
-  background: var(--hk-gold-tint);
-  color: var(--hk-gold-text-sm);
+  border-radius: 12px;
+  transition: transform 0.22s var(--hk-ease);
 }
 
 .icon {
-  width: 19px;
-  height: 19px;
-  stroke-width: 1.8;
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.9;
+}
+
+.tile:hover .iconWrap {
+  transform: scale(1.08);
 }
 
 .text {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
   min-width: 0;
 }
 
 .title {
-  font-size: 14.5px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--hk-ink);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--hk-ink, #1c2b22);
+  letter-spacing: -0.01em;
 }
 
 .blurb {
   font-size: 12.5px;
   line-height: 1.4;
-  color: var(--hk-muted);
+  color: var(--hk-muted, #71717a);
+}
+
+.arrowWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--hk-surface-2, #f5f3ef);
+  color: var(--hk-muted, #78716c);
+  flex: none;
+  margin-left: auto;
+  transition:
+    background-color 0.22s var(--hk-ease),
+    color 0.22s var(--hk-ease),
+    transform 0.22s var(--hk-ease);
 }
 
 .arrow {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  margin-left: auto;
-  color: var(--hk-muted);
-  stroke-width: 2;
-  transition: color var(--hk-dur) var(--hk-ease);
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.2;
+  transition: transform 0.22s var(--hk-ease);
 }
 
 .tile:hover .arrow {
-  color: var(--hk-gold-text-sm);
+  transform: translate(2px, -2px);
 }
 
-/* Two-up before the blurbs start wrapping to three lines. */
-@media (max-width: 900px) {
+/* ── Individual Theme Accents ────────────────────────── */
+
+/* 1. Gift Hampers (Warm Amber / Honey Gold) */
+.themeHamper .iconWrap {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+}
+
+.themeHamper:hover {
+  border-color: #f59e0b;
+  box-shadow:
+    0 12px 28px -4px rgba(245, 158, 11, 0.15),
+    0 4px 10px -2px rgba(0, 0, 0, 0.04);
+}
+
+.themeHamper:hover .arrowWrap {
+  background: #b45309;
+  color: #ffffff;
+}
+
+/* 2. Daily Meal Plans (Fresh Kitchen Sage / Basil Emerald) */
+.themeMealPlans .iconWrap {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #d1fae5;
+}
+
+.themeMealPlans:hover {
+  border-color: #10b981;
+  box-shadow:
+    0 12px 28px -4px rgba(16, 185, 129, 0.15),
+    0 4px 10px -2px rgba(0, 0, 0, 0.04);
+}
+
+.themeMealPlans:hover .arrowWrap {
+  background: #047857;
+  color: #ffffff;
+}
+
+/* 3. Corporate & Bulk (Executive Slate / Royal Indigo) */
+.themeCorporate .iconWrap {
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #e0e7ff;
+}
+
+.themeCorporate:hover {
+  border-color: #6366f1;
+  box-shadow:
+    0 12px 28px -4px rgba(99, 102, 241, 0.15),
+    0 4px 10px -2px rgba(0, 0, 0, 0.04);
+}
+
+.themeCorporate:hover .arrowWrap {
+  background: #4338ca;
+  color: #ffffff;
+}
+
+/* 4. Snacks on WhatsApp (WhatsApp Emerald Green) */
+.themeSnacks .iconWrap {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #dcfce7;
+}
+
+.themeSnacks:hover {
+  border-color: #22c55e;
+  box-shadow:
+    0 12px 28px -4px rgba(34, 197, 94, 0.15),
+    0 4px 10px -2px rgba(0, 0, 0, 0.04);
+}
+
+.themeSnacks:hover .arrowWrap {
+  background: #15803d;
+  color: #ffffff;
+}
+
+/* ── Tablet & Mobile Responsiveness ─────────────────── */
+
+@media (max-width: 960px) {
   .row {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 }
 
-/*
- * One per row on a phone. The blurb stays — it is the whole reason a tile
- * beats a nav link, and at this width there is room for it.
- */
-@media (max-width: 560px) {
+@media (max-width: 640px) {
   .row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .tile {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    min-height: 122px;
+    border-radius: 14px;
+  }
+
+  .topRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .iconWrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .arrowWrap {
+    width: 26px;
+    height: 26px;
+    margin-left: 0;
+  }
+
+  .arrow {
+    width: 13px;
+    height: 13px;
+  }
+
+  .text {
+    flex: none;
+    gap: 3px;
+  }
+
+  .title {
+    font-size: 13.5px;
+    line-height: 1.25;
+  }
+
+  .blurb {
+    font-size: 11.5px;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 360px) {
+  .tile {
+    padding: 10px 11px;
+    min-height: 114px;
+  }
+
+  .title {
+    font-size: 12.5px;
+  }
+
+  .blurb {
+    font-size: 11px;
   }
 }

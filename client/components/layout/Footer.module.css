@@ -9,27 +9,15 @@
   --hk-focus-ring: var(--hk-gold-bright);
   background: var(--hk-pine-deep);
   color: var(--hk-footer-ink);
-  margin-top: var(--hk-s5);
+  margin-top: clamp(24px, 4vw, 40px);
 }
 
-/* Four columns at the wide container (2026-09-05, owner: "the footer
-   feels outdated"). The grid itself is unchanged in kind; what changed
-   is that it now has 1352px rather than 1092px, so the brand column can
-   hold its blurb on two lines instead of four and the three link
-   columns stop sitting shoulder to shoulder. The brand column takes
-   1.6fr of it — it carries the lockup, a paragraph and the social row,
-   and at 1.4fr those wrapped harder than the single-word links beside
-   them.
-
-   `column-gap` is bigger than `row-gap`: at 780px the grid folds to two
-   columns and the rows want less air between them than the columns do,
-   which one `gap` cannot say. */
 .top {
   display: grid;
-  grid-template-columns: 1.6fr 1fr 1fr 1fr;
-  column-gap: var(--hk-s8);
-  row-gap: var(--hk-s6);
-  padding-block: var(--hk-s7) var(--hk-s6);
+  grid-template-columns: 1.5fr 1fr 1fr 1fr;
+  column-gap: clamp(24px, 3.5vw, 48px);
+  row-gap: 18px;
+  padding-block: 26px 18px;
   border-bottom: 1px solid var(--hk-footer-border);
 }
 
@@ -38,49 +26,35 @@
   flex-direction: column;
 }
 
-/* The lockup's "Krafted" is dark green (#004e19), which disappears against
-   --hk-pine-deep. The SVG file is the supplied original and must not be
-   edited, so the dark-surface variant is made here in CSS: knock the artwork
-   to solid white. Losing the gold is the accepted trade for legibility —
-   the light-background lockup (header) keeps the real brand colours. */
 .logoMark {
   display: block;
-  /* `.brandCol` is a flex column — see Header.module.css `.logoMark` for
-     why the cross-axis alignment is what preserves the aspect ratio. */
   align-self: flex-start;
-  height: 40px;
+  height: 30px;
   width: auto;
   max-width: 100%;
   filter: brightness(0) invert(1);
 }
 
 .blurb {
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--hk-footer-muted);
-  margin-top: var(--hk-s3);
-  /* 270px until 2026-09-05 — four lines in the widened column, which is
-     a paragraph pretending to be a column. Still capped rather than
-     free: this is running copy, so it keeps a readable measure while the
-     grid gets the rest. */
-  max-width: 340px;
+  margin-top: 6px;
+  max-width: 320px;
 }
 
-/* Social profiles (M56). 40px targets on the dark ground; the ring is
-   `--hk-focus-ring`, which the footer already sets to gold-bright for
-   everything inside it (the M34 dark-surface rule). */
 .socialRow {
   display: flex;
-  gap: var(--hk-s2);
-  margin-top: var(--hk-s4);
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .socialLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--hk-r-pill);
   border: 1px solid var(--hk-footer-border);
   color: var(--hk-footer-ink);
@@ -100,17 +74,18 @@
 
 .colTitle {
   font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--hk-gold-bright);
-  margin-bottom: var(--hk-s4);
+  margin-bottom: 8px;
 }
 
 .link {
-  font-size: 13.5px;
+  font-size: 12.5px;
   color: var(--hk-footer-ink-2);
-  padding-block: 5px;
+  padding-block: 2.5px;
+  line-height: 1.35;
 }
 
 .link:hover {
@@ -121,43 +96,79 @@
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: var(--hk-s3);
-  padding-block: var(--hk-s5);
+  gap: 6px 16px;
+  padding-block: 12px;
   font-family: var(--hk-font-mono);
-  font-size: 11.5px;
+  font-size: 11px;
   color: var(--hk-footer-mono);
 }
 
-@media (max-width: 780px) {
+@media (max-width: 820px) {
+  .top {
+    grid-template-columns: 1.3fr 1fr 1fr;
+    column-gap: 20px;
+    row-gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .top {
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 12px;
+    row-gap: 16px;
+    padding-block: 20px 14px;
+  }
+
+  .brandCol {
+    grid-column: 1 / -1;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--hk-footer-border);
+    margin-bottom: 4px;
+  }
+
+  .blurb {
+    max-width: 100%;
+    font-size: 12px;
+  }
+
+  .colTitle {
+    font-size: 10px;
+    margin-bottom: 6px;
+  }
+
+  .link {
+    font-size: 12px;
+    padding-block: 2px;
+  }
+}
+
+@media (max-width: 440px) {
   .top {
     grid-template-columns: 1fr 1fr;
   }
-}
 
-@media (max-width: 480px) {
-  .top {
-    grid-template-columns: 1fr;
-    gap: var(--hk-s5);
+  .col:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .legal {
+    flex-direction: column;
+    gap: 6px;
   }
 }
 
-/* The policy links in the mono legal row. Wraps on a phone rather than
-   overflowing — four items don't fit 360px on one line. */
+/* The policy links in the mono legal row. */
 .legalLinks {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--hk-s1) var(--hk-s3);
+  gap: 4px 12px;
 }
 
-/* 11.5px mono gave these an 18px box — under the 24×24 floor WCAG 2.2
-   sets for a pointer target (2.5.8), and these are the links somebody
-   reaches for on a phone to find the refund policy. The type size is
-   unchanged; the box around it is not. */
 .legalLinks a,
 .credit {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
+  min-height: 22px;
   color: var(--hk-footer-mono);
   text-decoration: none;
 }

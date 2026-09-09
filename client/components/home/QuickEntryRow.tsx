@@ -43,6 +43,13 @@ const ICONS: Record<string, typeof Gift> = {
   "/snacks": MessageCircle,
 };
 
+const THEME_CLASSES: Record<string, string> = {
+  "/hamper": styles.themeHamper,
+  "/meal-plans": styles.themeMealPlans,
+  "/corporate": styles.themeCorporate,
+  "/snacks": styles.themeSnacks,
+};
+
 export function QuickEntryRow({ items, detail }: QuickEntryRowProps) {
   // "Ways to order" rather than "More ways to order": the drawer's second
   // group uses that name, and two landmarks sharing one accessible name
@@ -52,16 +59,26 @@ export function QuickEntryRow({ items, detail }: QuickEntryRowProps) {
       {items.map((item) => {
         const Icon = ICONS[item.href] ?? ArrowUpRight;
         const copy = detail[item.href];
+        const themeClass = THEME_CLASSES[item.href] ?? "";
+
         return (
-          <Link key={item.href} href={item.href} className={styles.tile}>
-            <span className={styles.iconWrap}>
-              <Icon className={styles.icon} aria-hidden="true" />
-            </span>
-            <span className={styles.text}>
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`${styles.tile} ${themeClass}`}
+          >
+            <div className={styles.topRow}>
+              <span className={styles.iconWrap}>
+                <Icon className={styles.icon} aria-hidden="true" />
+              </span>
+              <span className={styles.arrowWrap} aria-hidden="true">
+                <ArrowUpRight className={styles.arrow} />
+              </span>
+            </div>
+            <div className={styles.text}>
               <span className={styles.title}>{copy?.title ?? item.label}</span>
               {copy ? <span className={styles.blurb}>{copy.blurb}</span> : null}
-            </span>
-            <ArrowUpRight className={styles.arrow} aria-hidden="true" />
+            </div>
           </Link>
         );
       })}

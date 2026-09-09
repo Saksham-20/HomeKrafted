@@ -311,6 +311,14 @@
 }
 
 @media (max-width: 640px) {
+  .containerWarm,
+  .containerSage,
+  .altBg {
+    padding: 18px 14px;
+    border-radius: 14px;
+    margin-block-start: 24px;
+  }
+
   .occasionRail > * {
     flex-basis: 110px;
   }

@@ -104,10 +104,41 @@
   padding-bottom: var(--hk-s2);
 }
 
-@media (max-width: 560px) {
+.productRail > * {
+  flex: 0 0 232px;
+  min-width: 232px;
+}
+
+@media (max-width: 640px) {
+  .section {
+    padding: 18px 14px;
+    border-radius: 14px;
+    margin-block-start: 24px;
+  }
+
   .sectionHead {
     flex-direction: column;
     align-items: flex-start;
+    gap: var(--hk-s2);
+    margin-bottom: 12px;
+  }
+
+  .tabs {
+    margin-bottom: 12px;
+    gap: 6px;
+  }
+
+  .tab {
+    padding: 6px 12px;
+    font-size: 12.5px;
+  }
+
+  .productRail {
     gap: var(--hk-s3);
+  }
+
+  .productRail > * {
+    flex: 0 0 190px;
+    min-width: 190px;
   }
 }

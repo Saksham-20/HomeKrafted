@@ -53,7 +53,7 @@ export async function Footer() {
                 target="_blank"
                 aria-label={`Homekrafted on ${social.label}`}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <path d={social.path} />
                 </svg>
               </a>
