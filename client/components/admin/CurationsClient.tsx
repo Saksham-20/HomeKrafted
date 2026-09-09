@@ -91,11 +91,33 @@ function getProductScore(p: AdminProductSummary): number {
   return orders * 100 + rating * 10 + reviews;
 }
 
+/**
+ * Fetches all products of a given kind across pages (pageSize: 100).
+ * Handles pagination automatically so every product is available to curate.
+ */
+async function fetchKindCatalog(kind: "food" | "craft"): Promise<AdminProductSummary[]> {
+  const first = await getAllProductsAdmin({ kind, page: 1, pageSize: 100 });
+  let all = [...(first.items || [])];
+  if (first.total > all.length) {
+    const totalPages = Math.ceil(first.total / (first.pageSize || 100));
+    const remainingPages = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, i) =>
+        getAllProductsAdmin({ kind, page: i + 2, pageSize: 100 }),
+      ),
+    );
+    for (const page of remainingPages) {
+      if (page.items) all = all.concat(page.items);
+    }
+  }
+  return all;
+}
+
 export function CurationsClient() {
   useAuth();
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeRail, setActiveRail] = useState<RailSlug>(RAILS[0].slug);
 
   // Per-rail local product-id ordering
@@ -140,28 +162,29 @@ export function CurationsClient() {
   // -------------------------------------------------------------------------
   // Fetch collections & initial products across both food and craft
   // -------------------------------------------------------------------------
-  useEffect(() => {
+  const loadData = useCallback(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(null);
 
     Promise.all([
       getCollectionsAdmin(),
-      getAllProductsAdmin({ kind: "food", pageSize: 150 }),
-      getAllProductsAdmin({ kind: "craft", pageSize: 150 }),
+      fetchKindCatalog("food"),
+      fetchKindCatalog("craft"),
     ])
-      .then(([cols, foodPage, craftPage]) => {
+      .then(([cols, foodItems, craftItems]) => {
         if (cancelled) return;
         setCollections(cols);
 
         setCatalogByKind({
-          food: foodPage.items,
-          craft: craftPage.items,
+          food: foodItems,
+          craft: craftItems,
         });
 
         // Populate seen products
         setSeenProducts((prev) => {
           const next = new Map(prev);
-          for (const p of [...foodPage.items, ...craftPage.items]) next.set(p.id, p);
+          for (const p of [...foodItems, ...craftItems]) next.set(p.id, p);
           return next;
         });
 
@@ -182,6 +205,9 @@ export function CurationsClient() {
       })
       .catch((err) => {
         console.error("Failed to load curation data", err);
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Failed to load curation data.");
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -191,6 +217,11 @@ export function CurationsClient() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const cleanup = loadData();
+    return cleanup;
+  }, [loadData]);
 
   // Reset search and filter when active rail changes
   useEffect(() => {
@@ -444,6 +475,15 @@ export function CurationsClient() {
       />
 
       <CollectionsTabs active="curations" />
+
+      {loadError && (
+        <div className={styles.errorBanner}>
+          <p>{loadError}</p>
+          <Button variant="secondary" size="sm" onClick={loadData}>
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* Rail selector tabs */}
       <div className={styles.railTabs} role="tablist" aria-label="Curated Rail">
@@ -720,7 +760,13 @@ export function CurationsClient() {
 
             {availableCatalog.length === 0 ? (
               <div className={styles.empty}>
-                <p>No products found matching &ldquo;{searchQ}&rdquo;.</p>
+                {searchQ.trim() ? (
+                  <p>No products found matching &ldquo;{searchQ}&rdquo;.</p>
+                ) : catalogFilter === "better" ? (
+                  <p>All top-performing products are already included in this rail.</p>
+                ) : (
+                  <p>No {activeRailDef.kind === "food" ? "dishes" : "gifts"} available.</p>
+                )}
               </div>
             ) : (
               <div className={styles.catalogList}>

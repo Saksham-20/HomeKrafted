@@ -49,6 +49,6 @@ export class ListAdminCatalogQueryDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(500)
   pageSize?: number;
 }

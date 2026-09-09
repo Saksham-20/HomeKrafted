@@ -594,3 +594,18 @@
   font-weight: 600;
   white-space: nowrap;
 }
+
+.errorBanner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--hk-r-md, 12px);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  color: #991b1b;
+  font-size: 13.5px;
+}
+
