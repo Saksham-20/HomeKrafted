@@ -46,7 +46,8 @@ import styles from "./page.module.css";
  * saying "coming soon" for up to an hour. The interval follows the
  * fastest-moving thing on the page, not the slowest.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /** Splits a `HomePromoBandContent.title` on its literal `"\n"` line break into React fragments joined by `<br />` — see that type's doc comment (`lib/data/site.ts`). */
 function renderPromoTitle(title: string) {
@@ -125,17 +126,20 @@ export default async function Home() {
   function resolveCollection(
     collection: typeof bestsellerFoodCollection,
     kind: "food" | "craft",
-    limit = 10,
+    limit = 12,
   ): Product[] {
     if (collection && collection.productIds && collection.productIds.length > 0) {
-      return collection.productIds
+      const resolved = collection.productIds
         .map((id) => productById.get(id))
         .filter((p): p is Product => Boolean(p))
         .slice(0, limit);
+      if (resolved.length > 0) return resolved;
     }
     // Fallback: top-rated products of this kind
-    return allProducts
-      .filter((p) => p.kind === kind && p.reviewCount > 0)
+    const matching = allProducts.filter((p) => p.kind === kind);
+    const withReviews = matching.filter((p) => p.reviewCount > 0);
+    const fallbackSource = withReviews.length > 0 ? withReviews : matching;
+    return fallbackSource
       .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
       .slice(0, limit);
   }

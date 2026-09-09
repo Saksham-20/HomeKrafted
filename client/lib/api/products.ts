@@ -49,11 +49,26 @@ interface ProductsPage {
  */
 export async function getProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
   if (isMockMode()) return products.filter(isBrowsable);
-  const page = await http.get<ProductsPage>("/products", {
+  const first = await http.get<ProductsPage>("/products", {
     auth: false,
     query: { pageSize: 100, ...(near ? { lat: near.lat, lng: near.lng } : {}) },
   });
-  return page.items;
+  let all = [...(first.items || [])];
+  if (first.total > all.length) {
+    const totalPages = Math.ceil(first.total / 100);
+    const remaining = await Promise.all(
+      Array.from({ length: totalPages - 1 }, (_, i) =>
+        http.get<ProductsPage>("/products", {
+          auth: false,
+          query: { pageSize: 100, page: i + 2, ...(near ? { lat: near.lat, lng: near.lng } : {}) },
+        }),
+      ),
+    );
+    for (const page of remaining) {
+      if (page.items) all = all.concat(page.items);
+    }
+  }
+  return all;
 }
 
 export async function getProduct(slug: string): Promise<Product | undefined> {
