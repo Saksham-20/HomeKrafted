@@ -981,6 +981,7 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
 export interface AdminProductSummary extends Product {
   vendorName: string;
   categoryName: string;
+  orderCount?: number;
 }
 
 /** Filters for `GET /admin/catalog/products` — applied server-side in real mode. */
@@ -1034,6 +1035,7 @@ export async function getAllProductsAdmin(query: AdminCatalogQuery = {}): Promis
     ...product,
     vendorName: getVendorById(product.vendorId)?.name ?? "Unknown vendor",
     categoryName: getCategoryById(product.categoryId)?.name ?? "Uncategorised",
+    orderCount: product.reviewCount * 3 + Math.round(product.rating * 4),
   }));
   const items = all
     .filter((p) => !query.vendorId || p.vendorId === query.vendorId)

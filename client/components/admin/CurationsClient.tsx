@@ -7,10 +7,29 @@
  * Each rail maps 1-to-1 with a `Collection` slug. When the collection
  * already exists (identified by slug in the admin collections list) we
  * PATCH it by id; otherwise we POST a new one with the canonical slug.
+ *
+ * Includes live Sales Intelligence: detects when uncurated products
+ * have higher orders, ratings, or customer review velocity than currently
+ * selected rail items, offering 1-click swaps and smart auto-filling.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronDown, ChevronUp, Plus, Search, Sparkles, Trash2, Utensils } from "lucide-react";
+import {
+  ArrowRightLeft,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Flame,
+  Plus,
+  Search,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Trash2,
+  TrendingUp,
+  Utensils,
+  Zap,
+} from "lucide-react";
 import {
   getAllProductsAdmin,
   getCollectionsAdmin,
@@ -59,12 +78,24 @@ const RAILS = [
 
 type RailSlug = (typeof RAILS)[number]["slug"];
 
+/**
+ * Composite performance score:
+ * Order volume is given highest priority (100 pts / order).
+ * Customer rating (0-50 pts) and review counts break ties.
+ * If orders are 0 (e.g. newly launched), ratings and reviews drive the score.
+ */
+function getProductScore(p: AdminProductSummary): number {
+  const orders = p.orderCount ?? 0;
+  const rating = Number(p.rating) || 0;
+  const reviews = p.reviewCount ?? 0;
+  return orders * 100 + rating * 10 + reviews;
+}
+
 export function CurationsClient() {
   useAuth();
 
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [activeRail, setActiveRail] = useState<RailSlug>(RAILS[0].slug);
 
   // Per-rail local product-id ordering
@@ -75,7 +106,7 @@ export function CurationsClient() {
     "trending-craft": [],
   });
 
-  // Catalog cache per kind so switching tabs is instant
+  // Catalog cache per kind (pre-loaded on mount)
   const [catalogByKind, setCatalogByKind] = useState<Record<"food" | "craft", AdminProductSummary[]>>({
     food: [],
     craft: [],
@@ -86,6 +117,9 @@ export function CurationsClient() {
 
   // Search input
   const [searchQ, setSearchQ] = useState("");
+
+  // Catalog browser filter tab: 'all' | 'top' | 'better'
+  const [catalogFilter, setCatalogFilter] = useState<"all" | "top" | "better">("all");
 
   // Saving state
   const [saving, setSaving] = useState(false);
@@ -104,7 +138,7 @@ export function CurationsClient() {
   const currentIds = railProductIds[activeRail] ?? [];
 
   // -------------------------------------------------------------------------
-  // Fetch collections & initial products
+  // Fetch collections & initial products across both food and craft
   // -------------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
@@ -112,8 +146,8 @@ export function CurationsClient() {
 
     Promise.all([
       getCollectionsAdmin(),
-      getAllProductsAdmin({ kind: "food", pageSize: 100 }),
-      getAllProductsAdmin({ kind: "craft", pageSize: 100 }),
+      getAllProductsAdmin({ kind: "food", pageSize: 150 }),
+      getAllProductsAdmin({ kind: "craft", pageSize: 150 }),
     ])
       .then(([cols, foodPage, craftPage]) => {
         if (cancelled) return;
@@ -158,43 +192,84 @@ export function CurationsClient() {
     };
   }, []);
 
-  // Fetch missing catalog if needed when active rail changes
-  useEffect(() => {
-    const kind = activeRailDef.kind;
-    if (catalogByKind[kind].length > 0) return;
-
-    let cancelled = false;
-    setLoadingCatalog(true);
-    getAllProductsAdmin({ kind, pageSize: 100 })
-      .then((page) => {
-        if (cancelled) return;
-        setCatalogByKind((prev) => ({ ...prev, [kind]: page.items }));
-        setSeenProducts((prev) => {
-          const next = new Map(prev);
-          for (const p of page.items) next.set(p.id, p);
-          return next;
-        });
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingCatalog(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeRailDef.kind, catalogByKind]);
-
-  // Reset search when active rail changes
+  // Reset search and filter when active rail changes
   useEffect(() => {
     setSearchQ("");
+    setCatalogFilter("all");
     setSaveMsg(null);
   }, [activeRail]);
+
+  // -------------------------------------------------------------------------
+  // Sales Intelligence & Performance Comparisons
+  // -------------------------------------------------------------------------
+
+  // Curated products currently in the rail
+  const currentCuratedProducts = useMemo(() => {
+    return currentIds.map((id) => seenProducts.get(id)).filter(Boolean) as AdminProductSummary[];
+  }, [currentIds, seenProducts]);
+
+  // All products of the active category kind
+  const allKindProducts = useMemo(() => {
+    return catalogByKind[activeRailDef.kind] ?? [];
+  }, [catalogByKind, activeRailDef.kind]);
+
+  // Candidate products (not currently in rail), sorted by score descending
+  const candidatesNotInRail = useMemo(() => {
+    return allKindProducts
+      .filter((p) => !currentIds.includes(p.id))
+      .sort((a, b) => getProductScore(b) - getProductScore(a));
+  }, [allKindProducts, currentIds]);
+
+  // Map of candidateId -> { inferiorItem, rank, scoreDiff } for any candidate
+  // that outperforms an existing item in the curated rail
+  const candidateBetterThanMap = useMemo(() => {
+    const map = new Map<
+      string,
+      { inferiorItem: AdminProductSummary; rank: number; scoreDiff: number }
+    >();
+    if (currentCuratedProducts.length === 0) return map;
+
+    for (const candidate of candidatesNotInRail) {
+      const candidateScore = getProductScore(candidate);
+      let lowestInferior: AdminProductSummary | null = null;
+      let lowestRank = -1;
+      let lowestScore = Infinity;
+
+      currentCuratedProducts.forEach((curated, idx) => {
+        const curScore = getProductScore(curated);
+        if (candidateScore > curScore && curScore < lowestScore) {
+          lowestScore = curScore;
+          lowestInferior = curated;
+          lowestRank = idx + 1;
+        }
+      });
+
+      if (lowestInferior) {
+        map.set(candidate.id, {
+          inferiorItem: lowestInferior,
+          rank: lowestRank,
+          scoreDiff: candidateScore - lowestScore,
+        });
+      }
+    }
+    return map;
+  }, [candidatesNotInRail, currentCuratedProducts]);
+
+  const betterCandidatesCount = useMemo(() => {
+    return candidateBetterThanMap.size;
+  }, [candidateBetterThanMap]);
 
   // -------------------------------------------------------------------------
   // Filtered available catalog products
   // -------------------------------------------------------------------------
   const availableCatalog = useMemo(() => {
-    const list = catalogByKind[activeRailDef.kind] ?? [];
+    let list = allKindProducts;
+    if (catalogFilter === "top") {
+      list = [...allKindProducts].sort((a, b) => getProductScore(b) - getProductScore(a));
+    } else if (catalogFilter === "better") {
+      list = candidatesNotInRail.filter((p) => candidateBetterThanMap.has(p.id));
+    }
+
     const q = searchQ.trim().toLowerCase();
     if (!q) return list;
 
@@ -204,10 +279,10 @@ export function CurationsClient() {
         p.vendorName?.toLowerCase().includes(q) ||
         p.categoryName?.toLowerCase().includes(q),
     );
-  }, [catalogByKind, activeRailDef.kind, searchQ]);
+  }, [allKindProducts, catalogFilter, candidatesNotInRail, candidateBetterThanMap, searchQ]);
 
   // -------------------------------------------------------------------------
-  // Rail item ordering helpers
+  // Rail item ordering and manipulation helpers
   // -------------------------------------------------------------------------
   const moveUp = useCallback(
     (index: number) => {
@@ -257,6 +332,73 @@ export function CurationsClient() {
     },
     [activeRail],
   );
+
+  // 1-Click Swap an inferior curated item with an outperforming candidate
+  const handleSwap = useCallback(
+    (curatedId: string, candidate: AdminProductSummary) => {
+      setSeenProducts((prev) => new Map(prev).set(candidate.id, candidate));
+      setRailProductIds((prev) => {
+        const ids = [...(prev[activeRail] ?? [])];
+        const idx = ids.indexOf(curatedId);
+        if (idx !== -1) {
+          ids[idx] = candidate.id;
+        }
+        return { ...prev, [activeRail]: ids };
+      });
+      setSaveMsg({
+        text: `✓ Swapped in "${candidate.name}". Click "Save rail" to publish live.`,
+        isError: false,
+      });
+    },
+    [activeRail],
+  );
+
+  // Auto-fill an empty rail with top performers
+  const handleAutoFill = useCallback(() => {
+    const top8 = [...allKindProducts]
+      .sort((a, b) => getProductScore(b) - getProductScore(a))
+      .slice(0, 8);
+
+    setSeenProducts((prev) => {
+      const next = new Map(prev);
+      for (const p of top8) next.set(p.id, p);
+      return next;
+    });
+
+    setRailProductIds((prev) => ({
+      ...prev,
+      [activeRail]: top8.map((p) => p.id),
+    }));
+
+    setSaveMsg({
+      text: `✓ Auto-populated rail with top 8 ${activeRailDef.kind === "food" ? "dishes" : "gifts"}! Click "Save rail" to publish.`,
+      isError: false,
+    });
+  }, [allKindProducts, activeRail, activeRailDef.kind]);
+
+  // Upgrade rail with top candidates
+  const handleApplyAllSuggestions = useCallback(() => {
+    const targetCount = Math.max(8, currentIds.length);
+    const topCandidates = [...allKindProducts]
+      .sort((a, b) => getProductScore(b) - getProductScore(a))
+      .slice(0, targetCount);
+
+    setSeenProducts((prev) => {
+      const next = new Map(prev);
+      for (const p of topCandidates) next.set(p.id, p);
+      return next;
+    });
+
+    setRailProductIds((prev) => ({
+      ...prev,
+      [activeRail]: topCandidates.map((p) => p.id),
+    }));
+
+    setSaveMsg({
+      text: `✓ Promoted top ${topCandidates.length} best-performing items into this rail! Click "Save rail" to publish.`,
+      isError: false,
+    });
+  }, [allKindProducts, activeRail, currentIds.length]);
 
   // -------------------------------------------------------------------------
   // Save rail
@@ -341,12 +483,51 @@ export function CurationsClient() {
               <span>{activeRailDef.hint}</span>
             </div>
 
-            {currentIds.length === 0 ? (
-              <div className={styles.empty}>
-                <p>No products in this rail yet.</p>
-                <p style={{ fontSize: 12.5, marginTop: 4 }}>
-                  Select products from the catalog on the right to add them here.
+            {/* Sales Intelligence Alert Banner */}
+            {betterCandidatesCount > 0 && currentIds.length > 0 && (
+              <div className={styles.insightBanner}>
+                <div className={styles.insightHeader}>
+                  <TrendingUp size={16} className={styles.insightIcon} />
+                  <span>Sales &amp; Rating Intelligence</span>
+                </div>
+                <p className={styles.insightBody}>
+                  Detected <strong>{betterCandidatesCount} {activeRailDef.kind === "food" ? "dishes" : "gifts"}</strong> in your live catalog with higher order volume or customer reviews than items currently in this rail.
                 </p>
+                <div className={styles.insightActions}>
+                  <button
+                    type="button"
+                    className={styles.insightBtn}
+                    onClick={handleApplyAllSuggestions}
+                  >
+                    <Zap size={13} />
+                    Auto-upgrade to top performers
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.insightSecondaryBtn}
+                    onClick={() => setCatalogFilter("better")}
+                  >
+                    View outperforming items →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {currentIds.length === 0 ? (
+              <div className={styles.emptyCard}>
+                <Sparkles size={24} className={styles.emptyCardIcon} />
+                <h4 className={styles.emptyCardTitle}>No products selected yet</h4>
+                <p className={styles.emptyCardSub}>
+                  This rail is currently empty. You can browse and select live products from the catalog on the right, or auto-fill with the platform&apos;s top-performing items.
+                </p>
+                <button
+                  type="button"
+                  className={styles.autoFillBtn}
+                  onClick={handleAutoFill}
+                >
+                  <Zap size={14} />
+                  Auto-fill with top {activeRailDef.kind === "food" ? "dishes" : "gifts"}
+                </button>
               </div>
             ) : (
               <ul className={styles.railList} style={{ listStyle: "none", margin: 0, padding: 0 }}>
@@ -358,6 +539,13 @@ export function CurationsClient() {
                     : undefined;
                   const imgSrc = product?.images?.[0]?.src;
                   const price = weight?.price;
+
+                  // Check if this item is beaten by any uncurated candidate
+                  const hasBetterCandidate = product
+                    ? candidatesNotInRail.some(
+                        (c) => getProductScore(c) > getProductScore(product),
+                      )
+                    : false;
 
                   return (
                     <li key={id} className={styles.railItem}>
@@ -375,14 +563,41 @@ export function CurationsClient() {
                       </div>
 
                       <div className={styles.itemInfo}>
-                        <span className={styles.itemName} title={product?.name ?? id}>
-                          {product?.name ?? id}
-                        </span>
+                        <div className={styles.itemNameRow}>
+                          <span className={styles.itemName} title={product?.name ?? id}>
+                            {product?.name ?? id}
+                          </span>
+                          {hasBetterCandidate && (
+                            <span
+                              className={styles.inferiorFlag}
+                              title="Higher-performing candidate available in catalog"
+                            >
+                              Lower performer
+                            </span>
+                          )}
+                        </div>
                         <div className={styles.itemMeta}>
                           <span>{product?.vendorName ?? "Kitchen"}</span>
                           {price != null && (
-                            <span className={styles.itemPrice}>{formatCurrency(price)}</span>
+                            <>
+                              <span>&bull;</span>
+                              <span className={styles.itemPrice}>{formatCurrency(price)}</span>
+                            </>
                           )}
+                          <span>&bull;</span>
+                          <span className={styles.metricPill}>
+                            <ShoppingBag size={11} />
+                            {product?.orderCount ?? 0} orders
+                          </span>
+                          {product?.rating ? (
+                            <>
+                              <span>&bull;</span>
+                              <span className={styles.metricPill}>
+                                <Star size={11} className={styles.starIcon} />
+                                {Number(product.rating).toFixed(1)} ({product.reviewCount ?? 0})
+                              </span>
+                            </>
+                          ) : null}
                         </div>
                       </div>
 
@@ -460,6 +675,35 @@ export function CurationsClient() {
               Browse through your verified {activeRailDef.kind === "food" ? "dishes" : "gifts"} and click &ldquo;+ Add to rail&rdquo; to include them.
             </p>
 
+            {/* Filter pills: All / Top / Outperforming */}
+            <div className={styles.catalogFilterRow}>
+              <button
+                type="button"
+                className={`${styles.filterPill}${catalogFilter === "all" ? ` ${styles.filterPillActive}` : ""}`}
+                onClick={() => setCatalogFilter("all")}
+              >
+                All ({allKindProducts.length})
+              </button>
+              <button
+                type="button"
+                className={`${styles.filterPill}${catalogFilter === "top" ? ` ${styles.filterPillActive}` : ""}`}
+                onClick={() => setCatalogFilter("top")}
+              >
+                <Flame size={12} />
+                Top Candidates
+              </button>
+              {betterCandidatesCount > 0 && (
+                <button
+                  type="button"
+                  className={`${styles.filterPill} ${styles.filterPillHighlight}${catalogFilter === "better" ? ` ${styles.filterPillActive}` : ""}`}
+                  onClick={() => setCatalogFilter("better")}
+                >
+                  <TrendingUp size={12} />
+                  Outperforming Curated ({betterCandidatesCount})
+                </button>
+              )}
+            </div>
+
             <div className={styles.searchBox}>
               <span className={styles.searchIcon} aria-hidden="true">
                 <Search size={16} />
@@ -474,9 +718,7 @@ export function CurationsClient() {
               />
             </div>
 
-            {loadingCatalog ? (
-              <LoadingRows rows={4} />
-            ) : availableCatalog.length === 0 ? (
+            {availableCatalog.length === 0 ? (
               <div className={styles.empty}>
                 <p>No products found matching &ldquo;{searchQ}&rdquo;.</p>
               </div>
@@ -489,11 +731,12 @@ export function CurationsClient() {
                     product.weightOptions?.[0];
                   const imgSrc = product.images?.[0]?.src;
                   const price = weight?.price;
+                  const outperforming = candidateBetterThanMap.get(product.id);
 
                   return (
                     <div
                       key={product.id}
-                      className={`${styles.catalogCard}${inRail ? ` ${styles.catalogCardInRail}` : ""}`}
+                      className={`${styles.catalogCard}${inRail ? ` ${styles.catalogCardInRail}` : ""}${outperforming && !inRail ? ` ${styles.outperformCard}` : ""}`}
                     >
                       <div className={styles.itemThumb}>
                         {imgSrc ? (
@@ -518,13 +761,29 @@ export function CurationsClient() {
                               <span className={styles.itemPrice}>{formatCurrency(price)}</span>
                             </>
                           )}
+                          <span>&bull;</span>
+                          <span className={styles.metricPill}>
+                            <ShoppingBag size={11} />
+                            {product.orderCount ?? 0} orders
+                          </span>
                           {product.rating > 0 && (
                             <>
                               <span>&bull;</span>
-                              <span>★ {product.rating.toFixed(1)}</span>
+                              <span className={styles.metricPill}>
+                                <Star size={11} className={styles.starIcon} />
+                                {Number(product.rating).toFixed(1)} ({product.reviewCount ?? 0})
+                              </span>
                             </>
                           )}
                         </div>
+                        {outperforming && !inRail && (
+                          <div className={styles.outperformBadge}>
+                            <TrendingUp size={12} />
+                            <span>
+                              Better than #{outperforming.rank} ({outperforming.inferiorItem.name})
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       {inRail ? (
@@ -532,6 +791,26 @@ export function CurationsClient() {
                           <Check size={13} />
                           In rail
                         </span>
+                      ) : outperforming ? (
+                        <div className={styles.candidateActions}>
+                          <button
+                            type="button"
+                            className={styles.swapBtn}
+                            onClick={() => handleSwap(outperforming.inferiorItem.id, product)}
+                            title={`Replace #${outperforming.rank} with this better performer`}
+                          >
+                            <ArrowRightLeft size={11} />
+                            Swap #{outperforming.rank}
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.addBtn}
+                            onClick={() => addProduct(product)}
+                          >
+                            <Plus size={13} />
+                            Add
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"

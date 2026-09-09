@@ -340,3 +340,257 @@
   text-align: center;
   padding: 36px 16px;
 }
+
+/* Empty rail auto-fill card */
+.emptyCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 20px;
+  background: #fcfbf9;
+  border: 1.5px dashed var(--hk-border, #dcd7ce);
+  border-radius: var(--hk-r-lg, 12px);
+  margin-bottom: 12px;
+}
+
+.emptyCardIcon {
+  color: var(--hk-pine, #2a5c45);
+  margin-bottom: 10px;
+}
+
+.emptyCardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hk-ink, #1c2b22);
+  margin: 0 0 6px 0;
+}
+
+.emptyCardSub {
+  font-size: 13px;
+  color: var(--hk-muted, #666);
+  line-height: 1.45;
+  max-width: 340px;
+  margin: 0 0 16px 0;
+}
+
+.autoFillBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: var(--hk-r-pill, 999px);
+  background: var(--hk-pine, #2a5c45);
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(42, 92, 69, 0.2);
+  transition: background-color 0.15s, transform 0.15s;
+}
+
+.autoFillBtn:hover {
+  background: #1e4432;
+  transform: translateY(-1px);
+}
+
+/* Sales Intelligence Alert Banner */
+.insightBanner {
+  background: #fffdf5;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.insightHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.insightIcon {
+  color: #d97706;
+}
+
+.insightBody {
+  font-size: 12.5px;
+  color: #78350f;
+  line-height: 1.45;
+  margin: 6px 0 10px;
+}
+
+.insightActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.insightBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--hk-r-pill, 999px);
+  background: #b45309;
+  color: #fff;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.insightBtn:hover {
+  background: #92400e;
+}
+
+.insightSecondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--hk-r-pill, 999px);
+  background: #fff;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.insightSecondaryBtn:hover {
+  background: #fef3c7;
+}
+
+/* Catalog Filter Pills */
+.catalogFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.filterPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: var(--hk-r-pill, 999px);
+  border: 1px solid var(--hk-border, #d4d0c8);
+  background: var(--hk-surface, #fff);
+  color: var(--hk-ink-2, #555);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.filterPill:hover {
+  border-color: var(--hk-pine, #2a5c45);
+  color: var(--hk-pine, #2a5c45);
+}
+
+.filterPillActive {
+  background: var(--hk-pine, #2a5c45);
+  color: #fff !important;
+  border-color: var(--hk-pine, #2a5c45);
+}
+
+.filterPillHighlight {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.filterPillHighlight:hover {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Outperforming Badges and Actions */
+.outperformCard {
+  border-color: #f59e0b !important;
+  background: #fffdf9 !important;
+}
+
+.outperformBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 3px;
+  align-self: flex-start;
+}
+
+.candidateActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.swapBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: var(--hk-r-pill, 999px);
+  border: 1px solid #d97706;
+  background: #fff;
+  color: #b45309;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+
+.swapBtn:hover {
+  background: #f59e0b;
+  color: #fff;
+}
+
+/* Item Metrics Pills */
+.metricPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11.5px;
+  color: var(--hk-ink-2, #555);
+  font-feature-settings: "tnum";
+}
+
+.starIcon {
+  color: #eab308;
+  fill: #eab308;
+}
+
+.itemNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inferiorFlag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 600;
+  white-space: nowrap;
+}

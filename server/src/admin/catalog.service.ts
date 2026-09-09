@@ -67,7 +67,11 @@ const DECIDED_ORDER = [{ createdAt: 'desc' as const }, { id: 'desc' as const }];
 type ProductWithNames = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
 
 export interface PaginatedCatalog {
-  items: (ReturnType<typeof mapProduct> & { vendorName: string; categoryName: string })[];
+  items: (ReturnType<typeof mapProduct> & {
+    vendorName: string;
+    categoryName: string;
+    orderCount?: number;
+  })[];
   page: number;
   pageSize: number;
   total: number;
@@ -265,27 +269,38 @@ export class AdminCatalogService {
   ): Promise<PaginatedCatalog> {
     const vendorIds = [...new Set(products.map((p) => p.vendorId))];
     const categoryIds = [...new Set(products.map((p) => p.categoryId))];
-    const [vendors, categories] = await Promise.all([
+    const productIds = products.map((p) => p.id);
+
+    const [vendors, categories, orderItemGroups] = await Promise.all([
       vendorIds.length
         ? this.prisma.vendor.findMany({ where: { id: { in: vendorIds } }, select: { id: true, name: true } })
         : Promise.resolve([]),
-      // `categoryName` was in the client's `AdminProductSummary` type from
-      // the day the screen shipped and was **never sent** by this endpoint
-      // — only the mock produced it. Every row on `/admin/catalog` had
-      // therefore rendered "Vendor · " with a dangling separator against a
-      // real server. Found in the browser during M22, not by reading code.
       categoryIds.length
         ? this.prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
+        : Promise.resolve([]),
+      productIds.length
+        ? this.prisma.orderItem.groupBy({
+            by: ['productId'],
+            where: { productId: { in: productIds } },
+            _sum: { quantity: true },
+            _count: { id: true },
+          })
         : Promise.resolve([]),
     ]);
     const vendorNameById = new Map(vendors.map((v) => [v.id, v.name]));
     const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+    const orderCountById = new Map(
+      orderItemGroups
+        .filter((g) => g.productId != null)
+        .map((g) => [g.productId!, g._sum.quantity ?? g._count.id]),
+    );
 
     return {
       items: products.map((p) => ({
         ...mapProduct(p),
         vendorName: vendorNameById.get(p.vendorId) ?? 'Unknown vendor',
         categoryName: categoryNameById.get(p.categoryId) ?? 'Uncategorised',
+        orderCount: orderCountById.get(p.id) ?? 0,
       })),
       page,
       pageSize,
