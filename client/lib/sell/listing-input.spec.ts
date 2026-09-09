@@ -30,6 +30,31 @@ describe("toSellerListingInput", () => {
     expect(input.defaultWeightSku).toBe("handmade-candle-small-rose-gold");
   });
 
+  it("supports multiple colours separated by commas for a single size", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Handmade Candle",
+      categoryId: "cat-1",
+      description: "A scented candle available in several colours.",
+      kind: "craft",
+      weightRows: [
+        {
+          label: "Medium",
+          colour: "Rose gold, Matte Black, Ivory",
+          price: "349",
+          mrp: "399",
+          stock: "15",
+        },
+      ],
+    };
+
+    const input = toSellerListingInput(values);
+    expect(input.weightOptions).toHaveLength(1);
+    expect(input.weightOptions[0].label).toBe("Medium · Rose gold, Matte Black, Ivory");
+    expect(input.weightOptions[0].sku).toBe("handmade-candle-medium-rose-gold-matte-black-ivory");
+  });
+
+
   it("handles colour-only and size-only variants correctly", () => {
     const values: ListingFormValues = {
       ...EMPTY_LISTING_FORM,

@@ -63,6 +63,38 @@ const CRAFT_PLACEHOLDERS = ["Beeswax candle", "Silver jhumkas", "Hand-painted pr
 /** How many top category quick-picks to show. */
 const QUICK_PICK_COUNT = 6;
 
+/** Craft colour swatches for variant selection. */
+const CRAFT_PALETTE = [
+  // Primary (visible by default)
+  { name: "Black", hex: "#1a1a1a" },
+  { name: "White", hex: "#ffffff" },
+  { name: "Cream", hex: "#f5e6c8" },
+  { name: "Rose gold", hex: "#c08777" },
+  { name: "Gold", hex: "#c9a227" },
+  { name: "Silver", hex: "#a8a9ad" },
+  { name: "Sage", hex: "#7a9e87" },
+  { name: "Terracotta", hex: "#c4663a" },
+  // Extended (revealed on "+ More colours")
+  { name: "Blush", hex: "#e8a7a7" },
+  { name: "Navy", hex: "#253b6e" },
+  { name: "Olive", hex: "#6b705c" },
+  { name: "Mustard", hex: "#e09f3e" },
+  { name: "Burgundy", hex: "#540b0e" },
+  { name: "Lavender", hex: "#b8a9c9" },
+  { name: "Emerald", hex: "#1b4931" },
+  { name: "Rust", hex: "#a44a3f" },
+  { name: "Teal", hex: "#1e6066" },
+  { name: "Lilac", hex: "#d8bbff" },
+  { name: "Peach", hex: "#f4a261" },
+  { name: "Charcoal", hex: "#363636" },
+  { name: "Copper", hex: "#b87333" },
+  { name: "Bronze", hex: "#8c6239" },
+  { name: "Mint", hex: "#a3c4bc" },
+  { name: "Ochre", hex: "#cc7722" },
+] as const;
+
+const PRIMARY_SWATCH_COUNT = 8;
+
 export interface GuidedListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
@@ -171,6 +203,26 @@ export function GuidedListingForm({
     const next = [...values.weightRows];
     next[index] = { ...next[index], ...patch };
     onChange({ ...values, weightRows: next });
+  }
+
+  // Expanded colours toggle state per variant row
+  const [showAllColoursByRow, setShowAllColoursByRow] = useState<Record<number, boolean>>({});
+
+  function parseColours(raw: string | undefined): string[] {
+    if (!raw) return [];
+    return raw
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+  }
+
+  function toggleColour(rowIndex: number, colourName: string) {
+    const current = parseColours(rows[rowIndex]?.colour);
+    const exists = current.some((c) => c.toLowerCase() === colourName.toLowerCase());
+    const next = exists
+      ? current.filter((c) => c.toLowerCase() !== colourName.toLowerCase())
+      : [...current, colourName];
+    updateRow(rowIndex, { colour: next.join(", ") });
   }
 
   function addRow() {
@@ -525,47 +577,72 @@ export function GuidedListingForm({
                     </label>
                     {isCraft && (
                       <label className={styles.field}>
-                        <span className={styles.question}>
-                          Colour <span className={styles.optional}>optional</span>
-                        </span>
+                        <div className={styles.colourHeader}>
+                          <span className={styles.question}>
+                            Colour <span className={styles.optional}>optional</span>
+                          </span>
+                          <button
+                            type="button"
+                            className={styles.toggleMoreBtn}
+                            onClick={() =>
+                              setShowAllColoursByRow((prev) => ({
+                                ...prev,
+                                [index]: !prev[index],
+                              }))
+                            }
+                          >
+                            {showAllColoursByRow[index]
+                              ? "Show fewer"
+                              : `+ ${CRAFT_PALETTE.length - PRIMARY_SWATCH_COUNT} more colours`}
+                          </button>
+                        </div>
                         <div className={styles.paletteRow}>
-                          {[
-                            { name: "Black", hex: "#1a1a1a" },
-                            { name: "White", hex: "#f5f5f5" },
-                            { name: "Cream", hex: "#f5e6c8" },
-                            { name: "Rose gold", hex: "#c08777" },
-                            { name: "Gold", hex: "#c9a227" },
-                            { name: "Silver", hex: "#a8a9ad" },
-                            { name: "Sage", hex: "#7a9e87" },
-                            { name: "Blush", hex: "#e8a7a7" },
-                            { name: "Navy", hex: "#253b6e" },
-                            { name: "Terracotta", hex: "#c4663a" },
-                          ].map((swatch) => (
-                            <button
-                              key={swatch.name}
-                              type="button"
-                              className={clsx(
-                                styles.swatch,
-                                row.colour === swatch.name && styles.swatchActive,
-                              )}
-                              style={{ background: swatch.hex }}
-                              title={swatch.name}
-                              aria-label={swatch.name}
-                              aria-pressed={row.colour === swatch.name}
-                              onClick={() =>
-                                updateRow(index, {
-                                  colour: row.colour === swatch.name ? "" : swatch.name,
-                                })
-                              }
-                            />
-                          ))}
+                          {(showAllColoursByRow[index]
+                            ? CRAFT_PALETTE
+                            : CRAFT_PALETTE.slice(0, PRIMARY_SWATCH_COUNT)
+                          ).map((swatch) => {
+                            const selected = parseColours(row.colour);
+                            const isSelected = selected.some(
+                              (c) => c.toLowerCase() === swatch.name.toLowerCase(),
+                            );
+                            const isLight = ["White", "Cream", "Silver", "Mint", "Lilac"].includes(
+                              swatch.name,
+                            );
+                            return (
+                              <button
+                                key={swatch.name}
+                                type="button"
+                                className={clsx(
+                                  styles.swatch,
+                                  isSelected && styles.swatchActive,
+                                )}
+                                style={{ background: swatch.hex }}
+                                title={swatch.name}
+                                aria-label={swatch.name}
+                                aria-pressed={isSelected}
+                                onClick={() => toggleColour(index, swatch.name)}
+                              >
+                                {isSelected && (
+                                  <Check
+                                    size={13}
+                                    strokeWidth={3}
+                                    className={styles.swatchCheck}
+                                    style={{ color: isLight ? "#111" : "#fff" }}
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
                         </div>
                         <input
                           className={styles.bigInput}
                           value={row.colour ?? ""}
                           onChange={(event) => updateRow(index, { colour: event.target.value })}
-                          placeholder="Or type a custom colour…"
+                          placeholder="e.g. Rose gold, Matte black, Ivory"
                         />
+                        <span className={styles.fieldHint}>
+                          Select multiple colours or type them separated by commas.
+                        </span>
                       </label>
                     )}
 
