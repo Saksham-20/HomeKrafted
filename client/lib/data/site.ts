@@ -143,7 +143,7 @@ export const quickEntryDetail: Record<string, { title: string; blurb: string }> 
 };
 
 export const brandBlurb =
-  "Home-cooked food, fresh bakes and small-batch pickles from real home kitchens across Chandigarh, Mohali, Panchkula and Zirakpur.";
+  "Home-cooked food, fresh bakes and small-batch creations from passionate home kitchens, and handcrafted gifts made with care.";
 
 export const footerColumns: FooterColumn[] = [
   {

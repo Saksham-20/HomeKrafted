@@ -528,14 +528,47 @@ export function GuidedListingForm({
                         <span className={styles.question}>
                           Colour <span className={styles.optional}>optional</span>
                         </span>
+                        <div className={styles.paletteRow}>
+                          {[
+                            { name: "Black", hex: "#1a1a1a" },
+                            { name: "White", hex: "#f5f5f5" },
+                            { name: "Cream", hex: "#f5e6c8" },
+                            { name: "Rose gold", hex: "#c08777" },
+                            { name: "Gold", hex: "#c9a227" },
+                            { name: "Silver", hex: "#a8a9ad" },
+                            { name: "Sage", hex: "#7a9e87" },
+                            { name: "Blush", hex: "#e8a7a7" },
+                            { name: "Navy", hex: "#253b6e" },
+                            { name: "Terracotta", hex: "#c4663a" },
+                          ].map((swatch) => (
+                            <button
+                              key={swatch.name}
+                              type="button"
+                              className={clsx(
+                                styles.swatch,
+                                row.colour === swatch.name && styles.swatchActive,
+                              )}
+                              style={{ background: swatch.hex }}
+                              title={swatch.name}
+                              aria-label={swatch.name}
+                              aria-pressed={row.colour === swatch.name}
+                              onClick={() =>
+                                updateRow(index, {
+                                  colour: row.colour === swatch.name ? "" : swatch.name,
+                                })
+                              }
+                            />
+                          ))}
+                        </div>
                         <input
                           className={styles.bigInput}
                           value={row.colour ?? ""}
                           onChange={(event) => updateRow(index, { colour: event.target.value })}
-                          placeholder="Rose gold"
+                          placeholder="Or type a custom colour…"
                         />
                       </label>
                     )}
+
                   </div>
 
                   <div className={styles.variantPriceRow}>
@@ -569,10 +602,24 @@ export function GuidedListingForm({
                   </div>
 
                   {index === 0 && commission?.enabled && price > 0 && (
-                    <span className={styles.help}>
-                      You receive {formatCurrency(breakdown.net)} of that; the rest is the platform
-                      fee.
-                    </span>
+                    <div className={styles.commissionBox}>
+                      <div className={styles.commissionRow}>
+                        <span className={styles.commissionLabel}>Customer pays</span>
+                        <span className={styles.commissionValue}>{formatCurrency(price)}</span>
+                      </div>
+                      <div className={styles.commissionRow}>
+                        <span className={styles.commissionLabel}>
+                          Platform fee ({commission.pct}%)
+                        </span>
+                        <span className={styles.commissionDeduct}>
+                          −{formatCurrency(breakdown.commission)}
+                        </span>
+                      </div>
+                      <div className={clsx(styles.commissionRow, styles.commissionTotal)}>
+                        <span className={styles.commissionLabel}>You receive</span>
+                        <span className={styles.commissionValue}>{formatCurrency(breakdown.net)}</span>
+                      </div>
+                    </div>
                   )}
 
                   <label className={styles.checkRow}>
@@ -636,6 +683,49 @@ export function GuidedListingForm({
             <div className={styles.charCount}>
               {values.description.length} / ~200 characters — two or three sentences is plenty
             </div>
+
+            {isCraft && (
+              <div className={styles.craftSpecsGroup}>
+                <p className={styles.craftSpecsHint}>
+                  Help buyers know exactly what they're getting.
+                </p>
+                <div className={styles.craftSpecsGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.question}>
+                      Dimensions <span className={styles.optional}>optional</span>
+                    </span>
+                    <input
+                      className={styles.bigInput}
+                      value={values.dimensions}
+                      onChange={(event) => set("dimensions", event.target.value)}
+                      placeholder="e.g. 15 × 10 × 5 cm"
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.question}>
+                      Material <span className={styles.optional}>optional</span>
+                    </span>
+                    <input
+                      className={styles.bigInput}
+                      value={values.material}
+                      onChange={(event) => set("material", event.target.value)}
+                      placeholder="e.g. 100% Soy Wax, Cotton wick"
+                    />
+                  </label>
+                </div>
+                <label className={styles.field}>
+                  <span className={styles.question}>
+                    Care instructions <span className={styles.optional}>optional</span>
+                  </span>
+                  <input
+                    className={styles.bigInput}
+                    value={values.careInstructions}
+                    onChange={(event) => set("careInstructions", event.target.value)}
+                    placeholder="e.g. Keep away from direct sunlight, hand wash only"
+                  />
+                </label>
+              </div>
+            )}
 
             {!isCraft && (
               <fieldset className={styles.choiceSet}>

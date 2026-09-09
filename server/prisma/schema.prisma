@@ -1848,6 +1848,19 @@ model Product {
   shelfLife           String?
   storageInstructions String?
   madeIn              String?
+  /// Physical dimensions of a craft item — stored as a free-text string
+  /// such as "15 × 10 × 5 cm" so the seller can describe their product
+  /// in the most natural way without forcing a 3-field form. Only
+  /// meaningful for `kind = craft`; NULL for food listings.
+  dimensions          String?
+  /// Primary material of a craft item — e.g. "100% Soy Wax", "Handwoven
+  /// Cotton", "Brass". Shown in the product specs tab instead of
+  /// `ingredients` when `kind = craft`.
+  material            String?
+  /// Care and maintenance instructions for craft items — e.g. "Keep away
+  /// from direct sunlight", "Hand wash only". Analogous to
+  /// `storageInstructions` for food but craft-specific.
+  careInstructions    String?
   /// M22: defaults to `pending`, so a new listing is reviewed before it is
   /// public. It used to default to `active` — a listing went live the
   /// instant it was saved and moderation was retrospective takedown.

@@ -29,12 +29,19 @@ export function ProductTabs({ product, reviews: initialReviews }: ProductTabsPro
   // this page is a Server Component render and won't refetch on its own.
   const [reviews, setReviews] = useState(initialReviews);
 
-  const specs: { k: string; v: string }[] = [
-    product.ingredients && { k: "Ingredients", v: product.ingredients },
-    product.shelfLife && { k: "Shelf life", v: product.shelfLife },
-    product.storageInstructions && { k: "Storage", v: product.storageInstructions },
-    product.madeIn && { k: "Made in", v: product.madeIn },
-  ].filter((row): row is { k: string; v: string } => Boolean(row));
+  const specs: { k: string; v: string }[] = product.kind === "craft"
+    ? [
+        product.dimensions && { k: "Dimensions", v: product.dimensions },
+        product.material && { k: "Material", v: product.material },
+        product.careInstructions && { k: "Care", v: product.careInstructions },
+        product.madeIn && { k: "Made in", v: product.madeIn },
+      ].filter((row): row is { k: string; v: string } => Boolean(row))
+    : [
+        product.ingredients && { k: "Ingredients", v: product.ingredients },
+        product.shelfLife && { k: "Shelf life", v: product.shelfLife },
+        product.storageInstructions && { k: "Storage", v: product.storageInstructions },
+        product.madeIn && { k: "Made in", v: product.madeIn },
+      ].filter((row): row is { k: string; v: string } => Boolean(row));
 
   return (
     <div className={styles.wrap}>

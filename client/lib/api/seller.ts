@@ -189,6 +189,12 @@ export interface SellerListingInput {
   imagePath?: string;
   weightOptions: WeightOption[];
   defaultWeightSku: string;
+  /** Physical size of a craft item, e.g. "15 × 10 × 5 cm". Optional, craft-only. */
+  dimensions?: string;
+  /** Primary material, e.g. "100% Soy Wax", "Brass". Optional, craft-only. */
+  material?: string;
+  /** Care/maintenance instructions. Optional, craft-only. */
+  careInstructions?: string;
 }
 
 export async function createSellerListing(

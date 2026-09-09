@@ -133,7 +133,7 @@ export const aboutContent: AboutContent = {
       // Live since M20 — `/gifts`, in the nav, with its own catalogue.
       // The "soon" chip outlived the thing it was waiting for.
       title: "Handicrafts & art",
-      body: "Candles, ceramics, prints and hand-poured soap from HomeKrafters in the tricity — posted anywhere in India, since a craft gift does not need to be near you.",
+      body: "Candles, ceramics, prints and hand-poured soap from independent HomeKrafters — posted anywhere in India, since a craft gift does not need to be near you.",
     },
   ],
 
@@ -166,7 +166,7 @@ export const aboutContent: AboutContent = {
   contactHeading: "Talk to us",
   contactLine:
     "Cooking something worth sharing, or want us in your neighbourhood? We read everything.",
-  city: "Mohali, Punjab — serving Chandigarh, Mohali, Panchkula & Zirakpur",
+  city: "Mohali, Punjab",
   phones: ["+91 74948 62979", "+91 90565 76683"],
   email: "support@homekrafted.in",
   instagram: { handle: "@_homekrafted", href: "https://instagram.com/_homekrafted" },

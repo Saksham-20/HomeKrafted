@@ -55,6 +55,12 @@ export interface ListingFormValues {
   imagePath: string;
   weightRows: ListingFormWeightRow[];
   defaultRowIndex: number;
+  /** Physical size of a craft item — e.g. "15 × 10 × 5 cm". Only sent when kind = 'craft'. */
+  dimensions: string;
+  /** Primary material of a craft item — e.g. "100% Soy Wax". Only sent when kind = 'craft'. */
+  material: string;
+  /** Maintenance instructions — e.g. "Hand wash only". Only sent when kind = 'craft'. */
+  careInstructions: string;
 }
 
 export const EMPTY_LISTING_FORM: ListingFormValues = {
@@ -75,6 +81,9 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   imagePath: "",
   weightRows: [{ label: "", colour: "", price: "", mrp: "", stock: "" }],
   defaultRowIndex: 0,
+  dimensions: "",
+  material: "",
+  careInstructions: "",
 };
 
 export function slugify(value: string): string {
@@ -161,6 +170,15 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     imagePath: values.imagePath,
     weightOptions,
     defaultWeightSku: weightOptions[values.defaultRowIndex]?.sku ?? weightOptions[0]?.sku ?? "",
+    // Craft-specific fields — only sent for crafts; trim to undefined so the
+    // server writes NULL rather than an empty string on a food listing.
+    ...(values.kind === "craft"
+      ? {
+          dimensions: values.dimensions.trim() || undefined,
+          material: values.material.trim() || undefined,
+          careInstructions: values.careInstructions.trim() || undefined,
+        }
+      : {}),
   };
 }
 
@@ -194,3 +212,4 @@ export function validateListingForm(values: ListingFormValues): ListingFormError
 export function hasListingFormErrors(errors: ListingFormErrors): boolean {
   return Boolean(errors.name || errors.categoryId || errors.description || errors.weightRows);
 }
+

@@ -273,3 +273,18 @@
     scroll-snap-align: start;
   }
 }
+
+/* ── Alternating section containers (warm tinted Flipkart-style) ───── */
+.altBg {
+  background: #fbf7f0;
+  border-radius: var(--hk-r-xl, 16px);
+  padding: clamp(var(--hk-s5), 3.5vw, 44px) clamp(var(--hk-s4), 3vw, 36px);
+  margin-block-start: clamp(var(--hk-s5), 3.5vw, 48px);
+  border: 1px solid var(--hk-border);
+}
+
+.bestsellerTabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}

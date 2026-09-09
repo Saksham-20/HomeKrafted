@@ -61,98 +61,49 @@ export function Hero() {
   return (
     <section className={styles.hero}>
       <div className={styles.inner}>
-        <div className={styles.stage}>
-          {/* The two halves. A client component — it reads the pointer and
-              focus, and its `data-active` is what the brand block below
-              is watching through `:has()`. */}
-          <SplitPanels />
-
-          {/*
-            The brand block, centred over the seam and inert: it must
-            never intercept the pointer, or the middle of the screen
-            would be a dead zone between the two things the page is
-            asking about.
-          */}
-          <div className={styles.brand}>
-            {/* `<hgroup>` is the element the HTML spec defines for exactly
-                this pair — a heading and the tagline under it. */}
-            <hgroup className={styles.brandGroup} id="hk-hero-brand">
-              <h1 className={styles.brandHeading}>
-                {/* A plain <img>: a fixed vector gains nothing from next/image. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/images/site/logo.svg"
-                  alt="Homekrafted"
-                  className={styles.brandMark}
-                />
-              </h1>
-              <p className={styles.heading}>
-                <span className="hk-sr-only">From home to the world</span>
-                <span aria-hidden="true" className={styles.headingLine}>
-                  {/* Sparkle dashes at the left of "From" — comp doodle. */}
-                  <svg
-                    className={styles.sparks}
-                    viewBox="0 0 34 34"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path d="M17 4v9M7 9l6 6M27 9l-6 6" />
-                  </svg>
-                  From h
-                  <span className={styles.oHouse}>
-                    <House strokeWidth={2.4} />
-                  </span>
-                  me
-                </span>
-                <span aria-hidden="true" className={styles.scriptRow}>
-                  <span className={styles.script}>to the world</span>
-                  {/* Paper plane + dashed flight trail — comp doodle. */}
-                  <svg
-                    className={styles.plane}
-                    viewBox="0 0 128 74"
-                    aria-hidden="true"
-                    focusable="false"
-                  >
-                    <path
-                      className={styles.planeTrail}
-                      d="M4 68c26 6 56 4 74-10 12-9 17-18 21-28"
-                    />
-                    <path
-                      className={styles.planeBody}
-                      d="M96 30 124 8l-12 30-6-10Zm16-12-16 12m10 8-4 8"
-                    />
-                  </svg>
-                </span>
-              </p>
-            </hgroup>
-          </div>
+        {/* Brand block on top (plain, clean header) */}
+        <div className={styles.topBrand}>
+          <hgroup className={styles.brandGroup} id="hk-hero-brand">
+            <h1 className={styles.brandHeading}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/site/logo.svg"
+                alt="Homekrafted"
+                className={styles.brandMark}
+              />
+            </h1>
+            <p className={styles.topTagline}>
+              Homemade food from trusted home kitchens &amp; handcrafted gifts posted anywhere in India
+            </p>
+          </hgroup>
         </div>
 
-        {/*
-          The promise strip sits under the split: the two halves have to
-          be *in* the first screenful for the page to be asking a
-          question, and four points of chrome above them pushed them
-          under the fold at 900px.
-        */}
+        <div className={styles.stage}>
+          {/* The two halves. Client component with clean hover expansion */}
+          <SplitPanels />
+        </div>
+
+        {/* The promise strip — trust badges */}
         <ul className={styles.points}>
           <li className={styles.point}>
             <HouseHeart className={styles.pointIcon} aria-hidden="true" />
-            <span className={styles.pointLabel}>Made at home</span>
+            <span className={styles.pointLabel}>100% Home Kitchens</span>
           </li>
           <li className={styles.point}>
             <Soup className={styles.pointIcon} aria-hidden="true" />
-            <span className={styles.pointLabel}>Freshly made everyday</span>
+            <span className={styles.pointLabel}>Fresh &amp; Preservative-Free</span>
           </li>
           <li className={styles.point}>
             <Gift className={styles.pointIcon} aria-hidden="true" />
-            <span className={styles.pointLabel}>Packed with care</span>
+            <span className={styles.pointLabel}>Small-Batch &amp; Packed with Care</span>
           </li>
           <li className={styles.point}>
             <Truck className={styles.pointIcon} aria-hidden="true" />
-            <span className={styles.pointLabel}>Delivered anywhere in India</span>
+            <span className={styles.pointLabel}>Pan-India Delivery</span>
           </li>
         </ul>
       </div>
     </section>
   );
 }
+

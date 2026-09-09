@@ -9,7 +9,6 @@ import { OccasionTile } from "@/components/ui/OccasionTile";
 import { SeasonalBand } from "@/components/home/SeasonalBand";
 import { CategoryTile } from "@/components/ui/CategoryTile";
 import { ScrollRail } from "@/components/ui/ScrollRail";
-import { MakerCard } from "@/components/home/MakerCard";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
@@ -99,59 +98,57 @@ export default async function Home() {
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
 
-  /**
-   * Each kitchen's best-rated listing.
-   *
-   * Derived from the products already fetched rather than a per-vendor
-   * API call: extra round trips to render a rail of cards is not a trade
-   * worth making, and the catalogue is loaded here anyway.
-   */
-  const bestsellerByVendor = new Map<string, Product>();
-  for (const product of allProducts) {
-    const held = bestsellerByVendor.get(product.vendorId);
-    if (!held || product.rating > held.rating) bestsellerByVendor.set(product.vendorId, product);
+  // ── Bestsellers rail ─────────────────────────────────────────────────
+  // Admin curates two Collections with fixed slugs. If those collections
+  // don't exist yet, fall back to top-rated products in each kind.
+  const bestsellerFoodCollection = collections.find(
+    (c) => c.slug === "bestsellers-food",
+  );
+  const bestsellerCraftCollection = collections.find(
+    (c) => c.slug === "bestsellers-craft",
+  );
+
+  const productById = new Map(allProducts.map((p) => [p.id, p]));
+
+  function resolveCollection(
+    collection: typeof bestsellerFoodCollection,
+    kind: "food" | "craft",
+    limit = 8,
+  ): Product[] {
+    if (collection && collection.productIds.length > 0) {
+      return collection.productIds
+        .map((id) => productById.get(id))
+        .filter((p): p is Product => Boolean(p))
+        .slice(0, limit);
+    }
+    // Fallback: top-rated products of this kind
+    return allProducts
+      .filter((p) => p.kind === kind && p.reviewCount > 0)
+      .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+      .slice(0, limit);
   }
 
-  // The platform's own vendor (M44: `homekrafted`, the one an admin lists
-  // on behalf of a cook who can't face the form) is not one of "the
-  // people cooking" — a section about people should not seat the company
-  // in one of its slots.
-  const realVendors = vendors.filter((vendor) => vendor.slug !== "homekrafted");
+  const bestsellerFoodProducts = resolveCollection(bestsellerFoodCollection, "food");
+  const bestsellerCraftProducts = resolveCollection(bestsellerCraftCollection, "craft");
 
-  const makers = realVendors
-    .slice()
-    .sort((a, b) => {
-      const aHas = bestsellerByVendor.has(a.id) ? 1 : 0;
-      const bHas = bestsellerByVendor.has(b.id) ? 1 : 0;
-      if (aHas !== bHas) return bHas - aHas;
-      return b.rating - a.rating;
-    })
-    .slice(0, 4)
-    .map((vendor) => {
-      const bestseller = bestsellerByVendor.get(vendor.id);
-      // The price shown is the default weight option's, matching what a
-      // product card shows — not the cheapest, which would undercut the
-      // number the buyer sees one click later.
-      const option =
-        bestseller?.weightOptions.find((w) => w.sku === bestseller.defaultWeightSku) ??
-        bestseller?.weightOptions[0];
-      return { vendor, bestseller, bestsellerPrice: option?.price };
-    });
+  // Combined bestsellers tab (food + craft, sorted by rating)
+  const allBestsellers = [
+    ...bestsellerFoodProducts,
+    ...bestsellerCraftProducts,
+  ]
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 10);
 
-  /**
-   * The "most loved" rail — the best-rated listings that have actually
-   * been reviewed.
-   *
-   * `reviewCount > 0` is the whole filter and it is doing real work: an
-   * unreviewed listing carries `rating: 0`, so sorting the raw catalogue
-   * by rating would rank every new listing last and a tie of zeros
-   * first, depending which way the sort fell. A rail called "most loved"
-   * has to be listings somebody loved.
-   */
+  // ── HomeKrafted Gifts section ─────────────────────────────────────────
+  // Show craft products — either from trending-craft collection or top craft
+  const trendingCraftCollection = collections.find((c) => c.slug === "trending-craft");
+  const homekraftedGifts = resolveCollection(trendingCraftCollection, "craft", 8);
+
   const loved = allProducts
     .filter((product) => product.reviewCount > 0)
     .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
     .slice(0, 10);
+
 
   // The seasonal hook (M16). Read once, on the server, and shipped as
   // text — nothing recomputes "today" during hydration, which is the
@@ -249,39 +246,69 @@ export default async function Home() {
       )}
 
       {/*
-        M20 put people on the home page for the first time; M53 moved them
-        up to third. The platform's thesis is trusting a stranger's
-        kitchen, so the cook is the most persuasive thing on the page and
-        was rendering below four rails of jars.
+        Bestsellers — admin-curated via /admin/collections/curations.
+        Falls back to top-rated products by kind when no curation exists.
+        Tabbed: All / Food / Gifts so a visitor can explore each half.
       */}
-      {makers.length > 0 && (
-        <section className={clsx("container", "container-wide", styles.section)}>
+      {(bestsellerFoodProducts.length > 0 || bestsellerCraftProducts.length > 0) && (
+        <section className={clsx("container", "container-wide", styles.section, styles.altBg)}>
           <div className={styles.sectionHead}>
             <div>
-              <span className={styles.eyebrow}>Real people, real kitchens</span>
-              <h2 className={styles.sectionTitle}>Who is cooking</h2>
+              <span className={styles.eyebrow}>Loved by our community</span>
+              <h2 className={styles.sectionTitle}>Bestsellers</h2>
             </div>
             <Link href="/shop" className={styles.viewAll}>
-              All kitchens →
+              See all →
             </Link>
           </div>
-          <div className={clsx(styles.makersGrid, "hk-scroll")}>
-            {makers.map(({ vendor, bestseller, bestsellerPrice }) => (
-              <MakerCard
-                key={vendor.id}
-                vendor={vendor}
-                bestseller={bestseller}
-                bestsellerPrice={bestsellerPrice}
-              />
-            ))}
+          <div className={styles.bestsellerTabs}>
+            <ScrollRail label="bestsellers — all" className={styles.productRail}>
+              {allBestsellers.map((product) => (
+                <ProductGridCard
+                  key={product.id}
+                  product={product}
+                  makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
+                  href={`/product/${product.slug}`}
+                />
+              ))}
+            </ScrollRail>
           </div>
         </section>
       )}
 
       {/*
+        HomeKrafted Gifts — craft products surfaced from the
+        trending-craft admin curation, or top-rated craft items as fallback.
+        Pan-India shipping badge context lives on the cards already.
+      */}
+      {homekraftedGifts.length > 0 && (
+        <section className={clsx("container", "container-wide", styles.section)}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className={styles.eyebrow}>Handcrafted, posted anywhere in India</span>
+              <h2 className={styles.sectionTitle}>HomeKrafted Gifts</h2>
+            </div>
+            <Link href="/gifts" className={styles.viewAll}>
+              Browse all gifts →
+            </Link>
+          </div>
+          <ScrollRail label="homekrafted gifts" className={styles.productRail}>
+            {homekraftedGifts.map((product) => (
+              <ProductGridCard
+                key={product.id}
+                product={product}
+                makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
+                href={`/product/${product.slug}`}
+              />
+            ))}
+          </ScrollRail>
+        </section>
+      )}
+
+      {/*
         M53 — the reels stay in the top third (M52's finding) but sit
-        after the makers now: "here are the people" then "here is what
-        turns up" is an argument, where the reverse was two unrelated
+        after bestsellers now: "here is what is loved" then "here is what
+        arrives" is an argument, where the reverse was two unrelated
         rails. Framed as what arrives, not "watch it being made": the
         clips show tiffins landing, not kadais.
       */}

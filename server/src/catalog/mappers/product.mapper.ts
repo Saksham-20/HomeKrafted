@@ -122,6 +122,9 @@ export function mapProduct(product: ProductWithRelations) {
     shelfLife: product.shelfLife ?? undefined,
     storageInstructions: product.storageInstructions ?? undefined,
     madeIn: product.madeIn ?? undefined,
+    dimensions: product.dimensions ?? undefined,
+    material: product.material ?? undefined,
+    careInstructions: product.careInstructions ?? undefined,
     moderationStatus: product.moderationStatus,
     /**
      * M22. The HomeKrafter's portal reads these to show *why* a listing is

@@ -7,6 +7,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: 100%;
   transition:
     border-color var(--hk-dur) var(--hk-ease),
     box-shadow var(--hk-dur) var(--hk-ease),
@@ -89,6 +90,8 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  flex: 1;
+  justify-content: space-between;
 }
 
 /* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
@@ -107,7 +110,12 @@
   font-size: 17px;
   font-weight: 600;
   color: var(--hk-ink);
-  line-height: 1.15;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.5em;
 }
 
 /* ---- The stretched link (M22) ----

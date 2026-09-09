@@ -548,6 +548,12 @@ export interface Product {
   shelfLife?: string;
   storageInstructions?: string;
   madeIn?: string;
+  /** Physical dimensions of a craft item, e.g. "15 × 10 × 5 cm". Only present for `kind = 'craft'`. */
+  dimensions?: string;
+  /** Primary material of a craft item, e.g. "100% Soy Wax". Only present for `kind = 'craft'`. */
+  material?: string;
+  /** Care and maintenance instructions for a craft item. Only present for `kind = 'craft'`. */
+  careInstructions?: string;
   /** See `ProductModerationStatus`'s doc comment. Absent reads as `"active"`. */
   /**
    * M46 — the maker's storefront discount, mirrored onto the product so a

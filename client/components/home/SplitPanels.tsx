@@ -108,11 +108,11 @@ const HALVES = [
 ];
 
 /**
- * How far in from an edge the pointer has to be before that half is the
- * one you are leaning toward. 0.34 leaves the middle **third** of the
- * screen neutral, which is the band the brand lockup occupies.
+ * How far across the pointer must be to activate each panel.
+ * With the logo at the top of the hero, 0.46 leaves a narrow 8%
+ * seam buffer in the middle so moving between halves is seamless.
  */
-const LEAN = 0.34;
+const LEAN = 0.46;
 
 export function SplitPanels() {
   const [active, setActive] = useState<Half | null>(null);

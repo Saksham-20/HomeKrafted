@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import clsx from "clsx";
 import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Combobox } from "@/components/ui/Combobox";
@@ -396,16 +397,17 @@ export function ListingForm({
         description="One row per size you sell. The default row is the price shown on the product card. Leave stock blank for a sensible default; type 0 to show it as sold out."
       >
         <div className={styles.weightTable} role="group" aria-label="Sizes and prices">
-          <div className={styles.weightHeadRow} aria-hidden="true">
+          <div className={clsx(styles.weightHeadRow, isCraft && styles.weightHeadRowCraft)} aria-hidden="true">
             <span className={styles.weightHead}>Default</span>
             <span className={styles.weightHead}>Size</span>
+            {isCraft && <span className={styles.weightHead}>Colour</span>}
             <span className={styles.weightHead}>Price</span>
             <span className={styles.weightHead}>Was (MRP)</span>
             <span className={styles.weightHead}>Stock</span>
             <span />
           </div>
           {values.weightRows.map((row, index) => (
-            <div key={index} className={styles.weightRow}>
+            <div key={index} className={clsx(styles.weightRow, isCraft && styles.weightRowCraft)}>
               <label className={styles.defaultCell}>
                 <input
                   type="radio"
@@ -420,11 +422,21 @@ export function ListingForm({
               <Field label="Size" className={styles.cell} error={errors?.weightRows?.[index]}>
                 <Input
                   dense
-                  placeholder="250 g"
+                  placeholder={isCraft ? "Standard" : "250 g"}
                   value={row.label}
                   onChange={(event) => updateRow(index, { label: event.target.value })}
                 />
               </Field>
+              {isCraft && (
+                <Field label="Colour" className={styles.cell}>
+                  <Input
+                    dense
+                    placeholder="Rose gold"
+                    value={row.colour ?? ""}
+                    onChange={(event) => updateRow(index, { colour: event.target.value })}
+                  />
+                </Field>
+              )}
               <Field label="Price" className={styles.cell}>
                 <Input
                   dense
@@ -539,6 +551,37 @@ export function ListingForm({
             createNoun="occasion"
           />
         </Field>
+
+        {isCraft && (
+          <FieldGrid columns={2}>
+            <Field label="Dimensions" optional hint="e.g. 15 × 10 × 5 cm">
+              <Input
+                value={values.dimensions}
+                onChange={(event) => set("dimensions", event.target.value)}
+                placeholder="15 × 10 × 5 cm"
+              />
+            </Field>
+            <Field label="Primary material" optional hint="e.g. 100% Soy Wax, Brass">
+              <Input
+                value={values.material}
+                onChange={(event) => set("material", event.target.value)}
+                placeholder="100% Soy Wax"
+              />
+            </Field>
+            <Field
+              label="Care instructions"
+              optional
+              hint="e.g. Hand wash only, keep away from direct sunlight"
+              className={styles.fullWidth}
+            >
+              <Input
+                value={values.careInstructions}
+                onChange={(event) => set("careInstructions", event.target.value)}
+                placeholder="Hand wash only"
+              />
+            </Field>
+          </FieldGrid>
+        )}
 
         {/* Food only. A candle has no dietary tags, and asking reads as a
             form that doesn't know what it's selling. */}

@@ -61,6 +61,9 @@ function productToFormValues(product: Product): ListingFormValues {
       stock: String(w.stock),
     })),
     defaultRowIndex,
+    dimensions: product.dimensions ?? "",
+    material: product.material ?? "",
+    careInstructions: product.careInstructions ?? "",
   };
 }
 

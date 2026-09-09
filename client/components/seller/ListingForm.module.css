@@ -47,6 +47,18 @@
   align-items: start;
 }
 
+.weightHeadRowCraft,
+.weightRowCraft {
+  display: grid;
+  grid-template-columns: 64px 1.2fr 1.2fr 1fr 1fr 0.8fr 36px;
+  gap: var(--hk-s2);
+  align-items: start;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
 .weightHeadRow {
   padding-inline: var(--hk-s3);
 }

@@ -19,72 +19,34 @@
   under the hero instead, and it is the first thing a scroll reveals.
 */
 .inner {
-  display: grid;
-  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Top brand block (plain, clean header) ---- */
+.topBrand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(28px, 4vh, 48px) var(--hk-s4) clamp(16px, 2vh, 24px);
+  text-align: center;
+}
+
+.topTagline {
+  margin: 10px 0 0;
+  font-family: var(--hk-font-sans);
+  font-size: clamp(14px, 1.2vw, 16px);
+  color: var(--hk-muted);
+  max-width: 580px;
+  line-height: 1.45;
 }
 
 .stage {
   position: relative;
   display: grid;
-  min-height: 100dvh;
-  padding: clamp(76px, 9vh, 108px) clamp(16px, 2.2vw, 36px) clamp(20px, 2.6vw, 40px);
-}
-
-/* ---- the brand block ---- */
-
-/*
-  Centred over the seam, and **inert**: `pointer-events: none` is what
-  keeps the middle of the screen from becoming a dead zone between the
-  two things the page is asking about. Hovering "through" the lockup
-  opens whichever half is under it, which is the behaviour somebody
-  moving diagonally toward a panel expects.
-*/
-.brand {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  /* Top, not middle (owner, 2026-08-29) — the centre of the screen is
-     where the two photographs are doing their work, and a lockup parked
-     over it reads as a watermark. */
-  justify-content: flex-start;
-  gap: var(--hk-s4);
-  /* Centred over the seam, high in the frame (owner, 2026-08-29): the
-     top third is the only part of the split that carries no copy, so the
-     lockup can be large there without landing on either half's title. */
-  /* Clears the panels' own top edge — the block is absolutely
-     positioned against the stage's padding box, so this number is
-     measured from the top of the hero, not from the top of the split. */
-  padding: clamp(96px, 12vh, 140px) 0 0;
-  text-align: center;
-  pointer-events: none;
-}
-
-/*
-  The lockup steps aside the moment you lean toward a half — the page has
-  been asked and answered, and the name is in the header from here on.
-  `:has()` reads the split's own `data-active`, so there is one source of
-  truth for "a half is open" and no second piece of state.
-
-  Behind `hover` and `no-preference` for the same reasons as the
-  expansion itself: a thumb has nothing to hover with, and under reduced
-  motion a lockup that vanishes instantly on a stray pointer move is
-  worse than one that stays put.
-*/
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .brand {
-    transition:
-      opacity 0.44s var(--hk-ease),
-      transform 0.52s var(--hk-ease);
-  }
-
-  .stage:has([data-active="food"]) .brand,
-  .stage:has([data-active="gifts"]) .brand {
-    opacity: 0;
-    transform: scale(0.94) translateY(-14px);
-  }
+  min-height: clamp(460px, 64vh, 680px);
+  padding: 0 clamp(16px, 2.2vw, 36px) clamp(16px, 2.2vw, 32px);
 }
 
 .brandGroup {
@@ -92,7 +54,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--hk-s4);
+  gap: var(--hk-s2);
 }
 
 /*
@@ -125,80 +87,15 @@
   and no `filter` or static `opacity` either: each makes a backdrop root
   and leaves the blur nothing behind it to work on.
 */
-.brandGroup::before {
-  content: "";
-  position: absolute;
-  inset: -62% -54%;
-  z-index: -1;
-  background:
-    radial-gradient(
-      55% 50% at 50% 51%,
-      rgba(253, 251, 246, 0.96) 0%,
-      rgba(253, 251, 246, 0.93) 20%,
-      rgba(253, 251, 246, 0.85) 34%,
-      rgba(253, 251, 246, 0.72) 47%,
-      rgba(253, 251, 246, 0.5) 59%,
-      rgba(253, 251, 246, 0.26) 71%,
-      rgba(253, 251, 246, 0.11) 83%,
-      rgba(253, 251, 246, 0.03) 92%,
-      rgba(253, 251, 246, 0) 100%
-    ),
-    radial-gradient(
-      74% 66% at 50% 51%,
-      rgba(253, 251, 246, 0.3) 0%,
-      rgba(253, 251, 246, 0.16) 45%,
-      rgba(253, 251, 246, 0.05) 74%,
-      rgba(253, 251, 246, 0) 100%
-    );
-  backdrop-filter: blur(9px) saturate(0.94);
-  -webkit-backdrop-filter: blur(9px) saturate(0.94);
-  mask-image: radial-gradient(
-    61% 55% at 50% 51%,
-    #000 22%,
-    rgba(0, 0, 0, 0.85) 42%,
-    rgba(0, 0, 0, 0.5) 62%,
-    rgba(0, 0, 0, 0.18) 78%,
-    transparent 88%
-  );
-  -webkit-mask-image: radial-gradient(
-    61% 55% at 50% 51%,
-    #000 22%,
-    rgba(0, 0, 0, 0.85) 42%,
-    rgba(0, 0, 0, 0.5) 62%,
-    rgba(0, 0, 0, 0.18) 78%,
-    transparent 88%
-  );
-}
-
 .brandHeading {
   margin: 0;
   line-height: 0;
 }
 
-/*
-  The lockup at the size the owner asked for: the one place the brand
-  appears at all on this page, so it is the largest thing on it.
-
-  **No filter.** It carries the brand's own green and gold, which is why
-  the plate behind it is cream — recolouring a wordmark to survive its
-  background is changing the brand to fit the photograph.
-*/
 .brandMark {
   display: block;
-  height: clamp(64px, 9.4vw, 140px);
+  height: clamp(48px, 6vw, 76px);
   width: auto;
-  /*
-    A short white halo on the mark itself, on top of the plate behind the
-    whole group. The plate is a broad, soft light and the wordmark's
-    counters are small — the halo is what puts a hard-edged separation
-    right at the letterforms, so the green reads as green rather than as
-    dark type on a bright patch. Still no recolouring and no drop shadow
-    with an offset: the mark keeps its own green and gold, and light
-    behind it is not a change to it.
-  */
-  filter:
-    drop-shadow(0 0 10px rgba(253, 251, 246, 0.95))
-    drop-shadow(0 0 26px rgba(253, 251, 246, 0.6));
 }
 
 /* ---- the slogan ---- */

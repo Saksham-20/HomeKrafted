@@ -120,6 +120,10 @@ export class SellerListingsService {
         isSnack: dto.isSnack ?? false,
         cashbackPct: dto.cashbackPct,
         description: dto.description,
+        // Craft-specific physical specs — NULL for food listings
+        dimensions: dto.dimensions ?? null,
+        material: dto.material ?? null,
+        careInstructions: dto.careInstructions ?? null,
         // M22 — explicit rather than leaning on the column default, because
         // a reader of this method needs to see that a new listing is not
         // live yet. `submittedAt` is what the admin queue orders on.
@@ -253,6 +257,10 @@ export class SellerListingsService {
           isSnack: dto.isSnack,
           cashbackPct: dto.cashbackPct,
           description: dto.description,
+          // Craft-specific physical specs — undefined means no change
+          dimensions: dto.dimensions,
+          material: dto.material,
+          careInstructions: dto.careInstructions,
           ...requeue,
         },
         include: PRODUCT_INCLUDE,

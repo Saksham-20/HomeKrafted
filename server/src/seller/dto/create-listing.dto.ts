@@ -211,4 +211,32 @@ export class CreateListingDto {
   @IsString()
   @MinLength(1)
   defaultWeightSku!: string;
+
+  /**
+   * Physical size of a craft item — e.g. "15 × 10 × 5 cm". Optional, and
+   * only sent for `kind = craft`. Food listings should omit this entirely.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  dimensions?: string;
+
+  /**
+   * Primary material of a craft item — e.g. "100% Soy Wax", "Brass".
+   * Optional, craft-only. Shown in the product specs tab in place of
+   * `ingredients`.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  material?: string;
+
+  /**
+   * Maintenance / care instructions for a craft item — e.g. "Hand wash only",
+   * "Keep away from direct sunlight". Optional, craft-only.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  careInstructions?: string;
 }

@@ -90,4 +90,43 @@ describe("toSellerListingInput", () => {
     expect(input.weightOptions[2].price).toBe(600);
     expect(input.defaultWeightSku).toBe(input.weightOptions[0].sku);
   });
+
+  it("passes dimensions, material, careInstructions through for craft listings", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Soy Candle",
+      categoryId: "cat-craft",
+      description: "Hand-poured soy wax candle.",
+      kind: "craft",
+      dimensions: "8 × 8 × 10 cm",
+      material: "100% Soy Wax, Cotton wick",
+      careInstructions: "Keep away from direct sunlight",
+      weightRows: [{ label: "Standard", price: "399", mrp: "449", stock: "20" }],
+    };
+
+    const input = toSellerListingInput(values);
+    expect(input.dimensions).toBe("8 × 8 × 10 cm");
+    expect(input.material).toBe("100% Soy Wax, Cotton wick");
+    expect(input.careInstructions).toBe("Keep away from direct sunlight");
+  });
+
+  it("omits craft spec fields for food listings", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Besan Ladoo",
+      categoryId: "cat-food",
+      description: "Classic gram-flour sweets.",
+      kind: "food",
+      // These would be blank on a food form, but even if somehow set, must not appear
+      dimensions: "something",
+      material: "wheat",
+      careInstructions: "store cool",
+      weightRows: [{ label: "Box of 12", price: "250", mrp: "280", stock: "30" }],
+    };
+
+    const input = toSellerListingInput(values);
+    expect(input.dimensions).toBeUndefined();
+    expect(input.material).toBeUndefined();
+    expect(input.careInstructions).toBeUndefined();
+  });
 });

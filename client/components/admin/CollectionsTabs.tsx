@@ -3,11 +3,11 @@ import clsx from "clsx";
 import styles from "./CatalogTabs.module.css";
 
 export interface CollectionsTabsProps {
-  active: "collections" | "occasions" | "promo";
+  active: "collections" | "occasions" | "promo" | "curations";
 }
 
 /**
- * Shared sub-nav for the three merchandising screens — reuses
+ * Shared sub-nav for the four merchandising screens — reuses
  * `CatalogTabs`'s CSS recipe. "Occasions" (M16) is where festival dates
  * are rolled forward each year.
  *
@@ -38,6 +38,13 @@ export function CollectionsTabs({ active }: CollectionsTabsProps) {
         aria-current={active === "promo" ? "page" : undefined}
       >
         Home page bands
+      </Link>
+      <Link
+        href="/admin/collections/curations"
+        className={clsx(styles.tab, active === "curations" && styles.tabActive)}
+        aria-current={active === "curations" ? "page" : undefined}
+      >
+        Bestsellers &amp; Trending
       </Link>
     </nav>
   );
