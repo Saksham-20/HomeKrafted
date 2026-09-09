@@ -152,15 +152,14 @@ export const aboutContent: AboutContent = {
    * to hit a tone. Instead: same domain, no rank. Replace these with the
    * real one-liners when someone who knows can supply them.
    */
-  founder: { name: "Harkanwar Singh", role: "Founder" },
+  founder: { name: "Harkanwar Singh", role: "Founder & CEO" },
   team: [
-    { name: "Lavya", role: "Strategy" },
-    { name: "Rohan", role: "Strategy" },
-    { name: "Jatin", role: "Research and development" },
-    { name: "Eklavya", role: "Creative" },
-    { name: "Gurpreet Singh", role: "Research" },
-    { name: "Anjali Chabra", role: "Product" },
-    { name: "Garv", role: "Data" },
+    { name: "Amarjot Singh", role: "Director & Co-founder" },
+    { name: "Manav Ahuja", role: "Marketing Head" },
+    { name: "Abhinav Sharma", role: "Marketing Analyst" },
+    { name: "Priyanshi", role: "Operations Executive" },
+    { name: "Kritika", role: "Operations Intern" },
+    { name: "Kitty Chawla", role: "Graphics Designer" },
   ],
 
   contactHeading: "Talk to us",
