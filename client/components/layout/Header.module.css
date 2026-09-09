@@ -93,38 +93,12 @@
 
 /*
   The landing bar's logo (M56, owner 2026-08-31): in the row from first
-  paint — so its flex slot is always occupied and nothing reflows when it
-  appears (the "transform and opacity only" rule above) — but invisible
-  until the hero lockup has scrolled out. `data-revealed` already means
-  exactly "the lockup left the bar's 64px band", so the same attribute
-  that turns the bar solid brings the wordmark in: it reads as the hero's
-  mark moving into the bar. `visibility` (delayed 0s on the way out,
-  immediate on the way in) also removes the link from the tab order while
-  it cannot be seen (the a11y floor's off-screen rule). No FLIP morph of
-  the hero mark itself — a fade/rise as the bar solidifies is the honest
-  version at a fraction of the machinery. And deliberately scroll-only:
-  hovering a split panel fades the hero lockup too (Hero.module.css), but
-  that is a momentary hover state — don't couple SplitPanels to this bar
-  through a document-root attribute to cover it.
+  paint — always visible on the navbar.
 */
 .landing .logo {
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(6px);
-  transition:
-    opacity var(--hk-dur) var(--hk-ease),
-    transform var(--hk-dur) var(--hk-ease),
-    visibility 0s linear var(--hk-dur);
-}
-
-.landing[data-revealed="true"] .logo {
   opacity: 1;
   visibility: visible;
   transform: none;
-  transition:
-    opacity var(--hk-dur) var(--hk-ease),
-    transform var(--hk-dur) var(--hk-ease),
-    visibility 0s;
 }
 
 /* ---- Tab dropdowns (M56) ----

@@ -19,18 +19,57 @@
   under the hero instead, and it is the first thing a scroll reveals.
 */
 .inner {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  min-height: 100dvh;
 }
 
-/* ---- Top brand block (clean, compact header right on top of hero) ---- */
-.topBrand {
+.stage {
+  position: relative;
+  display: grid;
+  min-height: 100dvh;
+  padding: clamp(76px, 9vh, 108px) clamp(16px, 2.2vw, 36px) clamp(20px, 2.6vw, 40px);
+}
+
+/* ---- the brand block ---- */
+
+/*
+  Centred over the seam, and **inert**: `pointer-events: none` is what
+  keeps the middle of the screen from becoming a dead zone between the
+  two things the page is asking about. Hovering "through" the lockup
+  opens whichever half is under it, which is the behaviour somebody
+  moving diagonally toward a panel expects.
+*/
+.brand {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: clamp(56px, 7vh, 72px) var(--hk-s4) clamp(10px, 1.6vh, 18px);
+  justify-content: flex-start;
+  gap: var(--hk-s4);
+  /* Centred over the seam, high in the frame */
+  padding: clamp(110px, 14vh, 150px) 0 0;
   text-align: center;
+  pointer-events: none;
+}
+
+/*
+  The slogan steps aside the moment you lean toward a half — the page has
+  been asked and answered, and the name is in the header from here on.
+*/
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .brand {
+    transition:
+      opacity 0.44s var(--hk-ease),
+      transform 0.52s var(--hk-ease);
+  }
+
+  .stage:has([data-active="food"]) .brand,
+  .stage:has([data-active="gifts"]) .brand {
+    opacity: 0;
+    transform: scale(0.94) translateY(-14px);
+  }
 }
 
 .brandGroup {
@@ -38,71 +77,55 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-}
-
-.brandMark {
-  display: block;
-  height: clamp(54px, 5.5vw, 70px);
-  width: auto;
-}
-
-.topTagline {
-  margin: 0;
-  font-family: var(--hk-font-sans);
-  font-size: clamp(13.5px, 1.1vw, 15px);
-  color: var(--hk-ink-2);
-  max-width: 620px;
-  line-height: 1.4;
-  letter-spacing: -0.005em;
-}
-
-.stage {
-  position: relative;
-  display: grid;
-  min-height: clamp(440px, 62vh, 640px);
-  padding: 0 clamp(16px, 2.2vw, 36px) clamp(12px, 1.8vw, 24px);
+  gap: var(--hk-s4);
 }
 
 /*
-  The glow, and why it is on this box rather than on the stage.
-
-  The mark is drawn in its own green and gold and it stays that way
-  (owner, 2026-08-29) — so the surface behind it has to be light, the way
-  it is everywhere else on the site. It used to be a 520px plate spanning
-  the whole stage, which read as fog over both photographs; sized to the
-  `<hgroup>` instead, it tracks exactly what it is lighting — the lockup
-  and the slogan — and grows with them at every breakpoint with no second
-  number to keep in step.
-
-  **The falloff is eight stops, not three, and the box is much larger
-  than the light in it.** A three-stop ramp on a tight box put the whole
-  fade into a few dozen pixels, which is what made it read as a white
-  disc laid over the photographs rather than light behind the type: the
-  eye finds the edge of a gradient long before it goes fully
-  transparent. The stops here approximate a gaussian — most of the
-  opacity is spent in the middle and the last quarter is nearly nothing —
-  and the extra inset is empty room for that tail to die in.
-
-  Two layers: the plate that carries the type, and a wider, much fainter
-  halo under it that softens where the plate ends.
-
-  The mask runs to zero **earlier** than the paint (88% against 100%), so
-  the backdrop blur is already gone by the time the light is — a blur
-  that stops while it is still visible draws its own rim, which is the
-  other half of what made a disc. No `isolation: isolate` on the parent,
-  and no `filter` or static `opacity` either: each makes a backdrop root
-  and leaves the blur nothing behind it to work on.
+  The glow behind the slogan for contrast against photographs.
 */
-.brandHeading {
-  margin: 0;
-  line-height: 0;
-}
-
-.brandMark {
-  display: block;
-  height: clamp(48px, 6vw, 76px);
-  width: auto;
+.brandGroup::before {
+  content: "";
+  position: absolute;
+  inset: -50% -45%;
+  z-index: -1;
+  background:
+    radial-gradient(
+      55% 50% at 50% 51%,
+      rgba(253, 251, 246, 0.96) 0%,
+      rgba(253, 251, 246, 0.93) 20%,
+      rgba(253, 251, 246, 0.85) 34%,
+      rgba(253, 251, 246, 0.72) 47%,
+      rgba(253, 251, 246, 0.5) 59%,
+      rgba(253, 251, 246, 0.26) 71%,
+      rgba(253, 251, 246, 0.11) 83%,
+      rgba(253, 251, 246, 0.03) 92%,
+      rgba(253, 251, 246, 0) 100%
+    ),
+    radial-gradient(
+      74% 66% at 50% 51%,
+      rgba(253, 251, 246, 0.3) 0%,
+      rgba(253, 251, 246, 0.16) 45%,
+      rgba(253, 251, 246, 0.05) 74%,
+      rgba(253, 251, 246, 0) 100%
+    );
+  backdrop-filter: blur(9px) saturate(0.94);
+  -webkit-backdrop-filter: blur(9px) saturate(0.94);
+  mask-image: radial-gradient(
+    61% 55% at 50% 51%,
+    #000 22%,
+    rgba(0, 0, 0, 0.85) 42%,
+    rgba(0, 0, 0, 0.5) 62%,
+    rgba(0, 0, 0, 0.18) 78%,
+    transparent 88%
+  );
+  -webkit-mask-image: radial-gradient(
+    61% 55% at 50% 51%,
+    #000 22%,
+    rgba(0, 0, 0, 0.85) 42%,
+    rgba(0, 0, 0, 0.5) 62%,
+    rgba(0, 0, 0, 0.18) 78%,
+    transparent 88%
+  );
 }
 
 /* ---- the slogan ---- */
@@ -188,21 +211,16 @@
 /* ---- the promise strip ---- */
 
 .points {
-  width: min(1180px, calc(100% - 2 * var(--hk-s4)));
+  /* Its own band under the full-screen split, on the canvas — the first
+     thing a scroll reveals. */
+  width: min(1180px, 100% - 2 * var(--hk-s8));
   margin-inline: auto;
-  margin-top: 8px;
-  margin-bottom: var(--hk-s4);
-  padding: 12px clamp(16px, 2.5vw, 28px);
+  padding-block: var(--hk-s5);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  align-items: center;
-  gap: var(--hk-s3) clamp(var(--hk-s4), 3.5vw, 44px);
+  gap: var(--hk-s3) clamp(var(--hk-s5), 4vw, 52px);
   list-style: none;
-  background: var(--hk-surface, #fff);
-  border: 1px solid var(--hk-border, #e2e2e2);
-  border-radius: var(--hk-r-pill, 999px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .point {
