@@ -29,19 +29,26 @@ export function ProductTabs({ product, reviews: initialReviews }: ProductTabsPro
   // this page is a Server Component render and won't refetch on its own.
   const [reviews, setReviews] = useState(initialReviews);
 
-  const specs: { k: string; v: string }[] = product.kind === "craft"
-    ? [
-        product.dimensions && { k: "Dimensions", v: product.dimensions },
-        product.material && { k: "Material", v: product.material },
-        product.careInstructions && { k: "Care", v: product.careInstructions },
-        product.madeIn && { k: "Made in", v: product.madeIn },
-      ].filter((row): row is { k: string; v: string } => Boolean(row))
-    : [
-        product.ingredients && { k: "Ingredients", v: product.ingredients },
-        product.shelfLife && { k: "Shelf life", v: product.shelfLife },
-        product.storageInstructions && { k: "Storage", v: product.storageInstructions },
-        product.madeIn && { k: "Made in", v: product.madeIn },
-      ].filter((row): row is { k: string; v: string } => Boolean(row));
+  function formatPrepNotice(mins: number): string {
+    if (mins < 60) return `${mins} mins`;
+    if (mins < 60 * 24) {
+      const hours = Math.round(mins / 60);
+      return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+    }
+    const days = Math.round(mins / (60 * 24));
+    return `${days} ${days === 1 ? "day" : "days"}`;
+  }
+
+  const specs: { k: string; v: string }[] = [
+    product.dimensions && { k: "Dimensions", v: product.dimensions },
+    product.material && { k: "Material", v: product.material },
+    product.ingredients && { k: "Ingredients", v: product.ingredients },
+    product.shelfLife && { k: "Shelf life", v: product.shelfLife },
+    product.storageInstructions && { k: "Storage", v: product.storageInstructions },
+    product.careInstructions && { k: "Care", v: product.careInstructions },
+    product.prepTimeMins && { k: "Prep notice", v: formatPrepNotice(product.prepTimeMins) },
+    product.madeIn && { k: "Made in", v: product.madeIn },
+  ].filter((row): row is { k: string; v: string } => Boolean(row));
 
   return (
     <div className={styles.wrap}>

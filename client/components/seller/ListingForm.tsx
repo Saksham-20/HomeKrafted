@@ -397,17 +397,17 @@ export function ListingForm({
         description="One row per size you sell. The default row is the price shown on the product card. Leave stock blank for a sensible default; type 0 to show it as sold out."
       >
         <div className={styles.weightTable} role="group" aria-label="Sizes and prices">
-          <div className={clsx(styles.weightHeadRow, isCraft && styles.weightHeadRowCraft)} aria-hidden="true">
+          <div className={clsx(styles.weightHeadRow, styles.weightHeadRowCraft)} aria-hidden="true">
             <span className={styles.weightHead}>Default</span>
             <span className={styles.weightHead}>Size</span>
-            {isCraft && <span className={styles.weightHead}>Colour</span>}
+            <span className={styles.weightHead}>Colour</span>
             <span className={styles.weightHead}>Price</span>
             <span className={styles.weightHead}>Was (MRP)</span>
             <span className={styles.weightHead}>Stock</span>
             <span />
           </div>
           {values.weightRows.map((row, index) => (
-            <div key={index} className={clsx(styles.weightRow, isCraft && styles.weightRowCraft)}>
+            <div key={index} className={clsx(styles.weightRow, styles.weightRowCraft)}>
               <label className={styles.defaultCell}>
                 <input
                   type="radio"
@@ -427,16 +427,14 @@ export function ListingForm({
                   onChange={(event) => updateRow(index, { label: event.target.value })}
                 />
               </Field>
-              {isCraft && (
-                <Field label="Colour" className={styles.cell}>
-                  <Input
-                    dense
-                    placeholder="Rose gold"
-                    value={row.colour ?? ""}
-                    onChange={(event) => updateRow(index, { colour: event.target.value })}
-                  />
-                </Field>
-              )}
+              <Field label="Colour" className={styles.cell}>
+                <Input
+                  dense
+                  placeholder="Red, Blue, Rose gold"
+                  value={row.colour ?? ""}
+                  onChange={(event) => updateRow(index, { colour: event.target.value })}
+                />
+              </Field>
               <Field label="Price" className={styles.cell}>
                 <Input
                   dense
@@ -552,36 +550,35 @@ export function ListingForm({
           />
         </Field>
 
-        {isCraft && (
-          <FieldGrid columns={2}>
-            <Field label="Dimensions" optional hint="e.g. 15 × 10 × 5 cm">
-              <Input
-                value={values.dimensions}
-                onChange={(event) => set("dimensions", event.target.value)}
-                placeholder="15 × 10 × 5 cm"
-              />
-            </Field>
-            <Field label="Primary material" optional hint="e.g. 100% Soy Wax, Brass">
-              <Input
-                value={values.material}
-                onChange={(event) => set("material", event.target.value)}
-                placeholder="100% Soy Wax"
-              />
-            </Field>
-            <Field
-              label="Care instructions"
-              optional
-              hint="e.g. Hand wash only, keep away from direct sunlight"
-              className={styles.fullWidth}
-            >
-              <Input
-                value={values.careInstructions}
-                onChange={(event) => set("careInstructions", event.target.value)}
-                placeholder="Hand wash only"
-              />
-            </Field>
-          </FieldGrid>
-        )}
+        {/* Dimensions, Materials and Care — general for all products */}
+        <FieldGrid columns={2}>
+          <Field label="Dimensions" optional hint={isCraft ? "e.g. 15 × 10 × 5 cm" : "e.g. 8\" dia, 500 ml jar, 20 × 15 cm box"}>
+            <Input
+              value={values.dimensions}
+              onChange={(event) => set("dimensions", event.target.value)}
+              placeholder={isCraft ? "15 × 10 × 5 cm" : "8\" dia or 20 × 15 × 5 cm"}
+            />
+          </Field>
+          <Field label="Material / Packaging" optional hint={isCraft ? "e.g. 100% Soy Wax, Brass" : "e.g. Glass jar, Tin box, Eco packaging"}>
+            <Input
+              value={values.material}
+              onChange={(event) => set("material", event.target.value)}
+              placeholder={isCraft ? "100% Soy Wax" : "Glass jar / Tin box"}
+            />
+          </Field>
+          <Field
+            label="Care instructions / storage"
+            optional
+            hint={isCraft ? "e.g. Hand wash only, keep away from direct sunlight" : "e.g. Keep refrigerated, consume within 3 days"}
+            className={styles.fullWidth}
+          >
+            <Input
+              value={values.careInstructions}
+              onChange={(event) => set("careInstructions", event.target.value)}
+              placeholder={isCraft ? "Hand wash only" : "Keep refrigerated, consume within 3 days"}
+            />
+          </Field>
+        </FieldGrid>
 
         {/* Food only. A candle has no dietary tags, and asking reads as a
             form that doesn't know what it's selling. */}
@@ -632,22 +629,20 @@ export function ListingForm({
           craft listing's lead time is a shipping question, which
           `shippingScope` already asks.
         */}
-        {!isCraft && (
-          <Field
-            label="Notice you need for this dish"
-            optional
-            hint={`Minutes. Over ${PRE_ORDER_THRESHOLD_MINS} and buyers see a "Pre-order" badge with the time on it, so they know it is not for today. Leave it blank if this one goes out with everything else.`}
-          >
-            <Input
-              type="number"
-              min={0}
-              inputMode="numeric"
-              value={values.prepTimeMins}
-              onChange={(event) => set("prepTimeMins", event.target.value)}
-              placeholder="e.g. 2880 for two days"
-            />
-          </Field>
-        )}
+        <Field
+          label="Preparation notice needed"
+          optional
+          hint={`Minutes notice needed before this order can be ready (e.g. 120 for 2 hours, 2880 for two days). Over ${PRE_ORDER_THRESHOLD_MINS} mins shows a "Pre-order" badge. Leave blank if ready immediately.`}
+        >
+          <Input
+            type="number"
+            min={0}
+            inputMode="numeric"
+            value={values.prepTimeMins}
+            onChange={(event) => set("prepTimeMins", event.target.value)}
+            placeholder="e.g. 120 for 2 hours, 2880 for two days"
+          />
+        </Field>
 
         <Fieldset legend="Tags" optional>
           <ChipRow>

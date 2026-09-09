@@ -135,18 +135,38 @@ describe("toSellerListingInput", () => {
     expect(input.careInstructions).toBe("Keep away from direct sunlight");
   });
 
-  it("omits craft spec fields for food listings", () => {
+  it("supports dimensions and specs across food and craft listings alike", () => {
     const values: ListingFormValues = {
       ...EMPTY_LISTING_FORM,
-      name: "Besan Ladoo",
+      name: "Besan Ladoo Gift Box",
       categoryId: "cat-food",
-      description: "Classic gram-flour sweets.",
+      description: "Classic gram-flour sweets in handcrafted box.",
       kind: "food",
-      // These would be blank on a food form, but even if somehow set, must not appear
-      dimensions: "something",
-      material: "wheat",
-      careInstructions: "store cool",
+      dimensions: "20 × 15 × 5 cm",
+      material: "Tin box with gold foil",
+      careInstructions: "Store in a cool dry place",
+      prepTimeMins: "120",
       weightRows: [{ label: "Box of 12", price: "250", mrp: "280", stock: "30" }],
+    };
+
+    const input = toSellerListingInput(values);
+    expect(input.dimensions).toBe("20 × 15 × 5 cm");
+    expect(input.material).toBe("Tin box with gold foil");
+    expect(input.careInstructions).toBe("Store in a cool dry place");
+    expect(input.prepTimeMins).toBe(120);
+  });
+
+  it("omits spec fields when empty strings are provided", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Plain Dish",
+      categoryId: "cat-food",
+      description: "Simple home cooked meal.",
+      kind: "food",
+      dimensions: "   ",
+      material: "",
+      careInstructions: "   ",
+      weightRows: [{ label: "1 portion", price: "150", mrp: "180", stock: "10" }],
     };
 
     const input = toSellerListingInput(values);

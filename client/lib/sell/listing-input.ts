@@ -170,15 +170,10 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     imagePath: values.imagePath,
     weightOptions,
     defaultWeightSku: weightOptions[values.defaultRowIndex]?.sku ?? weightOptions[0]?.sku ?? "",
-    // Craft-specific fields — only sent for crafts; trim to undefined so the
-    // server writes NULL rather than an empty string on a food listing.
-    ...(values.kind === "craft"
-      ? {
-          dimensions: values.dimensions.trim() || undefined,
-          material: values.material.trim() || undefined,
-          careInstructions: values.careInstructions.trim() || undefined,
-        }
-      : {}),
+    // Dimensions, materials & care instructions — supported across all listings (food, crafts, gifts)
+    dimensions: values.dimensions.trim() || undefined,
+    material: values.material.trim() || undefined,
+    careInstructions: values.careInstructions.trim() || undefined,
   };
 }
 

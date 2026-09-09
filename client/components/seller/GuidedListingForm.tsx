@@ -587,8 +587,8 @@ export function GuidedListingForm({
                         onChange={(event) => updateRow(index, { label: event.target.value })}
                         placeholder={isCraft ? "Small" : "250 g"}
                       />
-                    </label>
-                    {isCraft && (
+                      </label>
+
                       <label className={styles.field}>
                         <div className={styles.colourHeader}>
                           <span className={styles.question}>
@@ -710,7 +710,6 @@ export function GuidedListingForm({
                           Click colours above to select / unselect, or type custom names separated by commas.
                         </span>
                       </label>
-                    )}
 
                   </div>
 
@@ -827,48 +826,62 @@ export function GuidedListingForm({
               {values.description.length} / ~200 characters — two or three sentences is plenty
             </div>
 
-            {isCraft && (
-              <div className={styles.craftSpecsGroup}>
-                <p className={styles.craftSpecsHint}>
-                  Help buyers know exactly what they're getting.
-                </p>
-                <div className={styles.craftSpecsGrid}>
-                  <label className={styles.field}>
-                    <span className={styles.question}>
-                      Dimensions <span className={styles.optional}>optional</span>
-                    </span>
-                    <input
-                      className={styles.bigInput}
-                      value={values.dimensions}
-                      onChange={(event) => set("dimensions", event.target.value)}
-                      placeholder="e.g. 15 × 10 × 5 cm"
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.question}>
-                      Material <span className={styles.optional}>optional</span>
-                    </span>
-                    <input
-                      className={styles.bigInput}
-                      value={values.material}
-                      onChange={(event) => set("material", event.target.value)}
-                      placeholder="e.g. 100% Soy Wax, Cotton wick"
-                    />
-                  </label>
-                </div>
+            <div className={styles.craftSpecsGroup}>
+              <p className={styles.craftSpecsHint}>
+                Product specifications — dimensions, materials and preparation notice.
+              </p>
+              <div className={styles.craftSpecsGrid}>
                 <label className={styles.field}>
                   <span className={styles.question}>
-                    Care instructions <span className={styles.optional}>optional</span>
+                    Dimensions <span className={styles.optional}>optional</span>
+                  </span>
+                  <input
+                    className={styles.bigInput}
+                    value={values.dimensions}
+                    onChange={(event) => set("dimensions", event.target.value)}
+                    placeholder={isCraft ? "e.g. 15 × 10 × 5 cm" : "e.g. 8\" dia, 500 ml jar, 20 × 15 cm box"}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.question}>
+                    Material / Packaging <span className={styles.optional}>optional</span>
+                  </span>
+                  <input
+                    className={styles.bigInput}
+                    value={values.material}
+                    onChange={(event) => set("material", event.target.value)}
+                    placeholder={isCraft ? "e.g. 100% Soy Wax, Ceramic" : "e.g. Glass jar, Tin box, Eco packaging"}
+                  />
+                </label>
+              </div>
+              <div className={styles.craftSpecsGrid}>
+                <label className={styles.field}>
+                  <span className={styles.question}>
+                    Preparation notice <span className={styles.optional}>optional</span>
+                  </span>
+                  <input
+                    className={styles.bigInput}
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={values.prepTimeMins}
+                    onChange={(event) => set("prepTimeMins", event.target.value)}
+                    placeholder="e.g. 120 (in minutes notice)"
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.question}>
+                    Care / Storage <span className={styles.optional}>optional</span>
                   </span>
                   <input
                     className={styles.bigInput}
                     value={values.careInstructions}
                     onChange={(event) => set("careInstructions", event.target.value)}
-                    placeholder="e.g. Keep away from direct sunlight, hand wash only"
+                    placeholder={isCraft ? "e.g. Hand wash only" : "e.g. Keep refrigerated, consume in 3 days"}
                   />
                 </label>
               </div>
-            )}
+            </div>
 
             {!isCraft && (
               <fieldset className={styles.choiceSet}>

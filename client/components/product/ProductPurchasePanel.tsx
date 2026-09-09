@@ -225,7 +225,9 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         </div>
       )}
 
-      <div className={styles.weightLabel}>Weight</div>
+      <div className={styles.weightLabel}>
+        {product.kind === "craft" ? "Size / Option" : "Weight / Size"}
+      </div>
       <div className={styles.weightRow}>
         {product.weightOptions.map((option) => (
           <Chip
