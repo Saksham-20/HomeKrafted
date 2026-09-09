@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowLeft, ArrowRight, Camera, Check, IndianRupee, Plus, Tag, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ChevronUp, IndianRupee, Plus, Tag, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -63,37 +63,50 @@ const CRAFT_PLACEHOLDERS = ["Beeswax candle", "Silver jhumkas", "Hand-painted pr
 /** How many top category quick-picks to show. */
 const QUICK_PICK_COUNT = 6;
 
-/** Craft colour swatches for variant selection. */
-const CRAFT_PALETTE = [
-  // Primary (visible by default)
+/** Normal, most commonly used colours shown directly on the front. */
+const COMMON_COLOURS = [
+  { name: "Red", hex: "#e53935" },
+  { name: "Blue", hex: "#1e88e5" },
+  { name: "Green", hex: "#43a047" },
+  { name: "Yellow", hex: "#fbc02d" },
   { name: "Black", hex: "#1a1a1a" },
   { name: "White", hex: "#ffffff" },
-  { name: "Cream", hex: "#f5e6c8" },
+  { name: "Pink", hex: "#f06292" },
+  { name: "Orange", hex: "#fb8c00" },
+  { name: "Brown", hex: "#6d4c41" },
+  { name: "Purple", hex: "#8e24aa" },
+  { name: "Grey", hex: "#757575" },
+  { name: "Beige", hex: "#f5e6c8" },
+] as const;
+
+/** Extra craft shades and tones placed under a click-to-expand box. */
+const EXTRA_COLOURS = [
   { name: "Rose gold", hex: "#c08777" },
   { name: "Gold", hex: "#c9a227" },
   { name: "Silver", hex: "#a8a9ad" },
-  { name: "Sage", hex: "#7a9e87" },
-  { name: "Terracotta", hex: "#c4663a" },
-  // Extended (revealed on "+ More colours")
-  { name: "Blush", hex: "#e8a7a7" },
-  { name: "Navy", hex: "#253b6e" },
-  { name: "Olive", hex: "#6b705c" },
-  { name: "Mustard", hex: "#e09f3e" },
-  { name: "Burgundy", hex: "#540b0e" },
-  { name: "Lavender", hex: "#b8a9c9" },
-  { name: "Emerald", hex: "#1b4931" },
-  { name: "Rust", hex: "#a44a3f" },
-  { name: "Teal", hex: "#1e6066" },
-  { name: "Lilac", hex: "#d8bbff" },
-  { name: "Peach", hex: "#f4a261" },
-  { name: "Charcoal", hex: "#363636" },
   { name: "Copper", hex: "#b87333" },
   { name: "Bronze", hex: "#8c6239" },
+  { name: "Sage", hex: "#7a9e87" },
+  { name: "Olive", hex: "#6b705c" },
+  { name: "Emerald", hex: "#1b4931" },
+  { name: "Navy", hex: "#1a237e" },
+  { name: "Sky blue", hex: "#81d4fa" },
+  { name: "Teal", hex: "#00897b" },
+  { name: "Lavender", hex: "#b8a9c9" },
+  { name: "Lilac", hex: "#d8bbff" },
+  { name: "Maroon", hex: "#800000" },
+  { name: "Burgundy", hex: "#540b0e" },
+  { name: "Terracotta", hex: "#c4663a" },
+  { name: "Rust", hex: "#a44a3f" },
+  { name: "Peach", hex: "#f4a261" },
+  { name: "Coral", hex: "#ff7043" },
+  { name: "Mustard", hex: "#f5b041" },
   { name: "Mint", hex: "#a3c4bc" },
+  { name: "Charcoal", hex: "#37474f" },
   { name: "Ochre", hex: "#cc7722" },
+  { name: "Turquoise", hex: "#26c6da" },
 ] as const;
 
-const PRIMARY_SWATCH_COUNT = 8;
 
 export interface GuidedListingFormProps {
   values: ListingFormValues;
@@ -591,21 +604,28 @@ export function GuidedListingForm({
                               }))
                             }
                           >
-                            {showAllColoursByRow[index]
-                              ? "Show fewer"
-                              : `+ ${CRAFT_PALETTE.length - PRIMARY_SWATCH_COUNT} more colours`}
+                            {showAllColoursByRow[index] ? (
+                              <>
+                                <ChevronUp size={12} aria-hidden="true" />
+                                Hide extra colours
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={12} aria-hidden="true" />
+                                + More colours ({EXTRA_COLOURS.length})
+                              </>
+                            )}
                           </button>
                         </div>
+
+                        {/* Normal / most common colours on the front */}
                         <div className={styles.paletteRow}>
-                          {(showAllColoursByRow[index]
-                            ? CRAFT_PALETTE
-                            : CRAFT_PALETTE.slice(0, PRIMARY_SWATCH_COUNT)
-                          ).map((swatch) => {
+                          {COMMON_COLOURS.map((swatch) => {
                             const selected = parseColours(row.colour);
                             const isSelected = selected.some(
                               (c) => c.toLowerCase() === swatch.name.toLowerCase(),
                             );
-                            const isLight = ["White", "Cream", "Silver", "Mint", "Lilac"].includes(
+                            const isLight = ["White", "Yellow", "Beige", "Grey", "Pink"].includes(
                               swatch.name,
                             );
                             return (
@@ -634,14 +654,60 @@ export function GuidedListingForm({
                             );
                           })}
                         </div>
+
+                        {/* Extra colours under a click-to-expand box */}
+                        {showAllColoursByRow[index] && (
+                          <div className={styles.extraColoursBox}>
+                            <div className={styles.extraColoursTitle}>
+                              <span>Extra shades &amp; tones</span>
+                              <span className={styles.extraColoursSubtitle}>
+                                Click to select / unselect
+                              </span>
+                            </div>
+                            <div className={styles.extraColoursGrid}>
+                              {EXTRA_COLOURS.map((swatch) => {
+                                const selected = parseColours(row.colour);
+                                const isSelected = selected.some(
+                                  (c) => c.toLowerCase() === swatch.name.toLowerCase(),
+                                );
+                                return (
+                                  <button
+                                    key={swatch.name}
+                                    type="button"
+                                    className={clsx(
+                                      styles.extraColourChip,
+                                      isSelected && styles.extraColourChipActive,
+                                    )}
+                                    aria-pressed={isSelected}
+                                    onClick={() => toggleColour(index, swatch.name)}
+                                  >
+                                    <span
+                                      className={styles.extraDot}
+                                      style={{ background: swatch.hex }}
+                                    />
+                                    <span>{swatch.name}</span>
+                                    {isSelected && (
+                                      <Check
+                                        size={12}
+                                        strokeWidth={2.8}
+                                        className={styles.extraCheck}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         <input
                           className={styles.bigInput}
                           value={row.colour ?? ""}
                           onChange={(event) => updateRow(index, { colour: event.target.value })}
-                          placeholder="e.g. Rose gold, Matte black, Ivory"
+                          placeholder="e.g. Red, Blue, Rose gold"
                         />
                         <span className={styles.fieldHint}>
-                          Select multiple colours or type them separated by commas.
+                          Click colours above to select / unselect, or type custom names separated by commas.
                         </span>
                       </label>
                     )}
