@@ -169,26 +169,29 @@
 }
 
 /*
- * Two dishes, a column each (2026-09-07). It was a fixed-width strip of
- * four 150px thumbnails, which made the photograph the smallest thing on
- * the card; two columns give each dish an image about twice the area and
- * room for the sentence that says what it is.
- *
- * `1fr 1fr`, not `auto-fill`: a kitchen with one live listing renders one
- * half-width dish rather than a 400px square, which is the failure the
- * old fixed width existed to avoid.
+ * Single horizontal line of product cards (no 2*2 grid).
+ * Shows compact, scrollable dish cards in one line.
  */
 .dishes {
   list-style: none;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--hk-s4);
-  padding: 0;
+  display: flex;
+  gap: var(--hk-s3);
+  padding: 0 0 4px 0;
   margin: var(--hk-s3) 0 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-wrap: nowrap;
+}
+
+.dishes::-webkit-scrollbar {
+  display: none;
 }
 
 .dish {
-  min-width: 0;
+  min-width: 148px;
+  flex: 1 0 148px;
+  max-width: 190px;
 }
 
 /*
@@ -277,20 +280,9 @@
   text-decoration: underline;
 }
 
-/*
- * One a row on a phone, laid sideways: a full-width square photograph of
- * one dish reads as a hero for a listing the buyer has not chosen, and
- * two 150px columns leave the description three words wide.
- */
 @media (max-width: 560px) {
-  .dishes {
-    grid-template-columns: 1fr;
-    gap: var(--hk-s3);
-  }
-
-  .dishLink {
-    display: grid;
-    grid-template-columns: 108px 1fr;
-    align-items: center;
+  .dish {
+    min-width: 140px;
+    flex: 1 0 140px;
   }
 }

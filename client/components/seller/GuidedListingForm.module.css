@@ -799,6 +799,21 @@
   color: #c0392b;
 }
 
+.commissionAdd {
+  font-weight: 600;
+  color: #b8860b;
+}
+
+.commissionHintNote {
+  margin-top: 4px;
+  padding: 6px 10px;
+  background: rgba(27, 67, 50, 0.08);
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--hk-pine, #1b4332);
+  font-weight: 500;
+}
+
 .commissionTotal {
   border-top: 1px solid var(--hk-border, #e2e2e2);
   padding-top: 6px;

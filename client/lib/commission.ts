@@ -38,3 +38,31 @@ export function priceForTarget(net: number, pct: number): number {
   if (pct >= 100) return Infinity;
   return Math.ceil(net / (1 - pct / 100));
 }
+
+export interface MarkupBreakdown {
+  /** What the HomeKrafter wants to receive (their base payout). */
+  sellerWants: number;
+  /** Commission added on top (+pct%). */
+  commission: number;
+  /** What the customer pays after commission. */
+  customerPrice: number;
+}
+
+/**
+ * Seller-first pricing: Seller inputs what they need (e.g. ₹100),
+ * commission is added on top (+x%, e.g. +20% = +₹20),
+ * and the listing price for the customer becomes ₹120.
+ */
+export function markupBreakdown(sellerWants: number, pct: number): MarkupBreakdown {
+  const wants = round2(sellerWants);
+  const commission = round2((wants * pct) / 100);
+  const customerPrice = round2(wants + commission);
+  return { sellerWants: wants, commission, customerPrice };
+}
+
+/** Given a customer listing price, deduce what the seller's base price was before +pct% markup. */
+export function sellerBaseFromCustomerPrice(customerPrice: number, pct: number): number {
+  if (pct <= 0) return round2(customerPrice);
+  return round2(customerPrice / (1 + pct / 100));
+}
+

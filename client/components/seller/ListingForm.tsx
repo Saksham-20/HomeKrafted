@@ -10,7 +10,7 @@ import { ChoiceCards } from "@/components/portal/ChoiceCards";
 import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "@/components/portal/Field";
 import { FormSection } from "@/components/portal/FormSection";
 import type { DietaryTag, ProductKind, ProductTag, SellerCommission } from "@/lib/types";
-import { commissionBreakdown, priceForTarget } from "@/lib/commission";
+import { commissionBreakdown, markupBreakdown, priceForTarget } from "@/lib/commission";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
@@ -188,10 +188,11 @@ export function ListingForm({
     [categoryOptions, values.categoryId],
   );
 
-  // Earnings line inputs (M37): the default tier is the price on the
-  // product card, so that is the one the line explains.
+  // Earnings line inputs: seller payout + commission markup (+pct%)
+  const commPct = commission?.pct ?? 20;
   const defaultRowPrice = Number(values.weightRows[values.defaultRowIndex]?.price) || 0;
-  const breakdown = commissionBreakdown(defaultRowPrice, commission?.pct ?? 0);
+  const markup = markupBreakdown(defaultRowPrice, commPct);
+  const breakdown = commissionBreakdown(defaultRowPrice, commPct);
 
   /**
    * Switching kind can strand the chosen category on the other side of the
@@ -435,7 +436,7 @@ export function ListingForm({
                   onChange={(event) => updateRow(index, { colour: event.target.value })}
                 />
               </Field>
-              <Field label="Price" className={styles.cell}>
+              <Field label="Your payout (₹)" className={styles.cell} hint={`+${commPct}% commission added`}>
                 <Input
                   dense
                   type="number"
@@ -486,23 +487,12 @@ export function ListingForm({
           <Plus size={15} strokeWidth={2} aria-hidden="true" />
           Add another size
         </button>
-        {/*
-          The M37 earnings line: what the default tier's price works out
-          to after the platform's cut, at the server-supplied rate — never
-          a hardcoded percentage. Hidden when no rate rides in (the admin
-          editor) or no price is typed yet.
-        */}
-        {commission && defaultRowPrice > 0 ? (
+        {defaultRowPrice > 0 ? (
           <p className={styles.earnings} aria-live="polite">
-            Customer pays {formatCurrency(breakdown.gross)} → commission ({commission.pct}%){" "}
-            {formatCurrency(breakdown.commission)} → you receive {formatCurrency(breakdown.net)}.
-            {commission.enabled ? "" : " Estimate — nothing is deducted yet."}
-            {commission.pct > 0 ? (
-              <>
-                {" "}To take home {formatCurrency(breakdown.gross)}, price at{" "}
-                {formatCurrency(priceForTarget(breakdown.gross, commission.pct))}.
-              </>
-            ) : null}
+            You receive {formatCurrency(markup.sellerWants)} → commission (+{commPct}%){" "}
+            +{formatCurrency(markup.commission)} → customer pays {formatCurrency(markup.customerPrice)}.
+            <br />
+            <strong>It’ll be {formatCurrency(markup.customerPrice)} for the customer after commissions.</strong>
           </p>
         ) : null}
       </FormSection>

@@ -1,4 +1,4 @@
-import { commissionBreakdown, priceForTarget } from "./commission";
+import { commissionBreakdown, markupBreakdown, priceForTarget, sellerBaseFromCustomerPrice } from "./commission";
 
 /** Expected values computed by hand (docs/TESTS.md rule), never recorded from a run. */
 describe("commissionBreakdown", () => {
@@ -35,3 +35,37 @@ describe("priceForTarget", () => {
     expect(priceForTarget(100, 100)).toBe(Infinity);
   });
 });
+
+describe("markupBreakdown", () => {
+  it("adds +20% on ₹100 to make customer price ₹120", () => {
+    expect(markupBreakdown(100, 20)).toEqual({
+      sellerWants: 100,
+      commission: 20,
+      customerPrice: 120,
+    });
+  });
+
+  it("handles decimal percentages with paisa rounding", () => {
+    // 15% on ₹250 = ₹37.50 → customer price ₹287.50
+    expect(markupBreakdown(250, 15)).toEqual({
+      sellerWants: 250,
+      commission: 37.5,
+      customerPrice: 287.5,
+    });
+  });
+
+  it("at 0% commission passes through cleanly", () => {
+    expect(markupBreakdown(100, 0)).toEqual({
+      sellerWants: 100,
+      commission: 0,
+      customerPrice: 100,
+    });
+  });
+});
+
+describe("sellerBaseFromCustomerPrice", () => {
+  it("deduces ₹100 from ₹120 customer price at 20%", () => {
+    expect(sellerBaseFromCustomerPrice(120, 20)).toBe(100);
+  });
+});
+

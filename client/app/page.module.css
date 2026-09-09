@@ -283,6 +283,39 @@
   border: 1px solid var(--hk-border);
 }
 
+.containerWarm {
+  background: #ffffff;
+  border-radius: var(--hk-r-xl, 18px);
+  padding: clamp(20px, 3vw, 36px);
+  margin-block-start: clamp(28px, 3.5vw, 44px);
+  border: 1px solid var(--hk-border, #e2e2e2);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+}
+
+.containerSage {
+  background: #f4f8f5;
+  border-radius: var(--hk-r-xl, 18px);
+  padding: clamp(20px, 3vw, 36px);
+  margin-block-start: clamp(28px, 3.5vw, 44px);
+  border: 1px solid rgba(27, 67, 50, 0.12);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+}
+
+.occasionRail {
+  gap: var(--hk-s3);
+  padding-bottom: var(--hk-s2);
+}
+
+.occasionRail > * {
+  flex: 0 0 132px;
+}
+
+@media (max-width: 640px) {
+  .occasionRail > * {
+    flex-basis: 110px;
+  }
+}
+
 .bestsellerTabs {
   display: flex;
   flex-direction: column;

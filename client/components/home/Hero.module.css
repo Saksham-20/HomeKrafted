@@ -23,30 +23,14 @@
   flex-direction: column;
 }
 
-/* ---- Top brand block (plain, clean header) ---- */
+/* ---- Top brand block (clean, compact header right on top of hero) ---- */
 .topBrand {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: clamp(28px, 4vh, 48px) var(--hk-s4) clamp(16px, 2vh, 24px);
+  padding: clamp(56px, 7vh, 72px) var(--hk-s4) clamp(10px, 1.6vh, 18px);
   text-align: center;
-}
-
-.topTagline {
-  margin: 10px 0 0;
-  font-family: var(--hk-font-sans);
-  font-size: clamp(14px, 1.2vw, 16px);
-  color: var(--hk-muted);
-  max-width: 580px;
-  line-height: 1.45;
-}
-
-.stage {
-  position: relative;
-  display: grid;
-  min-height: clamp(460px, 64vh, 680px);
-  padding: 0 clamp(16px, 2.2vw, 36px) clamp(16px, 2.2vw, 32px);
 }
 
 .brandGroup {
@@ -54,7 +38,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--hk-s2);
+  gap: 6px;
+}
+
+.brandMark {
+  display: block;
+  height: clamp(54px, 5.5vw, 70px);
+  width: auto;
+}
+
+.topTagline {
+  margin: 0;
+  font-family: var(--hk-font-sans);
+  font-size: clamp(13.5px, 1.1vw, 15px);
+  color: var(--hk-ink-2);
+  max-width: 620px;
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+}
+
+.stage {
+  position: relative;
+  display: grid;
+  min-height: clamp(440px, 62vh, 640px);
+  padding: 0 clamp(16px, 2.2vw, 36px) clamp(12px, 1.8vw, 24px);
 }
 
 /*
@@ -181,16 +188,21 @@
 /* ---- the promise strip ---- */
 
 .points {
-  /* Its own band under the full-screen split, on the canvas — the first
-     thing a scroll reveals. */
-  width: min(1180px, 100% - 2 * var(--hk-s8));
+  width: min(1180px, calc(100% - 2 * var(--hk-s4)));
   margin-inline: auto;
-  padding-block: var(--hk-s5);
+  margin-top: 8px;
+  margin-bottom: var(--hk-s4);
+  padding: 12px clamp(16px, 2.5vw, 28px);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--hk-s3) clamp(var(--hk-s5), 4vw, 52px);
+  align-items: center;
+  gap: var(--hk-s3) clamp(var(--hk-s4), 3.5vw, 44px);
   list-style: none;
+  background: var(--hk-surface, #fff);
+  border: 1px solid var(--hk-border, #e2e2e2);
+  border-radius: var(--hk-r-pill, 999px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .point {

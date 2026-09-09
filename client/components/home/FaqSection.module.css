@@ -1,0 +1,118 @@
+.faqSection {
+  margin-block: clamp(36px, 5vw, 64px);
+  padding: clamp(24px, 3.5vw, 44px) clamp(20px, 3vw, 36px);
+  background: var(--hk-surface, #ffffff);
+  border: 1px solid var(--hk-border, #e2e2e2);
+  border-radius: var(--hk-r-xl, 18px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+}
+
+.faqHead {
+  text-align: center;
+  max-width: 640px;
+  margin-inline: auto;
+  margin-bottom: clamp(24px, 3.5vw, 36px);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+  margin-bottom: 8px;
+}
+
+.title {
+  font-family: var(--hk-font-display);
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 700;
+  color: var(--hk-ink, #1f2937);
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.subtitle {
+  font-size: 14.5px;
+  color: var(--hk-muted, #6b7280);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.faqList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 860px;
+  margin-inline: auto;
+}
+
+.faqItem {
+  background: var(--hk-surface-2, #faf9f6);
+  border: 1px solid var(--hk-border, #e8e8e8);
+  border-radius: 12px;
+  padding: 16px 20px;
+  transition: border-color var(--hk-dur) var(--hk-ease), background-color var(--hk-dur) var(--hk-ease);
+}
+
+.faqItem[open] {
+  background: var(--hk-surface, #ffffff);
+  border-color: var(--hk-border-2, #d1d5db);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.faqSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-ink, #1f2937);
+  list-style: none;
+  gap: 16px;
+  user-select: none;
+}
+
+.faqSummary::-webkit-details-marker {
+  display: none;
+}
+
+.faqSummary:hover {
+  color: var(--hk-pine, #1b4332);
+}
+
+.chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--hk-gold-text-sm);
+  transition: transform 0.2s ease;
+}
+
+.faqItem[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.faqAnswer {
+  margin: 12px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--hk-ink-2, #4b5563);
+}
+
+.moreHelp {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.helpLink {
+  color: var(--hk-pine);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

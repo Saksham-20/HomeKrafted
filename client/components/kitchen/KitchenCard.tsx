@@ -7,18 +7,9 @@ import { listingPrice, type Kitchen } from "@/lib/kitchens";
 import styles from "./KitchenCard.module.css";
 
 /**
- * How many dishes preview on the card.
- *
- * **Two, with a line of what each one is** (2026-09-07). Four thumbnails
- * with a name under them is a filmstrip: it says a kitchen has a
- * catalogue without saying what any of it tastes like, and at 150px the
- * photograph — the one thing that actually sells cooked food — was the
- * smallest element on a 420px-wide card. Two dishes buy each one a real
- * photograph and its own first sentence, which is the pair a buyer
- * decides on. The rest of the menu is one click away and the card says
- * how many there are.
+ * How many dishes preview on the card in a single line.
  */
-const PREVIEW_DISHES = 2;
+const PREVIEW_DISHES = 3;
 
 export interface KitchenCardProps {
   kitchen: Kitchen;

@@ -13,6 +13,7 @@ import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
 import { QuickEntryRow } from "@/components/home/QuickEntryRow";
+import { FaqSection, FAQ_ITEMS } from "@/components/home/FaqSection";
 import { quickEntryDetail } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import {
@@ -166,7 +167,7 @@ export default async function Home() {
   // Corporate is excluded here, not from the data (M35): the quick-entry
   // strip's "Corporate & bulk" tile is THE corporate entry on this page,
   // and a second tile sent the same buyer to a different destination.
-  const occasionTiles = occasions.filter((o) => o.slug !== "corporate").slice(0, 8);
+  const occasionTiles = occasions.filter((o) => o.slug !== "corporate");
 
   /**
    * The category rail shows only categories that have a real photograph
@@ -179,10 +180,7 @@ export default async function Home() {
    */
   const photographedCategories = categories.filter((category) => category.imageSrc);
 
-  // Organization + WebSite structured data, on the home page only —
-  // stating it once site-wide is what the spec expects, and repeating it
-  // per route just bloats every document. `SearchAction` is what lets a
-  // search engine offer a Homekrafted search box directly in results.
+  // Organization + WebSite + FAQPage structured data on the home page
   const siteJsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -210,6 +208,18 @@ export default async function Home() {
           },
           "query-input": "required name=search_term_string",
         },
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${SITE_URL}/#faq`,
+        mainEntity: FAQ_ITEMS.map((item) => ({
+          "@type": "Question",
+          name: item.question,
+          acceptedAnswer: {
+            "@type": "Answer",
+            text: item.answer,
+          },
+        })),
       },
     ],
   };
@@ -349,7 +359,10 @@ export default async function Home() {
         </section>
       )}
 
-      <section className={clsx("container", "container-wide", styles.section)}>
+      {/*
+        "What are you in the mood for" — enclosed in a Flipkart-style warm container
+      */}
+      <section className={clsx("container", "container-wide", styles.section, styles.containerWarm)}>
         <div className={styles.sectionHead}>
           <div>
             {/* Every photographed category is food (M33) — the eyebrow
@@ -375,7 +388,10 @@ export default async function Home() {
         </ScrollRail>
       </section>
 
-      <section className={clsx("container", "container-wide", styles.section)}>
+      {/*
+        "Someone you owe a present" — enclosed in an alternating Flipkart-style sage tint container
+      */}
+      <section className={clsx("container", "container-wide", styles.section, styles.containerSage)}>
         <div className={styles.sectionHead}>
           <div>
             <span className={styles.eyebrow}>Handcrafted gifts</span>
@@ -385,7 +401,7 @@ export default async function Home() {
             All occasions →
           </Link>
         </div>
-        <div className={styles.occasionGrid}>
+        <ScrollRail label="gift occasions" className={styles.occasionRail}>
           {occasionTiles.map((occasion) => (
             <OccasionTile
               key={occasion.id}
@@ -393,7 +409,7 @@ export default async function Home() {
               href={`/collections/${occasion.slug}`}
             />
           ))}
-        </div>
+        </ScrollRail>
       </section>
 
       {/* The objection an unfamiliar visitor arrives with, answered where
@@ -432,6 +448,11 @@ export default async function Home() {
             />
           ))}
         </div>
+      </section>
+
+      {/* Frequently Asked Questions with SEO-indexed accordion */}
+      <section className={clsx("container", "container-wide")}>
+        <FaqSection />
       </section>
 
       {/* The supply side. A two-sided marketplace whose home page never
