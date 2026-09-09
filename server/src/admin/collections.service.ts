@@ -61,7 +61,12 @@ export class AdminCollectionsService {
     await this.assertProductsExist(dto.productIds);
     if (dto.occasionId) await this.assertOccasionExists(dto.occasionId);
 
-    const slug = await this.uniqueSlug(dto.title);
+    const slug = dto.slug ? slugify(dto.slug) : await this.uniqueSlug(dto.title);
+    const existingBySlug = await this.prisma.collection.findUnique({ where: { slug } });
+    if (existingBySlug) {
+      return this.update(adminUserId, existingBySlug.id, dto);
+    }
+
     const collection = await this.prisma.$transaction(async (tx) => {
       const created = await tx.collection.create({
         data: {

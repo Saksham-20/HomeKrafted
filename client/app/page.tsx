@@ -14,6 +14,7 @@ import { AppInstallPanel } from "@/components/home/AppInstallPanel";
 import { ReelsRailClient } from "@/components/home/ReelsRailClient";
 import { QuickEntryRow } from "@/components/home/QuickEntryRow";
 import { FaqSection, FAQ_ITEMS } from "@/components/home/FaqSection";
+import { BestsellersTabsSection } from "@/components/home/BestsellersTabsSection";
 import { quickEntryDetail } from "@/lib/data";
 import type { Product } from "@/lib/types";
 import {
@@ -98,10 +99,12 @@ export default async function Home() {
     ]);
 
   const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+  const vendorNames: Record<string, string> = {};
+  for (const vendor of vendors) vendorNames[vendor.id] = vendor.name;
 
   // ── Bestsellers rail ─────────────────────────────────────────────────
-  // Admin curates two Collections with fixed slugs. If those collections
-  // don't exist yet, fall back to top-rated products in each kind.
+  // Admin curates two Collections with fixed slugs: bestsellers-food and bestsellers-craft.
+  // If those collections don't exist yet, fall back to top-rated products in each kind.
   const bestsellerFoodCollection = collections.find(
     (c) => c.slug === "bestsellers-food",
   );
@@ -114,7 +117,7 @@ export default async function Home() {
   function resolveCollection(
     collection: typeof bestsellerFoodCollection,
     kind: "food" | "craft",
-    limit = 8,
+    limit = 10,
   ): Product[] {
     if (collection && collection.productIds.length > 0) {
       return collection.productIds
@@ -132,18 +135,14 @@ export default async function Home() {
   const bestsellerFoodProducts = resolveCollection(bestsellerFoodCollection, "food");
   const bestsellerCraftProducts = resolveCollection(bestsellerCraftCollection, "craft");
 
-  // Combined bestsellers tab (food + craft, sorted by rating)
-  const allBestsellers = [
-    ...bestsellerFoodProducts,
-    ...bestsellerCraftProducts,
-  ]
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 10);
-
   // ── HomeKrafted Gifts section ─────────────────────────────────────────
-  // Show craft products — either from trending-craft collection or top craft
+  // Show craft products — either from trending-craft collection or bestseller crafts or top crafts
   const trendingCraftCollection = collections.find((c) => c.slug === "trending-craft");
-  const homekraftedGifts = resolveCollection(trendingCraftCollection, "craft", 8);
+  const homekraftedGifts = trendingCraftCollection?.productIds?.length
+    ? resolveCollection(trendingCraftCollection, "craft", 8)
+    : bestsellerCraftProducts.length > 0
+      ? bestsellerCraftProducts.slice(0, 8)
+      : resolveCollection(undefined, "craft", 8);
 
   const loved = allProducts
     .filter((product) => product.reviewCount > 0)
@@ -257,34 +256,13 @@ export default async function Home() {
 
       {/*
         Bestsellers — admin-curated via /admin/collections/curations.
-        Falls back to top-rated products by kind when no curation exists.
-        Tabbed: All / Food / Gifts so a visitor can explore each half.
+        Interactive tabs for All, Homemade Food, and Handcrafted Gifts.
       */}
-      {(bestsellerFoodProducts.length > 0 || bestsellerCraftProducts.length > 0) && (
-        <section className={clsx("container", "container-wide", styles.section, styles.altBg)}>
-          <div className={styles.sectionHead}>
-            <div>
-              <span className={styles.eyebrow}>Loved by our community</span>
-              <h2 className={styles.sectionTitle}>Bestsellers</h2>
-            </div>
-            <Link href="/shop" className={styles.viewAll}>
-              See all →
-            </Link>
-          </div>
-          <div className={styles.bestsellerTabs}>
-            <ScrollRail label="bestsellers — all" className={styles.productRail}>
-              {allBestsellers.map((product) => (
-                <ProductGridCard
-                  key={product.id}
-                  product={product}
-                  makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
-                  href={`/product/${product.slug}`}
-                />
-              ))}
-            </ScrollRail>
-          </div>
-        </section>
-      )}
+      <BestsellersTabsSection
+        foodProducts={bestsellerFoodProducts}
+        craftProducts={bestsellerCraftProducts}
+        vendorNames={vendorNames}
+      />
 
       {/*
         HomeKrafted Gifts — craft products surfaced from the

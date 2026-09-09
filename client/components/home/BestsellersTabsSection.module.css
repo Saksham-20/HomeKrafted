@@ -1,0 +1,113 @@
+.section {
+  background: #fbf7f0;
+  border-radius: var(--hk-r-xl, 16px);
+  padding: clamp(var(--hk-s5), 3.5vw, 44px) clamp(var(--hk-s4), 3vw, 36px);
+  margin-block-start: clamp(var(--hk-s5), 3.5vw, 48px);
+  border: 1px solid var(--hk-border);
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--hk-s4);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm);
+  margin-bottom: 4px;
+}
+
+.sectionTitle {
+  font-family: var(--hk-font-display);
+  font-size: clamp(24px, 3.2vw, 36px);
+  font-weight: 700;
+  color: var(--hk-ink);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.viewAll {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--hk-gold-text-sm);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@media (hover: hover) {
+  .viewAll:hover {
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--hk-s4);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--hk-r-pill, 999px);
+  border: 1px solid var(--hk-border, #d4d0c8);
+  background: var(--hk-surface, #fff);
+  color: var(--hk-ink-2, #555);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  border-color: var(--hk-pine, #2a5c45);
+  color: var(--hk-pine, #2a5c45);
+}
+
+.tabActive {
+  background: var(--hk-pine, #2a5c45);
+  border-color: var(--hk-pine, #2a5c45);
+  color: #ffffff;
+}
+
+.tabActive:hover {
+  background: var(--hk-pine, #2a5c45);
+  color: #ffffff;
+}
+
+.tabCount {
+  font-size: 11.5px;
+  opacity: 0.8;
+  font-feature-settings: "tnum";
+}
+
+.productRail {
+  gap: var(--hk-s4);
+  padding-bottom: var(--hk-s2);
+}
+
+@media (max-width: 560px) {
+  .sectionHead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--hk-s3);
+  }
+}

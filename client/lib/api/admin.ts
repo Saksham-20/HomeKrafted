@@ -987,8 +987,10 @@ export interface AdminProductSummary extends Product {
 export interface AdminCatalogQuery {
   status?: ProductModerationStatus | "featured";
   vendorId?: string;
+  kind?: "food" | "craft";
   q?: string;
   page?: number;
+  pageSize?: number;
 }
 
 export interface AdminCatalogPage {
@@ -1019,8 +1021,10 @@ export async function getAllProductsAdmin(query: AdminCatalogQuery = {}): Promis
     const params = new URLSearchParams();
     if (query.status) params.set("status", query.status);
     if (query.vendorId) params.set("vendorId", query.vendorId);
+    if (query.kind) params.set("kind", query.kind);
     if (query.q) params.set("q", query.q);
     if (query.page && query.page > 1) params.set("page", String(query.page));
+    if (query.pageSize) params.set("pageSize", String(query.pageSize));
     const qs = params.toString();
     return http.get<AdminCatalogPage>(`/admin/catalog/products${qs ? `?${qs}` : ""}`);
   }
@@ -1033,6 +1037,7 @@ export async function getAllProductsAdmin(query: AdminCatalogQuery = {}): Promis
   }));
   const items = all
     .filter((p) => !query.vendorId || p.vendorId === query.vendorId)
+    .filter((p) => !query.kind || p.kind === query.kind)
     .filter((p) =>
       !query.status
         ? true
@@ -1732,6 +1737,7 @@ function nextCollectionId(): string {
 export interface UpsertCollectionInput {
   /** Present = edit an existing `Collection`; absent = create a new one. */
   id?: string;
+  slug?: string;
   title: string;
   description?: string;
   occasionId?: string;
@@ -1747,6 +1753,7 @@ export interface UpsertCollectionInput {
 export async function upsertCollection(input: UpsertCollectionInput): Promise<Collection> {
   if (!isMockMode()) {
     const body = {
+      slug: input.slug,
       title: input.title,
       description: input.description,
       occasionId: input.occasionId,
@@ -1764,6 +1771,7 @@ export async function upsertCollection(input: UpsertCollectionInput): Promise<Co
   if (input.id) {
     const existing = collections.find((c) => c.id === input.id);
     if (existing) {
+      if (input.slug) existing.slug = input.slug;
       existing.title = input.title;
       existing.description = input.description;
       existing.occasionId = input.occasionId;
@@ -1778,7 +1786,7 @@ export async function upsertCollection(input: UpsertCollectionInput): Promise<Co
   const id = nextCollectionId();
   const collection: Collection = {
     id,
-    slug: `${slugifyCollection(input.title)}-${id.slice(-4)}`,
+    slug: input.slug ?? `${slugifyCollection(input.title)}-${id.slice(-4)}`,
     title: input.title,
     description: input.description,
     occasionId: input.occasionId,

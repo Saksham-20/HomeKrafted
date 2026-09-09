@@ -157,6 +157,7 @@ export class AdminCatalogService {
 
     const scope: Prisma.ProductWhereInput = {};
     if (query.vendorId) scope.vendorId = query.vendorId;
+    if (query.kind) scope.kind = query.kind;
     if (query.q) {
       const contains = { contains: query.q, mode: 'insensitive' as const };
       scope.OR = [

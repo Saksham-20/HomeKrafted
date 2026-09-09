@@ -9,6 +9,7 @@ import {
   Banknote,
   BarChart3,
   Building2,
+  Flame,
   FolderOpen,
   LayoutGrid,
   LifeBuoy,
@@ -82,6 +83,7 @@ const NAV: AdminNavItem[] = [
   { label: "Wallet", href: "/admin/wallet", icon: Wallet, group: "Orders & money", scope: "finance" },
   { label: "Catalog", href: "/admin/catalog", icon: Package, group: "Catalogue", scope: "catalog", queue: "listings" },
   { label: "Collections", href: "/admin/collections", icon: FolderOpen, group: "Catalogue", scope: "catalog" },
+  { label: "Bestsellers & Trending", href: "/admin/collections/curations", icon: Flame, group: "Catalogue", scope: "catalog" },
   // M15 — customers had been filing tickets since M7b with nothing on the
   // platform able to read them.
   { label: "Support", href: "/admin/support", icon: LifeBuoy, group: "Inbox", scope: "support", queue: "support" },

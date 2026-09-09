@@ -43,6 +43,10 @@ export class ListAdminCatalogQueryDto {
   page?: number;
 
   @IsOptional()
+  @IsIn(['food', 'craft'], { message: "kind must be either 'food' or 'craft'" })
+  kind?: 'food' | 'craft';
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   @Max(100)
