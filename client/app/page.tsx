@@ -102,14 +102,22 @@ export default async function Home() {
   const vendorNames: Record<string, string> = {};
   for (const vendor of vendors) vendorNames[vendor.id] = vendor.name;
 
-  // ── Bestsellers rail ─────────────────────────────────────────────────
-  // Admin curates two Collections with fixed slugs: bestsellers-food and bestsellers-craft.
-  // If those collections don't exist yet, fall back to top-rated products in each kind.
+  // ── Bestsellers & Trending rails ──────────────────────────────────────
+  // Admin curates four Collections with fixed slugs:
+  // - bestsellers-food & bestsellers-craft
+  // - trending-food & trending-craft
+  // If those collections don't exist yet or are empty, fall back to top-rated products in each kind.
   const bestsellerFoodCollection = collections.find(
     (c) => c.slug === "bestsellers-food",
   );
   const bestsellerCraftCollection = collections.find(
     (c) => c.slug === "bestsellers-craft",
+  );
+  const trendingFoodCollection = collections.find(
+    (c) => c.slug === "trending-food",
+  );
+  const trendingCraftCollection = collections.find(
+    (c) => c.slug === "trending-craft",
   );
 
   const productById = new Map(allProducts.map((p) => [p.id, p]));
@@ -119,7 +127,7 @@ export default async function Home() {
     kind: "food" | "craft",
     limit = 10,
   ): Product[] {
-    if (collection && collection.productIds.length > 0) {
+    if (collection && collection.productIds && collection.productIds.length > 0) {
       return collection.productIds
         .map((id) => productById.get(id))
         .filter((p): p is Product => Boolean(p))
@@ -134,12 +142,13 @@ export default async function Home() {
 
   const bestsellerFoodProducts = resolveCollection(bestsellerFoodCollection, "food");
   const bestsellerCraftProducts = resolveCollection(bestsellerCraftCollection, "craft");
+  const trendingFoodProducts = resolveCollection(trendingFoodCollection, "food");
+  const trendingCraftProducts = resolveCollection(trendingCraftCollection, "craft");
 
   // ── HomeKrafted Gifts section ─────────────────────────────────────────
   // Show craft products — either from trending-craft collection or bestseller crafts or top crafts
-  const trendingCraftCollection = collections.find((c) => c.slug === "trending-craft");
-  const homekraftedGifts = trendingCraftCollection?.productIds?.length
-    ? resolveCollection(trendingCraftCollection, "craft", 8)
+  const homekraftedGifts = trendingCraftProducts.length > 0
+    ? trendingCraftProducts.slice(0, 8)
     : bestsellerCraftProducts.length > 0
       ? bestsellerCraftProducts.slice(0, 8)
       : resolveCollection(undefined, "craft", 8);
@@ -234,6 +243,19 @@ export default async function Home() {
       <Ticker />
 
       {/*
+        Bestsellers & Trending — right under the hero section.
+        Admin-curated via /admin/collections/curations.
+        Interactive dual modes for Bestsellers & Trending with category filters.
+      */}
+      <BestsellersTabsSection
+        bestsellerFoodProducts={bestsellerFoodProducts}
+        bestsellerCraftProducts={bestsellerCraftProducts}
+        trendingFoodProducts={trendingFoodProducts}
+        trendingCraftProducts={trendingCraftProducts}
+        vendorNames={vendorNames}
+      />
+
+      {/*
         M34 — the ways in that the desktop nav gave up so its search field
         could be typable, plus Snacks on WhatsApp, which was never in the
         nav at all. Directly under the hero's two halves: this is the
@@ -253,16 +275,6 @@ export default async function Home() {
           />
         </section>
       )}
-
-      {/*
-        Bestsellers — admin-curated via /admin/collections/curations.
-        Interactive tabs for All, Homemade Food, and Handcrafted Gifts.
-      */}
-      <BestsellersTabsSection
-        foodProducts={bestsellerFoodProducts}
-        craftProducts={bestsellerCraftProducts}
-        vendorNames={vendorNames}
-      />
 
       {/*
         HomeKrafted Gifts — craft products surfaced from the

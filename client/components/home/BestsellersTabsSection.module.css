@@ -1,35 +1,79 @@
 .section {
   background: #fbf7f0;
   border-radius: var(--hk-r-xl, 16px);
-  padding: clamp(var(--hk-s5), 3.5vw, 44px) clamp(var(--hk-s4), 3vw, 36px);
-  margin-block-start: clamp(var(--hk-s5), 3.5vw, 48px);
+  padding: clamp(18px, 3vw, 36px) clamp(16px, 2.5vw, 32px);
+  margin-block-start: clamp(18px, 2.5vw, 32px);
   border: 1px solid var(--hk-border);
 }
 
 .sectionHead {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: var(--hk-s4);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: var(--hk-s3, 14px);
+}
+
+.headingBlock {
+  display: flex;
+  flex-direction: column;
 }
 
 .eyebrow {
   display: block;
   font-family: var(--hk-font-mono);
-  font-size: 11.5px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--hk-gold-text-sm);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .sectionTitle {
   font-family: var(--hk-font-display);
-  font-size: clamp(24px, 3.2vw, 36px);
+  font-size: clamp(22px, 2.8vw, 32px);
   font-weight: 700;
   color: var(--hk-ink);
   margin: 0;
-  line-height: 1.1;
+  line-height: 1.15;
+}
+
+/* Mode Switcher: Bestsellers vs Trending */
+.modeSwitcher {
+  display: inline-flex;
+  align-items: center;
+  background: #eee8dc;
+  padding: 3px;
+  border-radius: 999px;
+  gap: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.modeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--hk-ink-2, #555);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.modeBtn:hover {
+  color: var(--hk-pine, #2a5c45);
+}
+
+.modeBtnActive {
+  background: var(--hk-pine, #2a5c45);
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(42, 92, 69, 0.22);
 }
 
 .viewAll {
@@ -48,53 +92,52 @@
   }
 }
 
-.tabs {
+/* Category Filter Pills */
+.categoryPills {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: var(--hk-s4);
+  margin-bottom: var(--hk-s3, 14px);
   overflow-x: auto;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
 }
 
-.tabs::-webkit-scrollbar {
+.categoryPills::-webkit-scrollbar {
   display: none;
 }
 
-.tab {
+.pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 6px 14px;
   border-radius: var(--hk-r-pill, 999px);
   border: 1px solid var(--hk-border, #d4d0c8);
   background: var(--hk-surface, #fff);
   color: var(--hk-ink-2, #555);
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-.tab:hover {
+.pill:hover {
   border-color: var(--hk-pine, #2a5c45);
   color: var(--hk-pine, #2a5c45);
 }
 
-.tabActive {
-  background: var(--hk-pine, #2a5c45);
+.pillActive {
+  background: #eef5f1;
   border-color: var(--hk-pine, #2a5c45);
-  color: #ffffff;
+  color: var(--hk-pine, #2a5c45);
+  font-weight: 600;
 }
 
-.tabActive:hover {
-  background: var(--hk-pine, #2a5c45);
-  color: #ffffff;
-}
-
-.tabCount {
-  font-size: 11.5px;
+.pillCount {
+  font-size: 11px;
   opacity: 0.8;
   font-feature-settings: "tnum";
 }
@@ -109,28 +152,50 @@
   min-width: 232px;
 }
 
+/* Tablet & Mobile Responsiveness */
+@media (max-width: 768px) {
+  .sectionHead {
+    align-items: flex-start;
+  }
+
+  .modeSwitcher {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .modeBtn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .viewAll {
+    align-self: center;
+  }
+}
+
 @media (max-width: 640px) {
   .section {
-    padding: 18px 14px;
+    padding: 16px 12px;
     border-radius: 14px;
-    margin-block-start: 24px;
+    margin-block-start: 14px;
   }
 
-  .sectionHead {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--hk-s2);
-    margin-bottom: 12px;
+  .sectionTitle {
+    font-size: 21px;
   }
 
-  .tabs {
+  .categoryPills {
     margin-bottom: 12px;
     gap: 6px;
   }
 
-  .tab {
+  .pill {
     padding: 6px 12px;
-    font-size: 12.5px;
+    font-size: 12px;
   }
 
   .productRail {
