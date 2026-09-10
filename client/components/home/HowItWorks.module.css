@@ -1,57 +1,134 @@
-.steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--hk-s5);
-  list-style: none;
-  counter-reset: none;
+.timelineWrapper {
+  max-width: 760px;
+  margin-inline: auto;
+  padding-block: clamp(6px, 1.2vw, 14px);
 }
 
-.step {
+.timeline {
+  position: relative;
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--hk-s6) var(--hk-s5) var(--hk-s6);
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-xl);
-  /* The gold rule along the top is the only decoration — a token fill,
-     never gold text (the numeral below is display type on white and
-     takes the tint, not the brand gold). */
-  border-top: 3px solid var(--hk-gold);
+  gap: clamp(18px, 2.5vw, 28px);
 }
 
-.n {
+.timelineStep {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(16px, 2.5vw, 28px);
+  z-index: 3;
+}
+
+/* Connecting line strictly between nodes, stopping at the last circle */
+.timelineStep:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: 48px;
+  bottom: calc(-1 * clamp(18px, 2.5vw, 28px));
+  left: 23px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--hk-gold, #b98724), rgba(185, 135, 36, 0.2));
+  z-index: 1;
+}
+
+.nodeWrap {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--hk-surface, #ffffff);
+  border: 2px solid var(--hk-gold, #b98724);
+  box-shadow: 0 4px 14px rgba(185, 135, 36, 0.15);
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 4;
+  transition: transform 0.25s var(--hk-ease), box-shadow 0.25s var(--hk-ease);
+}
+
+.timelineStep:hover .nodeWrap {
+  transform: scale(1.08);
+  box-shadow: 0 6px 18px rgba(185, 135, 36, 0.25);
+}
+
+.nodeCircle {
   font-family: var(--hk-font-display);
+  font-size: 16px;
   font-weight: 700;
-  font-size: 40px;
-  line-height: 1;
-  /*
-    The numeral is decoration — `aria-hidden`, and the step order is
-    already carried by the <ol> — but it is still a glyph somebody reads,
-    so it takes the AA-safe gold. `--hk-gold-border` (#E4CF8F) measured
-    1.54:1 on white and axe fails it; the carve-out for "pure decoration"
-    was deleted in the 2026-08-08 contrast audit for exactly this shape.
-    Weight, not colour, is what keeps it from competing with the title.
-  */
-  color: var(--hk-gold-text-sm);
-  opacity: 0.85;
+  color: var(--hk-gold-text-sm, #886815);
 }
 
-.title {
-  margin-top: var(--hk-s4);
+.stepContent {
+  flex: 1;
+  background: var(--hk-surface, #ffffff);
+  border: 1px solid var(--hk-border, #eceae4);
+  border-radius: var(--hk-r-xl, 18px);
+  padding: clamp(14px, 1.8vw, 22px);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.02);
+  transition: transform 0.3s var(--hk-ease), box-shadow 0.3s var(--hk-ease), border-color 0.3s var(--hk-ease);
+}
+
+.timelineStep:hover .stepContent {
+  transform: translateX(4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  border-color: rgba(185, 135, 36, 0.3);
+}
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.stepTitle {
   font-family: var(--hk-font-display);
-  font-weight: 600;
-  font-size: 21px;
-  color: var(--hk-ink);
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 700;
+  color: var(--hk-ink, #2b241c);
+  margin: 0;
+  letter-spacing: -0.015em;
 }
 
-.body {
-  margin-top: var(--hk-s3);
-  font: var(--hk-body);
-  color: var(--hk-ink-3);
+.stepIconBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(185, 135, 36, 0.08);
+  color: var(--hk-gold-text-sm, #886815);
+  flex-shrink: 0;
 }
 
-@media (max-width: 900px) {
-  .steps {
-    grid-template-columns: 1fr;
+.stepBody {
+  font-family: var(--hk-font-body);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--hk-ink-3, #5b5344);
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .timelineStep:not(:last-child)::before {
+    left: 19px;
+  }
+
+  .nodeWrap {
+    width: 40px;
+    height: 40px;
+  }
+
+  .nodeCircle {
+    font-size: 14px;
+  }
+
+  .stepContent {
+    padding: 16px;
   }
 }

@@ -1,85 +1,173 @@
 .band {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.6fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.65fr);
   align-items: center;
-  gap: clamp(var(--hk-s5), 4vw, 56px);
-  padding: clamp(var(--hk-s6), 4vw, 56px);
-  border-radius: var(--hk-r-xl);
+  gap: clamp(20px, 3vw, 40px);
+  padding: clamp(24px, 3.2vw, 42px);
+  border-radius: var(--hk-r-xl, 24px);
+  position: relative;
+  overflow: hidden;
   background:
     radial-gradient(90% 140% at 100% 0%, rgba(185, 135, 36, 0.28), transparent 60%),
-    linear-gradient(120deg, var(--hk-pine-grad-a), var(--hk-pine-deep));
+    linear-gradient(125deg, var(--hk-pine, #234233) 0%, var(--hk-pine-deep, #1b3327) 100%);
   color: #fff;
-  /* Dark surface — the M34 rule: pine on pine is invisible. */
-  --hk-focus-ring: var(--hk-gold-bright);
+  border: 1px solid rgba(228, 200, 116, 0.2);
+  box-shadow: 0 12px 36px rgba(27, 51, 39, 0.16);
+}
+
+.glowAura {
+  position: absolute;
+  top: -40%;
+  right: -15%;
+  width: 65%;
+  height: 180%;
+  background: radial-gradient(ellipse at center, rgba(228, 200, 116, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.body {
+  position: relative;
+  z-index: 2;
 }
 
 .eyebrow {
   display: block;
   font-family: var(--hk-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.18em;
+  font-size: 11.5px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--hk-gold-bright);
+  color: var(--hk-gold-bright, #e4c874);
+  margin-bottom: 8px;
 }
 
 .title {
-  margin-top: var(--hk-s3);
   font-family: var(--hk-font-display);
   font-weight: 700;
-  font-size: clamp(26px, 3vw, 40px);
-  line-height: 1.06;
+  font-size: clamp(26px, 3.2vw, 42px);
+  line-height: 1.08;
   letter-spacing: -0.02em;
+  color: #fefae0;
+  margin: 0 0 14px 0;
 }
 
 .blurb {
-  margin-top: var(--hk-s4);
-  max-width: 58ch;
-  font: var(--hk-body);
-  /* 8.1:1 on the darkest stop of the gradient. */
+  max-width: 54ch;
+  font-family: var(--hk-font-body);
+  font-size: 14.5px;
+  line-height: 1.6;
   color: #d3ddd4;
+  margin: 0;
 }
 
 .actions {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--hk-s4);
+  gap: 16px;
 }
 
+.avatarCluster {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #3f6852;
+  border: 2px solid var(--hk-pine-deep, #1b3327);
+  color: #fefae0;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.avatar2 {
+  margin-left: -8px;
+  background: #526343;
+}
+
+.avatar3 {
+  margin-left: -8px;
+  background: #6a573d;
+}
+
+.avatarText {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: #c7d5c9;
+  margin-left: 10px;
+}
+
+/* Metallic Shimmer CTA */
 .cta {
   display: inline-flex;
   align-items: center;
-  gap: var(--hk-s2);
+  gap: 10px;
   min-height: 48px;
-  padding-inline: var(--hk-s5);
-  border-radius: var(--hk-r-pill);
-  background: var(--hk-gold-bright);
-  color: var(--hk-ink);
+  padding: 12px 26px;
+  border-radius: var(--hk-r-pill, 999px);
+  background: linear-gradient(
+    90deg,
+    var(--hk-gold-bright, #e4c874) 0%,
+    #f8eec4 30%,
+    var(--hk-gold-bright, #e4c874) 60%,
+    #f8eec4 100%
+  );
+  background-size: 200% auto;
+  color: var(--hk-ink, #2b241c);
   font-family: var(--hk-font-body);
-  font-weight: 600;
-  font-size: 15px;
-  transition: transform var(--hk-dur) var(--hk-ease),
-    background-color var(--hk-dur) var(--hk-ease);
+  font-weight: 700;
+  font-size: 14.5px;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: transform 0.25s var(--hk-ease), box-shadow 0.25s var(--hk-ease);
 }
 
-@media (hover: hover) {
-  .cta:hover {
-    background: #f0dc9a;
-    transform: translateY(-2px);
+@supports (animation: shimmer 3s linear infinite) {
+  .cta {
+    animation: shimmer 3.5s linear infinite;
+  }
+
+  @keyframes shimmer {
+    from { background-position: -200% center; }
+    to { background-position: 200% center; }
   }
 }
 
+.cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(228, 200, 116, 0.35);
+}
+
 .ctaIcon {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s var(--hk-ease);
+}
+
+.cta:hover .ctaIcon {
+  transform: translateX(3px);
 }
 
 .link {
   font-family: var(--hk-font-body);
-  font-size: 14px;
+  font-size: 13.5px;
   color: #cddace;
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: 4px;
+  transition: color 0.2s var(--hk-ease);
+}
+
+.link:hover {
+  color: #ffffff;
 }
 
 @media (max-width: 900px) {
@@ -88,9 +176,7 @@
   }
 
   .actions {
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--hk-s5);
+    margin-top: 8px;
   }
 }
+

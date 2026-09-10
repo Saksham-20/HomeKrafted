@@ -13,13 +13,13 @@ import type { Occasion } from "@/lib/types";
 export const occasions: Occasion[] = [
   { id: "oc1", slug: "birthday", name: "Birthday", initial: "B", tagline: "Something better than a cake voucher." },
   { id: "oc2", slug: "anniversary", name: "Anniversary", initial: "A", tagline: "For the couple who already own everything." },
-  { id: "oc3", slug: "diwali", name: "Diwali", initial: "D", celebratedOn: "2026-11-08", tagline: "Mithai, dry fruit and hampers that leave a tricity kitchen, not a warehouse." },
+  { id: "oc3", slug: "diwali", name: "Diwali", initial: "D", celebratedOn: "2026-11-08", tagline: "Mithai, dry fruit and hampers that leave a real home kitchen, not a warehouse." },
   { id: "oc4", slug: "housewarming", name: "Housewarming", initial: "H", tagline: "Turn up with something they will finish." },
   { id: "oc5", slug: "corporate", name: "Corporate", initial: "C", tagline: "Client and team gifting that does not taste like a courier box." },
   { id: "oc6", slug: "baby-shower", name: "Baby Shower", initial: "B", tagline: "Gentle, home-made, nothing with a novelty slogan." },
   { id: "oc7", slug: "wedding", name: "Wedding", initial: "W", tagline: "Favours and welcome hampers in real quantities." },
   { id: "oc8", slug: "thank-you", name: "Thank You", initial: "T", tagline: "When \"thanks\" needs to arrive in a jar." },
-  { id: "oc9", slug: "raksha-bandhan", name: "Raksha Bandhan", initial: "R", celebratedOn: "2026-08-28", tagline: "Sweets, chocolate and handmade gifts for a brother or a sister, made in a tricity kitchen." },
+  { id: "oc9", slug: "raksha-bandhan", name: "Raksha Bandhan", initial: "R", celebratedOn: "2026-08-28", tagline: "Sweets, chocolate and handmade gifts for a brother or a sister, made in a home kitchen." },
   { id: "oc10", slug: "karwa-chauth", name: "Karwa Chauth", initial: "K", celebratedOn: "2026-10-29", tagline: "Sargi and after-moonrise food, cooked that morning." },
 ];
 

@@ -158,12 +158,6 @@ export default async function Home() {
     .filter((p) => hkVendor && p.vendorId === hkVendor.id && p.name.toLowerCase() !== "abs")
     .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
 
-  const loved = allProducts
-    .filter((product) => product.reviewCount > 0)
-    .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
-    .slice(0, 10);
-
-
   // The seasonal hook (M16). Read once, on the server, and shipped as
   // text — nothing recomputes "today" during hydration, which is the
   // failure CLAUDE.md records from M12. Absent when nothing dated is
@@ -180,7 +174,7 @@ export default async function Home() {
   // Corporate is excluded here, not from the data (M35): the quick-entry
   // strip's "Corporate & bulk" tile is THE corporate entry on this page,
   // and a second tile sent the same buyer to a different destination.
-  const occasionTiles = occasions.filter((o) => o.slug !== "corporate");
+  const occasionTiles = occasions.filter((o) => o.slug !== "corporate").slice(0, 8);
 
   /**
    * The category rail shows only categories that have a real photograph
@@ -204,8 +198,7 @@ export default async function Home() {
         url: SITE_URL,
         logo: absoluteUrl("/images/site/logo.svg"),
         description:
-          "A marketplace for homemade creations — food and snacks from real home kitchens delivered across the Chandigarh tricity, and handcrafted gifts posted anywhere in India.",
-        areaServed: ["Chandigarh", "Mohali", "Panchkula", "Zirakpur"],
+          "A marketplace for homemade creations — food and snacks from real home kitchens and handcrafted gifts by independent makers.",
       },
       {
         "@type": "WebSite",
@@ -238,41 +231,34 @@ export default async function Home() {
   };
 
   return (
-    <>
+    <div className={styles.landingPage}>
       <script {...jsonLdProps(siteJsonLd)} />
 
-      <Hero />
+      {/* ── 1. Full-Screen Hero & Ticker ── */}
+      <div className={styles.heroScreen}>
+        <Hero />
+        <Ticker />
+      </div>
 
-      {/* Full-bleed on purpose — it is a rule under the hero, not a card
-          inside the grid. */}
-      <Ticker />
+      {/* ── 3. Bestsellers & Trending with Segmented Toggle ── */}
+      <div className={clsx(styles.reveal, styles.afterHeroSection)}>
+        <BestsellersTabsSection
+          bestsellerFoodProducts={bestsellerFoodProducts}
+          bestsellerCraftProducts={bestsellerCraftProducts}
+          trendingFoodProducts={trendingFoodProducts}
+          trendingCraftProducts={trendingCraftProducts}
+          vendorNames={vendorNames}
+        />
+      </div>
 
-      {/*
-        Bestsellers & Trending — right under the hero section.
-        Admin-curated via /admin/collections/curations.
-        Interactive dual modes for Bestsellers & Trending with category filters.
-      */}
-      <BestsellersTabsSection
-        bestsellerFoodProducts={bestsellerFoodProducts}
-        bestsellerCraftProducts={bestsellerCraftProducts}
-        trendingFoodProducts={trendingFoodProducts}
-        trendingCraftProducts={trendingCraftProducts}
-        vendorNames={vendorNames}
-      />
-
-      {/*
-        M34 — the ways in that the desktop nav gave up so its search field
-        could be typable, plus Snacks on WhatsApp, which was never in the
-        nav at all. Directly under the hero's two halves: this is the
-        "anything else?" row, and it only makes sense after the page's
-        two main answers.
-      */}
-      <section className={clsx("container", "container-wide", styles.quickEntry)}>
+      {/* ── 4. Bento Shortcuts ── */}
+      <section className={clsx("container", "container-wide", styles.quickEntry, styles.reveal)}>
         <QuickEntryRow items={quickEntries} detail={quickEntryDetail} />
       </section>
 
+      {/* ── 5. Seasonal Band (Festive Countdown) ── */}
       {seasonal && (
-        <section className={clsx("container", "container-wide", styles.seasonal)}>
+        <section className={clsx("container", "container-wide", styles.seasonal, styles.reveal)}>
           <SeasonalBand
             occasion={seasonal.occasion}
             days={seasonal.days}
@@ -281,45 +267,38 @@ export default async function Home() {
         </section>
       )}
 
-      {/*
-        By HomeKrafted — in-house hampers, gifts & creations sold directly
-        by the brand under the HomeKrafted label.
-      */}
+      {/* ── 6. In-House Brand Shelf ("By HomeKrafted") ── */}
       {inHouseProducts.length > 0 && (
-        <section className={clsx("container", "container-wide", styles.section)}>
-          <div className={styles.sectionHead}>
-            <div>
-              <span className={styles.eyebrow}>Created in-house under our label</span>
-              <h2 className={styles.sectionTitle}>By HomeKrafted</h2>
+        <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
+          <div className={styles.brandShelfContainer}>
+            <div className={styles.sectionHead}>
+              <div>
+                <span className={styles.eyebrow}>Created in-house under our label</span>
+                <h2 className={styles.sectionTitle}>By HomeKrafted</h2>
+              </div>
+              <Link
+                href={hkVendor ? `/storefront/${hkVendor.slug}` : "/gifts"}
+                className={styles.viewAll}
+              >
+                Explore HomeKrafted collection →
+              </Link>
             </div>
-            <Link
-              href={hkVendor ? `/storefront/${hkVendor.slug}` : "/gifts"}
-              className={styles.viewAll}
-            >
-              Explore HomeKrafted collection →
-            </Link>
+            <ScrollRail label="in-house by homekrafted" className={styles.productRail}>
+              {inHouseProducts.map((product) => (
+                <ProductGridCard
+                  key={product.id}
+                  product={product}
+                  makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
+                  href={`/product/${product.slug}`}
+                />
+              ))}
+            </ScrollRail>
           </div>
-          <ScrollRail label="in-house by homekrafted" className={styles.productRail}>
-            {inHouseProducts.map((product) => (
-              <ProductGridCard
-                key={product.id}
-                product={product}
-                makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
-                href={`/product/${product.slug}`}
-              />
-            ))}
-          </ScrollRail>
         </section>
       )}
 
-      {/*
-        M53 — the reels stay in the top third (M52's finding) but sit
-        after bestsellers now: "here is what is loved" then "here is what
-        arrives" is an argument, where the reverse was two unrelated
-        rails. Framed as what arrives, not "watch it being made": the
-        clips show tiffins landing, not kadais.
-      */}
-      <section className={clsx("container", "container-wide", styles.section)}>
+      {/* ── 7. Reels Stories ("See What Arrives") ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <div className={styles.sectionHead}>
           <div>
             <span className={styles.eyebrow}>From real orders</span>
@@ -332,92 +311,57 @@ export default async function Home() {
         <ReelsRailClient reels={reels} vendors={vendors} />
       </section>
 
-      {loved.length > 0 && (
-        <section className={clsx("container", "container-wide", styles.section)}>
+
+      {/* ── 9. Categories ("What are you in the mood for" - The Visual Menu) ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
+        <div className={styles.categoriesContainer}>
           <div className={styles.sectionHead}>
             <div>
-              <span className={styles.eyebrow}>Reviewed by people who ate it</span>
-              <h2 className={styles.sectionTitle}>Ordered again and again</h2>
+              <span className={styles.eyebrow}>Homemade food</span>
+              <h2 className={styles.sectionTitle}>What are you in the mood for</h2>
             </div>
             <Link href="/shop" className={styles.viewAll}>
-              All products →
+              All categories →
             </Link>
           </div>
-          <ScrollRail label="most loved listings" className={styles.productRail}>
-            {loved.map((product) => (
-              <ProductGridCard
-                key={product.id}
-                product={product}
-                makerName={vendorNameById.get(product.vendorId) ?? "Homekrafted"}
-                href={`/product/${product.slug}`}
+          <ScrollRail label="categories" className={styles.categoryRail}>
+            {photographedCategories.map((category) => (
+              <CategoryTile
+                key={category.id}
+                category={category}
+                href={`/shop?category=${category.slug}`}
               />
             ))}
           </ScrollRail>
-        </section>
-      )}
-
-      {/*
-        "What are you in the mood for" — enclosed in a Flipkart-style warm container
-      */}
-      <section className={clsx("container", "container-wide", styles.section, styles.containerWarm)}>
-        <div className={styles.sectionHead}>
-          <div>
-            {/* Every photographed category is food (M33) — the eyebrow
-                says so, rather than promising a category rail for the
-                gifts half that is not there yet. */}
-            <span className={styles.eyebrow}>Homemade food</span>
-            <h2 className={styles.sectionTitle}>What are you in the mood for</h2>
-          </div>
-          <Link href="/shop" className={styles.viewAll}>
-            All categories →
-          </Link>
         </div>
-        {/* `ScrollRail` owns the scrollbar, the edge fades and the arrows;
-            `.categoryRail` is only this rail's gap and tile sizing. */}
-        <ScrollRail label="categories" className={styles.categoryRail}>
-          {photographedCategories.map((category) => (
-            <CategoryTile
-              key={category.id}
-              category={category}
-              href={`/shop?category=${category.slug}`}
-            />
-          ))}
-        </ScrollRail>
       </section>
 
-      {/*
-        "Someone you owe a present" — enclosed in an alternating Flipkart-style sage tint container
-      */}
-      <section className={clsx("container", "container-wide", styles.section, styles.containerSage)}>
-        <div className={styles.sectionHead}>
-          <div>
-            <span className={styles.eyebrow}>Handcrafted gifts</span>
-            <h2 className={styles.sectionTitle}>Someone you owe a present</h2>
+      {/* ── 10. Occasions ("Someone you owe a present" - Magazine Grid) ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
+        <div className={styles.containerSage}>
+          <div className={styles.sectionHead}>
+            <div>
+              <span className={styles.eyebrow}>Handcrafted gifts</span>
+              <h2 className={styles.sectionTitle}>Someone you owe a present</h2>
+            </div>
+            <Link href="/collections" className={styles.viewAll}>
+              All occasions →
+            </Link>
           </div>
-          <Link href="/collections" className={styles.viewAll}>
-            All occasions →
-          </Link>
+          <div className={styles.occasionGrid}>
+            {occasionTiles.map((occasion) => (
+              <OccasionTile
+                key={occasion.id}
+                occasion={occasion}
+                href={`/collections/${occasion.slug}`}
+              />
+            ))}
+          </div>
         </div>
-        <ScrollRail label="gift occasions" className={styles.occasionRail}>
-          {occasionTiles.map((occasion) => (
-            <OccasionTile
-              key={occasion.id}
-              occasion={occasion}
-              href={`/collections/${occasion.slug}`}
-            />
-          ))}
-        </ScrollRail>
       </section>
 
-      {/* The objection an unfamiliar visitor arrives with, answered where
-          they have just seen enough to have it.
-
-          It is the one section on its own ground. Everything above it is
-          a rail of things to look at on the page's canvas, and eight of
-          those in a row read as one long list whatever the headings say;
-          this is the section that stops and explains, so the page stops
-          with it. See `.explainerBand`. */}
-      <div className={styles.explainerBand}>
+      {/* ── 11. Explainer Timeline ("How this works") ── */}
+      <div className={clsx(styles.explainerBand, styles.reveal)}>
         <section className={clsx("container", "container-prose", styles.section, styles.explainer)}>
           <div className={styles.sectionHead}>
             <div>
@@ -429,9 +373,8 @@ export default async function Home() {
         </section>
       </div>
 
-      {/* Admin-editable copy (M11b `/admin/collections`) — see
-          `getHomePromoBands`. */}
-      <section className={clsx("container", "container-wide", styles.section)}>
+      {/* ── 12. Asymmetric Promo Bands ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <div className={styles.bandsGrid}>
           {promoBands.map((band) => (
             <PromoBand
@@ -447,21 +390,20 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Frequently Asked Questions with SEO-indexed accordion */}
-      <section className={clsx("container", "container-wide")}>
+      {/* ── 13. Frequently Asked Questions ── */}
+      <section className={clsx("container", "container-wide", styles.reveal)}>
         <FaqSection />
       </section>
 
-      {/* The supply side. A two-sided marketplace whose home page never
-          addressed the supply half was leaving the harder side of the
-          problem to the footer. */}
-      <section className={clsx("container", "container-wide", styles.section)}>
+      {/* ── 14. Supply Side Sell CTA ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <SellCta />
       </section>
 
-      <section className={clsx("container", "container-wide", styles.section)}>
+      {/* ── 15. Warm Closing App Install ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <AppInstallPanel />
       </section>
-    </>
+    </div>
   );
 }

@@ -3,105 +3,162 @@
   flex-direction: column;
 }
 
-.commonSwitcherContainer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-block-start: clamp(20px, 3vw, 36px);
-  margin-block-end: clamp(12px, 1.8vw, 18px);
-}
-
-.commonFilterPills {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #fbf7f0;
-  padding: 5px 8px;
-  border-radius: var(--hk-r-pill, 999px);
-  border: 1px solid var(--hk-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border-radius: var(--hk-r-pill, 999px);
-  border: none;
-  background: transparent;
-  color: var(--hk-ink-2, #555);
-  font-size: 13.5px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.pill:hover {
-  color: var(--hk-pine, #2a5c45);
-  background: rgba(42, 92, 69, 0.06);
-}
-
-.pillActive {
-  background: var(--hk-pine, #2a5c45) !important;
-  color: #ffffff !important;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(42, 92, 69, 0.28);
-}
-
 .section {
-  background: #fbf7f0;
-  border-radius: var(--hk-r-xl, 16px);
-  padding: clamp(18px, 3vw, 36px) clamp(16px, 2.5vw, 32px);
-  border: 1px solid var(--hk-border);
+  padding-block: clamp(16px, 2.2vw, 30px) 0;
 }
 
 .sectionTrending {
-  background: #fdfbf7;
-  margin-block-start: clamp(16px, 2vw, 24px);
+  padding-block: clamp(14px, 1.8vw, 24px) 0;
 }
 
 .sectionHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: var(--hk-s3, 14px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: var(--hk-s4, 20px);
+  width: 100%;
 }
 
 .headingBlock {
+  grid-column: 1;
   display: flex;
   flex-direction: column;
+  justify-self: start;
+  min-width: 0;
 }
 
-.eyebrow {
-  display: block;
+.eyebrow,
+.eyebrowTrending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--hk-gold-text-sm);
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+}
+
+.eyebrowIcon {
+  width: 13px;
+  height: 13px;
+}
+
+.flameIcon {
+  width: 13px;
+  height: 13px;
+  color: var(--hk-terracotta, #b65d3c);
+}
+
+.eyebrowTrending {
+  color: var(--hk-terracotta-text, #a04d2e);
 }
 
 .sectionTitle {
   font-family: var(--hk-font-display);
-  font-size: clamp(22px, 2.8vw, 32px);
+  font-size: clamp(24px, 2.8vw, 36px);
   font-weight: 700;
   color: var(--hk-ink);
   margin: 0;
-  line-height: 1.15;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Fixed absolute horizontal center: completely immune to link width changes */
+.segmentedControlWrapper {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+}
+
+.viewAllSlot {
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  min-width: 0;
+}
+
+.sectionHeadTrending {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: var(--hk-s4, 18px);
+}
+
+/* ── Segmented Control (Centered Pill) ────────────────────────── */
+.segmentedControl {
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--hk-border, #eceae4);
+  border-radius: var(--hk-r-pill, 999px);
+  padding: 4px;
+  gap: 2px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 96px;
+  height: 36px;
+  padding: 0;
+  border-radius: var(--hk-r-pill, 999px);
+  border: none;
+  background: transparent;
+  color: var(--hk-ink-2, #4a4335);
+  font-family: var(--hk-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.segment:hover {
+  color: var(--hk-pine, #234233);
+  background: rgba(35, 66, 51, 0.05);
+}
+
+.segmentActive,
+.segmentActive:hover,
+.segmentActive:focus,
+.segmentActive:active {
+  background: var(--hk-pine, #234233) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(35, 66, 51, 0.28) !important;
+}
+
+.segmentActive .segmentIcon,
+.segmentActive:hover .segmentIcon {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.segmentIcon {
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
 }
 
 .viewAll {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--hk-font-mono);
   font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--hk-gold-text-sm);
   text-transform: uppercase;
   white-space: nowrap;
+  min-height: 24px;
 }
 
 @media (hover: hover) {
@@ -111,50 +168,93 @@
   }
 }
 
+.dividerWrapper {
+  padding-block: clamp(16px, 2.5vw, 32px) 0;
+}
+
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--hk-border, #eceae4);
+  opacity: 0.8;
+}
+
 .productRail {
   gap: var(--hk-s4);
   padding-bottom: var(--hk-s2);
 }
 
 .productRail > * {
-  flex: 0 0 232px;
-  min-width: 232px;
+  flex: 0 0 240px;
+  min-width: 240px;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 640px) {
-  .commonSwitcherContainer {
-    margin-block-start: 14px;
-    margin-block-end: 10px;
-    padding-inline: 12px;
+/* Tablet & Mobile Responsiveness */
+@media (max-width: 880px) {
+  .sectionHead {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
   }
 
-  .commonFilterPills {
+  .segmentedControlWrapper {
+    position: static;
+    transform: none;
     width: 100%;
-    justify-content: space-between;
-    padding: 4px;
-    gap: 4px;
+    order: 2;
   }
 
-  .pill {
+  .segmentedControl {
+    margin-inline: auto;
+  }
+
+  .viewAllSlot {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .sectionHead {
+    gap: 12px;
+  }
+
+  .headingBlock {
+    text-align: left;
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .segmentedControlWrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .segmentedControl {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+  }
+
+  .segment {
     flex: 1;
     justify-content: center;
-    padding: 6px 8px;
+    padding: 7px 8px;
     font-size: 12px;
-    gap: 4px;
+    min-width: 0;
   }
 
-  .section {
-    padding: 16px 12px;
-    border-radius: 14px;
+  .viewAllSlot {
+    justify-content: flex-start;
   }
 
-  .sectionTrending {
-    margin-block-start: 12px;
-  }
-
-  .sectionTitle {
-    font-size: 21px;
+  .sectionHeadTrending {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .productRail {
@@ -162,7 +262,8 @@
   }
 
   .productRail > * {
-    flex: 0 0 190px;
-    min-width: 190px;
+    flex: 0 0 200px;
+    min-width: 200px;
   }
 }
+

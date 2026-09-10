@@ -1,54 +1,98 @@
 .tile {
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: 14px;
-  padding: 20px 12px;
+  background: var(--hk-surface, #ffffff);
+  border: 1px solid var(--hk-border, #eceae4);
+  border-radius: var(--hk-r-lg, 16px);
+  padding: 18px 16px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  min-height: 124px;
+  gap: 14px;
   font-family: inherit;
   width: 100%;
-  transition:
-    border-color var(--hk-dur) var(--hk-ease),
-    background var(--hk-dur) var(--hk-ease);
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: transform 0.28s var(--hk-ease),
+              box-shadow 0.28s var(--hk-ease),
+              border-color 0.28s var(--hk-ease),
+              background 0.28s var(--hk-ease);
 }
 
 .tile:hover {
-  /* Prototype uses #C9A24a here — normalized to the nearest gold-border token. */
-  border-color: var(--hk-gold-border);
-  background: var(--hk-gold-tint);
+  transform: translateY(-3px);
+  border-color: rgba(35, 66, 51, 0.25);
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(35, 66, 51, 0.07);
 }
 
-/*
- * The mark (M33). `color` is what `CraftIcon`'s `currentColor` stroke
- * resolves against — the gold accents inside each piece of art set their
- * own stroke from the token and are unaffected by this.
- */
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .icon {
-  color: var(--hk-pine);
+  color: var(--hk-pine, #234233);
   flex-shrink: 0;
+  transition: transform 0.25s var(--hk-ease);
 }
 
-/* Fallback only — an admin-created occasion with no art. See OccasionTile.tsx. */
+.tile:hover .icon {
+  transform: scale(1.08);
+}
+
+.arrow {
+  color: var(--hk-muted, #766c5d);
+  opacity: 0.5;
+  transition: opacity 0.25s var(--hk-ease), transform 0.25s var(--hk-ease);
+}
+
+.tile:hover .arrow {
+  opacity: 1;
+  transform: translate(2px, -2px);
+  color: var(--hk-pine, #234233);
+}
+
 .ring {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--hk-r-pill);
-  border: 1.4px solid var(--hk-gold-border);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--hk-r-pill, 999px);
+  border: 1.4px solid var(--hk-gold-border, #e5dcc9);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--hk-font-display);
-  font-size: 19px;
-  color: var(--hk-pine);
+  font-size: 17px;
+  color: var(--hk-pine, #234233);
   flex-shrink: 0;
 }
 
-.label {
-  font-size: 13.5px;
-  font-weight: 500;
-  color: var(--hk-ink-2);
-  text-align: center;
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 38px;
+  justify-content: flex-end;
 }
+
+.label {
+  font-family: var(--hk-font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hk-ink, #2b241c);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.tagline {
+  font-family: var(--hk-font-body);
+  font-size: 11px;
+  color: var(--hk-muted, #766c5d);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+

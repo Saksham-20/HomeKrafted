@@ -2,61 +2,80 @@
   border: none;
   background: none;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 11px;
+  display: block;
   font-family: inherit;
   width: 100%;
   padding: 0;
+  text-decoration: none;
+  outline: none;
 }
 
-/*
- * The no-photograph mark (M33). Takes the same circular footprint as the
- * photo it stands in for — `aspect-ratio` over the full tile width, not a
- * fixed pixel box — so a row that mixes photographed and un-photographed
- * categories keeps one baseline at every viewport.
- *
- * Pine tint rather than the canvas: on `--hk-surface` the circle needs an
- * edge to exist at all, and a filled tint gives the mark the visual mass a
- * photograph has without a border ring competing with the art inside it.
- */
-.mark {
+.cardFrame {
+  position: relative;
   width: 100%;
-  aspect-ratio: 1;
-  border-radius: var(--hk-r-pill);
-  background: var(--hk-pine-tint);
-  color: var(--hk-pine);
-  /* `--hk-gold` measures 2.85:1 on this tint, under the 3.0 non-text
-     floor; the darkened ramp is 4.63:1. See `CraftIcon`'s GOLD. */
-  --hk-craft-accent: var(--hk-gold-text-sm);
+  aspect-ratio: 3 / 4;
+  border-radius: var(--hk-r-lg, 16px);
+  overflow: hidden;
+  background: var(--hk-surface-2, #f5f3ef);
+  border: 1px solid var(--hk-border, #eceae4);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: transform 0.32s var(--hk-ease), box-shadow 0.32s var(--hk-ease), border-color 0.32s var(--hk-ease);
+}
+
+.tile:hover .cardFrame {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+  border-color: rgba(228, 200, 116, 0.4);
+}
+
+.image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s var(--hk-ease);
+}
+
+.tile:hover .image {
+  transform: scale(1.06);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to top,
+    rgba(27, 43, 34, 0.88) 0%,
+    rgba(27, 43, 34, 0.4) 45%,
+    transparent 75%
+  );
+  pointer-events: none;
+}
+
+.mark {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  transition: background var(--hk-dur) var(--hk-ease);
-}
-
-/*
- * Scaled as a fraction of the circle rather than left at `CraftIcon`'s
- * pixel default: the circle is fluid (it is the grid column's full width),
- * so a fixed 46px mark shrinks to a dot beside a photograph on a wide
- * viewport and crowds the edge on a narrow one.
- */
-.mark svg {
-  width: 46%;
-  height: auto;
-}
-
-.tile:hover .mark {
-  background: var(--hk-gold-tint);
+  background: var(--hk-pine-tint, #eff3ea);
+  color: var(--hk-pine, #234233);
 }
 
 .label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--hk-ink-2);
-  text-align: center;
+  position: relative;
+  z-index: 2;
+  font-family: var(--hk-font-display);
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #ffffff;
+  padding: 12px 14px;
+  line-height: 1.2;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  letter-spacing: -0.01em;
 }
 
-.tile:hover .label {
-  color: var(--hk-gold-text-sm);
-}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { Plus, Minus } from "lucide-react";
 import styles from "./FaqSection.module.css";
 
 export interface FaqItem {
@@ -11,17 +11,17 @@ export const FAQ_ITEMS: FaqItem[] = [
   {
     question: "How does ordering from a home kitchen work?",
     answer:
-      "When you place an order, it is sent directly to our verified home cooks. Unlike commercial restaurants, meals are cooked in small, hygienic batches using authentic family recipes and quality ingredients, then delivered fresh to your doorstep.",
+      "When you place an order, it is sent directly to verified home cooks. Unlike commercial restaurants, meals are cooked in small, hygienic batches using authentic family recipes and quality ingredients, then delivered fresh to your doorstep.",
   },
   {
     question: "Are the home kitchens vetted for hygiene and safety?",
     answer:
-      "Yes, absolutely. Every home kitchen on HomeKrafted undergoes our thorough home inspection process covering clean prep areas, personal hygiene standards, quality ingredient sourcing, and safe food-grade packaging.",
+      "Yes, absolutely. Every home kitchen on HomeKrafted undergoes our thorough home verification process covering clean prep areas, personal hygiene standards, quality ingredient sourcing, and safe food-grade packaging.",
   },
   {
-    question: "What is the difference between local delivery and Pan-India shipping?",
+    question: "What is the difference between fresh delivery and express courier shipping?",
     answer:
-      "Freshly cooked homemade meals and delicate baked goods are delivered same-day locally across the Chandigarh Tricity (Chandigarh, Mohali, Panchkula, Zirakpur). Handcrafted gifts, dry snacks, pickles, and artisanal decor are shipped across India via express courier.",
+      "Freshly cooked homemade meals and delicate baked goods are prepared fresh and delivered promptly. Handcrafted gifts, dry snacks, pickles, and artisanal decor are securely packaged and dispatched via tracked express courier.",
   },
   {
     question: "Can I place pre-orders or bulk orders for parties and festivals?",
@@ -58,7 +58,10 @@ export function FaqSection() {
           <details key={index} className={styles.faqItem} open={index === 0}>
             <summary className={styles.faqSummary}>
               <span>{item.question}</span>
-              <ChevronDown className={styles.chevron} aria-hidden="true" />
+              <span className={styles.iconIndicator} aria-hidden="true">
+                <Plus className={styles.plusIcon} />
+                <Minus className={styles.minusIcon} />
+              </span>
             </summary>
             <p className={styles.faqAnswer}>{item.answer}</p>
           </details>

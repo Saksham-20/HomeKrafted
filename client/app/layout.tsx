@@ -70,11 +70,11 @@ export const metadata: Metadata = {
   keywords: [
     "homemade gifts",
     "home kitchen food",
-    "Chandigarh",
-    "Mohali",
-    "Panchkula",
+    "homemade food delivery",
+    "handcrafted gifts",
     "homemade snacks",
     "gift hampers",
+    "artisanal food",
   ],
   alternates: { canonical: "/" },
   openGraph: {
@@ -84,7 +84,7 @@ export const metadata: Metadata = {
     url: SITE_URL,
     title: "Homekrafted — Homemade, Handpicked",
     description:
-      "Handmade gifts, homemade foods and home snacks — from real home kitchens across the Chandigarh tricity.",
+      "Handmade gifts, homemade foods and artisanal snacks — from real home kitchens and independent makers.",
     images: [{ url: "/images/site/hero-hamper.jpg" }],
   },
   twitter: { card: "summary_large_image" },
@@ -101,12 +101,6 @@ export default function RootLayout({
       className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} ${kaushan.variable}`}
     >
       <body>
-        {/* First thing in the tab order (M16). A keyboard user landing on
-            any page otherwise has to tab through the whole header and the
-            nav before reaching the content — on every page, every time. */}
-        <a className="hk-skip-link" href="#main-content">
-          Skip to content
-        </a>
         <AuthProvider>
           {/* Outside the shopping providers: where the buyer is decides
             which kitchens can reach them, so cart/wishlist/wallet all

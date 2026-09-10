@@ -1,107 +1,110 @@
-/*
-  Home — M53 rebuild. See `app/page.tsx` for the section order and the
-  argument behind it; this file is only spacing and section chrome.
-*/
+/* ── Landing Page Root Background & Polish ─────────────────────── */
+.landingPage {
+  background-color: #faf7f2;
+  background-image:
+    radial-gradient(ellipse at 18% 4%, rgba(228, 200, 116, 0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 82% 28%, rgba(35, 66, 51, 0.035) 0%, transparent 55%),
+    radial-gradient(ellipse at 25% 68%, rgba(182, 93, 60, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 78% 92%, rgba(228, 200, 116, 0.06) 0%, transparent 45%);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
 
-/*
-  Sections are further apart than they were. The old page ran `--hk-s7`
-  top and `--hk-s2` bottom, which is 34px of air between two unrelated
-  rails — enough for a catalogue index, not enough for a page that is
-  making an argument one section at a time. Fluid so a phone does not pay
-  desktop rhythm out of its scroll budget.
+/* ── Full Viewport Hero Screen ────────────────────────────────── */
+.heroScreen {
+  height: 100dvh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
 
-  **Pulled back from 84px to 60px (owner, 2026-09-05: "reduce the white
-  spaces overall").** The rhythm above is still the intent — sections are
-  further apart than the old 34px and the argument still reads one band
-  at a time — but 84px between eleven bands is ~900px of the scroll
-  budget spent on nothing, and the page was read as empty rather than
-  paced. 60px keeps the separation legible at roughly a third less air.
-  The fluid middle drops with it (6vw -> 4.2vw) so a phone stays in
-  proportion rather than closing up faster than the desktop.
-*/
+.afterHeroSection {
+  margin-top: clamp(18px, 2.4vw, 36px);
+}
+
+/* ── Global Section Spacing & Transitions ─────────────────────── */
 .section {
-  padding-block: clamp(var(--hk-s6), 4.2vw, 60px) 0;
+  padding-block: clamp(20px, 2.6vw, 36px) 0;
 }
 
-/*
-  The explainer's own ground — the only band on the page that is not the
-  canvas.
+/* ── Progressive Enhancement Scroll-Reveal ────────────────────── */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: hkReveal 0.65s var(--hk-ease, cubic-bezier(.2,.7,.2,1)) both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 32%;
+    }
+  }
+}
 
-  The argument runs rail, rail, rail: eight sections of things to look at,
-  each on the same surface, which reads as one long list however clear the
-  headings are. "How this works" is the section that stops and explains,
-  so it gets a surface of its own and hairlines top and bottom to say the
-  page changed gear. Full-bleed by construction — the `container` stays on
-  the `<section>` inside it, so the copy keeps the same measure as every
-  other section and only the ground runs edge to edge.
-*/
+@keyframes hkReveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Explainer Band ───────────────────────────────────────────── */
 .explainerBand {
-  margin-block-start: clamp(var(--hk-s6), 4.2vw, 60px);
-  background: var(--hk-surface);
-  border-block: 1px solid var(--hk-border);
+  margin-block-start: clamp(20px, 2.5vw, 36px);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-block: 1px solid rgba(35, 66, 51, 0.08);
 }
 
-/* The band supplies the air above, so the section inside it only owes
-   its own — and it owes it at the bottom too, which `.section` never
-   does. */
 .explainer {
-  padding-block: clamp(var(--hk-s6), 5vw, 64px) clamp(var(--hk-s6), 5vw, 64px);
+  padding-block: clamp(22px, 3vw, 40px);
 }
 
-/* Tighter than `.section` on both sides: the quick-entry strip is a set
-   of ways in that belongs to the doors above it (M34). */
 .quickEntry {
-  padding-block: var(--hk-s5) 0;
+  padding-block: clamp(14px, 1.8vw, 24px) clamp(10px, 1.2vw, 16px);
 }
 
-/* The seasonal band belongs to the doors, not to the section under it. */
 .seasonal {
-  padding-block: var(--hk-s5) 0;
+  padding-block: clamp(14px, 1.8vw, 24px) 0;
 }
 
-/* ---- section head ---- */
-
+/* ── Section Header Components ────────────────────────────────── */
 .sectionHead {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: var(--hk-s4);
-  margin-bottom: var(--hk-s5);
+  margin-bottom: clamp(12px, 1.4vw, 18px);
 }
 
-/* See ProductCard.maker — gold as text takes the AA-safe shade
-   (`--hk-gold` is 3.2:1 on white and these are words somebody reads). */
+
 .eyebrow {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-family: var(--hk-font-mono);
-  font-size: 12px;
-  letter-spacing: 0.2em;
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
+  color: var(--hk-gold-text-sm, #886815);
 }
 
-/*
-  Bigger and tighter than the old flat 27px. Section titles are the only
-  typographic level between the hero and the cards, so they carry the
-  page's editorial weight — display face, negative tracking, fluid to
-  40px on a wide screen.
-*/
 .sectionTitle {
   font-family: var(--hk-font-display);
   font-weight: 700;
-  font-size: clamp(25px, 2.9vw, 40px);
-  line-height: 1.04;
+  font-size: clamp(22px, 2.6vw, 36px);
+  line-height: 1.08;
   letter-spacing: -0.02em;
-  color: var(--hk-ink);
+  color: var(--hk-ink, #2b241c);
 }
 
 .viewAll {
   display: inline-flex;
   align-items: center;
-  /* 12px mono gives a 19px box. These are section-level "see the rest"
-     links — standalone controls, not links inside a sentence, so WCAG
-     2.2's 24px pointer floor applies. */
   min-height: 24px;
   flex: none;
   border: none;
@@ -109,7 +112,7 @@
   font-family: var(--hk-font-mono);
   font-size: 12px;
   letter-spacing: 0.1em;
-  color: var(--hk-gold-text-sm);
+  color: var(--hk-gold-text-sm, #886815);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -121,9 +124,6 @@
   }
 }
 
-/* A phone has no room for a title and a "view all" on one line: the
-   heading wraps to two lines and the link ends up alone against a
-   ragged edge. Stacked, both read. */
 @media (max-width: 560px) {
   .sectionHead {
     flex-direction: column;
@@ -132,200 +132,99 @@
   }
 }
 
-/* ---- grids and rails ---- */
-
-.occasionGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: var(--hk-s3);
+/* ── Section 6: In-House Brand Shelf Container ────────────────── */
+.brandShelfContainer {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(237, 243, 238, 0.8) 100%);
+  border-radius: var(--hk-r-xl, 22px);
+  padding: clamp(18px, 2.5vw, 32px);
+  border: 1px solid rgba(35, 66, 51, 0.12);
+  box-shadow: 0 4px 18px rgba(35, 66, 51, 0.03);
+  position: relative;
+  overflow: hidden;
 }
 
-/*
- * One line, scrolled sideways (M33, owner instruction: "only keep one
- * line here for the categories").
- *
- * It was `repeat(auto-fill, minmax(140px, 1fr))`, which wrapped: twelve
- * categories over seven columns left a five-tile orphan row that read as
- * a layout accident rather than a second row of anything.
- *
- * **A rail rather than a shorter list.** Categories are ordered
- * `sortOrder` then name, and the four craft categories are deliberately
- * last (`seed-crafts.ts` numbers them 10–13, so craft lands after food
- * rather than interleaving). Cutting the row to what fits would
- * therefore cut *exactly* the non-food half. Everything stays reachable
- * here; nothing is ranked out of existence by a viewport width.
- *
- * `ScrollRail` owns the overflow, the edge fades and the arrows — what
- * is left here is this rail's own layout and nothing else.
- */
+/* ── Section 9: Categories Container (Visual Menu) ────────────── */
+.categoriesContainer {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--hk-r-xl, 22px);
+  border: 1px solid rgba(35, 66, 51, 0.08);
+  padding: clamp(18px, 2.5vw, 32px);
+  box-shadow: 0 4px 18px rgba(35, 66, 51, 0.03);
+}
+
 .categoryRail {
-  gap: var(--hk-s4);
-  /* Room for the tiles' hover lift, which the scroll container would
-     otherwise clip. */
+  gap: clamp(12px, 1.5vw, 18px);
   padding-bottom: var(--hk-s2);
 }
 
 .categoryRail > * {
-  /* No shrink: a flex item's default `min-width: auto` would squeeze
-     twelve tiles into the line instead of overflowing it, which is the
-     wrapped row again with narrower tiles. */
-  flex: 0 0 140px;
+  flex: 0 0 156px;
 }
 
 @media (max-width: 640px) {
   .categoryRail > * {
-    /* Three-and-a-bit tiles on a 390px phone — enough to read as a row
-       that continues, rather than two tiles and a guess. */
-    flex-basis: 108px;
+    flex-basis: 128px;
   }
 }
 
-/*
-  The "most loved" rail (M53). A rail rather than a grid for the reason
-  the home page has no product grid at all: this section is a sample of
-  the catalogue, and a grid reads as the catalogue itself — which is
-  `/shop`'s job, where the filters are.
-*/
+/* ── Section 10: Occasion Magazine Grid ───────────────────────── */
+.containerSage {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(237, 244, 238, 0.8) 100%);
+  border-radius: var(--hk-r-xl, 22px);
+  padding: clamp(18px, 2.5vw, 32px);
+  border: 1px solid rgba(27, 67, 50, 0.1);
+  box-shadow: 0 4px 18px rgba(27, 67, 50, 0.03);
+}
+
+.occasionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(12px, 1.6vw, 18px);
+}
+
+.occasionGrid > * {
+  grid-column: span 1 !important;
+}
+
+@media (max-width: 960px) {
+  .occasionGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .occasionGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
 .productRail {
   gap: var(--hk-s4);
   padding-bottom: var(--hk-s2);
 }
 
 .productRail > * {
-  flex: 0 0 232px;
+  flex: 0 0 240px;
 }
 
 @media (max-width: 640px) {
   .productRail > * {
-    flex-basis: 62%;
+    flex-basis: 72%;
   }
 }
 
-/* `.featuredGrid` and `.servicesGrid` were deleted here in M29.
-
-   Both were dead: `app/page.tsx` is this stylesheet's only importer, and
-   it stopped referencing either one in M20, when the home page was
-   restructured around the two verticals. The rules stayed behind.
-
-   They are worth a note rather than a silent deletion, because the
-   `.featuredGrid` rule **produced a false bug report**. It was
-   `repeat(auto-fill, minmax(210px, 1fr))`, which needs 436px for a second
-   column against a 358px content column — the exact arithmetic behind the
-   real fix in `app/shop/ShopClient.module.css`. Read on its own it says
-   "the home page shows one product per row on a phone", and the M29 mobile
-   plan reported it as the milestone's headline defect. It survived a
-   source check too: the rule is real, the arithmetic is right, the
-   reference fix it is compared against is real. What nobody checked was
-   whether anything *renders* it. Nothing does.
-
-   The lesson is cheap to state and was not: dead CSS reads exactly like
-   live CSS, so a defect found by reading a stylesheet is a hypothesis
-   until a rendered page confirms it. */
-
+/* ── Section 12: Asymmetric Promo Bands ───────────────────────── */
 .bandsGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--hk-s5);
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: clamp(14px, 2vw, 24px);
 }
 
-@media (max-width: 780px) {
+@media (max-width: 860px) {
   .bandsGrid {
     grid-template-columns: 1fr;
   }
 }
 
-/*
-  Four kitchens, so the grid is explicitly four-up rather than auto-fill:
-  the client asked for four, and auto-fill would silently render five on a
-  wide screen and break the symmetry the section is built on.
-*/
-.makersGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--hk-s4);
-}
-
-@media (max-width: 1000px) {
-  .makersGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-/*
-  Phones get a horizontal snap rail, not a stack (M35). Stacked, the four
-  cards were ~4 full screens of scroll on a 390px viewport — the longest
-  stretch of the page by far — and every section after them paid for it.
-  A rail keeps all four kitchens one swipe away at the cost usual for
-  rails: the fourth card starts off-screen. 82% width leaves a peek of
-  the next card so the rail reads as scrollable without instruction.
-*/
-@media (max-width: 560px) {
-  .makersGrid {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: var(--hk-s2);
-  }
-
-  .makersGrid > * {
-    flex: 0 0 82%;
-    scroll-snap-align: start;
-  }
-}
-
-/* ── Alternating section containers (warm tinted Flipkart-style) ───── */
-.altBg {
-  background: #fbf7f0;
-  border-radius: var(--hk-r-xl, 16px);
-  padding: clamp(var(--hk-s5), 3.5vw, 44px) clamp(var(--hk-s4), 3vw, 36px);
-  margin-block-start: clamp(var(--hk-s5), 3.5vw, 48px);
-  border: 1px solid var(--hk-border);
-}
-
-.containerWarm {
-  background: #ffffff;
-  border-radius: var(--hk-r-xl, 18px);
-  padding: clamp(20px, 3vw, 36px);
-  margin-block-start: clamp(28px, 3.5vw, 44px);
-  border: 1px solid var(--hk-border, #e2e2e2);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
-}
-
-.containerSage {
-  background: #f4f8f5;
-  border-radius: var(--hk-r-xl, 18px);
-  padding: clamp(20px, 3vw, 36px);
-  margin-block-start: clamp(28px, 3.5vw, 44px);
-  border: 1px solid rgba(27, 67, 50, 0.12);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
-}
-
-.occasionRail {
-  gap: var(--hk-s3);
-  padding-bottom: var(--hk-s2);
-}
-
-.occasionRail > * {
-  flex: 0 0 132px;
-}
-
-@media (max-width: 640px) {
-  .containerWarm,
-  .containerSage,
-  .altBg {
-    padding: 18px 14px;
-    border-radius: 14px;
-    margin-block-start: 24px;
-  }
-
-  .occasionRail > * {
-    flex-basis: 110px;
-  }
-}
-
-.bestsellerTabs {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s3);
-}

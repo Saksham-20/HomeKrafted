@@ -40,65 +40,165 @@
   top: 0;
   z-index: 50;
   background: transparent;
-  border-bottom-color: transparent;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  border-bottom: 1px solid transparent;
+  box-shadow: none;
   transition:
-    background-color var(--hk-dur) var(--hk-ease),
-    border-color var(--hk-dur) var(--hk-ease),
-    box-shadow var(--hk-dur) var(--hk-ease);
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    backdrop-filter 0.3s ease;
 }
 
 .landing[data-revealed="true"] {
-  /*
-    The same surface every other route's header uses, not a wash. At 0.86
-    a display headline scrolling under the bar stayed legible *through*
-    it — "How this works" reading straight across the nav — which is read
-    as a rendering fault, not as a translucent surface; at 0.96 the ghost
-    was fainter and still there, because the type it competes with is
-    36px and nearly black. Translucency buys the landing header nothing
-    once it has turned solid: the point of the reveal is that the bar
-    stops being part of the hero.
-  */
-  background: var(--hk-surface);
-  border-bottom-color: var(--hk-border);
-  box-shadow: 0 6px 24px -18px rgba(27, 51, 39, 0.35);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom-color: var(--hk-border, #eceae4);
+  box-shadow: 0 4px 20px -8px rgba(27, 51, 39, 0.15);
 }
 
 .landing .row {
   position: relative;
-  padding-block: 12px;
-  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 14px;
+  min-height: 72px;
 }
 
 /*
-  The tabs, centred in the row (there is no logo and no search to share
-  it with) and **visible from the first paint** (owner, 2026-08-29).
-
-  They used to fade in only once the hero's brand block had scrolled
-  past, which left the landing page — the one page a first-time visitor
-  lands on — with no navigation at all above the fold. The bar still
-  changes at that point; what changes is the background wash, not
-  whether the site has a menu.
+  The nav tabs: positioned on the left side of the row, matching the
+  editorial split reference (media_1789016382813.webp).
 */
 .landing .nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: clamp(16px, 2.2vw, 32px);
+  z-index: 2;
+}
+
+.landing .navLink {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: color 0.25s ease;
+}
+
+/*
+  The brand logo: anchored dead-center in the header row, visible
+  from first paint over the hero split and transitioning cleanly when scrolled.
+*/
+.landing .logo {
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  gap: var(--hk-s5);
-}
-
-.landing .navLink {
-  font-size: 15px;
-}
-
-/*
-  The landing bar's logo (M56, owner 2026-08-31): in the row from first
-  paint — always visible on the navbar.
-*/
-.landing .logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 1;
   visibility: visible;
-  transform: none;
+  pointer-events: auto;
+  z-index: 2;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.landing .actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--hk-s4, 16px);
+  margin-left: auto;
+  z-index: 2;
+}
+
+/* ── Transparent Header over Hero at Top ── */
+.landing:not([data-revealed="true"]) {
+  background: linear-gradient(
+    180deg,
+    rgba(10, 20, 15, 0.6) 0%,
+    rgba(10, 20, 15, 0.25) 60%,
+    transparent 100%
+  );
+  border-bottom-color: transparent;
+}
+
+.landing:not([data-revealed="true"]) .logoMark {
+  filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.65));
+}
+
+.landing:not([data-revealed="true"]) .navLink {
+  color: #ffffff;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+}
+
+.landing:not([data-revealed="true"]) .navLink:hover {
+  color: var(--hk-gold-bright, #e4c874);
+}
+
+.landing:not([data-revealed="true"]) .utilityIcon {
+  color: #ffffff;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+}
+
+.landing:not([data-revealed="true"]) .utilityIcon:hover {
+  color: var(--hk-gold-bright, #e4c874);
+}
+
+.landing:not([data-revealed="true"]) .hamburger {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ── Scrolled / Solid Header Past Hero ── */
+.landing[data-revealed="true"] .logoMark {
+  filter: none;
+}
+
+.landing[data-revealed="true"] .navLink {
+  color: var(--hk-ink, #2b241c);
+  font-weight: 500;
+}
+
+.landing[data-revealed="true"] .navLink:hover {
+  color: var(--hk-pine, #234233);
+}
+
+.landing[data-revealed="true"] .utilityIcon {
+  color: var(--hk-pine, #234233);
+}
+
+.landing[data-revealed="true"] .hamburger {
+  color: var(--hk-pine, #234233);
+  border-color: var(--hk-border);
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .landing .row {
+    grid-template-columns: 1fr auto 1fr;
+    padding-block: 10px;
+    min-height: 58px;
+  }
+
+  .landing .nav {
+    display: none;
+  }
+
+  .landing .logo {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .landing .actions {
+    grid-column: 3;
+    justify-self: end;
+  }
 }
 
 /* ---- Tab dropdowns (M56) ----
@@ -205,19 +305,20 @@
 .logoMark {
   display: block;
   align-self: flex-start;
-  /* 64px + a tagline row until 2026-08-27 — the tall lockup made sense
-     while the header was the only place the brand appeared at size. The
-     landing hero now carries the big centred lockup, so the header's copy
-     is a compact wayfinding mark (the top-left logo convention), not the
-     brand moment. */
-  height: 40px;
+  height: 48px;
   width: auto;
   max-width: 100%;
 }
 
+@media (max-width: 600px) {
+  .logoMark {
+    height: 42px;
+  }
+}
+
 @media (max-width: 400px) {
   .logoMark {
-    height: 34px;
+    height: 38px;
   }
 }
 

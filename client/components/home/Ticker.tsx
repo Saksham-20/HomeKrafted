@@ -1,37 +1,36 @@
 import styles from "./Ticker.module.css";
 
-/**
- * The strip under the hero — a marquee of what the platform actually is
- * (M53).
- *
- * **Every phrase is a fact the product enforces somewhere**, not a
- * slogan: listings are reviewed before they are public (M22), a kitchen
- * cooks after the order (nothing is held ready), the gifting half posts
- * India-wide while food travels the tricity (M36), and a cook keeps
- * their own storefront. Nothing here is a number, because there is no
- * number on this site anybody can substantiate yet.
- *
- * The second copy of the list is `aria-hidden` — it exists only so the
- * loop has something to slide into. The whole strip is CSS: no timer, no
- * client bundle, and it holds still under `prefers-reduced-motion`,
- * where a scrolling band of text is exactly the thing being asked about.
- */
 const PHRASES = [
-  "Made in a home kitchen",
-  "Cooked after you order",
-  "Every listing reviewed before it goes live",
-  "Gifts posted anywhere in India",
-  "Food delivered across the tricity",
-  "The cook keeps their own storefront",
+  "Made in a real home kitchen",
+  "Cooked freshly after you order",
+  "Every maker & listing reviewed for hygiene",
+  "Handcrafted gifts packed & shipped with care",
+  "Fresh meals delivered right to your doorstep",
+  "Independent creators keep their own storefront",
 ];
+
+function SparkleIcon({ index }: { index: number }) {
+  if (index % 2 === 0) {
+    return (
+      <svg className={styles.sparkle} viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+        <path d="M5 0L6.1 3.9L10 5L6.1 6.1L5 10L3.9 6.1L0 5L3.9 3.9Z" fill="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={styles.sparkle} viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+      <path d="M5 1L6.5 4L10 4.5L7.5 7L8 10L5 8.5L2 10L2.5 7L0 4.5L3.5 4Z" fill="currentColor" />
+    </svg>
+  );
+}
 
 function Run({ hidden }: { hidden?: boolean }) {
   return (
     <div className={styles.run} aria-hidden={hidden ? "true" : undefined}>
-      {PHRASES.map((phrase) => (
+      {PHRASES.map((phrase, i) => (
         <span className={styles.item} key={phrase}>
-          {phrase}
-          <span className={styles.dot} aria-hidden="true" />
+          <span>{phrase}</span>
+          <SparkleIcon index={i} />
         </span>
       ))}
     </div>
@@ -40,11 +39,11 @@ function Run({ hidden }: { hidden?: boolean }) {
 
 export function Ticker() {
   return (
-    <div className={styles.ticker}>
+    <aside className={styles.ticker} aria-label="HomeKrafted platform promises">
       <div className={styles.track}>
         <Run />
         <Run hidden />
       </div>
-    </div>
+    </aside>
   );
 }

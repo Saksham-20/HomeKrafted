@@ -1,16 +1,13 @@
 .card {
   flex: 0 0 auto;
-  /* Four cards at 256px + three 16px gaps = 1072px — the whole 1092px row,
-     since M52 made these the page's proof rather than its seventh
-     section. 208px below 900, where the rail scrolls anyway. */
-  width: 256px;
+  width: 248px;
   padding: 0;
   border: none;
   background: none;
   text-align: left;
   cursor: pointer;
-  scroll-snap-align: start;
-  border-radius: var(--hk-r-lg);
+  scroll-snap-align: center;
+  border-radius: var(--hk-r-xl, 18px);
 }
 
 .card:focus-visible {
@@ -23,15 +20,16 @@
   display: block;
   aspect-ratio: 9 / 16;
   overflow: hidden;
-  border-radius: var(--hk-r-lg);
-  border: 1px solid var(--hk-border);
-  background: var(--hk-surface);
-  box-shadow: var(--hk-shadow-card);
-  transition: transform var(--hk-dur) var(--hk-ease);
+  border-radius: var(--hk-r-xl, 18px);
+  border: 3px solid #ffffff;
+  background: var(--hk-surface, #ffffff);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.08);
+  transition: transform 0.35s var(--hk-ease), box-shadow 0.35s var(--hk-ease);
 }
 
 .card:hover .frame {
-  transform: translateY(-3px);
+  transform: translateY(-5px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14);
 }
 
 .video,
@@ -45,11 +43,6 @@
   border: none;
 }
 
-/* The preview sits over the still and is invisible until the browser
-   reports `playing` — so a clip that is refused, slow, or never asked
-   for leaves the photograph exactly as it was. Fades rather than cuts;
-   the global reduced-motion floor strips the transition, and under it
-   the card never mounts a video anyway (see `ReelCard`). */
 .video {
   opacity: 0;
   transition: opacity var(--hk-dur) var(--hk-ease);
@@ -59,57 +52,41 @@
   opacity: 1;
 }
 
-/* The gradient that keeps the white overlay copy legible over any still —
-   a scrim, not a surface, so it is an rgba wash rather than a token fill. */
 .scrim {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to top,
-    rgba(27, 51, 39, 0.86) 0%,
-    rgba(27, 51, 39, 0.42) 34%,
-    rgba(27, 51, 39, 0) 62%
+    rgba(27, 51, 39, 0.9) 0%,
+    rgba(27, 51, 39, 0.45) 40%,
+    rgba(27, 51, 39, 0) 70%
   );
 }
 
 .chip {
   position: absolute;
-  top: var(--hk-s3);
+  top: 12px;
   font-family: var(--hk-font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: var(--hk-r-pill);
-  color: var(--hk-on-pine);
-  /* Translucent dark pill over live video — no token expresses a wash
-     whose backdrop is arbitrary photography (same reasoning as
-     ChannelBadge's gold-dark variant). */
-  background: rgba(27, 51, 39, 0.62);
-  backdrop-filter: blur(3px);
+  color: #fefae0;
+  background: rgba(27, 51, 39, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .durationChip {
-  right: var(--hk-s3);
+  right: 12px;
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-/* An Instagram-hosted reel we have no still of our own for.
-
-   A quiet pine wash rather than Instagram's gradient: this is our card,
-   and borrowing their brand colour to say "there is a video here" claims
-   more than a link does. The mark and the chip already name the source.
-
-   It sits in a rail of real photographs, so a flat slab reads as a
-   broken image rather than a deliberate card. The weave of faint rules
-   plus a large glyph is the "this lives somewhere else" treatment: it
-   looks made, not missing. Mirroring Instagram's own frame is not
-   available — their CDN URLs are signed and expire, and re-hosting
-   somebody's still is a separate permission from embedding their post
-   (see `lib/instagram.ts`). */
 .igTile {
   position: absolute;
   inset: 0;
@@ -126,8 +103,6 @@
   color: var(--hk-on-pine);
 }
 
-/* The glyph reads as the source mark, not as the play button — the play
-   badge sits on top of it and has to stay the louder of the two. */
 .igTile > svg {
   opacity: 0.4;
   transform: translateY(-26px);
@@ -140,17 +115,21 @@
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--hk-r-pill);
-  color: var(--hk-pine-deep);
-  background: rgba(255, 255, 255, 0.9);
-  padding-left: 2px; /* optically centres the triangle */
-  transition: transform var(--hk-dur) var(--hk-ease);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--hk-pine-deep, #1b3327);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  padding-left: 2px;
+  transition: transform 0.3s var(--hk-ease), background-color 0.3s var(--hk-ease);
 }
 
 .card:hover .playBadge {
-  transform: translate(-50%, -50%) scale(1.08);
+  transform: translate(-50%, -50%) scale(1.12);
+  background: #ffffff;
 }
 
 .overlay {
@@ -159,28 +138,30 @@
   bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: var(--hk-s3);
+  gap: 4px;
+  padding: 14px 16px;
 }
 
 .author {
   font-family: var(--hk-font-mono);
   font-size: 10px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--hk-gold-bright);
+  color: var(--hk-gold-bright, #e4c874);
+  font-weight: 600;
 }
 
 .title {
   font-family: var(--hk-font-display);
   font-weight: 600;
   font-size: 15px;
-  line-height: 1.15;
-  color: #fff;
+  line-height: 1.2;
+  color: #ffffff;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .stats {
@@ -191,7 +172,7 @@
   font-family: var(--hk-font-mono);
   font-size: 10px;
   letter-spacing: 0.04em;
-  color: var(--hk-footer-ink);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .dot {
@@ -200,12 +181,13 @@
 
 @media (max-width: 900px) {
   .card {
-    width: 208px;
+    width: 204px;
   }
 }
 
 @media (max-width: 640px) {
   .card {
-    width: 168px;
+    width: 172px;
   }
 }
+

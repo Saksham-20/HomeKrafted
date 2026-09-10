@@ -207,6 +207,16 @@ const karwaChauth = (
   </>
 );
 
+const onam = (
+  <>
+    <circle cx="16" cy="16" r="11" />
+    <circle cx="16" cy="16" r="7" stroke={GOLD} />
+    <circle cx="16" cy="16" r="3" fill={GOLD} stroke={GOLD} />
+    <path d="M16 5v4M16 23v4M5 16h4M23 16h4" stroke={GOLD} />
+    <path d="m8.2 8.2 2.8 2.8M21 21l2.8 2.8M8.2 23.8l2.8-2.8M21 11l2.8-2.8" />
+  </>
+);
+
 /** Also the fallback for a category with no art — a wrapped gift reads for anything on this marketplace. */
 const gift = (
   <>
@@ -266,6 +276,7 @@ const OCCASION_ART: Record<string, ReactNode> = {
   housewarming,
   "thank-you": thankYou,
   wedding,
+  onam,
   "raksha-bandhan": rakshaBandhan,
   "karwa-chauth": karwaChauth,
 };

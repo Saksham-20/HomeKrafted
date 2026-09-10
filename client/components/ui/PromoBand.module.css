@@ -1,26 +1,30 @@
 .band {
-  border-radius: var(--hk-r-xl);
-  padding: 38px 40px;
+  border-radius: var(--hk-r-xl, 20px);
+  padding: clamp(28px, 3.2vw, 44px);
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  transition: transform 0.3s var(--hk-ease), box-shadow 0.3s var(--hk-ease);
+}
+
+.band:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
 }
 
 .dark {
-  /* Focus rings on this surface, not the page's `--hk-pine` (1.23:1 here).
-     See `styles/globals.css`. Inherits to every control inside. */
   --hk-focus-ring: var(--hk-gold-bright);
-  background: linear-gradient(120deg, var(--hk-pine), var(--hk-pine-grad-a));
-  color: var(--hk-on-pine);
+  background: linear-gradient(135deg, var(--hk-pine, #234233) 0%, var(--hk-pine-deep, #1b3327) 100%);
+  color: var(--hk-on-pine, #eadfc9);
+  border: 1px solid rgba(228, 200, 116, 0.15);
 }
 
 .tint {
-  background: var(--hk-gold-tint);
-  border: 1px solid var(--hk-gold-border);
-  color: var(--hk-ink-3);
-  padding: 34px 32px;
+  background: linear-gradient(135deg, #fdf8ee 0%, #f7ecd5 100%);
+  border: 1px solid var(--hk-gold-border, #e5dcc9);
+  color: var(--hk-ink-3, #5b5344);
 }
 
 .eyebrow {
@@ -31,82 +35,83 @@
 }
 
 .dark .eyebrow {
-  color: var(--hk-gold-bright);
+  color: var(--hk-gold-bright, #e4c874);
 }
 
-/* See ProductCard.maker — small gold text takes the AA-safe shade.
-   The `.dark` variant keeps --hk-gold-bright, which is 8.9:1 on pine. */
 .tint .eyebrow {
-  color: var(--hk-gold-text-sm);
+  color: var(--hk-gold-text-sm, #886815);
 }
 
 .title {
   font-family: var(--hk-font-display);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.05;
+  letter-spacing: -0.015em;
 }
 
 .dark .title {
-  font-size: 32px;
-  color: #fff;
+  font-size: clamp(26px, 2.6vw, 34px);
+  color: #ffffff;
   margin: 12px 0 10px;
 }
 
 .tint .title {
-  font-size: 26px;
-  color: var(--hk-pine);
+  font-size: clamp(24px, 2.4vw, 30px);
+  color: var(--hk-pine, #234233);
   margin: 10px 0 8px;
   line-height: 1.1;
 }
 
 .description {
-  font-size: 15px;
+  font-family: var(--hk-font-body);
+  font-size: 14.5px;
   line-height: 1.55;
-  max-width: 360px;
+  max-width: 420px;
   margin-bottom: 24px;
 }
 
 .dark .description {
-  color: var(--hk-footer-ink);
+  color: var(--hk-footer-ink, #c7d3c5);
 }
 
 .tint .description {
-  font-size: 14px;
-  color: var(--hk-ink-3);
-  margin-bottom: 20px;
+  color: var(--hk-ink-3, #5b5344);
 }
 
 .cta {
   border: none;
-  border-radius: var(--hk-r-pill);
-  padding: 14px 26px;
-  font-size: 15px;
+  border-radius: var(--hk-r-pill, 999px);
+  padding: 12px 24px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   text-decoration: none;
-  display: inline-block;
-  transition:
-    transform var(--hk-dur) var(--hk-ease),
-    box-shadow var(--hk-dur) var(--hk-ease);
-}
-
-.cta:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--hk-shadow-card);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.25s var(--hk-ease), box-shadow 0.25s var(--hk-ease), background-color 0.25s var(--hk-ease);
 }
 
 .dark .cta {
-  background: var(--hk-gold-bright);
-  /* Prototype's dark-band CTA text is #233d2c, an off-catalog shade a
-     hair darker than --hk-pine (#234233) — close enough to treat as the
-     same token rather than add a near-duplicate hardcoded hex. */
-  color: var(--hk-pine);
+  background: var(--hk-gold-bright, #e4c874);
+  color: var(--hk-ink, #2b241c);
+}
+
+.dark .cta:hover {
+  background: #f0dc9a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(228, 200, 116, 0.3);
 }
 
 .tint .cta {
-  background: var(--hk-pine);
-  color: #fff;
-  padding: 12px 22px;
-  font-size: 14px;
+  background: var(--hk-pine, #234233);
+  color: #ffffff;
 }
+
+.tint .cta:hover {
+  background: var(--hk-pine-deep, #1b3327);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(35, 66, 51, 0.3);
+}
+

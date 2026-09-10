@@ -1,41 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, Briefcase, Gift, MessageCircle, UtensilsCrossed } from "lucide-react";
+import { ArrowRight, Briefcase, Gift, MessageCircle, UtensilsCrossed } from "lucide-react";
 import type { NavLink } from "@/lib/data";
 import styles from "./QuickEntryRow.module.css";
 
 export interface QuickEntryRowProps {
   items: NavLink[];
-  /** Title + one-line "who it's for" per href — `quickEntryDetail` in `lib/data/site.ts`. */
   detail: Record<string, { title: string; blurb: string }>;
 }
 
-/**
- * The home page's quick-entry strip (M34) — the four ways in that are not
- * a catalogue, sitting directly under the hero.
- *
- * **This exists because the desktop nav gave three of them up.** Six nav
- * links plus search plus a wallet chip plus three icons is nine targets
- * in a 1092px row, and the field that lost the fight was search, which
- * rendered as a ~32px stub on production. The three that left
- * (Occasions, Meal plans, Corporate & bulk) did not go to the footer —
- * they came here, joined by Snacks on WhatsApp, which had never been in
- * the nav at all. (M35 later traded Occasions back into the nav for
- * Gift Hampers, whose one-item catalogue had been holding a top-3 slot.) A tile in the first screenful that says who a thing is
- * for beats a 90px nav link that only names it, which is the shape every
- * marketplace this size converges on.
- *
- * Rules if you touch it:
- *
- * - **Four is the width.** Five wraps to a second row on desktop and
- *   turns a glance into a menu. If a fifth way in appears, something
- *   here has to earn its place against it.
- * - **The icon set is keyed by href**, so a route rename that misses this
- *   map degrades to the generic mark rather than crashing. Don't switch
- *   it to index-based.
- * - **Every tile is a link, not a `role="button"` div** — same rule as
- *   `ProductCard`: React's `onClick` on a div never fires for Enter or
- *   Space, and a link buys open-in-new-tab for free.
- */
 const ICONS: Record<string, typeof Gift> = {
   "/hamper": Gift,
   "/meal-plans": UtensilsCrossed,
@@ -50,34 +22,73 @@ const THEME_CLASSES: Record<string, string> = {
   "/snacks": styles.themeSnacks,
 };
 
-export function QuickEntryRow({ items, detail }: QuickEntryRowProps) {
-  // "Ways to order" rather than "More ways to order": the drawer's second
-  // group uses that name, and two landmarks sharing one accessible name
-  // is a landmark list a screen-reader user cannot tell apart.
+interface CapsuleMeta {
+  tag: string;
+  title: string;
+  blurb: string;
+  isLive?: boolean;
+}
+
+const CAPSULE_META: Record<string, CapsuleMeta> = {
+  "/hamper": {
+    tag: "Curated Boxes",
+    title: "Gift Hampers",
+    blurb: "Hand-packed by one kitchen",
+  },
+  "/meal-plans": {
+    tag: "Daily Tiffin",
+    title: "Meal Plans",
+    blurb: "Fresh home lunch every day",
+  },
+  "/corporate": {
+    tag: "Bulk & Events",
+    title: "Corporate Orders",
+    blurb: "Bespoke quotes by a person",
+  },
+  "/snacks": {
+    tag: "Direct Chat",
+    title: "Snacks on WhatsApp",
+    blurb: "Order today's menu in 1 tap",
+    isLive: true,
+  },
+};
+
+export function QuickEntryRow({ items }: QuickEntryRowProps) {
   return (
-    <nav className={styles.row} aria-label="Ways to order">
+    <nav className={styles.row} aria-label="Curated ways to order">
       {items.map((item) => {
-        const Icon = ICONS[item.href] ?? ArrowUpRight;
-        const copy = detail[item.href];
+        const Icon = ICONS[item.href] ?? Gift;
         const themeClass = THEME_CLASSES[item.href] ?? "";
+        const meta = CAPSULE_META[item.href] ?? {
+          tag: "Specialty",
+          title: item.label,
+          blurb: "Explore collection",
+        };
 
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`${styles.tile} ${themeClass}`}
+            className={`${styles.buttonCard} ${themeClass}`}
           >
-            <div className={styles.topRow}>
-              <span className={styles.iconWrap}>
-                <Icon className={styles.icon} aria-hidden="true" />
-              </span>
-              <span className={styles.arrowWrap} aria-hidden="true">
-                <ArrowUpRight className={styles.arrow} />
-              </span>
+            {/* Left: Sculpted Icon Medallion */}
+            <div className={styles.medallion}>
+              <Icon className={styles.icon} aria-hidden="true" />
             </div>
-            <div className={styles.text}>
-              <span className={styles.title}>{copy?.title ?? item.label}</span>
-              {copy ? <span className={styles.blurb}>{copy.blurb}</span> : null}
+
+            {/* Center: Typographic Content */}
+            <div className={styles.content}>
+              <div className={styles.tagLine}>
+                {meta.isLive && <span className={styles.liveDot} aria-hidden="true" />}
+                <span className={styles.tagText}>{meta.tag}</span>
+              </div>
+              <h3 className={styles.title}>{meta.title}</h3>
+              <p className={styles.blurb}>{meta.blurb}</p>
+            </div>
+
+            {/* Right: Tactile Arrow Pill */}
+            <div className={styles.actionArrow} aria-hidden="true">
+              <ArrowRight className={styles.arrowIcon} />
             </div>
           </Link>
         );

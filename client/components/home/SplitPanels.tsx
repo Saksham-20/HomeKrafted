@@ -100,7 +100,7 @@ const HALVES = [
     Icon: Gift,
     eyebrow: "Send one",
     title: "Handcrafted gifts",
-    blurb: "Made by hand by independent HomeKrafters, and posted anywhere in India.",
+    blurb: "Made by hand by independent HomeKrafters, and carefully packed and posted.",
     cta: "Browse gifts",
     src: "/images/site/split-gifts.jpg",
     alt: "A basket of yarn beside a macramé hanging and crocheted pieces",

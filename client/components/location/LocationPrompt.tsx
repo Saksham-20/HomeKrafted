@@ -129,8 +129,7 @@ export function LocationPrompt() {
           Where should we deliver?
         </h2>
         <p className={styles.copy}>
-          Homekrafted is home kitchens cooking near you across Chandigarh, Mohali, Panchkula and
-          Zirakpur. Tell us your area and we&rsquo;ll only show food that can actually reach you.
+          Discover home kitchens cooking near you. Tell us your area and we&rsquo;ll only show food that can actually reach you fresh.
         </p>
 
         {error && <p className={styles.error}>{error}</p>}

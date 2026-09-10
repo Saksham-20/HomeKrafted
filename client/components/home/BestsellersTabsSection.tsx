@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Sparkles, Utensils, Gift } from "lucide-react";
+import { Sparkles, Flame, Utensils, Gift } from "lucide-react";
 import { ScrollRail } from "@/components/ui/ScrollRail";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import type { Product } from "@/lib/types";
@@ -43,11 +43,18 @@ export function BestsellersTabsSection({
   craftProducts,
   vendorNames,
 }: BestsellersTabsSectionProps) {
-  // Common category switch for both Bestsellers and Trending sections
   const [category, setCategory] = useState<CategoryKey>("all");
 
-  const bsFood = bestsellerFoodProducts.length > 0 ? bestsellerFoodProducts : (foodProducts ?? []);
-  const bsCraft = bestsellerCraftProducts.length > 0 ? bestsellerCraftProducts : (craftProducts ?? []);
+  const bsFood = useMemo(
+    () => (bestsellerFoodProducts.length > 0 ? bestsellerFoodProducts : (foodProducts ?? [])),
+    [bestsellerFoodProducts, foodProducts],
+  );
+
+  const bsCraft = useMemo(
+    () => (bestsellerCraftProducts.length > 0 ? bestsellerCraftProducts : (craftProducts ?? [])),
+    [bestsellerCraftProducts, craftProducts],
+  );
+
   const trFood = trendingFoodProducts;
   const trCraft = trendingCraftProducts;
 
@@ -72,7 +79,7 @@ export function BestsellersTabsSection({
       ? "See all food →"
       : category === "craft"
         ? "Browse all gifts →"
-        : "See all →";
+        : "Explore collection →";
 
   if (bsAll.length === 0 && trAll.length === 0) {
     return null;
@@ -80,55 +87,59 @@ export function BestsellersTabsSection({
 
   return (
     <div className={styles.curatedWrapper}>
-      {/* ── Single Common Category Switch for Both Sections ── */}
-      <div className={clsx("container", "container-wide", styles.commonSwitcherContainer)}>
-        <div className={styles.commonFilterPills} role="tablist" aria-label="Category filter">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={category === "all"}
-            className={clsx(styles.pill, category === "all" && styles.pillActive)}
-            onClick={() => setCategory("all")}
-          >
-            <Sparkles size={14} />
-            <span>All</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={category === "food"}
-            className={clsx(styles.pill, category === "food" && styles.pillActive)}
-            onClick={() => setCategory("food")}
-          >
-            <Utensils size={14} />
-            <span>Homemade Food</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={category === "craft"}
-            className={clsx(styles.pill, category === "craft" && styles.pillActive)}
-            onClick={() => setCategory("craft")}
-          >
-            <Gift size={14} />
-            <span>Handcrafted Gifts</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Section 1: Bestsellers ── */}
+      {/* ── Section 1: Bestsellers with Header-Integrated Segmented Toggle ── */}
       {bsDisplayed.length > 0 && (
         <section className={clsx("container", "container-wide", styles.section)}>
           <div className={styles.sectionHead}>
             <div className={styles.headingBlock}>
-              <span className={styles.eyebrow}>Loved by our community</span>
+              <span className={styles.eyebrow}>
+                <Sparkles className={styles.eyebrowIcon} aria-hidden="true" />
+                Loved by our community
+              </span>
               <h2 className={styles.sectionTitle}>Bestsellers</h2>
             </div>
-            <Link href={viewAllHref} className={styles.viewAll}>
-              {viewAllText}
-            </Link>
+
+            {/* Segmented filter placed in the center */}
+            <div className={styles.segmentedControlWrapper}>
+              <div className={styles.segmentedControl} role="tablist" aria-label="Category filter">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={category === "all"}
+                  className={clsx(styles.segment, category === "all" && styles.segmentActive)}
+                  onClick={() => setCategory("all")}
+                >
+                  <Sparkles size={13} className={styles.segmentIcon} aria-hidden="true" />
+                  All
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={category === "food"}
+                  className={clsx(styles.segment, category === "food" && styles.segmentActive)}
+                  onClick={() => setCategory("food")}
+                >
+                  <Utensils size={13} className={styles.segmentIcon} aria-hidden="true" />
+                  Food
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={category === "craft"}
+                  className={clsx(styles.segment, category === "craft" && styles.segmentActive)}
+                  onClick={() => setCategory("craft")}
+                >
+                  <Gift size={13} className={styles.segmentIcon} aria-hidden="true" />
+                  Gifts
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.viewAllSlot}>
+              <Link href={viewAllHref} className={styles.viewAll}>
+                {viewAllText}
+              </Link>
+            </div>
           </div>
 
           <ScrollRail label={`bestsellers — ${category}`} className={styles.productRail}>
@@ -144,19 +155,22 @@ export function BestsellersTabsSection({
         </section>
       )}
 
+      {/* Divider between sections */}
+      {bsDisplayed.length > 0 && trDisplayed.length > 0 && (
+        <div className={clsx("container", "container-wide", styles.dividerWrapper)}>
+          <div className={styles.divider} />
+        </div>
+      )}
+
       {/* ── Section 2: Trending Now ── */}
       {trDisplayed.length > 0 && (
-        <section
-          className={clsx(
-            "container",
-            "container-wide",
-            styles.section,
-            styles.sectionTrending,
-          )}
-        >
-          <div className={styles.sectionHead}>
+        <section className={clsx("container", "container-wide", styles.sectionTrending)}>
+          <div className={styles.sectionHeadTrending}>
             <div className={styles.headingBlock}>
-              <span className={styles.eyebrow}>Fresh &amp; rising favorites</span>
+              <span className={styles.eyebrowTrending}>
+                <Flame className={styles.flameIcon} aria-hidden="true" />
+                Fresh &amp; rising favorites
+              </span>
               <h2 className={styles.sectionTitle}>Trending Now</h2>
             </div>
             <Link href={viewAllHref} className={styles.viewAll}>

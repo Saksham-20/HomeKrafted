@@ -1,75 +1,140 @@
-/* Gold-tint band rather than a solid pine one: this sits between the hero
-   and the occasion grid, and a second dark block that high on the page
-   would fight the hero for attention. */
 .band {
   display: flex;
   align-items: center;
-  gap: var(--hk-s4);
-  padding: var(--hk-s4) var(--hk-s5);
-  border-radius: var(--hk-r-xl);
-  background: var(--hk-gold-tint);
-  border: 1px solid var(--hk-gold-border);
+  gap: clamp(14px, 2vw, 24px);
+  padding: clamp(16px, 2vw, 24px) clamp(18px, 2.5vw, 32px);
+  border-radius: var(--hk-r-xl, 18px);
+  background: linear-gradient(135deg, #fdf8ee 0%, #faefe0 100%);
+  border: 1px solid var(--hk-border, #eceae4);
+  border-left: 5px solid var(--hk-gold, #b98724);
   text-decoration: none;
-  transition: transform var(--hk-dur) var(--hk-ease);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+  transition: transform 0.3s var(--hk-ease), box-shadow 0.3s var(--hk-ease);
 }
 
 .band:hover {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(185, 135, 36, 0.08);
 }
 
-.band:focus-visible {
-  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
-  outline-offset: 2px;
-}
-
-.icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
+.numberWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  background: var(--hk-surface, #ffffff);
+  border: 1px solid rgba(185, 135, 36, 0.25);
+  box-shadow: 0 2px 8px rgba(185, 135, 36, 0.08);
   flex-shrink: 0;
-  border-radius: var(--hk-r-pill);
-  background: var(--hk-surface);
-  color: var(--hk-pine);
+}
+
+.bigNumber {
+  font-family: var(--hk-font-display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--hk-gold-text-sm, #886815);
+}
+
+.daysLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted, #766c5d);
+  margin-top: 2px;
 }
 
 .body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
 
+.topBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--hk-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm, #886815);
+}
+
+.badgeSparkle {
+  color: var(--hk-gold, #b98724);
+}
+
 .head {
   font-family: var(--hk-font-display);
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--hk-pine);
+  font-size: clamp(16px, 1.8vw, 21px);
+  font-weight: 700;
+  color: var(--hk-ink, #2b241c);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .detail {
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--hk-ink-3);
+  font-family: var(--hk-font-body);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hk-ink-3, #5b5344);
+  margin: 0;
 }
 
-.cta {
-  font-size: 13.5px;
-  font-weight: 600;
-  /* Gold family below 16px, so the darker ramp (CLAUDE.md). */
-  color: var(--hk-gold-text-sm);
-  white-space: nowrap;
+.ctaWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-@media (max-width: 640px) {
+.ctaLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--hk-gold-text-sm, #886815);
+  white-space: nowrap;
+}
+
+.ctaCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--hk-surface, #ffffff);
+  border: 1px solid rgba(185, 135, 36, 0.28);
+  display: grid;
+  place-items: center;
+  color: var(--hk-gold-text-sm, #886815);
+  transition: transform 0.25s var(--hk-ease), background-color 0.25s var(--hk-ease), color 0.25s var(--hk-ease);
+}
+
+.band:hover .ctaCircle {
+  transform: translateX(3px);
+  background: var(--hk-gold-bright, #e4c874);
+  color: var(--hk-ink, #2b241c);
+}
+
+@media (max-width: 680px) {
   .band {
     flex-wrap: wrap;
+    padding: 16px;
+    gap: 14px;
   }
 
-  .cta {
+  .ctaWrap {
     width: 100%;
-    padding-left: calc(38px + var(--hk-s4));
+    justify-content: flex-end;
+    padding-top: 8px;
+    border-top: 1px dashed rgba(185, 135, 36, 0.2);
   }
 }
+

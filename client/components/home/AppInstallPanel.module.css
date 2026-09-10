@@ -1,31 +1,94 @@
 .panel {
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-xl);
-  padding: var(--hk-s5) var(--hk-s6);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(237, 243, 235, 0.8) 100%);
+  border: 1px solid rgba(35, 66, 51, 0.1);
+  border-radius: var(--hk-r-xl, 22px);
+  padding: clamp(18px, 2.4vw, 30px);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(16px, 2.2vw, 28px);
+  box-shadow: 0 4px 18px rgba(35, 66, 51, 0.03);
+}
+
+.iconColumn {
   display: flex;
   align-items: center;
-  gap: var(--hk-s5);
-  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.phoneIconWrap {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--hk-surface, #ffffff);
+  border: 1px solid rgba(35, 66, 51, 0.15);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 4px 14px rgba(35, 66, 51, 0.08);
+}
+
+.phoneIcon {
+  color: var(--hk-pine, #234233);
 }
 
 .copy {
-  flex: 1;
-  min-width: 180px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hk-gold-text-sm, #886815);
 }
 
 .title {
   font-family: var(--hk-font-display);
-  font-size: 19px;
-  font-weight: 600;
-  color: var(--hk-pine);
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 700;
+  color: var(--hk-pine, #234233);
+  margin: 0;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
 }
 
 .subtitle {
-  font-size: 13px;
-  color: var(--hk-muted-2);
-  margin-bottom: var(--hk-s2);
+  font-family: var(--hk-font-body);
+  font-size: 13.5px;
+  color: var(--hk-ink-3, #5b5344);
+  line-height: 1.45;
+  margin: 2px 0 12px 0;
+  max-width: 48ch;
 }
+
+.badgesWrap {
+  display: flex;
+  align-items: center;
+}
+
+.qrColumn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 24px 20px;
+  }
+
+  .iconColumn {
+    display: none;
+  }
+
+  .qrColumn {
+    justify-content: flex-start;
+  }
+}
+

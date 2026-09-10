@@ -73,21 +73,30 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
 
   useEffect(() => {
     if (!onLanding) return;
-    // Watch the hero's brand block; the bar turns solid and shows the tabs
-    // the moment it leaves the top 64px of the viewport (the bar's own
-    // height, so the lockup is never half-covered at the hand-over).
-    const target = document.getElementById("hk-hero-brand");
+    // Watch the hero section; the navbar logo appears when the user scrolls past the hero section
+    const target = document.getElementById("hk-hero-section") || document.getElementById("hk-hero-brand");
     if (target && "IntersectionObserver" in window) {
       const observer = new IntersectionObserver(
-        ([entry]) => setRevealed(!entry.isIntersecting),
+        ([entry]) => {
+          // When hero is intersecting, revealed = false (navbar logo hidden)
+          // When hero leaves viewport at the top, revealed = true (navbar logo appears)
+          setRevealed(!entry.isIntersecting);
+        },
         { rootMargin: "-64px 0px 0px 0px", threshold: 0 },
       );
       observer.observe(target);
       return () => observer.disconnect();
     }
-    // No brand block on the page (a future landing without the hero):
-    // fall back to plain scroll distance so the tabs are never unreachable.
-    const onScroll = () => setRevealed(window.scrollY > 80);
+    // Fallback if IntersectionObserver is unavailable
+    const onScroll = () => {
+      const hero = document.getElementById("hk-hero-section") || document.getElementById("hk-hero-brand");
+      if (!hero) {
+        setRevealed(window.scrollY > 400);
+        return;
+      }
+      const rect = hero.getBoundingClientRect();
+      setRevealed(rect.bottom <= 64);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -170,28 +179,49 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     </nav>
   );
 
+  const landingNav = (
+    <nav className={styles.nav} aria-label="Primary">
+      {navItems
+        .filter((item) => item.href === "/shop" || item.href === "/gifts" || item.href === "/about")
+        .map((item) => {
+          const menu = navMenus?.[item.href];
+          return (
+            <div key={item.href + item.label} className={styles.navItem}>
+              <Link href={item.href} className={styles.navLink}>
+                {item.label}
+              </Link>
+              {menu && menu.length > 0 && (
+                <div className={styles.navMenu}>
+                  <div className={styles.navMenuPanel}>
+                    {menu.map((link) => (
+                      <Link
+                        key={link.href + link.label}
+                        href={link.href}
+                        className={styles.navMenuLink}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+    </nav>
+  );
+
   return (
     <header
       className={clsx(styles.header, onLanding && styles.landing)}
       data-revealed={onLanding ? String(revealed) : undefined}
     >
       <div className={clsx("container", "container-wide", styles.row)}>
-        {/* Rendered on every route, the landing page included — there it
-            starts invisible (opacity 0 + visibility hidden, so it also
-            leaves the tab order) and appears with `data-revealed` once the
-            hero lockup scrolls out. Always in the flex row so nothing
-            reflows when it shows. */}
+        {onLanding ? landingNav : null}
+
         <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
-          {/* The tagline row ("Home food · Tricity") left with the compact
-              header (2026-08-27) — the hero's eyebrow now states the same
-              locality under the big lockup, and two copies 40px apart was
-              the redundancy, not the information. */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- the brand
-              lockup is a fixed vector; next/image adds no value for an SVG. */}
           <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
         </Link>
-
-        {onLanding && nav}
 
         {/* Was a `<Link href="/shop">` dressed as a search box — a dead
             affordance, since nothing in the app could search. Real form
