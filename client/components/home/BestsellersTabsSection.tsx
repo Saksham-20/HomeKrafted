@@ -22,7 +22,7 @@ export interface BestsellersTabsSectionProps {
 type CategoryKey = "all" | "food" | "craft";
 
 /**
- * Alternates food and craft products so the "All" tab gives equal visibility to both.
+ * Alternates food and craft products so the "All" view gives equal visibility to both.
  */
 function interleaveProducts(food: Product[], craft: Product[]): Product[] {
   const list: Product[] = [];
@@ -34,138 +34,6 @@ function interleaveProducts(food: Product[], craft: Product[]): Product[] {
   return list;
 }
 
-interface CuratedRailSectionProps {
-  title: string;
-  eyebrow: string;
-  foodProducts: Product[];
-  craftProducts: Product[];
-  vendorNames: Record<string, string>;
-  railId: string;
-  variant?: "bestsellers" | "trending";
-}
-
-function CuratedRailSection({
-  title,
-  eyebrow,
-  foodProducts,
-  craftProducts,
-  vendorNames,
-  railId,
-  variant = "bestsellers",
-}: CuratedRailSectionProps) {
-  const [category, setCategory] = useState<CategoryKey>("all");
-
-  const allProducts = useMemo(
-    () => interleaveProducts(foodProducts, craftProducts),
-    [foodProducts, craftProducts],
-  );
-
-  const displayedProducts = useMemo(() => {
-    if (category === "food") return foodProducts;
-    if (category === "craft") return craftProducts;
-    return allProducts;
-  }, [category, foodProducts, craftProducts, allProducts]);
-
-  if (allProducts.length === 0) {
-    return null;
-  }
-
-  const foodCount = foodProducts.length;
-  const craftCount = craftProducts.length;
-  const allCount = allProducts.length;
-
-  const showPills = foodCount > 0 && craftCount > 0;
-
-  const viewAllHref = category === "craft" ? "/gifts" : "/shop";
-  const viewAllText =
-    category === "food"
-      ? "See all food →"
-      : category === "craft"
-        ? "Browse all gifts →"
-        : "See all →";
-
-  return (
-    <section
-      className={clsx(
-        "container",
-        "container-wide",
-        styles.section,
-        variant === "trending" && styles.sectionTrending,
-      )}
-    >
-      <div className={styles.sectionHead}>
-        <div className={styles.headingBlock}>
-          <span className={styles.eyebrow}>{eyebrow}</span>
-          <h2 className={styles.sectionTitle}>{title}</h2>
-        </div>
-
-        <Link href={viewAllHref} className={styles.viewAll}>
-          {viewAllText}
-        </Link>
-      </div>
-
-      {showPills && (
-        <div
-          className={styles.categoryPills}
-          role="tablist"
-          aria-label={`${title} category filter`}
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={category === "all"}
-            className={clsx(styles.pill, category === "all" && styles.pillActive)}
-            onClick={() => setCategory("all")}
-          >
-            <Sparkles size={13} />
-            <span>All</span>
-            <span className={styles.pillCount}>({allCount})</span>
-          </button>
-
-          {foodCount > 0 && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={category === "food"}
-              className={clsx(styles.pill, category === "food" && styles.pillActive)}
-              onClick={() => setCategory("food")}
-            >
-              <Utensils size={13} />
-              <span>Homemade Food</span>
-              <span className={styles.pillCount}>({foodCount})</span>
-            </button>
-          )}
-
-          {craftCount > 0 && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={category === "craft"}
-              className={clsx(styles.pill, category === "craft" && styles.pillActive)}
-              onClick={() => setCategory("craft")}
-            >
-              <Gift size={13} />
-              <span>Handcrafted Gifts</span>
-              <span className={styles.pillCount}>({craftCount})</span>
-            </button>
-          )}
-        </div>
-      )}
-
-      <ScrollRail label={`${railId} — ${category}`} className={styles.productRail}>
-        {displayedProducts.map((product) => (
-          <ProductGridCard
-            key={product.id}
-            product={product}
-            makerName={vendorNames[product.vendorId] ?? "Homekrafted"}
-            href={`/product/${product.slug}`}
-          />
-        ))}
-      </ScrollRail>
-    </section>
-  );
-}
-
 export function BestsellersTabsSection({
   bestsellerFoodProducts = [],
   bestsellerCraftProducts = [],
@@ -175,34 +43,139 @@ export function BestsellersTabsSection({
   craftProducts,
   vendorNames,
 }: BestsellersTabsSectionProps) {
+  // Common category switch for both Bestsellers and Trending sections
+  const [category, setCategory] = useState<CategoryKey>("all");
+
   const bsFood = bestsellerFoodProducts.length > 0 ? bestsellerFoodProducts : (foodProducts ?? []);
   const bsCraft = bestsellerCraftProducts.length > 0 ? bestsellerCraftProducts : (craftProducts ?? []);
   const trFood = trendingFoodProducts;
   const trCraft = trendingCraftProducts;
 
-  return (
-    <>
-      <CuratedRailSection
-        title="Bestsellers"
-        eyebrow="Loved by our community"
-        foodProducts={bsFood}
-        craftProducts={bsCraft}
-        vendorNames={vendorNames}
-        railId="bestsellers"
-        variant="bestsellers"
-      />
+  const bsAll = useMemo(() => interleaveProducts(bsFood, bsCraft), [bsFood, bsCraft]);
+  const trAll = useMemo(() => interleaveProducts(trFood, trCraft), [trFood, trCraft]);
 
-      {(trFood.length > 0 || trCraft.length > 0) && (
-        <CuratedRailSection
-          title="Trending Now"
-          eyebrow="Fresh & rising favorites"
-          foodProducts={trFood}
-          craftProducts={trCraft}
-          vendorNames={vendorNames}
-          railId="trending"
-          variant="trending"
-        />
+  const bsDisplayed = useMemo(() => {
+    if (category === "food") return bsFood;
+    if (category === "craft") return bsCraft;
+    return bsAll;
+  }, [category, bsFood, bsCraft, bsAll]);
+
+  const trDisplayed = useMemo(() => {
+    if (category === "food") return trFood;
+    if (category === "craft") return trCraft;
+    return trAll;
+  }, [category, trFood, trCraft, trAll]);
+
+  const viewAllHref = category === "craft" ? "/gifts" : "/shop";
+  const viewAllText =
+    category === "food"
+      ? "See all food →"
+      : category === "craft"
+        ? "Browse all gifts →"
+        : "See all →";
+
+  if (bsAll.length === 0 && trAll.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className={styles.curatedWrapper}>
+      {/* ── Single Common Category Switch for Both Sections ── */}
+      <div className={clsx("container", "container-wide", styles.commonSwitcherContainer)}>
+        <div className={styles.commonFilterPills} role="tablist" aria-label="Category filter">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={category === "all"}
+            className={clsx(styles.pill, category === "all" && styles.pillActive)}
+            onClick={() => setCategory("all")}
+          >
+            <Sparkles size={14} />
+            <span>All</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={category === "food"}
+            className={clsx(styles.pill, category === "food" && styles.pillActive)}
+            onClick={() => setCategory("food")}
+          >
+            <Utensils size={14} />
+            <span>Homemade Food</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={category === "craft"}
+            className={clsx(styles.pill, category === "craft" && styles.pillActive)}
+            onClick={() => setCategory("craft")}
+          >
+            <Gift size={14} />
+            <span>Handcrafted Gifts</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Section 1: Bestsellers ── */}
+      {bsDisplayed.length > 0 && (
+        <section className={clsx("container", "container-wide", styles.section)}>
+          <div className={styles.sectionHead}>
+            <div className={styles.headingBlock}>
+              <span className={styles.eyebrow}>Loved by our community</span>
+              <h2 className={styles.sectionTitle}>Bestsellers</h2>
+            </div>
+            <Link href={viewAllHref} className={styles.viewAll}>
+              {viewAllText}
+            </Link>
+          </div>
+
+          <ScrollRail label={`bestsellers — ${category}`} className={styles.productRail}>
+            {bsDisplayed.map((product) => (
+              <ProductGridCard
+                key={product.id}
+                product={product}
+                makerName={vendorNames[product.vendorId] ?? "Homekrafted"}
+                href={`/product/${product.slug}`}
+              />
+            ))}
+          </ScrollRail>
+        </section>
       )}
-    </>
+
+      {/* ── Section 2: Trending Now ── */}
+      {trDisplayed.length > 0 && (
+        <section
+          className={clsx(
+            "container",
+            "container-wide",
+            styles.section,
+            styles.sectionTrending,
+          )}
+        >
+          <div className={styles.sectionHead}>
+            <div className={styles.headingBlock}>
+              <span className={styles.eyebrow}>Fresh &amp; rising favorites</span>
+              <h2 className={styles.sectionTitle}>Trending Now</h2>
+            </div>
+            <Link href={viewAllHref} className={styles.viewAll}>
+              {viewAllText}
+            </Link>
+          </div>
+
+          <ScrollRail label={`trending — ${category}`} className={styles.productRail}>
+            {trDisplayed.map((product) => (
+              <ProductGridCard
+                key={product.id}
+                product={product}
+                makerName={vendorNames[product.vendorId] ?? "Homekrafted"}
+                href={`/product/${product.slug}`}
+              />
+            ))}
+          </ScrollRail>
+        </section>
+      )}
+    </div>
   );
 }

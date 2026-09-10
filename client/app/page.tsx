@@ -149,13 +149,14 @@ export default async function Home() {
   const trendingFoodProducts = resolveCollection(trendingFoodCollection, "food");
   const trendingCraftProducts = resolveCollection(trendingCraftCollection, "craft");
 
-  // ── HomeKrafted Gifts section ─────────────────────────────────────────
-  // Show craft products — either from trending-craft collection or bestseller crafts or top crafts
-  const homekraftedGifts = trendingCraftProducts.length > 0
-    ? trendingCraftProducts.slice(0, 8)
-    : bestsellerCraftProducts.length > 0
-      ? bestsellerCraftProducts.slice(0, 8)
-      : resolveCollection(undefined, "craft", 8);
+  // ── By HomeKrafted (In-House Brand Creations) ─────────────────────────
+  // Products created and sold directly under the HomeKrafted brand label
+  const hkVendor = vendors.find(
+    (v) => v.name?.toLowerCase() === "homekrafted" || v.slug === "homekrafted",
+  );
+  const inHouseProducts = allProducts
+    .filter((p) => hkVendor && p.vendorId === hkVendor.id && p.name.toLowerCase() !== "abs")
+    .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
 
   const loved = allProducts
     .filter((product) => product.reviewCount > 0)
@@ -281,23 +282,25 @@ export default async function Home() {
       )}
 
       {/*
-        HomeKrafted Gifts — craft products surfaced from the
-        trending-craft admin curation, or top-rated craft items as fallback.
-        Pan-India shipping badge context lives on the cards already.
+        By HomeKrafted — in-house hampers, gifts & creations sold directly
+        by the brand under the HomeKrafted label.
       */}
-      {homekraftedGifts.length > 0 && (
+      {inHouseProducts.length > 0 && (
         <section className={clsx("container", "container-wide", styles.section)}>
           <div className={styles.sectionHead}>
             <div>
-              <span className={styles.eyebrow}>Handcrafted, posted anywhere in India</span>
-              <h2 className={styles.sectionTitle}>HomeKrafted Gifts</h2>
+              <span className={styles.eyebrow}>Created in-house under our label</span>
+              <h2 className={styles.sectionTitle}>By HomeKrafted</h2>
             </div>
-            <Link href="/gifts" className={styles.viewAll}>
-              Browse all gifts →
+            <Link
+              href={hkVendor ? `/storefront/${hkVendor.slug}` : "/gifts"}
+              className={styles.viewAll}
+            >
+              Explore HomeKrafted collection →
             </Link>
           </div>
-          <ScrollRail label="homekrafted gifts" className={styles.productRail}>
-            {homekraftedGifts.map((product) => (
+          <ScrollRail label="in-house by homekrafted" className={styles.productRail}>
+            {inHouseProducts.map((product) => (
               <ProductGridCard
                 key={product.id}
                 product={product}
