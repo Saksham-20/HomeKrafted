@@ -1,9 +1,10 @@
 .ticker {
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--hk-pine-deep);
-  border-block: 1px solid rgba(228, 200, 116, 0.22);
-  padding-block: clamp(10px, 1.2vw, 15px);
+  background: linear-gradient(90deg, #fff5cc 0%, #fde88c 50%, #fff5cc 100%);
+  border-block: 1px solid rgba(20, 83, 45, 0.18);
+  box-shadow: 0 3px 12px rgba(217, 160, 30, 0.12);
+  padding-block: clamp(8px, 0.9vw, 11px);
   margin: 0;
   cursor: default;
   user-select: none;
@@ -27,22 +28,23 @@
 .item {
   display: inline-flex;
   align-items: center;
-  gap: clamp(var(--hk-s5), 3.6vw, 44px);
-  padding-inline-end: clamp(var(--hk-s5), 3.6vw, 44px);
+  gap: clamp(var(--hk-s5), 4vw, 52px);
+  padding-inline-end: clamp(var(--hk-s5), 4vw, 52px);
   font-family: var(--hk-font-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.16em;
+  font-size: clamp(14px, 1.25vw, 16px);
+  font-weight: 700;
+  letter-spacing: 0.15em;
   font-variant-caps: all-small-caps;
   white-space: nowrap;
-  color: #cddace;
+  color: #14532d;
 }
 
 .sparkle {
-  width: 10px;
-  height: 10px;
-  color: var(--hk-gold-bright);
+  width: 15px;
+  height: 15px;
+  color: #14532d;
   flex: none;
-  opacity: 0.85;
+  opacity: 0.95;
 }
 
 @media (prefers-reduced-motion: no-preference) {

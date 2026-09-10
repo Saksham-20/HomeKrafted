@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Sparkles, Flame, Utensils, Gift } from "lucide-react";
+import { Sparkles, Utensils, Gift, Layers } from "lucide-react";
 import { ScrollRail } from "@/components/ui/ScrollRail";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import type { Product } from "@/lib/types";
@@ -19,7 +19,17 @@ export interface BestsellersTabsSectionProps {
   vendorNames: Record<string, string>;
 }
 
-type CategoryKey = "all" | "food" | "craft";
+export type CategoryKey = "all" | "food" | "combos" | "craft";
+
+/**
+ * Checks if a product qualifies as a meal combo, bundle, set, or hamper.
+ */
+export function isComboProduct(product: Product): boolean {
+  if (product.isHamper) return true;
+  if (product.categoryId === "combos" || product.categoryIds?.includes("combos")) return true;
+  if (product.tags?.some((t) => /combo|bundle|thali|set|box|hamper/i.test(t))) return true;
+  return /combo|thali|bundle|box|set|hamper|pair/i.test(product.name);
+}
 
 /**
  * Alternates food and craft products so the "All" view gives equal visibility to both.
@@ -61,25 +71,52 @@ export function BestsellersTabsSection({
   const bsAll = useMemo(() => interleaveProducts(bsFood, bsCraft), [bsFood, bsCraft]);
   const trAll = useMemo(() => interleaveProducts(trFood, trCraft), [trFood, trCraft]);
 
+  const bsCombos = useMemo(() => {
+    const list = bsAll.filter(isComboProduct);
+    // If not enough tagged items, pick popular multi-item or gift/sweets bundles
+    if (list.length === 0) {
+      return bsAll.filter((p) => /box|set|hamper|mix|pair/i.test(p.name));
+    }
+    return list;
+  }, [bsAll]);
+
+  const trCombos = useMemo(() => {
+    const list = trAll.filter(isComboProduct);
+    if (list.length === 0) {
+      return trAll.filter((p) => /box|set|hamper|mix|pair/i.test(p.name));
+    }
+    return list;
+  }, [trAll]);
+
   const bsDisplayed = useMemo(() => {
     if (category === "food") return bsFood;
+    if (category === "combos") return bsCombos.length > 0 ? bsCombos : bsFood;
     if (category === "craft") return bsCraft;
     return bsAll;
-  }, [category, bsFood, bsCraft, bsAll]);
+  }, [category, bsFood, bsCombos, bsCraft, bsAll]);
 
   const trDisplayed = useMemo(() => {
     if (category === "food") return trFood;
+    if (category === "combos") return trCombos.length > 0 ? trCombos : trFood;
     if (category === "craft") return trCraft;
     return trAll;
-  }, [category, trFood, trCraft, trAll]);
+  }, [category, trFood, trCombos, trCraft, trAll]);
 
-  const viewAllHref = category === "craft" ? "/gifts" : "/shop";
+  const viewAllHref =
+    category === "craft"
+      ? "/gifts"
+      : category === "combos"
+        ? "/shop?q=combo"
+        : "/shop";
+
   const viewAllText =
     category === "food"
       ? "See all food →"
-      : category === "craft"
-        ? "Browse all gifts →"
-        : "Explore collection →";
+      : category === "combos"
+        ? "Explore combos & bundles →"
+        : category === "craft"
+          ? "Browse all gifts →"
+          : "Explore collection →";
 
   if (bsAll.length === 0 && trAll.length === 0) {
     return null;
@@ -92,10 +129,6 @@ export function BestsellersTabsSection({
         <section className={clsx("container", "container-wide", styles.section)}>
           <div className={styles.sectionHead}>
             <div className={styles.headingBlock}>
-              <span className={styles.eyebrow}>
-                <Sparkles className={styles.eyebrowIcon} aria-hidden="true" />
-                Loved by our community
-              </span>
               <h2 className={styles.sectionTitle}>Bestsellers</h2>
             </div>
 
@@ -121,6 +154,16 @@ export function BestsellersTabsSection({
                 >
                   <Utensils size={13} className={styles.segmentIcon} aria-hidden="true" />
                   Food
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={category === "combos"}
+                  className={clsx(styles.segment, category === "combos" && styles.segmentActive)}
+                  onClick={() => setCategory("combos")}
+                >
+                  <Layers size={13} className={styles.segmentIcon} aria-hidden="true" />
+                  Combos
                 </button>
                 <button
                   type="button"
@@ -167,10 +210,6 @@ export function BestsellersTabsSection({
         <section className={clsx("container", "container-wide", styles.sectionTrending)}>
           <div className={styles.sectionHeadTrending}>
             <div className={styles.headingBlock}>
-              <span className={styles.eyebrowTrending}>
-                <Flame className={styles.flameIcon} aria-hidden="true" />
-                Fresh &amp; rising favorites
-              </span>
               <h2 className={styles.sectionTitle}>Trending Now</h2>
             </div>
             <Link href={viewAllHref} className={styles.viewAll}>

@@ -440,6 +440,12 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
           </div>
         ) : (
           <div className={styles.form}>
+            <SocialSignIn
+              config={socialConfig}
+              onCredential={handleSocial}
+              disabled={working}
+              action="Continue"
+            />
             {notice && <p className={styles.hint}>{notice}</p>}
 
             <label className={styles.field}>
@@ -464,35 +470,33 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
               />
             </label>
 
-            <label className={styles.field}>
-              <span className={styles.label}>Password</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                className={styles.input}
-                placeholder="At least 8 characters"
-                value={password}
-                onChange={(event) => {
-                  setPassword(event.target.value);
-                  setError(null);
-                }}
-              />
-            </label>
+            {step === "password" && (
+              <label className={styles.field}>
+                <span className={styles.label}>Password</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className={styles.input}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(event) => {
+                    setPassword(event.target.value);
+                    setError(null);
+                  }}
+                />
+              </label>
+            )}
 
             {step === "name" && (
               <label className={styles.field}>
-                <span className={styles.label}>Your name</span>
+                <span className={styles.label}>What should we call you?</span>
                 <input
                   type="text"
                   autoComplete="name"
-                  autoFocus
                   className={styles.input}
-                  placeholder="Priya Sharma"
+                  placeholder="Anjali Sharma"
                   value={name}
-                  onChange={(event) => {
-                    setName(event.target.value);
-                    setError(null);
-                  }}
+                  onChange={(event) => setName(event.target.value)}
                 />
               </label>
             )}
@@ -520,13 +524,6 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
             </p>
           </div>
         )}
-
-        <SocialSignIn
-          config={socialConfig}
-          onCredential={handleSocial}
-          disabled={working}
-          action="Continue"
-        />
       </Card>
 
       {error && (

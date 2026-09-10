@@ -121,4 +121,16 @@
      (the family/weight rules stay per-module), so a page that genuinely
      needs to differ says so in one line next to this name. */
   --hk-page-title: clamp(30px, 3.4vw, 40px);
+
+  /* ---- Brand Vibrancy & High-Contrast Accents (2026-09-10) ----
+     Introduces warm saffron and spiced terracotta to provide clear visual
+     accents for CTA highlights, badges, and active pills, plus deep solid ink
+     for AAA contrast against parchment backgrounds. */
+  --hk-saffron: #d97706;
+  --hk-saffron-deep: #b45309;
+  --hk-saffron-tint: #fffbeb;
+  --hk-saffron-border: #fcd34d;
+  --hk-terracotta-accent: #c05621;
+  --hk-ink-high: #1a140e;
+  --hk-ink: #1a140e;
 }

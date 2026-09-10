@@ -82,7 +82,7 @@ const DISCOUNT_EXAMPLE_PCT = 10;
 const DISCOUNT_EXAMPLE_PRICE = 250;
 
 const SECTIONS = [
-  { id: "shop-look", label: "Photo & banner" },
+  { id: "shop-look", label: "Profile photo" },
   { id: "shop-words", label: "Name & bio" },
   { id: "shop-sale", label: "Run a sale" },
 ];
@@ -281,12 +281,9 @@ export function SellerStorefrontClient() {
       <FormPage sections={SECTIONS} navLabel="Sections">
         <FormSection
           id="shop-look"
-          title="Photo and banner"
-          description="The round photo sits next to your name everywhere; the banner runs across the top of your storefront."
+          title="Profile photo"
+          description="The round photo sits next to your name everywhere. Storefront banners use the official HomeKrafted branded poster."
         >
-          <div className={styles.bannerPreview}>
-            <ImageSlot ratio="16/5" label={vendor.bannerPlaceholder} src={form.bannerSrc || undefined} />
-          </div>
           <FieldGrid>
             <ImageUpload
               label="Shop photo"
@@ -299,25 +296,9 @@ export function SellerStorefrontClient() {
                   ? "Showing the character you picked. Drop a real photo here any time — a photo of you is what buyers trust most."
                   : "Square works best — this is the round photo buyers see next to your name."
               }
-              /* A chosen character lives in the same column, so the
-                 upload must not show one back as "your photo" — but it
-                 does show it as a *preview* (2026-09-04). Picking a
-                 character used to leave this slot on the empty hatch,
-                 which read as nothing having happened; `previewSrc` is
-                 not a value, so "Remove" stays off it and the zone still
-                 asks for a real photo. */
               value={isChefCharacter(form.avatarSrc) ? "" : form.avatarSrc}
               previewSrc={isChefCharacter(form.avatarSrc) ? form.avatarSrc : undefined}
               onChange={(url) => edit({ avatarSrc: url })}
-            />
-            <ImageUpload
-              label="Banner"
-              purpose="storefront"
-              ratio="16/5"
-              placeholderLabel={vendor.bannerPlaceholder}
-              hint="A wide shot of your workspace or what you make, roughly 3:1."
-              value={form.bannerSrc}
-              onChange={(url) => edit({ bannerSrc: url })}
             />
           </FieldGrid>
           <CharacterPicker value={form.avatarSrc} onChange={(src) => edit({ avatarSrc: src })} />

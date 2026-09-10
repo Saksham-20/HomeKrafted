@@ -109,4 +109,5 @@ server/.uploads/
 # `server/test/unit/vendor-privacy.spec.ts` for the same principle in code).
 .ux-shots/
 audit-*.png
-
+brand_check.png
+e2e/*.png

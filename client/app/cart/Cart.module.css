@@ -28,6 +28,12 @@
   text-align: center;
 }
 
+.emptyContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s6, 26px);
+}
+
 .empty {
   display: flex;
   flex-direction: column;
@@ -38,6 +44,11 @@
   color: var(--hk-muted);
   border: 1px dashed var(--hk-border-2);
   border-radius: var(--hk-r-lg);
+  background: var(--hk-surface);
+}
+
+.emptySuggestions {
+  width: 100%;
 }
 
 .emptyTitle {

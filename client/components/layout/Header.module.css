@@ -88,22 +88,43 @@
 }
 
 /*
-  The brand logo: anchored dead-center in the header row, visible
-  from first paint over the hero split and transitioning cleanly when scrolled.
+  The brand logo: positioned on the left of the navbar (not in the middle).
 */
-.landing .logo {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+.landing .brandCluster {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: clamp(20px, 2.5vw, 36px);
+  z-index: 2;
+}
+
+.landing .logo {
+  display: inline-flex;
+  align-items: center;
+  position: static;
+  transform: translateX(-4px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s ease, transform 0.3s ease;
+}
+
+.landing[data-logo-visible="true"] .logo {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  z-index: 2;
-  transition: opacity 0.3s ease, filter 0.3s ease;
+  transform: translateX(0);
+}
+
+.landing .logoMark {
+  height: clamp(28px, 3.2vw, 36px);
+  width: auto;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.65));
+  transition: filter 0.3s ease;
+}
+
+.landing[data-revealed="true"] .logoMark {
+  filter: none;
 }
 
 .landing .actions {
@@ -126,9 +147,6 @@
   border-bottom-color: transparent;
 }
 
-.landing:not([data-revealed="true"]) .logoMark {
-  filter: brightness(0) invert(1) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.65));
-}
 
 .landing:not([data-revealed="true"]) .navLink {
   color: #ffffff;

@@ -8,6 +8,7 @@ import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StickySummary } from "@/components/ui/StickySummary";
 import { CartLineRow } from "@/components/cart/CartLineRow";
+import { CartSuggestions } from "@/components/cart/CartSuggestions";
 import { useCart } from "@/lib/cart/CartContext";
 import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
 import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
@@ -75,20 +76,25 @@ export function CartPageClient() {
           </div>
         </div>
       ) : items.length === 0 ? (
-        <div className={styles.empty}>
-          <ShoppingBag size={40} strokeWidth={1.4} />
-          <p className={styles.emptyTitle}>Your cart is empty</p>
-          <p className={styles.emptyCopy}>
-            Browse the shop to get started — small-batch pickles, bakes and
-            ready-made gift hampers.
-          </p>
-          <div className={styles.emptyActions}>
-            <Button variant="primary" onClick={() => router.push("/shop")}>
-              Continue shopping
-            </Button>
-            <Button variant="secondary" onClick={() => router.push("/hamper")}>
-              Gift hampers
-            </Button>
+        <div className={styles.emptyContainer}>
+          <div className={styles.empty}>
+            <ShoppingBag size={40} strokeWidth={1.4} />
+            <p className={styles.emptyTitle}>Your cart is empty</p>
+            <p className={styles.emptyCopy}>
+              Browse the shop to get started — small-batch pickles, bakes and
+              ready-made gift hampers.
+            </p>
+            <div className={styles.emptyActions}>
+              <Button variant="primary" onClick={() => router.push("/shop")}>
+                Continue shopping
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/hamper")}>
+                Gift hampers
+              </Button>
+            </div>
+          </div>
+          <div className={styles.emptySuggestions}>
+            <CartSuggestions />
           </div>
         </div>
       ) : (
@@ -110,6 +116,7 @@ export function CartPageClient() {
                 />
               );
             })}
+            <CartSuggestions />
           </div>
 
           <aside className={styles.aside}>

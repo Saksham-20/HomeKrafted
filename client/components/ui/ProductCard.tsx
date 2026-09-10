@@ -108,15 +108,14 @@ export function ProductCard({
   const tag = product.tags[0];
   const diet = dietOf(product);
   const preOrder = preOrderLabel(product);
-
   return (
-    // No click handling here on purpose: the stretched `<Link>` below is
-    // the card's whole-surface click target. `.clickable` is presentation
-    // only (hover lift, cursor) and follows the anchor's presence.
-    <div className={clsx(styles.card, href && styles.clickable, className)}>
+    <div
+      className={clsx(styles.card, href && styles.clickable, className)}
+      data-testid="product-card"
+    >
       <div className={styles.imageWrap}>
         <ImageSlot
-          ratio={image?.ratio ?? "1/1"}
+          ratio="1/1"
           label={image?.placeholder ?? product.name}
           // The product's name, not the placeholder caption — a screen
           // reader hearing "MANGO THOKKU — HERO" has been read a filename.

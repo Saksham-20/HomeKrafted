@@ -69,7 +69,20 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
    */
   const onLanding = pathname === "/";
   const [revealed, setRevealed] = useState(false);
+  const [heroExpanded, setHeroExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!onLanding) return;
+    const onHeroState = (e: Event) => {
+      const custom = e as CustomEvent<{ expanded: boolean }>;
+      if (custom.detail) {
+        setHeroExpanded(Boolean(custom.detail.expanded));
+      }
+    };
+    window.addEventListener("hk-hero-state", onHeroState);
+    return () => window.removeEventListener("hk-hero-state", onHeroState);
+  }, [onLanding]);
 
   useEffect(() => {
     if (!onLanding) return;
@@ -211,17 +224,28 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     </nav>
   );
 
+  const showLogo = !onLanding || revealed || heroExpanded;
+
   return (
     <header
       className={clsx(styles.header, onLanding && styles.landing)}
       data-revealed={onLanding ? String(revealed) : undefined}
+      data-logo-visible={onLanding ? String(showLogo) : "true"}
+      data-hero-expanded={onLanding ? String(heroExpanded) : undefined}
     >
       <div className={clsx("container", "container-wide", styles.row)}>
-        {onLanding ? landingNav : null}
-
-        <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
-          <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
-        </Link>
+        {onLanding ? (
+          <div className={styles.brandCluster}>
+            <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
+              <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
+            </Link>
+            {landingNav}
+          </div>
+        ) : (
+          <Link href="/" className={styles.logo} aria-label="Homekrafted — home">
+            <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
+          </Link>
+        )}
 
         {/* Was a `<Link href="/shop">` dressed as a search box — a dead
             affordance, since nothing in the app could search. Real form

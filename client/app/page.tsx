@@ -273,7 +273,6 @@ export default async function Home() {
           <div className={styles.brandShelfContainer}>
             <div className={styles.sectionHead}>
               <div>
-                <span className={styles.eyebrow}>Created in-house under our label</span>
                 <h2 className={styles.sectionTitle}>By HomeKrafted</h2>
               </div>
               <Link

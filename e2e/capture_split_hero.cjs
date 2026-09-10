@@ -27,21 +27,37 @@ async function main() {
 
   await desktopPage.goto("http://localhost:3000", { waitUntil: "networkidle" });
   await desktopPage.evaluate(() => document.fonts.ready);
-  await desktopPage.waitForTimeout(800);
+  await desktopPage.waitForTimeout(1000);
 
-  // 1. Top of page view
-  await desktopPage.screenshot({ path: path.join(OUT_DIR, "desktop_01_hero_split.png") });
+  // Check video state
+  const videoState = await desktopPage.evaluate(() => {
+    const v = document.querySelector("video");
+    if (!v) return { found: false };
+    return {
+      found: true,
+      paused: v.paused,
+      currentTime: v.currentTime,
+      muted: v.muted,
+      readyState: v.readyState,
+      src: v.currentSrc,
+    };
+  });
+  console.log("Desktop Video State:", videoState);
 
-  // 2. Hero element specifically
-  const heroEl = desktopPage.locator("#hk-hero-section");
-  if (await heroEl.count() > 0) {
-    await heroEl.screenshot({ path: path.join(OUT_DIR, "desktop_hero_element.png") });
+  // 1. Initial Start State (Logo, Slogan, and Expanding Preview Card with Video)
+  await desktopPage.screenshot({ path: path.join(OUT_DIR, "revamp2_01_initial_state.png") });
+
+  // 2. Click to expand immediately or simulate wheel scroll to expand
+  console.log("Expanding scroll hero on desktop...");
+  const previewCard = desktopPage.locator('div[title="Click or scroll to expand"]');
+  if (await previewCard.count() > 0) {
+    await previewCard.click({ force: true });
+    await desktopPage.waitForSelector('[class*="splitGrid"]', { timeout: 3000 });
+    await desktopPage.waitForTimeout(600);
   }
 
-  // 3. Scroll past hero
-  await desktopPage.evaluate(() => window.scrollTo(0, 950));
-  await desktopPage.waitForTimeout(600);
-  await desktopPage.screenshot({ path: path.join(OUT_DIR, "desktop_02_scrolled.png") });
+  // 3. Expanded State: Full 50/50 split screen revealed
+  await desktopPage.screenshot({ path: path.join(OUT_DIR, "revamp2_02_expanded_split_screen.png") });
 
   await desktopContext.close();
 
@@ -65,20 +81,26 @@ async function main() {
   await mobilePage.evaluate(() => document.fonts.ready);
   await mobilePage.waitForTimeout(800);
 
-  await mobilePage.screenshot({ path: path.join(OUT_DIR, "mobile_01_hero_split.png") });
+  // Mobile Initial
+  await mobilePage.screenshot({ path: path.join(OUT_DIR, "revamp2_03_mobile_initial.png") });
 
-  await mobilePage.evaluate(() => window.scrollTo(0, 750));
-  await mobilePage.waitForTimeout(600);
-  await mobilePage.screenshot({ path: path.join(OUT_DIR, "mobile_02_scrolled.png") });
+  // Mobile Expand
+  console.log("Expanding scroll hero on mobile...");
+  const mobileCard = mobilePage.locator('div[title="Click or scroll to expand"]');
+  if (await mobileCard.count() > 0) {
+    await mobileCard.click({ force: true });
+    await mobilePage.waitForSelector('[class*="splitGrid"]', { timeout: 3000 });
+    await mobilePage.waitForTimeout(600);
+  }
+  await mobilePage.screenshot({ path: path.join(OUT_DIR, "revamp2_04_mobile_expanded.png") });
 
   await mobileContext.close();
   await browser.close();
 
-  console.log("All screenshots captured successfully!");
+  console.log("Revamp 2 screenshots captured successfully!");
 }
 
 main().catch((err) => {
   console.error("Error capturing screenshots:", err);
   process.exit(1);
 });
-

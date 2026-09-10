@@ -80,6 +80,9 @@
 .socialButton:hover:not(:disabled) {
   border-color: var(--hk-gold-border);
   color: var(--hk-ink);
+  background: #faf8f5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
 }
 
 .socialButton:disabled {

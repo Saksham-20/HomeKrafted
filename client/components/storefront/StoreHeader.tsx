@@ -32,11 +32,11 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
       <div className={styles.banner}>
         <ImageSlot
           ratio="16/5"
-          label={vendor.bannerPlaceholder}
+          label="HomeKrafted Storefront Banner"
           // Decorative: the shop's name is the <h1> right below it, so
           // describing the banner again is noise in a screen reader.
           alt=""
-          src={vendor.bannerSrc}
+          src="/images/site/storefront-standard-banner.jpg"
           sizes="(max-width: 1180px) 100vw, 1180px"
           priority
         />
