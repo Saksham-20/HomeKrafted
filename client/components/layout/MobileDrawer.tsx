@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import clsx from "clsx";
 import { Heart, ShieldCheck, Store, User, Wallet, X } from "lucide-react";
@@ -30,6 +31,9 @@ export interface MobileDrawerProps {
  * account entries — the header hides its desktop nav, search pill and
  * wishlist/account icons below ~1190px, so this is the only way to reach
  * them on small screens.
+ *
+ * Rendered via createPortal to document.body so parent backdrop-filter or
+ * transforms on <header> never clip or trap the drawer on mobile web.
  */
 export function MobileDrawer({
   open,
@@ -40,6 +44,7 @@ export function MobileDrawer({
   onSwitchToSelling,
   showAdminSwitch,
 }: MobileDrawerProps) {
+  const [mounted, setMounted] = useState(false);
   const { count: wishlistCount } = useWishlist();
   /* Only the secondary entries the primary group does not already
      carry — see the "More ways to order" block below. Compared on
@@ -50,6 +55,10 @@ export function MobileDrawer({
   const extraItems = secondaryItems.filter((item) => !primaryHrefs.has(item.href));
   const panelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   /**
    * Focus management (M16). The drawer already trapped scroll and closed
@@ -93,7 +102,7 @@ export function MobileDrawer({
     };
   }, [open, onClose]);
 
-  return (
+  const drawerContent = (
     <>
       <div
         className={clsx(styles.scrim, open && styles.open)}
@@ -109,7 +118,9 @@ export function MobileDrawer({
         aria-hidden={!open}
       >
         <div className={styles.panelHeader}>
-          <span className={styles.eyebrow}>Menu</span>
+          <Link href="/" onClick={onClose} className={styles.drawerBrand} aria-label="Homekrafted — home">
+            <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.drawerLogo} />
+          </Link>
           <button
             type="button"
             className={styles.closeButton}
@@ -221,4 +232,7 @@ export function MobileDrawer({
       </div>
     </>
   );
+
+  if (!mounted) return null;
+  return createPortal(drawerContent, document.body);
 }

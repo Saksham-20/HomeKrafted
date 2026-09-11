@@ -300,3 +300,49 @@
      the image under it. */
   box-shadow: 0 1px 6px -2px rgba(20, 40, 30, 0.55);
 }
+
+@media (max-width: 640px) {
+  .content {
+    padding: 10px 10px 12px;
+    gap: 4px;
+  }
+
+  .name {
+    font-size: 14px;
+    line-height: 1.22;
+  }
+
+  .meta {
+    font-size: 11.5px;
+  }
+
+  .priceRow {
+    margin-top: 6px;
+  }
+
+  .price {
+    font-size: 16px;
+  }
+
+  .mrp {
+    font-size: 11px;
+  }
+
+  .add {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+
+  .soldOut {
+    font-size: 10.5px;
+    padding: 4px 8px;
+  }
+
+  .wishlist {
+    width: 28px;
+    height: 28px;
+    top: 8px;
+    right: 8px;
+  }
+}

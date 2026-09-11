@@ -218,7 +218,8 @@
 
 @media (max-width: 640px) {
   .sectionHead {
-    gap: 12px;
+    gap: 10px;
+    margin-bottom: var(--hk-s3, 14px);
   }
 
   .headingBlock {
@@ -227,17 +228,27 @@
     width: 100%;
   }
 
+  .sectionTitle {
+    font-size: clamp(24px, 6vw, 30px);
+  }
+
   .segmentedControlWrapper {
     width: 100%;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .segmentedControl {
     width: 100%;
-    max-width: 440px;
+    max-width: 100%;
     display: flex;
     overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .segmentedControl::-webkit-scrollbar {
+    display: none;
   }
 
   .segment {
@@ -250,21 +261,29 @@
 
   .viewAllSlot {
     justify-content: flex-start;
+    margin-top: 2px;
   }
 
   .sectionHeadTrending {
-    flex-direction: column;
-    align-items: flex-start;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: baseline;
     gap: 12px;
+    margin-bottom: var(--hk-s3, 14px);
   }
 
   .productRail {
-    gap: var(--hk-s3);
+    gap: 10px;
+    padding-bottom: var(--hk-s3);
   }
 
   .productRail > * {
-    flex: 0 0 200px;
-    min-width: 200px;
+    /* Responsive card sizing: allows 2 full cards to be completely visible side-by-side
+       on standard phone screens (360px-430px), plus an inviting ~16-24px peek of the 3rd card. */
+    flex: 0 0 clamp(152px, 43vw, 168px);
+    min-width: clamp(152px, 43vw, 168px);
+    max-width: 175px;
   }
 }
 
