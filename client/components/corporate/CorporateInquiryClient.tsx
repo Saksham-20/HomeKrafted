@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Building2 } from "lucide-react";
+import { Building2, Sparkles, Users } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -102,6 +102,24 @@ export function CorporateInquiryClient({ occasions, budgetRanges }: CorporateInq
           Curated hampers at volume — festive kits, onboarding boxes, client thank-yous. Tell us
           what you need and our team will put a proposal together.
         </p>
+
+        <div className={styles.benefits}>
+          <div className={styles.benefit}>
+            <div className={styles.benefitIcon}><Sparkles size={24} strokeWidth={1.5} /></div>
+            <div className={styles.benefitText}>
+              <strong>Unique &amp; Handcrafted</strong>
+              <p>Move away from generic corporate gifts. Support local home kitchens with artisanal hampers.</p>
+            </div>
+          </div>
+          <div className={styles.benefit}>
+            <div className={styles.benefitIcon}><Users size={24} strokeWidth={1.5} /></div>
+            <div className={styles.benefitText}>
+              <strong>Dedicated Support</strong>
+              <p>Your dedicated account manager handles curation, logistics, and delivery pan-India.</p>
+            </div>
+          </div>
+        </div>
+
         {/* The browse half of the M35 single corporate entry: this page is
             THE way in (the home occasion grid no longer carries a second
             "Corporate" tile), so the buyer who wants to see options before

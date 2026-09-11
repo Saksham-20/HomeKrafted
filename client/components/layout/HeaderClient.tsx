@@ -195,7 +195,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
   const landingNav = (
     <nav className={styles.nav} aria-label="Primary">
       {navItems
-        .filter((item) => item.href === "/shop" || item.href === "/gifts" || item.href === "/about")
+        .filter((item) => item.href === "/shop" || item.href === "/gifts" || item.href === "/about" || item.href === "/meal-plans" || item.href === "/corporate")
         .map((item) => {
           const menu = navMenus?.[item.href];
           return (

@@ -3,7 +3,7 @@
 }
 
 .hero {
-  max-width: 640px;
+  max-width: 720px;
   margin-bottom: var(--hk-s7);
 }
 
@@ -28,13 +28,62 @@
   font-size: 1rem;
   line-height: 1.6;
   color: var(--hk-ink-2);
-  margin: 0 0 var(--hk-s4);
+  margin: 0 0 var(--hk-s6);
+}
+
+.howItWorks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--hk-s4);
+  margin: var(--hk-s5) 0;
+}
+
+@media (max-width: 600px) {
+  .howItWorks {
+    grid-template-columns: 1fr;
+    gap: var(--hk-s5);
+  }
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.stepNum {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--hk-surface-2);
+  color: var(--hk-pine);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.stepTitle {
+  font-family: var(--hk-font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  margin: 0;
+}
+
+.stepDesc {
+  font-size: 14px;
+  color: var(--hk-ink-2);
+  line-height: 1.5;
+  margin: 0;
 }
 
 .points {
   list-style: none;
   padding: 0;
-  margin: 0;
+  margin: var(--hk-s5) 0 0;
   display: flex;
   flex-direction: column;
   gap: var(--hk-s2);

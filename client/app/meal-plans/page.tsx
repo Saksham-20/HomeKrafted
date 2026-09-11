@@ -59,10 +59,28 @@ export default async function MealPlansPage() {
           Pick your meals, your days and a 30-minute window — a home kitchen near you cooks
           the rest.
         </p>
+        
+        <div className={styles.howItWorks}>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>1</div>
+            <h3 className={styles.stepTitle}>Pick a Plan</h3>
+            <p className={styles.stepDesc}>Choose your meals, days, and a 30-minute delivery window.</p>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>2</div>
+            <h3 className={styles.stepTitle}>Cooked Fresh</h3>
+            <p className={styles.stepDesc}>A home kitchen near you prepares your meal fresh every day.</p>
+          </div>
+          <div className={styles.step}>
+            <div className={styles.stepNum}>3</div>
+            <h3 className={styles.stepTitle}>Flexible</h3>
+            <p className={styles.stepDesc}>Skip a day, pause when you travel, or cancel anytime.</p>
+          </div>
+        </div>
+
         <ul className={styles.points}>
           <li>Pay once for the whole cycle — nothing charges you in the background.</li>
           <li>Skip a day and the meal is owed back to you, not lost.</li>
-          <li>Pause when you travel. Cancel whenever.</li>
         </ul>
         <KitchenCrossLinks current="/meal-plans" />
       </header>
