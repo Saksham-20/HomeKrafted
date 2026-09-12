@@ -15,7 +15,7 @@ export interface ReviewListProps {
 export function ReviewList({
   reviews,
   title,
-  emptyLabel = "No reviews yet.",
+  emptyLabel = "No reviews yet — be the first verified buyer to review this dish and share feedback with your neighborhood!",
   className,
 }: ReviewListProps) {
   return (

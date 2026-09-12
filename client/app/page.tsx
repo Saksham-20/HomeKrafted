@@ -28,6 +28,7 @@ import {
   getVendors,
 } from "@/lib/api";
 import { currentSeasonalOccasion } from "@/lib/occasions";
+import { isPurchasable } from "@/lib/catalog-availability";
 import { absoluteUrl, jsonLdProps, SITE_NAME, SITE_URL } from "@/lib/seo";
 import styles from "./page.module.css";
 
@@ -123,6 +124,10 @@ export default async function Home() {
 
   const productById = new Map(allProducts.map((p) => [p.id, p]));
 
+  function isLiveAndInStock(p?: Product): p is Product {
+    return Boolean(p && isPurchasable(p));
+  }
+
   function resolveCollection(
     collection: typeof bestsellerFoodCollection,
     kind: "food" | "craft",
@@ -131,12 +136,12 @@ export default async function Home() {
     if (collection && collection.productIds && collection.productIds.length > 0) {
       const resolved = collection.productIds
         .map((id) => productById.get(id))
-        .filter((p): p is Product => Boolean(p))
+        .filter(isLiveAndInStock)
         .slice(0, limit);
       if (resolved.length > 0) return resolved;
     }
-    // Fallback: top-rated products of this kind
-    const matching = allProducts.filter((p) => p.kind === kind);
+    // Fallback: top-rated products of this kind that are live and in stock
+    const matching = allProducts.filter((p) => p.kind === kind && isLiveAndInStock(p));
     const withReviews = matching.filter((p) => p.reviewCount > 0);
     const fallbackSource = withReviews.length > 0 ? withReviews : matching;
     return fallbackSource
@@ -155,7 +160,7 @@ export default async function Home() {
     (v) => v.name?.toLowerCase() === "homekrafted" || v.slug === "homekrafted",
   );
   const inHouseProducts = allProducts
-    .filter((p) => hkVendor && p.vendorId === hkVendor.id && p.name.toLowerCase() !== "abs")
+    .filter((p) => hkVendor && p.vendorId === hkVendor.id && isLiveAndInStock(p))
     .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
 
   // The seasonal hook (M16). Read once, on the server, and shipped as

@@ -219,15 +219,22 @@ export function CurationsClient() {
   }, []);
 
   useEffect(() => {
-    const cleanup = loadData();
-    return cleanup;
+    let cleanup: (() => void) | undefined;
+    queueMicrotask(() => {
+      cleanup = loadData();
+    });
+    return () => {
+      cleanup?.();
+    };
   }, [loadData]);
 
   // Reset search and filter when active rail changes
   useEffect(() => {
-    setSearchQ("");
-    setCatalogFilter("all");
-    setSaveMsg(null);
+    queueMicrotask(() => {
+      setSearchQ("");
+      setCatalogFilter("all");
+      setSaveMsg(null);
+    });
   }, [activeRail]);
 
   // -------------------------------------------------------------------------

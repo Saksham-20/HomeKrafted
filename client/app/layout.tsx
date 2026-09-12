@@ -12,6 +12,7 @@ import { WishlistProvider } from "@/lib/wishlist/WishlistContext";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { LocationProvider } from "@/lib/location/LocationContext";
 import { LocationPrompt } from "@/components/location/LocationPrompt";
+import { MobileOverflowDetector } from "@/components/debug/MobileOverflowDetector";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
 // Fraunces (display/headings/prices) — 400-700 + italic, per the design system.
@@ -119,6 +120,7 @@ export default function RootLayout({
                   </ConsumerChrome>
                   {/* Renders itself only on a first visit — see LocationPrompt. */}
                   <LocationPrompt />
+                  <MobileOverflowDetector />
                 </WishlistProvider>
               </CartProvider>
             </WalletProvider>

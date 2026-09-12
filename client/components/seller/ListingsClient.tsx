@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SearchField } from "@/components/ui/SearchField";
@@ -48,6 +48,8 @@ function bucketOf(product: Product): Exclude<ListingFilter, "all"> {
  */
 export function ListingsClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const justSubmitted = searchParams.get("submitted") === "1";
   const { ready, seller } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -216,6 +218,14 @@ export function ListingsClient() {
   return (
     <div>
       {header}
+      {justSubmitted && (
+        <Notice
+          tone="info"
+          title="Listing submitted for review"
+        >
+          Your product has been submitted and is currently waiting for approval. It will remain hidden from shoppers on the public storefront until verified by our moderation team (usually within 24 hours).
+        </Notice>
+      )}
       {deleteTarget && (
         <Notice
           tone="warning"

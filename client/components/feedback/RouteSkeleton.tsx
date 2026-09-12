@@ -76,7 +76,7 @@ export function RouteSkeleton({
         arrives — it just does not fade.
       */}
       <p className={styles.slow} aria-hidden="true">
-        Still going — this one is taking longer than usual.
+        Loading kitchens near you… thanks for your patience.
       </p>
       <div className={styles.head} aria-hidden="true">
         <span className={styles.eyebrowBar} />

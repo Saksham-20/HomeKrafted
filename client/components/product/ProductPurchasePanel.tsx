@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Gift, Heart, PenLine, Send } from "lucide-react";
+import { Check, Gift, Heart, PenLine, Send, ShieldCheck, Sparkles, Truck, AlertCircle, Plus } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
@@ -14,6 +16,8 @@ import { addToCartErrorMessage, SOLD_OUT_COPY } from "@/lib/cart/add-error";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { wishlistErrorMessage } from "@/lib/wishlist/wishlist-error";
+import { lookupPincode } from "@/lib/api";
+import { isPincodeShape } from "@/lib/pincode";
 import {
   EMPTY_GIFT_INTENT,
   hasGiftIntent,
@@ -25,6 +29,7 @@ import styles from "./ProductPurchasePanel.module.css";
 
 export interface ProductPurchasePanelProps {
   product: Product;
+  crossSells?: Product[];
 }
 
 /** The three gift asks, in the order the parcel gets them. */
@@ -38,7 +43,7 @@ const GIFT_OPTIONS: {
   label: string;
 }[] = [
   { key: "messageCard", icon: PenLine, label: "Message card" },
-  { key: "wrap", icon: Gift, label: "Gift wrap" },
+  { key: "wrap", icon: Gift, label: "Gift wrap (+₹40)" },
   { key: "shipToRecipient", icon: Send, label: "Ship to recipient" },
 ];
 
@@ -50,11 +55,38 @@ const GIFT_OPTIONS: {
  * `useWishlist()`). Weight selection state lives here so the cart wiring
  * has a single, obvious hook-in point (`selectedSku` + `quantity`).
  */
-export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
+export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurchasePanelProps) {
   const router = useRouter();
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
   const wishlisted = has(product.id);
+
+  const [crossSellAdded, setCrossSellAdded] = useState<Record<string, boolean>>({});
+  const [addingCrossSell, setAddingCrossSell] = useState<string | null>(null);
+
+  async function handleAddCrossSell(item: Product) {
+    const sku = purchasableSku(item);
+    if (!sku) return;
+    setAddingCrossSell(item.id);
+    try {
+      await addItem(item.id, sku, 1);
+      setCrossSellAdded((prev) => ({ ...prev, [item.id]: true }));
+      setTimeout(() => {
+        setCrossSellAdded((prev) => ({ ...prev, [item.id]: false }));
+      }, 2500);
+    } catch {
+      // Ignore
+    } finally {
+      setAddingCrossSell(null);
+    }
+  }
+
+  const isMealPlan =
+    product.categoryId === "meals" ||
+    product.slug.includes("meal") ||
+    product.slug.includes("tiffin") ||
+    product.name.toLowerCase().includes("meal") ||
+    product.name.toLowerCase().includes("tiffin");
   /**
    * The size the CARD would add, not the listing's stated default.
    *
@@ -85,6 +117,83 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
    */
   const [addError, setAddError] = useState<string | null>(null);
   const [wishlistError, setWishlistError] = useState<string | null>(null);
+
+  const [pincodeInput, setPincodeInput] = useState("");
+  const [pincodeStatus, setPincodeStatus] = useState<{
+    pincode: string;
+    serviced: boolean;
+    district?: string;
+    message: string;
+  } | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+
+  const verifyPincode = useCallback(
+    async (pin: string) => {
+      if (!isPincodeShape(pin)) return;
+      setCheckingPincode(true);
+      try {
+        const result = await lookupPincode(pin);
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem("hk_delivery_pincode", pin);
+          } catch {}
+        }
+        if (product.shippingScope === "national") {
+          setPincodeStatus({
+            pincode: pin,
+            serviced: true,
+            district: result?.district,
+            message: `✓ Delivering to ${pin}${result?.district ? ` (${result.district})` : ""} · 3–5 business days · Pan-India delivery`,
+          });
+        } else {
+          if (result?.serviced) {
+            setPincodeStatus({
+              pincode: pin,
+              serviced: true,
+              district: result.district,
+              message: `✓ Delivering to ${pin} (${result.district}) · 2–4 hours fresh delivery · ₹49 delivery (Free over ₹499)`,
+            });
+          } else {
+            setPincodeStatus({
+              pincode: pin,
+              serviced: false,
+              district: result?.district,
+              message: `✕ Fresh delivery is not available to ${pin}. Kitchen delivers within 15 km in Chandigarh Tricity. Nationwide shipped items can be delivered.`,
+            });
+          }
+        }
+      } catch {
+        setPincodeStatus({
+          pincode: pin,
+          serviced: false,
+          message: `Could not verify serviceability for ${pin}. Try again in a moment.`,
+        });
+      } finally {
+        setCheckingPincode(false);
+      }
+    },
+    [product.shippingScope],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const stored = window.localStorage.getItem("hk_delivery_pincode");
+      if (stored && isPincodeShape(stored)) {
+        queueMicrotask(() => {
+          if (!cancelled) {
+            setPincodeInput(stored);
+            void verifyPincode(stored);
+          }
+        });
+      }
+    } catch {
+      // LocalStorage access fallback
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [verifyPincode]);
 
   /**
    * The "Make it a gift" block (see `lib/gift/gift-intent.ts`). These
@@ -297,6 +406,167 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
         </p>
       )}
 
+      <div className={styles.decisionBlock}>
+        <div className={styles.decisionItem}>
+          <Truck size={18} className={clsx(styles.decisionIcon, styles.decisionIconPine)} aria-hidden="true" />
+          <div className={styles.decisionContent} style={{ width: "100%" }}>
+            <span className={styles.decisionTitle}>
+              {pincodeStatus
+                ? pincodeStatus.serviced
+                  ? `Delivering to ${pincodeStatus.pincode}${pincodeStatus.district ? ` (${pincodeStatus.district})` : ""}`
+                  : `Service unavailable to ${pincodeStatus.pincode}`
+                : product.shippingScope === "national"
+                  ? "Pan-India delivery in 3–5 business days"
+                  : "Tricity delivery in 2–4 hours"}
+            </span>
+            <span className={styles.decisionSubtitle}>
+              {product.prepTimeMins
+                ? `Prepared fresh to order (${product.prepTimeMins} mins notice)`
+                : "Fresh batch prepared daily · Free delivery over ₹499"}
+            </span>
+
+            <div className={styles.pincodeWidget}>
+              <div className={styles.pincodePrompt}>Check delivery to your pincode:</div>
+              <form
+                className={styles.pincodeForm}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void verifyPincode(pincodeInput);
+                }}
+              >
+                <input
+                  type="text"
+                  maxLength={6}
+                  placeholder="e.g. 160022"
+                  value={pincodeInput}
+                  onChange={(e) => setPincodeInput(e.target.value.replace(/\D/g, ""))}
+                  className={styles.pincodeInput}
+                  aria-label="Delivery pincode"
+                />
+                <button
+                  type="submit"
+                  disabled={!isPincodeShape(pincodeInput) || checkingPincode}
+                  className={styles.pincodeButton}
+                >
+                  {checkingPincode ? "Checking…" : "Check"}
+                </button>
+              </form>
+              {pincodeStatus && (
+                <div
+                  className={clsx(
+                    styles.pincodeFeedback,
+                    pincodeStatus.serviced ? styles.pincodeSuccess : styles.pincodeWarning,
+                  )}
+                  role="status"
+                >
+                  {pincodeStatus.message}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.decisionItem}>
+          <ShieldCheck size={18} className={styles.decisionIcon} aria-hidden="true" />
+          <div className={styles.decisionContent}>
+            <span className={styles.decisionTitle}>
+              {product.kind === "craft"
+                ? "100% handmade by verified artisan"
+                : "FSSAI registered home kitchen"}
+            </span>
+            <span className={styles.decisionSubtitle}>
+              {product.kind === "craft"
+                ? "Authentic handcrafted item made in small batches with premium materials"
+                : "Prepared in a hygienic home kitchen with natural ingredients and no commercial preservatives"}
+            </span>
+          </div>
+        </div>
+
+        {product.kind !== "craft" && (product.ingredients || product.shelfLife || product.storageInstructions || product.servingGuidance || (product.dietary && product.dietary.length > 0)) && (
+          <div className={styles.decisionItem}>
+            <Sparkles size={18} className={styles.decisionIcon} aria-hidden="true" />
+            <div className={styles.decisionContent}>
+              {product.ingredients && (
+                <span className={styles.decisionSubtitle}>
+                  <strong>Ingredients:</strong> {product.ingredients}
+                </span>
+              )}
+              {product.servingGuidance && (
+                <span className={styles.decisionSubtitle}>
+                  <strong>Serving:</strong> {product.servingGuidance}
+                </span>
+              )}
+              {product.shelfLife && (
+                <span className={styles.decisionSubtitle}>
+                  <strong>Shelf life:</strong> {product.shelfLife}
+                  {product.storageInstructions ? ` · ${product.storageInstructions}` : ""}
+                </span>
+              )}
+              {((product.dietary && product.dietary.length > 0) || (product.allergens && product.allergens.length > 0)) && (
+                <div className={styles.allergenRail}>
+                  {product.dietary?.map((tag) => {
+                    const isWarning = tag.includes("nuts") || tag.includes("egg");
+                    return (
+                      <span
+                        key={tag}
+                        className={clsx(
+                          styles.allergenChip,
+                          isWarning ? styles.allergenChipWarning : styles.allergenChipSafe,
+                        )}
+                      >
+                        {isWarning && <AlertCircle size={11} />}
+                        {tag.replace("-", " ")}
+                      </span>
+                    );
+                  })}
+                  {product.allergens?.map((tag) => (
+                    <span key={tag} className={clsx(styles.allergenChip, styles.allergenChipWarning)}>
+                      <AlertCircle size={11} /> Contains {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {product.kind === "craft" && (product.material || product.careInstructions || product.dimensions) && (
+          <div className={styles.decisionItem}>
+            <Sparkles size={18} className={styles.decisionIcon} aria-hidden="true" />
+            <div className={styles.decisionContent}>
+              {product.material && (
+                <span className={styles.decisionSubtitle}>
+                  <strong>Material:</strong> {product.material}
+                </span>
+              )}
+              {product.dimensions && (
+                <span className={styles.decisionSubtitle}>
+                  <strong>Dimensions:</strong> {product.dimensions}
+                </span>
+              )}
+              {product.careInstructions && (
+                <span className={styles.decisionSubtitle}>
+                  <strong>Care:</strong> {product.careInstructions}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        {isMealPlan && (
+          <div className={styles.mealPlanPolicy}>
+            <div className={styles.mealPlanTitle}>
+              <Sparkles size={16} aria-hidden="true" />
+              Flexible Meal Subscription Policy
+            </div>
+            <ul className={styles.mealPlanList}>
+              <li><strong>Pause or skip anytime:</strong> Inform by 8:00 PM the previous evening to skip next day&apos;s meal.</li>
+              <li><strong>Dietary customization:</strong> Pure Jain, diabetic-friendly, or low-oil adjustments available on request.</li>
+              <li><strong>Fresh daily delivery:</strong> Cooked fresh every morning and evening in sanitized home kitchens.</li>
+            </ul>
+          </div>
+        )}
+      </div>
+
       {/* No "add to a gift hamper" (M18): a hamper is a listing its
           HomeKrafter assembles and prices, not a basket a buyer fills, so
           there is nothing on this page to add anything to. */}
@@ -336,18 +606,29 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
             error. */}
         {gift.messageCard && (
           <div className={styles.giftMessage}>
-            <label className={styles.giftMessageLabel} htmlFor={messageFieldId}>
-              What should the card say?
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <label className={styles.giftMessageLabel} htmlFor={messageFieldId}>
+                What should the card say?
+              </label>
+              <span className={styles.giftMessageMeta}>
+                {(gift.message || "").length}/200
+              </span>
+            </div>
             <textarea
               id={messageFieldId}
               className={styles.giftMessageInput}
               rows={2}
-              maxLength={300}
+              maxLength={200}
               value={gift.message}
               onChange={(event) => setGift((c) => ({ ...c, message: event.target.value }))}
               placeholder="Happy Diwali, Amma — from all of us."
             />
+            {gift.message && (
+              <div className={styles.giftPreview}>
+                <span className={styles.giftPreviewLabel}>Handwritten Card Preview</span>
+                <p className={styles.giftPreviewText}>&ldquo;{gift.message}&rdquo;</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -359,6 +640,63 @@ export function ProductPurchasePanel({ product }: ProductPurchasePanelProps) {
           </p>
         )}
       </div>
+
+      {crossSells.length > 0 && (
+        <div className={styles.crossSellSection}>
+          <div className={styles.crossSellTitle}>
+            <Sparkles size={16} aria-hidden="true" />
+            Pairs well from this kitchen
+          </div>
+          <div className={styles.crossSellSubtitle}>
+            Same kitchen &amp; delivery radius · Ships together with zero extra delivery fee
+          </div>
+          <div className={styles.crossSellGrid}>
+            {crossSells.map((item) => {
+              const sku = purchasableSku(item);
+              const opt = item.weightOptions?.find((w) => w.sku === sku) ?? item.weightOptions?.[0];
+              const isAdded = Boolean(crossSellAdded[item.id]);
+              const isAdding = addingCrossSell === item.id;
+              const img = item.images?.[0]?.src || "/images/placeholder.jpg";
+              return (
+                <div key={item.id} className={styles.crossSellCard}>
+                  <div className={styles.crossSellThumbWrap}>
+                    <Image
+                      src={img}
+                      alt={item.name}
+                      width={130}
+                      height={130}
+                      className={styles.crossSellThumb}
+                    />
+                  </div>
+                  <Link href={`/product/${item.slug}`} className={styles.crossSellName} title={item.name}>
+                    {item.name}
+                  </Link>
+                  <div className={styles.crossSellPrice}>{formatCurrency(opt?.price ?? 199)}</div>
+                  <button
+                    type="button"
+                    className={clsx(styles.crossSellAddBtn, isAdded && styles.crossSellAddBtnSuccess)}
+                    disabled={isAdding || !sku}
+                    onClick={() => handleAddCrossSell(item)}
+                    aria-label={`Add ${item.name} to cart`}
+                  >
+                    {isAdded ? (
+                      <>
+                        <Check size={12} strokeWidth={2.4} aria-hidden="true" />
+                        <span>Added</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={12} strokeWidth={2.4} aria-hidden="true" />
+                        <span>{isAdding ? "…" : "Add"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Phone-only (≤640 rail, CSS-gated); `aria-hidden` while the real
           controls are on screen so nothing is announced twice. */}

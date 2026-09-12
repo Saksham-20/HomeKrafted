@@ -5,7 +5,13 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { cancelOrder, requestReturn } from "@/lib/api";
-import { RETURN_WINDOW_DAYS, canCancel, canRequestReturn } from "@/lib/orders/resolution";
+import {
+  RETURN_WINDOW_DAYS,
+  FRESH_FOOD_QUALITY_WINDOW_HOURS,
+  canCancel,
+  canRequestReturn,
+  canReportQualityIssue,
+} from "@/lib/orders/resolution";
 import { ApiError } from "@/lib/api/http";
 import { formatDate } from "@/lib/format";
 import type { Order } from "@/lib/types";
@@ -46,6 +52,7 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
   // client-only, derived after mount behind a stable placeholder).
   // Starts closed so the control can only ever appear, never vanish.
   const [withinReturnWindow, setWithinReturnWindow] = useState(false);
+  const [withinQualityWindow, setWithinQualityWindow] = useState(false);
   useEffect(() => {
     // The window itself is `lib/orders/resolution.ts` — shared, pure, and
     // it takes `now`. It lived inline here until 2026-09-06, which was
@@ -57,7 +64,12 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
     // (`react-hooks/set-state-in-effect`).
     let cancelled = false;
     Promise.resolve().then(() => {
-      if (!cancelled) setWithinReturnWindow(true);
+      if (!cancelled) {
+        setWithinReturnWindow(true);
+        if (canReportQualityIssue(order, new Date())) {
+          setWithinQualityWindow(true);
+        }
+      }
     });
     return () => {
       cancelled = true;
@@ -133,7 +145,9 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
           <p className={styles.body}>
             {cancellable
               ? "You can still cancel this — nothing has been packed yet."
-              : `Delivered orders can be returned within ${RETURN_WINDOW_DAYS} days.`}
+              : withinQualityWindow
+                ? `Delivered items can be returned within ${RETURN_WINDOW_DAYS} days. Fresh food quality issues can be reported under our ${FRESH_FOOD_QUALITY_WINDOW_HOURS}-hour guarantee.`
+                : `Delivered orders can be returned within ${RETURN_WINDOW_DAYS} days.`}
           </p>
           <div className={styles.actions}>
             {cancellable ? (
@@ -142,7 +156,7 @@ export function OrderResolutionPanel({ order, onUpdated }: OrderResolutionPanelP
               </Button>
             ) : (
               <Button variant="secondary" size="sm" onClick={() => setMode("return")}>
-                Request a return
+                {withinQualityWindow ? "Report issue / request refund" : "Request a return"}
               </Button>
             )}
           </div>

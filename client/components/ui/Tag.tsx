@@ -3,7 +3,7 @@ import styles from "./Tag.module.css";
 import type { ProductTag } from "@/lib/types";
 
 export interface TagProps {
-  label: ProductTag;
+  label: ProductTag | string;
   className?: string;
 }
 

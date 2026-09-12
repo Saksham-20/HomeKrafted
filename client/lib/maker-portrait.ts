@@ -47,3 +47,87 @@ export function ownAvatarSrc(avatarSrc?: string): string | undefined {
   if (!avatarSrc) return undefined;
   return SHARED_STOCK_AVATARS.has(avatarSrc) ? undefined : avatarSrc;
 }
+
+export interface SellerProfileCompleteness {
+  isComplete: boolean;
+  hasBio: boolean;
+  bioLength: number;
+  hasAvatar: boolean;
+  hasLocation: boolean;
+  hasFssaiOrDeclaration: boolean;
+  missingItems: string[];
+}
+
+/** Check if vendor profile has a valid bio and real avatar */
+export function isVendorProfileComplete(vendor?: { bio?: string; avatarSrc?: string }): boolean {
+  if (!vendor) return false;
+  return Boolean(vendor.bio?.trim() && ownAvatarSrc(vendor.avatarSrc));
+}
+
+/**
+ * Detailed completeness evaluator implementing the P0-02 publication gate.
+ * Requires:
+ * 1. Bio with >= 80 characters
+ * 2. Authentic avatar / chosen character
+ * 3. City / location
+ * 4. FSSAI registration or home-chef hygiene acknowledgment
+ */
+export function evaluateSellerProfileCompleteness(vendor?: {
+  bio?: string;
+  avatarSrc?: string;
+  city?: string;
+  fssaiNumber?: string;
+  hygieneAcknowledged?: boolean;
+}): SellerProfileCompleteness {
+  if (!vendor) {
+    return {
+      isComplete: false,
+      hasBio: false,
+      bioLength: 0,
+      hasAvatar: false,
+      hasLocation: false,
+      hasFssaiOrDeclaration: false,
+      missingItems: [
+        "Shop bio (minimum 80 characters)",
+        "Maker portrait / avatar",
+        "Kitchen location & city",
+        "FSSAI registration or hygiene declaration",
+      ],
+    };
+  }
+
+  const bio = vendor.bio?.trim() ?? "";
+  const bioLength = bio.length;
+  const hasBio = bioLength >= 80;
+  const hasAvatar = Boolean(ownAvatarSrc(vendor.avatarSrc));
+  const hasLocation = Boolean(vendor.city?.trim());
+  const hasFssaiOrDeclaration = Boolean(vendor.fssaiNumber?.trim() || vendor.hygieneAcknowledged);
+
+  const missingItems: string[] = [];
+  if (!hasBio) {
+    missingItems.push(
+      bioLength === 0
+        ? "Shop bio (tell your story, min 80 chars)"
+        : `Shop bio needs at least 80 characters (currently ${bioLength})`,
+    );
+  }
+  if (!hasAvatar) {
+    missingItems.push("Maker portrait / chosen avatar character");
+  }
+  if (!hasLocation) {
+    missingItems.push("Kitchen city & service area");
+  }
+  if (!hasFssaiOrDeclaration) {
+    missingItems.push("FSSAI license number or food hygiene declaration");
+  }
+
+  return {
+    isComplete: missingItems.length === 0,
+    hasBio,
+    bioLength,
+    hasAvatar,
+    hasLocation,
+    hasFssaiOrDeclaration,
+    missingItems,
+  };
+}

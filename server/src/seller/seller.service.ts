@@ -360,6 +360,7 @@ export class SellerService {
       vendor,
       listingsCount,
       activeListingsCount,
+      pendingListingsCount,
       lowStockCount,
       todayOrders,
       pendingPayoutAmount,
@@ -378,7 +379,8 @@ export class SellerService {
         select: { rating: true, reviewCount: true },
       }),
       this.prisma.product.count({ where: { vendorId } }),
-      this.prisma.product.count({ where: { vendorId, isAvailable: true } }),
+      this.prisma.product.count({ where: { vendorId, isAvailable: true, moderationStatus: 'active' } }),
+      this.prisma.product.count({ where: { vendorId, moderationStatus: 'pending' } }),
       this.prisma.weightOption.count({ where: { product: { vendorId }, stock: { lt: 15 } } }),
       this.prisma.order.aggregate({
         where: { placedAt: { gte: todayStart }, items: { some: { product: { vendorId } } } },
@@ -430,6 +432,7 @@ export class SellerService {
       todayRevenue: Number(todayOrders._sum.total ?? 0),
       listingsCount,
       activeListingsCount,
+      pendingListingsCount,
       lowStockCount,
       // Laundry / pickups — zero for a HomeKrafter who doesn't do pickups.
       todayPickupsCount,

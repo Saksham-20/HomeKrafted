@@ -195,6 +195,12 @@ export interface SellerListingInput {
   material?: string;
   /** Care/maintenance instructions. Optional, craft-only. */
   careInstructions?: string;
+  ingredients?: string;
+  shelfLife?: string;
+  storageInstructions?: string;
+  allergens?: string[];
+  servingGuidance?: string;
+  fulfillmentType?: "fresh_nearby" | "nationwide" | "gift_bulk";
 }
 
 export async function createSellerListing(
@@ -232,6 +238,18 @@ export async function createSellerListing(
       shippingScope: input.shippingScope,
       cashbackPct: input.cashbackPct,
       description: input.description,
+      moderationStatus: "pending",
+      submittedAt: new Date().toISOString(),
+      isAvailable: true,
+      ingredients: input.ingredients,
+      shelfLife: input.shelfLife,
+      storageInstructions: input.storageInstructions,
+      dimensions: input.dimensions,
+      material: input.material,
+      careInstructions: input.careInstructions,
+      allergens: input.allergens,
+      servingGuidance: input.servingGuidance,
+      fulfillmentType: input.fulfillmentType,
     };
     listings.push(product);
     return product;
@@ -264,6 +282,19 @@ export async function updateSellerListing(
     product.tags = input.tags;
     product.weightOptions = input.weightOptions;
     product.defaultWeightSku = input.defaultWeightSku || input.weightOptions[0]?.sku || "";
+    product.ingredients = input.ingredients;
+    product.shelfLife = input.shelfLife;
+    product.storageInstructions = input.storageInstructions;
+    product.dimensions = input.dimensions;
+    product.material = input.material;
+    product.careInstructions = input.careInstructions;
+    product.allergens = input.allergens;
+    product.servingGuidance = input.servingGuidance;
+    product.fulfillmentType = input.fulfillmentType;
+    if (product.moderationStatus === "rejected") {
+      product.moderationStatus = "pending";
+      product.submittedAt = new Date().toISOString();
+    }
     const firstImage = product.images[0];
     product.images[0] = {
       placeholder: firstImage?.placeholder ?? `${input.name} product photo`,
@@ -442,6 +473,7 @@ export interface SellerDashboardSnapshot {
   /** Storefront items, and how many are switched on right now. */
   listingsCount?: number;
   activeListingsCount?: number;
+  pendingListingsCount?: number;
   /** Laundry/pickup counters — zero for a HomeKrafter who doesn't do them. */
   todayPickupsCount?: number;
   todayDeliveriesCount?: number;
@@ -495,7 +527,7 @@ export async function setMenuItemAvailability(
 }
 
 /** Any weight-tier SKU under this stock count counts toward the dashboard's "low stock" tile. */
-const LOW_STOCK_THRESHOLD = 15;
+const LOW_STOCK_THRESHOLD = 2;
 
 export async function getSellerDashboard(seller: Seller): Promise<SellerDashboardSnapshot> {
   if (!isMockMode()) return http.get<SellerDashboardSnapshot>("/seller/dashboard");
@@ -511,17 +543,25 @@ export async function getSellerDashboard(seller: Seller): Promise<SellerDashboar
   ]);
 
   const today = new Date().toISOString().slice(0, 10);
-  // Newest page is enough for a "today" count — mock mode only.
-  const todayOrders = ordersPage.items.filter((o) => o.placedAt.slice(0, 10) === today);
+  const todayOrders = ordersPage.items.filter((o) => o.placedAt.startsWith(today));
   const lowStockCount = listings.reduce(
     (count, product) =>
-      count + product.weightOptions.filter((w) => w.stock < LOW_STOCK_THRESHOLD).length,
+      count + product.weightOptions.filter((w) => w.stock <= LOW_STOCK_THRESHOLD && w.stock > 0).length,
     0,
   );
+  const activeListingsCount = listings.filter(
+    (p) => (p.moderationStatus ?? "active") === "active" && p.isAvailable !== false,
+  ).length;
+  const pendingListingsCount = listings.filter(
+    (p) => p.moderationStatus === "pending",
+  ).length;
 
   return {
     todayOrdersCount: todayOrders.length,
     todayRevenue: todayOrders.reduce((sum, o) => sum + o.itemsSubtotal, 0),
+    listingsCount: listings.length,
+    activeListingsCount,
+    pendingListingsCount,
     pendingPayoutAmount: payoutList
       .filter((p) => p.status === "pending")
       .reduce((sum, p) => sum + p.amount, 0),

@@ -128,10 +128,12 @@ export function SellerDashboardClient() {
         subtitle="Here's how things are going today."
       />
 
-      {/* Today's work, before today's numbers (M37): the two counts a
+      {/* Today's work, before today's numbers (M37): the counts a
           cook opens the portal for in the morning, each linking to the
           screen that clears it. Rendered only when non-zero. */}
-      {((s?.mealsTodayCount ?? 0) > 0 || (s?.ordersAwaitingCount ?? 0) > 0) && (
+      {((s?.mealsTodayCount ?? 0) > 0 ||
+        (s?.ordersAwaitingCount ?? 0) > 0 ||
+        (s?.pendingListingsCount ?? 0) > 0) && (
         <div className={styles.pendingStrip}>
           {(s?.mealsTodayCount ?? 0) > 0 && (
             <Link href="/seller/meal-plans/deliveries" className={styles.pendingLink}>
@@ -145,6 +147,12 @@ export function SellerDashboardClient() {
               {s?.ordersAwaitingCount === 1 ? "" : "s"} waiting to be confirmed
             </Link>
           )}
+          {(s?.pendingListingsCount ?? 0) > 0 && (
+            <Link href="/seller/listings" className={styles.pendingLink}>
+              <strong>{s?.pendingListingsCount}</strong> listing
+              {s?.pendingListingsCount === 1 ? "" : "s"} waiting for approval
+            </Link>
+          )}
         </div>
       )}
 
@@ -154,20 +162,58 @@ export function SellerDashboardClient() {
         <StatCard
           label="Live items"
           value={`${s?.activeListingsCount ?? 0}/${s?.listingsCount ?? 0}`}
-          hint="Switched on right now"
+          hint={
+            (s?.pendingListingsCount ?? 0) > 0
+              ? `${s?.pendingListingsCount} pending review`
+              : "Switched on right now"
+          }
         />
         <StatCard label="Pending payout" value={formatCurrency(s?.pendingPayoutAmount ?? 0)} />
       </div>
 
-      {/* The kitchen's own stated ceiling, shown against today's load so
-          "am I overbooked" is answerable at a glance (M37). Only when the
-          profile actually states one. */}
-      {(s?.capacityPerDay ?? 0) > 0 && (
-        <p className={styles.capacityLine}>
-          Today: {(s?.todayOrdersCount ?? 0) + (s?.mealsTodayCount ?? 0)} of your stated{" "}
-          {s?.capacityPerDay} orders/day capacity.
-        </p>
-      )}
+      {/* Kitchen Operating Console & Capacity (P1-01) */}
+      <div
+        style={{
+          background: "var(--hk-surface, #ffffff)",
+          border: "1px solid var(--hk-border, #e2e8f0)",
+          borderRadius: "var(--hk-r-md, 8px)",
+          padding: "14px 18px",
+          marginBottom: "18px",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--hk-ink, #0f172a)" }}>
+            Kitchen Operating Status: <span style={{ color: "var(--hk-pine, #065f46)" }}>Active &amp; Taking Orders</span>
+          </div>
+          <div style={{ fontSize: "12.5px", color: "var(--hk-text-subtle, #64748b)", marginTop: "2px" }}>
+            Daily cutoff: <strong>4:00 PM IST</strong> · Orders after 4 PM prepare for next-day dispatch.
+            {(s?.capacityPerDay ?? 0) > 0 && (
+              <span> · Load: <strong>{(s?.todayOrdersCount ?? 0) + (s?.mealsTodayCount ?? 0)}/{s?.capacityPerDay}</strong> orders today.</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <Link
+            href="/seller/profile"
+            style={{
+              fontSize: "12px",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              border: "1px solid var(--hk-border, #cbd5e1)",
+              color: "var(--hk-ink, #0f172a)",
+              textDecoration: "none",
+              fontWeight: 500,
+            }}
+          >
+            Adjust Capacity &amp; Hours →
+          </Link>
+        </div>
+      </div>
 
       {/* Only worth the space if this HomeKrafter actually does pickups or
           takes WhatsApp snack orders — zeroes across the board would be

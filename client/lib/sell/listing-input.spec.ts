@@ -2,6 +2,8 @@ import {
   toSellerListingInput,
   type ListingFormValues,
   EMPTY_LISTING_FORM,
+  validateListingForm,
+  hasListingFormErrors,
 } from "./listing-input";
 
 describe("toSellerListingInput", () => {
@@ -173,5 +175,43 @@ describe("toSellerListingInput", () => {
     expect(input.dimensions).toBeUndefined();
     expect(input.material).toBeUndefined();
     expect(input.careInstructions).toBeUndefined();
+  });
+});
+
+describe("validateListingForm", () => {
+  it("requires ingredients and shelf life for food items", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Fresh Paneer",
+      categoryId: "cat-1",
+      description: "Organic homemade soft paneer.",
+      kind: "food",
+      ingredients: "",
+      shelfLife: "",
+      weightRows: [{ label: "500g", price: "200", mrp: "220", stock: "10" }],
+    };
+
+    const errors = validateListingForm(values);
+    expect(errors.ingredients).toBeDefined();
+    expect(errors.shelfLife).toBeDefined();
+    expect(hasListingFormErrors(errors)).toBe(true);
+  });
+
+  it("does not require ingredients or shelf life for craft items", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Handmade Vase",
+      categoryId: "cat-craft",
+      description: "Terracotta hand-painted vase.",
+      kind: "craft",
+      ingredients: "",
+      shelfLife: "",
+      weightRows: [{ label: "Standard", price: "500", mrp: "600", stock: "5" }],
+    };
+
+    const errors = validateListingForm(values);
+    expect(errors.ingredients).toBeUndefined();
+    expect(errors.shelfLife).toBeUndefined();
+    expect(hasListingFormErrors(errors)).toBe(false);
   });
 });

@@ -1,7 +1,15 @@
+import clsx from "clsx";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { ownAvatarSrc } from "@/lib/maker-portrait";
 import type { Vendor } from "@/lib/types";
 import styles from "./MakerPortrait.module.css";
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "HK";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
 
 export interface MakerPortraitProps {
   vendor: Vendor;
@@ -79,23 +87,18 @@ export function MakerPortrait({ vendor, size = 68, alt }: MakerPortraitProps) {
   }
 
   /*
-    No photograph and no chosen character: the labelled hatch
-    placeholder, which is meant to look like a missing asset because it
-    is one. See the component doc for why the drawn caricature that used
-    to fill this gap was retired.
+    No photograph and no chosen character: render clean initials monogram instead of raw test placeholders
   */
+  const initials = getInitials(vendor.name || "Homekrafted");
   return (
-    <div className={styles.photo} style={box}>
-      <ImageSlot
-        ratio="1/1"
-        shape="circle"
-        label={vendor.avatarPlaceholder}
-        /* The kitchen's name is the next node in the DOM everywhere this
-           renders, so describing an absent picture would be read twice. */
-        alt=""
-        sizes={`${size}px`}
-        compact
-      />
+    <div
+      className={clsx(styles.photo, styles.initialsAvatar)}
+      style={box}
+      aria-label={alt || vendor.name}
+    >
+      <span className={styles.initialsText} style={{ fontSize: Math.round(size * 0.38) }}>
+        {initials}
+      </span>
     </div>
   );
 }

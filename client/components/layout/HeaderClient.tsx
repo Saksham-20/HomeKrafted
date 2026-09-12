@@ -122,7 +122,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
   // belongs on /wallet, which has room for it.
   const walletKnown = walletReady && !walletFailed;
   const { count: wishlistCount } = useWishlist();
-  const { role, ready: authReady, switchToShopping, switchToSelling } = useAuth();
+  const { role, ready: authReady, isSignedIn, switchToShopping, switchToSelling } = useAuth();
   const isSeller = authReady && role === "seller";
   // Admin has no persisted "mode" the way a seller does — `AdminShell`'s
   // "View site" is a plain link out, so the way back is a plain link too.
@@ -313,7 +313,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
               screen reader announced "link". The label names the
               destination and carries the balance where it is known, so it
               says the same thing at both widths. */}
-          {!onLanding && (
+          {!onLanding && isSignedIn && (
             <Link
               href="/wallet"
               className={styles.walletChip}

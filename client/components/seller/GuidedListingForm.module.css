@@ -553,6 +553,13 @@
   color: var(--hk-muted);
 }
 
+.previewPayoutNote {
+  display: block;
+  font-size: 12px;
+  color: var(--hk-ink-3);
+  margin-top: 4px;
+}
+
 .previewSizes {
   display: flex;
   flex-wrap: wrap;

@@ -8,15 +8,15 @@ import type { Address, User } from "@/lib/types";
  */
 export const currentUser: User = {
   id: "user-demo",
-  name: "Ananya Iyer",
-  email: "ananya.iyer@example.com",
+  name: "Demo Shopper",
+  email: "demo.shopper@example.com",
   phone: "+91 98450 12345",
-  avatarPlaceholder: "ANANYA — AVATAR",
+  avatarPlaceholder: "Demo Shopper",
   authProviders: ["phone", "email"],
   createdAt: "2025-02-18",
   walletId: "wallet-demo",
   loyaltyAccountId: "loyalty-demo",
-  referralCode: "ANANYA250",
+  referralCode: "DEMO250",
   role: "consumer",
 };
 
@@ -24,7 +24,7 @@ export const demoAddress: Address = {
   id: "addr-demo-1",
   userId: "user-demo",
   label: "Home",
-  recipientName: "Ananya Iyer",
+  recipientName: "Demo Shopper",
   phone: "+91 98450 12345",
   line1: "14, 2nd Cross, Indiranagar",
   line2: "Near CMH Road",

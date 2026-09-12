@@ -67,6 +67,26 @@ export function canRequestReturn(order: Order, now: Date): boolean {
 }
 
 /**
+ * Fresh food quality reporting window (6 hours from delivery).
+ * For perishable food orders, quality issues (freshness, temperature, packaging)
+ * must be flagged within 6 hours with photo evidence for replacement/refund.
+ */
+export const FRESH_FOOD_QUALITY_WINDOW_HOURS = 6;
+const HOUR_MS = 60 * 60 * 1000;
+
+export function qualityWindowClosesAt(order: Order): Date | undefined {
+  if (order.status !== "delivered") return undefined;
+  const from = new Date(order.deliveredAt ?? order.placedAt).getTime();
+  if (!Number.isFinite(from)) return undefined;
+  return new Date(from + FRESH_FOOD_QUALITY_WINDOW_HOURS * HOUR_MS);
+}
+
+export function canReportQualityIssue(order: Order, now: Date): boolean {
+  const closes = qualityWindowClosesAt(order);
+  return closes !== undefined && now.getTime() <= closes.getTime();
+}
+
+/**
  * Which of four things this order is, for a screen deciding what to draw.
  *
  * `resolved` comes first on purpose: an order already cancelled or with a

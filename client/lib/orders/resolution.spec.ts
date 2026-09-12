@@ -1,8 +1,11 @@
 import {
   CANCELLABLE_STATUSES,
   RETURN_WINDOW_DAYS,
+  FRESH_FOOD_QUALITY_WINDOW_HOURS,
   canCancel,
   canRequestReturn,
+  canReportQualityIssue,
+  qualityWindowClosesAt,
   resolutionState,
   returnWindowClosesAt,
 } from "@/lib/orders/resolution";
@@ -129,3 +132,22 @@ describe("resolutionState", () => {
     expect(resolutionState(order, outside)).toBe("closed");
   });
 });
+
+describe("fresh food quality window", () => {
+  const delivered = orderOf({
+    status: "delivered",
+    deliveredAt: "2026-09-01T10:00:00.000Z",
+  });
+
+  it("is 6 hours after delivery", () => {
+    expect(FRESH_FOOD_QUALITY_WINDOW_HOURS).toBe(6);
+    expect(qualityWindowClosesAt(delivered)?.toISOString()).toBe("2026-09-01T16:00:00.000Z");
+  });
+
+  it("allows quality claims within 6 hours", () => {
+    expect(canReportQualityIssue(delivered, new Date("2026-09-01T14:00:00.000Z"))).toBe(true);
+    expect(canReportQualityIssue(delivered, new Date("2026-09-01T16:00:00.000Z"))).toBe(true);
+    expect(canReportQualityIssue(delivered, new Date("2026-09-01T16:00:01.000Z"))).toBe(false);
+  });
+});
+

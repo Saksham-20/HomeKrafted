@@ -115,7 +115,7 @@ export function ProductTabs({ product, reviews: initialReviews }: ProductTabsPro
 
           <ReviewList
             reviews={reviews}
-            emptyLabel="No reviews yet — be the first to review this product."
+            emptyLabel="No reviews yet — be the first verified buyer to review this dish and help your neighborhood home chef!"
           />
         </div>
       )}

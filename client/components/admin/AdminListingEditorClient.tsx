@@ -64,6 +64,12 @@ function productToFormValues(product: Product): ListingFormValues {
     dimensions: product.dimensions ?? "",
     material: product.material ?? "",
     careInstructions: product.careInstructions ?? "",
+    ingredients: product.ingredients ?? "",
+    shelfLife: product.shelfLife ?? "",
+    storageInstructions: product.storageInstructions ?? "",
+    allergens: product.allergens ?? [],
+    servingGuidance: product.servingGuidance ?? "",
+    fulfillmentType: product.fulfillmentType ?? "fresh_nearby",
   };
 }
 

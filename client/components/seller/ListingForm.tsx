@@ -10,7 +10,7 @@ import { ChoiceCards } from "@/components/portal/ChoiceCards";
 import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "@/components/portal/Field";
 import { FormSection } from "@/components/portal/FormSection";
 import type { DietaryTag, ProductKind, ProductTag, SellerCommission } from "@/lib/types";
-import { commissionBreakdown, markupBreakdown, priceForTarget } from "@/lib/commission";
+import { markupBreakdown } from "@/lib/commission";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
@@ -192,7 +192,6 @@ export function ListingForm({
   const commPct = commission?.pct ?? 20;
   const defaultRowPrice = Number(values.weightRows[values.defaultRowIndex]?.price) || 0;
   const markup = markupBreakdown(defaultRowPrice, commPct);
-  const breakdown = commissionBreakdown(defaultRowPrice, commPct);
 
   /**
    * Switching kind can strand the chosen category on the other side of the
@@ -387,7 +386,11 @@ export function ListingForm({
             autoGrow
             value={values.description}
             onChange={(event) => set("description", event.target.value)}
-            placeholder="Slow-cooked strips of raw mango in cold-pressed sesame oil…"
+            placeholder={
+              isCraft
+                ? "Describe the materials, technique, dimensions, and care instructions…"
+                : "Describe ingredients, flavor, texture, preparation method, and shelf life…"
+            }
           />
         </Field>
       </FormSection>
@@ -569,6 +572,38 @@ export function ListingForm({
             />
           </Field>
         </FieldGrid>
+
+        {!isCraft && (
+          <>
+            <Field
+              label="Ingredients"
+              optional
+              hint="List key ingredients and allergens (e.g. Peanuts, mustard, milk)."
+            >
+              <Input
+                value={values.ingredients ?? ""}
+                onChange={(event) => set("ingredients", event.target.value)}
+                placeholder="e.g. Roasted peanuts, jaggery, cardamom, pure ghee"
+              />
+            </Field>
+            <FieldGrid columns={2}>
+              <Field label="Shelf life" optional hint="How long it stays fresh after receipt.">
+                <Input
+                  value={values.shelfLife ?? ""}
+                  onChange={(event) => set("shelfLife", event.target.value)}
+                  placeholder="e.g. 30 days from dispatch"
+                />
+              </Field>
+              <Field label="Storage instructions" optional hint="How the customer should store it.">
+                <Input
+                  value={values.storageInstructions ?? ""}
+                  onChange={(event) => set("storageInstructions", event.target.value)}
+                  placeholder="e.g. Store in a cool dry place in an airtight container"
+                />
+              </Field>
+            </FieldGrid>
+          </>
+        )}
 
         {/* Food only. A candle has no dietary tags, and asking reads as a
             form that doesn't know what it's selling. */}

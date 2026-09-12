@@ -46,6 +46,44 @@
   padding-top: var(--hk-s2);
 }
 
+.taskChipsRail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  width: 100%;
+}
+
+.taskChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  font-family: var(--hk-font-body);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  background: var(--hk-surface-2);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-pill, 999px);
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.taskChip:hover {
+  background: var(--hk-surface-hover);
+  border-color: var(--hk-pine-deep);
+}
+
+.taskChipActive {
+  background: var(--hk-pine-deep);
+  color: #ffffff;
+  border-color: var(--hk-pine-deep);
+  font-weight: 600;
+}
+
 .pillBar {
   flex: 1;
   min-width: 0;

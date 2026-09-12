@@ -403,14 +403,16 @@ export function ShopClient({
   const categoryChips = [
     ...categorySplit.flat,
     ...categorySplit.sections.flatMap((section) => section.children),
-  ].map((category) => ({
-    id: category.id,
-    label: category.name,
-    count: counts.category.get(category.id) ?? 0,
-    selected: selectedCategories.has(category.id),
-    icon: CATEGORY_EMOJI[category.slug],
-    imageSrc: category.imageSrc,
-  }));
+  ]
+    .map((category) => ({
+      id: category.id,
+      label: category.name,
+      count: counts.category.get(category.id) ?? 0,
+      selected: selectedCategories.has(category.id),
+      icon: CATEGORY_EMOJI[category.slug],
+      imageSrc: category.imageSrc,
+    }))
+    .filter((chip) => chip.count > 0 || chip.selected);
 
   return (
     <section className={clsx("container", "container-wide", styles.layout)}>
@@ -434,6 +436,55 @@ export function ShopClient({
             chips={categoryChips}
             onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
           />
+          <div className={styles.taskChipsRail} role="group" aria-label="Task shortcuts">
+            <button
+              type="button"
+              className={clsx(styles.taskChip, selectedShipping.has("local") && styles.taskChipActive)}
+              aria-pressed={selectedShipping.has("local")}
+              onClick={() => toggle(selectedShipping, setSelectedShipping, "local")}
+            >
+              ⚡ Fresh Today
+            </button>
+            <button
+              type="button"
+              className={clsx(styles.taskChip, selectedDietary.has("vegetarian") && styles.taskChipActive)}
+              aria-pressed={selectedDietary.has("vegetarian")}
+              onClick={() => toggle(selectedDietary, setSelectedDietary, "vegetarian")}
+            >
+              🌱 Pure Veg / Jain
+            </button>
+            <button
+              type="button"
+              className={clsx(
+                styles.taskChip,
+                (selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free")) && styles.taskChipActive,
+              )}
+              aria-pressed={selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free")}
+              onClick={() => {
+                const hasEither = selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free");
+                const next = new Set(selectedDietary);
+                if (hasEither) {
+                  next.delete("gluten-free");
+                  next.delete("sugar-free");
+                } else {
+                  next.add("gluten-free");
+                  next.add("sugar-free");
+                }
+                setSelectedDietary(next);
+                setPage(1);
+              }}
+            >
+              🌾 Sugar-Free / Gluten-Free
+            </button>
+            <button
+              type="button"
+              className={clsx(styles.taskChip, selectedTags.has("Curated") && styles.taskChipActive)}
+              aria-pressed={selectedTags.has("Curated")}
+              onClick={() => toggle(selectedTags, setSelectedTags, "Curated")}
+            >
+              🎁 Gift-Ready
+            </button>
+          </div>
           <div className={styles.controlRow}>
             {/*
               The food page's two shapes (M51). A radio group rather than

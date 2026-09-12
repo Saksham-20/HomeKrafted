@@ -11,6 +11,11 @@ import {
   setMenuItemAvailability,
 } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
+import type { ProductModerationStatus } from "@/lib/types";
+import {
+  resolveCanonicalListingState,
+  getCanonicalStateBadge,
+} from "@/lib/sell/canonical-listing";
 import styles from "./AvailabilityPanel.module.css";
 
 interface Row {
@@ -19,6 +24,7 @@ interface Row {
   price: number;
   available: boolean;
   kind: "listing" | "menu";
+  moderationStatus?: ProductModerationStatus;
 }
 
 /**
@@ -68,6 +74,7 @@ export function AvailabilityPanel() {
             price: p.weightOptions.find((w) => w.sku === p.defaultWeightSku)?.price ?? 0,
             available: p.isAvailable !== false,
             kind: "listing" as const,
+            moderationStatus: p.moderationStatus,
           })),
           ...(menu === FAILED ? [] : menu).map((snack) => ({
             id: snack.id,
@@ -75,6 +82,7 @@ export function AvailabilityPanel() {
             price: snack.price,
             available: snack.available,
             kind: "menu" as const,
+            moderationStatus: snack.moderationStatus,
           })),
         ]);
       } finally {
@@ -110,7 +118,19 @@ export function AvailabilityPanel() {
     return <Card className={styles.card}>Loading your items…</Card>;
   }
 
-  const liveCount = rows.filter((r) => r.available).length;
+  const rowsWithState = rows.map((r) => {
+    const canonicalState = resolveCanonicalListingState({
+      moderationStatus: r.moderationStatus,
+      isAvailable: r.available,
+      stock: 1, // Defaulting to 1 for menu/listing availability panel presence
+    });
+    const badge = getCanonicalStateBadge(canonicalState);
+    return { ...r, canonicalState, badge };
+  });
+
+  const liveCount = rowsWithState.filter((r) => r.canonicalState === "live").length;
+  const pendingCount = rowsWithState.filter((r) => r.canonicalState === "submitted").length;
+  const changesCount = rowsWithState.filter((r) => r.canonicalState === "changes_requested").length;
 
   return (
     <Card className={styles.card}>
@@ -122,7 +142,11 @@ export function AvailabilityPanel() {
               ? failedSources.length > 0
                 ? "Some of your items couldn't be loaded."
                 : "You haven't added anything yet."
-              : `${liveCount} of ${rows.length} items are on sale right now.`}
+              : `${liveCount} of ${rows.length} items are on sale right now${
+                  pendingCount > 0
+                    ? ` (${pendingCount} awaiting approval)`
+                    : ""
+                }${changesCount > 0 ? ` (${changesCount} need fixes)` : ""}.`}
           </p>
         </div>
         <Link href="/seller/listings/new" className={styles.addLink}>
@@ -158,24 +182,55 @@ export function AvailabilityPanel() {
         )
       ) : (
         <ul className={styles.list}>
-          {rows.map((row) => (
-            <li key={`${row.kind}-${row.id}`} className={styles.row}>
-              <span className={styles.name}>
-                {row.name}
-                <span className={styles.kind}>{row.kind === "menu" ? "Menu" : "Storefront"}</span>
-              </span>
-              <span className={styles.price}>{formatCurrency(row.price)}</span>
-              <label className={styles.toggle}>
-                <input
-                  type="checkbox"
-                  checked={row.available}
-                  disabled={busyId === row.id}
-                  onChange={() => toggle(row)}
-                />
-                <span className={styles.toggleLabel}>{row.available ? "On sale" : "Paused"}</span>
-              </label>
-            </li>
-          ))}
+          {rowsWithState.map((row) => {
+            const canToggle = row.canonicalState === "live" || row.canonicalState === "paused";
+            return (
+              <li key={`${row.kind}-${row.id}`} className={styles.row}>
+                <span className={styles.name}>
+                  {row.name}
+                  <span className={styles.kind}>{row.kind === "menu" ? "Menu" : "Storefront"}</span>
+                  {row.canonicalState !== "live" && row.canonicalState !== "paused" && (
+                    <span
+                      className={styles.kind}
+                      title={row.badge.description}
+                      style={{
+                        background:
+                          row.badge.variant === "warning"
+                            ? "var(--hk-amber-light, #fef3c7)"
+                            : row.badge.variant === "error"
+                              ? "var(--hk-rose-light, #ffe4e6)"
+                              : "var(--hk-surface-subtle, #f1f5f9)",
+                        color:
+                          row.badge.variant === "warning"
+                            ? "var(--hk-amber-dark, #92400e)"
+                            : row.badge.variant === "error"
+                              ? "var(--hk-rose-dark, #be123c)"
+                              : "var(--hk-text-subtle, #64748b)",
+                      }}
+                    >
+                      {row.badge.label}
+                    </span>
+                  )}
+                </span>
+                <span className={styles.price}>{formatCurrency(row.price)}</span>
+                <label className={styles.toggle} title={!canToggle ? row.badge.description : undefined}>
+                  <input
+                    type="checkbox"
+                    checked={row.canonicalState === "live"}
+                    disabled={busyId === row.id || !canToggle}
+                    onChange={() => toggle(row)}
+                  />
+                  <span className={styles.toggleLabel}>
+                    {row.canonicalState === "live"
+                      ? "On sale"
+                      : row.canonicalState === "paused"
+                        ? "Paused"
+                        : "Hidden"}
+                  </span>
+                </label>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Card>

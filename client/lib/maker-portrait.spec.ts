@@ -1,4 +1,4 @@
-import { ownAvatarSrc } from "./maker-portrait";
+import { ownAvatarSrc, evaluateSellerProfileCompleteness } from "./maker-portrait";
 import { CHEF_CHARACTERS, isChefCharacter } from "./avatars/chef-characters";
 
 /**
@@ -68,3 +68,46 @@ describe("the character set", () => {
     }
   });
 });
+
+describe("evaluateSellerProfileCompleteness", () => {
+  it("fails when vendor is missing or empty", () => {
+    const result = evaluateSellerProfileCompleteness(undefined);
+    expect(result.isComplete).toBe(false);
+    expect(result.missingItems.length).toBe(4);
+  });
+
+  it("fails when bio is under 80 characters", () => {
+    const result = evaluateSellerProfileCompleteness({
+      bio: "Short bio",
+      avatarSrc: "/images/avatars/bun.webp",
+      city: "Chandigarh",
+      fssaiNumber: "12345678901234",
+    });
+    expect(result.isComplete).toBe(false);
+    expect(result.hasBio).toBe(false);
+    expect(result.missingItems.some((i: string) => i.includes("at least 80 characters"))).toBe(true);
+  });
+
+  it("fails when avatar is the shared stock photo", () => {
+    const result = evaluateSellerProfileCompleteness({
+      bio: "A passionate home chef who has been preparing authentic traditional recipes for over twenty years with handpicked spices.",
+      avatarSrc: "/images/vendors/avatar.jpg",
+      city: "Chandigarh",
+      fssaiNumber: "12345678901234",
+    });
+    expect(result.isComplete).toBe(false);
+    expect(result.hasAvatar).toBe(false);
+  });
+
+  it("passes when all criteria are satisfied", () => {
+    const result = evaluateSellerProfileCompleteness({
+      bio: "A passionate home chef who has been preparing authentic traditional recipes for over twenty years with handpicked spices and organic ingredients.",
+      avatarSrc: "/images/avatars/bun.webp",
+      city: "Chandigarh",
+      fssaiNumber: "12345678901234",
+    });
+    expect(result.isComplete).toBe(true);
+    expect(result.missingItems).toEqual([]);
+  });
+});
+

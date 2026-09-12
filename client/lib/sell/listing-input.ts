@@ -61,6 +61,12 @@ export interface ListingFormValues {
   material: string;
   /** Maintenance instructions — e.g. "Hand wash only". Only sent when kind = 'craft'. */
   careInstructions: string;
+  ingredients: string;
+  shelfLife: string;
+  storageInstructions: string;
+  allergens: string[];
+  servingGuidance: string;
+  fulfillmentType: "fresh_nearby" | "nationwide" | "gift_bulk";
 }
 
 export const EMPTY_LISTING_FORM: ListingFormValues = {
@@ -84,6 +90,12 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   dimensions: "",
   material: "",
   careInstructions: "",
+  ingredients: "",
+  shelfLife: "",
+  storageInstructions: "",
+  allergens: [],
+  servingGuidance: "",
+  fulfillmentType: "fresh_nearby",
 };
 
 export function slugify(value: string): string {
@@ -174,6 +186,12 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     dimensions: values.dimensions.trim() || undefined,
     material: values.material.trim() || undefined,
     careInstructions: values.careInstructions.trim() || undefined,
+    ingredients: values.ingredients.trim() || undefined,
+    shelfLife: values.shelfLife.trim() || undefined,
+    storageInstructions: values.storageInstructions.trim() || undefined,
+    allergens: values.allergens.length > 0 ? values.allergens : undefined,
+    servingGuidance: values.servingGuidance.trim() || undefined,
+    fulfillmentType: values.fulfillmentType,
   };
 }
 
@@ -187,6 +205,8 @@ export interface ListingFormErrors {
   name?: string;
   categoryId?: string;
   description?: string;
+  ingredients?: string;
+  shelfLife?: string;
   /** Index → message, for a tier with no size label. */
   weightRows?: Record<number, string>;
 }
@@ -196,6 +216,14 @@ export function validateListingForm(values: ListingFormValues): ListingFormError
   if (!values.name.trim()) errors.name = "Give it a name.";
   if (!values.categoryId) errors.categoryId = "Pick the shelf it belongs on.";
   if (!values.description.trim()) errors.description = "A sentence or two is enough.";
+  if (values.kind === "food") {
+    if (!values.ingredients.trim()) {
+      errors.ingredients = "List ingredients for food safety (e.g. flour, raw mango, mustard oil).";
+    }
+    if (!values.shelfLife.trim()) {
+      errors.shelfLife = "State shelf life (e.g. 3 days refrigerated).";
+    }
+  }
   values.weightRows.forEach((row, index) => {
     if (!row.label.trim()) {
       errors.weightRows = { ...(errors.weightRows ?? {}), [index]: "Every size needs a label — “250 g”, “One”, “Box of 6”." };
@@ -205,6 +233,13 @@ export function validateListingForm(values: ListingFormValues): ListingFormError
 }
 
 export function hasListingFormErrors(errors: ListingFormErrors): boolean {
-  return Boolean(errors.name || errors.categoryId || errors.description || errors.weightRows);
+  return Boolean(
+    errors.name ||
+      errors.categoryId ||
+      errors.description ||
+      errors.ingredients ||
+      errors.shelfLife ||
+      errors.weightRows,
+  );
 }
 

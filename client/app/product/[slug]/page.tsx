@@ -9,8 +9,10 @@ import {
   getCategoryById,
   getProduct,
   getProductReviews,
+  getProductsByVendor,
   getVendorById,
 } from "@/lib/api";
+import { isPurchasable } from "@/lib/catalog-availability";
 import { absoluteUrl, jsonLdProps, pageMetadata, SITE_NAME } from "@/lib/seo";
 import styles from "./ProductDetail.module.css";
 
@@ -58,11 +60,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = await getProduct(slug);
   if (!product) notFound();
 
-  const [vendor, category, reviews] = await Promise.all([
+  const [vendor, category, reviews, vendorProducts] = await Promise.all([
     getVendorById(product.vendorId),
     getCategoryById(product.categoryId),
     getProductReviews(product.id),
+    getProductsByVendor(product.vendorId),
   ]);
+
+  const crossSells = vendorProducts
+    .filter(
+      (p) =>
+        p.id !== product.id &&
+        isPurchasable(p) &&
+        (p.shippingScope ?? "local") === (product.shippingScope ?? "local"),
+    )
+    .slice(0, 4);
 
   const price = product.weightOptions.find((w) => w.sku === product.defaultWeightSku);
 
@@ -141,7 +153,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
 
-          <ProductPurchasePanel product={product} />
+          <ProductPurchasePanel product={product} crossSells={crossSells} />
         </div>
       </section>
 

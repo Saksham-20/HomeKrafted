@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import "./scroll-expansion-hero.css";
 
@@ -75,12 +76,14 @@ export default function ScrollExpandMedia({
       window.history.scrollRestoration = "manual";
     }
     const scrollY = window.scrollY || document.documentElement.scrollTop;
-    if (scrollY <= 5) {
-      updateProgress(0);
-    } else {
-      // If reloaded while scrolled down, keep hero expanded
-      updateProgress(SCROLL_UNLOCK);
-    }
+    queueMicrotask(() => {
+      if (scrollY <= 5) {
+        updateProgress(0);
+      } else {
+        // If reloaded while scrolled down, keep hero expanded
+        updateProgress(SCROLL_UNLOCK);
+      }
+    });
   }, [updateProgress]);
 
   const animateTo = useCallback((target: number, duration = 450) => {
@@ -290,23 +293,40 @@ export default function ScrollExpandMedia({
           </div>
 
           {zoomProgress < 0.85 && (
-            <button
-              type="button"
-              className="scroll-expand-hint"
-              style={{
-                opacity: Math.max(0, 1 - zoomProgress * 3.5),
-                pointerEvents: zoomProgress < 0.1 ? "auto" : "none",
-              }}
-              onClick={() => animateTo(1.0)}
-              aria-label="Scroll down or tap to explore"
-            >
-              <span className="scroll-expand-hint-text">
-                {scrollToExpand || "Scroll down to explore • or tap the sign"}
-              </span>
-              <span className="scroll-expand-hint-icon" aria-hidden="true">
-                <ChevronDown size={14} strokeWidth={2.6} />
-              </span>
-            </button>
+            <>
+              <button
+                type="button"
+                className="scroll-expand-hint"
+                style={{
+                  opacity: Math.max(0, 1 - zoomProgress * 3.5),
+                  pointerEvents: zoomProgress < 0.1 ? "auto" : "none",
+                }}
+                onClick={() => animateTo(1.0)}
+                aria-label="Scroll down or tap to explore"
+              >
+                <span className="scroll-expand-hint-text">
+                  {scrollToExpand || "Scroll down to explore • or tap the sign"}
+                </span>
+                <span className="scroll-expand-hint-icon" aria-hidden="true">
+                  <ChevronDown size={14} strokeWidth={2.6} />
+                </span>
+              </button>
+
+              <div
+                className="scroll-expand-quick-actions"
+                style={{
+                  opacity: Math.max(0, 1 - zoomProgress * 3.5),
+                  pointerEvents: zoomProgress < 0.1 ? "auto" : "none",
+                }}
+              >
+                <Link href="/shop" className="scroll-expand-action-btn scroll-expand-action-food">
+                  Shop homemade food
+                </Link>
+                <Link href="/gifts" className="scroll-expand-action-btn scroll-expand-action-gifts">
+                  Shop handcrafted gifts
+                </Link>
+              </div>
+            </>
           )}
         </div>
       )}

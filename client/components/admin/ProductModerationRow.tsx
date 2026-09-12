@@ -31,6 +31,13 @@ const REASON_PROMPT: Partial<Record<ProductModerationAction, string>> = {
   flag: "What’s the concern? The HomeKrafter sees this word for word.",
 };
 
+const REASON_PRESETS = [
+  { label: "Photo quality", text: "Please upload a clearer, original photograph of the product without watermarks or commercial packaging." },
+  { label: "Missing food safety", text: "Please provide complete ingredients, allergen warnings, and shelf life details for this food item." },
+  { label: "Pricing issue", text: "The MRP must be equal to or higher than the selling price, with accurate unit weights/sizes." },
+  { label: "Incomplete description", text: "Please add more details about how the item is crafted/prepared and storage or care instructions." },
+];
+
 /**
  * `/admin/catalog` row — thumbnail, name/vendor/category, price, status
  * pill, feature star, and the moderation actions.
@@ -206,6 +213,21 @@ export function ProductModerationRow({ product, onAction }: ProductModerationRow
           <label className={styles.reasonLabel} htmlFor={`${reasonFieldId}-reason`}>
             {REASON_PROMPT[pendingAction]}
           </label>
+          <div className={styles.reasonChips} role="group" aria-label="Suggested reasons">
+            {REASON_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className={styles.reasonChip}
+                onClick={() => {
+                  setReason(preset.text);
+                  if (error) setError(null);
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <textarea
             id={`${reasonFieldId}-reason`}
             className={styles.reasonInput}

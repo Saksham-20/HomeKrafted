@@ -166,7 +166,7 @@ export const aboutContent: AboutContent = {
   contactLine:
     "Cooking something worth sharing, or want us in your neighbourhood? We read everything.",
   city: "Mohali, Punjab",
-  phones: ["+91 74948 62979", "+91 90565 76683"],
+  phones: ["+91 80 4718 2020", "+91 90565 76683"],
   email: "support@homekrafted.in",
   instagram: { handle: "@_homekrafted", href: "https://instagram.com/_homekrafted" },
 };

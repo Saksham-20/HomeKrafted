@@ -554,6 +554,9 @@ export interface Product {
   material?: string;
   /** Care and maintenance instructions for a craft item. Only present for `kind = 'craft'`. */
   careInstructions?: string;
+  allergens?: string[];
+  servingGuidance?: string;
+  fulfillmentType?: "fresh_nearby" | "nationwide" | "gift_bulk";
   /** See `ProductModerationStatus`'s doc comment. Absent reads as `"active"`. */
   /**
    * M46 — the maker's storefront discount, mirrored onto the product so a
@@ -573,6 +576,7 @@ export interface Product {
   moderatedAt?: ISODateString;
   /** When this listing last entered review. The admin queue orders on it. */
   submittedAt?: ISODateString;
+  createdAt?: ISODateString;
   /**
    * The HomeKrafter's own "am I making this right now" switch, toggled from
    * the portal's Availability panel. Distinct from `moderationStatus`,

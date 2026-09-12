@@ -5,6 +5,10 @@ import { Card } from "@/components/ui/Card";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCurrency } from "@/lib/format";
 import { moderationNotice } from "@/lib/moderation-copy";
+import {
+  resolveCanonicalListingState,
+  getCanonicalStateBadge,
+} from "@/lib/sell/canonical-listing";
 import type { Product } from "@/lib/types";
 import styles from "./ListingRow.module.css";
 
@@ -19,7 +23,7 @@ function stockStatus(product: Product): { label: string; className: string } {
   const stocks = product.weightOptions.map((w) => w.stock);
   const min = stocks.length > 0 ? Math.min(...stocks) : 0;
   if (min <= 0) return { label: "Out of stock", className: styles.outOfStock };
-  if (min < 15) return { label: "Low stock", className: styles.lowStock };
+  if (min <= 2) return { label: "Low stock", className: styles.lowStock };
   return { label: "In stock", className: styles.inStock };
 }
 
@@ -45,6 +49,14 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
   const image = product.images[0];
   const stock = stockStatus(product);
   const review = moderationNotice(product.moderationStatus, product.moderationNote);
+  const totalStock = product.weightOptions.reduce((acc, w) => acc + w.stock, 0);
+
+  const canonicalState = resolveCanonicalListingState({
+    moderationStatus: product.moderationStatus,
+    isAvailable: product.isAvailable,
+    stock: totalStock,
+  });
+  const canonicalBadge = getCanonicalStateBadge(canonicalState);
 
   return (
     <Card padding="none" className={styles.row}>
@@ -61,22 +73,62 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
       <div className={styles.body}>
         <span className={styles.name}>{product.name}</span>
         <span className={styles.meta}>
-          {categoryName ?? "Uncategorised"} · {product.weightOptions.length} SKU
-          {product.weightOptions.length === 1 ? "" : "s"}
+          {categoryName ?? "Uncategorised"} · {totalStock} unit{totalStock === 1 ? "" : "s"} available ({product.weightOptions.length} SKU{product.weightOptions.length === 1 ? "" : "s"})
         </span>
         {review && (
-          <span
-            className={clsx(
-              styles.reviewNote,
-              review.tone === "pending" ? styles.reviewPending : styles.reviewRejected,
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+            <span
+              className={clsx(
+                styles.reviewNote,
+                review.tone === "pending" ? styles.reviewPending : styles.reviewRejected,
+              )}
+            >
+              {review.text}
+            </span>
+            {review.tone === "attention" && (
+              <Link
+                href={`/seller/listings/${product.id}`}
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  textDecoration: "underline",
+                  color: "var(--hk-terracotta, #b45309)",
+                }}
+              >
+                Fix and resubmit →
+              </Link>
             )}
-          >
-            {review.text}
-          </span>
+          </div>
         )}
       </div>
       <span className={styles.price}>{weight ? formatCurrency(weight.price) : "—"}</span>
-      <span className={clsx(styles.stockPill, stock.className)}>{stock.label}</span>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+        <span className={clsx(styles.stockPill, stock.className)}>{stock.label}</span>
+        {canonicalState !== "live" && (
+          <span
+            style={{
+              fontSize: "11px",
+              padding: "2px 8px",
+              borderRadius: "12px",
+              fontWeight: 600,
+              background:
+                canonicalBadge.variant === "warning"
+                  ? "var(--hk-amber-light, #fef3c7)"
+                  : canonicalBadge.variant === "error"
+                    ? "var(--hk-rose-light, #ffe4e6)"
+                    : "var(--hk-surface-subtle, #f1f5f9)",
+              color:
+                canonicalBadge.variant === "warning"
+                  ? "var(--hk-amber-dark, #92400e)"
+                  : canonicalBadge.variant === "error"
+                    ? "var(--hk-rose-dark, #be123c)"
+                    : "var(--hk-text-subtle, #64748b)",
+            }}
+          >
+            {canonicalBadge.label}
+          </span>
+        )}
+      </div>
       <div className={styles.actions}>
         <Link
           href={`/seller/listings/${product.id}`}

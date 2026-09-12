@@ -10,7 +10,7 @@ import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { Textarea } from "@/components/ui/Textarea";
-import { commissionBreakdown, markupBreakdown } from "@/lib/commission";
+import { markupBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
@@ -57,8 +57,8 @@ const STEPS = [
 ] as const;
 
 /** Name field placeholder examples, rotated for visual interest. */
-const FOOD_PLACEHOLDERS = ["Mango thokku pickle", "Chocolate brownies", "Besan ladoo", "Masala mathri"];
-const CRAFT_PLACEHOLDERS = ["Beeswax candle", "Silver jhumkas", "Hand-painted print", "Macramé wall hanging"];
+const FOOD_PLACEHOLDERS = ["e.g. Homemade pickle", "e.g. Freshly baked cookies", "e.g. Handcrafted sweets", "e.g. Traditional namkeen"];
+const CRAFT_PLACEHOLDERS = ["e.g. Scented soy candle", "e.g. Handcrafted earrings", "e.g. Hand-painted illustration", "e.g. Macramé wall piece"];
 
 /** How many top category quick-picks to show. */
 const QUICK_PICK_COUNT = 6;
@@ -388,7 +388,6 @@ export function GuidedListingForm({
   const defaultRow = rows[0] ?? { price: "0" };
   const price = Number(defaultRow.price) || 0;
   const markup = markupBreakdown(price, commPct);
-  const breakdown = commissionBreakdown(price, commPct);
 
   return (
     <div className={styles.wrap}>
@@ -761,18 +760,74 @@ export function GuidedListingForm({
               onChange={(event) => set("description", event.target.value)}
               placeholder={
                 isCraft
-                  ? "Hand-poured beeswax, cotton wick, burns about six hours."
-                  : "Raw mangoes from the market, sesame oil, no preservatives. Keeps three months."
+                  ? "Describe materials, technique, dimensions, and care instructions (e.g. Hand-poured soy candle with cotton wick)."
+                  : "Describe ingredients, flavor, texture, preparation method, and how it is best enjoyed."
               }
             />
             <div className={styles.charCount}>
               {values.description.length} / ~200 characters — two or three sentences is plenty
             </div>
 
+            {!isCraft && (
+              <div className={styles.craftSpecsGroup}>
+                <p className={styles.craftSpecsHint}>
+                  Food safety, allergens &amp; shelf life details (required for food approval).
+                </p>
+                <label className={styles.field}>
+                  <span className={styles.question}>
+                    Ingredients <span style={{ color: "var(--hk-terracotta, #b45309)", fontWeight: 600 }}>required</span>
+                  </span>
+                  <input
+                    className={styles.bigInput}
+                    value={values.ingredients ?? ""}
+                    onChange={(event) => set("ingredients", event.target.value)}
+                    placeholder="e.g. Roasted peanuts, jaggery, cardamom, ghee"
+                    required
+                  />
+                </label>
+                <div className={styles.craftSpecsGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.question}>
+                      Shelf life <span style={{ color: "var(--hk-terracotta, #b45309)", fontWeight: 600 }}>required</span>
+                    </span>
+                    <input
+                      className={styles.bigInput}
+                      value={values.shelfLife ?? ""}
+                      onChange={(event) => set("shelfLife", event.target.value)}
+                      placeholder="e.g. 30 days from dispatch"
+                      required
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span className={styles.question}>
+                      Serving guidance <span className={styles.optional}>optional</span>
+                    </span>
+                    <input
+                      className={styles.bigInput}
+                      value={values.servingGuidance ?? ""}
+                      onChange={(event) => set("servingGuidance", event.target.value)}
+                      placeholder="e.g. Serves 1–2 / Pack of 6"
+                    />
+                  </label>
+                </div>
+                <label className={styles.field}>
+                  <span className={styles.question}>
+                    Storage instructions <span className={styles.optional}>recommended</span>
+                  </span>
+                  <input
+                    className={styles.bigInput}
+                    value={values.storageInstructions ?? ""}
+                    onChange={(event) => set("storageInstructions", event.target.value)}
+                    placeholder="e.g. Store in an airtight container away from direct sunlight"
+                  />
+                </label>
+              </div>
+            )}
+
             {isCraft && (
               <div className={styles.craftSpecsGroup}>
                 <p className={styles.craftSpecsHint}>
-                  Help buyers know exactly what they're getting.
+                  Help buyers know exactly what they&apos;re getting.
                 </p>
                 <div className={styles.craftSpecsGrid}>
                   <label className={styles.field}>
@@ -908,11 +963,16 @@ export function GuidedListingForm({
                 <div>
                   <span className={styles.previewName}>{values.name || "Your product"}</span>
                   <span className={styles.previewPrice}>
-                    {price > 0 ? formatCurrency(price) : "—"}
-                    {offerByRow[0] && Number(rows[0]?.mrp) > price && (
+                    {markup.customerPrice > 0 ? formatCurrency(markup.customerPrice) : "—"}
+                    {offerByRow[0] && Number(rows[0]?.mrp) > markup.customerPrice && (
                       <s className={styles.previewMrp}>{formatCurrency(Number(rows[0].mrp))}</s>
                     )}
                   </span>
+                  {price > 0 && (
+                    <span className={styles.previewPayoutNote}>
+                      Your payout: {formatCurrency(price)}
+                    </span>
+                  )}
                   {/* Show size labels as chips if more than one variant */}
                   {rows.length > 1 && (
                     <div className={styles.previewSizes}>

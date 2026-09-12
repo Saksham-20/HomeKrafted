@@ -32,7 +32,7 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
       <div className={styles.head}>
         <StarRow rating={review.rating} />
         {review.verifiedPurchase && (
-          <span className={styles.verified}>Verified purchase</span>
+          <span className={styles.verified}>✓ Verified Buyer</span>
         )}
       </div>
       {/* h3, not h4 — `ReviewList` heads the section with an h2, so an h4
@@ -40,6 +40,15 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
           page and storefront that shows reviews. */}
       {review.title && <h3 className={styles.title}>{review.title}</h3>}
       <p className={styles.body}>{review.body}</p>
+      {review.sellerReply && (
+        <div className={styles.sellerReply}>
+          <div className={styles.sellerReplyHead}>
+            <span className={styles.sellerReplyBadge}>Maker response</span>
+            <span className={styles.sellerReplyDate}>{formatDate(review.sellerReply.createdAt)}</span>
+          </div>
+          <p className={styles.sellerReplyBody}>{review.sellerReply.body}</p>
+        </div>
+      )}
       <div className={styles.meta}>
         <span className={styles.author}>{review.userName}</span>
         <span className={styles.dot} aria-hidden="true">

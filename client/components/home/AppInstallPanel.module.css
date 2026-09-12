@@ -65,9 +65,35 @@
   max-width: 48ch;
 }
 
-.badgesWrap {
+.actionsWrap {
   display: flex;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mobileActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--hk-pine, #234233);
+  color: #ffffff;
+  padding: 8px 18px;
+  border-radius: var(--hk-r-pill, 999px);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.mobileActionBtn:hover {
+  background: #172d23;
+  transform: translateY(-1px);
+}
+
+.comingSoonPill {
+  font-size: 12px;
+  color: var(--hk-ink-3, #5b5344);
 }
 
 .qrColumn {

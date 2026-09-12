@@ -18,10 +18,14 @@ import styles from "./DeliveryLocationConfirm.module.css";
  * order button — a hard gate here would lose a checkout over a field the
  * delivery address already largely answers.
  */
-export function DeliveryLocationConfirm() {
+export interface DeliveryLocationConfirmProps {
+  hasSelectedAddress?: boolean;
+}
+
+export function DeliveryLocationConfirm({ hasSelectedAddress }: DeliveryLocationConfirmProps = {}) {
   const { ready, area, source, coords, setArea, requestBrowserLocation, locating } = useLocation();
 
-  if (!ready) return null;
+  if (!ready || hasSelectedAddress) return null;
 
   const known = Boolean(coords);
 

@@ -88,6 +88,29 @@ function stop(event: MouseEvent) {
  * variant removes the finding outright rather than working around it, and
  * closes the door on a second surface adopting the shape.
  */
+function isRecentlyCreated(product: Product): boolean {
+  const dateStr = product.createdAt ?? product.submittedAt ?? product.moderatedAt;
+  if (!dateStr) return false;
+  const created = new Date(dateStr).getTime();
+  if (isNaN(created)) return false;
+  const ageDays = (Date.now() - created) / (1000 * 60 * 60 * 24);
+  return ageDays <= 30;
+}
+
+function resolveMerchandisingBadge(product: Product, isSoldOut = false): string | undefined {
+  if (isSoldOut) return undefined;
+  if (product.tags?.includes("Bestseller")) return "Bestseller";
+  if (product.tags?.includes("Festive")) return "Festive";
+  if (product.tags?.includes("Curated")) return "Curated";
+  if (product.tags?.includes("New")) {
+    if (isRecentlyCreated(product)) return "New";
+  }
+  if (product.shippingScope === "local") return "Fresh Today";
+  if (product.kind === "craft") return "Handcrafted";
+  if (product.kind === "food") return "Verified Kitchen";
+  return product.tags?.[0];
+}
+
 export function ProductCard({
   product,
   makerName,
@@ -105,7 +128,7 @@ export function ProductCard({
     product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ??
     product.weightOptions[0];
   const image = product.images[0];
-  const tag = product.tags[0];
+  const tag = resolveMerchandisingBadge(product, soldOut);
   const diet = dietOf(product);
   const preOrder = preOrderLabel(product);
   return (
@@ -194,7 +217,13 @@ export function ProductCard({
             `cancellationRate`, which is `null` rather than `0` before
             anything has closed: absence gets said as absence.
           */}
-          {product.reviewCount > 0 ? `★ ${product.rating.toFixed(1)} (${product.reviewCount})` : "New"}
+          {product.reviewCount > 0 ? (
+            `★ ${product.rating.toFixed(1)} (${product.reviewCount})`
+          ) : isRecentlyCreated(product) && !soldOut ? (
+            "New"
+          ) : (
+            "Authentic"
+          )}
           {weight ? ` · ${weight.label}` : null}
         </span>
         <div className={styles.priceRow}>

@@ -57,7 +57,7 @@ export function MobileDrawer({
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
   }, []);
 
   /**

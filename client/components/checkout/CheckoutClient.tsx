@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
-import { Wallet as WalletIcon, CreditCard } from "lucide-react";
+import { Wallet as WalletIcon, CreditCard, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StickySummary, type StickySummaryLine } from "@/components/ui/StickySummary";
 import { DeliveryLocationConfirm } from "./DeliveryLocationConfirm";
@@ -551,6 +551,30 @@ export function CheckoutClient() {
     <section className={clsx("container", styles.page)}>
       <h1 className={styles.title}>Checkout</h1>
 
+      {mock && (
+        <div
+          style={{
+            background: "var(--hk-amber-light, #fef3c7)",
+            border: "1px solid var(--hk-amber, #f59e0b)",
+            borderRadius: "var(--hk-r-md, 8px)",
+            padding: "10px 16px",
+            marginBottom: "20px",
+            color: "var(--hk-amber-dark, #92400e)",
+            fontSize: "13px",
+            fontWeight: 500,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+          role="status"
+        >
+          <ShieldAlert size={16} />
+          <span>
+            <strong>Demo checkout</strong> — No real payment will be taken. This environment operates with synthetic test accounts only.
+          </span>
+        </div>
+      )}
+
       <div className={styles.layout}>
         <div className={styles.main}>
           {/* ---- Gift-to-recipient ---- */}
@@ -615,7 +639,7 @@ export function CheckoutClient() {
                       checked={giftWrap}
                       onChange={(event) => setGiftWrap(event.target.checked)}
                     />
-                    🎀 Gift wrap this order
+                    🎀 Gift wrap this order (+₹40)
                   </label>
 
                   <label className={styles.hideToggleRow}>
@@ -630,10 +654,11 @@ export function CheckoutClient() {
 
                   {wantsCard && (
                     <Textarea
-                      label="Message card"
-                      placeholder="Add a short note — the maker writes it out by hand."
+                      label={`Message card (${giftMessage.length}/200)`}
+                      placeholder="Add a short note — the maker writes it out by hand (max 200 characters)."
                       value={giftMessage}
-                      onChange={(event) => setGiftMessage(event.target.value)}
+                      maxLength={200}
+                      onChange={(event) => setGiftMessage(event.target.value.slice(0, 200))}
                       rows={3}
                     />
                   )}
@@ -782,8 +807,8 @@ export function CheckoutClient() {
                     {cardPaymentsOff
                       ? "Not available yet — we're still setting up online payments."
                       : mock
-                        ? "Real payment integration lands in M8 — this is a stub."
-                        : "Razorpay test checkout — needs a real test key to fully complete."}
+                        ? "Demo checkout — no real payment will be taken."
+                        : "Secure online checkout via Razorpay (UPI, Cards, Netbanking)."}
                   </span>
                 </span>
               </button>
@@ -814,7 +839,7 @@ export function CheckoutClient() {
           >
             {/* Second location ask, right before money moves — see the
                 component for why this confirms rather than blocks. */}
-            <DeliveryLocationConfirm />
+            <DeliveryLocationConfirm hasSelectedAddress={addressList.length > 0 || isGift} />
             <Button
               variant="primary"
               onClick={handlePlaceOrder}

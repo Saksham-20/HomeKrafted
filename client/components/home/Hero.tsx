@@ -36,6 +36,22 @@ export function Hero() {
           <span className={styles.headingLineWorld}>TO THE WORLD</span>
         </h1>
         <p className={styles.centerSubtitle}>Fresh meals from real home kitchens &amp; handcrafted gifts by independent creators.</p>
+        <div className={styles.ctaGroup}>
+          <div className={styles.taskNavLinks} role="navigation" aria-label="Explore collections">
+            <Link href="/shop" className={styles.taskNavBtn}>
+              🍲 Homemade Food
+            </Link>
+            <Link href="/gifts" className={styles.taskNavBtn}>
+              🎁 Handcrafted Gifts
+            </Link>
+            <Link href="/meals" className={styles.taskNavBtn}>
+              🍱 Meal Plans &amp; Tiffins
+            </Link>
+            <Link href="/corporate" className={styles.taskNavBtn}>
+              🏢 Bulk &amp; Catering
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

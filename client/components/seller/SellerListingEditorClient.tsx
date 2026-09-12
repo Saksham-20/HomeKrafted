@@ -8,6 +8,9 @@ import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { FormPage } from "@/components/portal/FormPage";
 import { SaveBar } from "@/components/portal/SaveBar";
+import { Notice } from "@/components/portal/Notice";
+import { getVendorById } from "@/lib/api/vendors";
+import { isVendorProfileComplete } from "@/lib/maker-portrait";
 import { ModerationNotice } from "./ModerationNotice";
 import { GuidedListingForm } from "./GuidedListingForm";
 import { sellerTaxonomyActions } from "@/lib/taxonomy-actions";
@@ -69,6 +72,12 @@ function productToFormValues(product: Product): ListingFormValues {
     dimensions: product.dimensions ?? "",
     material: product.material ?? "",
     careInstructions: product.careInstructions ?? "",
+    ingredients: product.ingredients ?? "",
+    shelfLife: product.shelfLife ?? "",
+    storageInstructions: product.storageInstructions ?? "",
+    allergens: product.allergens ?? [],
+    servingGuidance: product.servingGuidance ?? "",
+    fulfillmentType: product.fulfillmentType ?? "fresh_nearby",
   };
 }
 
@@ -108,6 +117,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
   }>({});
   const [error, setError] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<ListingFormErrors>({});
+  const [profileWarning, setProfileWarning] = useState(false);
   /**
    * Guided is the default for a *new* listing and the long form for an
    * edit. Somebody adding their first product is being asked to describe
@@ -121,14 +131,18 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     if (!ready || !seller?.vendorId) return;
     let cancelled = false;
     (async () => {
-      const [cats, occs, product] = await Promise.all([
+      const [cats, occs, product, vendor] = await Promise.all([
         getCategories(),
         getOccasions(),
         productId ? getSellerListing(seller.vendorId!, productId) : Promise.resolve(undefined),
+        getVendorById(seller.vendorId),
       ]);
       if (cancelled) return;
       setCategories(cats);
       setOccasions(occs);
+      if (vendor && !isVendorProfileComplete(vendor)) {
+        setProfileWarning(true);
+      }
       if (productId) {
         if (product) {
           const loaded = productToFormValues(product);
@@ -186,10 +200,11 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     try {
       if (isEdit && productId) {
         await updateSellerListing(seller.vendorId, productId, input);
+        router.push("/seller/listings");
       } else {
         await createSellerListing(seller.vendorId, input);
+        router.push("/seller/listings?submitted=1");
       }
-      router.push("/seller/listings");
     } catch (err) {
       // There was no `try` here at all. A rejected save — a validation
       // refusal, a 403, a dropped connection — left the promise rejected,
@@ -236,6 +251,20 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
       />
       <ModerationNotice status={review.status} note={review.note} />
 
+      {profileWarning && (
+        <Notice
+          tone="warning"
+          title="Your shop profile is missing key details"
+          actions={
+            <Button variant="secondary" size="sm" onClick={() => router.push("/seller/profile")}>
+              Edit profile
+            </Button>
+          }
+        >
+          Your storefront profile is missing an avatar photo or bio. Please complete your profile in Settings so buyers can trust your kitchen once your items are approved.
+        </Notice>
+      )}
+
       {guided ? (
         <GuidedListingForm
           values={valuesState}
@@ -251,7 +280,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
             setError(undefined);
             setGuided(false);
           }}
-          submitLabel={isEdit ? "Save changes" : "Put it on my storefront"}
+          submitLabel={isEdit ? "Save changes" : "Submit for review"}
         />
       ) : (
         <FormPage sections={LISTING_FORM_SECTIONS.map((s) => ({ ...s }))} navLabel="Sections">
@@ -278,7 +307,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
                   }
                 : undefined
             }
-            saveLabel={isEdit ? "Save changes" : "Create product"}
+            saveLabel={isEdit ? "Save changes" : "Submit for review"}
             alwaysEnabled={!isEdit}
           >
             <Button variant="secondary" size="sm" onClick={() => router.push("/seller/listings")} disabled={saving}>

@@ -107,6 +107,14 @@ function isAbsolute(src: string): boolean {
   return /^https?:\/\//i.test(src);
 }
 
+function cleanPlaceholderLabel(raw: string): string {
+  if (!raw) return "";
+  return raw
+    .replace(/\s*[-—–]\s*(AVATAR|BANNER|HERO|THUMB)\b/gi, "")
+    .replace(/\.(jpg|jpeg|png|webp|avif|svg)$/i, "")
+    .trim();
+}
+
 export function ImageSlot({
   ratio,
   label,
@@ -148,9 +156,11 @@ export function ImageSlot({
     );
   }
 
+  const cleanText = cleanPlaceholderLabel(label) || label;
+
   return (
-    <div className={wrapperClass} style={{ aspectRatio: ratio }} role="img" aria-label={label}>
-      <span className={styles.label}>{label}</span>
+    <div className={wrapperClass} style={{ aspectRatio: ratio }} role="img" aria-label={cleanText}>
+      <span className={styles.label}>{cleanText}</span>
       {size ? <span className={styles.size}>{size}</span> : null}
     </div>
   );

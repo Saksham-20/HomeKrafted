@@ -3,3 +3,20 @@
   border-radius: var(--hk-r-pill);
   overflow: hidden;
 }
+
+.initialsAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hk-surface-3, #f5f2eb);
+  border: 1px solid var(--hk-border-2, #e5dfd5);
+  color: var(--hk-terracotta, #b85d38);
+  font-family: var(--hk-font-display, serif);
+  font-weight: 600;
+  user-select: none;
+}
+
+.initialsText {
+  line-height: 1;
+  letter-spacing: 0.05em;
+}
