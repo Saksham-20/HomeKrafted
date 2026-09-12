@@ -99,24 +99,29 @@ export function CartPageClient() {
         </div>
       ) : (
         <div className={styles.layout}>
-          <div className={styles.lines}>
-            {error && (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            )}
-            {items.map((item) => {
-              const info = lineInfo(item);
-              return (
-                <CartLineRow
-                  key={item.id}
-                  info={info}
-                  onQtyChange={(quantity) => run(() => updateQty(item.id, quantity))}
-                  onRemove={() => run(() => removeItem(item.id))}
-                />
-              );
-            })}
-            <CartSuggestions />
+          <div className={styles.mainCol}>
+            <div className={styles.lines}>
+              {error && (
+                <p className={styles.error} role="alert">
+                  {error}
+                </p>
+              )}
+              {items.map((item) => {
+                const info = lineInfo(item);
+                return (
+                  <CartLineRow
+                    key={item.id}
+                    info={info}
+                    onQtyChange={(quantity) => run(() => updateQty(item.id, quantity))}
+                    onRemove={() => run(() => removeItem(item.id))}
+                  />
+                );
+              })}
+            </div>
+
+            <div className={styles.suggestionsWrap}>
+              <CartSuggestions />
+            </div>
           </div>
 
           <aside className={styles.aside}>

@@ -70,6 +70,7 @@
   background: none;
   color: var(--hk-muted);
   font-size: 12px;
+  cursor: pointer;
   /* Visual text stays small, but the hit area meets the 44px tap-target rule. */
   min-height: 44px;
   min-width: 44px;

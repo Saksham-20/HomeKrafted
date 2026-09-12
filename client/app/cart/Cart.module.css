@@ -73,9 +73,16 @@
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: var(--hk-s6);
   align-items: start;
+}
+
+.mainCol {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s6);
 }
 
 .lines {
@@ -83,6 +90,12 @@
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-lg);
   padding: 0 var(--hk-s5);
+  min-width: 0;
+}
+
+.suggestionsWrap {
+  min-width: 0;
+  width: 100%;
 }
 
 .aside {
@@ -91,6 +104,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--hk-s3);
+  min-width: 0;
 }
 
 .continueLink {
@@ -105,15 +119,29 @@
 
 @media (max-width: 900px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mainCol {
+    display: contents;
+  }
+
+  .lines {
+    order: 1;
   }
 
   /* Below 900px the summary sits inline after the line items — its CTA
      becomes a fixed bottom bar via `stickyOnMobile` (see
      StickySummary.module.css) once narrow enough (~640px) to need it. */
   .aside {
+    order: 2;
     position: static;
     padding-top: var(--hk-s3);
+  }
+
+  .suggestionsWrap {
+    order: 3;
+    margin-top: var(--hk-s2);
   }
 }
 

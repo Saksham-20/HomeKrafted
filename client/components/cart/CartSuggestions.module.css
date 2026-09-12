@@ -1,6 +1,7 @@
 .container {
-  margin-top: var(--hk-s5, 20px);
-  margin-bottom: var(--hk-s4, 16px);
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 18px 20px;
   background: var(--hk-surface-2, #faf9f6);
   border: 1px solid var(--hk-border, #eceae4);
@@ -47,6 +48,8 @@
   align-items: center;
   gap: 6px;
   overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
   padding-bottom: 2px;
   -webkit-overflow-scrolling: touch;
 }
@@ -86,6 +89,8 @@
   display: flex;
   gap: 14px;
   overflow-x: auto;
+  min-width: 0;
+  max-width: 100%;
   padding-bottom: 8px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
