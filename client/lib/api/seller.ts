@@ -724,7 +724,6 @@ export interface SellerStorefrontInput {
   bio: string;
   location: string;
   avatarSrc?: string;
-  bannerSrc?: string;
 }
 
 /**
@@ -773,7 +772,6 @@ export async function updateSellerStorefront(
     vendor.bio = input.bio;
     vendor.location = input.location;
     vendor.avatarSrc = input.avatarSrc || undefined;
-    vendor.bannerSrc = input.bannerSrc || undefined;
     return vendor;
   }
 

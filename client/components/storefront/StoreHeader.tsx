@@ -31,7 +31,7 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
     <div className={styles.wrap}>
       <div className={styles.banner}>
         <ImageSlot
-          ratio="16/5"
+          ratio="16/7"
           label="HomeKrafted Storefront Banner"
           // Decorative: the shop's name is the <h1> right below it, so
           // describing the banner again is noise in a screen reader.

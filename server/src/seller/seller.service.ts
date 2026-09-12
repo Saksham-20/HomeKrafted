@@ -184,7 +184,6 @@ export class SellerService {
           bio: dto.bio ?? undefined,
           location: dto.location ?? undefined,
           avatarSrc: dto.avatarSrc,
-          bannerSrc: dto.bannerSrc,
         },
       });
       if (name) {

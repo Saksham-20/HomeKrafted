@@ -44,9 +44,4 @@ export class UpdateStorefrontDto {
   @ValidateIf((_, value) => value !== '')
   @IsString()
   avatarSrc?: string;
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== '')
-  @IsString()
-  bannerSrc?: string;
 }

@@ -29,7 +29,6 @@ interface FormState {
   bio: string;
   location: string;
   avatarSrc: string;
-  bannerSrc: string;
 }
 
 /**
@@ -82,7 +81,7 @@ const DISCOUNT_EXAMPLE_PCT = 10;
 const DISCOUNT_EXAMPLE_PRICE = 250;
 
 const SECTIONS = [
-  { id: "shop-look", label: "Profile photo" },
+  { id: "shop-look", label: "Photo & banner" },
   { id: "shop-words", label: "Name & bio" },
   { id: "shop-sale", label: "Run a sale" },
 ];
@@ -95,7 +94,6 @@ export function SellerStorefrontClient() {
     bio: "",
     location: "",
     avatarSrc: "",
-    bannerSrc: "",
   });
   const [initialForm, setInitialForm] = useState<FormState | undefined>();
   const [loading, setLoading] = useState(true);
@@ -137,7 +135,6 @@ export function SellerStorefrontClient() {
           bio: v.bio,
           location: v.location,
           avatarSrc: v.avatarSrc ?? "",
-          bannerSrc: v.bannerSrc ?? "",
         };
         setForm(loaded);
         setInitialForm(loaded);
@@ -281,9 +278,18 @@ export function SellerStorefrontClient() {
       <FormPage sections={SECTIONS} navLabel="Sections">
         <FormSection
           id="shop-look"
-          title="Profile photo"
-          description="The round photo sits next to your name everywhere. Storefront banners use the official HomeKrafted branded poster."
+          title="Profile photo & storefront banner"
+          description="The round photo sits next to your name everywhere. Storefront banners use the official HomeKrafted branded poster for all kitchens and stores."
         >
+          <div className={styles.bannerPreview} style={{ marginBottom: "var(--hk-s4)" }}>
+            <ImageSlot
+              ratio="16/7"
+              label="Official HomeKrafted Storefront Banner"
+              alt="Official HomeKrafted Storefront Banner"
+              src="/images/site/storefront-standard-banner.jpg"
+              sizes="(max-width: 1180px) 100vw, 800px"
+            />
+          </div>
           <FieldGrid>
             <ImageUpload
               label="Shop photo"

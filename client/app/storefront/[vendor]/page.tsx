@@ -36,11 +36,8 @@ export async function generateMetadata({ params }: StorefrontPageProps): Promise
     description:
       vendor.bio.length > 155 ? `${vendor.bio.slice(0, 152).trimEnd()}…` : vendor.bio,
     path: `/storefront/${vendor.slug}`,
-    // `ownAvatarSrc`, not the raw column: a pre-M28 row still holds the
-    // shared stock portrait, and the share card for *this* kitchen is the
-    // worst place to put a stranger's face — it is what lands in a
-    // WhatsApp preview when somebody forwards their shop.
-    image: vendor.bannerSrc ?? ownAvatarSrc(vendor.avatarSrc),
+    // Standard storefront banner across all kitchens and stores
+    image: "/images/site/storefront-standard-banner.jpg",
   });
 }
 
