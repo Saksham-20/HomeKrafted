@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import "./scroll-expansion-hero.css";
 
@@ -311,21 +310,6 @@ export default function ScrollExpandMedia({
                   <ChevronDown size={14} strokeWidth={2.6} />
                 </span>
               </button>
-
-              <div
-                className="scroll-expand-quick-actions"
-                style={{
-                  opacity: Math.max(0, 1 - zoomProgress * 3.5),
-                  pointerEvents: zoomProgress < 0.1 ? "auto" : "none",
-                }}
-              >
-                <Link href="/shop" className="scroll-expand-action-btn scroll-expand-action-food">
-                  Shop homemade food
-                </Link>
-                <Link href="/gifts" className="scroll-expand-action-btn scroll-expand-action-gifts">
-                  Shop handcrafted gifts
-                </Link>
-              </div>
             </>
           )}
         </div>
