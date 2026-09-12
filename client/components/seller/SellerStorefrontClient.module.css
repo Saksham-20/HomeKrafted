@@ -1,10 +1,6 @@
 /* Fields come from `components/portal/Field` (2026-09-04); this file
    holds only what is particular to the shop page. */
 
-.bannerPreview {
-  width: 100%;
-}
-
 .previewLink {
   font-size: 13px;
   color: var(--hk-pine);

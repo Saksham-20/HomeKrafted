@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: StorefrontPageProps): Promise
       vendor.bio.length > 155 ? `${vendor.bio.slice(0, 152).trimEnd()}…` : vendor.bio,
     path: `/storefront/${vendor.slug}`,
     // Standard storefront banner across all kitchens and stores
-    image: "/images/site/storefront-standard-banner.jpg",
+    image: "/images/site/homekrafted-standard-banner.jpg",
   });
 }
 

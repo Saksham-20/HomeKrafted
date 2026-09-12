@@ -6,6 +6,8 @@
 .banner {
   border-radius: var(--hk-r-xl);
   overflow: hidden;
+  border: 1px solid var(--hk-border-2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .row {
