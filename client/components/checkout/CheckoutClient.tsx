@@ -168,9 +168,9 @@ export function CheckoutClient() {
       if (cancelled) return;
       const intent = readGiftIntent();
       if (!hasGiftIntent(intent)) return;
-      setIsGift(intent.shipToRecipient);
-      setGiftWrap(intent.wrap);
-      setWantsCard(intent.messageCard);
+      setIsGift(Boolean(intent.shipToRecipient || intent.wrap || intent.messageCard));
+      setGiftWrap(Boolean(intent.wrap));
+      setWantsCard(Boolean(intent.messageCard));
       if (intent.message) setGiftMessage(intent.message);
       clearGiftIntent();
     });
@@ -363,7 +363,7 @@ export function CheckoutClient() {
         // whole parcel, and a per-line control would be a cart feature
         // (there is no endpoint that writes `CartItem.giftWrap`). An
         // already-set line stays set.
-        giftWrap: item.giftWrap || giftWrap,
+        giftWrap: isGift ? (item.giftWrap || giftWrap) : false,
       };
     });
 
@@ -382,14 +382,6 @@ export function CheckoutClient() {
           )?.isoDate,
         }));
 
-    /**
-     * Sent whenever there is something to record, which since the gift
-     * block became real controls includes "a card, on an order I am
-     * keeping". `recipientAddressId` is what makes the parcel go
-     * somewhere else and is the only field the server treats as the
-     * shipping switch — absent, this is a gift note on an ordinary
-     * order.
-     */
     const trimmedMessage = giftMessage.trim();
     const gift: OrderGift | undefined = isGift
       ? {
@@ -397,11 +389,9 @@ export function CheckoutClient() {
           recipientName: recipient.recipientName,
           recipientAddressId: giftAddressId ?? MOCK_GIFT_ADDRESS_ID,
           hidePrice,
-          message: trimmedMessage || undefined,
+          message: wantsCard && trimmedMessage ? trimmedMessage : undefined,
         }
-      : trimmedMessage
-        ? { isGift: true, hidePrice: false, message: trimmedMessage }
-        : undefined;
+      : undefined;
 
     const created = await createOrder({
       lines,
@@ -570,7 +560,15 @@ export function CheckoutClient() {
                 type="checkbox"
                 className={styles.checkbox}
                 checked={isGift}
-                onChange={(event) => setIsGift(event.target.checked)}
+                onChange={(event) => {
+                  const next = event.target.checked;
+                  setIsGift(next);
+                  if (!next) {
+                    setGiftWrap(false);
+                    setWantsCard(false);
+                    setGiftMessage("");
+                  }
+                }}
               />
               <span>
                 <span className={styles.sectionTitle}>🎁 This is a gift — ship to someone else</span>
@@ -579,44 +577,6 @@ export function CheckoutClient() {
                 </span>
               </span>
             </label>
-
-            {/* Gift wrap and the message card sit **outside** the
-                ship-to-someone-else branch, because both apply just as
-                well to a parcel the buyer collects and hands over — and
-                because the product page offers all three side by side.
-                Wrap in particular had no control anywhere until now. */}
-            <div className={styles.giftExtras}>
-              <label className={styles.hideToggleRow}>
-                <input
-                  type="checkbox"
-                  className={styles.checkbox}
-                  checked={giftWrap}
-                  onChange={(event) => setGiftWrap(event.target.checked)}
-                />
-                🎀 Gift wrap this order
-              </label>
-
-              <label className={styles.hideToggleRow}>
-                <input
-                  type="checkbox"
-                  className={styles.checkbox}
-                  checked={wantsCard || isGift}
-                  disabled={isGift}
-                  onChange={(event) => setWantsCard(event.target.checked)}
-                />
-                ✎ Include a handwritten message card
-              </label>
-
-              {(wantsCard || isGift) && (
-                <Textarea
-                  label="Message card"
-                  placeholder="Add a short note — the maker writes it out by hand."
-                  value={giftMessage}
-                  onChange={(event) => setGiftMessage(event.target.value)}
-                  rows={3}
-                />
-              )}
-            </div>
 
             {isGift && (
               <div className={styles.giftBody}>
@@ -645,6 +605,38 @@ export function CheckoutClient() {
                     value={giftDateId || firstDateId}
                     onChange={setGiftDateId}
                   />
+                </div>
+
+                <div className={styles.giftExtras}>
+                  <label className={styles.hideToggleRow}>
+                    <input
+                      type="checkbox"
+                      className={styles.checkbox}
+                      checked={giftWrap}
+                      onChange={(event) => setGiftWrap(event.target.checked)}
+                    />
+                    🎀 Gift wrap this order
+                  </label>
+
+                  <label className={styles.hideToggleRow}>
+                    <input
+                      type="checkbox"
+                      className={styles.checkbox}
+                      checked={wantsCard}
+                      onChange={(event) => setWantsCard(event.target.checked)}
+                    />
+                    ✎ Include a handwritten message card
+                  </label>
+
+                  {wantsCard && (
+                    <Textarea
+                      label="Message card"
+                      placeholder="Add a short note — the maker writes it out by hand."
+                      value={giftMessage}
+                      onChange={(event) => setGiftMessage(event.target.value)}
+                      rows={3}
+                    />
+                  )}
                 </div>
               </div>
             )}

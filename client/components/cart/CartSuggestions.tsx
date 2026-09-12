@@ -4,14 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { Sparkles, Plus, Check } from "lucide-react";
-import { getProducts } from "@/lib/api";
+import { getProducts, getVendors } from "@/lib/api";
 import { useCart } from "@/lib/cart/CartContext";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { formatCurrency } from "@/lib/format";
-import type { Product } from "@/lib/types";
+import type { Product, Vendor } from "@/lib/types";
 import styles from "./CartSuggestions.module.css";
 
-type TabKey = "cakes" | "combos" | "gifts";
+type TabKey = "all" | "cakes" | "combos" | "gifts";
 
 function isCakeOrDessert(p: Product): boolean {
   if (
@@ -36,18 +36,29 @@ function isGiftOrSurprise(p: Product): boolean {
   return /gift|hamper|candle|runner|mug|diya|jhumka|plant|toy|print/i.test(p.name);
 }
 
+function getBadge(p: Product): { text: string; className: string } {
+  if (isCakeOrDessert(p)) return { text: "🍰 BAKE", className: styles.badgeCake };
+  if (isComboOrMeal(p)) return { text: "🍱 COMBO", className: styles.badgeCombo };
+  if (isGiftOrSurprise(p)) return { text: "🎁 GIFT", className: styles.badgeGift };
+  return { text: "✨ SPECIAL", className: styles.badge };
+}
+
 export function CartSuggestions() {
-  const { items, addItem } = useCart();
+  const { items, addItem, hampers } = useCart();
   const [catalog, setCatalog] = useState<Product[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>("cakes");
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
-    getProducts()
-      .then((prods) => {
-        if (!cancelled) setCatalog(prods);
+    Promise.all([getProducts(), getVendors()])
+      .then(([prods, vends]) => {
+        if (!cancelled) {
+          setCatalog(prods);
+          setVendors(vends);
+        }
       })
       .catch(() => {});
     return () => {
@@ -55,22 +66,87 @@ export function CartSuggestions() {
     };
   }, []);
 
-  const cartProductIds = useMemo(() => new Set(items.map((i) => i.productId)), [items]);
+  const cartProductIds = useMemo(
+    () => new Set(items.map((i) => i.productId).filter(Boolean)),
+    [items]
+  );
+
+  const cartVendorIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const item of items) {
+      if (item.productId) {
+        const prod = catalog.find((p) => p.id === item.productId);
+        if (prod?.vendorId) ids.add(prod.vendorId);
+      }
+      if (item.hamperId && hampers[item.hamperId]) {
+        for (const hi of hampers[item.hamperId].items) {
+          const prod = catalog.find((p) => p.id === hi.productId);
+          if (prod?.vendorId) ids.add(prod.vendorId);
+        }
+      }
+    }
+    return ids;
+  }, [items, catalog, hampers]);
+
+  // Suggestions must ONLY come from the same kitchen(s) as the items in the cart
+  const sameKitchenProducts = useMemo(() => {
+    if (cartVendorIds.size === 0) return [];
+    return catalog.filter((p) => cartVendorIds.has(p.vendorId) && !cartProductIds.has(p.id));
+  }, [catalog, cartVendorIds, cartProductIds]);
+
+  const kitchenName = useMemo(() => {
+    if (cartVendorIds.size === 1) {
+      const vendorId = Array.from(cartVendorIds)[0];
+      const vendor = vendors.find((v) => v.id === vendorId);
+      if (vendor?.name) return vendor.name;
+    }
+    return null;
+  }, [cartVendorIds, vendors]);
+
+  const cakeItems = useMemo(
+    () => sameKitchenProducts.filter(isCakeOrDessert),
+    [sameKitchenProducts]
+  );
+  const comboItems = useMemo(
+    () => sameKitchenProducts.filter(isComboOrMeal),
+    [sameKitchenProducts]
+  );
+  const giftItems = useMemo(
+    () => sameKitchenProducts.filter(isGiftOrSurprise),
+    [sameKitchenProducts]
+  );
+
+  const availableTabs = useMemo(() => {
+    const tabs: { key: TabKey; label: string }[] = [
+      { key: "all", label: "✨ All items" },
+    ];
+    if (cakeItems.length > 0) {
+      tabs.push({ key: "cakes", label: "🍰 Cakes & Bakes" });
+    }
+    if (comboItems.length > 0) {
+      tabs.push({ key: "combos", label: "🍱 Combos & Sides" });
+    }
+    if (giftItems.length > 0) {
+      tabs.push({ key: "gifts", label: "🎁 Gifts & Craft" });
+    }
+    return tabs;
+  }, [cakeItems.length, comboItems.length, giftItems.length]);
+
+  const effectiveTab = availableTabs.some((t) => t.key === activeTab) ? activeTab : "all";
 
   const filtered = useMemo(() => {
-    const unbought = catalog.filter((p) => !cartProductIds.has(p.id));
-    if (activeTab === "cakes") {
-      const list = unbought.filter(isCakeOrDessert);
-      return list.length > 0 ? list : unbought.filter((p) => p.kind !== "craft");
+    if (sameKitchenProducts.length === 0) return [];
+    if (effectiveTab === "cakes") {
+      return cakeItems.length > 0 ? cakeItems : sameKitchenProducts;
     }
-    if (activeTab === "combos") {
-      const list = unbought.filter(isComboOrMeal);
-      return list.length > 0 ? list : unbought;
+    if (effectiveTab === "combos") {
+      return comboItems.length > 0 ? comboItems : sameKitchenProducts;
     }
-    // gifts
-    const list = unbought.filter(isGiftOrSurprise);
-    return list.length > 0 ? list : unbought.filter((p) => p.kind === "craft" || p.isHamper);
-  }, [catalog, cartProductIds, activeTab]);
+    if (effectiveTab === "gifts") {
+      return giftItems.length > 0 ? giftItems : sameKitchenProducts;
+    }
+    return sameKitchenProducts;
+  }, [sameKitchenProducts, effectiveTab, cakeItems, comboItems, giftItems]);
 
   async function handleAdd(product: Product) {
     const sku = purchasableSku(product);
@@ -100,37 +176,26 @@ export function CartSuggestions() {
       <div className={styles.header}>
         <div className={styles.titleRow}>
           <Sparkles className={styles.sparkleIcon} size={15} aria-hidden="true" />
-          <h2 className={styles.title}>Complete your order</h2>
+          <h2 className={styles.title}>
+            {kitchenName ? `More from ${kitchenName}` : "More from this kitchen"}
+          </h2>
         </div>
-        <div className={styles.tabs} role="tablist" aria-label="Suggestions categories">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "cakes"}
-            className={clsx(styles.tab, activeTab === "cakes" && styles.tabActive)}
-            onClick={() => setActiveTab("cakes")}
-          >
-            🍰 Cakes & Bakes
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "combos"}
-            className={clsx(styles.tab, activeTab === "combos" && styles.tabActive)}
-            onClick={() => setActiveTab("combos")}
-          >
-            🍱 Combos & Sides
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "gifts"}
-            className={clsx(styles.tab, activeTab === "gifts" && styles.tabActive)}
-            onClick={() => setActiveTab("gifts")}
-          >
-            🎁 Gifts & Surprise
-          </button>
-        </div>
+        {availableTabs.length > 1 && (
+          <div className={styles.tabs} role="tablist" aria-label="Suggestions categories">
+            {availableTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={effectiveTab === tab.key}
+                className={clsx(styles.tab, effectiveTab === tab.key && styles.tabActive)}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={styles.rail}>
@@ -141,6 +206,7 @@ export function CartSuggestions() {
           const isAdded = addedIds.has(product.id);
           const isAdding = addingId === product.id;
           const imageSrc = product.images?.[0]?.src || "/images/placeholder.jpg";
+          const badge = getBadge(product);
 
           return (
             <div key={product.id} className={styles.card}>
@@ -152,12 +218,8 @@ export function CartSuggestions() {
                   height={140}
                   className={styles.thumb}
                 />
-                <span className={styles.badge}>
-                  {activeTab === "cakes"
-                    ? "🍰 BAKE"
-                    : activeTab === "combos"
-                      ? "🍱 COMBO"
-                      : "🎁 GIFT"}
+                <span className={clsx(styles.badge, badge.className)}>
+                  {badge.text}
                 </span>
               </div>
               <div className={styles.cardBody}>
