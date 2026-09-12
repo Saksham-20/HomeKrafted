@@ -124,6 +124,9 @@ export class SellerListingsService {
         dimensions: dto.dimensions ?? null,
         material: dto.material ?? null,
         careInstructions: dto.careInstructions ?? null,
+        ingredients: dto.ingredients ?? null,
+        shelfLife: dto.shelfLife ?? null,
+        storageInstructions: dto.storageInstructions ?? null,
         // M22 — explicit rather than leaning on the column default, because
         // a reader of this method needs to see that a new listing is not
         // live yet. `submittedAt` is what the admin queue orders on.
@@ -261,6 +264,9 @@ export class SellerListingsService {
           dimensions: dto.dimensions,
           material: dto.material,
           careInstructions: dto.careInstructions,
+          ingredients: dto.ingredients,
+          shelfLife: dto.shelfLife,
+          storageInstructions: dto.storageInstructions,
           ...requeue,
         },
         include: PRODUCT_INCLUDE,

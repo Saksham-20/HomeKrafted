@@ -191,7 +191,6 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     storageInstructions: values.storageInstructions.trim() || undefined,
     allergens: values.allergens.length > 0 ? values.allergens : undefined,
     servingGuidance: values.servingGuidance.trim() || undefined,
-    fulfillmentType: values.fulfillmentType,
   };
 }
 

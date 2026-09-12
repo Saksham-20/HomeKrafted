@@ -239,4 +239,52 @@ export class CreateListingDto {
   @IsString()
   @MaxLength(500)
   careInstructions?: string;
+
+  /**
+   * Food ingredients — e.g. "Flour, raw mango, mustard oil". Optional for craft.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  ingredients?: string;
+
+  /**
+   * Shelf life for food items — e.g. "30 days from dispatch".
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  shelfLife?: string;
+
+  /**
+   * Storage instructions for food items — e.g. "Store in a cool dry place".
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  storageInstructions?: string;
+
+  /**
+   * Portion or serving recommendation — e.g. "Serves 1-2".
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  servingGuidance?: string;
+
+  /**
+   * Known allergens declared on this listing.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  allergens?: string[];
+
+  /**
+   * Fulfillment mode hint from frontend listing forms.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  fulfillmentType?: string;
 }
