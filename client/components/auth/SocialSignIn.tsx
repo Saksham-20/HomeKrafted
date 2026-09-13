@@ -1,10 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { SocialConfig } from "@/lib/api/auth";
+
+type Props = {
+  /**
+   * Which providers the API says are usable, with their public client ids.
+   * Read server-side and passed down — see `lib/api/auth.ts#getSocialConfig`.
+   */
+  config: SocialConfig;
+  /** Called with a verified-by-the-provider credential. The caller owns error handling and redirects. */
+  onCredential: (
+    provider: "google" | "apple",
+    credential: { idToken: string; nonce?: string },
+  ) => void;
+  disabled?: boolean;
+  /** Verb for the accessible labels. */
+  action: "Sign in" | "Sign up" | "Continue";
+};
+
+/**
+ * Social sign-in (Google & Apple) is temporarily disabled until OAuth credentials
+ * are configured. Returning null so no mock buttons or dividers render.
+ * Full implementation is preserved below for re-enabling when credentials are provided.
+ */
+export function SocialSignIn(_props: Props) {
+  void _props;
+  return null;
+}
+
+/* =======================================================================
+   PRESERVED IMPLEMENTATION FOR RE-ENABLING WHEN OAUTH CREDENTIALS ARE READY
+   =======================================================================
+
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import styles from "./SocialSignIn.module.css";
 
-/** Minimal monochrome Apple glyph — inline SVG, never a third-party icon font, matching `StoreBadges`. */
 function AppleGlyph() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -57,7 +87,6 @@ declare global {
   }
 }
 
-/** Load the Google Identity Services script once per page, shared across mounts. */
 let gisLoader: Promise<void> | null = null;
 function loadGis(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
@@ -79,9 +108,6 @@ function loadGis(): Promise<void> {
     script.onerror = () => reject(new Error("gis-load-failed"));
     document.head.appendChild(script);
   }).catch((err) => {
-    // Let a later mount retry rather than caching the failure forever —
-    // the usual cause is a transient network blip or an ad blocker the
-    // visitor may turn off.
     gisLoader = null;
     throw err;
   });
@@ -89,60 +115,12 @@ function loadGis(): Promise<void> {
   return gisLoader;
 }
 
-type Props = {
-  /**
-   * Which providers the API says are usable, with their public client ids.
-   * Read server-side and passed down — see `lib/api/auth.ts#getSocialConfig`.
-   */
-  config: SocialConfig;
-  /** Called with a verified-by-the-provider credential. The caller owns error handling and redirects. */
-  onCredential: (
-    provider: "google" | "apple",
-    credential: { idToken: string; nonce?: string },
-  ) => void;
-  disabled?: boolean;
-  /**
-   * Verb for the accessible labels.
-   *
-   * `"Continue"` since M25, because the one form is both — the button
-   * cannot honestly say "Sign in" when it may be about to create an
-   * account.
-   */
-  action: "Sign in" | "Sign up" | "Continue";
-};
-
-/**
- * Google/Apple sign-in, rendered **underneath** whichever form is active on
- * `/login` and `/signup` rather than behind a third "Social" tab.
- *
- * A tab framed social as a third thing you had to go and find; the
- * convention everywhere else is that social sits below the form, under a
- * divider, always visible. It is also why this is one shared component.
- *
- * **The two buttons are deliberately not twins, and that asymmetry is not
- * a bug to fix (M27).** Google Identity Services only hands out an
- * id-token through *its own* rendered button or the One Tap overlay —
- * there is no supported way to trigger the credential flow from our
- * markup. So Google gets Google's button, sized to sit level with ours
- * and never restyled, on the same footing as the App Store and Play marks
- * in `StoreBadges`. Apple's flow is a redirect and works from a real
- * button, so Apple keeps ours. Making them match again means either
- * breaking Google's brand terms or dropping to an OAuth code flow, which
- * is a different server contract.
- *
- * **Nothing renders for a provider the API reports as off.** Config is
- * read server-side and fails closed, so an unreachable API shows no
- * social buttons rather than buttons that cannot work.
- */
-export function SocialSignIn({ config, onCredential, disabled, action }: Props) {
+export function ActiveSocialSignIn({ config, onCredential, disabled, action }: Props) {
   const googleSlot = useRef<HTMLDivElement | null>(null);
   const [googleFailed, setGoogleFailed] = useState(false);
   const nonceRef = useRef<string>("");
   const reactId = useId();
 
-  // Held in a ref so re-renders (the parent's `busy` flips on submit)
-  // never re-run the GIS initialise effect, which would re-render the
-  // button and drop the one the user is mid-click on.
   const onCredentialRef = useRef(onCredential);
   useEffect(() => {
     onCredentialRef.current = onCredential;
@@ -154,9 +132,6 @@ export function SocialSignIn({ config, onCredential, disabled, action }: Props) 
     if (!googleClientId || !googleSlot.current) return;
     let cancelled = false;
 
-    // One nonce per mount, echoed inside the signed token and re-checked
-    // by the server, so a token captured in flight cannot be replayed
-    // against a later attempt.
     const nonce =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -171,8 +146,6 @@ export function SocialSignIn({ config, onCredential, disabled, action }: Props) 
         api.initialize({
           client_id: googleClientId,
           nonce,
-          // No One Tap: an overlay that appears unasked on a page the
-          // visitor deliberately opened is a surprise, not a shortcut.
           auto_select: false,
           cancel_on_tap_outside: true,
           callback: (res) => {
@@ -250,3 +223,4 @@ export function SocialSignIn({ config, onCredential, disabled, action }: Props) 
     </div>
   );
 }
+======================================================================= */
