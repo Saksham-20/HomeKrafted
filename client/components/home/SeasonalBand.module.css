@@ -5,16 +5,31 @@
   padding: clamp(16px, 2vw, 24px) clamp(18px, 2.5vw, 32px);
   border-radius: var(--hk-r-xl, 18px);
   background: linear-gradient(135deg, #fdf8ee 0%, #faefe0 100%);
-  border: 1px solid var(--hk-border, #eceae4);
-  border-left: 5px solid var(--hk-gold, #b98724);
+  /*
+   * The 5px gold side-tab is gone. A thick coloured border on one edge of a
+   * card is the single most recognisable tell of a generated interface, and
+   * it was doing a job the band already does better: the countdown number
+   * on the left is the gold anchor, so the stripe was a second one beside
+   * it. A 1px gold hairline keeps the warmth without the costume.
+   *
+   * Elevation is declared once — the 2%-alpha shadow under a 1px border was
+   * the ghost card, invisible at that opacity and paid for on every paint.
+   */
+  border: 1px solid rgba(185, 135, 36, 0.28);
   text-decoration: none;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
-  transition: transform 0.3s var(--hk-ease), box-shadow 0.3s var(--hk-ease);
+  transition: transform 0.22s var(--hk-ease), border-color 0.22s var(--hk-ease);
 }
 
-.band:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(185, 135, 36, 0.08);
+@media (hover: hover) and (pointer: fine) {
+  .band:hover {
+    transform: translateY(-2px);
+    border-color: rgba(185, 135, 36, 0.5);
+  }
+}
+
+.band:active {
+  transform: scale(0.99);
+  transition-duration: 0.12s;
 }
 
 .numberWrap {

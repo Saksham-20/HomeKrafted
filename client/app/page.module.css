@@ -1,14 +1,33 @@
 /* ── Landing Page Root Background & Polish ─────────────────────── */
+
+/*
+ * KNOWN TOKEN GAP — flagged, not invented (the CLAUDE.md rule for a missing
+ * token: hardcode it locally with a comment and say so, never add a name to
+ * `tokens.css`).
+ *
+ * There are three values for one surface right now. `tokens.css` still ships
+ * `--hk-bg: #F4F3F0`, the white-first canvas. `DESIGN.md` approved a paper
+ * canvas of `#F7F1E6` on 2026-09-02 and its Phase 1 (the `tokens.extend.css`
+ * override) has not landed. This page then hardcoded `#faf7f2`, a fourth
+ * position between the two. The value is kept because it is what the owner
+ * tuned against; it is named here so the disagreement is visible and so the
+ * day DESIGN.md Phase 1 lands, this is one line to delete rather than a hex
+ * somebody has to find.
+ */
 .landingPage {
-  background-color: #faf7f2;
-  background-image:
-    radial-gradient(ellipse at 18% 4%, rgba(228, 200, 116, 0.08) 0%, transparent 45%),
-    radial-gradient(ellipse at 82% 28%, rgba(35, 66, 51, 0.035) 0%, transparent 55%),
-    radial-gradient(ellipse at 25% 68%, rgba(182, 93, 60, 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 78% 92%, rgba(228, 200, 116, 0.06) 0%, transparent 45%);
+  --hk-landing-paper: #faf7f2;
+
+  background-color: var(--hk-landing-paper);
   min-height: 100vh;
   position: relative;
-  overflow: hidden;
+  /*
+   * `overflow: hidden` here made the whole page a scroll container, which
+   * silently kills `position: sticky` for every descendant — nothing on the
+   * page uses it today, and the next thing that does would fail with no
+   * error. `overflow-x: clip` contains the same horizontal overflow without
+   * creating one.
+   */
+  overflow-x: clip;
 }
 
 /* ── Full Viewport Hero Screen ────────────────────────────────── */
@@ -140,24 +159,33 @@
   }
 }
 
-/* ── Section 6: In-House Brand Shelf Container ────────────────── */
+/*
+ * ONE panel on this page, and it is this one.
+ *
+ * Three sections used to wear the same costume — this shelf, the category
+ * rail and the occasion grid — each a white-0.9 surface at radius 22px with
+ * a 1px border and the identical `0 4px 18px rgba(35,66,51,.03)` shadow, two
+ * of them under the same 135deg gradient. Three copies of a container is not
+ * a rhythm; it flattens eleven sections into one texture and it is the
+ * "cards as page structure" shape DESIGN.md rules out for landing.
+ *
+ * This is the section that earns a box: "By HomeKrafted" is the platform's
+ * own shelf sitting in a page otherwise made of other people's kitchens, so
+ * the container carries information — this one is ours. The other two are
+ * ordinary rails and now sit on the page canvas like every other rail.
+ *
+ * Elevation is declared once. A 1px border under a wide soft shadow is the
+ * ghost card, and at 3% alpha over 18px of blur that shadow was invisible
+ * anyway: cost with no depth. Radius drops to the `--hk-r-xl` the token
+ * actually ships (20px); 22px was a hardcoded fallback that never applied.
+ */
 .brandShelfContainer {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(237, 243, 238, 0.8) 100%);
-  border-radius: var(--hk-r-xl, 22px);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(237, 243, 238, 0.82) 100%);
+  border-radius: var(--hk-r-xl);
   padding: clamp(18px, 2.5vw, 32px);
-  border: 1px solid rgba(35, 66, 51, 0.12);
-  box-shadow: 0 4px 18px rgba(35, 66, 51, 0.03);
+  border: 1px solid rgba(35, 66, 51, 0.14);
   position: relative;
   overflow: hidden;
-}
-
-/* ── Section 9: Categories Container (Visual Menu) ────────────── */
-.categoriesContainer {
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: var(--hk-r-xl, 22px);
-  border: 1px solid rgba(35, 66, 51, 0.08);
-  padding: clamp(18px, 2.5vw, 32px);
-  box-shadow: 0 4px 18px rgba(35, 66, 51, 0.03);
 }
 
 .categoryRail {
@@ -176,12 +204,10 @@
 }
 
 /* ── Section 10: Occasion Magazine Grid ───────────────────────── */
+/* Panel chrome removed — see the note on `.brandShelfContainer`. The grid
+   is its own container; a box around a box is the nested card. */
 .containerSage {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(237, 244, 238, 0.8) 100%);
-  border-radius: var(--hk-r-xl, 22px);
-  padding: clamp(18px, 2.5vw, 32px);
-  border: 1px solid rgba(27, 67, 50, 0.1);
-  box-shadow: 0 4px 18px rgba(27, 67, 50, 0.03);
+  padding-block: clamp(4px, 0.6vw, 8px);
 }
 
 .occasionGrid {
@@ -190,9 +216,9 @@
   gap: clamp(12px, 1.6vw, 18px);
 }
 
-.occasionGrid > * {
-  grid-column: span 1 !important;
-}
+/* `.occasionGrid > * { grid-column: span 1 !important }` was here. It was
+   dead twice over: `OccasionTile` sets no `grid-column` for it to beat, and
+   `span 1` is what a grid item does anyway. Removed rather than de-flagged. */
 
 @media (max-width: 960px) {
   .occasionGrid {

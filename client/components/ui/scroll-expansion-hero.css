@@ -193,18 +193,28 @@
     0 10px 30px rgba(0, 0, 0, 0.6),
     0 0 16px rgba(228, 200, 116, 0.2);
   cursor: pointer;
-  transition: opacity 0.2s ease, border-color 0.25s ease, background 0.25s ease, transform 0.25s ease;
-  animation: hintFloat 2.6s ease-in-out infinite;
+  transition: opacity 0.2s ease, border-color 0.22s var(--hk-ease), background 0.22s var(--hk-ease), transform 0.22s var(--hk-ease);
+  /* Bounded, for the same reason as the chevron inside it: the pill and its
+     icon were each looping forever, so the first viewport had two things
+     breathing beside the two doors that are the actual offer. */
+  animation: hintFloat 2.6s var(--hk-ease, cubic-bezier(.2,.7,.2,1)) 3;
   white-space: nowrap;
 }
 
-.scroll-expand-hint:hover {
-  background: rgba(14, 28, 20, 0.94);
-  border-color: var(--hk-gold-bright, #ffbc0e);
-  transform: translateX(-50%) translateY(-2px);
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.75),
-    0 0 24px rgba(228, 200, 116, 0.4);
+@media (hover: hover) and (pointer: fine) {
+  .scroll-expand-hint:hover {
+    background: rgba(14, 28, 20, 0.94);
+    border-color: var(--hk-gold-bright, #ffbc0e);
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow:
+      0 12px 32px rgba(0, 0, 0, 0.75),
+      0 0 24px rgba(228, 200, 116, 0.4);
+  }
+}
+
+.scroll-expand-hint:active {
+  transform: translateX(-50%) scale(0.97);
+  transition-duration: 0.12s;
 }
 
 .scroll-expand-hint-text {
@@ -218,7 +228,14 @@
   align-items: center;
   justify-content: center;
   color: var(--hk-gold-bright, #ffbc0e);
-  animation: hintBounce 1.5s ease-in-out infinite;
+  /*
+   * Three nudges, then still. This looped forever, which is idle wobble: a
+   * decorative element breathing in the corner of the first viewport, next
+   * to the two doors that are the actual thing to look at. Motion here has
+   * a job — point once, insistently — and a job that is done should stop.
+   * The reduced-motion block at the foot of this file already cancels it.
+   */
+  animation: hintNudge 1.1s var(--hk-ease, cubic-bezier(.2,.7,.2,1)) 3;
 }
 
 @keyframes hintFloat {
@@ -230,12 +247,17 @@
   }
 }
 
-@keyframes hintBounce {
-  0%, 100% {
+/* Decelerating out and back, not a symmetric ease-in-out bob — real things
+   settle rather than oscillate evenly. */
+@keyframes hintNudge {
+  0% {
     transform: translateY(0);
   }
-  50% {
-    transform: translateY(3px);
+  40% {
+    transform: translateY(4px);
+  }
+  100% {
+    transform: translateY(0);
   }
 }
 

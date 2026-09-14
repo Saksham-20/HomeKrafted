@@ -318,26 +318,24 @@ export default async function Home() {
 
       {/* ── 9. Categories ("What are you in the mood for" - The Visual Menu) ── */}
       <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
-        <div className={styles.categoriesContainer}>
-          <div className={styles.sectionHead}>
-            <div>
-              <span className={styles.eyebrow}>Homemade food</span>
-              <h2 className={styles.sectionTitle}>What are you in the mood for</h2>
-            </div>
-            <Link href="/shop" className={styles.viewAll}>
-              All categories →
-            </Link>
+        <div className={styles.sectionHead}>
+          <div>
+            <span className={styles.eyebrow}>Homemade food</span>
+            <h2 className={styles.sectionTitle}>What are you in the mood for</h2>
           </div>
-          <ScrollRail label="categories" className={styles.categoryRail}>
-            {photographedCategories.map((category) => (
-              <CategoryTile
-                key={category.id}
-                category={category}
-                href={`/shop?category=${category.slug}`}
-              />
-            ))}
-          </ScrollRail>
+          <Link href="/shop" className={styles.viewAll}>
+            All categories →
+          </Link>
         </div>
+        <ScrollRail label="categories" className={styles.categoryRail}>
+          {photographedCategories.map((category) => (
+            <CategoryTile
+              key={category.id}
+              category={category}
+              href={`/shop?category=${category.slug}`}
+            />
+          ))}
+        </ScrollRail>
       </section>
 
       {/* ── 10. Occasions ("Someone you owe a present" - Magazine Grid) ── */}
