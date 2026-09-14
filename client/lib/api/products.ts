@@ -132,12 +132,38 @@ export async function getCraftProducts(near?: { lat: number; lng: number }): Pro
  * two verticals; `/gifts` was filtered and `/shop` was left as the
  * everything-page it had been before crafts existed.
  */
+/**
+ * `/shop` derives its kitchen list from these rows, so the page size
+ * decides which KITCHENS exist, not just which dishes.
+ *
+ * `buildKitchens` groups the products the page fetched (M51), which is
+ * what keeps the delivery-radius filter in one place. The cost is that a
+ * kitchen with no product inside the fetched page does not exist on the
+ * page at all — and at `pageSize: 100` against 113 live food listings,
+ * two real kitchens (My Indian Jar, 8 listings; The Sacred Pour, 3) were
+ * already invisible to a buyer with no location set. The ordering is
+ * `rating desc, reviewCount desc, id asc`, and a catalogue with almost no
+ * reviews collapses that to creation order, so the kitchens that
+ * disappear are the newest ones — the opposite of what anybody wants.
+ *
+ * 500 is the server's own ceiling: `@Max(500)` on the query DTO, matching
+ * the `take: 500` candidate cap the located path already uses. So this
+ * asks for exactly as much as the API will ever consider, and the
+ * client's number stops being an arbitrary second limit below it.
+ *
+ * Past 500 live food listings this needs the vendor set as a real facet
+ * computed over the whole matching query, not a wider page — filtering
+ * stays a client-side `useMemo` (M49) and that much further is a payload
+ * problem rather than a correctness one.
+ */
+const BROWSE_PAGE_SIZE = 500;
+
 export async function getFoodProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
   if (isMockMode()) return products.filter((p) => p.kind !== "craft" && isBrowsable(p));
   const page = await http.get<ProductsPage>("/products", {
     auth: false,
     query: {
-      pageSize: 100,
+      pageSize: BROWSE_PAGE_SIZE,
       kind: "food",
       ...(near ? { lat: near.lat, lng: near.lng } : {}),
     },
