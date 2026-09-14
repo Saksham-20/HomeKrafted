@@ -135,6 +135,57 @@ export function parsePrepTime(raw: string): number | undefined {
   return Math.floor(n);
 }
 
+/**
+ * The longest a variant label may be, mirroring
+ * `server/src/seller/dto/create-listing.dto.ts`'s `WeightOptionInputDto`.
+ *
+ * Unlike the two identifier parsers (M17), this one is **exactly** the
+ * server's number rather than deliberately looser. The reason is what the
+ * value is for: an identifier parser only decides whether to enable a
+ * button, so a false negative strands somebody at a dead control. This
+ * decides whether a form can produce a payload the server will accept at
+ * all — being looser here means the form keeps letting somebody build a
+ * label that cannot be saved, which is the bug this exists to close. The
+ * server stays the authority; this is the form refusing to offer an action
+ * that cannot succeed.
+ *
+ * The limit is not arbitrary and must not be raised to make a long label
+ * fit: the column is unbounded `String` in Postgres, but this label is
+ * printed on the product card, in every cart row and on every order line,
+ * and those are the layouts that break instead. `WeightOption.label` is
+ * a size, not a description.
+ */
+export const VARIANT_LABEL_MAX = 40;
+
+/**
+ * How a size and a colour become one `WeightOption.label`.
+ *
+ * Extracted so the guided form, the full form and `toSellerListingInput`
+ * all measure the same string. They did not: only the submit path built
+ * the merged label, so the guided flow's colour swatches could be ticked
+ * until the label was any length at all, and the maker learned about the
+ * limit from the server, at the bottom of the form, as
+ * `weightOptions.0.label must be shorter than or equal to 40 characters`.
+ */
+export function mergeVariantLabel(size: string, colour?: string): string {
+  const trimmedColour = colour?.trim();
+  const trimmedSize = size.trim();
+  if (!trimmedColour) return trimmedSize;
+  return trimmedSize ? `${trimmedSize} · ${trimmedColour}` : trimmedColour;
+}
+
+/**
+ * The sentence a HomeKrafter should read, or `undefined` when the label is
+ * fine. Names the thing they can see and change (the size and the colours),
+ * never `weightOptions.0.label`, and says what to do about it.
+ */
+export function variantLabelError(size: string, colour?: string): string | undefined {
+  const label = mergeVariantLabel(size, colour);
+  if (label.length <= VARIANT_LABEL_MAX) return undefined;
+  const over = label.length - VARIANT_LABEL_MAX;
+  return `Size and colour together come to ${label.length} characters — ${over} too many. Shoppers see this on the product card, so it has to stay under ${VARIANT_LABEL_MAX}. Pick fewer colours here and add another option for the rest, or shorten the size.`;
+}
+
 export function parseStock(raw: string): number {
   const trimmed = raw.trim();
   if (trimmed === "") return DEFAULT_STOCK;
@@ -149,9 +200,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     // the label — "Small · Rose gold" — keeping everything downstream
     // (cart, order, PDP) label-driven until the full ProductOption model
     // ships. See docs/CLIENT-CHANGES-2026-09.md § G.
-    const colour = row.colour?.trim();
-    const size = row.label.trim();
-    const mergedLabel = colour ? (size ? `${size} · ${colour}` : colour) : size;
+    const mergedLabel = mergeVariantLabel(row.label, row.colour);
     return {
       sku: row.sku ?? `${slugify(values.name)}-${slugify(mergedLabel)}`,
       label: mergedLabel,
@@ -224,8 +273,21 @@ export function validateListingForm(values: ListingFormValues): ListingFormError
     }
   }
   values.weightRows.forEach((row, index) => {
-    if (!row.label.trim()) {
-      errors.weightRows = { ...(errors.weightRows ?? {}), [index]: "Every size needs a label — “250 g”, “One”, “Box of 6”." };
+    /*
+     * Both checks measure what the server measures.
+     *
+     * The length one was missing entirely, and the guided flow merges the
+     * colour swatches into this same string — so ticking a fifth colour
+     * built a label the server refuses, and the only thing that ever said
+     * so was the API, at the bottom of a finished form, as
+     * "weightOptions.0.label must be shorter than or equal to 40
+     * characters". A HomeKrafter cannot act on a DTO field path.
+     */
+    const problem = !row.label.trim()
+      ? "Every size needs a label — “250 g”, “One”, “Box of 6”."
+      : variantLabelError(row.label, row.colour);
+    if (problem) {
+      errors.weightRows = { ...(errors.weightRows ?? {}), [index]: problem };
     }
   });
   return errors;

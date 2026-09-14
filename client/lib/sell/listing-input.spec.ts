@@ -4,6 +4,9 @@ import {
   EMPTY_LISTING_FORM,
   validateListingForm,
   hasListingFormErrors,
+  mergeVariantLabel,
+  variantLabelError,
+  VARIANT_LABEL_MAX,
 } from "./listing-input";
 
 describe("toSellerListingInput", () => {
@@ -213,5 +216,72 @@ describe("validateListingForm", () => {
     expect(errors.ingredients).toBeUndefined();
     expect(errors.shelfLife).toBeUndefined();
     expect(hasListingFormErrors(errors)).toBe(false);
+  });
+});
+
+/**
+ * Regression: the guided flow's colour swatches append to one string that
+ * becomes `WeightOption.label`, capped at 40 by
+ * `server/src/seller/dto/create-listing.dto.ts`. Nothing on the client
+ * measured it, so the fifth swatch on a row built a listing the server
+ * refused and the maker was shown the DTO's own words:
+ * "weightOptions.0.label must be shorter than or equal to 40 characters".
+ *
+ * The 40 is computed against, not restated, so this fails if either side
+ * moves without the other.
+ */
+describe("variant label length (the five-swatch refusal)", () => {
+  const FIVE_SWATCHES = "Black, White, Cream, Rose gold, Gold";
+
+  it("mirrors the server's cap exactly", () => {
+    expect(VARIANT_LABEL_MAX).toBe(40);
+  });
+
+  it("merges size and colour the way the payload does", () => {
+    expect(mergeVariantLabel("One", "Blush")).toBe("One · Blush");
+    expect(mergeVariantLabel("", "Blush")).toBe("Blush");
+    expect(mergeVariantLabel("One", "")).toBe("One");
+    expect(mergeVariantLabel("  One  ", "  Blush  ")).toBe("One · Blush");
+  });
+
+  it("accepts four swatches and refuses five", () => {
+    const four = "Black, White, Cream, Rose gold";
+    expect(mergeVariantLabel("One", four).length).toBeLessThanOrEqual(VARIANT_LABEL_MAX);
+    expect(variantLabelError("One", four)).toBeUndefined();
+
+    expect(mergeVariantLabel("One", FIVE_SWATCHES).length).toBeGreaterThan(VARIANT_LABEL_MAX);
+    expect(variantLabelError("One", FIVE_SWATCHES)).toBeDefined();
+  });
+
+  it("says it in the maker's words, never the server's field path", () => {
+    const message = variantLabelError("One", FIVE_SWATCHES) ?? "";
+    expect(message).not.toContain("weightOptions");
+    expect(message).not.toContain("label must be");
+    expect(message).toContain("Size and colour");
+    // Names the way out, not just the problem.
+    expect(message).toContain("another option");
+  });
+
+  it("blocks the save before the request, and marks the row", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Lily Crochet Flowers",
+      categoryId: "cat-craft",
+      description: "Hand-crocheted lilies tied with organza ribbon.",
+      kind: "craft",
+      weightRows: [
+        { label: "One", colour: FIVE_SWATCHES, price: "359", mrp: "359", stock: "10" },
+      ],
+    };
+
+    // The payload really would be refused — this is the bug, not a proxy for it.
+    expect(toSellerListingInput(values).weightOptions[0].label.length).toBeGreaterThan(
+      VARIANT_LABEL_MAX,
+    );
+
+    const errors = validateListingForm(values);
+    expect(hasListingFormErrors(errors)).toBe(true);
+    expect(errors.weightRows?.[0]).toBeDefined();
+    expect(errors.weightRows?.[0]).not.toContain("weightOptions");
   });
 });

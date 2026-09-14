@@ -14,6 +14,11 @@ import { markupBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
+import {
+  VARIANT_LABEL_MAX,
+  mergeVariantLabel,
+  variantLabelError,
+} from "@/lib/sell/listing-input";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
@@ -216,9 +221,33 @@ export function GuidedListingForm({
       .filter(Boolean);
   }
 
+  /**
+   * Would ticking this swatch produce a label the server refuses?
+   *
+   * Every tick appends ", Colour" to one string that becomes
+   * `WeightOption.label`, capped at 40 characters. Nothing measured it, so
+   * the fifth swatch on a row silently built an unsaveable listing and the
+   * maker found out at Submit, in the server's own words
+   * ("weightOptions.0.label must be shorter than or equal to 40
+   * characters"). Untickable swatches are disabled and say why, rather than
+   * removed — a colour that vanishes when you pick another one is worse.
+   */
+  function colourWouldOverflow(rowIndex: number, colourName: string): boolean {
+    const row = rows[rowIndex];
+    if (!row) return false;
+    const current = parseColours(row.colour);
+    if (current.some((c) => c.toLowerCase() === colourName.toLowerCase())) return false;
+    return (
+      mergeVariantLabel(row.label, [...current, colourName].join(", ")).length >
+      VARIANT_LABEL_MAX
+    );
+  }
+
   function toggleColour(rowIndex: number, colourName: string) {
     const current = parseColours(rows[rowIndex]?.colour);
     const exists = current.some((c) => c.toLowerCase() === colourName.toLowerCase());
+    // Unticking is always allowed — it can only shorten the label.
+    if (!exists && colourWouldOverflow(rowIndex, colourName)) return;
     const next = exists
       ? current.filter((c) => c.toLowerCase() !== colourName.toLowerCase())
       : [...current, colourName];
@@ -609,6 +638,7 @@ export function GuidedListingForm({
                             const isLight = ["White", "Cream", "Silver", "Mint", "Lilac"].includes(
                               swatch.name,
                             );
+                            const wouldOverflow = colourWouldOverflow(index, swatch.name);
                             return (
                               <button
                                 key={swatch.name}
@@ -616,10 +646,20 @@ export function GuidedListingForm({
                                 className={clsx(
                                   styles.swatch,
                                   isSelected && styles.swatchActive,
+                                  wouldOverflow && styles.swatchDisabled,
                                 )}
                                 style={{ background: swatch.hex }}
-                                title={swatch.name}
-                                aria-label={swatch.name}
+                                disabled={wouldOverflow}
+                                title={
+                                  wouldOverflow
+                                    ? `${swatch.name} — no room left on this option's label. Add another option for more colours.`
+                                    : swatch.name
+                                }
+                                aria-label={
+                                  wouldOverflow
+                                    ? `${swatch.name}, unavailable — no room left on this option's label`
+                                    : swatch.name
+                                }
                                 aria-pressed={isSelected}
                                 onClick={() => toggleColour(index, swatch.name)}
                               >
@@ -644,6 +684,33 @@ export function GuidedListingForm({
                         <span className={styles.fieldHint}>
                           Select multiple colours or type them separated by commas.
                         </span>
+                        {/*
+                          The limit is shown where the label is built, not at
+                          Submit. Before this the only signal was the server's
+                          field path at the bottom of the form, after every
+                          other answer had been typed.
+                        */}
+                        {(() => {
+                          const problem = variantLabelError(row.label, row.colour);
+                          if (problem) {
+                            return (
+                              <span className={styles.fieldError} role="alert">
+                                {problem}
+                              </span>
+                            );
+                          }
+                          const used = mergeVariantLabel(row.label, row.colour).length;
+                          if (used > VARIANT_LABEL_MAX - 10) {
+                            return (
+                              <span className={styles.fieldHint}>
+                                {VARIANT_LABEL_MAX - used} characters left on this
+                                option&rsquo;s label. Need more colours? Add another
+                                option.
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </label>
                     )}
 

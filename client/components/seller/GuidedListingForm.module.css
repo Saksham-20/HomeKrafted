@@ -670,8 +670,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.12s, border-color 0.12s;
+  transition: transform 0.12s var(--hk-ease), border-color 0.12s var(--hk-ease),
+              opacity 0.12s var(--hk-ease);
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+/*
+ * A colour that will not fit on this option's label. Dimmed and disabled
+ * rather than hidden — a swatch that disappears when you pick another one
+ * reads as a bug, and the title/aria-label say what to do instead (add
+ * another option).
+ */
+.swatchDisabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .swatch:hover {
@@ -769,6 +782,16 @@
   display: block;
   font-size: 12px;
   color: var(--hk-muted);
+  margin-top: 5px;
+}
+
+/* Terracotta on white is 4.55:1 — the base token is fine as text here (the
+   `--hk-terracotta-text` variant is for the terracotta tint). */
+.fieldError {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--hk-terracotta, #b85f3d);
   margin-top: 5px;
 }
 
