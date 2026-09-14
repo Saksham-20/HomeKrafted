@@ -238,6 +238,13 @@ export class ProductsService {
     const buyer = buyerCoords;
 
     const distanceByProduct = new Map<string, number>();
+    /**
+     * Products kept only because `includeOutOfRange` was asked for. They
+     * are beyond their kitchen's delivery radius and are marked
+     * `deliverable: false` on the way out, never silently mixed in.
+     */
+    const outOfRange = new Set<string>();
+    const includeOutOfRange = query.includeOutOfRange === true;
     let inRange = candidates;
     if (buyer) {
       inRange = candidates.filter((p) => {
@@ -254,7 +261,14 @@ export class ProductsService {
           distanceByProduct.set(p.id, km);
           return true;
         }
-        if (km > v.deliveryRadiusKm) return false;
+        if (km > v.deliveryRadiusKm) {
+          if (!includeOutOfRange) return false;
+          // Kept and labelled. The caller asked to show the whole city and
+          // say which half can actually reach this address.
+          outOfRange.add(p.id);
+          distanceByProduct.set(p.id, km);
+          return true;
+        }
         distanceByProduct.set(p.id, km);
         return true;
       });
@@ -326,6 +340,10 @@ export class ProductsService {
           ...(km !== undefined
             ? { distanceKm: Math.round(km * 10) / 10, distanceLabel: formatDistanceKm(km) }
             : {}),
+          // Only ever `false`, and only when the caller opted in. Absent
+          // means "not asked" — never `true` by default, so no existing
+          // reader starts branching on a field it has never seen.
+          ...(outOfRange.has(id) ? { deliverable: false as const } : {}),
         },
       ];
     });

@@ -29,6 +29,10 @@ enum UserRole {
   consumer
   seller
   admin
+  /// Own-fleet delivery partner (R1, docs/RIDER-APP.md). Phone-OTP sign-in,
+  /// same as every other role; a `consumer` flips to `rider` at
+  /// `POST /rider-enrolment`, never at registration — see `Rider` below.
+  rider
 }
 
 enum AuthProvider {
@@ -551,6 +555,9 @@ enum AdminScope {
   settings
   /// Dashboard, analytics, reports, exports.
   analytics
+  /// Rider fleet: onboarding review, documents, zones, deliveries,
+  /// deposits, payouts, SOS (R1, docs/RIDER-APP.md).
+  riders
 }
 
 model User {
@@ -670,6 +677,19 @@ model User {
   taxonomySuggestions     TaxonomySuggestion[]     @relation("TaxonomySuggestionAuthor")
   taxonomyDecisions       TaxonomySuggestion[]     @relation("TaxonomySuggestionReviewer")
 
+  /// R1 (docs/RIDER-APP.md) — the delivery-partner account, 1:1 the way
+  /// `seller` is. Named because `Rider` also has an `approvedById` FK to
+  /// `User`, which Prisma cannot tell apart from this one without both
+  /// being named.
+  rider                  Rider?           @relation("RiderAccount")
+  ridersApproved         Rider[]          @relation("RiderApprovedBy")
+  riderDocumentsReviewed RiderDocument[]
+  deliveryProofsUploaded DeliveryProof[]
+  riderCashEntriesMade   RiderCashEntry[]
+  riderDepositsDecided   RiderDeposit[]
+  riderPayoutsDecided    RiderPayout[]
+  riderSosResolved       RiderSosEvent[]
+
   @@index([role])
 }
 
@@ -696,11 +716,12 @@ model Address {
   /// When the buyer deleted this address (2026-09-06). **Deleting an
   /// address archives it; nothing removes the row.**
   ///
-  /// Eight tables point here — cart items, order lines, shipments,
+  /// Nine tables point here — cart items, order lines, shipments,
   /// hampers, meal subscriptions, gift-recipient orders, laundry
-  /// bookings and consignments — and every one of those relations is
-  /// `Restrict`, which is correct: an order has to keep saying where it
-  /// went. The consequence was that `DELETE /users/me/addresses/:id`
+  /// bookings, consignments and (R1) delivery jobs — and every one of
+  /// those relations is `Restrict`, which is correct: an order has to
+  /// keep saying where it went. The consequence was that
+  /// `DELETE /users/me/addresses/:id`
   /// raised a foreign-key violation for any address that had ever been
   /// in a cart, and the global filter turns that into a bare 500
   /// ("Something went wrong") — so the one address a buyer actually
@@ -724,6 +745,8 @@ model Address {
   ordersAsGiftRecipient Order[]            @relation("OrderGiftRecipientAddress")
   laundryBookings       LaundryBooking[]
   consignments          Consignment[]
+  /// R1 (docs/RIDER-APP.md) — the drop address of a fleet delivery.
+  deliveryJobs          DeliveryJob[]
 
   /// `archivedAt` in the key because every list of a buyer's addresses
   /// now asks for the live ones, and that is the only query this table
@@ -1387,6 +1410,10 @@ model Vendor {
   /// M50 — shelves and occasions this storefront has asked for.
   taxonomySuggestions TaxonomySuggestion[]
   consignments        Consignment[]
+  /// R1 (docs/RIDER-APP.md) — parcels of this kitchen's own orders
+  /// carried by the fleet, distinct from `consignments` (a courier
+  /// booking, gifts-only).
+  deliveryJobs        DeliveryJob[]
 }
 
 /// M16 (M2). A day this kitchen is not taking orders — a festival they
@@ -2167,6 +2194,9 @@ model Order {
   shipments      OrderShipment[]
   razorpayOrders RazorpayOrder[]
   consignments   Consignment[]
+  /// R1 (docs/RIDER-APP.md) — this order's parcels, carried by our own
+  /// fleet rather than a courier.
+  deliveryJobs   DeliveryJob[]
 
   /// `[userId]` alone was the only index here, and no query uses it on its
   /// own: every buyer-facing read is `where userId orderBy placedAt desc`
@@ -3015,4 +3045,547 @@ model ConsignmentEvent {
   /// delivery attempt), which is why `eventAt` is in the key.
   @@unique([consignmentId, courierStatus, eventAt])
   @@index([consignmentId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Rider fleet (R1) — docs/RIDER-APP.md is the plan; this section is the
+// data model it prescribes in §3. The whole shape, including the R2/R3
+// tables (`DeliveryJob`, `DeliveryOffer`, `DeliveryProof`,
+// `RiderLocationPing`, `RiderCashEntry`, `RiderDeposit`, `RiderPayout`,
+// `RiderSosEvent`), lands in one migration so it settles once — only
+// `Rider`, `RiderDocument` and `DeliveryZone` get real service logic in
+// R1. This is a **separate object from `Consignment`** (D4 in the plan):
+// a `Consignment` is a gifts-only courier record fed by an unsigned
+// callback; a fleet job carries food, has an OTP, photos, a rider, cash
+// and pay.
+// ---------------------------------------------------------------------------
+
+enum RiderStatus {
+  applied
+  under_review
+  approved
+  rejected
+  suspended
+  deactivated
+}
+
+/// `ev_bike` means a sub-250W electric cycle, legally a bicycle — it
+/// needs no DL/RC, same as `bicycle` (see the required-documents rule on
+/// `RiderOnboardingService`).
+enum VehicleType {
+  bicycle
+  ev_bike
+  scooter
+  motorcycle
+}
+
+enum RiderDocumentKind {
+  selfie
+  aadhaar_front
+  aadhaar_back
+  pan
+  dl_front
+  dl_back
+  vehicle_rc
+  vehicle_insurance
+  vehicle_photo
+  bank_proof
+  police_verification
+}
+
+enum DocumentStatus {
+  pending
+  approved
+  rejected
+}
+
+enum CashSettlementMode {
+  deduct_from_payout
+  deposit
+}
+
+enum DeliveryJobStatus {
+  unassigned
+  offered
+  accepted
+  at_pickup
+  picked_up
+  at_drop
+  delivered
+  failed
+  returned
+  cancelled
+}
+
+enum DeliveryOfferStatus {
+  offered
+  accepted
+  declined
+  expired
+  withdrawn
+}
+
+enum DeliveryProofStage {
+  pickup_rider
+  pickup_chef
+  drop
+  failed_attempt
+}
+
+/// Sign convention lives in R3's `cash-ledger.ts`, not here: `cod_collected`
+/// is positive (the rider owes the platform), `deposit` and
+/// `payout_deduction` are negative, `adjustment` can be either.
+enum RiderCashEntryType {
+  cod_collected
+  deposit
+  payout_deduction
+  adjustment
+}
+
+enum RiderDepositStatus {
+  pending
+  verified
+  rejected
+}
+
+enum RiderPayoutStatus {
+  pending
+  paid
+  rejected
+}
+
+enum SosStatus {
+  open
+  acknowledged
+  resolved
+}
+
+/// A circle a rider can be dispatched inside (D5 — circles, not polygons:
+/// cheap to evaluate, and an admin can draw one by typing a centre and a
+/// radius). Radius is validated 3–10 km at the DTO layer
+/// (`src/admin/riders/zones.controller.ts`), not here.
+model DeliveryZone {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  city      String
+  centerLat Float
+  centerLng Float
+  radiusKm  Int      @default(6)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  riders Rider[]
+  jobs   DeliveryJob[]
+
+  @@index([isActive])
+}
+
+/// One delivery partner. 1:1 with `User`, the way `Seller` is — a rider
+/// signs in through the same account system, and `role` flips
+/// `consumer -> rider` at `POST /rider-enrolment`
+/// (`RiderEnrolmentService`), never at registration.
+///
+/// Every identity/vehicle/bank field below is nullable, on purpose: the
+/// onboarding form is filled in a screen at a time
+/// (`PUT /rider/me/application`), so a half-finished application has to
+/// save without failing validation on fields not reached yet.
+/// Completeness — and the required-document set, which depends on
+/// `vehicleType` — is enforced by `RiderOnboardingService#assertComplete`
+/// at `POST /rider/me/submit`, not by this schema.
+model Rider {
+  id     String @id @default(cuid())
+  userId String @unique
+  /// Named — `approvedById` below is a second FK to `User`, and Prisma
+  /// cannot tell the two relations apart without both being named.
+  user   User   @relation("RiderAccount", fields: [userId], references: [id], onDelete: Cascade)
+
+  status     RiderStatus @default(applied)
+  statusNote String?
+
+  // --- Personal (onboarding §2.1 step 3) ----------------------------------
+  fullName    String?
+  /// `@db.Date` — a birthday has no time component, and storing one would
+  /// let a timezone conversion silently shift the date under it.
+  dateOfBirth DateTime? @db.Date
+  gender      String?
+  email       String?
+  homeLine1   String?
+  homeLine2   String?
+  homeCity    String?
+  homePincode String?
+  languages   String[]  @default([])
+
+  // --- Emergency contact (§2.1 step 4) — phone must differ from the
+  // rider's own, checked at the DTO layer, not here ------------------------
+  emergencyName     String?
+  emergencyRelation String?
+  emergencyPhone    String?
+
+  // --- Vehicle (§2.1 step 5) ----------------------------------------------
+  vehicleType   VehicleType?
+  vehicleNumber String?
+  dlNumber      String?
+  dlExpiry      DateTime?    @db.Date
+
+  // --- Identity (§2.1 step 6) — D12: never a full Aadhaar number, ever ---
+  aadhaarLast4 String? @db.Char(4)
+  panNumber    String?
+
+  // --- Bank (§2.1 step 7) --------------------------------------------------
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIfsc          String?
+  upiId             String?
+
+  // --- Zone + kit (§2.1 steps 9–10) ---------------------------------------
+  tshirtSize String?
+  homeZoneId String?
+  homeZone   DeliveryZone? @relation(fields: [homeZoneId], references: [id])
+
+  // --- Admin review (src/admin/riders) ------------------------------------
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  approvedById String?
+  approvedBy   User?     @relation("RiderApprovedBy", fields: [approvedById], references: [id])
+
+  // --- Cash + settlement (D8/D9). The balance itself is never stored —
+  // it is `SUM(RiderCashEntry.amount)`, computed on read, same rule as
+  // every other aggregate in this codebase. ---------------------------------
+  /// *(placeholder — §8 Q2)* An admin can raise this from the rider queue.
+  cashLimit      Decimal            @default(1500) @db.Decimal(12, 2)
+  settlementMode CashSettlementMode @default(deduct_from_payout)
+
+  // --- Duty + last-known location. R1 only stores these; R2's dispatcher
+  // and location-ingest routes are what write them. ------------------------
+  isOnline       Boolean   @default(false)
+  onlineSince    DateTime?
+  lastLat        Float?
+  lastLng        Float?
+  lastLocationAt DateTime?
+
+  // --- Consents (§2.1 step 2) — each its own timestamp, so a re-accepted
+  // version is provable rather than inferred from `updatedAt`. ------------
+  agreementVersion    String?
+  agreementAcceptedAt DateTime?
+  privacyVersion      String?
+  privacyAcceptedAt   DateTime?
+  locationConsentAt   DateTime?
+  bgvConsentAt        DateTime?
+
+  // --- Compliance (R4 builds on these; the columns land now so the
+  // migration is one shot, per the brief). ----------------------------------
+  deletionRequestedAt DateTime?
+  /// Social Security (Central) Rules gig-worker registration (§1 "law that
+  /// binds us"). Read by `GET /admin/riders/export/gig-registry` (R4);
+  /// nothing in R1 writes it.
+  govRegisteredAt     DateTime?
+  exitedAt            DateTime?
+
+  // --- Aggregates — recomputed from rows, never incremented (the
+  // cross-cutting rule; same as every rating/balance in this codebase). ----
+  deliveredCount Int      @default(0)
+  rating         Decimal? @db.Decimal(2, 1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents     RiderDocument[]
+  deliveryJobs  DeliveryJob[]
+  offers        DeliveryOffer[]
+  locationPings RiderLocationPing[]
+  cashEntries   RiderCashEntry[]
+  deposits      RiderDeposit[]
+  payouts       RiderPayout[]
+  sosEvents     RiderSosEvent[]
+
+  @@index([status])
+  @@index([homeZoneId])
+}
+
+/// One KYC/vehicle document, stored **outside** the public upload store
+/// (D11) — under `RIDER_KYC_DIR`, streamed only to an admin
+/// (`GET /admin/riders/:id/documents/:kind/file`). `storageKey` is a path
+/// built only from ids (`<riderId>/<kind>-<uuid>.webp`) — no URL is ever
+/// returned to the app or to an admin listing; see
+/// `RiderDocumentsService`.
+model RiderDocument {
+  id      String            @id @default(cuid())
+  riderId String
+  rider   Rider             @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  kind    RiderDocumentKind
+
+  storageKey String
+  status     DocumentStatus @default(pending)
+  note       String?
+
+  reviewedById String?
+  reviewedBy   User?     @relation(fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  uploadedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  /// One document per kind per rider — a re-upload replaces it (the old
+  /// file is deleted from disk and the row goes back to `pending`), it
+  /// never accumulates rows.
+  @@unique([riderId, kind])
+  @@index([status])
+}
+
+/// One kitchen's parcel of one order, to one address, carried by our own
+/// fleet — R1 lands the table; `DeliveryJobsService.createForOrder` (R2)
+/// is what populates it.
+model DeliveryJob {
+  id        String @id @default(cuid())
+  jobNumber String @unique
+
+  orderId   String
+  order     Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendorId  String
+  vendor    Vendor        @relation(fields: [vendorId], references: [id])
+  addressId String
+  address   Address       @relation(fields: [addressId], references: [id])
+  zoneId    String?
+  zone      DeliveryZone? @relation(fields: [zoneId], references: [id])
+  riderId   String?
+  rider     Rider?        @relation(fields: [riderId], references: [id])
+
+  status DeliveryJobStatus @default(unassigned)
+
+  /// Snapshotted at job creation, never re-read live: `Vendor.lat/lng`
+  /// and `Address.lat/lng` can both change after a job exists, and a
+  /// rider mid-delivery has to keep navigating to the point they
+  /// accepted, not to wherever the row points today.
+  pickupLat Float
+  pickupLng Float
+  dropLat   Float
+  dropLng   Float
+
+  /// Haversine × a road factor (see R2's `dispatch.ts` for the constant) —
+  /// straight-line distance undercounts actual city roads.
+  distanceKm Float?
+
+  /// Rupees, matching every other money column in this schema. NULL when
+  /// the order was prepaid (nothing for the rider to collect).
+  codAmount   Decimal? @db.Decimal(12, 2)
+  /// 4 random digits (crypto), shown to the buyer on their order page —
+  /// the fallback proof of delivery when a rider's word alone is not
+  /// enough.
+  deliveryOtp String?
+
+  // --- Pay (R2's `rider-pay.ts` computes these; R1 only has the columns) -
+  basePay      Decimal? @db.Decimal(12, 2)
+  distancePay  Decimal? @db.Decimal(12, 2)
+  waitPay      Decimal? @db.Decimal(12, 2)
+  incentivePay Decimal? @db.Decimal(12, 2)
+  totalPay     Decimal? @db.Decimal(12, 2)
+
+  // --- Step timestamps (§2.3) ----------------------------------------------
+  offeredAt       DateTime?
+  acceptedAt      DateTime?
+  arrivedPickupAt DateTime?
+  pickedUpAt      DateTime?
+  arrivedDropAt   DateTime?
+  deliveredAt     DateTime?
+
+  cancelReason  String?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offers        DeliveryOffer[]
+  proofs        DeliveryProof[]
+  locationPings RiderLocationPing[]
+  cashEntries   RiderCashEntry[]
+  sosEvents     RiderSosEvent[]
+
+  /// One job per (order, kitchen, destination) — the same shape as
+  /// `Consignment`'s unique key, and for the same reason: it is what
+  /// makes job creation safe to re-run.
+  @@unique([orderId, vendorId, addressId])
+  @@index([status])
+  @@index([riderId, status])
+  @@index([zoneId, status])
+  @@index([orderId])
+  @@index([vendorId])
+  @@index([addressId])
+}
+
+/// One ping to one rider for one job — D6's "one offer at a time, nearest
+/// eligible rider". R2's `DispatchService` is the only writer.
+model DeliveryOffer {
+  id      String      @id @default(cuid())
+  jobId   String
+  job     DeliveryJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  riderId String
+  rider   Rider       @relation(fields: [riderId], references: [id], onDelete: Cascade)
+
+  status      DeliveryOfferStatus @default(offered)
+  offeredAt   DateTime            @default(now())
+  expiresAt   DateTime
+  respondedAt DateTime?
+
+  /// A rider is offered a given job at most once — R2's ranking excludes
+  /// riders already holding a row here, so a decline never loops back to
+  /// the same person.
+  @@unique([jobId, riderId])
+  @@index([status, expiresAt])
+}
+
+/// A photograph taken at one stage of a job: the rider's own pickup shot,
+/// the kitchen's handover shot, the drop shot, or a failed-attempt door
+/// shot. Stored through the **public** upload pipeline
+/// (`purpose: 'delivery'`, R2) — unlike a KYC document, these are shown
+/// to the buyer, the kitchen and an admin in a dispute.
+model DeliveryProof {
+  id    String             @id @default(cuid())
+  jobId String
+  job   DeliveryJob        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  stage DeliveryProofStage
+
+  url String
+  lat Float?
+  lng Float?
+
+  takenAt      DateTime @default(now())
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([jobId, stage])
+}
+
+/// A GPS fix, batched from the app (`POST /rider/location`, ≤ 50 at a
+/// time). High-volume by design — R2's dispatcher purges pings older than
+/// 30 days on its hourly sweep, matching the retention promised in the
+/// rider privacy policy (§7).
+model RiderLocationPing {
+  id      String       @id @default(cuid())
+  riderId String
+  rider   Rider        @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  jobId   String?
+  job     DeliveryJob? @relation(fields: [jobId], references: [id])
+
+  lat        Float
+  lng        Float
+  accuracyM  Float?
+  speedMps   Float?
+  recordedAt DateTime
+
+  @@index([riderId, recordedAt])
+  @@index([recordedAt])
+}
+
+/// The cash ledger (D8) — a rider's balance is `SUM(amount)` over these
+/// rows, computed on read, **never** a counter column on `Rider`. Sign
+/// convention lives in R3's `cash-ledger.ts`.
+model RiderCashEntry {
+  id      String             @id @default(cuid())
+  riderId String
+  rider   Rider              @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  type    RiderCashEntryType
+  amount  Decimal            @db.Decimal(12, 2)
+
+  jobId     String?
+  job       DeliveryJob?  @relation(fields: [jobId], references: [id])
+  depositId String?
+  deposit   RiderDeposit? @relation(fields: [depositId], references: [id])
+  payoutId  String?
+  payout    RiderPayout?  @relation(fields: [payoutId], references: [id])
+
+  note        String?
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([riderId, createdAt])
+}
+
+/// A UPI deposit a rider says they made, pending admin verification (D10
+/// — v1 is UTR-and-verify; Razorpay collect is R3b). No `RiderCashEntry`
+/// exists for this until it is verified — see R3's verify route.
+model RiderDeposit {
+  id      String  @id @default(cuid())
+  riderId String
+  rider   Rider   @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  amount  Decimal @db.Decimal(12, 2)
+  /// UPI RRN — 12 digits, and the thing an admin actually checks against
+  /// the bank statement before verifying. Unique so the same payment
+  /// cannot be claimed twice.
+  utr     String  @unique
+
+  status RiderDepositStatus @default(pending)
+  note   String?
+
+  decidedById String?
+  decidedBy   User?     @relation(fields: [decidedById], references: [id])
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  cashEntries RiderCashEntry[]
+
+  @@index([riderId, status])
+  @@index([status])
+}
+
+/// One rider's settlement for one period (R3's
+/// `POST /admin/rider-payouts/generate`). `net` can be negative — it
+/// carries forward to the next payout and never becomes a debit against
+/// the rider's bank account (§2.4).
+model RiderPayout {
+  id          String   @id @default(cuid())
+  riderId     String
+  rider       Rider    @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  periodEnd   DateTime
+
+  earnings     Decimal @db.Decimal(12, 2)
+  cashDeducted Decimal @default(0) @db.Decimal(12, 2)
+  adjustments  Decimal @default(0) @db.Decimal(12, 2)
+  net          Decimal @db.Decimal(12, 2)
+
+  status    RiderPayoutStatus @default(pending)
+  reference String?
+  paidAt    DateTime?
+
+  decidedById String?
+  decidedBy   User?   @relation(fields: [decidedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  cashEntries RiderCashEntry[]
+
+  /// One payout per rider per period — what makes "generate" safe to
+  /// re-run (R3's brief: "generate twice = one payout").
+  @@unique([riderId, periodStart, periodEnd])
+  @@index([riderId, status])
+  @@index([status])
+}
+
+/// Always one tap away from the job screen (§2.5). A `RiderSosEvent` row,
+/// never a bare log line — the admin `support`-scoped queue (R4) reads
+/// this table.
+model RiderSosEvent {
+  id      String       @id @default(cuid())
+  riderId String
+  rider   Rider        @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  jobId   String?
+  job     DeliveryJob? @relation(fields: [jobId], references: [id])
+
+  lat    Float
+  lng    Float
+  status SosStatus @default(open)
+  note   String?
+
+  resolvedById String?
+  resolvedBy   User?     @relation(fields: [resolvedById], references: [id])
+  resolvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([riderId])
 }

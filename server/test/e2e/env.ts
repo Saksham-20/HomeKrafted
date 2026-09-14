@@ -82,3 +82,8 @@ process.env.SHADOWFAX_CALLBACK_TOKEN = 'e2e-shadowfax-callback-token';
 // No background poll. A timer firing mid-suite would race the assertions,
 // and `reconcile()` is called directly by the spec that tests it.
 process.env.SHADOWFAX_POLL_SECONDS = '0';
+
+// R1 — a private, disposable directory for a rider's KYC photos. Its own
+// path rather than the dev default so an e2e run never writes into a
+// developer's real `.private/rider-kyc`.
+process.env.RIDER_KYC_DIR = '.private/rider-kyc-e2e';

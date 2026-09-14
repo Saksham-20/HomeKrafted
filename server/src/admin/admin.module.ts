@@ -41,6 +41,10 @@ import { AdminDashboardController } from './dashboard.controller';
 import { AdminDashboardService } from './dashboard.service';
 import { AdminCorporateController } from './corporate.controller';
 import { AdminCorporateService } from './corporate.service';
+import { AdminRiderZonesController } from './riders/zones.controller';
+import { AdminRiderZonesService } from './riders/zones.service';
+import { AdminRidersController } from './riders/riders.controller';
+import { AdminRidersService } from './riders/riders.service';
 
 /**
  * M8.3c — the unscoped admin-panel API surface, the inverse of
@@ -110,6 +114,11 @@ import { AdminCorporateService } from './corporate.service';
     AdminAuditController,
     AdminSettingsController,
     AdminTaxonomyController,
+    // R1 (docs/RIDER-APP.md) — rider fleet: zones + the onboarding review
+    // queue. `riders` scope, its own controllers, same split every other
+    // section of the panel uses.
+    AdminRiderZonesController,
+    AdminRidersController,
   ],
   providers: [
     AdminUsersService,
@@ -127,6 +136,8 @@ import { AdminCorporateService } from './corporate.service';
     AdminDashboardService,
     AdminExportsService,
     TaxonomySuggestionsService,
+    AdminRiderZonesService,
+    AdminRidersService,
   ],
 })
 export class AdminModule {}

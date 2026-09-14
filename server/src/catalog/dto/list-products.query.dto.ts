@@ -84,6 +84,28 @@ export class ListProductsQueryDto {
   kind?: 'food' | 'craft';
 
   /**
+   * Return the kitchens that CANNOT reach this buyer too, marked rather
+   * than dropped (`Product.deliverable: false`).
+   *
+   * Without it `lat`/`lng` silently delete every out-of-range listing, so
+   * a buyer who shares their location cannot tell a small catalogue from a
+   * filtered one — and neither can we. On production that is not
+   * hypothetical: a Chandigarh buyer sees 5 of the 11 live food kitchens,
+   * and the two biggest (35 and 27 listings, in Rupnagar and Mohali) are
+   * simply absent with nothing saying why.
+   *
+   * Opt-in, because every other caller — `/snacks`, the meal plans, the
+   * native app — is built on "a located request returns only what can
+   * reach me", and flipping that by default would put undeliverable food
+   * in front of buyers who never asked to see it. `@BooleanField()` is
+   * mandatory here: the global pipe's `enableImplicitConversion` reads the
+   * string "false" as `true` (see the decorator).
+   */
+  @IsOptional()
+  @BooleanField()
+  includeOutOfRange?: boolean;
+
+  /**
    * Buyer coordinates. When both are supplied, only listings from kitchens
    * whose `deliveryRadiusKm` reaches the buyer are returned, and each item
    * carries the distance so the UI can say "4.6 km away".

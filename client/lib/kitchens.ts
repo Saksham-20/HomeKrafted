@@ -44,6 +44,13 @@ export interface Kitchen {
    * platform is the kind of wrong that reaches somebody's plate.
    */
   allVegetarian: boolean;
+  /**
+   * False when this kitchen is outside its own delivery radius from the
+   * buyer. Only meaningful on a located request that asked for
+   * out-of-range rows; `true` otherwise, which is the honest reading when
+   * we have not been told where the buyer is.
+   */
+  deliverable: boolean;
 }
 
 /**
@@ -114,6 +121,18 @@ export function buildKitchens(
       fromPrice: prices.length ? Math.min(...prices) : undefined,
       makes,
       allVegetarian: sorted.every((dish) => dish.dietary.includes("vegetarian")),
+      /*
+       * A kitchen is undeliverable only when EVERY listing of theirs says
+       * so. `deliverable` is per-product because a nationally-posted jar
+       * skips the radius entirely (M20) — so one kitchen can be out of
+       * driving range for its thali and still post you its pickle, and
+       * calling the whole kitchen unreachable would be wrong on the half
+       * that can reach you.
+       *
+       * `deliverable === false`, never `!deliverable`: absent means the
+       * request never asked, which reads as deliverable.
+       */
+      deliverable: !sorted.every((dish) => dish.deliverable === false),
     });
   }
 
@@ -130,6 +149,17 @@ export function buildKitchens(
  * distances last, because "we were not told where you are" is not the
  * same as "far away" and must not be sorted as if it were.
  */
+/**
+ * Kitchens that can reach the buyer come first, whatever the sort.
+ *
+ * They are not hidden: a buyer who shares their location should still see
+ * the whole city and be told plainly which half delivers, rather than
+ * given a short list with no explanation for why it is short. But a
+ * kitchen that cannot reach this address is not a result the same way one
+ * that can is, so it never outranks one — including under "nearest",
+ * where an undeliverable kitchen can genuinely be closer than a
+ * deliverable one with a wider radius.
+ */
 export function sortKitchens(kitchens: Kitchen[], sort: BrowseSortKey): Kitchen[] {
   const list = [...kitchens];
   if (sort === "price-asc") {
@@ -144,5 +174,7 @@ export function sortKitchens(kitchens: Kitchen[], sort: BrowseSortKey): Kitchen[
       return b.vendor.reviewCount - a.vendor.reviewCount;
     });
   }
-  return list;
+  // Stable partition applied last, so the chosen sort still orders within
+  // each half.
+  return [...list.filter((k) => k.deliverable), ...list.filter((k) => !k.deliverable)];
 }

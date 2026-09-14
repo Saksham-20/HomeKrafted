@@ -176,6 +176,16 @@
   color: var(--hk-gold-bright);
 }
 
+/* "+6 further" — the kitchens listed but out of delivery range. Quieter
+   than the count it sits beside, because it is context, not the answer. */
+.viewCountMuted {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--hk-muted);
+  opacity: 0.85;
+}
+
 /* ---- grids ---- */
 
 /* Three kitchen cards a row on a wide screen, two on a laptop

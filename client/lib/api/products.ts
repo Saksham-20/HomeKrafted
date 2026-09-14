@@ -165,7 +165,10 @@ export async function getFoodProducts(near?: { lat: number; lng: number }): Prom
     query: {
       pageSize: BROWSE_PAGE_SIZE,
       kind: "food",
-      ...(near ? { lat: near.lat, lng: near.lng } : {}),
+      // Show the whole city and say which half delivers, rather than
+      // quietly returning a short list. Only has an effect alongside
+      // coordinates; without them nothing was being filtered anyway.
+      ...(near ? { lat: near.lat, lng: near.lng, includeOutOfRange: true } : {}),
     },
   });
   return page.items;

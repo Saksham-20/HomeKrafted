@@ -592,6 +592,21 @@ export interface Product {
   distanceKm?: number;
   /** Pre-formatted `distanceKm`, e.g. "4.6 km". */
   distanceLabel?: string;
+  /**
+   * `false` when this kitchen cannot reach the buyer's address.
+   *
+   * Only ever `false`, and only on a request that asked for
+   * `includeOutOfRange` — **absent means the question was not asked**,
+   * never "yes". Read it as `deliverable === false`, so a caller that has
+   * never heard of the flag keeps treating every row it receives as
+   * deliverable, which is what it is.
+   *
+   * A located request drops these rows by default. The browse pages ask
+   * for them so a buyer can see the whole city and be told plainly which
+   * half delivers, rather than being shown a short catalogue with no
+   * explanation for why it is short.
+   */
+  deliverable?: false;
   /** Admin-curated home "This week's small batches" flag (M11b) — `getFeatured()` (`lib/api/products.ts`) filters on this directly instead of a hardcoded id list. `/admin/catalog`'s feature toggle mutates it client-side; since Home is a Server Component, the effect lands on that page's next server-side fetch (a real backend request in M8), not this same browser tab — see `lib/api/admin.ts`'s "Catalog & review moderation" section header. */
   featured?: boolean;
 }

@@ -140,6 +140,21 @@ export interface AppConfig {
       projectId: string;
     };
   };
+  rider: {
+    /**
+     * Where a rider's KYC photos land — a directory nginx never serves
+     * (D11 in docs/RIDER-APP.md: Aadhaar/DL/PAN under public `/uploads`
+     * is not acceptable, even UUID-obscured). Streamed to an admin only,
+     * through `GET /admin/riders/:id/documents/:kind/file`.
+     *
+     * Dev default sits inside the repo clone (`./.private/rider-kyc`, git-
+     * ignored) purely for convenience; the production default matches
+     * `UPLOAD_DIR`'s reasoning and sits **outside** it, because a deploy
+     * fast-forwards the clone and anything written inside it is
+     * disposable.
+     */
+    kycDir: string;
+  };
 }
 
 /** Comma-separated env value → trimmed, non-empty entries. */
@@ -271,5 +286,8 @@ export default (): AppConfig => ({
       credentialsJson: (process.env.GCS_CREDENTIALS_JSON ?? '').trim(),
       projectId: (process.env.GCS_PROJECT_ID ?? '').trim(),
     },
+  },
+  rider: {
+    kycDir: process.env.RIDER_KYC_DIR ?? './.private/rider-kyc',
   },
 });

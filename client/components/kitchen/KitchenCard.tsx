@@ -42,12 +42,28 @@ export interface KitchenCardProps {
  * would render as several different kitchens with the same face.
  */
 export function KitchenCard({ kitchen, priority }: KitchenCardProps) {
-  const { vendor, dishes, distanceLabel, fromPrice, makes, allVegetarian } = kitchen;
+  const { vendor, dishes, distanceLabel, fromPrice, makes, allVegetarian, deliverable } = kitchen;
   const preview = dishes.slice(0, PREVIEW_DISHES);
   const rated = vendor.reviewCount > 0;
 
   return (
-    <article className={styles.card}>
+    <article className={styles.card} data-deliverable={deliverable ? undefined : "no"}>
+      {/*
+        Shown, not hidden — and said plainly.
+
+        A located buyer used to have every out-of-range kitchen deleted
+        from the response, so a short catalogue and a filtered one looked
+        identical. Now the whole city is listed and the ones that cannot
+        reach this address carry the reason. Not a `<Chip>`: this is a
+        statement about the buyer's own address, not a property of the
+        kitchen, and it has to read before the name does.
+      */}
+      {!deliverable && (
+        <p className={styles.noDeliver}>
+          Doesn&rsquo;t deliver to your area
+          {distanceLabel ? ` · ${distanceLabel} away` : ""}
+        </p>
+      )}
       <div className={styles.head}>
         {/* `alt=""` — the kitchen's name is the very next node. */}
         <MakerPortrait vendor={vendor} size={56} alt="" />

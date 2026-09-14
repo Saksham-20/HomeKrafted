@@ -286,3 +286,30 @@
     flex: 1 0 140px;
   }
 }
+
+
+/*
+ * A kitchen that cannot reach this buyer. Listed, legible, and visibly
+ * not one of the results they can act on — dimmed rather than greyed to
+ * unreadable, because the point is that they can still see what the city
+ * makes and decide whether to change their area.
+ */
+.noDeliver {
+  margin: 0 0 10px;
+  font-family: var(--hk-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  /* Terracotta on white is 4.55:1 — this is a sentence somebody reads. */
+  color: var(--hk-terracotta, #b85f3d);
+}
+
+.card[data-deliverable="no"] {
+  opacity: 0.72;
+}
+
+/* Never dim the reason itself, or the one line explaining the state is
+   the least legible thing on the card. */
+.card[data-deliverable="no"] .noDeliver {
+  opacity: 1;
+}

@@ -871,6 +871,24 @@ export class AuthService {
    *   read it. `undefined` means "unknown, go and look" — see
    *   `signTokenPair`.
    */
+  /**
+   * Mints a fresh token pair after a caller's `role` changed outside the
+   * normal sign-in paths (R1, docs/RIDER-APP.md).
+   *
+   * Today's only caller is `RiderEnrolmentService`, flipping
+   * `consumer -> rider`: `role` is a JWT claim, so the token the caller
+   * signed in with still says `consumer` after the database row changes,
+   * and nothing revokes it — the app needs a pair signed with the role
+   * the server just wrote, the same problem `createActor`'s re-login
+   * works around in the e2e harness. Deliberately narrow — this is not a
+   * general "re-issue my session" endpoint, and `sellerId` is always
+   * `null` here because a rider is never a seller (that combination is
+   * refused before this is reached).
+   */
+  async issueSessionForRoleChange(user: User): Promise<AuthResult> {
+    return this.issueSession(user, null);
+  }
+
   private async issueSession(user: User, sellerId?: string | null): Promise<AuthResult> {
     const pair = await this.signTokenPair(user, sellerId);
     const refreshTtlMs = parseDurationToMs(this.configService.get('jwt.refreshTtl', { infer: true }));

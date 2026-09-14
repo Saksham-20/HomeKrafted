@@ -55,6 +55,24 @@ const SRC_ROOT = join(__dirname, '..', '..', 'src');
 const ADMIN_PUBLIC_ALLOWLIST = ['public-pincodes.controller.ts', 'public-settings.controller.ts'];
 
 /**
+ * `src/rider` controllers exempt from the plain `@Roles('rider')` class
+ * check, each with its reason — same registry shape as
+ * `ADMIN_PUBLIC_ALLOWLIST` above, and the same rule: a rename fails the
+ * build here instead of silently widening it.
+ *
+ * `rider-enrolment.controller.ts` (R1, docs/RIDER-APP.md) is the one
+ * entry. The brief's shape for that route is `@Roles('consumer',
+ * 'rider')`, but `RolesGuard` throws its own generic 403 for any role
+ * *outside* that list before the handler runs — which would make the
+ * seller/admin 409 case in `RiderEnrolmentService.enrol` unreachable.
+ * The controller therefore carries no `@Roles(...)` at all and the
+ * service does the role check itself, so the file cannot pass this
+ * scan's `@Roles('rider')` regex by design — see the controller's own
+ * doc comment.
+ */
+const RIDER_ROLE_ALLOWLIST = ['rider-enrolment.controller.ts'];
+
+/**
  * Admin-only routes that live outside `src/admin`, by file and handler.
  *
  * Adding a route here is a claim that it must never be reachable by a
@@ -93,7 +111,7 @@ function hasClassLevelScope(source: string): boolean {
   return /@RequireAdminScope\('\w+'\)/.test(code.slice(0, classIndex));
 }
 
-function hasClassLevelRoles(source: string, role: 'admin' | 'seller'): boolean {
+function hasClassLevelRoles(source: string, role: 'admin' | 'seller' | 'rider'): boolean {
   const code = stripComments(source);
   const classIndex = code.search(/export class \w+Controller/);
   if (classIndex === -1) return false;
@@ -175,6 +193,35 @@ describe('rbac structure — every portal controller is role-gated at the class'
       expect(path).toBeDefined();
       expect(readFileSync(path!, 'utf8')).toMatch(/@Public\(\)/);
     }
+  });
+});
+
+describe('rbac structure — every rider controller is role-gated at the class', () => {
+  const riderControllers = controllerFiles(join(SRC_ROOT, 'rider'));
+
+  it('scans a real controller population (the layout has not moved under this spec)', () => {
+    expect(riderControllers.length).toBeGreaterThan(1);
+  });
+
+  it("every src/rider controller except the enrolment door declares @Roles('rider') on the class", () => {
+    const offenders = riderControllers
+      .filter((path) => !RIDER_ROLE_ALLOWLIST.includes(fileName(path)))
+      .filter((path) => !hasClassLevelRoles(readFileSync(path, 'utf8'), 'rider'))
+      .map(fileName);
+    expect(offenders).toEqual([]);
+  });
+
+  it('the rider role allowlist names a real file — a rename must be reconciled here', () => {
+    const names = riderControllers.map(fileName);
+    for (const allowed of RIDER_ROLE_ALLOWLIST) {
+      expect(names).toContain(allowed);
+    }
+  });
+
+  it('the allowlisted enrolment controller really carries no class-level @Roles — otherwise the allowlist entry is stale', () => {
+    const path = riderControllers.find((p) => fileName(p) === 'rider-enrolment.controller.ts');
+    expect(path).toBeDefined();
+    expect(hasClassLevelRoles(readFileSync(path!, 'utf8'), 'rider')).toBe(false);
   });
 });
 

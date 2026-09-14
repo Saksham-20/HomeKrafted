@@ -350,6 +350,24 @@ dropping it.
 | Endpoint | Auth | Notes |
 |---|---|---|
 | `GET /products` | public | Query params: `q` (free-text, see below), `category`, `occasion`, `vendor` (comma-separated **slugs**, OR-matched within each param, AND across params — mirrors `ShopClient.tsx`'s filter semantics), `dietary` (comma-separated **frontend** tags, e.g. `vegetarian,gluten-free`; the set gained `non-vegetarian` and `contains-egg` on 2026-09-05 — a listing carrying neither veg member matches neither, because absence has never meant non-veg), `featured` (`true`/`false`), `isHamper` (`true`/`false`, **M18** — ready-made gift hampers; three states, since omitting it returns both and a hamper is an ordinary listing that still appears in `/shop`), `minPrice`/`maxPrice` (compared against the `defaultWeightSku`'s price — same basis `ShopClient`'s local `priceOf()` uses), `kind` (`food` \| `craft`, **M20** — omitted returns both, since the split is a browse convenience and a search for "candle" should find one either way), `sort` (`most-loved` default \| `price-asc` \| `price-desc` \| `nearest`, which needs `lat`/`lng`), `page`/`pageSize` (default 20, max 100). Returns `{ items: Product[], page, pageSize, total }`. Lists only `PUBLICLY_LISTED` statuses (**M22** — an allowlist, not `{ not: "hidden" }`; see `server/src/catalog/moderation.ts`). Ordering breaks ties on `id`, so paging cannot show a row twice or skip one. |
+**2026-09-14 — `includeOutOfRange`.** With `lat`/`lng` alone, a kitchen
+outside its own `deliveryRadiusKm` is **dropped from the response**, so a
+short catalogue and a filtered one look identical to the buyer and to us.
+On production that is not hypothetical: a Chandigarh buyer saw 5 of the 11
+live food kitchens, and the two largest (35 and 27 listings, in Rupnagar
+and Mohali) were simply absent. Pass `includeOutOfRange=true` alongside
+coordinates and those rows come back carrying **`deliverable: false`** plus
+their `distanceKm`, for a UI that lists the whole city and says which half
+delivers. It is **opt-in**: every other caller (`/snacks`, meal plans, the
+native app) is built on "a located request returns only what can reach
+me", and flipping that by default would put undeliverable food in front of
+buyers who never asked for it. `deliverable` is only ever `false` and only
+on a request that asked — **absent means the question was not put**, so
+read it as `deliverable === false`, never `!deliverable`. `/shop` sends the
+flag; `pageSize` there is 500 (the DTO's own `@Max`), because that page
+derives its kitchen list from the rows it receives, so the page size was
+deciding which kitchens exist.
+
 **M20 — `lat`/`lng` no longer filter every listing.** A `Product` now
 carries `shippingScope`: `local` rows are gated on
 `distanceKm <= Vendor.deliveryRadiusKm` exactly as before, and `national`

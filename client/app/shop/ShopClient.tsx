@@ -202,7 +202,18 @@ export function ShopClient({
         if (b.rating !== a.rating) return b.rating - a.rating;
         return b.reviewCount - a.reviewCount;
       });
-    return list;
+    /*
+     * Deliverable dishes first, whatever the sort — the same rule the
+     * kitchens view applies, and for the same reason: a dish that cannot
+     * reach this address is not a result the same way one that can is, so
+     * it never outranks one. Stable partition applied last, so the chosen
+     * sort still orders within each half. `!== false` because absent means
+     * the request never asked where the buyer is.
+     */
+    return [
+      ...list.filter((p) => p.deliverable !== false),
+      ...list.filter((p) => p.deliverable === false),
+    ];
   }, [filtered, sort]);
 
   /**
@@ -225,6 +236,22 @@ export function ShopClient({
     () => products.some((product) => product.distanceKm !== undefined),
     [products],
   );
+
+  /**
+   * How many of the listed kitchens and dishes can actually reach this
+   * buyer. Both numbers move with the location: with no area chosen
+   * nothing is out of range and these equal the totals, which is the
+   * honest answer — "we have not been told where you are" is not "far".
+   */
+  const deliverableKitchenCount = useMemo(
+    () => kitchens.filter((kitchen) => kitchen.deliverable).length,
+    [kitchens],
+  );
+  const deliverableDishCount = useMemo(
+    () => sorted.filter((dish) => dish.deliverable !== false).length,
+    [sorted],
+  );
+  const outOfRangeKitchens = kitchens.length - deliverableKitchenCount;
 
   const pageSize = isKitchens ? KITCHEN_PAGE_SIZE : PAGE_SIZE;
   const resultCount = isKitchens ? kitchens.length : sorted.length;
@@ -502,7 +529,20 @@ export function ShopClient({
               onClick={() => switchView("kitchens")}
             >
               Kitchens
-              <span className={styles.viewCount}>{kitchens.length}</span>
+              {/*
+                The count is what DELIVERS when we know where the buyer is,
+                with the rest named beside it. A single total would say 11
+                to somebody who can order from 5, which is the number that
+                matters to them; hiding the other 6 entirely was the
+                previous behaviour and gave no way to tell a small
+                catalogue from a filtered one.
+              */}
+              <span className={styles.viewCount}>
+                {outOfRangeKitchens > 0 ? deliverableKitchenCount : kitchens.length}
+              </span>
+              {outOfRangeKitchens > 0 && (
+                <span className={styles.viewCountMuted}>+{outOfRangeKitchens} further</span>
+              )}
             </button>
               <button
                 type="button"
@@ -512,7 +552,14 @@ export function ShopClient({
                 onClick={() => switchView("dishes")}
               >
                 Dishes
-                <span className={styles.viewCount}>{sorted.length}</span>
+                <span className={styles.viewCount}>
+                  {deliverableDishCount < sorted.length ? deliverableDishCount : sorted.length}
+                </span>
+                {deliverableDishCount < sorted.length && (
+                  <span className={styles.viewCountMuted}>
+                    +{sorted.length - deliverableDishCount} further
+                  </span>
+                )}
               </button>
             </div>
             <FilterPillBar

@@ -223,3 +223,61 @@ describe("the price a card quotes", () => {
     ).toBe(90);
   });
 });
+
+/**
+ * "Only 5 kitchens are listed."
+ *
+ * A located request used to DELETE every out-of-range listing, so a
+ * Chandigarh buyer saw 5 of production's 11 live food kitchens with
+ * nothing saying why — and a short catalogue was indistinguishable from a
+ * filtered one. The whole city is listed now, and the half that cannot
+ * reach the buyer is marked rather than dropped.
+ */
+describe("deliverable", () => {
+  const cats: Category[] = [{ id: "c1", slug: "pickles", name: "Pickles", imageSrc: "" } as Category];
+
+  it("absent means the request never asked, which is deliverable", () => {
+    const kitchens = buildKitchens([product("p1", "v1")], [vendor("v1")], cats);
+    expect(kitchens[0].deliverable).toBe(true);
+  });
+
+  it("a kitchen is unreachable only when every listing of theirs is", () => {
+    const far = buildKitchens(
+      [product("p1", "v1", { deliverable: false }), product("p2", "v1", { deliverable: false })],
+      [vendor("v1")],
+      cats,
+    );
+    expect(far[0].deliverable).toBe(false);
+
+    // One nationally-posted jar still reaches them, so the kitchen does.
+    const mixed = buildKitchens(
+      [product("p1", "v1", { deliverable: false }), product("p2", "v1")],
+      [vendor("v1")],
+      cats,
+    );
+    expect(mixed[0].deliverable).toBe(true);
+  });
+
+  it("never ranks an unreachable kitchen above a reachable one, even under nearest", () => {
+    const built = buildKitchens(
+      [
+        // Closer, but outside its own delivery radius.
+        product("p1", "near-but-far", { deliverable: false, distanceKm: 2 }),
+        product("p2", "reachable", { distanceKm: 9 }),
+      ],
+      [vendor("near-but-far"), vendor("reachable")],
+      cats,
+    );
+    const sorted = sortKitchens(built, "nearest");
+    expect(sorted.map((k: Kitchen) => k.vendor.id)).toEqual(["reachable", "near-but-far"]);
+  });
+
+  it("leaves ordering alone when nothing is out of range", () => {
+    const built = buildKitchens(
+      [product("p1", "a", { distanceKm: 9 }), product("p2", "b", { distanceKm: 2 })],
+      [vendor("a"), vendor("b")],
+      cats,
+    );
+    expect(sortKitchens(built, "nearest").map((k: Kitchen) => k.vendor.id)).toEqual(["b", "a"]);
+  });
+});
