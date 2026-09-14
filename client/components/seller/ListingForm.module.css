@@ -209,3 +209,15 @@
     white-space: nowrap;
   }
 }
+
+/*
+ * The colours picked on a variant row, spelled out under the swatches.
+ * They become part of `WeightOption.label`, which is what a shopper reads
+ * on the card — so the maker should see the words, not only the discs.
+ */
+.colourEcho {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--hk-muted-2);
+}

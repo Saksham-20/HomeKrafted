@@ -1,0 +1,97 @@
+/*
+ * Lifted from `GuidedListingForm.module.css` so both listing forms draw
+ * the same picker. The hover transform sits behind the pointer query and
+ * the global reduced-motion floor strips the transitions (M34).
+ */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s1, 4px);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hk-s2, 8px);
+}
+
+.label {
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.toggle {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--hk-pine);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--hk-r-sm, 6px);
+  transition: background var(--hk-dur) var(--hk-ease);
+  white-space: nowrap;
+}
+
+.toggle:hover {
+  background: var(--hk-pine-tint, #eef4f0);
+  text-decoration: underline;
+}
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  outline-offset: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition:
+    transform var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    opacity var(--hk-dur) var(--hk-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swatch:not(:disabled):hover {
+    transform: scale(1.15);
+  }
+}
+
+.swatchActive {
+  border-color: var(--hk-pine);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 3px rgba(42, 92, 69, 0.35);
+}
+
+/*
+ * A colour that will not fit on this option's label. Dimmed and disabled
+ * rather than hidden — a swatch that disappears when you pick another one
+ * reads as a bug, and the title/aria-label say what to do instead.
+ */
+.swatchBlocked {
+  opacity: 0.32;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.check {
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}

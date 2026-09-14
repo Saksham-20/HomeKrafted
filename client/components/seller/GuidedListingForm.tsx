@@ -14,11 +14,8 @@ import { markupBreakdown } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
-import {
-  VARIANT_LABEL_MAX,
-  mergeVariantLabel,
-  variantLabelError,
-} from "@/lib/sell/listing-input";
+import { VARIANT_LABEL_MAX, mergeVariantLabel, variantLabelError } from "@/lib/sell/listing-input";
+import { ColourSwatches } from "./ColourSwatches";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
@@ -68,37 +65,8 @@ const CRAFT_PLACEHOLDERS = ["e.g. Scented soy candle", "e.g. Handcrafted earring
 /** How many top category quick-picks to show. */
 const QUICK_PICK_COUNT = 6;
 
-/** Craft colour swatches for variant selection. */
-const CRAFT_PALETTE = [
-  // Primary (visible by default)
-  { name: "Black", hex: "#1a1a1a" },
-  { name: "White", hex: "#ffffff" },
-  { name: "Cream", hex: "#f5e6c8" },
-  { name: "Rose gold", hex: "#c08777" },
-  { name: "Gold", hex: "#c9a227" },
-  { name: "Silver", hex: "#a8a9ad" },
-  { name: "Sage", hex: "#7a9e87" },
-  { name: "Terracotta", hex: "#c4663a" },
-  // Extended (revealed on "+ More colours")
-  { name: "Blush", hex: "#e8a7a7" },
-  { name: "Navy", hex: "#253b6e" },
-  { name: "Olive", hex: "#6b705c" },
-  { name: "Mustard", hex: "#e09f3e" },
-  { name: "Burgundy", hex: "#540b0e" },
-  { name: "Lavender", hex: "#b8a9c9" },
-  { name: "Emerald", hex: "#1b4931" },
-  { name: "Rust", hex: "#a44a3f" },
-  { name: "Teal", hex: "#1e6066" },
-  { name: "Lilac", hex: "#d8bbff" },
-  { name: "Peach", hex: "#f4a261" },
-  { name: "Charcoal", hex: "#363636" },
-  { name: "Copper", hex: "#b87333" },
-  { name: "Bronze", hex: "#8c6239" },
-  { name: "Mint", hex: "#a3c4bc" },
-  { name: "Ochre", hex: "#cc7722" },
-] as const;
-
-const PRIMARY_SWATCH_COUNT = 8;
+// Colour swatches + their overflow guard: `lib/sell/listing-colours.ts`,
+// shared with the long form so the two cannot drift.
 
 export interface GuidedListingFormProps {
   values: ListingFormValues;
@@ -210,49 +178,6 @@ export function GuidedListingForm({
     onChange({ ...values, weightRows: next });
   }
 
-  // Expanded colours toggle state per variant row
-  const [showAllColoursByRow, setShowAllColoursByRow] = useState<Record<number, boolean>>({});
-
-  function parseColours(raw: string | undefined): string[] {
-    if (!raw) return [];
-    return raw
-      .split(",")
-      .map((c) => c.trim())
-      .filter(Boolean);
-  }
-
-  /**
-   * Would ticking this swatch produce a label the server refuses?
-   *
-   * Every tick appends ", Colour" to one string that becomes
-   * `WeightOption.label`, capped at 40 characters. Nothing measured it, so
-   * the fifth swatch on a row silently built an unsaveable listing and the
-   * maker found out at Submit, in the server's own words
-   * ("weightOptions.0.label must be shorter than or equal to 40
-   * characters"). Untickable swatches are disabled and say why, rather than
-   * removed — a colour that vanishes when you pick another one is worse.
-   */
-  function colourWouldOverflow(rowIndex: number, colourName: string): boolean {
-    const row = rows[rowIndex];
-    if (!row) return false;
-    const current = parseColours(row.colour);
-    if (current.some((c) => c.toLowerCase() === colourName.toLowerCase())) return false;
-    return (
-      mergeVariantLabel(row.label, [...current, colourName].join(", ")).length >
-      VARIANT_LABEL_MAX
-    );
-  }
-
-  function toggleColour(rowIndex: number, colourName: string) {
-    const current = parseColours(rows[rowIndex]?.colour);
-    const exists = current.some((c) => c.toLowerCase() === colourName.toLowerCase());
-    // Unticking is always allowed — it can only shorten the label.
-    if (!exists && colourWouldOverflow(rowIndex, colourName)) return;
-    const next = exists
-      ? current.filter((c) => c.toLowerCase() !== colourName.toLowerCase())
-      : [...current, colourName];
-    updateRow(rowIndex, { colour: next.join(", ") });
-  }
 
   function addRow() {
     onChange({
@@ -607,74 +532,23 @@ export function GuidedListingForm({
                     </label>
                     {isCraft && (
                       <label className={styles.field}>
-                        <div className={styles.colourHeader}>
-                          <span className={styles.question}>
-                            Colour <span className={styles.optional}>optional</span>
-                          </span>
-                          <button
-                            type="button"
-                            className={styles.toggleMoreBtn}
-                            onClick={() =>
-                              setShowAllColoursByRow((prev) => ({
-                                ...prev,
-                                [index]: !prev[index],
-                              }))
-                            }
-                          >
-                            {showAllColoursByRow[index]
-                              ? "Show fewer"
-                              : `+ ${CRAFT_PALETTE.length - PRIMARY_SWATCH_COUNT} more colours`}
-                          </button>
-                        </div>
-                        <div className={styles.paletteRow}>
-                          {(showAllColoursByRow[index]
-                            ? CRAFT_PALETTE
-                            : CRAFT_PALETTE.slice(0, PRIMARY_SWATCH_COUNT)
-                          ).map((swatch) => {
-                            const selected = parseColours(row.colour);
-                            const isSelected = selected.some(
-                              (c) => c.toLowerCase() === swatch.name.toLowerCase(),
-                            );
-                            const isLight = ["White", "Cream", "Silver", "Mint", "Lilac"].includes(
-                              swatch.name,
-                            );
-                            const wouldOverflow = colourWouldOverflow(index, swatch.name);
-                            return (
-                              <button
-                                key={swatch.name}
-                                type="button"
-                                className={clsx(
-                                  styles.swatch,
-                                  isSelected && styles.swatchActive,
-                                  wouldOverflow && styles.swatchDisabled,
-                                )}
-                                style={{ background: swatch.hex }}
-                                disabled={wouldOverflow}
-                                title={
-                                  wouldOverflow
-                                    ? `${swatch.name} — no room left on this option's label. Add another option for more colours.`
-                                    : swatch.name
-                                }
-                                aria-label={
-                                  wouldOverflow
-                                    ? `${swatch.name}, unavailable — no room left on this option's label`
-                                    : swatch.name
-                                }
-                                aria-pressed={isSelected}
-                                onClick={() => toggleColour(index, swatch.name)}
-                              >
-                                {isSelected && (
-                                  <Check
-                                    size={13}
-                                    strokeWidth={3}
-                                    className={styles.swatchCheck}
-                                    style={{ color: isLight ? "#111" : "#fff" }}
-                                  />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                        <span className={styles.question}>
+                          Colour <span className={styles.optional}>optional</span>
+                        </span>
+                        {/*
+                          One picker, shared with the long form
+                          (`ColourSwatches`) — the palette, the 40-character
+                          guard and the tick contrast all live in
+                          `lib/sell/listing-colours.ts` now. This block used
+                          to hold its own copy of each, which is how the
+                          long form ended up offering a bare text box
+                          instead.
+                        */}
+                        <ColourSwatches
+                          size={row.label}
+                          value={row.colour}
+                          onChange={(next) => updateRow(index, { colour: next })}
+                        />
                         <input
                           className={styles.bigInput}
                           value={row.colour ?? ""}

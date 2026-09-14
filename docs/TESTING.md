@@ -1382,6 +1382,35 @@ card the shop grid uses, at the width it gets there. Nothing in the
 preview is clickable, on purpose. It is worth opening on a listing with no
 photograph — that is the case the 48px thumbnail hides.
 
+### Claims we removed (2026-09-14)
+
+Four surfaces asserted things nothing in the product records. If you see
+any of them come back, it is a bug:
+
+- A **badge on every product card**. "Fresh Today", "Handcrafted" and
+  "Verified Kitchen" were fallbacks on `shippingScope` and `kind`, not on
+  anything verified — "Verified Kitchen" in particular appeared on every
+  food listing regardless of whether an admin had checked anything. Most
+  cards now carry no badge; only Bestseller, Festive, Curated and New
+  (while it is actually new) remain, and those are set by a person.
+- On the **product page**, "FSSAI registered home kitchen", "100% handmade
+  by verified artisan", "hygienic", "premium materials" and "no commercial
+  preservatives". The real verification is on the **kitchen's own page**,
+  where it shows met and unmet — check a kitchen with no licence on file
+  and confirm it does not claim one.
+- In the **FAQ**, a "thorough home verification process covering clean prep
+  areas" (nobody inspects kitchens) and a "HomeKrafted Guarantee" of a
+  prompt full refund (a return is reviewed by a person and moves no money
+  automatically). Rewritten to the actual rules — cancel until packed,
+  seven days to raise a return.
+- Two **filter chips on /shop** were mislabelled: "Fresh Today" filters
+  listings delivered nearby, and "Pure Veg / Jain" filtered only
+  vegetarian, so somebody keeping Jain would have been shown onion and
+  garlic. Now "Delivered nearby" and "Pure veg".
+
+A maker's own description saying "no preservatives" about their own
+product is theirs to make and stays.
+
 ### The listing form asks different questions (2026-09-14)
 
 **HomeKrafter → Products → Add a product**, then the long form (the guided
@@ -1406,6 +1435,11 @@ Worth trying on purpose:
   missing — it is marked on the form" and marked nothing; that is what a
   HomeKrafter filmed. Try it from the admin side too (Admin → Catalog →
   any listing), which had none of this until now.
+- **Colours.** Both forms now give you the swatch picker — the long form
+  had a plain text box. Tick colours on a size row and watch the swatches
+  grey out once the size and colours together approach 40 characters:
+  that is the cap the server enforces on the label a shopper reads, and
+  hovering a greyed swatch says to add another option instead.
 - **Allergens.** Every food listing, and soap/balm, now asks "Does it
   contain any of these?" — the eight FSSAI names plus sesame and mustard.
   It never blocks a save. Ticking **"None of these"** is a real answer and

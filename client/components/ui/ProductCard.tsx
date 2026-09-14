@@ -97,18 +97,34 @@ function isRecentlyCreated(product: Product): boolean {
   return ageDays <= 30;
 }
 
+/**
+ * The badge, when there is something real to put in it.
+ *
+ * Only the tags a person actually set, and `New` only while it is true.
+ * **There is no fallback, and most cards carry no badge** — that is the
+ * point. The chain used to end in three claims nobody made (2026-09-14):
+ *
+ * - `shippingScope === "local"` → **"Fresh Today"**. That column answers how
+ *   far a listing may travel, not when it was cooked; it put "Fresh Today"
+ *   on a jar of pickle that keeps for six months.
+ * - `kind === "craft"` → **"Handcrafted"**, on a page of handcrafted goods.
+ * - `kind === "food"` → **"Verified Kitchen"**, which is the one that
+ *   mattered: `fssaiVerified` and `identityVerified` are real columns only
+ *   an admin can set (M16), and this claimed the badge for every food
+ *   listing on the site without reading either of them. A verification
+ *   badge that is really `kind === "food"` is worth nothing, and it
+ *   devalues the real one on the storefront.
+ *
+ * Between them they meant every card had a badge, which is decoration —
+ * the same argument that keeps the pre-order badge off every listing.
+ */
 function resolveMerchandisingBadge(product: Product, isSoldOut = false): string | undefined {
   if (isSoldOut) return undefined;
   if (product.tags?.includes("Bestseller")) return "Bestseller";
   if (product.tags?.includes("Festive")) return "Festive";
   if (product.tags?.includes("Curated")) return "Curated";
-  if (product.tags?.includes("New")) {
-    if (isRecentlyCreated(product)) return "New";
-  }
-  if (product.shippingScope === "local") return "Fresh Today";
-  if (product.kind === "craft") return "Handcrafted";
-  if (product.kind === "food") return "Verified Kitchen";
-  return product.tags?.[0];
+  if (product.tags?.includes("New") && isRecentlyCreated(product)) return "New";
+  return undefined;
 }
 
 export function ProductCard({

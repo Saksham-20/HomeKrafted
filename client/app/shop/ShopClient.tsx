@@ -470,7 +470,7 @@ export function ShopClient({
               aria-pressed={selectedShipping.has("local")}
               onClick={() => toggle(selectedShipping, setSelectedShipping, "local")}
             >
-              ⚡ Fresh Today
+              ⚡ Delivered nearby
             </button>
             <button
               type="button"
@@ -478,7 +478,7 @@ export function ShopClient({
               aria-pressed={selectedDietary.has("vegetarian")}
               onClick={() => toggle(selectedDietary, setSelectedDietary, "vegetarian")}
             >
-              🌱 Pure Veg / Jain
+              🌱 Pure veg
             </button>
             <button
               type="button"

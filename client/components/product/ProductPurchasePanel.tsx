@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Gift, Heart, PenLine, Send, ShieldCheck, Sparkles, Truck, AlertCircle, Plus } from "lucide-react";
+import { Check, Gift, Heart, PenLine, Send, Sparkles, Truck, AlertCircle, Plus } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
@@ -482,21 +482,38 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
           </div>
         </div>
 
-        <div className={styles.decisionItem}>
-          <ShieldCheck size={18} className={styles.decisionIcon} aria-hidden="true" />
-          <div className={styles.decisionContent}>
-            <span className={styles.decisionTitle}>
-              {product.kind === "craft"
-                ? "100% handmade by verified artisan"
-                : "FSSAI registered home kitchen"}
-            </span>
-            <span className={styles.decisionSubtitle}>
-              {product.kind === "craft"
-                ? "Authentic handcrafted item made in small batches with premium materials"
-                : "Prepared in a hygienic home kitchen with natural ingredients and no commercial preservatives"}
-            </span>
-          </div>
-        </div>
+        {/*
+          Four claims used to sit here, on every product page, branching on
+          `kind` and reading no data at all (removed 2026-09-14):
+
+            "FSSAI registered home kitchen"
+            "Prepared in a hygienic home kitchen with natural ingredients
+             and no commercial preservatives"
+            "100% handmade by verified artisan"
+            "Authentic handcrafted item made in small batches with premium
+             materials"
+
+          Two of them assert verifications this platform genuinely tracks
+          and this component never saw: `fssaiVerified` and
+          `identityVerified` live on `VendorProfile`, are writable only by
+          an admin (M16), and the product page does not fetch that record —
+          it awaits `getVendorById`, and `Vendor` does not carry them. So
+          the page told every buyer a kitchen was FSSAI registered without
+          anywhere to look it up, including for kitchens whose licence an
+          admin had refused.
+
+          The other two are unrecordable: nothing on this platform stores
+          whether a batch was small, a material premium, a kitchen hygienic
+          or a recipe free of preservatives. A cook using a preservative
+          had this page say they do not.
+
+          **The honest version already exists.** The storefront renders the
+          verification signals with their working, met and unmet, off the
+          profile that actually holds them — that is the M16 rule, and a
+          fabricated copy of it here devalues the real one. What this page
+          may say about safety is what the maker themselves stated, which
+          is the block directly below.
+        */}
 
         {/*
           No `kind !== "craft"` gate (2026-09-14).

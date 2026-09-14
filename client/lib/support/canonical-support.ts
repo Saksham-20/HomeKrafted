@@ -30,7 +30,15 @@ export const CANONICAL_SUPPORT = {
   policies: {
     freshFoodGuaranteeHours: 6,
     craftReturnWindowDays: 7,
-    hygieneStandard: "FSSAI registered & verified home kitchen standards",
+    /*
+     * Was "FSSAI registered & verified home kitchen standards" — a
+     * standard the platform asserted and does not operate (2026-09-14).
+     * `fssaiVerified` is per-kitchen, admin-set, and shown on that
+     * kitchen's own page met or unmet; there is no site-wide standard and
+     * no inspection behind one. Rendered nowhere today, which is the only
+     * reason it never reached a buyer.
+     */
+    hygieneStandard: "Checked per kitchen — see that kitchen's page",
   },
 } as const;
 

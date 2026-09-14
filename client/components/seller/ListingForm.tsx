@@ -20,6 +20,7 @@ import {
   type FamilyFieldKey,
 } from "@/lib/sell/listing-families";
 import { Notice } from "@/components/portal/Notice";
+import { ColourSwatches } from "./ColourSwatches";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
@@ -481,14 +482,25 @@ export function ListingForm({
                   onChange={(event) => updateRow(index, { label: event.target.value })}
                 />
               </Field>
-              <Field label="Colour" className={styles.cell}>
-                <Input
-                  dense
-                  placeholder="Red, Blue, Rose gold"
-                  value={row.colour ?? ""}
-                  onChange={(event) => updateRow(index, { colour: event.target.value })}
+              {/*
+                Swatches, not the free-text box this used to be
+                (2026-09-14). The guided flow has had a picker since M45
+                while the long form — the one an EDIT opens by default —
+                asked the maker to type colour names, match whatever
+                spelling the guided flow had written, and discover the
+                40-character label cap by being refused. Both forms write
+                one `ListingFormValues` (M45), so both have to offer the
+                same way of filling it in.
+              */}
+              <div className={styles.cell}>
+                <ColourSwatches
+                  label="Colour"
+                  size={row.label}
+                  value={row.colour}
+                  onChange={(next) => updateRow(index, { colour: next })}
                 />
-              </Field>
+                {row.colour ? <p className={styles.colourEcho}>{row.colour}</p> : null}
+              </div>
               <Field label="Your payout (₹)" className={styles.cell} hint={`+${commPct}% commission added`}>
                 <Input
                   dense

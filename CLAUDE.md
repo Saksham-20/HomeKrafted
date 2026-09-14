@@ -1392,6 +1392,16 @@ link away from every step, and an **edit** opens it by default.
   is not in `lib/`). "It is marked on the form" is only true if somebody
   can find the mark, and the fields that fail sit two thirds of the way
   down a twenty-field page.
+- **Colours are swatches in BOTH forms** (`components/seller/ColourSwatches`
+  over `lib/sell/listing-colours.ts`). The long form — the one an edit
+  opens by default — had a bare text box until 2026-09-14, so a maker had
+  to type colour names, match whatever spelling the guided flow had
+  written, and meet the 40-character label cap by being refused. The
+  palette, the overflow guard and the tick-contrast rule live in the
+  shared module; a swatch that would overflow is **disabled and says why**,
+  never hidden. `isLightSwatch` derives the tick colour from luminance at
+  the 0.179 crossover rather than a hand-kept list of names, which had
+  drifted and was drawing a white tick on Blush at 2.0:1.
 - **`Product.allergens` is asked on every food and skin listing, and never
   blocks.** An empty array is both "no allergens" and "we never asked", so
   the form stores an explicit **"None of these"** and `splitAllergens` is
@@ -1612,6 +1622,39 @@ thing making the food half honest.
   0.0 out of five; a missing `distanceKm` prints nothing and sorts
   **last** under `nearest` — absent means "we weren't told where you
   are", the M12 rule again.
+
+  **This binds every surface, and a 2026-09-14 sweep found four that
+  broke it** (owner: "remove claims like these"). A claim is ours to make
+  only if a column backs it and we read that column:
+
+  - `ProductCard`'s badge chain ended in `shippingScope === "local"` →
+    **"Fresh Today"** (that column is how far it travels, not when it was
+    cooked — a six-month pickle wore it), `kind === "craft"` →
+    "Handcrafted", and `kind === "food"` → **"Verified Kitchen"**, which
+    claimed the M16 badge for every food listing without reading
+    `fssaiVerified` at all. There is **no fallback** now, most cards carry
+    no badge, and that is right — a badge every card carries is
+    decoration, the same argument that keeps Pre-order off every listing.
+  - The product page asserted "FSSAI registered home kitchen" and "100%
+    handmade by verified artisan" from `kind`, in a component that never
+    fetches `VendorProfile` and so **cannot** see either flag — plus
+    "hygienic", "premium materials" and "no commercial preservatives",
+    none of which anything records. The honest version already exists on
+    the storefront, with its working shown; a fabricated copy devalues it.
+  - `FaqSection` described "our thorough home verification process
+    covering clean prep areas, personal hygiene standards" — **no such
+    inspection exists** — and a blanket "HomeKrafted Guarantee" of a
+    prompt "full replacement or refund", which is the reverse of the M15
+    rule that a return moves no money and a person decides.
+  - A maker's **own** description saying "no preservatives" is their claim
+    about their own product and stays. The rule is about the platform's
+    voice.
+
+  Two shapes to watch for, because both read as harmless: **a `kind`
+  branch that produces a trust claim** (it is `kind`, not verification),
+  and **a filter chip labelled as a property** — "⚡ Fresh Today" filtered
+  `local`, and "🌱 Pure Veg / Jain" filtered `vegetarian`, which would
+  hand somebody keeping Jain a dish with onion and garlic in it.
 - **`MakerPortrait`, never `avatarSrc`** (M38b) — this is a grid, and the
   pre-M28 rows would render several kitchens under one stock face.
 - No stretched link on the card: the dish thumbnails are links, and an
