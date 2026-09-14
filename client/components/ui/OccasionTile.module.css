@@ -19,11 +19,25 @@
               background 0.28s var(--hk-ease);
 }
 
-.tile:hover {
-  transform: translateY(-3px);
-  border-color: rgba(35, 66, 51, 0.25);
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(35, 66, 51, 0.07);
+/*
+ * Behind `(hover: hover) and (pointer: fine)`: a touch screen fires :hover on
+ * tap and has no way to fire it off again, so an ungated lift leaves one tile
+ * raised and darker until something else is tapped — it reads as a selected
+ * state nobody selected.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover {
+    transform: translateY(-3px);
+    border-color: rgba(35, 66, 51, 0.25);
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(35, 66, 51, 0.07);
+  }
+}
+
+/* Press feedback. Works on touch, where the hover block above never runs. */
+.tile:active {
+  transform: scale(0.985);
+  transition-duration: 0.12s;
 }
 
 .topRow {
@@ -39,8 +53,10 @@
   transition: transform 0.25s var(--hk-ease);
 }
 
-.tile:hover .icon {
-  transform: scale(1.08);
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .icon {
+    transform: scale(1.08);
+  }
 }
 
 .arrow {
@@ -49,10 +65,12 @@
   transition: opacity 0.25s var(--hk-ease), transform 0.25s var(--hk-ease);
 }
 
-.tile:hover .arrow {
-  opacity: 1;
-  transform: translate(2px, -2px);
-  color: var(--hk-pine, #234233);
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .arrow {
+    opacity: 1;
+    transform: translate(2px, -2px);
+    color: var(--hk-pine, #234233);
+  }
 }
 
 .ring {

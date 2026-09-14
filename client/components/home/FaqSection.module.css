@@ -49,7 +49,10 @@
 .faqItem {
   border-bottom: 1px solid var(--hk-border, #eceae4);
   padding: clamp(16px, 2vw, 22px) 0;
-  transition: padding 0.25s var(--hk-ease);
+  /* No transition. `transition: padding` was here, which would relayout the
+     whole list on every open and close — and it animated nothing, because
+     `[open]` changes only the icons and never the padding. Cost with no
+     effect either way. */
 }
 
 .faqSummary {

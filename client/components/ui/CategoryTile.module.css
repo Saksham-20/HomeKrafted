@@ -22,13 +22,26 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  transition: transform 0.32s var(--hk-ease), box-shadow 0.32s var(--hk-ease), border-color 0.32s var(--hk-ease);
+  transition: transform 0.28s var(--hk-ease), box-shadow 0.28s var(--hk-ease), border-color 0.28s var(--hk-ease);
 }
 
-.tile:hover .cardFrame {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
-  border-color: rgba(228, 200, 116, 0.4);
+/*
+ * Hover is gated on `(hover: hover) and (pointer: fine)`: a touch screen
+ * fires :hover on tap with nothing to fire it off again, so an ungated lift
+ * sticks on the last card tapped and reads as a selection.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .cardFrame {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    border-color: rgba(228, 200, 116, 0.4);
+  }
+}
+
+/* Press feedback, on the frame so the whole tile answers the finger. */
+.tile:active .cardFrame {
+  transform: scale(0.985);
+  transition-duration: 0.12s;
 }
 
 .image {
@@ -37,11 +50,15 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.6s var(--hk-ease);
+  /* 0.6s was the slowest move on the landing page and the eye reads it as
+     the image lagging the card it sits in. Matched to the frame's own curve. */
+  transition: transform 0.45s var(--hk-ease);
 }
 
-.tile:hover .image {
-  transform: scale(1.06);
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover .image {
+    transform: scale(1.06);
+  }
 }
 
 .scrim {

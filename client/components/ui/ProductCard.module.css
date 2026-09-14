@@ -18,13 +18,39 @@
   cursor: pointer;
 }
 
-.clickable:hover,
+/* Prototype uses #C9A24a for the border here — normalized to the nearest
+   gold-border token (tokens.css has no separate value for it). */
 .clickable:focus-visible {
-  /* Prototype uses #C9A24a here — normalized to the nearest gold-border
-     token (tokens.css has no separate value for it). */
   border-color: var(--hk-gold-border);
   box-shadow: var(--hk-shadow-card);
   transform: translateY(-2px);
+}
+
+/* The lift is hover-only; focus keeps its own rule above, because gating
+   both together would take the focus state away from every touch device
+   with a keyboard attached. A touch screen fires :hover on tap and has
+   nothing to fire it off again, so an ungated lift stays on the last card
+   tapped and reads as a selection nobody made. */
+@media (hover: hover) and (pointer: fine) {
+  .clickable:hover {
+    border-color: var(--hk-gold-border);
+    box-shadow: var(--hk-shadow-card);
+    transform: translateY(-2px);
+  }
+}
+
+/*
+ * Press feedback, keyed on the stretched link rather than on the card.
+ *
+ * `:active` propagates to ancestors, so a plain `.clickable:active` would
+ * shrink the whole card when somebody presses the round "+" or the wishlist
+ * heart — two controls that sit above the link on purpose and mean something
+ * else entirely. `:has(.nameLink:active)` fires only for a press on the card
+ * as a destination.
+ */
+.clickable:has(.nameLink:active) {
+  transform: scale(0.985);
+  transition-duration: 0.12s;
 }
 
 .imageWrap {
@@ -39,8 +65,10 @@
   transition: transform 0.45s var(--hk-ease);
 }
 
-.clickable:hover .imageWrap img {
-  transform: scale(1.045);
+@media (hover: hover) and (pointer: fine) {
+  .clickable:hover .imageWrap img {
+    transform: scale(1.045);
+  }
 }
 
 .tag {

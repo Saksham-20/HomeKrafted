@@ -24,12 +24,24 @@
   border: 3px solid #ffffff;
   background: var(--hk-surface, #ffffff);
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.08);
-  transition: transform 0.35s var(--hk-ease), box-shadow 0.35s var(--hk-ease);
+  transition: transform 0.28s var(--hk-ease), box-shadow 0.28s var(--hk-ease);
 }
 
-.card:hover .frame {
-  transform: translateY(-5px);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14);
+/*
+ * Hover is gated on `(hover: hover) and (pointer: fine)`: a touch screen
+ * fires :hover on tap with nothing to fire it off again, so an ungated lift
+ * sticks on the last card tapped and reads as a selection.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .frame {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.14);
+  }
+}
+
+.card:active .frame {
+  transform: scale(0.985);
+  transition-duration: 0.12s;
 }
 
 .video,
@@ -124,12 +136,14 @@
   -webkit-backdrop-filter: blur(8px);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
   padding-left: 2px;
-  transition: transform 0.3s var(--hk-ease), background-color 0.3s var(--hk-ease);
+  transition: transform 0.28s var(--hk-ease), background-color 0.28s var(--hk-ease);
 }
 
-.card:hover .playBadge {
-  transform: translate(-50%, -50%) scale(1.12);
-  background: #ffffff;
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .playBadge {
+    transform: translate(-50%, -50%) scale(1.12);
+    background: #ffffff;
+  }
 }
 
 .overlay {

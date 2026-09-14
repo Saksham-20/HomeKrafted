@@ -141,7 +141,7 @@
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.03);
   color: var(--hk-ink-3, #78716c);
-  transition: all 0.25s ease;
+  transition: background-color 0.22s var(--hk-ease), color 0.22s var(--hk-ease);
 }
 
 .arrowIcon {

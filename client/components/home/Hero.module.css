@@ -146,7 +146,11 @@
   padding: clamp(14px, 1.4vw, 17px) clamp(26px, 2.4vw, 36px);
   border-radius: var(--hk-r-pill, 999px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 0 1.5px rgba(255, 255, 255, 0.3);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Named, not `all`: `all` also animates the box-shadow's own spread and
+     every inherited value, and it silently starts animating whatever
+     property is added to this rule next. */
+  transition: background-color 0.22s var(--hk-ease), color 0.22s var(--hk-ease),
+              transform 0.22s var(--hk-ease), box-shadow 0.22s var(--hk-ease);
   white-space: nowrap;
 }
 
@@ -272,7 +276,8 @@
   text-decoration: none;
   border-radius: 2px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.22s var(--hk-ease), color 0.22s var(--hk-ease),
+              transform 0.22s var(--hk-ease), box-shadow 0.22s var(--hk-ease);
 }
 
 .shopNowBtn:hover {
