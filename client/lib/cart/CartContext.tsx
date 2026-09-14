@@ -49,8 +49,10 @@ import {
   updateCartItemQty,
 } from "@/lib/api/cart";
 import { getProducts } from "@/lib/api/products";
+import { getVendors } from "@/lib/api/vendors";
 import { getHamperBoxes } from "@/lib/api/site";
-import { isMockMode } from "@/lib/api/http";
+import { ApiError, isMockMode } from "@/lib/api/http";
+import { CART_OTHER_MAKER } from "@/lib/cart/add-error";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { CartItem, Hamper, HamperBox, ID, Product, ServerCartLine } from "@/lib/types";
 
@@ -173,6 +175,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [hampers, setHampers] = useState<Record<string, Hamper>>({});
   const [serverLines, setServerLines] = useState<ServerCartLine[]>([]);
   const [catalog, setCatalog] = useState<Product[]>([]);
+  /** Mock mode only — so the one-maker refusal can name the maker. */
+  const [makers, setMakers] = useState<Record<string, string>>({});
   const [boxes, setBoxes] = useState<HamperBox[]>([]);
   const [ready, setReady] = useState(false);
   const hydrated = useRef(false);
@@ -188,12 +192,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mock) return;
     const stored = readStorage();
-    Promise.all([getProducts(), getHamperBoxes()])
-      .then(([products, hamperBoxes]) => {
+    Promise.all([getProducts(), getHamperBoxes(), getVendors()])
+      .then(([products, hamperBoxes, vendors]) => {
         setItems(stored.items);
         setHampers(stored.hampers);
         setCatalog(products);
         setBoxes(hamperBoxes);
+        setMakers(Object.fromEntries(vendors.map((v) => [v.id, v.name])));
         setLoadFailed(false);
         hydrated.current = true;
       })
@@ -262,6 +267,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addItem = useCallback(
     async (productId: ID, sku: string, quantity = 1): Promise<void> => {
       if (mock) {
+        /*
+         * One basket, one maker — enforced here too, not only on the
+         * server (`server/src/cart/one-maker-cart.ts`). Local dev runs
+         * with `NEXT_PUBLIC_USE_MOCK=true`, so without this the rule
+         * looks broken to the only people who can test it, and the
+         * "empty basket & add this" branch is unreachable. Same code and
+         * same sentence, so a screen cannot tell the two modes apart.
+         */
+        const adding = catalog.find((p) => p.id === productId);
+        const heldBy = items
+          .map((item) => catalog.find((p) => p.id === item.productId))
+          .find((p) => p && adding && p.vendorId !== adding.vendorId);
+        if (heldBy) {
+          const maker = makers[heldBy.vendorId] ?? "another maker";
+          throw new ApiError(
+            409,
+            CART_OTHER_MAKER,
+            `Your basket already has things from ${maker}. Finish that order first, or empty your basket to start one with this.`,
+          );
+        }
         setItems((current) => {
           const existing = current.find(
             (item) => item.productId === productId && item.sku === sku,
@@ -278,7 +303,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const cart = await addCartItem(productId, sku, quantity);
       applyServerCart(cart.items);
     },
-    [mock, applyServerCart],
+    [mock, applyServerCart, catalog, items, makers],
   );
 
   const updateQty = useCallback(

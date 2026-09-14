@@ -24,6 +24,26 @@
 
 const STOCK_RE = /only\s+(\d+)\s+in stock/i;
 
+/**
+ * The server's code for "your basket already holds another maker's
+ * things" (`server/src/cart/one-maker-cart.ts`).
+ *
+ * Matched on the code, never on the sentence: the message names the
+ * kitchen, so it is the one refusal whose wording legitimately differs
+ * every time. A screen that can offer to empty the basket branches on
+ * this; one that cannot still shows the message, which stands alone.
+ */
+export const CART_OTHER_MAKER = "CART_OTHER_MAKER";
+
+export function isOtherMakerError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code?: unknown }).code === CART_OTHER_MAKER
+  );
+}
+
 export const SOLD_OUT_COPY = "Sold out for now — the maker hasn't listed more yet.";
 
 export function addToCartErrorMessage(err: unknown): string {
@@ -35,6 +55,9 @@ export function addToCartErrorMessage(err: unknown): string {
 
   if (status === 401) return "Sign in to add things to your cart.";
   if (status === 404) return "This listing isn't available any more.";
+  // Verbatim: it names the maker whose things are already in the basket,
+  // which is the only part a shopper can act on.
+  if (isOtherMakerError(err)) return message;
 
   const stock = STOCK_RE.exec(message);
   if (stock) {

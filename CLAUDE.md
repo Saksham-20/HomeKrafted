@@ -567,6 +567,37 @@ withdrawn module keeps its rule so the types and the order history that
 reference it still resolve — read it through `isChannelEnabled`, never by
 reaching into `CHANNEL_RULES`, or the flag becomes decoration.
 
+## One basket, one maker (2026-09-14)
+
+A cart holds one `Vendor`'s things. `POST /cart/items` answers **409
+`CART_OTHER_MAKER`** otherwise, naming the maker already in the basket.
+
+- **The whole site, not only food** (owner's call over a food-only
+  version). The food argument is that the cook *is* the courier — their
+  own radius, prep time and working days, so two kitchens in one basket is
+  two deliveries presented as one order, and `reconcileOrderStatus`
+  already refuses to drive such an order forward (M57). The cost on the
+  gifting half is real and was accepted: three gifts from three makers is
+  three orders.
+- **The refusal names the maker, and the client offers a way out.** "You
+  already have items from another maker" is not actionable. The code is
+  what a screen branches on (`lib/cart/add-error.ts#isOtherMakerError`),
+  never the sentence — the sentence differs every time because it carries
+  a name. `ProductPurchasePanel` renders an inline two-step ("Empty basket
+  & add this" / "View basket"), the portal rule against `window.confirm`
+  applied to a shopper screen.
+- **The hamper path is gated too.** `POST /cart/hamper-items` stores
+  `hamperId` with a NULL `productId`, so the plain vendor query cannot see
+  it — "add a hamper, then add anything" was the way round. A new hamper
+  may not span two makers either, or one cart line quietly holds what the
+  rule prevents.
+- **Mock mode enforces it identically.** Local dev runs with
+  `NEXT_PUBLIC_USE_MOCK=true`, so a rule the mock branch skips looks
+  broken to the only people who can test it, and the replace-basket branch
+  is unreachable. Same code, same sentence.
+- **Never cache the maker on `Cart`.** It is one more column to keep in
+  step on every remove; the cart is small and the join is free.
+
 ## Meal subscriptions (M19) — the recurring product, and its money rules
 
 `MealPlan` (what a kitchen offers) → `MealSubscription` (one buyer's

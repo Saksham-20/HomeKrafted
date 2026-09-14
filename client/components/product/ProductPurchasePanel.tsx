@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
 import { CASHBACK_RATE } from "@/lib/cart/pricing";
 import { useCart } from "@/lib/cart/CartContext";
-import { addToCartErrorMessage, SOLD_OUT_COPY } from "@/lib/cart/add-error";
+import { addToCartErrorMessage, isOtherMakerError, SOLD_OUT_COPY } from "@/lib/cart/add-error";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { wishlistErrorMessage } from "@/lib/wishlist/wishlist-error";
@@ -58,7 +58,7 @@ const GIFT_OPTIONS: {
  */
 export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurchasePanelProps) {
   const router = useRouter();
-  const { addItem } = useCart();
+  const { addItem, clear } = useCart();
   const { has, toggle } = useWishlist();
   const wishlisted = has(product.id);
 
@@ -132,6 +132,14 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
    * changed — on every listing whose size had `stock: 0`.
    */
   const [addError, setAddError] = useState<string | null>(null);
+  /**
+   * Set when the basket already holds another maker's things. The refusal
+   * is a choice, not a dead end — a message alone would leave somebody
+   * hunting for the cart page to work out what to empty — so the panel
+   * offers to empty and add in one press. An inline two-step in our own
+   * type rather than `window.confirm`, the same rule the portals follow.
+   */
+  const [otherMaker, setOtherMaker] = useState<string | null>(null);
   const [wishlistError, setWishlistError] = useState<string | null>(null);
 
   const [pincodeInput, setPincodeInput] = useState("");
@@ -280,11 +288,38 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
     if (soldOut || adding) return;
     setAdding(true);
     setAddError(null);
+    setOtherMaker(null);
     try {
       await addItem(product.id, selectedSku, quantity);
       // Written on add, not on every toggle: the hand-off is about *this
       // order*, and somebody who plays with the chips and leaves should not
       // find checkout pre-ticked next time they visit.
+      writeGiftIntent(gift);
+      setAdded(true);
+    } catch (err) {
+      if (isOtherMakerError(err)) setOtherMaker(addToCartErrorMessage(err));
+      else setAddError(addToCartErrorMessage(err));
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  /**
+   * Empty the basket and put this in it.
+   *
+   * Two calls rather than one endpoint: `clear` is the existing, audited
+   * path and the add has to be the same one every other surface uses, so
+   * the stock and moderation checks still run on the thing being added.
+   * If the add then fails, the basket is already empty — which is the
+   * state the shopper asked for, and the error says what happened.
+   */
+  async function handleReplaceBasket() {
+    if (adding) return;
+    setAdding(true);
+    setOtherMaker(null);
+    try {
+      await clear();
+      await addItem(product.id, selectedSku, quantity);
       writeGiftIntent(gift);
       setAdded(true);
     } catch (err) {
@@ -415,6 +450,28 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
         <p className={styles.toastError} role="alert">
           {addError ?? wishlistError}
         </p>
+      )}
+      {otherMaker && (
+        <div className={styles.makerConflict} role="alert">
+          <p className={styles.makerConflictText}>{otherMaker}</p>
+          <div className={styles.makerConflictActions}>
+            <button
+              type="button"
+              className={styles.makerConflictPrimary}
+              onClick={() => void handleReplaceBasket()}
+              disabled={adding}
+            >
+              Empty basket &amp; add this
+            </button>
+            <button
+              type="button"
+              className={styles.makerConflictSecondary}
+              onClick={() => router.push("/cart")}
+            >
+              View basket
+            </button>
+          </div>
+        </div>
       )}
       {soldOut && !addError && (
         <p className={styles.soldOutNote} role="status">

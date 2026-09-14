@@ -1382,6 +1382,23 @@ card the shop grid uses, at the width it gets there. Nothing in the
 preview is clickable, on purpose. It is worth opening on a listing with no
 photograph — that is the case the 48px thumbnail hides.
 
+### One basket, one maker (2026-09-14)
+
+A basket holds one HomeKrafter's things — food or gifts, the same rule
+either way.
+
+Add something from one kitchen, then try to add anything from a different
+maker. You should get a panel naming the first one ("Your basket already
+has things from ___") with two buttons: **Empty basket & add this**, which
+does exactly that in one press, and **View basket**. Check the named maker
+is the right one, and that pressing Empty leaves you with only the new
+item.
+
+Worth trying: adding a *second* thing from the **same** maker still works
+normally, and an empty basket accepts anything — that is what makes
+"empty it and start again" the way out. The rule is enforced on the server,
+so it holds even if a page is left open in two tabs.
+
 ### Claims we removed (2026-09-14)
 
 Four surfaces asserted things nothing in the product records. If you see

@@ -1,5 +1,10 @@
 import { ApiError } from "@/lib/api/http";
-import { addToCartErrorMessage, cartUpdateErrorMessage, SOLD_OUT_COPY } from "./add-error";
+import {
+  addToCartErrorMessage,
+  cartUpdateErrorMessage,
+  isOtherMakerError,
+  SOLD_OUT_COPY,
+} from "./add-error";
 
 describe("addToCartErrorMessage", () => {
   it("turns the server's SKU-naming stock refusal into buyer copy", () => {
@@ -61,5 +66,37 @@ describe("cartUpdateErrorMessage", () => {
   it("never returns empty", () => {
     expect(cartUpdateErrorMessage("boom")).toMatch(/try again/i);
     expect(cartUpdateErrorMessage(new ApiError(0, "NETWORK_ERROR", ""))).toMatch(/try again/i);
+  });
+});
+
+describe("the other-maker refusal", () => {
+  /** What `http.ts` builds from `{ error: { code, message } }`. */
+  function conflict(message: string) {
+    return new ApiError(409, "CART_OTHER_MAKER", message);
+  }
+
+  it("is recognised by its code, never by its wording", () => {
+    // The sentence names the kitchen, so it differs every time — which is
+    // exactly why matching on it would be wrong.
+    expect(isOtherMakerError(conflict("Your basket already has things from Sharma Kitchen."))).toBe(
+      true,
+    );
+    expect(isOtherMakerError(conflict("Your basket already has things from Aarti Crafts."))).toBe(
+      true,
+    );
+    expect(isOtherMakerError(new Error("Only 2 in stock for x"))).toBe(false);
+    expect(isOtherMakerError(undefined)).toBe(false);
+    expect(isOtherMakerError({ code: "SOMETHING_ELSE" })).toBe(false);
+  });
+
+  it("shows the server's sentence unchanged, because it names the maker", () => {
+    const message = "Your basket already has things from Sharma Kitchen. Finish that order first, or empty your basket to start one with this.";
+    expect(addToCartErrorMessage(conflict(message))).toBe(message);
+  });
+
+  it("is not swallowed by the generic fallback", () => {
+    const out = addToCartErrorMessage(conflict("Your basket already has things from Meera."));
+    expect(out).not.toContain("That didn't go into your cart");
+    expect(out).toContain("Meera");
   });
 });

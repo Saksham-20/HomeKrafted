@@ -615,3 +615,70 @@
 .crossSellAddBtnSuccess {
   background: var(--hk-success, #15803d);
 }
+
+/*
+ * "Your basket already has things from ___" — a refusal that is a choice.
+ * Not the plain error line, because the shopper has two real options here
+ * and a sentence with no buttons sends them hunting for the cart page.
+ */
+.makerConflict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  margin-top: var(--hk-s3);
+  padding: var(--hk-s3);
+  border: 1px solid var(--hk-border);
+  border-left: 3px solid var(--hk-terracotta);
+  border-radius: var(--hk-r-md, 10px);
+  background: var(--hk-surface);
+}
+
+.makerConflictText {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--hk-ink);
+}
+
+.makerConflictActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+}
+
+.makerConflictPrimary,
+.makerConflictSecondary {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: var(--hk-r-sm, 8px);
+  cursor: pointer;
+  transition: background var(--hk-dur) var(--hk-ease);
+}
+
+.makerConflictPrimary {
+  border: 1px solid var(--hk-pine);
+  background: var(--hk-pine);
+  color: #fff;
+}
+
+.makerConflictPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.makerConflictSecondary {
+  border: 1px solid var(--hk-border);
+  background: transparent;
+  color: var(--hk-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .makerConflictPrimary:not(:disabled):hover {
+    background: var(--hk-pine-deep);
+  }
+  .makerConflictSecondary:hover {
+    background: var(--hk-bg);
+  }
+}

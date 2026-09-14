@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Cart } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
@@ -6,6 +11,7 @@ import { resolveCartLine } from '../common/pricing/resolve-cart-line';
 import { isPurchasable } from '../catalog/moderation';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { AddHamperItemDto } from './dto/add-hamper-item.dto';
+import { otherMakerConflict } from './one-maker-cart';
 
 /**
  * Owner-scoped (auth): `Cart` is 1:1 per user (`userId @unique`), so
@@ -49,6 +55,59 @@ export class CartService {
     };
   }
 
+  /**
+   * Refuse a product from a maker other than the one already in the cart.
+   *
+   * Reads the vendor off the products the cart holds rather than caching
+   * it on `Cart`: a denormalised column would be one more thing to keep in
+   * step on every remove, and the cart is small enough that the join
+   * costs nothing. The name comes back with the refusal because the
+   * shopper has to be told whose basket they already have.
+   *
+   * An empty cart accepts anything, which is what makes "empty it and
+   * start again" the way out.
+   */
+  private async assertSameMaker(cartId: string, vendorId: string) {
+    const held = await this.prisma.cartItem.findFirst({
+      where: { cartId, product: { vendorId: { not: vendorId } } },
+      select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
+    });
+    if (held?.product) {
+      throw new ConflictException(
+        otherMakerConflict(held.product.vendorId, held.product.vendor.name),
+      );
+    }
+
+    /*
+     * A hamper line carries `hamperId` and a NULL `productId`, so the
+     * query above cannot see it — leaving "add a hamper, then add
+     * anything" as the way round the rule the retired builder was already
+     * warned about in `addHamperItem`. Its maker is the maker of the
+     * products inside it, which `addHamperItem` now forces to be one.
+     */
+    const heldHamper = await this.prisma.cartItem.findFirst({
+      where: {
+        cartId,
+        hamper: { items: { some: { product: { vendorId: { not: vendorId } } } } },
+      },
+      select: {
+        hamper: {
+          select: {
+            items: {
+              where: { product: { vendorId: { not: vendorId } } },
+              take: 1,
+              select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
+            },
+          },
+        },
+      },
+    });
+    const other = heldHamper?.hamper?.items[0]?.product;
+    if (other) {
+      throw new ConflictException(otherMakerConflict(other.vendorId, other.vendor.name));
+    }
+  }
+
   async addItem(userId: string, dto: AddCartItemDto) {
     const cart = await this.getOrCreateCart(userId);
     const product = await this.prisma.product.findUnique({
@@ -67,6 +126,11 @@ export class CartService {
     }
     const weight = product.weightOptions.find((w) => w.sku === dto.sku);
     if (!weight) throw new NotFoundException('Weight option not found for this product');
+
+    // One basket, one maker (`one-maker-cart.ts`). Checked before the
+    // stock arithmetic so somebody adding another kitchen's dish is told
+    // about the basket, not about a stock level that is not their problem.
+    await this.assertSameMaker(cart.id, product.vendorId);
 
     const quantityToAdd = dto.quantity ?? 1;
     const existing = await this.prisma.cartItem.findFirst({
@@ -98,14 +162,29 @@ export class CartService {
     if (totalQuantity > box.maxItems) {
       throw new BadRequestException(`The ${box.name} box fits up to ${box.maxItems} items`);
     }
+    // Same gates as `addItem` — the retired hamper builder is still a way
+    // to put a product id into a cart, so it needs every check `addItem`
+    // has or it is the way round them.
+    const makers = new Map<string, string>();
     for (const line of dto.items) {
-      const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
-      // Same gate as `addItem` — the retired hamper builder is still a way
-      // to put a product id into a cart, so it needs the same check or it
-      // is the way round it.
+      const product = await this.prisma.product.findUnique({
+        where: { id: line.productId },
+        select: { moderationStatus: true, vendorId: true, vendor: { select: { name: true } } },
+      });
       if (!product || !isPurchasable(product.moderationStatus)) {
         throw new NotFoundException(`Product ${line.productId} not found`);
       }
+      makers.set(product.vendorId, product.vendor.name);
+    }
+    /*
+     * One basket, one maker — so a hamper assembled here cannot span two
+     * of them either, or a single cart line would quietly hold what the
+     * rule exists to prevent. The first entry is named, which is enough
+     * for a shopper to see what to take out.
+     */
+    if (makers.size > 1) {
+      const [vendorId, vendorName] = [...makers.entries()][0];
+      throw new ConflictException(otherMakerConflict(vendorId, vendorName));
     }
     if (dto.recipientAddressId) {
       const address = await this.prisma.address.findUnique({ where: { id: dto.recipientAddressId } });
@@ -115,6 +194,8 @@ export class CartService {
     }
 
     const cart = await this.getOrCreateCart(userId);
+    const [hamperVendorId] = [...makers.keys()];
+    if (hamperVendorId) await this.assertSameMaker(cart.id, hamperVendorId);
     const hamper = await this.prisma.hamper.create({
       data: {
         userId,
