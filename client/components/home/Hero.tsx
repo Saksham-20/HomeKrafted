@@ -50,7 +50,11 @@ export function Hero() {
         videoSrc="/videos/hero-card-neon.mp4"
         posterSrc="/videos/hero-card-neon-poster.jpg"
         bgImageSrc="/images/site/hero-intro-background.png"
-        scrollToExpand="Scroll down to explore • or tap the sign ✨"
+        /* The control names its action. It read "Scroll down to explore • or
+           tap the sign ✨" — an instruction plus an emoji standing in for an
+           icon, in the first words on the page, next to a chevron that
+           already says which way this goes. */
+        scrollToExpand="Open the kitchen"
         expandedContent={splitScreen}
       />
     </section>

@@ -8,6 +8,13 @@
   touch-action: pan-y;
 }
 
+/*
+ * Always in the document (see the comment in scroll-expansion-hero.tsx), so
+ * the entrance hangs off the attribute rather than off mounting. `both` is
+ * gone with it: a fill that held `opacity: 0` on an element that is now
+ * present from the first paint would hide the page's only <h1> from anyone
+ * whose browser never ran the animation.
+ */
 .scroll-expand-split {
   position: relative;
   width: 100%;
@@ -15,7 +22,10 @@
   min-height: 0;
   flex: 1 1 0%;
   overflow: hidden;
-  animation: splitFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.scroll-expand-split[data-expanded="true"] {
+  animation: splitFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes splitFadeIn {
