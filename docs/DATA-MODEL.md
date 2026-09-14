@@ -876,3 +876,72 @@ moment queries move to the join.
 `TaxonomySuggestion.parentCategoryId` — which shelf a requested
 subcategory would sit under. `null` is a top-level ask, and an admin may
 still change it at approval.
+
+## Product.allergens + the per-family listing form (2026-09-14)
+
+`Product.allergens String[]` — the "Contains" line, stored as the label
+names a buyer recognises ("Peanut", "Milk", "Sesame"), never a code.
+
+**It already existed on `CreateListingDto` and on the client's `Product`
+type, and nowhere else** — no column, no write, no read, and a product
+page that rendered `product.allergens` as warning chips against a field
+nothing ever filled. A HomeKrafter could have declared peanuts and the
+answer would have been dropped at the API boundary, which is worse than
+never asking. The migration is additive and defaults to `[]`.
+
+- **Separate from `ingredients` on purpose.** A "Contains" statement is
+  what FSSAI requires and what somebody with an allergy scans for, and it
+  cannot be derived from free text: "ghee" does not contain the word milk,
+  and no parser should stand between a peanut and a person who reacts to
+  one.
+- **An empty array is ambiguous by construction** — it is both "nothing
+  from that list" and "we never asked", and every row written before this
+  column is the second. The form carries an explicit **"None of these"**
+  value, stored like any other, and `splitAllergens`
+  (`client/lib/sell/listing-families.ts`) is the one place it is taken back
+  out. Never render a bare empty array as a safety claim in either
+  direction, and never let the sentinel reach a "Contains ___" line — that
+  prints a red chip saying the opposite of what the maker answered.
+- **A contradiction resolves toward the allergen.** A list holding both the
+  sentinel and a real allergen reads as the allergen. Same asymmetry as the
+  veg mark: one direction is unhelpful, the other reaches somebody who
+  reacts.
+- **It is asked, never blocking.** Making it required would stop a
+  HomeKrafter editing the price of a listing they made months ago until
+  they answered a question nobody ever put to them — the exact failure
+  4363698 shipped with `ingredients`. It becomes required for the food
+  families once the live catalogue is backfilled, the same retroactive-gate
+  rule M22 applies to moderation status.
+
+**What the form asks is now decided by a family, not by `kind`.**
+`client/lib/sell/listing-families.ts` resolves one of seven families
+(`cooked · baked · jarred · worn · room · skin · general`) and
+`FAMILY_FIELDS` names which questions each gets and at what strength.
+Etsy serves a per-category attribute set and Amazon a per-product-type
+schema; this is the same idea at this catalogue's scale. No schema change
+— it decides which existing columns are asked for.
+
+- **The category on THIS listing beats the specialties on the account**,
+  because one kitchen sells both a thali and a jar of pickle and the
+  account tag cannot tell those apart. `kind` is the floor.
+- **A recipient shelf is not a product type.** "For her" says who a gift is
+  for; reading it as a family would ask a candle maker about shelf life
+  with more confidence, not less. `RECIPIENT_SLUGS` names them so the
+  resolver can say "I cannot tell" out loud, and the form says so too,
+  pointing at the M58 second shelf that would unlock the rest.
+- **The two ends the old `kind === "food"` binary got wrong**, both fixed
+  by this: a thali was asked for a shelf life it does not have, and a bar
+  of soap — filed as `craft` — was asked for no ingredients at all.
+- **`validateListingForm(values, family)` takes the family as a required
+  argument.** Not defaulted: a default would be `cooked`/`general`, and a
+  caller that simply had not been updated would quietly validate a jar of
+  pickle against the rules for a thali. All three editors (seller, admin
+  create, admin edit) pass it; forgetting is a compile error.
+- **Anything a family declares required must be refusable and reachable.**
+  `dietary` was declared required by three families and checked by nothing,
+  while the form marked it "Optional" — a field claiming to block and not
+  blocking is the unfindable-refusal bug one layer down. It is `encouraged`
+  now (the veg mark's documented rule is that blank means "we never
+  asked"), and `listing-families.spec.ts` fails the build on any required
+  field the validator does not enforce or `LISTING_FIELD_ORDER` cannot jump
+  to.

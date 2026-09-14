@@ -1366,6 +1366,38 @@ link away from every step, and an **edit** opens it by default.
 - **Submit is handed the finished values**, not read from the parent's
   state — the last step fills those defaults in and React has not
   committed the `onChange` when submit runs.
+- **What the long form asks is decided by a family, not by `kind`
+  (2026-09-14).** `lib/sell/listing-families.ts` resolves one of seven
+  (`cooked · baked · jarred · worn · room · skin · general`) and
+  `FAMILY_FIELDS` names which questions each gets and how strongly. The
+  category on **this** listing beats the account's specialties (one kitchen
+  sells a thali and a jar of pickle); `kind` is the floor; a **recipient**
+  shelf ("For her") resolves to `general` rather than being read as a
+  product type, and the form says why. It fixes the old `kind === "food"`
+  binary at both ends: a thali was asked for a shelf life it does not have,
+  and a bar of soap — filed as `craft` — was asked for no ingredients at
+  all. No schema change; it decides which existing columns are asked for.
+- **`validateListingForm(values, family)` takes the family as a required
+  argument**, deliberately not defaulted: all three editors pass it, and a
+  caller that had not been updated would otherwise validate a jar of pickle
+  against the rules for a thali. **Anything a family declares `required`
+  must be refusable and reachable** — `dietary` was required by three
+  families, checked by nothing, and labelled "Optional" on the form, which
+  is the unfindable-refusal bug one layer down. `listing-families.spec.ts`
+  fails the build on a required field the validator does not enforce or
+  `LISTING_FIELD_ORDER` cannot jump to.
+- **A failed save jumps to the first missing field and says how many.**
+  `firstListingErrorId` + `countListingFormErrors` (pure, in `lib/sell`)
+  and `components/portal/focus-first-error.ts` (touches `document`, so it
+  is not in `lib/`). "It is marked on the form" is only true if somebody
+  can find the mark, and the fields that fail sit two thirds of the way
+  down a twenty-field page.
+- **`Product.allergens` is asked on every food and skin listing, and never
+  blocks.** An empty array is both "no allergens" and "we never asked", so
+  the form stores an explicit **"None of these"** and `splitAllergens` is
+  the one place it is taken back out — it must never reach a "Contains ___"
+  line. A contradiction resolves toward the allergen. See
+  `docs/DATA-MODEL.md`.
 
 ## Known token gaps — centralized in `styles/tokens.extend.css` (M1)
 

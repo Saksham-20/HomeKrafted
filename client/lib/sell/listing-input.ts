@@ -5,6 +5,7 @@ import type {
   ProductTag,
 } from "@/lib/types";
 import type { SellerListingInput } from "@/lib/api";
+import { FAMILY_FIELDS, type ListingFamily } from "./listing-families";
 
 export interface ListingFormWeightRow {
   /** Present once persisted; a freshly-added row has none yet — its sku is derived from the product name + label on save. */
@@ -403,7 +404,35 @@ function tooLong(what: string, value: string, max: number): string | undefined {
   return `${what} is ${length} characters — ${length - max} too many. Shorten it to ${max} or fewer.`;
 }
 
-export function validateListingForm(values: ListingFormValues): ListingFormErrors {
+/**
+ * What each conditional field is called when we have to refuse it, and the
+ * sentence that says why it is worth answering. Both sides of the same
+ * question: the refusal and the nudge should not disagree about what the
+ * field is for.
+ */
+const FIELD_REFUSAL: Record<string, string> = {
+  ingredients: "List what is in it — buyers with allergies read this before anything else.",
+  allergens: "Tick anything it contains. Leaving it blank is not the same as saying none.",
+  shelfLife: "How long does it keep? (e.g. 30 days unopened.)",
+  dimensions: "Give the size. It is the first thing somebody asks and the commonest reason a gift is returned.",
+  material: "What is it made of?",
+};
+
+export function validateListingForm(
+  values: ListingFormValues,
+  /**
+   * What is being listed — which decides which questions block.
+   *
+   * Required, and deliberately not defaulted. A default would have been
+   * `resolveFamily({ kind })`, i.e. `cooked`/`general`, and a caller that
+   * simply had not been updated would then quietly validate a jar of pickle
+   * against the rules for a thali — two screens editing the same listing
+   * disagreeing about what it owes. `resolveFamily` never throws and never
+   * returns undefined, so there is nothing for a caller to handle: it costs
+   * one line and it is a compile error to forget.
+   */
+  family: ListingFamily,
+): ListingFormErrors {
   const errors: ListingFormErrors = {};
   if (!values.name.trim()) errors.name = "Give it a name.";
   else errors.name = tooLong("The name", values.name, LISTING_LIMITS.name);
@@ -430,20 +459,32 @@ export function validateListingForm(values: ListingFormValues): ListingFormError
   errors.storageInstructions = tooLong("The storage instructions", values.storageInstructions, LISTING_LIMITS.storageInstructions);
   errors.servingGuidance = tooLong("The serving guidance", values.servingGuidance, LISTING_LIMITS.servingGuidance);
 
-  if (values.kind === "food") {
-    if (!values.ingredients.trim()) {
-      errors.ingredients = "List ingredients for food safety (e.g. flour, raw mango, mustard oil).";
-    } else {
-      errors.ingredients = tooLong("The ingredients", values.ingredients, LISTING_LIMITS.ingredients);
-    }
-    if (!values.shelfLife.trim()) {
-      errors.shelfLife = "State shelf life (e.g. 3 days refrigerated).";
-    } else {
-      errors.shelfLife = tooLong("The shelf life", values.shelfLife, LISTING_LIMITS.shelfLife);
-    }
+  /*
+   * Which of the conditional questions are blocking depends on what is being
+   * listed, not on the food/craft flag.
+   *
+   * The old rule was `kind === "food"` requires ingredients and shelf life —
+   * which asked a thali for a shelf life it does not have, and asked a bar of
+   * soap for nothing at all even though it goes on somebody's skin.
+   */
+  const required = new Set<string>(FAMILY_FIELDS[family].required);
+
+  const blank = (value: string) => !value.trim();
+  if (required.has("ingredients") && blank(values.ingredients)) {
+    errors.ingredients = FIELD_REFUSAL.ingredients;
   } else {
     errors.ingredients = tooLong("The ingredients", values.ingredients, LISTING_LIMITS.ingredients);
+  }
+  if (required.has("shelfLife") && blank(values.shelfLife)) {
+    errors.shelfLife = FIELD_REFUSAL.shelfLife;
+  } else {
     errors.shelfLife = tooLong("The shelf life", values.shelfLife, LISTING_LIMITS.shelfLife);
+  }
+  if (required.has("dimensions") && blank(values.dimensions)) {
+    errors.dimensions = FIELD_REFUSAL.dimensions;
+  }
+  if (required.has("material") && blank(values.material)) {
+    errors.material = FIELD_REFUSAL.material;
   }
   values.weightRows.forEach((row, index) => {
     /*

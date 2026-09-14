@@ -1,0 +1,12 @@
+-- The "Contains" line, which the listing form has started asking for.
+--
+-- `allergens` already existed on `CreateListingDto` and on the client's
+-- `Product` type, and on nothing else: no column, no write, no read. A
+-- HomeKrafter could have declared peanuts and the answer would have been
+-- dropped at the API boundary, which is worse than never asking.
+--
+-- Additive and defaulted, so every existing row reads as an empty array —
+-- which is "we never asked", not "allergen-free". The form carries an
+-- explicit "None of these" value for the other meaning; nothing should
+-- ever render a bare empty array as a safety claim.
+ALTER TABLE "Product" ADD COLUMN "allergens" TEXT[] DEFAULT ARRAY[]::TEXT[];

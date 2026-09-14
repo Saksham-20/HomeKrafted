@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { focusFirstError } from "@/components/portal/focus-first-error";
+import { resolveFamily } from "@/lib/sell/listing-families";
 import { Button } from "@/components/ui/Button";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { FormPage } from "@/components/portal/FormPage";
@@ -123,8 +124,23 @@ export function AdminListingCreateClient() {
   const attributedTo =
     vendorOptions.find((option) => option.value === vendorId)?.label ?? "Homekrafted";
 
+  /**
+   * The product family for these values — what the form asks about, and
+   * what the validator blocks on. Resolved from the category the maker
+   * picked for THIS listing, so it follows the form rather than the
+   * account: one kitchen listing a thali and a jar of pickle gets two
+   * different sets of questions, which the account-level specialty tag
+   * cannot express.
+   */
+  function familyOf(v: ListingFormValues) {
+    return resolveFamily({
+      kind: v.kind,
+      categorySlug: categories.find((c) => c.id === v.categoryId)?.slug,
+    });
+  }
+
   async function handleSubmit() {
-    const problems = validateListingForm(values);
+    const problems = validateListingForm(values, familyOf(values));
     if (hasListingFormErrors(problems)) {
       setFieldErrors(problems);
       // Says how many and takes the operator to the first, same as the
@@ -200,7 +216,7 @@ export function AdminListingCreateClient() {
           values={values}
           onChange={(next) => {
             setValues(next);
-            if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next));
+            if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next, familyOf(next)));
           }}
           categories={categories}
           occasions={occasions}

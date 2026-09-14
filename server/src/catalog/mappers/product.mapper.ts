@@ -119,6 +119,10 @@ export function mapProduct(product: ProductWithRelations) {
     cashbackPct: Number(product.cashbackPct),
     description: product.description,
     ingredients: product.ingredients ?? undefined,
+    // Sent as-is, empty array included: the product page decides what an
+    // empty one means (it is "we never asked", never "allergen-free"), and
+    // dropping it to `undefined` would hide that difference from the client.
+    allergens: product.allergens,
     shelfLife: product.shelfLife ?? undefined,
     storageInstructions: product.storageInstructions ?? undefined,
     madeIn: product.madeIn ?? undefined,

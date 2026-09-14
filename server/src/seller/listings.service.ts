@@ -125,6 +125,9 @@ export class SellerListingsService {
         material: dto.material ?? null,
         careInstructions: dto.careInstructions ?? null,
         ingredients: dto.ingredients ?? null,
+        // `[]` on a listing nobody asked, which is not a declaration —
+        // see the column comment. The form's "None of these" is a value.
+        allergens: dto.allergens ?? [],
         shelfLife: dto.shelfLife ?? null,
         storageInstructions: dto.storageInstructions ?? null,
         // M22 — explicit rather than leaning on the column default, because
@@ -265,6 +268,7 @@ export class SellerListingsService {
           material: dto.material,
           careInstructions: dto.careInstructions,
           ingredients: dto.ingredients,
+          allergens: dto.allergens,
           shelfLife: dto.shelfLife,
           storageInstructions: dto.storageInstructions,
           ...requeue,

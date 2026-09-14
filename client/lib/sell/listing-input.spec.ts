@@ -191,7 +191,9 @@ describe("toSellerListingInput", () => {
 });
 
 describe("validateListingForm", () => {
-  it("requires ingredients and shelf life for food items", () => {
+  it("requires ingredients and shelf life of a packaged food item", () => {
+    // Both, because this one sits on a shelf. A cooked dish owes the
+    // ingredients and not the shelf life — see `listing-families.spec.ts`.
     const values: ListingFormValues = {
       ...EMPTY_LISTING_FORM,
       name: "Fresh Paneer",
@@ -203,7 +205,7 @@ describe("validateListingForm", () => {
       weightRows: [{ label: "500g", price: "200", mrp: "220", stock: "10" }],
     };
 
-    const errors = validateListingForm(values);
+    const errors = validateListingForm(values, "jarred");
     expect(errors.ingredients).toBeDefined();
     expect(errors.shelfLife).toBeDefined();
     expect(hasListingFormErrors(errors)).toBe(true);
@@ -221,7 +223,7 @@ describe("validateListingForm", () => {
       weightRows: [{ label: "Standard", price: "500", mrp: "600", stock: "5" }],
     };
 
-    const errors = validateListingForm(values);
+    const errors = validateListingForm(values, "general");
     expect(errors.ingredients).toBeUndefined();
     expect(errors.shelfLife).toBeUndefined();
     expect(hasListingFormErrors(errors)).toBe(false);
@@ -288,7 +290,7 @@ describe("variant label length (the five-swatch refusal)", () => {
       VARIANT_LABEL_MAX,
     );
 
-    const errors = validateListingForm(values);
+    const errors = validateListingForm(values, "general");
     expect(hasListingFormErrors(errors)).toBe(true);
     expect(errors.weightRows?.[0]).toBeDefined();
     expect(errors.weightRows?.[0]).not.toContain("weightOptions");
@@ -315,26 +317,26 @@ describe("editing an existing food listing (the unfindable refusal)", () => {
   };
 
   it("still refuses the save, which is correct", () => {
-    const errors = validateListingForm(PRE_FOOD_SAFETY);
+    const errors = validateListingForm(PRE_FOOD_SAFETY, "jarred");
     expect(errors.ingredients).toBeDefined();
     expect(errors.shelfLife).toBeDefined();
     expect(hasListingFormErrors(errors)).toBe(true);
   });
 
   it("counts them — the banner said 0", () => {
-    const errors = validateListingForm(PRE_FOOD_SAFETY);
+    const errors = validateListingForm(PRE_FOOD_SAFETY, "jarred");
     // The old count added up name + categoryId + description + weightRows,
     // none of which fail here, so the maker was told 0 things were missing.
     expect(countListingFormErrors(errors)).toBe(2);
   });
 
   it("names a field to jump to, so 'marked on the form' is true", () => {
-    const errors = validateListingForm(PRE_FOOD_SAFETY);
+    const errors = validateListingForm(PRE_FOOD_SAFETY, "jarred");
     expect(firstListingErrorId(errors)).toBe(listingFieldId("ingredients"));
   });
 
   it("orders the jump by the form, not by key order", () => {
-    const errors = validateListingForm({ ...PRE_FOOD_SAFETY, name: "" });
+    const errors = validateListingForm({ ...PRE_FOOD_SAFETY, name: "" }, "jarred");
     // Name is above ingredients on the page, so it wins.
     expect(firstListingErrorId(errors)).toBe(listingFieldId("name"));
   });
@@ -348,7 +350,7 @@ describe("editing an existing food listing (the unfindable refusal)", () => {
         { label: "250 g", price: "240", mrp: "240", stock: "8" },
         { label: "", price: "400", mrp: "400", stock: "4" },
       ],
-    });
+    }, "jarred");
     expect(firstListingErrorId(errors)).toBe(listingFieldId("weightRows", 1));
   });
 
@@ -357,7 +359,7 @@ describe("editing an existing food listing (the unfindable refusal)", () => {
       ...PRE_FOOD_SAFETY,
       ingredients: "Raw mango, mustard oil, mustard seeds",
       shelfLife: "30 days refrigerated",
-    });
+    }, "jarred");
     expect(hasListingFormErrors(errors)).toBe(false);
     expect(countListingFormErrors(errors)).toBe(0);
     expect(firstListingErrorId(errors)).toBeUndefined();
@@ -414,7 +416,7 @@ describe("every server limit is mirrored", () => {
       kind: "craft",
       material: "m".repeat(LISTING_LIMITS.material + 1),
       weightRows: [{ label: "One", price: "1", mrp: "1", stock: "1" }],
-    });
+    }, "general");
     expect(errors.name).toContain("too many");
     expect(errors.name).not.toContain("must be shorter than");
     expect(errors.material).toBeDefined();
@@ -429,7 +431,7 @@ describe("every server limit is mirrored", () => {
       kind: "craft",
       prepTimeMins: String(PREP_TIME_MAX_MINS + 1),
       weightRows: [{ label: "One", price: "1", mrp: "1", stock: "1" }],
-    });
+    }, "general");
     expect(errors.prepTimeMins).toBeDefined();
     expect(errors.prepTimeMins).not.toContain("prepTimeMins");
   });

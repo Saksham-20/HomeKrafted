@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { focusFirstError } from "@/components/portal/focus-first-error";
+import { resolveFamily } from "@/lib/sell/listing-families";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { FormPage } from "@/components/portal/FormPage";
 import { LoadingRows } from "@/components/portal/LoadingRows";
@@ -14,6 +16,8 @@ import {
   hasListingFormErrors,
   toSellerListingInput,
   validateListingForm,
+  countListingFormErrors,
+  firstListingErrorId,
   type ListingFormErrors,
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
@@ -124,11 +128,32 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
     };
   }, [ready, role, productId]);
 
+  /**
+   * What this listing is, which decides which questions block. Read off the
+   * category chosen on this form, exactly as the create screen does — the
+   * two edit the same object and must not disagree about what it owes.
+   */
+  function familyOf(v: ListingFormValues) {
+    return resolveFamily({
+      kind: v.kind,
+      categorySlug: categories.find((c) => c.id === v.categoryId)?.slug,
+    });
+  }
+
   async function handleSubmit() {
-    const problems = validateListingForm(values);
+    const problems = validateListingForm(values, familyOf(values));
     if (hasListingFormErrors(problems)) {
       setFieldErrors(problems);
-      setError("Something is missing — it is marked on the form.");
+      // "Something is missing — it is marked on the form" was true only if
+      // the operator could find the mark, and the fields that fail sit two
+      // thirds of the way down. Count it and jump to it.
+      const count = countListingFormErrors(problems);
+      setError(
+        count === 1
+          ? "One thing needs fixing — we have taken you to it."
+          : `${count} things need fixing — we have taken you to the first.`,
+      );
+      focusFirstError(firstListingErrorId(problems));
       return;
     }
     setFieldErrors({});
@@ -178,7 +203,7 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
           values={values}
           onChange={(next) => {
             setValues(next);
-            if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next));
+            if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next, familyOf(next)));
           }}
           categories={categories}
           occasions={occasions}

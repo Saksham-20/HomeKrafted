@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { focusFirstError } from "@/components/portal/focus-first-error";
+import { resolveFamily } from "@/lib/sell/listing-families";
 import { Button } from "@/components/ui/Button";
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
@@ -166,11 +167,26 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     };
   }, [ready, seller, productId]);
 
+  /**
+   * The product family for these values — what the form asks about, and
+   * what the validator blocks on. Resolved from the category the maker
+   * picked for THIS listing, so it follows the form rather than the
+   * account: one kitchen listing a thali and a jar of pickle gets two
+   * different sets of questions, which the account-level specialty tag
+   * cannot express.
+   */
+  function familyOf(v: ListingFormValues) {
+    return resolveFamily({
+      kind: v.kind,
+      categorySlug: categories.find((c) => c.id === v.categoryId)?.slug,
+    });
+  }
+
   function handleChange(next: ListingFormValues) {
     setValues(next);
     // A field that was refused clears its message the moment it is
     // touched — the message was about the value that is no longer there.
-    if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next));
+    if (hasListingFormErrors(fieldErrors)) setFieldErrors(validateListingForm(next, familyOf(next)));
   }
 
   async function handleSubmit(override?: ListingFormValues) {
@@ -181,7 +197,7 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     // string "description must be longer than or equal to 1 characters" —
     // developer language, on the screen a home cook writes their first
     // listing on.
-    const problems = validateListingForm(values);
+    const problems = validateListingForm(values, familyOf(values));
     if (hasListingFormErrors(problems)) {
       setFieldErrors(problems);
       /*

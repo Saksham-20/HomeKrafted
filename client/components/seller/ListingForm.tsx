@@ -11,6 +11,15 @@ import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "
 import { FormSection } from "@/components/portal/FormSection";
 import type { DietaryTag, ProductKind, ProductTag, SellerCommission } from "@/lib/types";
 import { markupBreakdown } from "@/lib/commission";
+import {
+  ALLERGEN_NONE,
+  ALLERGEN_OPTIONS,
+  FAMILY_FIELDS,
+  isRecipientShelf,
+  resolveFamily,
+  type FamilyFieldKey,
+} from "@/lib/sell/listing-families";
+import { Notice } from "@/components/portal/Notice";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import { formatCurrency } from "@/lib/format";
@@ -62,7 +71,7 @@ export interface ListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
   /** `group` absent reads as `"food"` — every category predating M20 was. */
-  categories: { id: string; name: string; group?: ProductKind; parentId?: string | null }[];
+  categories: { id: string; name: string; slug?: string; group?: ProductKind; parentId?: string | null }[];
   occasions: { id: string; name: string }[];
   /**
    * What to do when the shelf or occasion somebody wants is not on the
@@ -111,6 +120,23 @@ export function ListingForm({
 
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     onChange({ ...values, [key]: value });
+  }
+
+  /**
+   * "None of these" and a named allergen are mutually exclusive answers.
+   *
+   * Ticking a real allergen clears "none", and ticking "none" clears the
+   * rest, because a list saying both "contains peanut" and "contains none of
+   * these" is worse than no answer: it looks answered and it is wrong on the
+   * half that reaches somebody with an allergy.
+   */
+  function toggleAllergen(name: string) {
+    const without = values.allergens.filter((a) => a !== name && a !== ALLERGEN_NONE);
+    set("allergens", values.allergens.includes(name) ? without : [...without, name]);
+  }
+
+  function setAllergenNone() {
+    set("allergens", values.allergens.includes(ALLERGEN_NONE) ? [] : [ALLERGEN_NONE]);
   }
 
   function toggleDietary(tag: DietaryTag) {
@@ -164,6 +190,23 @@ export function ListingForm({
 
   const isCraft = values.kind === "craft";
   const categoriesForKind = categories.filter((c) => (c.group ?? "food") === values.kind);
+
+  /**
+   * What is being listed, which decides what this form asks.
+   *
+   * Recomputed as the category changes, so picking "Pickles" turns the shelf
+   * life question from optional to required in front of the maker rather than
+   * on submit. The only branch here used to be `kind === "craft"` and it
+   * changed placeholder text; Etsy and Amazon both serve a per-category
+   * attribute set, and this is the same idea at this catalogue's scale.
+   */
+  const categorySlug = categories.find((c) => c.id === values.categoryId)?.slug;
+  const family = resolveFamily({ kind: values.kind, categorySlug });
+  const fam = FAMILY_FIELDS[family];
+  const asks = (field: FamilyFieldKey) =>
+    fam.required.includes(field) || fam.encouraged.includes(field);
+  const needs = (field: FamilyFieldKey) => fam.required.includes(field);
+  const recipientShelf = isRecipientShelf(categorySlug);
   /**
    * Subcategories are labelled with their parent — "Shop by meal ›
    * Breakfast" (M58).
@@ -552,12 +595,19 @@ export function ListingForm({
 
         {/* Dimensions, Materials and Care — general for all products */}
         <FieldGrid columns={2}>
+          {asks("dimensions") && (
           <Field
             label="Dimensions"
-            optional
+            optional={!needs("dimensions")}
             error={errors?.dimensions}
             id={listingFieldId("dimensions")}
-            hint={isCraft ? "e.g. 15 × 10 × 5 cm" : "e.g. 8\" dia, 500 ml jar, 20 × 15 cm box"}
+            hint={
+              family === "worn"
+                ? "Length, and whether it adjusts. Fit is the commonest reason a gift comes back."
+                : isCraft
+                  ? "e.g. 15 × 10 × 5 cm — the first thing somebody asks about a piece for their home."
+                  : "e.g. 8\" dia, 500 ml jar, 20 × 15 cm box"
+            }
           >
             <Input
               value={values.dimensions}
@@ -565,9 +615,11 @@ export function ListingForm({
               placeholder={isCraft ? "15 × 10 × 5 cm" : "8\" dia or 20 × 15 × 5 cm"}
             />
           </Field>
+          )}
+          {asks("material") && (
           <Field
-            label="Material / Packaging"
-            optional
+            label={family === "jarred" ? "Packaging" : "Material"}
+            optional={!needs("material")}
             error={errors?.material}
             id={listingFieldId("material")}
             hint={isCraft ? "e.g. 100% Soy Wax, Brass" : "e.g. Glass jar, Tin box, Eco packaging"}
@@ -578,8 +630,10 @@ export function ListingForm({
               placeholder={isCraft ? "100% Soy Wax" : "Glass jar / Tin box"}
             />
           </Field>
+          )}
+          {asks("careInstructions") && (
           <Field
-            label="Care instructions / storage"
+            label="Care instructions"
             optional
             error={errors?.careInstructions}
             id={listingFieldId("careInstructions")}
@@ -592,6 +646,7 @@ export function ListingForm({
               placeholder={isCraft ? "Hand wash only" : "Keep refrigerated, consume within 3 days"}
             />
           </Field>
+          )}
         </FieldGrid>
 
         {/*
@@ -606,26 +661,100 @@ export function ListingForm({
           word "Optional" beside both culprits. That is the bug a
           HomeKrafter filmed: a red banner and no way to find it.
         */}
-        {!isCraft && (
-          <>
-            <Field
-              label="Ingredients"
-              error={errors?.ingredients}
-              id={listingFieldId("ingredients")}
-              hint="List key ingredients and allergens (e.g. Peanuts, mustard, milk). Buyers with allergies rely on this."
-            >
-              <Input
-                value={values.ingredients ?? ""}
-                onChange={(event) => set("ingredients", event.target.value)}
-                placeholder="e.g. Roasted peanuts, jaggery, cardamom, pure ghee"
+        {/*
+          Say why the form is short here.
+
+          Half the gift shelves name WHO a gift is for — "For her", "For
+          kids" — which tells us nothing about what the thing is, so the
+          form can only ask the general questions. Silently asking fewer
+          would read as the form not caring; this says what would unlock
+          the rest, and M58 already lets a listing sit on both shelves.
+        */}
+        {recipientShelf && (
+          <Notice tone="info">
+            “{categories.find((c) => c.id === values.categoryId)?.name}” says who this is
+            for, not what it is. Add a second shelf above that names the thing — jewellery,
+            candles, ceramics — and we will ask the questions buyers of that thing actually have.
+          </Notice>
+        )}
+
+        {asks("ingredients") && (
+          <Field
+            label="Ingredients"
+            optional={!needs("ingredients")}
+            error={errors?.ingredients}
+            id={listingFieldId("ingredients")}
+            hint={
+              family === "skin"
+                ? "Everything in it. This goes on somebody's skin, and people with sensitivities read it before they buy."
+                : "List key ingredients and allergens (e.g. peanuts, mustard, milk). Buyers with allergies rely on this."
+            }
+          >
+            <Input
+              value={values.ingredients ?? ""}
+              onChange={(event) => set("ingredients", event.target.value)}
+              placeholder={
+                family === "skin"
+                  ? "e.g. Shea butter, coconut oil, lavender essential oil"
+                  : "e.g. Roasted peanuts, jaggery, cardamom, pure ghee"
+              }
+            />
+          </Field>
+        )}
+
+        {asks("allergens") && (
+          <Fieldset
+            legend="Does it contain any of these?"
+            optional
+            hint="The eight FSSAI names a label has to declare, plus sesame and mustard. Tick every one it contains, or say none — leaving it blank reads as “we never asked”, and somebody with an allergy cannot tell the difference."
+          >
+            <ChipRow>
+              <Chip
+                label={ALLERGEN_NONE}
+                selected={values.allergens.includes(ALLERGEN_NONE)}
+                onClick={() => setAllergenNone()}
               />
-            </Field>
-            <FieldGrid columns={2}>
+              {ALLERGEN_OPTIONS.map((option) => (
+                <Chip
+                  key={option}
+                  label={option}
+                  selected={values.allergens.includes(option)}
+                  onClick={() => toggleAllergen(option)}
+                />
+              ))}
+            </ChipRow>
+          </Fieldset>
+        )}
+
+        {asks("servingGuidance") && (
+          <Field
+            label="How to serve it"
+            optional
+            error={errors?.servingGuidance}
+            id={listingFieldId("servingGuidance")}
+            hint="Serves how many, and how it is best eaten. This is the line that makes a photograph make sense."
+          >
+            <Input
+              value={values.servingGuidance ?? ""}
+              onChange={(event) => set("servingGuidance", event.target.value)}
+              placeholder="e.g. Serves 2. Warm for a minute and eat with rice."
+            />
+          </Field>
+        )}
+
+        {(asks("shelfLife") || asks("storageInstructions")) && (
+          <FieldGrid columns={2}>
+            {asks("shelfLife") && (
               <Field
-                label="Shelf life"
+                label={family === "skin" ? "Use within" : "Shelf life"}
+                optional={!needs("shelfLife")}
                 error={errors?.shelfLife}
                 id={listingFieldId("shelfLife")}
-                hint="How long it stays fresh after receipt."
+                hint={
+                  family === "skin"
+                    ? "How long it keeps once opened."
+                    : "How long it stays fresh after receipt."
+                }
               >
                 <Input
                   value={values.shelfLife ?? ""}
@@ -633,6 +762,8 @@ export function ListingForm({
                   placeholder="e.g. 30 days from dispatch"
                 />
               </Field>
+            )}
+            {asks("storageInstructions") && (
               <Field
                 label="Storage instructions"
                 optional
@@ -646,13 +777,16 @@ export function ListingForm({
                   placeholder="e.g. Store in a cool dry place in an airtight container"
                 />
               </Field>
-            </FieldGrid>
-          </>
+            )}
+          </FieldGrid>
         )}
 
-        {/* Food only. A candle has no dietary tags, and asking reads as a
-            form that doesn't know what it's selling. */}
-        {!isCraft && (
+        {/* A candle has no dietary tags, and asking reads as a form that
+            doesn't know what it's selling. Gated on the family rather than
+            on `kind` so a bar of soap is not asked either — it is a craft
+            that DOES get the ingredient question above, which is exactly the
+            case the old food/craft binary got wrong in both directions. */}
+        {asks("dietary") && (
           <Fieldset
             legend="Veg or non-veg"
             optional
@@ -671,7 +805,7 @@ export function ListingForm({
           </Fieldset>
         )}
 
-        {!isCraft && (
+        {asks("dietary") && (
           <Fieldset legend="Other dietary notes" optional>
             <ChipRow>
               {DIETARY_OPTIONS.map((option) => (
@@ -695,10 +829,13 @@ export function ListingForm({
           celebration cake needs two days. The kitchen's own figure stays
           the scheduler's input and is untouched by this.
 
-          Food only, for the same reason the dietary questions are: a
-          craft listing's lead time is a shipping question, which
-          `shippingScope` already asks.
+          Asked of the families whose notice is a COOKING question. A craft
+          listing's lead time is a shipping question, which `shippingScope`
+          already asks — except for a made-to-order piece, which is the gap
+          this form still does not cover (there is nowhere to say what the
+          buyer must supply, or how many days personalising adds).
         */}
+        {asks("prepTimeMins") && (
         <Field
           label="Preparation notice needed"
           optional
@@ -715,6 +852,7 @@ export function ListingForm({
             placeholder="e.g. 120 for 2 hours, 2880 for two days"
           />
         </Field>
+        )}
 
         <Fieldset legend="Tags" optional>
           <ChipRow>

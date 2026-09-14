@@ -1872,6 +1872,22 @@ model Product {
   cashbackPct         Decimal                 @default(0) @db.Decimal(4, 2)
   description         String
   ingredients         String?
+  /// The allergens this listing declares, as the label names a buyer
+  /// recognises — "Peanut", "Milk", "Sesame" (`ALLERGEN_OPTIONS` in
+  /// `client/lib/sell/listing-families.ts`).
+  ///
+  /// Separate from `ingredients` on purpose: a "Contains" line is what
+  /// FSSAI requires and what somebody with an allergy actually scans for,
+  /// and it cannot be derived from free text — "ghee" does not contain the
+  /// word milk, and no parser should be the thing standing between a
+  /// peanut and a person who reacts to one.
+  ///
+  /// An empty array is ambiguous by construction: it is both "nothing from
+  /// that list" and "we never asked", and every row written before this
+  /// column existed is the second. So the form carries an explicit "None
+  /// of these" value, stored like any other, and only that reads as a
+  /// declaration. Never render a bare empty array as "allergen-free".
+  allergens           String[]
   shelfLife           String?
   storageInstructions String?
   madeIn              String?

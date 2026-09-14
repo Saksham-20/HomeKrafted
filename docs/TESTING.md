@@ -1382,6 +1382,40 @@ card the shop grid uses, at the width it gets there. Nothing in the
 preview is clickable, on purpose. It is worth opening on a listing with no
 photograph — that is the case the 48px thumbnail hides.
 
+### The listing form asks different questions (2026-09-14)
+
+**HomeKrafter → Products → Add a product**, then the long form (the guided
+flow links to it from every step).
+
+The questions change with the **category**, not with food/craft. Pick
+"Pickles" and the form asks for a shelf life and marks it required; pick a
+cooked dish and the shelf-life question is not asked at all, because a
+thali does not have one. Pick a jewellery shelf and it asks for the size
+and material instead. Watch the field appear and disappear as you change
+the category — it should happen in front of you, never only on Save.
+
+Worth trying on purpose:
+
+- **A "For her" / "For kids" shelf.** Those say who a gift is *for*, not
+  what it is, so the form can only ask the general questions — and it says
+  so, in a blue notice, pointing at the "also show it under" box. A silent
+  short form would read as the form not caring.
+- **Save with something missing.** The banner counts the problems ("2
+  things need fixing") and the page **scrolls to the first one and puts the
+  cursor in it**, with the field marked. The old message said "Something is
+  missing — it is marked on the form" and marked nothing; that is what a
+  HomeKrafter filmed. Try it from the admin side too (Admin → Catalog →
+  any listing), which had none of this until now.
+- **Allergens.** Every food listing, and soap/balm, now asks "Does it
+  contain any of these?" — the eight FSSAI names plus sesame and mustard.
+  It never blocks a save. Ticking **"None of these"** is a real answer and
+  is not the same as leaving it blank: on the product page the first shows
+  "No common allergens declared" and the second shows nothing at all.
+  Tick both "None of these" and a real allergen and the allergen wins.
+- **Editing an existing listing to change only its price** should still be
+  possible. Ingredients are required for food, so a listing made before we
+  asked will stop you — but it will now take you straight to the field.
+
 ### The landing page (M52)
 
 - The first screen is the whole opening set — small line, the big

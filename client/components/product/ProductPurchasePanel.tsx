@@ -18,6 +18,7 @@ import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { wishlistErrorMessage } from "@/lib/wishlist/wishlist-error";
 import { lookupPincode } from "@/lib/api";
 import { isPincodeShape } from "@/lib/pincode";
+import { splitAllergens } from "@/lib/sell/listing-families";
 import {
   EMPTY_GIFT_INTENT,
   hasGiftIntent,
@@ -60,6 +61,21 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
   const wishlisted = has(product.id);
+
+  /**
+   * "Declared none" and "we never asked" are different claims, and the
+   * column cannot tell them apart on its own — an empty array is both. So
+   * the listing form stores an explicit `ALLERGEN_NONE`, and it is split
+   * back out here: it is the one value that must never be rendered by the
+   * "Contains ___" map, which would print "Contains None of these" as a red
+   * warning chip saying the opposite of what the maker declared.
+   *
+   * A listing with neither shows nothing at all, which is correct: silence
+   * is what we actually know.
+   */
+  const { declared: declaredAllergens, saysNone: saysNoAllergens } = splitAllergens(
+    product.allergens,
+  );
 
   const [crossSellAdded, setCrossSellAdded] = useState<Record<string, boolean>>({});
   const [addingCrossSell, setAddingCrossSell] = useState<string | null>(null);
@@ -482,7 +498,16 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
           </div>
         </div>
 
-        {product.kind !== "craft" && (product.ingredients || product.shelfLife || product.storageInstructions || product.servingGuidance || (product.dietary && product.dietary.length > 0)) && (
+        {/*
+          No `kind !== "craft"` gate (2026-09-14).
+
+          It used to be the whole condition, which meant a bar of soap
+          showed none of this — and soap is the one craft the listing form
+          now *requires* an ingredient list from, because it goes on
+          somebody's skin. The presence checks were always the real gate: a
+          candle with nothing filled in still renders nothing.
+        */}
+        {(product.ingredients || product.shelfLife || product.storageInstructions || product.servingGuidance || (product.dietary && product.dietary.length > 0) || declaredAllergens.length > 0 || saysNoAllergens) && (
           <div className={styles.decisionItem}>
             <Sparkles size={18} className={styles.decisionIcon} aria-hidden="true" />
             <div className={styles.decisionContent}>
@@ -502,7 +527,7 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
                   {product.storageInstructions ? ` · ${product.storageInstructions}` : ""}
                 </span>
               )}
-              {((product.dietary && product.dietary.length > 0) || (product.allergens && product.allergens.length > 0)) && (
+              {((product.dietary && product.dietary.length > 0) || declaredAllergens.length > 0 || saysNoAllergens) && (
                 <div className={styles.allergenRail}>
                   {product.dietary?.map((tag) => {
                     const isWarning = tag.includes("nuts") || tag.includes("egg");
@@ -519,11 +544,16 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
                       </span>
                     );
                   })}
-                  {product.allergens?.map((tag) => (
+                  {declaredAllergens.map((tag) => (
                     <span key={tag} className={clsx(styles.allergenChip, styles.allergenChipWarning)}>
                       <AlertCircle size={11} /> Contains {tag}
                     </span>
                   ))}
+                  {saysNoAllergens && (
+                    <span className={clsx(styles.allergenChip, styles.allergenChipSafe)}>
+                      No common allergens declared
+                    </span>
+                  )}
                 </div>
               )}
             </div>
