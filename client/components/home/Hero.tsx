@@ -31,8 +31,26 @@ export function Hero() {
       </Link>
       <div className={styles.centerpiece} id="hk-hero-brand">
         <span className={styles.centerEyebrow}>AUTHENTIC &amp; HANDCRAFTED</span>
+        {/*
+          The house draws the O of HOME, so the O has to exist as text too.
+
+          Without it the page's only <h1> — the string Google indexes for the
+          home page and the first thing a screen reader reads on arrival —
+          came out as "FROM HMETO THE WORLD": the icon contributed no name,
+          and the two spans butted together with no space between the lines.
+          The `.hk-sr-only` letter restores the word and the space separates
+          the clause; neither changes a pixel. Uses the global class from
+          `styles/globals.css`, never a local copy of the recipe.
+        */}
         <h1 className={styles.centerHeading}>
-          <span className={styles.headingLine}>FROM H<span className={styles.oHouse}><House strokeWidth={2.4} /></span>ME</span>
+          <span className={styles.headingLine}>
+            FROM H
+            <span className={styles.oHouse}>
+              <House strokeWidth={2.4} aria-hidden="true" />
+              <span className="hk-sr-only">O</span>
+            </span>
+            ME
+          </span>{" "}
           <span className={styles.headingLineWorld}>TO THE WORLD</span>
         </h1>
         <p className={styles.centerSubtitle}>Fresh meals from real home kitchens &amp; handcrafted gifts by independent creators.</p>
