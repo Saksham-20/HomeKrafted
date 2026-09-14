@@ -7,7 +7,16 @@ import {
   mergeVariantLabel,
   variantLabelError,
   VARIANT_LABEL_MAX,
+  VARIANT_SKU_MAX,
+  deriveSku,
+  countListingFormErrors,
+  firstListingErrorId,
+  listingFieldId,
+  LISTING_LIMITS,
+  PREP_TIME_MAX_MINS,
 } from "./listing-input";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("toSellerListingInput", () => {
   it("merges size and colour into label when both are present", () => {
@@ -283,5 +292,176 @@ describe("variant label length (the five-swatch refusal)", () => {
     expect(hasListingFormErrors(errors)).toBe(true);
     expect(errors.weightRows?.[0]).toBeDefined();
     expect(errors.weightRows?.[0]).not.toContain("weightOptions");
+  });
+});
+
+/**
+ * Regression: a HomeKrafter opened an existing listing to change its price
+ * and was told "0 things are missing — they are marked on the form".
+ *
+ * Three separate faults produced that sentence, and each is pinned below.
+ */
+describe("editing an existing food listing (the unfindable refusal)", () => {
+  /** What a food listing created before the food-safety change looks like. */
+  const PRE_FOOD_SAFETY: ListingFormValues = {
+    ...EMPTY_LISTING_FORM,
+    name: "Mango Thokku Pickle",
+    categoryId: "cat-pickles",
+    description: "Slow-cooked raw mango pickle, the way my grandmother made it.",
+    kind: "food",
+    ingredients: "",
+    shelfLife: "",
+    weightRows: [{ sku: "mango-thokku-250-g", label: "250 g", price: "240", mrp: "240", stock: "8" }],
+  };
+
+  it("still refuses the save, which is correct", () => {
+    const errors = validateListingForm(PRE_FOOD_SAFETY);
+    expect(errors.ingredients).toBeDefined();
+    expect(errors.shelfLife).toBeDefined();
+    expect(hasListingFormErrors(errors)).toBe(true);
+  });
+
+  it("counts them — the banner said 0", () => {
+    const errors = validateListingForm(PRE_FOOD_SAFETY);
+    // The old count added up name + categoryId + description + weightRows,
+    // none of which fail here, so the maker was told 0 things were missing.
+    expect(countListingFormErrors(errors)).toBe(2);
+  });
+
+  it("names a field to jump to, so 'marked on the form' is true", () => {
+    const errors = validateListingForm(PRE_FOOD_SAFETY);
+    expect(firstListingErrorId(errors)).toBe(listingFieldId("ingredients"));
+  });
+
+  it("orders the jump by the form, not by key order", () => {
+    const errors = validateListingForm({ ...PRE_FOOD_SAFETY, name: "" });
+    // Name is above ingredients on the page, so it wins.
+    expect(firstListingErrorId(errors)).toBe(listingFieldId("name"));
+  });
+
+  it("points at the right size row when a tier is the problem", () => {
+    const errors = validateListingForm({
+      ...PRE_FOOD_SAFETY,
+      ingredients: "Raw mango, mustard oil",
+      shelfLife: "30 days",
+      weightRows: [
+        { label: "250 g", price: "240", mrp: "240", stock: "8" },
+        { label: "", price: "400", mrp: "400", stock: "4" },
+      ],
+    });
+    expect(firstListingErrorId(errors)).toBe(listingFieldId("weightRows", 1));
+  });
+
+  it("a clean listing has nothing to jump to", () => {
+    const errors = validateListingForm({
+      ...PRE_FOOD_SAFETY,
+      ingredients: "Raw mango, mustard oil, mustard seeds",
+      shelfLife: "30 days refrigerated",
+    });
+    expect(hasListingFormErrors(errors)).toBe(false);
+    expect(countListingFormErrors(errors)).toBe(0);
+    expect(firstListingErrorId(errors)).toBeUndefined();
+  });
+});
+
+describe("deriveSku — truncated, never refused", () => {
+  it("leaves a short sku alone", () => {
+    expect(deriveSku("Mango Thokku Pickle", "250 g")).toBe("mango-thokku-pickle-250-g");
+  });
+
+  it("keeps a long name inside the server's cap instead of failing the save", () => {
+    const name =
+      "Handmade Lily Crochet Flower Bouquet With Sheer White Organza Ribbon Gift Set";
+    const label = "One · Black, White, Cream";
+    // The old expression produced this and the server refused the listing.
+    const naive = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    expect(naive.length).toBeGreaterThan(VARIANT_SKU_MAX);
+
+    const sku = deriveSku(name, label);
+    expect(sku.length).toBeLessThanOrEqual(VARIANT_SKU_MAX);
+    expect(sku).not.toMatch(/-$/);
+    // The label half survives, so two sizes of one product stay distinct.
+    expect(deriveSku(name, "Two · Black")).not.toBe(sku);
+  });
+
+  it("never returns an empty sku", () => {
+    expect(deriveSku("!!!", "???", 2)).toBe("item-2");
+  });
+
+  it("an existing row keeps its stored sku", () => {
+    const values: ListingFormValues = {
+      ...EMPTY_LISTING_FORM,
+      name: "Renamed Entirely",
+      categoryId: "c",
+      description: "d",
+      kind: "craft",
+      weightRows: [{ sku: "original-sku-from-the-first-save", label: "One", price: "1", mrp: "1", stock: "1" }],
+    };
+    // Renaming a product must not repoint a sku that is on past order lines.
+    expect(toSellerListingInput(values).weightOptions[0].sku).toBe(
+      "original-sku-from-the-first-save",
+    );
+  });
+});
+
+describe("every server limit is mirrored", () => {
+  it("refuses an over-long value in the maker's words, not the DTO's", () => {
+    const errors = validateListingForm({
+      ...EMPTY_LISTING_FORM,
+      name: "x".repeat(LISTING_LIMITS.name + 5),
+      categoryId: "c",
+      description: "d",
+      kind: "craft",
+      material: "m".repeat(LISTING_LIMITS.material + 1),
+      weightRows: [{ label: "One", price: "1", mrp: "1", stock: "1" }],
+    });
+    expect(errors.name).toContain("too many");
+    expect(errors.name).not.toContain("must be shorter than");
+    expect(errors.material).toBeDefined();
+  });
+
+  it("catches a prep time over the server's 30-day ceiling", () => {
+    const errors = validateListingForm({
+      ...EMPTY_LISTING_FORM,
+      name: "n",
+      categoryId: "c",
+      description: "d",
+      kind: "craft",
+      prepTimeMins: String(PREP_TIME_MAX_MINS + 1),
+      weightRows: [{ label: "One", price: "1", mrp: "1", stock: "1" }],
+    });
+    expect(errors.prepTimeMins).toBeDefined();
+    expect(errors.prepTimeMins).not.toContain("prepTimeMins");
+  });
+
+  /**
+   * The drift guard. Reads the DTO and fails if it grows a `@MaxLength`
+   * this file does not mirror — which is exactly how `weightOptions.0.sku`
+   * and `.label` reached a home cook's screen.
+   */
+  it("mirrors every @MaxLength in the server DTO", () => {
+    const dto = readFileSync(
+      join(__dirname, "..", "..", "..", "server", "src", "seller", "dto", "create-listing.dto.ts"),
+      "utf8",
+    );
+    // Strip comments: this repo quotes decorators in prose constantly.
+    const code = dto
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/[^\n]*/g, "");
+
+    const mirrored = new Set<number>([
+      ...Object.values(LISTING_LIMITS),
+      VARIANT_SKU_MAX,
+      VARIANT_LABEL_MAX,
+    ]);
+    // `@TrimmedString(min, max)` is the project's own decorator.
+    const caps = [
+      ...code.matchAll(/@MaxLength\((\d+)\)/g),
+      ...code.matchAll(/@TrimmedString\(\s*\d+\s*,\s*(\d+)\s*\)/g),
+    ].map((m) => Number(m[1]));
+
+    expect(caps.length).toBeGreaterThan(5);
+    const unmirrored = caps.filter((cap) => !mirrored.has(cap));
+    expect(unmirrored).toEqual([]);
   });
 });

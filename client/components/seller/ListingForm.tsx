@@ -21,6 +21,7 @@ import {
   type ListingFormValues,
   type ListingFormWeightRow,
   type ListingFormErrors,
+  listingFieldId,
   DEFAULT_STOCK,
 } from "@/lib/sell/listing-input";
 export * from "@/lib/sell/listing-input";
@@ -293,7 +294,7 @@ export function ListingForm({
       </FormSection>
 
       <FormSection id="listing-basics" title="Name, shelf and description">
-        <Field label="Product name" error={errors?.name}>
+        <Field label="Product name" error={errors?.name} id={listingFieldId("name")}>
           <Input
             value={values.name}
             onChange={(event) => set("name", event.target.value)}
@@ -314,7 +315,7 @@ export function ListingForm({
             also why the ask carries `values.kind` rather than leaving an
             admin to guess at review time.
           */}
-          <Field label="Category" error={errors?.categoryId} labelAsText>
+          <Field label="Category" error={errors?.categoryId} labelAsText id={listingFieldId("categoryId")}>
             <Combobox
               label="Category"
               hideLabel
@@ -379,6 +380,7 @@ export function ListingForm({
         <Field
           label="Description"
           error={errors?.description}
+          id={listingFieldId("description")}
           hint="What makes it worth buying — ingredients, process, story."
         >
           <TextArea
@@ -423,7 +425,12 @@ export function ListingForm({
                 />
                 <span className={styles.cellLabel}>Default</span>
               </label>
-              <Field label="Size" className={styles.cell} error={errors?.weightRows?.[index]}>
+              <Field
+                label="Size"
+                className={styles.cell}
+                error={errors?.weightRows?.[index]}
+                id={listingFieldId("weightRows", index)}
+              >
                 <Input
                   dense
                   placeholder={isCraft ? "Standard" : "250 g"}
@@ -545,14 +552,26 @@ export function ListingForm({
 
         {/* Dimensions, Materials and Care — general for all products */}
         <FieldGrid columns={2}>
-          <Field label="Dimensions" optional hint={isCraft ? "e.g. 15 × 10 × 5 cm" : "e.g. 8\" dia, 500 ml jar, 20 × 15 cm box"}>
+          <Field
+            label="Dimensions"
+            optional
+            error={errors?.dimensions}
+            id={listingFieldId("dimensions")}
+            hint={isCraft ? "e.g. 15 × 10 × 5 cm" : "e.g. 8\" dia, 500 ml jar, 20 × 15 cm box"}
+          >
             <Input
               value={values.dimensions}
               onChange={(event) => set("dimensions", event.target.value)}
               placeholder={isCraft ? "15 × 10 × 5 cm" : "8\" dia or 20 × 15 × 5 cm"}
             />
           </Field>
-          <Field label="Material / Packaging" optional hint={isCraft ? "e.g. 100% Soy Wax, Brass" : "e.g. Glass jar, Tin box, Eco packaging"}>
+          <Field
+            label="Material / Packaging"
+            optional
+            error={errors?.material}
+            id={listingFieldId("material")}
+            hint={isCraft ? "e.g. 100% Soy Wax, Brass" : "e.g. Glass jar, Tin box, Eco packaging"}
+          >
             <Input
               value={values.material}
               onChange={(event) => set("material", event.target.value)}
@@ -562,6 +581,8 @@ export function ListingForm({
           <Field
             label="Care instructions / storage"
             optional
+            error={errors?.careInstructions}
+            id={listingFieldId("careInstructions")}
             hint={isCraft ? "e.g. Hand wash only, keep away from direct sunlight" : "e.g. Keep refrigerated, consume within 3 days"}
             className={styles.fullWidth}
           >
@@ -573,12 +594,25 @@ export function ListingForm({
           </Field>
         </FieldGrid>
 
+        {/*
+          Ingredients and shelf life are REQUIRED for food and say so.
+
+          They were marked "Optional", carried no `error` prop, and were
+          made mandatory by the food-safety change in 4363698 — three
+          states that cannot all be true. Every food listing created
+          before that commit has both blank, so opening one to change its
+          price and pressing Save produced "2 things are missing — they
+          are marked on the form" with nothing marked anywhere and the
+          word "Optional" beside both culprits. That is the bug a
+          HomeKrafter filmed: a red banner and no way to find it.
+        */}
         {!isCraft && (
           <>
             <Field
               label="Ingredients"
-              optional
-              hint="List key ingredients and allergens (e.g. Peanuts, mustard, milk)."
+              error={errors?.ingredients}
+              id={listingFieldId("ingredients")}
+              hint="List key ingredients and allergens (e.g. Peanuts, mustard, milk). Buyers with allergies rely on this."
             >
               <Input
                 value={values.ingredients ?? ""}
@@ -587,14 +621,25 @@ export function ListingForm({
               />
             </Field>
             <FieldGrid columns={2}>
-              <Field label="Shelf life" optional hint="How long it stays fresh after receipt.">
+              <Field
+                label="Shelf life"
+                error={errors?.shelfLife}
+                id={listingFieldId("shelfLife")}
+                hint="How long it stays fresh after receipt."
+              >
                 <Input
                   value={values.shelfLife ?? ""}
                   onChange={(event) => set("shelfLife", event.target.value)}
                   placeholder="e.g. 30 days from dispatch"
                 />
               </Field>
-              <Field label="Storage instructions" optional hint="How the customer should store it.">
+              <Field
+                label="Storage instructions"
+                optional
+                error={errors?.storageInstructions}
+                id={listingFieldId("storageInstructions")}
+                hint="How the customer should store it."
+              >
                 <Input
                   value={values.storageInstructions ?? ""}
                   onChange={(event) => set("storageInstructions", event.target.value)}
@@ -657,6 +702,8 @@ export function ListingForm({
         <Field
           label="Preparation notice needed"
           optional
+          error={errors?.prepTimeMins}
+          id={listingFieldId("prepTimeMins")}
           hint={`Minutes notice needed before this order can be ready (e.g. 120 for 2 hours, 2880 for two days). Over ${PRE_ORDER_THRESHOLD_MINS} mins shows a "Pre-order" badge. Leave blank if ready immediately.`}
         >
           <Input

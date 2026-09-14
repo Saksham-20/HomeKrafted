@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { focusFirstError } from "@/components/portal/focus-first-error";
 import { Button } from "@/components/ui/Button";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { FormPage } from "@/components/portal/FormPage";
@@ -15,6 +16,8 @@ import {
   hasListingFormErrors,
   toSellerListingInput,
   validateListingForm,
+  countListingFormErrors,
+  firstListingErrorId,
   type ListingFormErrors,
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
@@ -124,7 +127,18 @@ export function AdminListingCreateClient() {
     const problems = validateListingForm(values);
     if (hasListingFormErrors(problems)) {
       setFieldErrors(problems);
-      setError("Something is missing — it is marked on the form.");
+      // Says how many and takes the operator to the first, same as the
+      // HomeKrafter's own form. "Something is missing" on a twenty-field
+      // page is a hunt, and an admin listing on a kitchen's behalf is
+      // typing somebody else's product from a photograph — they have even
+      // less idea which answer the form wanted.
+      const count = countListingFormErrors(problems);
+      setError(
+        count === 1
+          ? "One thing needs fixing — we have taken you to it."
+          : `${count} things need fixing — we have taken you to the first.`,
+      );
+      focusFirstError(firstListingErrorId(problems));
       return;
     }
     setFieldErrors({});

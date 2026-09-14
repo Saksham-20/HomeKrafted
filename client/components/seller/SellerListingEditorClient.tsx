@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { focusFirstError } from "@/components/portal/focus-first-error";
 import { Button } from "@/components/ui/Button";
 import { RouteSkeleton } from "@/components/feedback/RouteSkeleton";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
@@ -22,6 +23,8 @@ import {
   hasListingFormErrors,
   toSellerListingInput,
   validateListingForm,
+  countListingFormErrors,
+  firstListingErrorId,
   type ListingFormErrors,
   type ListingFormValues,
 } from "./ListingForm";
@@ -181,16 +184,24 @@ export function SellerListingEditorClient({ productId }: SellerListingEditorClie
     const problems = validateListingForm(values);
     if (hasListingFormErrors(problems)) {
       setFieldErrors(problems);
-      const count =
-        Number(Boolean(problems.name)) +
-        Number(Boolean(problems.categoryId)) +
-        Number(Boolean(problems.description)) +
-        Object.keys(problems.weightRows ?? {}).length;
+      /*
+       * The count is derived, and the form is scrolled to the first
+       * problem.
+       *
+       * This used to add up four hand-listed keys, so a listing failing
+       * only on ingredients and shelf life — every food listing created
+       * before the food-safety change, which is every food listing whose
+       * price anybody edits — rendered "0 things are missing — they are
+       * marked on the form". Nothing was marked, because neither field
+       * passed an `error` prop, and both were labelled Optional.
+       */
+      const count = countListingFormErrors(problems);
       setError(
         count === 1
-          ? "One thing is missing — it is marked on the form."
-          : `${count} things are missing — they are marked on the form.`,
+          ? "One thing needs fixing — we have taken you to it."
+          : `${count} things need fixing — we have taken you to the first.`,
       );
+      focusFirstError(firstListingErrorId(problems));
       return;
     }
     setFieldErrors({});
