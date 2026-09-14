@@ -41,10 +41,6 @@ import { AdminDashboardController } from './dashboard.controller';
 import { AdminDashboardService } from './dashboard.service';
 import { AdminCorporateController } from './corporate.controller';
 import { AdminCorporateService } from './corporate.service';
-import { AdminRiderZonesController } from './riders/zones.controller';
-import { AdminRiderZonesService } from './riders/zones.service';
-import { AdminRidersController } from './riders/riders.controller';
-import { AdminRidersService } from './riders/riders.service';
 
 /**
  * M8.3c — the unscoped admin-panel API surface, the inverse of
@@ -114,11 +110,11 @@ import { AdminRidersService } from './riders/riders.service';
     AdminAuditController,
     AdminSettingsController,
     AdminTaxonomyController,
-    // R1 (docs/RIDER-APP.md) — rider fleet: zones + the onboarding review
-    // queue. `riders` scope, its own controllers, same split every other
-    // section of the panel uses.
-    AdminRiderZonesController,
-    AdminRidersController,
+    // R1 (docs/RIDER-APP.md) — the rider fleet modules are NOT wired here
+    // yet. Their wiring was committed in e7cc509 while `src/rider/` and
+    // `src/admin/riders/` were still untracked, so `nest build` failed on
+    // the box with five TS2307s and the deploy aborted. Re-add the imports
+    // and the registrations in the SAME commit that adds those directories.
   ],
   providers: [
     AdminUsersService,
@@ -136,8 +132,6 @@ import { AdminRidersService } from './riders/riders.service';
     AdminDashboardService,
     AdminExportsService,
     TaxonomySuggestionsService,
-    AdminRiderZonesService,
-    AdminRidersService,
   ],
 })
 export class AdminModule {}

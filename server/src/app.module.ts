@@ -29,7 +29,6 @@ import { AdminModule } from './admin/admin.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { SellerApplicationsModule } from './seller-applications/seller-applications.module';
-import { RiderModule } from './rider/rider.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AdminScopeGuard } from './common/guards/admin-scope.guard';
@@ -112,11 +111,11 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
     SellerApplicationsModule,
     // One image-upload endpoint shared by every module that takes a photo.
     UploadsModule,
-    // R1 (docs/RIDER-APP.md) — own-fleet delivery partners: onboarding,
-    // consents, private KYC documents, `POST /rider-enrolment`.
-    // `src/admin/riders/*` (zones + the review queue) lives inside
-    // AdminModule instead, the same split SellerModule/AdminModule use.
-    RiderModule,
+    // R1 (docs/RIDER-APP.md) — the rider fleet modules are NOT wired here
+    // yet. Their wiring was committed in e7cc509 while `src/rider/` and
+    // `src/admin/riders/` were still untracked, so `nest build` failed on
+    // the box with five TS2307s and the deploy aborted. Re-add the imports
+    // and the registrations in the SAME commit that adds those directories.
   ],
   providers: [
     // Order matters: Nest runs APP_GUARDs in registration order, and
