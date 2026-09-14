@@ -1,5 +1,68 @@
 # Changelog
 
+## 2026-09-14 — The landing page, judged and repaired
+
+A design review of `/` run against `DESIGN.md`, the craft floor and the
+mechanical detector. Four defects in the hero reached well past the hero;
+the rest is motion and surface craft. No endpoint, model or copy claim
+changed.
+
+**The scroll-expansion hero was leaking into the whole app.** Its `keydown`
+listener sat on `window` and called `preventDefault` on Space, ArrowDown and
+ArrowUp whenever the page was scrolled to the top — for any target on the
+page. The header search field is at the top of the home page, so it could
+not take a space: "mango" typed and "mango pickle" did not. It now ignores
+keys aimed at a field, a control, anything focusable or editable, and
+anything held with a modifier.
+
+**The home page was serving no `<h1>`.** The split screen — brand lockup,
+heading, both doors — was mounted only once `progress >= 1`, so the entire
+proposition existed only after somebody scrolled, and `#hk-hero-brand` (the
+element `HeaderClient` observes to decide when the landing bar turns solid)
+was absent at first paint. It is in the document from the start now and
+occluded by the stage, which is opaque and covered it anyway. And the `<h1>`
+itself read **"FROM HMETO THE WORLD"**: the house icon draws the O of HOME
+and carried no accessible text, and the two spans butted together. That is
+the string Google indexes for the site root.
+
+**`history.scrollRestoration = "manual"` was set and never put back.** It
+belongs to the history object, not to a page, so every later route in the
+session lost scroll restoration — Back from a product page stopped returning
+a shopper to their place in `/shop`. Restored on unmount.
+
+**Reduced motion was being ignored where it mattered.** The stylesheet's
+`prefers-reduced-motion` block could only reach transitions; the 5x zoom is
+an inline transform and the capture is an event listener, so somebody who
+asked for less motion got the same hijack with the easing stripped out.
+Reduced motion now settles expanded and attaches no listeners at all.
+
+**Every landing card lifted on hover and answered a press with nothing.**
+Only four files in the tree had an `:active` state and none was a card, so a
+tap on a phone produced no feedback at all. Each lift is now behind
+`(hover: hover) and (pointer: fine)` — a touch screen fires `:hover` on tap
+with nothing to fire it off again, so the lift stuck on the last card tapped
+and read as a selection nobody made. `ProductCard`'s press is keyed on
+`:has(.nameLink:active)`, never on the card, so pressing the round "+" or the
+wishlist heart does not shrink the card around them. The durations drifted
+(0.28 / 0.32 / 0.35 / 0.6s) for one gesture; they are one value now.
+
+**Three sections wore the same costume.** The in-house shelf, the category
+rail and the occasion grid were the same object three times — white-0.9,
+radius 22, a 1px border and an identical invisible 3%-alpha shadow, two of
+them under the same gradient. "By HomeKrafted" keeps its box because there
+it carries information: that shelf is the platform's own in a page otherwise
+made of other people's kitchens. The other two sit on the page canvas like
+every other rail. `SeasonalBand` loses its 5px gold side-tab, and the hero
+hint and its chevron stop animating `infinite`.
+
+Also: `.landingPage` had `overflow: hidden`, which makes the page a scroll
+container and silently kills `position: sticky` for every descendant;
+`overflow-x: clip` contains the same overflow without one. The four ambient
+radial gradients are gone. The canvas hex stays but is **named and flagged** —
+`tokens.css` ships `--hk-bg: #F4F3F0`, `DESIGN.md` approved `#F7F1E6` and its
+Phase 1 never landed, and this page invented `#faf7f2` between them. Three
+values for one surface, now visible in one place.
+
 ## 2026-09-06 — A5 (part 8): the second design pass, screen by screen
 
 Every screen re-read on a simulator against what a 2026 phone app is
