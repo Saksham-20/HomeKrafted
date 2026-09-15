@@ -143,7 +143,14 @@ export class SellerApplicationsService {
     let pickupPhone: string | null = null;
     if (dto.pickupPhone?.trim()) {
       const parsed = normalizePhone(dto.pickupPhone);
-      if ('error' in parsed) problems.push({ field: 'pickupPhone', message: parsed.error });
+      if ('error' in parsed) {
+        // Named, because the form shows the first problem as one banner at
+        // the bottom — the shared sentence read as the main phone number.
+        problems.push({
+          field: 'pickupPhone',
+          message: 'The pickup number isn’t a mobile number — fix it, or leave it blank to use your main number.',
+        });
+      }
       else pickupPhone = parsed.phone;
     }
 

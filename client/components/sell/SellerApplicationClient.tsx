@@ -140,11 +140,22 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
     contactName: contactNameError(form.contactName),
     email: emailError(form.email),
     phone: phoneError(form.phone),
+    // Optional, but checked: this box sits right under the address lines
+    // and Safari's autofill was seen putting the city in it.
+    // Unchecked, the server's refusal arrived as a banner at the bottom of
+    // the form naming no field, so nobody could find what to fix.
+    pickupPhone: phoneError(form.pickupPhone),
     instagramUrl: instagramError(form.instagramUrl),
     websiteUrl: websiteError(form.websiteUrl),
     fssaiNumber: sellsFood ? fssaiError(form.fssaiNumber) : null,
   };
   const hasFieldError = Object.values(fieldErrors).some(Boolean);
+  // Autofill fires no blur, so a non-number in the pickup box is shown at
+  // once; a half-typed number waits for blur like every other field.
+  const showPickupPhoneError =
+    fieldErrors.pickupPhone && (touched.pickupPhone || /[^\d\s+()-]/.test(form.pickupPhone))
+      ? fieldErrors.pickupPhone
+      : null;
 
   const valid =
     form.businessName.trim().length > 0 &&
@@ -499,11 +510,22 @@ export function SellerApplicationClient({ benefits, steps }: SellerApplicationCl
                 <input
                   className={styles.input}
                   type="tel"
+                  inputMode="tel"
                   value={form.pickupPhone}
                   onChange={(event) => set("pickupPhone", event.target.value)}
-                  autoComplete="tel"
+                  onBlur={() => touch("pickupPhone")}
+                  // Not "tel": this is by definition *not* the visitor's own
+                  // number, so autofill has nothing right to put here.
+                  autoComplete="off"
                   placeholder="Only if it isn’t the number above"
+                  aria-invalid={showPickupPhoneError ? true : undefined}
+                  aria-describedby={showPickupPhoneError ? "pickup-phone-error" : undefined}
                 />
+                {showPickupPhoneError && (
+                  <span id="pickup-phone-error" className={styles.fieldError}>
+                    {showPickupPhoneError} Or leave this blank to use the number above.
+                  </span>
+                )}
               </label>
 
               <p id="pickup-privacy" className={styles.privacyNote}>
