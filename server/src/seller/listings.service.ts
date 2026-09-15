@@ -116,7 +116,11 @@ export class SellerListingsService {
         // M20 section flags. All three default the way a pre-M20 listing
         // behaved, so an old client that sends none of them is unchanged.
         kind: dto.kind ?? 'food',
-        shippingScope: dto.shippingScope ?? 'local',
+        // A gift is always posted (owner, 2026-09-15) — courier carries
+        // crafts, never food, and "local" on a craft only hid it from buyers
+        // outside the maker's radius. The web forms stop asking; this holds
+        // it for every client.
+        shippingScope: (dto.kind ?? 'food') === 'craft' ? 'national' : (dto.shippingScope ?? 'local'),
         isSnack: dto.isSnack ?? false,
         cashbackPct: dto.cashbackPct,
         description: dto.description,
@@ -259,7 +263,8 @@ export class SellerListingsService {
           isPackaged: dto.isPackaged,
           isHamper: dto.isHamper,
           kind: dto.kind,
-          shippingScope: dto.shippingScope,
+          // Same rule on edit, judged on the kind the listing ends up with.
+          shippingScope: (dto.kind ?? existing.kind) === 'craft' ? 'national' : dto.shippingScope,
           isSnack: dto.isSnack,
           cashbackPct: dto.cashbackPct,
           description: dto.description,

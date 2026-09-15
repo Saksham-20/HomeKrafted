@@ -127,7 +127,7 @@ export function MealPlanForm({ values, onChange, listings, brackets }: MealPlanF
           <p className={styles.hint}>
             Set your hours on{" "}
             <a href="/seller/profile#hours" className={styles.inlineLink}>
-              About your kitchen
+              About you
             </a>{" "}
             — if they don&rsquo;t overlap the {values.slotKind} window, this plan offers no
             windows and nobody can subscribe.

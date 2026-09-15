@@ -92,7 +92,7 @@ const HOMEKRAFTER_NAV: SellerNavItem[] = [
   // hours, policies and licence a buyer reads before trusting a kitchen —
   // so it is labelled by what it holds, not by the word "profile", which
   // most people read as their own account.
-  { label: "About your kitchen", href: "/seller/profile", icon: UserRound, group: "Your shop" },
+  { label: "About you", href: "/seller/profile", icon: UserRound, group: "Your shop" },
   { label: "Reviews", href: "/seller/reviews", icon: Star, group: "Your shop" },
   { label: "Earnings & payouts", href: "/seller/payouts", icon: Wallet, group: "Money" },
 ];

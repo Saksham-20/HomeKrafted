@@ -213,7 +213,7 @@ a button that reopens the same Razorpay payment. Three things to check:
 
 The portal nav is four groups now — **Overview** (Today, Sales & trends,
 Orders), **What you sell** (Products, Snacks menu, Meal plans), **Your
-shop** (Shop page, About your kitchen, Reviews) and **Money** (Earnings
+shop** (Shop page, About you, Reviews) and **Money** (Earnings
 & payouts). The URLs did not change, so old bookmarks still work; check
 the strip is still scrollable on a phone and that the group dividers
 read as dividers, not as items.
@@ -716,12 +716,12 @@ Sign in as any of the three HomeKrafter accounts.
 
 Every HomeKrafter now sees **one dashboard with the same full menu**:
 Dashboard, Analytics, Products, Snacks menu, Meal plans, Orders, Shop
-page, About your kitchen, Earnings & payouts, Reviews. (Pickups is off
+page, About you, Earnings & payouts, Reviews. (Pickups is off
 the nav — laundry is withdrawn — but the screen still exists and the
 dashboard links to it if you have a booking still in flight.)
 
 **The portal was rebuilt on 2026-09-04 — things to look for on every
-screen.** Long forms (About your kitchen, the product form, meal plans,
+screen.** Long forms (About you, the product form, meal plans,
 Shop page) are split into titled sections with a **jump list** on the
 right (it becomes a chip strip on a phone); a section that still needs
 filling shows "N to fill" and the dot turns gold. At the bottom is a

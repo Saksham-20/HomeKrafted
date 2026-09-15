@@ -1117,7 +1117,7 @@ critical: a tablist may only contain tabs), and forty-one places said
 - **Nav `aria-label`s stay `"HomeKrafter"` and `"Admin"`** —
   `e2e/tests/portal-nav.spec.ts` finds the strips by them.
 - **User-facing labels changed with it:** Listings → **Products**, Menu →
-  **Snacks menu**, Profile → **About your kitchen**, Storefront → **Shop
+  **Snacks menu**, Profile → **About you** (was "About your kitchen" until 2026-09-15 — the screen is for every maker), Storefront → **Shop
   page**, Payouts → **Earnings & payouts**. Routes and code names are
   unchanged (`/seller/listings`, `ListingsClient`), same reasoning as the
   HomeKrafter/seller split.
@@ -1344,6 +1344,9 @@ on every admin controller.
   `ALL_ADMIN_SCOPES` (`src/common/admin-scopes.ts`, derived from the
   Prisma enum). The seed and the e2e harness did not, and a bare
   `role: 'admin'` promotion produces an account that signs in, renders an
+  **A gift is always `national` (2026-09-15, owner)** — both forms stop
+  asking for a craft, and `SellerListingsService` forces it on create and
+  edit, so "I deliver it nearby" is a food-only question.
   empty panel and 403s everywhere — which reads as a broken deploy.
   Pinned by `test/unit/admin-scopes.spec.ts`.
 - **Read from the database, never the token.** Revocation has to bite

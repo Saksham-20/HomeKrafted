@@ -276,7 +276,11 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     isPackaged: values.isPackaged,
     isHamper: values.isHamper,
     kind: values.kind,
-    shippingScope: values.shippingScope,
+    // A gift is posted, never delivered by the maker nearby (owner,
+    // 2026-09-15): a courier carries crafts and never food, so "local" on a
+    // candle only hid it from every buyer outside the maker's radius. The
+    // choice is asked of food alone; this is the rule for every editor.
+    shippingScope: values.kind === "craft" ? "national" : values.shippingScope,
     isSnack: values.kind === "craft" ? false : values.isSnack,
     cashbackPct: Number(values.cashbackPct) || 0,
     tags: values.tags,

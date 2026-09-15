@@ -106,12 +106,18 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, [mock]);
 
   // Real mode: wait for the auth session, then hydrate the signed-in
-  // consumer's real wishlist. A seller/admin session (or signed-out)
-  // renders an empty wishlist — this store is consumer-only.
+  // account's real wishlist. Signed-out renders an empty wishlist.
+  //
+  // Any signed-in role, not only `consumer` (2026-09-15). The server's
+  // cart, wallet and wishlist routes take any authed role, and a
+  // HomeKrafter shops too — but this used to load for consumers only, so a
+  // HomeKrafter's add worked (the store applied the server's reply) and a
+  // reload then rendered an empty basket over a filled one. `role` stays in
+  // the deps so switching accounts re-reads.
   useEffect(() => {
     if (mock) return;
     if (!authReady) return;
-    if (!isSignedIn || role !== "consumer") {
+    if (!isSignedIn) {
       // Deferred a tick to avoid a synchronous `setState` directly in the
       // effect body (`react-hooks/set-state-in-effect`).
       let cancelled = false;

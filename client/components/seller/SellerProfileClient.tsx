@@ -270,7 +270,7 @@ export function SellerProfileClient() {
         // boundary (an effect's rejection is not a render error), so a
         // rate-limited fetch rendered the empty state over real data — the
         // M37 dashboard rule, applied to every list (2026-09-04).
-        setLoadError(apiErrorMessage(caught, "Couldn't load your kitchen's details. Try again."));
+        setLoadError(apiErrorMessage(caught, "Couldn't load your profile details. Try again."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -474,7 +474,7 @@ export function SellerProfileClient() {
         setPinBusy(false);
         setPinError(
           geoError.code === geoError.PERMISSION_DENIED
-            ? "Location is blocked for this site. Allow it in your browser settings, then press the button again — standing in your kitchen."
+            ? "Location is blocked for this site. Allow it in your browser settings, then press the button again — standing where you make your things."
             : "We could not get a location fix. Move near a window or step outside, then try again.",
         );
       },
@@ -565,7 +565,7 @@ export function SellerProfileClient() {
   if (loadError) {
     return (
       <div>
-        <SellerPageHeader title="About your kitchen" />
+        <SellerPageHeader title="About you" />
         <Notice
           tone="danger"
           actions={
@@ -592,7 +592,7 @@ export function SellerProfileClient() {
   if (!ready || loading || !form || !profile) {
     return (
       <div>
-        <SellerPageHeader title="About your kitchen" />
+        <SellerPageHeader title="About you" />
         <LoadingRows rows={4} showLabel label={kitchenLoading("seller/profile", MAKER_LOADING)} />
       </div>
     );
@@ -614,6 +614,12 @@ export function SellerProfileClient() {
    * half-ticked chip row must not flash a licence field on and off.
    */
   const sellsFood = makesFood(currentSpecialties);
+  /**
+   * Where this HomeKrafter makes things (2026-09-15): the screen is for a
+   * potter as much as a cook, so "kitchen" is only said to somebody who
+   * cooks. Same switch the photos section already used.
+   */
+  const place = sellsFood ? "kitchen" : "workshop";
 
   const verifications = [
     { key: "identity", label: "Identity", done: profile.identityVerified },
@@ -648,7 +654,7 @@ export function SellerProfileClient() {
   return (
     <div className={styles.page}>
       <SellerPageHeader
-        title="About your kitchen"
+        title="About you"
         subtitle="The story, hours and policies a buyer reads before deciding to order from you."
         actions={
           vendorSlug ? (
@@ -673,7 +679,7 @@ export function SellerProfileClient() {
           <p className={styles.completionNote}>
             {profile.completion.missing.length === 0
               ? "Nothing left to fill in. Keep it current as things change."
-              : `Buyers are choosing between kitchens they have never eaten from. ${profile.completion.missing.length} thing${profile.completion.missing.length === 1 ? "" : "s"} they look for ${profile.completion.missing.length === 1 ? "is" : "are"} still blank — each section says what it needs.`}
+              : `Buyers are choosing between ${sellsFood ? "kitchens they have never eaten from" : "makers they have never bought from"}. ${profile.completion.missing.length} thing${profile.completion.missing.length === 1 ? "" : "s"} they look for ${profile.completion.missing.length === 1 ? "is" : "are"} still blank — each section says what it needs.`}
           </p>
         </Card>
 
@@ -953,9 +959,9 @@ export function SellerProfileClient() {
 
         <FormSection
           id="policies"
-          title="Hygiene, packaging and policies"
+          title={sellsFood ? "Hygiene, packaging and policies" : "Packaging and policies"}
           status={statusFor("policies")}
-          description="Answer the questions a careful buyer would ask before ordering from a home kitchen. Two or three sentences each is plenty."
+          description={`Answer the questions a careful buyer would ask before ordering from a home ${sellsFood ? "kitchen" : "maker"}. Two or three sentences each is plenty.`}
         >
           <Field
             label="How you handle hygiene"
@@ -1046,7 +1052,7 @@ export function SellerProfileClient() {
         */}
         <FormSection
           id="address"
-          title="Pickup address and kitchen pin"
+          title={`Pickup address and ${place} pin`}
           status={statusFor("address")}
           description={
             <>
@@ -1104,7 +1110,7 @@ export function SellerProfileClient() {
           <div className={styles.pinBlock}>
             <MapPin size={18} strokeWidth={1.8} aria-hidden="true" className={styles.pinIcon} />
             <div className={styles.pinBody}>
-              <span className={styles.pinTitle}>Your kitchen&apos;s exact spot</span>
+              <span className={styles.pinTitle}>Your {place}&apos;s exact spot</span>
               <p className={styles.pinText}>
                 {profile.pin
                   ? profile.pin.confirmedAt
@@ -1113,8 +1119,8 @@ export function SellerProfileClient() {
                       (profile.pin.pincode
                         ? ` — an automatic guess from pincode ${profile.pin.pincode}, which can be kilometres off. Setting it yourself helps the right buyers find you.`
                         : ".")
-                  : "We have not placed your kitchen on the map yet."}{" "}
-                Press the button while standing in your kitchen — the pin lands wherever you are at
+                  : `We have not placed your ${place} on the map yet.`}{" "}
+                Press the button while standing in your {place} — the pin lands wherever you are at
                 that moment, and saves straight away. A pin far outside your registered pincode will
                 not save.
               </p>

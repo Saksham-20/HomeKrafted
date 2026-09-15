@@ -325,7 +325,7 @@ export function SellerStorefrontClient() {
               <Input value={form.location} onChange={(event) => edit({ location: event.target.value })} />
             </Field>
           </FieldGrid>
-          <Field label="Bio" hint="Two or three sentences. The longer story lives under About your kitchen.">
+          <Field label="Bio" hint="Two or three sentences. The longer story lives under About you.">
             <TextArea rows={3} autoGrow value={form.bio} onChange={(event) => edit({ bio: event.target.value })} />
           </Field>
         </FormSection>

@@ -2,7 +2,19 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowLeft, ArrowRight, Camera, Check, IndianRupee, Plus, Tag, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Camera,
+  Check,
+  ChevronDown,
+  Gift,
+  IndianRupee,
+  Plus,
+  Tag,
+  UtensilsCrossed,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -217,6 +229,8 @@ export function GuidedListingForm({
       kind,
       categoryId: stillValid ? values.categoryId : "",
       categoryIds: keptExtras,
+      // Gifts are posted; only food asks how it travels (`toSellerListingInput`).
+      shippingScope: kind === "craft" ? "national" : values.shippingScope,
     });
   }
 
@@ -254,6 +268,27 @@ export function GuidedListingForm({
     [categories, values.kind, values.name],
   );
   const hasShelfPicks = shelfPicks.groups.length > 0;
+  const [showAllShelves, setShowAllShelves] = useState(false);
+  const selectedShelfName = categories.find((c) => c.id === values.categoryId)?.name;
+  /*
+    A wall of thirty pills is a list nobody reads. The first run and any
+    name matches are shown; the rest open on request — except a group
+    holding the current pick, which stays open so a choice is never hidden.
+  */
+  const shelfSections = [
+    ...(shelfPicks.suggested.length > 0
+      ? [{ heading: "Matches the name" as string | null, shelves: shelfPicks.suggested, key: "suggested" }]
+      : []),
+    ...shelfPicks.groups.map((g, i) => ({ ...g, key: `${i}:${g.heading ?? "shelves"}` })),
+  ];
+  const leadCount = shelfPicks.suggested.length > 0 ? 2 : 1;
+  const visibleShelfSections = shelfSections.filter(
+    (section, i) =>
+      showAllShelves ||
+      i < leadCount ||
+      section.shelves.some((cat) => cat.id === values.categoryId),
+  );
+  const hiddenShelfCount = shelfSections.length - visibleShelfSections.length;
 
   const occasionOptions = useMemo<ComboboxOption[]>(
     () => occasions.map((o) => ({ value: o.id, label: o.name })),
@@ -402,30 +437,34 @@ export function GuidedListingForm({
             <fieldset className={styles.choiceSet}>
               <legend className={styles.question}>Is it something to eat, or something to keep?</legend>
               <div className={styles.choices}>
-                <button
-                  type="button"
-                  className={clsx(styles.choice, !isCraft && styles.choiceOn)}
-                  onClick={() => setKind("food")}
-                  aria-pressed={!isCraft}
-                >
-                  <span className={styles.choiceTitle}>
-                    <span className={styles.choiceEmoji} aria-hidden="true">🍯</span>
-                    Something to eat
-                  </span>
-                  <span className={styles.choiceHint}>Pickles, sweets, cakes, snacks</span>
-                </button>
-                <button
-                  type="button"
-                  className={clsx(styles.choice, isCraft && styles.choiceOn)}
-                  onClick={() => setKind("craft")}
-                  aria-pressed={isCraft}
-                >
-                  <span className={styles.choiceTitle}>
-                    <span className={styles.choiceEmoji} aria-hidden="true">🎨</span>
-                    Something to keep
-                  </span>
-                  <span className={styles.choiceHint}>Candles, jewellery, art, gifts</span>
-                </button>
+                {(
+                  [
+                    { kind: "food", title: "Something to eat", hint: "Pickles, sweets, cakes, snacks", Icon: UtensilsCrossed },
+                    { kind: "craft", title: "Something to keep", hint: "Candles, jewellery, art, gifts", Icon: Gift },
+                  ] as const
+                ).map(({ kind, title, hint, Icon }) => {
+                  const on = values.kind === kind;
+                  return (
+                    <button
+                      key={kind}
+                      type="button"
+                      className={clsx(styles.choice, on && styles.choiceOn)}
+                      onClick={() => setKind(kind)}
+                      aria-pressed={on}
+                    >
+                      <span className={styles.choiceIcon} aria-hidden="true">
+                        <Icon size={20} strokeWidth={1.8} />
+                      </span>
+                      <span className={styles.choiceText}>
+                        <span className={styles.choiceTitle}>{title}</span>
+                        <span className={styles.choiceHint}>{hint}</span>
+                      </span>
+                      <span className={styles.choiceTick} aria-hidden="true">
+                        {on && <Check size={14} strokeWidth={2.4} />}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </fieldset>
 
@@ -439,70 +478,93 @@ export function GuidedListingForm({
               />
             </label>
 
-            {/* Shelf chips — every shelf on this side, grouped */}
-            {hasShelfPicks && (
-              <div className={styles.field} role="group" aria-labelledby="shelf-question">
+            <div className={styles.shelfBlock}>
+              <div className={styles.shelfTop}>
                 <span id="shelf-question" className={styles.question}>
                   Which shelf does it belong on?
                 </span>
-                {[
-                  ...(shelfPicks.suggested.length > 0
-                    ? [{ heading: "Matches the name", shelves: shelfPicks.suggested, key: "suggested" }]
-                    : []),
-                  ...shelfPicks.groups.map((g) => ({ ...g, key: g.heading ?? "shelves" })),
-                ].map((group) => (
-                  <div key={group.key} className={styles.shelfGroup}>
-                    {group.heading && <span className={styles.shelfHeading}>{group.heading}</span>}
-                    <div className={styles.quickPicks}>
-                      {group.shelves.map((cat) => (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          aria-pressed={values.categoryId === cat.id}
-                          className={clsx(
-                            styles.quickPick,
-                            values.categoryId === cat.id && styles.quickPickSelected,
-                          )}
-                          onClick={() => set("categoryId", cat.id)}
-                        >
-                          {cat.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                {selectedShelfName && (
+                  <span className={styles.shelfChosen} aria-live="polite">
+                    <Check size={14} strokeWidth={2.4} aria-hidden="true" />
+                    {selectedShelfName}
+                  </span>
+                )}
               </div>
-            )}
 
-            {/*
-              The shelf list is filtered to the side of the catalogue
-              they just picked, so a candle maker is never offered
-              "Pickles" — and the ask carries that same answer, so an
-              approved shelf lands on the right half without an admin
-              having to guess at what somebody meant.
-            */}
-            <Combobox
-              label={hasShelfPicks ? "Or search for it" : "Which shelf does it belong on?"}
-              labelTone="plain"
-              value={values.categoryId ? [values.categoryId] : []}
-              onChange={(next) => set("categoryId", next[0] ?? "")}
-              options={categoryOptions}
-              placeholder={isCraft ? "e.g. Earrings, Candles, Wall Art…" : "e.g. Pickles, Sweets, Breakfast…"}
-              emptyMessage="Nothing by that name — try a shorter word."
-              hint="This is how shoppers find it when they are browsing."
-              onSuggest={
-                taxonomy?.suggestCategory
-                  ? (name) =>
-                      taxonomy.suggestCategory!(
-                        name,
-                        values.kind,
-                        // File it beside whatever they already picked (M58).
-                        parentForSuggestion(categories, values.categoryId),
-                      )
-                  : undefined
-              }
-              createNoun="shelf"
-            />
+              {/*
+                The shelf list is filtered to the side of the catalogue
+                they just picked, so a candle maker is never offered
+                "Pickles" — and the ask carries that same answer, so an
+                approved shelf lands on the right half without an admin
+                having to guess at what somebody meant. Search sits first:
+                typing a word is quicker than scanning a list.
+              */}
+              <Combobox
+                label="Search shelves"
+                labelTone="plain"
+                value={values.categoryId ? [values.categoryId] : []}
+                onChange={(next) => set("categoryId", next[0] ?? "")}
+                options={categoryOptions}
+                placeholder={isCraft ? "e.g. Earrings, Candles, Wall Art…" : "e.g. Pickles, Sweets, Breakfast…"}
+                emptyMessage="Nothing by that name — try a shorter word."
+                hint="This is how shoppers find it when they are browsing."
+                onSuggest={
+                  taxonomy?.suggestCategory
+                    ? (name) =>
+                        taxonomy.suggestCategory!(
+                          name,
+                          values.kind,
+                          // File it beside whatever they already picked (M58).
+                          parentForSuggestion(categories, values.categoryId),
+                        )
+                    : undefined
+                }
+                createNoun="shelf"
+              />
+
+              {hasShelfPicks && (
+                <div className={styles.shelfPanel} role="group" aria-labelledby="shelf-question">
+                  {visibleShelfSections.map((group) => (
+                    <div key={group.key} className={styles.shelfGroup}>
+                      {group.heading && <span className={styles.shelfHeading}>{group.heading}</span>}
+                      <div className={styles.quickPicks}>
+                        {group.shelves.map((cat) => {
+                          const on = values.categoryId === cat.id;
+                          return (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              aria-pressed={on}
+                              className={clsx(styles.quickPick, on && styles.quickPickSelected)}
+                              onClick={() => set("categoryId", cat.id)}
+                            >
+                              {on && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
+                              {cat.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {(hiddenShelfCount > 0 || showAllShelves) && shelfSections.length > leadCount && (
+                    <button
+                      type="button"
+                      className={styles.shelfMore}
+                      aria-expanded={showAllShelves}
+                      onClick={() => setShowAllShelves((open) => !open)}
+                    >
+                      {showAllShelves ? "Show fewer shelves" : `Browse all shelves (${hiddenShelfCount} more ${hiddenShelfCount === 1 ? "group" : "groups"})`}
+                      <ChevronDown
+                        size={16}
+                        strokeWidth={1.8}
+                        aria-hidden="true"
+                        className={clsx(styles.shelfMoreIcon, showAllShelves && styles.shelfMoreIconOpen)}
+                      />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -853,6 +915,8 @@ export function GuidedListingForm({
               </fieldset>
             )}
 
+            {/* Food only: a gift is always posted (`toSellerListingInput`). */}
+            {values.kind === "food" && (
             <fieldset className={styles.choiceSet}>
               <legend className={styles.question}>How does it get to them?</legend>
               <div className={styles.choices}>
@@ -879,6 +943,7 @@ export function GuidedListingForm({
                 </button>
               </div>
             </fieldset>
+            )}
 
             <Combobox
               label="Is it for an occasion?"

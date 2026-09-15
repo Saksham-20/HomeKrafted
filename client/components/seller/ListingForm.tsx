@@ -258,6 +258,8 @@ export function ListingForm({
       kind,
       categoryId: stillValid ? values.categoryId : "",
       categoryIds: keptExtras,
+      // Gifts are posted; only food asks how it travels (`toSellerListingInput`).
+      shippingScope: kind === "craft" ? "national" : values.shippingScope,
     });
   }
 
@@ -316,6 +318,8 @@ export function ListingForm({
           kitchen posting pickles across India is a real case, and deriving
           this from "is it food" would forbid it.
         */}
+        {/* Food only: a gift is always posted (`toSellerListingInput`). */}
+        {values.kind === "food" && (
         <Fieldset legend="How does it reach the buyer?">
           <ChoiceCards
             label="How does it reach the buyer?"
@@ -335,6 +339,7 @@ export function ListingForm({
             ]}
           />
         </Fieldset>
+        )}
       </FormSection>
 
       <FormSection id="listing-basics" title="Name, shelf and description">

@@ -467,3 +467,15 @@ describe("every server limit is mirrored", () => {
     expect(unmirrored).toEqual([]);
   });
 });
+
+describe("a gift always posts (2026-09-15)", () => {
+  it("sends national for a craft even if local was left selected", () => {
+    const input = toSellerListingInput({ ...EMPTY_LISTING_FORM, name: "Candle", kind: "craft", shippingScope: "local" });
+    expect(input.shippingScope).toBe("national");
+  });
+
+  it("keeps the maker's own choice for food", () => {
+    const input = toSellerListingInput({ ...EMPTY_LISTING_FORM, name: "Thali", kind: "food", shippingScope: "local" });
+    expect(input.shippingScope).toBe("local");
+  });
+});
