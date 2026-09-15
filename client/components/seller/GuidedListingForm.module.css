@@ -346,6 +346,19 @@
   gap: 8px;
 }
 
+.shelfGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.shelfHeading {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-muted);
+}
+
 .quickPick {
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-pill);

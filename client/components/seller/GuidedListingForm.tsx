@@ -17,6 +17,7 @@ import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from
 import { VARIANT_LABEL_MAX, mergeVariantLabel, variantLabelError } from "@/lib/sell/listing-input";
 import { ColourSwatches } from "./ColourSwatches";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
+import { buildShelfPicks } from "@/lib/sell/shelf-picks";
 import type { ListingTaxonomyActions } from "@/lib/taxonomy-actions";
 import styles from "./GuidedListingForm.module.css";
 
@@ -63,7 +64,6 @@ const FOOD_PLACEHOLDERS = ["e.g. Homemade pickle", "e.g. Freshly baked cookies",
 const CRAFT_PLACEHOLDERS = ["e.g. Scented soy candle", "e.g. Handcrafted earrings", "e.g. Hand-painted illustration", "e.g. Macramé wall piece"];
 
 /** How many top category quick-picks to show. */
-const QUICK_PICK_COUNT = 6;
 
 // Colour swatches + their overflow guard: `lib/sell/listing-colours.ts`,
 // shared with the long form so the two cannot drift.
@@ -248,17 +248,12 @@ export function GuidedListingForm({
       });
   }, [categories, values.kind]);
 
-  /**
-   * Quick-pick shelf suggestions — the leaf categories (those with a parent)
-   * are more specific and useful as quick picks. Fall back to top-level if
-   * there are not enough leaves.
-   */
-  const quickPickCategories = useMemo(() => {
-    const filtered = categories.filter((c) => (c.group ?? "food") === values.kind);
-    const leaves = filtered.filter((c) => c.parentId);
-    const pool = leaves.length >= 3 ? leaves : filtered;
-    return pool.slice(0, QUICK_PICK_COUNT);
-  }, [categories, values.kind]);
+  /** Every shelf on this side as chips, grouped, plus name matches (`lib/sell/shelf-picks`). */
+  const shelfPicks = useMemo(
+    () => buildShelfPicks(categories, values.kind, values.name),
+    [categories, values.kind, values.name],
+  );
+  const hasShelfPicks = shelfPicks.groups.length > 0;
 
   const occasionOptions = useMemo<ComboboxOption[]>(
     () => occasions.map((o) => ({ value: o.id, label: o.name })),
@@ -444,25 +439,38 @@ export function GuidedListingForm({
               />
             </label>
 
-            {/* Quick-pick shelf chips */}
-            {quickPickCategories.length > 0 && (
-              <div className={styles.field}>
-                <span className={styles.question}>Which shelf does it belong on?</span>
-                <div className={styles.quickPicks}>
-                  {quickPickCategories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      className={clsx(
-                        styles.quickPick,
-                        values.categoryId === cat.id && styles.quickPickSelected,
-                      )}
-                      onClick={() => set("categoryId", cat.id)}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
+            {/* Shelf chips — every shelf on this side, grouped */}
+            {hasShelfPicks && (
+              <div className={styles.field} role="group" aria-labelledby="shelf-question">
+                <span id="shelf-question" className={styles.question}>
+                  Which shelf does it belong on?
+                </span>
+                {[
+                  ...(shelfPicks.suggested.length > 0
+                    ? [{ heading: "Matches the name", shelves: shelfPicks.suggested, key: "suggested" }]
+                    : []),
+                  ...shelfPicks.groups.map((g) => ({ ...g, key: g.heading ?? "shelves" })),
+                ].map((group) => (
+                  <div key={group.key} className={styles.shelfGroup}>
+                    {group.heading && <span className={styles.shelfHeading}>{group.heading}</span>}
+                    <div className={styles.quickPicks}>
+                      {group.shelves.map((cat) => (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          aria-pressed={values.categoryId === cat.id}
+                          className={clsx(
+                            styles.quickPick,
+                            values.categoryId === cat.id && styles.quickPickSelected,
+                          )}
+                          onClick={() => set("categoryId", cat.id)}
+                        >
+                          {cat.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -474,7 +482,7 @@ export function GuidedListingForm({
               having to guess at what somebody meant.
             */}
             <Combobox
-              label={quickPickCategories.length > 0 ? "Or search for it" : "Which shelf does it belong on?"}
+              label={hasShelfPicks ? "Or search for it" : "Which shelf does it belong on?"}
               labelTone="plain"
               value={values.categoryId ? [values.categoryId] : []}
               onChange={(next) => set("categoryId", next[0] ?? "")}

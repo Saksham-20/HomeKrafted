@@ -49,6 +49,27 @@ export class UpdateSettingsDto {
   @BooleanField()
   commissionEnabled?: boolean;
 
+  /** Flat delivery fee per order, ₹. 0 = free delivery. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  deliveryFee?: number;
+
+  /** Orders at or above this subtotal deliver free, ₹. 0 = no free-delivery offer. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100000)
+  freeDeliveryThreshold?: number;
+
+  /** Off = homemade food is "coming soon": browsable, not buyable (`common/food-orders.ts`). */
+  @IsOptional()
+  @BooleanField()
+  foodOrdersOpen?: boolean;
+
   /**
    * Comma-separated pincode prefixes Homekrafted currently delivers to —
    * `"160,1401,1403,1341,1346"` is the Chandigarh tricity (M36).

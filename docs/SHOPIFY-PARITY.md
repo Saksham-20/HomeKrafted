@@ -63,7 +63,7 @@ each is a small diff against code that already exists.
 | **P2.1** | Discount codes | Feature | Highest revenue lever absent. No promo field exists anywhere. |
 | **P2.2** | GST / tax | Compliance | Indian marketplace with **zero** tax modelling in the consumer flow. |
 | **P2.3** | Product variants (multi-axis) | Feature | A craft in three colours cannot be expressed except by abusing the weight label. |
-| **P3.1** | Shipping rates / zones | Feature | Flat ₹49, free at ₹999, hardcoded. |
+| **P3.1** | Shipping rates / zones | Feature | Flat fee + free-over threshold, set on `/admin/settings` (2026-09-15; was a hardcoded ₹49/₹999). No zones. |
 | ~~P3.2~~ ✅ | Commission collection | Business | **Shipped upstream** (merged 2026-08-18). `Payout` now carries `grossAmount`, `commissionAmount` and `commissionPct`, and `SellerPayoutsService` splits against a `commissionEnabled` setting. What remains is a business decision to flip it on, not an engine to build. |
 | **P3.3** | Related products / upsell | Growth | A product page ends at reviews. |
 | **P4** | Lifecycle email + templates | Feature | **Deferred by owner (2026-08-15).** See §5. |
@@ -102,7 +102,7 @@ channel · meal subscriptions.
 | `ProductVariant` / `ProductOption` | `WeightOption` (sku, label, price, mrp, stock) | Single axis. `Product` has no SKU of its own. |
 | `Discount` / `Coupon` / `PriceRule` | `WeightOption.mrp` strike-through; `cashbackPct` | `PromoBand`/`MealPromo` are **CMS banners**. `NotificationCategory.promo` is a notification bucket. Neither is a promotion. |
 | `TaxRate` / HSN | `CorporateQuote.taxAmount` (admin-typed, B2B only) | No tax line in cart or checkout. |
-| `ShippingRate` / `ShippingZone` | `SHIPPING_FEE = 49`, `FREE_SHIPPING_THRESHOLD = 999` | In `server/src/common/pricing/pricing.util.ts`. |
+| `ShippingRate` / `ShippingZone` | `PlatformSettings.deliveryFee` / `freeDeliveryThreshold` | Read by `computeShipping` in `server/src/common/pricing/pricing.util.ts`. |
 | `GiftCard` | Wallet | Wallet is non-transferable, self-top-up only. |
 | `Return` / RMA | `Order.refundStatus` + `refundReason` | No labels, no restocking on return. |
 | Invoices | — | No model, no PDF, no route. |

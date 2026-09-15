@@ -559,6 +559,27 @@ Sign in as **Ananya**.
   in your cart) must show a sentence saying why — the button must
   **never** say "Added ✓" over a cart that did not change.
 - Go through **checkout**: pick an address, pick a delivery date, place the order
+- **Checkout changes shape with the basket.** A basket with any food in it
+  gets the kitchen layout: one column, "Your order from {kitchen}", veg
+  marks, one delivery address, "When should it arrive?", a bill, and a pay
+  bar pinned to the bottom. A basket of gifts only gets the step layout:
+  1 Delivery address (Deliver to me / Send as a gift), 2 Gift options,
+  3 Payment method, 4 Review items and delivery, with Place order at the
+  top of the summary box. Report a food basket that shows the steps, or a
+  gift basket that shows the bill column.
+- Gift wrap is **free** — if any screen quotes a price for it, that's a bug.
+- **Delivery fee is set in `/admin/settings → Delivery`** and is ₹0 for now.
+  Cart and checkout should show "Free" delivery. Set a fee (say ₹49 with
+  free delivery over ₹999) and a basket under ₹999 should show ₹49 on both
+  the cart and checkout, the total should include it, and the order you
+  place should be charged exactly that.
+- **Homemade food is "coming soon"** while `/admin/settings → Homemade food`
+  is off. Food pages still open and browse normally, with a small note at
+  the top and a "Coming soon" tag on the Homemade Food tab and the food
+  half of the home page. Every food "Add to cart", "+", meal-plan "Start
+  plan" and food checkout button reads **Coming soon** and can't be
+  pressed. Gifts must work exactly as before. Switch it on in admin and
+  food should be orderable again straight away.
 - Pay with **wallet balance**, and separately try **Card / UPI** — the card
   route is test mode, no real charge and no real card details needed
 - Check the order appears under **Account → Orders**

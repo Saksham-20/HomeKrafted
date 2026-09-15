@@ -10,6 +10,9 @@ import { ApiError } from "@/lib/api/http";
 import { createMealSubscription, getAddresses } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { MEAL_COUNTS, type Address, type MealPlan } from "@/lib/types";
+import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
+import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
+import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
 import styles from "./MealPlanSubscribeClient.module.css";
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -70,6 +73,8 @@ export function MealPlanSubscribeClient({ plan }: MealPlanSubscribeClientProps) 
   }, [ready, isSignedIn]);
 
   const total = useMemo(() => plan.pricePerMeal * mealCount, [plan.pricePerMeal, mealCount]);
+  /** A meal plan is food; it opens when food does (`lib/food-launch.ts`). */
+  const foodClosed = useFoodOrdersOpen() === false;
 
   function toggleDay(day: number) {
     setDaysOfWeek((current) =>
@@ -230,12 +235,13 @@ export function MealPlanSubscribeClient({ plan }: MealPlanSubscribeClientProps) 
         {error && <p className={styles.error}>{error}</p>}
       </div>
 
+      {foodClosed && <FoodComingSoonBanner />}
       <Button
         variant="primary"
         onClick={handleSubscribe}
-        disabled={busy || addresses.length === 0}
+        disabled={busy || foodClosed || addresses.length === 0}
       >
-        {busy ? "Starting your plan…" : `Start plan · ${formatCurrency(total)}`}
+        {busy ? "Starting your plan…" : foodClosed ? FOOD_BUTTON_LABEL : `Start plan · ${formatCurrency(total)}`}
       </Button>
     </div>
   );

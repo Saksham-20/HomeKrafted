@@ -1,0 +1,66 @@
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  margin-block: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  border: 1px solid var(--hk-gold-border);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-gold-tint);
+  color: var(--hk-ink);
+}
+
+.bannerIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--hk-gold-text-sm);
+}
+
+.bannerText {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bannerLink {
+  font-weight: 600;
+  color: var(--hk-pine);
+  white-space: nowrap;
+}
+
+.bannerClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin: -10px -10px -10px 0;
+  border: 0;
+  border-radius: var(--hk-r-sm);
+  background: none;
+  color: var(--hk-muted);
+  cursor: pointer;
+}
+
+.bannerClose:hover {
+  color: var(--hk-ink);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--hk-gold-border);
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+  font-family: var(--hk-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: middle;
+}

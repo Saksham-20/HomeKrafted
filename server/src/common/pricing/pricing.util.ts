@@ -8,11 +8,17 @@
  * milestone, not M8.1's.
  */
 
-/** Flat shipping fee below the free-shipping threshold. */
-export const SHIPPING_FEE = 49;
-
-/** Orders at or above this subtotal ship free. */
-export const FREE_SHIPPING_THRESHOLD = 999;
+/**
+ * The delivery rule, from platform settings (2026-09-15) — it was a
+ * hardcoded ₹49 under ₹999. Passed in, never read here, so this stays a
+ * pure function the cart and the order compute identically from.
+ */
+export interface DeliveryRule {
+  /** Flat fee per order. 0 = delivery is free. */
+  deliveryFee: number;
+  /** Orders at or above this subtotal deliver free. 0 = no free-delivery offer. */
+  freeDeliveryThreshold: number;
+}
 
 /**
  * Platform-wide flat cashback rate (matches `client/lib/data/products.ts`'s
@@ -22,9 +28,10 @@ export const FREE_SHIPPING_THRESHOLD = 999;
  */
 export const CASHBACK_RATE = 0.05;
 
-export function computeShipping(subtotal: number): number {
-  if (subtotal <= 0) return 0;
-  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+export function computeShipping(subtotal: number, rule: DeliveryRule): number {
+  if (subtotal <= 0 || rule.deliveryFee <= 0) return 0;
+  if (rule.freeDeliveryThreshold > 0 && subtotal >= rule.freeDeliveryThreshold) return 0;
+  return rule.deliveryFee;
 }
 
 export function computeCashback(subtotal: number): number {

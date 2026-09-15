@@ -25,3 +25,25 @@ export function verifyRazorpaySignature(rawBody: Buffer, signature: string | und
   if (expected.length !== given.length) return false;
   return timingSafeEqual(expected, given);
 }
+
+/**
+ * Verifies the signature Checkout hands the browser on success:
+ * HMAC-SHA256 of `razorpay_order_id + "|" + razorpay_payment_id`, keyed
+ * with the **key secret** (not the webhook secret), hex-encoded. Razorpay's
+ * documented Standard Checkout scheme. Constant-time, same reason as above.
+ */
+export function verifyCheckoutSignature(
+  razorpayOrderId: string,
+  razorpayPaymentId: string,
+  signature: string | undefined,
+  keySecret: string,
+): boolean {
+  if (!signature || !keySecret || !razorpayOrderId || !razorpayPaymentId) return false;
+
+  const expectedHex = createHmac('sha256', keySecret).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest('hex');
+  const expected = Buffer.from(expectedHex, 'utf8');
+  const given = Buffer.from(signature, 'utf8');
+
+  if (expected.length !== given.length) return false;
+  return timingSafeEqual(expected, given);
+}

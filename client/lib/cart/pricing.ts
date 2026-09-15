@@ -6,11 +6,21 @@
  * cart never drifts from what actually gets charged at checkout).
  */
 
-/** Flat shipping fee below the free-shipping threshold. */
-export const SHIPPING_FEE = 49;
+/**
+ * The delivery rule, from platform settings (2026-09-15) — it was a
+ * hardcoded ₹49 under ₹999, mirrored on the server. Both sides now read
+ * `deliveryFee` / `freeDeliveryThreshold` from `/admin/settings`, and the
+ * server's figure is the one charged.
+ */
+export interface DeliveryRule {
+  /** Flat fee per order, ₹. 0 = delivery is free. */
+  deliveryFee: number;
+  /** Orders at or above this subtotal deliver free, ₹. 0 = no free-delivery offer. */
+  freeDeliveryThreshold: number;
+}
 
-/** Orders at or above this subtotal ship free. */
-export const FREE_SHIPPING_THRESHOLD = 999;
+/** What mock mode and an older server that doesn't send the rule use — the server's own defaults. */
+export const DEFAULT_DELIVERY_RULE: DeliveryRule = { deliveryFee: 0, freeDeliveryThreshold: 999 };
 
 /**
  * Platform-wide flat cashback rate (matches `lib/data/products.ts`'s
@@ -21,9 +31,16 @@ export const FREE_SHIPPING_THRESHOLD = 999;
  */
 export const CASHBACK_RATE = 0.05;
 
-export function computeShipping(subtotal: number): number {
-  if (subtotal <= 0) return 0;
-  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+export function computeShipping(subtotal: number, rule: DeliveryRule): number {
+  if (subtotal <= 0 || rule.deliveryFee <= 0) return 0;
+  if (rule.freeDeliveryThreshold > 0 && subtotal >= rule.freeDeliveryThreshold) return 0;
+  return rule.deliveryFee;
+}
+
+/** The "free delivery over ₹X" line, or nothing when there is no such offer to state. */
+export function freeDeliveryHint(rule: DeliveryRule | undefined, shipping: number): number | undefined {
+  if (!rule || shipping <= 0 || rule.freeDeliveryThreshold <= 0) return undefined;
+  return rule.freeDeliveryThreshold;
 }
 
 export function computeCashback(subtotal: number): number {

@@ -9,6 +9,8 @@ import { LaundryService } from '../laundry/laundry.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AdminAuditLogService } from '../admin/audit-log.service';
 import { OrderNotificationsService } from './order-notifications.service';
+import { AdminSettingsService } from '../admin/settings.service';
+import { foodComingSoon } from '../common/food-orders';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersQueryDto } from './dto/list-orders.query.dto';
 import { mapOrder, orderStatusToFrontend } from './order.mapper';
@@ -29,6 +31,7 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     private readonly orderNotifications: OrderNotificationsService,
     private readonly auditLog: AdminAuditLogService,
+    private readonly settings: AdminSettingsService,
   ) {}
 
   /**
@@ -125,6 +128,12 @@ export class OrdersService {
 
     const resolvedLines = await Promise.all(rawItems.map((item) => resolveCartLine(this.prisma, item)));
 
+    // A basket filled before food was switched to "coming soon" must not
+    // check out through the back door (`common/food-orders.ts`).
+    if (resolvedLines.some((line) => line.kind === 'food') && !(await this.settings.get()).foodOrdersOpen) {
+      throw foodComingSoon();
+    }
+
     const addressIdByItemId = new Map<string, string>();
     for (const item of rawItems) {
       const addressId = shipsToRecipient
@@ -168,7 +177,8 @@ export class OrdersService {
     }
 
     const subtotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
-    const shippingFee = computeShipping(subtotal);
+    // The fee the buyer saw on their basket, read from the same settings.
+    const shippingFee = computeShipping(subtotal, await this.settings.get());
     const cashbackEarned = computeCashback(subtotal);
     const total = subtotal + shippingFee;
     const walletApplied = dto.paymentMethod === 'wallet' ? total : 0;
@@ -303,6 +313,7 @@ export class OrdersService {
     const cart = await this.getOrCreateCartForUser(userId);
     const added: { name: string; quantity: number }[] = [];
     const skipped: { name: string; reason: string }[] = [];
+    const foodOrdersOpen = (await this.settings.get()).foodOrdersOpen;
 
     for (const item of order.items) {
       if (!item.productId || !item.sku) {
@@ -326,6 +337,10 @@ export class OrdersService {
       // past every browse filter.
       if (!isPurchasable(product.moderationStatus)) {
         skipped.push({ name: product.name, reason: unavailableReason(product.moderationStatus) });
+        continue;
+      }
+      if (product.kind === 'food' && !foodOrdersOpen) {
+        skipped.push({ name: product.name, reason: 'Food orders are coming soon' });
         continue;
       }
       if (!product.isAvailable) {

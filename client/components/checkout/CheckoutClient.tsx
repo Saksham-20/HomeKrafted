@@ -6,16 +6,20 @@ import Link from "next/link";
 import clsx from "clsx";
 import { Wallet as WalletIcon, CreditCard, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { StickySummary, type StickySummaryLine } from "@/components/ui/StickySummary";
+import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { DietDot } from "@/components/ui/DietDot";
 import { DeliveryLocationConfirm } from "./DeliveryLocationConfirm";
 import { SlotPicker } from "@/components/ui/SlotPicker";
 import { Textarea } from "@/components/ui/Textarea";
 import { AddressForm, EMPTY_ADDRESS_FORM, type AddressFormValues } from "./AddressForm";
 import { OrderConfirmation } from "./OrderConfirmation";
 import { useCart } from "@/lib/cart/CartContext";
+import { checkoutModeOf } from "@/lib/cart/checkout-mode";
+import { dietOf } from "@/lib/diet";
 import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
 import { useWallet } from "@/lib/wallet/WalletContext";
-import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
+import { computeCashback, computeShipping, freeDeliveryHint } from "@/lib/cart/pricing";
+import { usePublicSettings } from "@/components/settings/usePublicSettings";
 import {
   createAddress,
   createOrder,
@@ -39,6 +43,9 @@ import {
   readGiftIntent,
 } from "@/lib/gift/gift-intent";
 import type { Address, Order, OrderGift, OrderShipment, PaymentMethod } from "@/lib/types";
+import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
+import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
+import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
 import styles from "./CheckoutClient.module.css";
 
 /** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
@@ -78,6 +85,9 @@ export function CheckoutClient() {
   const [deliveryDateOptions, setDeliveryDateOptions] = useState<DeliveryDateOption[]>([]);
   const mock = isMockMode();
   const router = useRouter();
+  const foodOrdersOpen = useFoodOrdersOpen();
+  /** The delivery rule from `/admin/settings`; `undefined` until read, and Place order waits for it. */
+  const publicSettings = usePublicSettings();
   const { user } = useAuth();
   const { items, ready, lineInfo, subtotal, assignAddress, clear } = useCart();
   // Live wallet balance (M6) — every balance-sufficiency check reads this
@@ -230,7 +240,12 @@ export function CheckoutClient() {
   /** What an unset picker means. Every read of a chosen date falls back through it. */
   const firstDateId = deliveryDateOptions[0]?.id ?? "";
 
-  const shipping = computeShipping(subtotal);
+  // Until the rule is read the fee is unknown, and "Free" would be a guess
+  // at the one number the buyer is about to pay — so it shows "…" and
+  // Place order waits (below). The server charges from the same settings.
+  const shippingKnown = publicSettings !== undefined;
+  const shipping = publicSettings ? computeShipping(subtotal, publicSettings) : 0;
+  const freeOver = freeDeliveryHint(publicSettings, shipping);
   const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
   // Unknown counts as not sufficient — the safe direction, since the
@@ -347,7 +362,15 @@ export function CheckoutClient() {
     submittingRef.current = true;
     setPlacing(true);
 
-    const giftAddressId = isGift ? await resolveGiftAddressId() : undefined;
+    let giftAddressId: string | undefined;
+    try {
+      giftAddressId = isGift ? await resolveGiftAddressId() : undefined;
+    } catch (err) {
+      setFormError(apiErrorMessage(err, "Couldn't save the recipient's address. Check the details."));
+      submittingRef.current = false;
+      setPlacing(false);
+      return;
+    }
 
     const lines: CreateOrderLineInput[] = items.map((item) => {
       const info = lineInfo(item);
@@ -393,15 +416,27 @@ export function CheckoutClient() {
         }
       : undefined;
 
-    const created = await createOrder({
-      lines,
-      defaultAddressId: defaultAddress?.id,
-      shipments,
-      gift,
-      paymentMethod,
-      walletApplied,
-      idempotencyKey: idempotencyKeyRef.current,
-    });
+    // Until 2026-09-15 nothing caught this: a refused order (food while it
+    // is coming soon, a listing gone out of stock since it was added) left
+    // the button on "Placing order…" for good, with no sentence and the
+    // submit guard still set.
+    let created: Order;
+    try {
+      created = await createOrder({
+        lines,
+        defaultAddressId: defaultAddress?.id,
+        shipments,
+        gift,
+        paymentMethod,
+        walletApplied,
+        idempotencyKey: idempotencyKeyRef.current,
+      });
+    } catch (err) {
+      setFormError(apiErrorMessage(err, "We couldn't place this order. Nothing was charged — please try again."));
+      submittingRef.current = false;
+      setPlacing(false);
+      return;
+    }
 
     if (paymentMethod === "wallet") {
       const result = await pay(created.total, {
@@ -436,11 +471,13 @@ export function CheckoutClient() {
             orderId: rzpOrder.razorpayOrderId,
             prefill: { name: user?.name, email: user?.email, contact: user?.phone },
             onSuccess: () => resolve(),
-            onDismiss: () => reject(new Error("Payment cancelled")),
+            onDismiss: (failureReason) => reject(new Error(failureReason ?? "Payment cancelled")),
+            onError: reject,
           }).catch(reject);
         });
-      } catch {
-        setFormError("Payment wasn't completed — your order is saved and awaiting payment.");
+      } catch (err) {
+        const reason = err instanceof Error && err.message !== "Payment cancelled" ? ` ${err.message}` : "";
+        setFormError(`Payment wasn't completed — your order is saved and awaiting payment.${reason}`);
         submittingRef.current = false;
         setPlacing(false);
         return;
@@ -525,362 +562,588 @@ export function CheckoutClient() {
     );
   }
 
-  const summaryLines: StickySummaryLine[] = [];
-  if (isGift) {
-    summaryLines.push({
-      label: `To ${recipient.recipientName || "recipient"}`,
-      value: formatCurrency(subtotal),
-    });
-  } else {
-    for (const [addressId, groupItems] of groups) {
-      const address = addressList.find((a) => a.id === addressId);
-      const groupSubtotal = groupItems.reduce((sum, item) => sum + lineInfo(item).lineTotal, 0);
-      summaryLines.push({
-        label: `To ${address?.label ?? "address"}`,
-        value: formatCurrency(groupSubtotal),
-      });
+  /*
+    Everything below is presentation. The two layouts share every value,
+    handler and guard above; they differ in order, density and emphasis.
+    `checkoutModeOf` decides (lib/cart/checkout-mode.ts): any food line
+    gets the food layout, because the kitchen delivering it sets the terms.
+  */
+  const lineInfos = items.map((item) => ({ item, info: lineInfo(item) }));
+  const mode = checkoutModeOf(lineInfos.map(({ info }) => info));
+  const maker = lineInfos.map(({ info }) => info.maker).find(Boolean);
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const selectedAddressId = items[0]?.addressId ?? defaultAddress?.id ?? "";
+  const dateOptions = deliveryDateOptions.map((d) => ({ id: d.id, primary: d.day, secondary: d.date }));
+  /** A food basket while food is coming soon can't be placed; the server refuses it too. */
+  const foodClosed = mode === "food" && foodOrdersOpen === false;
+  const placeDisabled = placing || cannotPay || !accountReady || foodClosed || !shippingKnown;
+  const placeLabel = placing ? "Placing order…" : `Place order · ${formatCurrency(total)}`;
+
+  /** Food layout: one address for the whole basket — a kitchen makes one trip. */
+  function deliverEverythingTo(addressId: string) {
+    setCartError(null);
+    for (const item of items) {
+      if (item.addressId === addressId) continue;
+      void assignAddress(item.id, addressId).catch((err: unknown) => setCartError(cartUpdateErrorMessage(err)));
     }
   }
-  summaryLines.push(
-    { label: "Subtotal", value: formatCurrency(subtotal) },
-    { label: "Shipping", value: shipping === 0 ? "Free" : formatCurrency(shipping) },
-    { label: "Total", value: formatCurrency(total), emphasis: true },
+
+  function toggleGift(next: boolean) {
+    setIsGift(next);
+    if (!next) {
+      setGiftWrap(false);
+      setWantsCard(false);
+      setGiftMessage("");
+    }
+  }
+
+  const mockBanner = mock && (
+    <div className={styles.mockBanner} role="status">
+      <ShieldAlert size={16} aria-hidden="true" />
+      <span>
+        <strong>Demo checkout</strong> — No real payment will be taken. This environment operates with
+        synthetic test accounts only.
+      </span>
+    </div>
   );
 
-  return (
-    <section className={clsx("container", styles.page)}>
-      <h1 className={styles.title}>Checkout</h1>
+  const itemList = (
+    <ul className={styles.itemList}>
+      {lineInfos.map(({ item, info }) => {
+        const diet = mode === "food" && info.dietary ? dietOf({ dietary: info.dietary }) : undefined;
+        return (
+          <li key={item.id} className={styles.itemRow}>
+            <ImageSlot
+              ratio="1/1"
+              label={info.imageLabel}
+              src={info.imageSrc}
+              alt=""
+              sizes="64px"
+              compact
+              className={styles.itemThumb}
+            />
+            <div className={styles.itemBody}>
+              <span className={styles.itemName}>
+                {diet && <DietDot diet={diet} className={styles.itemDiet} />}
+                {info.name}
+              </span>
+              <span className={styles.itemMeta}>
+                {info.weightLabel ? `${info.weightLabel} · ` : ""}Qty {info.quantity} ×{" "}
+                {formatCurrency(info.unitPrice)}
+              </span>
+            </div>
+            <span className={styles.itemPrice}>{formatCurrency(info.lineTotal)}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
-      {mock && (
-        <div
-          style={{
-            background: "var(--hk-amber-light, #fef3c7)",
-            border: "1px solid var(--hk-amber, #f59e0b)",
-            borderRadius: "var(--hk-r-md, 8px)",
-            padding: "10px 16px",
-            marginBottom: "20px",
-            color: "var(--hk-amber-dark, #92400e)",
-            fontSize: "13px",
-            fontWeight: 500,
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-          }}
-          role="status"
-        >
-          <ShieldAlert size={16} />
-          <span>
-            <strong>Demo checkout</strong> — No real payment will be taken. This environment operates with synthetic test accounts only.
+  const paymentChoices = (
+    <div className={styles.paymentOptions} role="group" aria-label="Payment method">
+      <button
+        type="button"
+        className={clsx(styles.paymentTile, paymentMethod === "razorpay" && styles.paymentTileSelected)}
+        disabled={cardPaymentsOff}
+        onClick={() => setPreferredPaymentMethod("razorpay")}
+        aria-pressed={paymentMethod === "razorpay"}
+      >
+        <CreditCard size={20} strokeWidth={1.6} aria-hidden="true" />
+        <span className={styles.paymentTileBody}>
+          <span className={styles.paymentTileTitle}>UPI, cards &amp; netbanking</span>
+          <span className={styles.paymentTileHint}>
+            {cardPaymentsOff
+              ? "Not available yet — we're still setting up online payments."
+              : mock
+                ? "Demo checkout — no real payment will be taken."
+                : "Paid securely through Razorpay."}
           </span>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        className={clsx(styles.paymentTile, paymentMethod === "wallet" && styles.paymentTileSelected)}
+        disabled={!walletSufficient}
+        onClick={() => setPreferredPaymentMethod("wallet")}
+        aria-pressed={paymentMethod === "wallet"}
+      >
+        <WalletIcon size={20} strokeWidth={1.6} aria-hidden="true" />
+        <span className={styles.paymentTileBody}>
+          <span className={styles.paymentTileTitle}>Homekrafted wallet</span>
+          <span className={styles.paymentTileHint}>
+            {!walletKnown
+              ? "We couldn't read your balance just now"
+              : walletSufficient
+                ? `Balance ${formatCurrency(walletBalance)} · earn ${formatCurrency(cashback)} cashback`
+                : `Balance ${formatCurrency(walletBalance)} — not enough for this order`}
+          </span>
+        </span>
+      </button>
+    </div>
+  );
+
+  const addressPicker = (
+    <>
+      {cartError && (
+        <p className={styles.formError} role="alert">
+          {cartError}
+        </p>
+      )}
+      {addressList.length > 0 && (
+        <div className={styles.addressChoices} role="radiogroup" aria-label="Delivery address">
+          {addressList.map((address) => (
+            <label
+              key={address.id}
+              className={clsx(styles.addressChoice, selectedAddressId === address.id && styles.addressChoiceSelected)}
+            >
+              <input
+                type="radio"
+                name="deliver-to"
+                className={styles.radio}
+                checked={selectedAddressId === address.id}
+                onChange={() => deliverEverythingTo(address.id)}
+              />
+              <span className={styles.addressChoiceBody}>
+                <span className={styles.addressLabel}>{address.label}</span>
+                <span className={styles.addressLine}>
+                  {address.recipientName} · {address.line1}
+                  {address.line2 ? `, ${address.line2}` : ""}, {address.city} {address.pincode}
+                </span>
+              </span>
+            </label>
+          ))}
         </div>
       )}
 
-      <div className={styles.layout}>
-        <div className={styles.main}>
-          {/* ---- Gift-to-recipient ---- */}
-          <div className={styles.section}>
-            <label className={styles.giftToggleRow}>
+      {showAddAddress ? (
+        <div className={styles.addAddressForm}>
+          <AddressForm values={newAddress} onChange={setNewAddress} idPrefix="new-addr" />
+          {addressError && (
+            <p className={styles.formError} role="alert">
+              {addressError}
+            </p>
+          )}
+          <div className={styles.addAddressActions}>
+            <Button variant="primary" size="sm" onClick={addAddress} disabled={savingAddress}>
+              {savingAddress ? "Saving…" : "Save address"}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowAddAddress(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className={styles.linkButton} onClick={() => setShowAddAddress(true)}>
+          + Add a new address
+        </button>
+      )}
+    </>
+  );
+
+  const recipientFields = (
+    <div className={styles.giftBody}>
+      <AddressForm values={recipient} onChange={setRecipient} idPrefix="recipient" />
+      <label className={styles.checkRow}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={hidePrice}
+          onChange={(event) => setHidePrice(event.target.checked)}
+        />
+        Hide prices on the recipient&rsquo;s copy
+      </label>
+    </div>
+  );
+
+  const giftExtras = (
+    <div className={styles.giftExtras}>
+      {/* No price on this line: nothing charges for wrapping (2026-09-15). */}
+      <label className={styles.checkRow}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={giftWrap}
+          onChange={(event) => setGiftWrap(event.target.checked)}
+        />
+        Gift wrap this order
+      </label>
+      <label className={styles.checkRow}>
+        <input
+          type="checkbox"
+          className={styles.checkbox}
+          checked={wantsCard}
+          onChange={(event) => setWantsCard(event.target.checked)}
+        />
+        Include a handwritten message card
+      </label>
+      {wantsCard && (
+        <Textarea
+          label={`Message card (${giftMessage.length}/200)`}
+          placeholder="Add a short note — the maker writes it out by hand (max 200 characters)."
+          value={giftMessage}
+          maxLength={200}
+          onChange={(event) => setGiftMessage(event.target.value.slice(0, 200))}
+          rows={3}
+        />
+      )}
+    </div>
+  );
+
+  const errors = (
+    <>
+      {cannotPay && (
+        <p className={styles.formError} role="alert">
+          {walletKnown ? (
+            <>
+              Your wallet balance is {formatCurrency(walletBalance)} and this order comes to{" "}
+              {formatCurrency(total)}. Card and UPI payments aren&apos;t available yet, so this order
+              can&apos;t be paid for right now.
+            </>
+          ) : (
+            <>
+              We couldn&apos;t read your wallet balance just now, and card and UPI payments aren&apos;t
+              available yet — so we can&apos;t take this order. That&apos;s on us, not your connection.
+              Nothing in your cart is lost; open your wallet and come back.
+            </>
+          )}
+        </p>
+      )}
+      {formError && (
+        <p className={styles.formError} role="alert">
+          {formError}
+        </p>
+      )}
+    </>
+  );
+
+  const placingNote = placing && (
+    <p className={styles.placingNote} role="status" aria-live="polite">
+      {kitchenLoading("checkout", CHECKOUT_LOADING)}
+    </p>
+  );
+
+  const terms = (
+    <p className={styles.terms}>
+      By placing your order you agree to our <Link href="/terms">terms</Link> and{" "}
+      <Link href="/refunds">refund policy</Link>. You can cancel until the order is packed.
+    </p>
+  );
+
+  const payBar = (
+    <div className={clsx(styles.payBar, mode === "gift" && styles.payBarMobileOnly)}>
+      <div className={styles.payBarInner}>
+        <span className={styles.payBarTotal}>
+          <span className={styles.payBarAmount}>{formatCurrency(total)}</span>
+          <span className={styles.payBarHint}>
+            {mode === "food" ? <a href="#bill">View bill</a> : `${itemCount} item${itemCount === 1 ? "" : "s"}`}
+          </span>
+        </span>
+        <Button variant="primary" onClick={handlePlaceOrder} disabled={placeDisabled} className={styles.payBarButton}>
+          {placing ? "Placing order…" : foodClosed ? FOOD_BUTTON_LABEL : "Place order"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  // ------------------------------------------------------------------ food
+  if (mode === "food") {
+    const dateAddressId = selectedAddressId;
+    return (
+      <section className={clsx("container", styles.page, styles.food)}>
+        <div className={styles.foodColumn}>
+          <Link href="/cart" className={styles.backLink}>
+            ← Back to basket
+          </Link>
+          <h1 className={styles.title}>Checkout</h1>
+          {mockBanner}
+          {foodClosed && <FoodComingSoonBanner />}
+
+          <div className={styles.card}>
+            <span className={styles.eyebrow}>Your order from</span>
+            <div className={styles.kitchenHead}>
+              <span className={styles.kitchenName}>
+                {maker?.slug ? <Link href={`/storefront/${maker.slug}`}>{maker.name}</Link> : (maker?.name ?? "Your kitchen")}
+              </span>
+              {maker?.location && <span className={styles.kitchenArea}>{maker.location}</span>}
+            </div>
+            {itemList}
+            <Link href="/cart" className={styles.inlineLink}>
+              Edit basket
+            </Link>
+          </div>
+
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>Deliver to</h2>
+            <label className={styles.checkRow}>
               <input
                 type="checkbox"
                 className={styles.checkbox}
                 checked={isGift}
-                onChange={(event) => {
-                  const next = event.target.checked;
-                  setIsGift(next);
-                  if (!next) {
-                    setGiftWrap(false);
-                    setWantsCard(false);
-                    setGiftMessage("");
-                  }
-                }}
+                onChange={(event) => toggleGift(event.target.checked)}
               />
-              <span>
-                <span className={styles.sectionTitle}>🎁 This is a gift — ship to someone else</span>
-                <span className={styles.sectionHint}>
-                  Sends the whole order straight to a recipient&rsquo;s address instead of yours.
-                </span>
-              </span>
+              Sending this to someone else?
             </label>
+            {isGift ? (
+              <>
+                {recipientFields}
+                {giftExtras}
+              </>
+            ) : (
+              addressPicker
+            )}
+          </div>
 
-            {isGift && (
-              <div className={styles.giftBody}>
-                <AddressForm values={recipient} onChange={setRecipient} idPrefix="recipient" />
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>When should it arrive?</h2>
+            <p className={styles.cardHint}>Cooked for the day you pick.</p>
+            <SlotPicker
+              variant="day"
+              columns={4}
+              options={dateOptions}
+              value={isGift ? giftDateId || firstDateId : (dateByAddress[dateAddressId] ?? firstDateId)}
+              onChange={(id) =>
+                isGift
+                  ? setGiftDateId(id)
+                  : setDateByAddress((current) => ({ ...current, [dateAddressId]: id }))
+              }
+            />
+          </div>
 
-                <label className={styles.hideToggleRow}>
+          <div className={styles.card} id="bill">
+            <h2 className={styles.cardTitle}>Bill details</h2>
+            <dl className={styles.bill}>
+              <div className={styles.billRow}>
+                <dt>Item total</dt>
+                <dd>{formatCurrency(subtotal)}</dd>
+              </div>
+              <div className={styles.billRow}>
+                <dt>
+                  Delivery fee
+                  {freeOver !== undefined && (
+                    <span className={styles.billHint}>Free on orders over {formatCurrency(freeOver)}</span>
+                  )}
+                </dt>
+                <dd>{!shippingKnown ? "…" : shipping === 0 ? "Free" : formatCurrency(shipping)}</dd>
+              </div>
+              <div className={clsx(styles.billRow, styles.billTotal)}>
+                <dt>To pay</dt>
+                <dd>{formatCurrency(total)}</dd>
+              </div>
+            </dl>
+            <p className={styles.cashbackNote}>Earn {formatCurrency(cashback)} wallet cashback on this order</p>
+          </div>
+
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>Pay with</h2>
+            {paymentChoices}
+          </div>
+
+          <DeliveryLocationConfirm hasSelectedAddress={addressList.length > 0 || isGift} />
+          {errors}
+          {placingNote}
+          {terms}
+        </div>
+        {payBar}
+      </section>
+    );
+  }
+
+  // ------------------------------------------------------------------ gift
+  const groupEntries = Array.from(groups.entries());
+  const summaryBox = (
+    <div className={styles.summaryBox}>
+      <Button variant="primary" onClick={handlePlaceOrder} disabled={placeDisabled} className={styles.summaryButton}>
+        {placeLabel}
+      </Button>
+      {placingNote}
+      {terms}
+      <h2 className={styles.summaryTitle}>Order summary</h2>
+      <dl className={styles.bill}>
+        <div className={styles.billRow}>
+          <dt>
+            Items ({itemCount})
+          </dt>
+          <dd>{formatCurrency(subtotal)}</dd>
+        </div>
+        <div className={styles.billRow}>
+          <dt>Delivery</dt>
+          <dd>{!shippingKnown ? "…" : shipping === 0 ? "Free" : formatCurrency(shipping)}</dd>
+        </div>
+        <div className={clsx(styles.billRow, styles.billTotal)}>
+          <dt>Order total</dt>
+          <dd className={styles.orderTotal}>{formatCurrency(total)}</dd>
+        </div>
+      </dl>
+      <p className={styles.cashbackNote}>
+        {paymentMethod === "wallet" && !cannotPay
+          ? `Paying with wallet · earn ${formatCurrency(cashback)} cashback`
+          : `Earn ${formatCurrency(cashback)} wallet cashback on this order`}
+      </p>
+      {freeOver !== undefined && (
+        <p className={styles.summaryFootnote}>Free delivery on orders over {formatCurrency(freeOver)}</p>
+      )}
+      <DeliveryLocationConfirm hasSelectedAddress={addressList.length > 0 || isGift} />
+      {errors}
+    </div>
+  );
+
+  return (
+    <section className={clsx("container", styles.page, styles.gift)}>
+      <h1 className={styles.title}>Checkout</h1>
+      <p className={styles.subtitle}>
+        {itemCount} item{itemCount === 1 ? "" : "s"}
+        {maker ? ` from ${maker.name}` : ""}
+      </p>
+      {mockBanner}
+
+      <div className={styles.layout}>
+        <div className={styles.main}>
+          <section className={styles.step} aria-labelledby="step-address">
+            <h2 id="step-address" className={styles.stepTitle}>
+              <span className={styles.stepNumber}>1</span> Delivery address
+            </h2>
+            <div className={styles.stepBody}>
+              <div className={styles.segmented} role="radiogroup" aria-label="Who is it for?">
+                <label className={clsx(styles.segment, !isGift && styles.segmentSelected)}>
                   <input
-                    type="checkbox"
-                    className={styles.checkbox}
-                    checked={hidePrice}
-                    onChange={(event) => setHidePrice(event.target.checked)}
+                    type="radio"
+                    name="ship-to"
+                    className="hk-sr-only"
+                    checked={!isGift}
+                    onChange={() => toggleGift(false)}
                   />
-                  Hide prices on the recipient&rsquo;s copy
+                  Deliver to me
                 </label>
+                <label className={clsx(styles.segment, isGift && styles.segmentSelected)}>
+                  <input
+                    type="radio"
+                    name="ship-to"
+                    className="hk-sr-only"
+                    checked={isGift}
+                    onChange={() => toggleGift(true)}
+                  />
+                  🎁 Send as a gift
+                </label>
+              </div>
+              {isGift ? recipientFields : addressPicker}
+            </div>
+          </section>
 
-                <div className={styles.dateBlock}>
-                  <div className={styles.fieldLabel}>Delivery date</div>
+          <section className={styles.step} aria-labelledby="step-gift">
+            <h2 id="step-gift" className={styles.stepTitle}>
+              <span className={styles.stepNumber}>2</span> Gift options
+            </h2>
+            <div className={styles.stepBody}>{giftExtras}</div>
+          </section>
+
+          <section className={styles.step} aria-labelledby="step-payment">
+            <h2 id="step-payment" className={styles.stepTitle}>
+              <span className={styles.stepNumber}>3</span> Payment method
+            </h2>
+            <div className={styles.stepBody}>{paymentChoices}</div>
+          </section>
+
+          <section className={styles.step} aria-labelledby="step-review">
+            <h2 id="step-review" className={styles.stepTitle}>
+              <span className={styles.stepNumber}>4</span> Review items and delivery
+            </h2>
+            <div className={styles.stepBody}>
+              {isGift ? (
+                <div className={styles.shipment}>
+                  <span className={styles.shipmentHead}>
+                    Delivering to {recipient.recipientName || "your recipient"}
+                  </span>
                   <SlotPicker
                     variant="day"
                     columns={4}
-                    options={deliveryDateOptions.map((d) => ({
-                      id: d.id,
-                      primary: d.day,
-                      secondary: d.date,
-                    }))}
+                    options={dateOptions}
                     value={giftDateId || firstDateId}
                     onChange={setGiftDateId}
                   />
-                </div>
-
-                <div className={styles.giftExtras}>
-                  <label className={styles.hideToggleRow}>
-                    <input
-                      type="checkbox"
-                      className={styles.checkbox}
-                      checked={giftWrap}
-                      onChange={(event) => setGiftWrap(event.target.checked)}
-                    />
-                    🎀 Gift wrap this order (+₹40)
-                  </label>
-
-                  <label className={styles.hideToggleRow}>
-                    <input
-                      type="checkbox"
-                      className={styles.checkbox}
-                      checked={wantsCard}
-                      onChange={(event) => setWantsCard(event.target.checked)}
-                    />
-                    ✎ Include a handwritten message card
-                  </label>
-
-                  {wantsCard && (
-                    <Textarea
-                      label={`Message card (${giftMessage.length}/200)`}
-                      placeholder="Add a short note — the maker writes it out by hand (max 200 characters)."
-                      value={giftMessage}
-                      maxLength={200}
-                      onChange={(event) => setGiftMessage(event.target.value.slice(0, 200))}
-                      rows={3}
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ---- Multi-address split ---- */}
-          {!isGift && (
-            <div className={styles.section}>
-              <span className={styles.sectionTitle}>Shipping address</span>
-              {cartError && (
-                <p className={styles.formError} role="alert">
-                  {cartError}
-                </p>
-              )}
-              <div className={styles.addressGroups}>
-                {Array.from(groups.entries()).map(([addressId, groupItems]) => {
-                  const address = addressList.find((a) => a.id === addressId);
-                  return (
-                    <div key={addressId} className={styles.addressCard}>
-                      <div className={styles.addressHead}>
-                        <span className={styles.addressLabel}>{address?.label ?? "Address"}</span>
-                        <span className={styles.addressLine}>
-                          {address?.recipientName} · {address?.line1}, {address?.city}
-                        </span>
-                      </div>
-
-                      <ul className={styles.groupItems}>
-                        {groupItems.map((item) => (
-                          <li key={item.id} className={styles.groupItemRow}>
-                            <span>{lineInfo(item).name}</span>
-                            <select
-                              className={styles.reassignSelect}
-                              value={addressId}
-                              onChange={(event) => {
-                                setCartError(null);
-                                void assignAddress(item.id, event.target.value).catch(
-                                  (err: unknown) => setCartError(cartUpdateErrorMessage(err)),
-                                );
-                              }}
-                              aria-label={`Ship ${lineInfo(item).name} to`}
-                            >
-                              {addressList.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.label}
-                                </option>
-                              ))}
-                            </select>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <div className={styles.dateBlock}>
-                        <div className={styles.fieldLabel}>Delivery date</div>
-                        <SlotPicker
-                          variant="day"
-                          columns={4}
-                          options={deliveryDateOptions.map((d) => ({
-                            id: d.id,
-                            primary: d.day,
-                            secondary: d.date,
-                          }))}
-                          value={dateByAddress[addressId] ?? firstDateId}
-                          onChange={(id) =>
-                            setDateByAddress((current) => ({ ...current, [addressId]: id }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {showAddAddress ? (
-                <div className={styles.addAddressForm}>
-                  <AddressForm values={newAddress} onChange={setNewAddress} idPrefix="new-addr" />
-                  {addressError && (
-                    <p className={styles.formError} role="alert">
-                      {addressError}
-                    </p>
-                  )}
-                  <div className={styles.addAddressActions}>
-                    <Button variant="primary" size="sm" onClick={addAddress} disabled={savingAddress}>
-                      {savingAddress ? "Saving…" : "Save address"}
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => setShowAddAddress(false)}>
-                      Cancel
-                    </Button>
-                  </div>
+                  {itemList}
                 </div>
               ) : (
-                <Button
-                  variant="ghost-gold"
-                  className={styles.addAddressBtn}
-                  onClick={() => setShowAddAddress(true)}
-                >
-                  + Add a new address
-                </Button>
+                groupEntries.map(([addressId, groupItems]) => {
+                  const address = addressList.find((a) => a.id === addressId);
+                  return (
+                    <div key={addressId} className={styles.shipment}>
+                      <span className={styles.shipmentHead}>
+                        Delivering to {address?.label ?? "your address"}
+                        {address ? ` · ${address.city}` : ""}
+                      </span>
+                      <SlotPicker
+                        variant="day"
+                        columns={4}
+                        options={dateOptions}
+                        value={dateByAddress[addressId] ?? firstDateId}
+                        onChange={(id) => setDateByAddress((current) => ({ ...current, [addressId]: id }))}
+                      />
+                      <ul className={styles.itemList}>
+                        {groupItems.map((item) => {
+                          const info = lineInfo(item);
+                          return (
+                            <li key={item.id} className={styles.itemRow}>
+                              <ImageSlot
+                                ratio="1/1"
+                                label={info.imageLabel}
+                                src={info.imageSrc}
+                                alt=""
+                                sizes="64px"
+                                compact
+                                className={styles.itemThumb}
+                              />
+                              <div className={styles.itemBody}>
+                                <span className={styles.itemName}>{info.name}</span>
+                                <span className={styles.itemMeta}>
+                                  {info.weightLabel ? `${info.weightLabel} · ` : ""}Qty {info.quantity} ×{" "}
+                                  {formatCurrency(info.unitPrice)}
+                                </span>
+                                {addressList.length > 1 && (
+                                  <select
+                                    className={styles.reassignSelect}
+                                    value={addressId}
+                                    onChange={(event) => {
+                                      setCartError(null);
+                                      void assignAddress(item.id, event.target.value).catch((err: unknown) =>
+                                        setCartError(cartUpdateErrorMessage(err)),
+                                      );
+                                    }}
+                                    aria-label={`Ship ${info.name} to`}
+                                  >
+                                    {addressList.map((a) => (
+                                      <option key={a.id} value={a.id}>
+                                        Ship to {a.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                              <span className={styles.itemPrice}>{formatCurrency(info.lineTotal)}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  );
+                })
               )}
             </div>
-          )}
+          </section>
 
-          {/* ---- Payment ---- */}
-          <div className={styles.section}>
-            <span className={styles.sectionTitle}>Payment</span>
-            <div className={styles.paymentOptions}>
-              <button
-                type="button"
-                className={clsx(
-                  styles.paymentTile,
-                  paymentMethod === "wallet" && styles.paymentTileSelected,
-                )}
-                disabled={!walletSufficient}
-                onClick={() => setPreferredPaymentMethod("wallet")}
-                aria-pressed={paymentMethod === "wallet"}
-              >
-                <WalletIcon size={20} strokeWidth={1.6} />
-                <span className={styles.paymentTileBody}>
-                  <span className={styles.paymentTileTitle}>Wallet</span>
-                  <span className={styles.paymentTileHint}>
-                    {!walletKnown
-                      ? "We couldn't read your balance just now"
-                      : walletSufficient
-                        ? `Balance ${formatCurrency(walletBalance)} · earn ${formatCurrency(cashback)} cashback`
-                        : `Balance ${formatCurrency(walletBalance)} — insufficient for this order`}
-                  </span>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className={clsx(
-                  styles.paymentTile,
-                  paymentMethod === "razorpay" && styles.paymentTileSelected,
-                )}
-                disabled={cardPaymentsOff}
-                onClick={() => setPreferredPaymentMethod("razorpay")}
-                aria-pressed={paymentMethod === "razorpay"}
-              >
-                <CreditCard size={20} strokeWidth={1.6} />
-                <span className={styles.paymentTileBody}>
-                  <span className={styles.paymentTileTitle}>Card / UPI (Razorpay)</span>
-                  <span className={styles.paymentTileHint}>
-                    {cardPaymentsOff
-                      ? "Not available yet — we're still setting up online payments."
-                      : mock
-                        ? "Demo checkout — no real payment will be taken."
-                        : "Secure online checkout via Razorpay (UPI, Cards, Netbanking)."}
-                  </span>
-                </span>
-              </button>
-            </div>
+          <div className={styles.bottomPlace}>
+            <Button variant="primary" onClick={handlePlaceOrder} disabled={placeDisabled}>
+              {placeLabel}
+            </Button>
+            <span className={styles.bottomPlaceTotal}>
+              Order total: <strong>{formatCurrency(total)}</strong>
+            </span>
           </div>
         </div>
 
-        <aside className={styles.aside}>
-          <StickySummary
-            title="Order summary"
-            stickyOnMobile
-            lines={summaryLines}
-            cashbackLabel={
-              // Not "paying with wallet" when the wallet cannot cover it —
-              // `paymentMethod` is forced to `wallet` while cards are off, so
-              // reading it alone would promise a payment that can't happen.
-              cannotPay
-                ? `Earn ${formatCurrency(cashback)} wallet cashback on this order`
-                : paymentMethod === "wallet"
-                  ? `Paying with wallet · earn ${formatCurrency(cashback)} cashback`
-                  : `Earn ${formatCurrency(cashback)} wallet cashback on this order`
-            }
-            footnote={
-              shipping > 0
-                ? `Free shipping on orders over ${formatCurrency(FREE_SHIPPING_THRESHOLD)}`
-                : undefined
-            }
-          >
-            {/* Second location ask, right before money moves — see the
-                component for why this confirms rather than blocks. */}
-            <DeliveryLocationConfirm hasSelectedAddress={addressList.length > 0 || isGift} />
-            <Button
-              variant="primary"
-              onClick={handlePlaceOrder}
-              disabled={placing || cannotPay || !accountReady}
-            >
-              {placing ? "Placing order…" : "Place order"}
-            </Button>
-            {/*
-              The button label stays literal — "Placing order…" is what is
-              happening and a button is not the place for atmosphere. The
-              line beneath it is (M28): this wait is the one moment the
-              buyer is handing money to a stranger's kitchen, and saying
-              where the order is actually going does more than a spinner.
-            */}
-            {placing && (
-              <p className={styles.placingNote} role="status" aria-live="polite">
-                {kitchenLoading("checkout", CHECKOUT_LOADING)}
-              </p>
-            )}
-          </StickySummary>
-          {cannotPay && (
-            <p className={styles.formError} role="alert">
-              {walletKnown ? (
-                <>
-                  Your wallet balance is {formatCurrency(walletBalance)} and this order comes to{" "}
-                  {formatCurrency(total)}. Card and UPI payments aren&apos;t available yet, so
-                  this order can&apos;t be paid for right now.
-                </>
-              ) : (
-                <>
-                  We couldn&apos;t read your wallet balance just now, and card and UPI payments
-                  aren&apos;t available yet — so we can&apos;t take this order. That&apos;s on
-                  us, not your connection. Nothing in your cart is lost; open your wallet and
-                  come back.
-                </>
-              )}
-            </p>
-          )}
-          {formError && <p className={styles.formError}>{formError}</p>}
-        </aside>
+        <aside className={styles.aside}>{summaryBox}</aside>
       </div>
+      {payBar}
     </section>
   );
 }

@@ -12,6 +12,13 @@ import { formatCurrency } from "@/lib/format";
 import type { Order } from "@/lib/types";
 import styles from "./CompletePaymentPanel.module.css";
 
+/** The modal closed without a verified payment; carries Razorpay's reason if an attempt failed. */
+class PaymentDismissed extends Error {
+  constructor(readonly failureReason?: string) {
+    super("DISMISSED");
+  }
+}
+
 const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 
 export interface CompletePaymentPanelProps {
@@ -124,12 +131,15 @@ export function CompletePaymentPanel({ order, onUpdated }: CompletePaymentPanelP
           orderId: rzpOrder.razorpayOrderId,
           prefill: { name: user?.name, email: user?.email ?? undefined, contact: user?.phone ?? undefined },
           onSuccess: () => resolve(),
-          onDismiss: () => reject(new Error("DISMISSED")),
+          onDismiss: (failureReason) => reject(new PaymentDismissed(failureReason)),
+          onError: reject,
         }).catch(reject);
       });
       await settle();
     } catch (err) {
-      if (err instanceof Error && err.message === "DISMISSED") {
+      if (err instanceof PaymentDismissed && err.failureReason) {
+        setError(`That payment didn't go through: ${err.failureReason}`);
+      } else if (err instanceof PaymentDismissed) {
         setNote("No payment was taken. Your order is still here whenever you want to finish.");
       } else {
         setError(apiErrorMessage(err, "That payment didn't go through. Please try again."));

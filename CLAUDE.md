@@ -567,6 +567,30 @@ withdrawn module keeps its rule so the types and the order history that
 reference it still resolve — read it through `isChannelEnabled`, never by
 reaching into `CHANNEL_RULES`, or the flag becomes decoration.
 
+## Food is "coming soon" (2026-09-15) — browsable, not buyable
+
+The launch is gifting-first (owner). `PlatformSettings.foodOrdersOpen`,
+flipped on `/admin/settings` with no deploy, decides whether food can be
+bought. Off: the food side stays browsable, a dismissible note sits on
+`/shop`, `/meal-plans` and food product/checkout pages, and a "Coming
+soon" pill rides on the landing food half and the Homemade Food tab.
+
+- **The server is the gate** (`server/src/common/food-orders.ts`): add to
+  cart, reorder, `POST /orders` from a basket filled before the switch,
+  and meal-plan subscribe all refuse with **409 `FOOD_COMING_SOON`**. A
+  button hidden on the web is not a closed door — the native app and
+  anybody with a token reach the same routes.
+- **Open unless explicitly `'false'`** — the reverse of
+  `commissionEnabled`. An untouched database and every test fixture keep
+  selling food; closing it is a decision somebody makes and the audit log
+  records. **Production needs it switched off after deploy.**
+- **The web reads it once per page load** (`components/food/
+  useFoodOrdersOpen.ts`) and treats "don't know" as open — no banner, the
+  ordinary button — because the server refuses either way.
+- **Mock mode refuses identically**, closed unless
+  `NEXT_PUBLIC_FOOD_ORDERS_OPEN=true` (the one-basket rule's reasoning).
+- Snacks order over WhatsApp and are not gated; that is a separate call.
+
 ## One basket, one maker (2026-09-14)
 
 A cart holds one `Vendor`'s things. `POST /cart/items` answers **409

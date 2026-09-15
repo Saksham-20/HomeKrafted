@@ -1,3 +1,4 @@
+import { foodComingSoon } from '../common/food-orders';
 import {
   BadRequestException,
   ConflictException,
@@ -98,6 +99,8 @@ export class MealSubscriptionsService {
   }
 
   async create(userId: string, dto: CreateMealSubscriptionDto, idempotencyKey?: string) {
+    // A meal plan is food; it opens when food does (`common/food-orders.ts`).
+    if (!(await this.settings.get()).foodOrdersOpen) throw foodComingSoon();
     if (!MEAL_COUNTS.includes(dto.mealCount as (typeof MEAL_COUNTS)[number])) {
       throw new BadRequestException(
         `mealCount must be one of ${MEAL_COUNTS.join(', ')} — those are the cycles kitchens commit to.`,

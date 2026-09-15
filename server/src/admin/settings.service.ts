@@ -80,6 +80,24 @@ export interface PlatformSettings {
    * delivery locks Monday 8pm.
    */
   menuLockTime: string;
+  /**
+   * Whether food can be bought (2026-09-15). **Open unless explicitly
+   * `'false'`** — the reverse of `commissionEnabled`'s strict `'true'` — so
+   * a database that has never heard of the key, and every test fixture,
+   * keeps selling food exactly as before. Closing it is a decision made on
+   * `/admin/settings`, and it is audited like every other setting there.
+   * See `common/food-orders.ts` for what it gates.
+   */
+  foodOrdersOpen: boolean;
+  /**
+   * Flat delivery fee per order, ₹ (2026-09-15 — was a hardcoded ₹49).
+   * Defaults to **0** on the owner's instruction: delivery is free while
+   * live payments are being tested. Charged by the cart and the order
+   * from the same number (`common/pricing/pricing.util.ts`).
+   */
+  deliveryFee: number;
+  /** Orders at or above this subtotal deliver free, ₹. 0 = no free-delivery offer. */
+  freeDeliveryThreshold: number;
 }
 
 /**
@@ -92,7 +110,7 @@ export interface PlatformSettings {
  * until it is named here, which is the direction that fails safe when
  * someone adds one and forgets this file.
  */
-export const PUBLIC_SETTING_KEYS = [] as const satisfies readonly (keyof PlatformSettings)[];
+export const PUBLIC_SETTING_KEYS = ['foodOrdersOpen', 'deliveryFee', 'freeDeliveryThreshold'] as const satisfies readonly (keyof PlatformSettings)[];
 
 export type PublicPlatformSettings = Pick<
   PlatformSettings,
@@ -107,6 +125,9 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   /** The Chandigarh tricity: Chandigarh, Mohali, Kharar, Zirakpur, Panchkula, Ambala. */
   servicedPincodePrefixes: '160,1401,1403,1341,1346',
   menuLockTime: DEFAULT_MENU_LOCK_TIME,
+  foodOrdersOpen: true,
+  deliveryFee: 0,
+  freeDeliveryThreshold: 999,
 };
 
 @Injectable()
@@ -139,6 +160,9 @@ export class AdminSettingsService {
       servicedPincodePrefixes:
         byKey.get('servicedPincodePrefixes') ?? DEFAULT_SETTINGS.servicedPincodePrefixes,
       menuLockTime: byKey.get('menuLockTime') ?? DEFAULT_SETTINGS.menuLockTime,
+      foodOrdersOpen: byKey.get('foodOrdersOpen') !== 'false',
+      deliveryFee: numberOr(byKey.get('deliveryFee'), DEFAULT_SETTINGS.deliveryFee),
+      freeDeliveryThreshold: numberOr(byKey.get('freeDeliveryThreshold'), DEFAULT_SETTINGS.freeDeliveryThreshold),
     };
   }
 
@@ -176,7 +200,8 @@ export class AdminSettingsService {
    * keeps holding when the next one is added.
    */
   async getPublic(): Promise<PublicPlatformSettings> {
-    return {};
+    const { foodOrdersOpen, deliveryFee, freeDeliveryThreshold } = await this.get();
+    return { foodOrdersOpen, deliveryFee, freeDeliveryThreshold };
   }
 
   async update(adminUserId: string, patch: Partial<PlatformSettings>): Promise<PlatformSettings> {
@@ -199,6 +224,20 @@ export class AdminSettingsService {
     if (patch.defaultDeliveryRadiusKm !== undefined) {
       if (patch.defaultDeliveryRadiusKm < 1 || patch.defaultDeliveryRadiusKm > 100) {
         throw new BadRequestException('Default delivery radius must be between 1 and 100 km');
+      }
+    }
+    if (patch.deliveryFee !== undefined) {
+      if (!Number.isFinite(patch.deliveryFee) || patch.deliveryFee < 0 || patch.deliveryFee > 1000) {
+        throw new BadRequestException('Delivery fee must be between ₹0 and ₹1,000');
+      }
+    }
+    if (patch.freeDeliveryThreshold !== undefined) {
+      if (
+        !Number.isFinite(patch.freeDeliveryThreshold) ||
+        patch.freeDeliveryThreshold < 0 ||
+        patch.freeDeliveryThreshold > 100000
+      ) {
+        throw new BadRequestException('Free delivery threshold must be between ₹0 and ₹1,00,000 (0 turns the offer off)');
       }
     }
     if (patch.servicedPincodePrefixes !== undefined) {

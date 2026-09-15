@@ -7,6 +7,7 @@ import { getMealPlans } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { KitchenCrossLinks } from "@/components/layout/KitchenCrossLinks";
 import { pageMetadata } from "@/lib/seo";
+import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
 import styles from "./MealPlans.module.css";
 
 export const metadata: Metadata = pageMetadata({
@@ -51,6 +52,7 @@ export default async function MealPlansPage() {
 
   return (
     <div className={clsx("container", styles.page)}>
+      <FoodComingSoonBanner />
       <header className={styles.hero}>
         <span className={styles.eyebrow}>Everyday homemade meals</span>
         <h1 className={styles.title}>Ghar Ka Khana, Every Day</h1>

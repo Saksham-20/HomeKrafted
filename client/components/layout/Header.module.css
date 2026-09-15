@@ -749,3 +749,12 @@
  * and the hamburger — the only navigation below 1190px — was a solid
  * white square pasted on it.
  */
+
+/* "Coming soon" beside Homemade Food while food orders are closed
+   (2026-09-15). Small and inline so the tab row's width budget barely
+   moves — re-measure against 1352px if the label ever grows. */
+.navSoonTag {
+  margin-left: 6px;
+  font-size: 10px;
+  padding: 1px 6px;
+}

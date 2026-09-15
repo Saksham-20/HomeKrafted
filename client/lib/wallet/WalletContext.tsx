@@ -385,7 +385,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           onSuccess: () => {
             refreshFromServer().then(resolve).catch(reject);
           },
-          onDismiss: () => reject(new Error("Top-up cancelled")),
+          onDismiss: (failureReason) => reject(new Error(failureReason ?? "Top-up cancelled")),
+          onError: reject,
         }).catch(reject);
       });
     },

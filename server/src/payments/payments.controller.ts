@@ -16,6 +16,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
+import { VerifyRazorpayPaymentDto } from './dto/verify-razorpay-payment.dto';
 import { PaymentsService } from './payments.service';
 
 @Controller('payments/razorpay')
@@ -37,6 +38,20 @@ export class PaymentsController {
   @Post('order')
   createOrder(@CurrentUser() user: RequestUser, @Body() dto: CreateRazorpayOrderDto) {
     return this.paymentsService.createOrder(user.userId, dto);
+  }
+
+  /**
+   * Standard Checkout's "verify payment signature" step, called by the
+   * browser with the three values from the success handler. Signed-in, and
+   * scoped to the caller's own Razorpay order — see
+   * `PaymentsService.verifyCheckout` for the checks. `200` whether the
+   * payment is `captured` or still `pending` (the webhook finishes those);
+   * a signature or amount mismatch is `400` and nothing is marked paid.
+   */
+  @Post('verify')
+  @HttpCode(HttpStatus.OK)
+  verify(@CurrentUser() user: RequestUser, @Body() dto: VerifyRazorpayPaymentDto) {
+    return this.paymentsService.verifyCheckout(user.userId, dto);
   }
 
   /**

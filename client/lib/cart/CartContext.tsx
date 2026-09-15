@@ -49,12 +49,23 @@ import {
   updateCartItemQty,
 } from "@/lib/api/cart";
 import { getProducts } from "@/lib/api/products";
+import { FOOD_COMING_SOON, FOOD_COMING_SOON_MESSAGE, mockFoodOrdersOpen } from "@/lib/food-launch";
 import { getVendors } from "@/lib/api/vendors";
 import { getHamperBoxes } from "@/lib/api/site";
 import { ApiError, isMockMode } from "@/lib/api/http";
 import { CART_OTHER_MAKER } from "@/lib/cart/add-error";
 import { useAuth } from "@/lib/auth/AuthContext";
-import type { CartItem, Hamper, HamperBox, ID, Product, ServerCartLine } from "@/lib/types";
+import type {
+  CartItem,
+  CartLineMaker,
+  DietaryTag,
+  Hamper,
+  HamperBox,
+  ID,
+  Product,
+  ProductKind,
+  ServerCartLine,
+} from "@/lib/types";
 
 const STORAGE_KEY = "hk_cart_v1";
 
@@ -83,6 +94,9 @@ export interface CartLineInfo {
    */
   listUnitPrice?: number;
   discountPct?: number;
+  kind?: ProductKind;
+  dietary?: DietaryTag[];
+  maker?: CartLineMaker;
 }
 
 export interface CartContextValue {
@@ -276,6 +290,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
          * same sentence, so a screen cannot tell the two modes apart.
          */
         const adding = catalog.find((p) => p.id === productId);
+        // Food is coming soon — refused here with the server's code and
+        // sentence, for the same reason as the maker rule below.
+        if (adding?.kind === "food" && !mockFoodOrdersOpen(process.env.NEXT_PUBLIC_FOOD_ORDERS_OPEN)) {
+          throw new ApiError(409, FOOD_COMING_SOON, FOOD_COMING_SOON_MESSAGE);
+        }
         const heldBy = items
           .map((item) => catalog.find((p) => p.id === item.productId))
           .find((p) => p && adding && p.vendorId !== adding.vendorId);
@@ -417,6 +436,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           maxQuantity: line?.maxQuantity,
           listUnitPrice: line?.listUnitPrice,
           discountPct: line?.discountPct,
+          kind: line?.kind,
+          dietary: line?.dietary,
+          maker: line?.maker,
         };
       }
 
@@ -441,6 +463,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           quantity: item.quantity,
           lineTotal: unitPrice * item.quantity,
           isHamper: true,
+          kind: "craft",
         };
       }
 
@@ -458,9 +481,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         lineTotal: (weight?.price ?? 0) * item.quantity,
         isHamper: false,
         maxQuantity: weight?.stock,
+        kind: product?.kind,
+        dietary: product?.dietary,
+        maker: product && makers[product.vendorId] ? { name: makers[product.vendorId] } : undefined,
       };
     },
-    [mock, serverLines, catalog, boxes, hampers],
+    [mock, serverLines, catalog, boxes, hampers, makers],
   );
 
   const count = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);

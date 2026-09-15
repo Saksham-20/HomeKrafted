@@ -1,5 +1,7 @@
 "use client";
 
+import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
+import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
 import { useState } from "react";
 import { ProductCard } from "@/components/ui/ProductCard";
 import { useCart } from "@/lib/cart/CartContext";
@@ -34,6 +36,8 @@ export interface ProductGridCardProps {
  */
 export function ProductGridCard({ product, makerName, href, priority, className }: ProductGridCardProps) {
   const { addItem } = useCart();
+  const foodOrdersOpen = useFoodOrdersOpen();
+  const foodClosed = product.kind === "food" && foodOrdersOpen === false;
   const { has, toggle } = useWishlist();
   const [added, setAdded] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -78,6 +82,7 @@ export function ProductGridCard({ product, makerName, href, priority, className 
       }}
       added={added}
       soldOut={sku === null}
+      unavailableLabel={foodClosed ? FOOD_BUTTON_LABEL : undefined}
       addError={addError ?? wishlistError}
       onAdd={handleAdd}
     />

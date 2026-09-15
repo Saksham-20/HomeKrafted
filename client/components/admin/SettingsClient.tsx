@@ -24,6 +24,9 @@ interface Draft {
   defaultDeliveryRadiusKm: string;
   servicedPincodePrefixes: string;
   menuLockTime: string;
+  foodOrdersOpen: boolean;
+  deliveryFee: string;
+  freeDeliveryThreshold: string;
 }
 
 function toDraft(loaded: PlatformSettings): Draft {
@@ -34,10 +37,15 @@ function toDraft(loaded: PlatformSettings): Draft {
     defaultDeliveryRadiusKm: String(loaded.defaultDeliveryRadiusKm),
     servicedPincodePrefixes: loaded.servicedPincodePrefixes ?? "",
     menuLockTime: loaded.menuLockTime ?? "20:00",
+    // Absent means open — the server's own default.
+    foodOrdersOpen: loaded.foodOrdersOpen !== false,
+    deliveryFee: String(loaded.deliveryFee ?? 0),
+    freeDeliveryThreshold: String(loaded.freeDeliveryThreshold ?? 999),
   };
 }
 
 const SECTIONS = [
+  { id: "settings-food", label: "Homemade food" },
   { id: "settings-commission", label: "Commission" },
   { id: "settings-delivery", label: "Delivery" },
   { id: "settings-meals", label: "Meal plans" },
@@ -111,9 +119,12 @@ export function SettingsClient() {
         defaultDeliveryRadiusKm: Number(draft.defaultDeliveryRadiusKm),
         servicedPincodePrefixes: draft.servicedPincodePrefixes.trim(),
         menuLockTime: draft.menuLockTime.trim(),
+        foodOrdersOpen: draft.foodOrdersOpen,
+        deliveryFee: Number(draft.deliveryFee),
+        freeDeliveryThreshold: Number(draft.freeDeliveryThreshold),
       });
       if (!updated) {
-        setError("That did not save. Commission must be 0–100%, radius 1–100 km.");
+        setError("That did not save. Commission must be 0–100%, radius 1–100 km, delivery fee ₹0–₹1,000.");
         return;
       }
       setSettings(updated);
@@ -139,6 +150,31 @@ export function SettingsClient() {
       />
 
       <FormPage sections={SECTIONS} navLabel="Sections">
+        <FormSection
+          id="settings-food"
+          layout="annotated"
+          title="Homemade food"
+          status={
+            draft.foodOrdersOpen
+              ? { label: "Taking orders", tone: "done" }
+              : { label: "Coming soon", tone: "neutral" }
+          }
+          description={
+            draft.foodOrdersOpen
+              ? "Food is on sale: food listings can be added to a basket and checked out, and meal plans can be started."
+              : "Food is browsable but not buyable. Shoppers see a “coming soon” note on the food pages and a Coming soon tag on the food tab; food listings, reorders of food and meal-plan subscriptions are refused. Gifts are unaffected. Existing orders and running meal plans carry on."
+          }
+        >
+          <div className={styles.controls}>
+            <Switch
+              checked={draft.foodOrdersOpen}
+              onChange={(next) => edit({ foodOrdersOpen: next })}
+              label="Take food orders"
+              help="Turning this on opens food straight away — no deploy. Turning it off doesn't cancel anything already ordered."
+            />
+          </div>
+        </FormSection>
+
         <FormSection
           id="settings-commission"
           layout="annotated"
@@ -198,6 +234,32 @@ export function SettingsClient() {
           description="Where buyers are told we deliver, and the radius a new kitchen starts with. Neither affects who can apply or be approved — HomeKrafters can join from anywhere in India, because supply has to exist somewhere before it is worth opening delivery there."
         >
           <div className={styles.controls}>
+            <div className={styles.numberRow}>
+              <Field
+                label="Delivery fee"
+                className={styles.number}
+                hint="Added to every order under the threshold. 0 makes delivery free on every order. Applies to baskets and orders from the moment you save; orders already placed keep the fee they were charged."
+              >
+                <Input
+                  inputMode="numeric"
+                  affixStart="₹"
+                  value={draft.deliveryFee}
+                  onChange={(event) => edit({ deliveryFee: event.target.value })}
+                />
+              </Field>
+              <Field
+                label="Free delivery on orders over"
+                className={styles.number}
+                hint="Orders at or above this deliver free, and shoppers are told so. 0 turns the offer off."
+              >
+                <Input
+                  inputMode="numeric"
+                  affixStart="₹"
+                  value={draft.freeDeliveryThreshold}
+                  onChange={(event) => edit({ freeDeliveryThreshold: event.target.value })}
+                />
+              </Field>
+            </div>
             <Field
               label="Default delivery radius"
               className={styles.number}

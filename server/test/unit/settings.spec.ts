@@ -72,6 +72,9 @@ describe('get', () => {
       'commissionGstPct',
       'commissionPct',
       'defaultDeliveryRadiusKm',
+      'deliveryFee',
+      'foodOrdersOpen',
+      'freeDeliveryThreshold',
       'menuLockTime',
       'servicedPincodePrefixes',
     ]);
@@ -208,5 +211,27 @@ describe('update — writing and auditing', () => {
     expect(result).toEqual(DEFAULT_SETTINGS);
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(log).not.toHaveBeenCalled();
+  });
+});
+
+describe('foodOrdersOpen (food "coming soon", 2026-09-15)', () => {
+  it('is open when nothing has been written, so an untouched deploy keeps selling food', async () => {
+    const { service } = serviceWith([]);
+    expect((await service.get()).foodOrdersOpen).toBe(true);
+  });
+
+  it('closes only on an explicit "false"', async () => {
+    expect((await serviceWith([{ key: 'foodOrdersOpen', value: 'false' }]).service.get()).foodOrdersOpen).toBe(false);
+    expect((await serviceWith([{ key: 'foodOrdersOpen', value: 'true' }]).service.get()).foodOrdersOpen).toBe(true);
+    // A hand-edited typo is not a decision to stop selling food.
+    expect((await serviceWith([{ key: 'foodOrdersOpen', value: 'nope' }]).service.get()).foodOrdersOpen).toBe(true);
+  });
+
+  it('is public, and the commission rate is not', async () => {
+    const { service } = serviceWith([
+      { key: 'foodOrdersOpen', value: 'false' },
+      { key: 'commissionPct', value: '20' },
+    ]);
+    expect(await service.getPublic()).toEqual({ foodOrdersOpen: false, deliveryFee: 0, freeDeliveryThreshold: 999 });
   });
 });

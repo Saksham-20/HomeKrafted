@@ -40,6 +40,12 @@ export interface ProductCardProps {
    * shipped until 2026-09-03.
    */
   soldOut?: boolean;
+  /**
+   * Replaces the add button with this label when the listing can't be
+   * bought for a reason that isn't stock — today, food while it is coming
+   * soon. Sold out still wins: it is the more specific fact.
+   */
+  unavailableLabel?: string;
   /** The server's refusal for the last press, shown under the price row. */
   addError?: string | null;
   /**
@@ -136,6 +142,7 @@ export function ProductCard({
   added = false,
   onAdd,
   soldOut = false,
+  unavailableLabel,
   addError = null,
   priority = false,
   className,
@@ -272,6 +279,8 @@ export function ProductCard({
           </span>
           {soldOut ? (
             <span className={styles.soldOut}>Sold out</span>
+          ) : unavailableLabel ? (
+            <span className={styles.soldOut}>{unavailableLabel}</span>
           ) : (
             <button
               type="button"

@@ -12,6 +12,8 @@ import { isPurchasable } from '../catalog/moderation';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { AddHamperItemDto } from './dto/add-hamper-item.dto';
 import { otherMakerConflict } from './one-maker-cart';
+import { AdminSettingsService } from '../admin/settings.service';
+import { foodComingSoon } from '../common/food-orders';
 
 /**
  * Owner-scoped (auth): `Cart` is 1:1 per user (`userId @unique`), so
@@ -26,7 +28,10 @@ import { otherMakerConflict } from './one-maker-cart';
  */
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: AdminSettingsService,
+  ) {}
 
   private async getOrCreateCart(userId: string): Promise<Cart> {
     const existing = await this.prisma.cart.findUnique({ where: { userId } });
@@ -40,7 +45,7 @@ export class CartService {
     const lines = await Promise.all(rawItems.map((item) => resolveCartLine(this.prisma, item)));
 
     const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
-    const shippingFee = computeShipping(subtotal);
+    const shippingFee = computeShipping(subtotal, await this.settings.get());
 
     return {
       id: cart.id,
@@ -123,6 +128,11 @@ export class CartService {
     // moment it was saved.
     if (!isPurchasable(product.moderationStatus)) {
       throw new NotFoundException('Product not found');
+    }
+    // Food is browsable but not buyable while it is "coming soon". Before
+    // the maker and stock checks: nothing else about the basket matters.
+    if (product.kind === 'food' && !(await this.settings.get()).foodOrdersOpen) {
+      throw foodComingSoon();
     }
     const weight = product.weightOptions.find((w) => w.sku === dto.sku);
     if (!weight) throw new NotFoundException('Weight option not found for this product');

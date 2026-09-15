@@ -6,6 +6,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { ArrowRight, Gift, HandPlatter } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { FoodComingSoonTag } from "@/components/food/FoodComingSoonBanner";
 import styles from "./SplitPanels.module.css";
 
 type Half = "food" | "gifts";
@@ -190,6 +191,8 @@ export function SplitPanels() {
               {eyebrow}
             </span>
             <span className={styles.title}>{title}</span>
+            {/* Browsable, not buyable yet (lib/food-launch.ts). */}
+            {key === "food" && <FoodComingSoonTag className={styles.soonTag} />}
             <span className={styles.blurb}>{blurb}</span>
             <span className={styles.cta}>
               <span className={styles.ctaLabel}>{cta}</span>

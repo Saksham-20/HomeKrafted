@@ -1852,6 +1852,17 @@ export interface PlatformSettings {
    * tiffin locks Monday 8pm.
    */
   menuLockTime: string;
+  /**
+   * Whether food can be bought (2026-09-15). Off = homemade food is
+   * "coming soon": browsable, not buyable — the server refuses food at
+   * the cart, reorder, checkout and meal-plan subscribe. Optional because
+   * a server older than the field omits it, which means open.
+   */
+  foodOrdersOpen?: boolean;
+  /** Flat delivery fee per order, ₹ (2026-09-15; was a hardcoded ₹49). 0 = free delivery. */
+  deliveryFee?: number;
+  /** Orders at or above this subtotal deliver free, ₹. 0 = no free-delivery offer. */
+  freeDeliveryThreshold?: number;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings | undefined> {
@@ -1863,6 +1874,9 @@ export async function getPlatformSettings(): Promise<PlatformSettings | undefine
       defaultDeliveryRadiusKm: 10,
       servicedPincodePrefixes: "160,1401,1403,1341,1346",
       menuLockTime: "20:00",
+      foodOrdersOpen: false,
+      deliveryFee: 0,
+      freeDeliveryThreshold: 999,
     };
   try {
     return await http.get<PlatformSettings>("/admin/settings");
@@ -1882,6 +1896,9 @@ export async function updatePlatformSettings(
         defaultDeliveryRadiusKm: 10,
         servicedPincodePrefixes: "160,1401,1403,1341,1346",
         menuLockTime: "20:00",
+        foodOrdersOpen: false,
+        deliveryFee: 0,
+        freeDeliveryThreshold: 999,
         ...patch,
       };
   return http.patch<PlatformSettings>("/admin/settings", patch);

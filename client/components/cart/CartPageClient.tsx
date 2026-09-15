@@ -10,7 +10,8 @@ import { StickySummary } from "@/components/ui/StickySummary";
 import { CartLineRow } from "@/components/cart/CartLineRow";
 import { CartSuggestions } from "@/components/cart/CartSuggestions";
 import { useCart } from "@/lib/cart/CartContext";
-import { computeCashback, computeShipping, FREE_SHIPPING_THRESHOLD } from "@/lib/cart/pricing";
+import { computeCashback, computeShipping, freeDeliveryHint } from "@/lib/cart/pricing";
+import { usePublicSettings } from "@/components/settings/usePublicSettings";
 import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
 import { formatCurrency } from "@/lib/format";
 import styles from "@/app/cart/Cart.module.css";
@@ -39,7 +40,10 @@ export function CartPageClient() {
     void action().catch((err: unknown) => setError(cartUpdateErrorMessage(err)));
   }
 
-  const shipping = computeShipping(subtotal);
+  // From `/admin/settings`; unknown until read, and never guessed as free.
+  const deliveryRule = usePublicSettings();
+  const shipping = deliveryRule ? computeShipping(subtotal, deliveryRule) : 0;
+  const freeOver = freeDeliveryHint(deliveryRule, shipping);
   const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
 
@@ -132,14 +136,14 @@ export function CartPageClient() {
                 { label: "Subtotal", value: formatCurrency(subtotal) },
                 {
                   label: "Shipping",
-                  value: shipping === 0 ? "Free" : formatCurrency(shipping),
+                  value: !deliveryRule ? "…" : shipping === 0 ? "Free" : formatCurrency(shipping),
                 },
                 { label: "Total", value: formatCurrency(total), emphasis: true },
               ]}
               cashbackLabel={`Earn ${formatCurrency(cashback)} wallet cashback on this order`}
               footnote={
-                shipping > 0
-                  ? `Free shipping on orders over ${formatCurrency(FREE_SHIPPING_THRESHOLD)}`
+                freeOver !== undefined
+                  ? `Free shipping on orders over ${formatCurrency(freeOver)}`
                   : undefined
               }
             >

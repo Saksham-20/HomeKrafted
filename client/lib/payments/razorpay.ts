@@ -1,5 +1,7 @@
 "use client";
 
+import { verifyRazorpayPayment, type RazorpayVerifyResult } from "@/lib/api/wallet";
+
 /**
  * Razorpay Checkout SDK loader (M8.4a) — a thin wrapper over the
  * `checkout.js` script Razorpay expects a merchant site to embed
@@ -26,8 +28,14 @@ export interface RazorpaySuccessResponse {
   razorpay_signature?: string;
 }
 
+/** What Checkout passes to `payment.failed` — only the fields we read. */
+interface RazorpayFailureResponse {
+  error?: { description?: string; reason?: string };
+}
+
 interface RazorpayInstance {
   open: () => void;
+  on: (event: "payment.failed", handler: (response: RazorpayFailureResponse) => void) => void;
 }
 
 interface RazorpayConstructorOptions {
@@ -85,14 +93,31 @@ export interface OpenRazorpayCheckoutOptions {
   description?: string;
   orderId: string;
   prefill?: { name?: string; email?: string; contact?: string };
-  onSuccess: (response: RazorpaySuccessResponse) => void;
-  onDismiss?: () => void;
+  /**
+   * Fires only after the server has verified the payment
+   * (`POST /payments/razorpay/verify`). `status: "pending"` means Razorpay
+   * has not captured it yet; the webhook will finish it.
+   */
+  onSuccess: (result: RazorpayVerifyResult, response: RazorpaySuccessResponse) => void;
+  /**
+   * The modal was closed without a verified payment. `failureReason` is
+   * Razorpay's description of the last failed attempt, if there was one —
+   * so "your bank declined it" is not reported as "you cancelled".
+   */
+  onDismiss?: (failureReason?: string) => void;
+  /** Verification was refused or could not be reached. Nothing was marked paid. */
+  onError?: (error: unknown) => void;
 }
 
 /** Opens the Razorpay Checkout modal for a previously-created `RazorpayOrder`. Resolves once the modal has been opened (not once payment completes — that's `onSuccess`, fired asynchronously by the SDK). */
 export async function openRazorpayCheckout(options: OpenRazorpayCheckoutOptions): Promise<void> {
   await loadRazorpayScript();
   if (!window.Razorpay) throw new Error("Razorpay Checkout SDK failed to load");
+
+  // Checkout keeps its modal open after a failed attempt so the buyer can
+  // retry, so a failure is remembered rather than ending the flow; it is
+  // reported if they then close the modal.
+  let lastFailure: string | undefined;
 
   const rzp = new window.Razorpay({
     key: options.keyId,
@@ -103,8 +128,23 @@ export async function openRazorpayCheckout(options: OpenRazorpayCheckoutOptions)
     order_id: options.orderId,
     prefill: options.prefill,
     theme: { color: "#2f4f3f" },
-    handler: options.onSuccess,
-    modal: { ondismiss: options.onDismiss },
+    handler: (response) => {
+      if (!response.razorpay_signature) {
+        options.onError?.(new Error("Razorpay did not return a payment signature."));
+        return;
+      }
+      verifyRazorpayPayment({
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      })
+        .then((result) => options.onSuccess(result, response))
+        .catch((error: unknown) => options.onError?.(error));
+    },
+    modal: { ondismiss: () => options.onDismiss?.(lastFailure) },
+  });
+  rzp.on("payment.failed", (response) => {
+    lastFailure = response.error?.description || "The payment was declined.";
   });
   rzp.open();
 }

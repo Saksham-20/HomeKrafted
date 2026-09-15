@@ -22,6 +22,8 @@
  * Pure, so the mapping is unit-tested (`add-error.spec.ts`).
  */
 
+import { FOOD_COMING_SOON_MESSAGE, isFoodComingSoonError } from "@/lib/food-launch";
+
 const STOCK_RE = /only\s+(\d+)\s+in stock/i;
 
 /**
@@ -58,6 +60,8 @@ export function addToCartErrorMessage(err: unknown): string {
   // Verbatim: it names the maker whose things are already in the basket,
   // which is the only part a shopper can act on.
   if (isOtherMakerError(err)) return message;
+  // Verbatim too: it says food is coming soon and where to go instead.
+  if (isFoodComingSoonError(err)) return message || FOOD_COMING_SOON_MESSAGE;
 
   const stock = STOCK_RE.exec(message);
   if (stock) {

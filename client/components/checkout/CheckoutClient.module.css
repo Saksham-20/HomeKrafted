@@ -1,3 +1,17 @@
+/*
+  Checkout (2026-09-15) — two layouts over one set of values.
+
+  .food  — one kitchen, one trip: a narrow single column you read top to
+           bottom (who is cooking, where, when, the bill, how to pay) and a
+           pay bar that is always in reach.
+  .gift  — a considered purchase: numbered steps on the left, a summary
+           box on the right whose button is at the top, and a review of
+           what arrives, with its delivery day, before you pay.
+
+  Shared pieces (item rows, payment tiles, address choices, the bill) are
+  styled once; each layout only changes density and emphasis around them.
+*/
+
 .page {
   padding-block: var(--hk-s6) var(--hk-s8);
 }
@@ -5,9 +19,8 @@
 .title {
   font-family: var(--hk-font-display);
   font-weight: 600;
-  font-size: clamp(26px, 3.6vw, 34px);
+  font-size: var(--hk-page-title);
   color: var(--hk-pine);
-  margin-bottom: var(--hk-s5);
 }
 
 .loading {
@@ -44,44 +57,125 @@
   text-decoration: underline;
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: var(--hk-s6);
-  align-items: start;
+.mockBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  margin-block: var(--hk-s4);
+  padding: 10px 16px;
+  border: 1px solid var(--hk-saffron-border);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-saffron-tint);
+  color: var(--hk-ink);
+  font-size: 13px;
 }
 
-.main {
+/* --- Shared: items --------------------------------------------------- */
+
+.itemList {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.itemRow {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding-block: var(--hk-s3);
+}
+
+.itemRow + .itemRow {
+  border-top: 1px dashed var(--hk-border-2);
+}
+
+.itemThumb {
+  position: relative;
+  width: 56px;
+  border-radius: var(--hk-r-sm);
+  overflow: hidden;
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
-.section {
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-lg);
-  padding: var(--hk-s5);
+.itemName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
 }
 
-.sectionTitle {
-  font-family: var(--hk-font-display);
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--hk-pine);
-  display: block;
+.itemDiet {
+  flex-shrink: 0;
 }
 
-.sectionHint {
-  display: block;
+.itemMeta {
   font-size: 12.5px;
   color: var(--hk-muted);
-  margin-top: 4px;
-  font-family: var(--hk-font-body);
-  font-weight: 400;
 }
 
+.itemPrice {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--hk-ink);
+  white-space: nowrap;
+}
+
+/* --- Shared: address choices ----------------------------------------- */
+
+.addressChoices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.addressChoice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s3);
+  padding: var(--hk-s3) var(--hk-s4);
+  border: 1.5px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  cursor: pointer;
+  transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+.addressChoiceSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+}
+
+.addressChoiceBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.addressLabel {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.addressLine {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hk-muted);
+}
+
+.radio,
 .checkbox {
   width: 18px;
   height: 18px;
@@ -90,119 +184,40 @@
   margin-top: 2px;
 }
 
-.giftToggleRow {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--hk-s3);
-  cursor: pointer;
-}
-
-.giftBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s4);
-  margin-top: var(--hk-s5);
-  padding-top: var(--hk-s5);
-  border-top: 1px solid var(--hk-border);
-}
-
-/* Gift wrap + message card. Outside `.giftBody` on purpose — both apply
-   to an order the buyer keeps, not only one posted to somebody else. */
-.giftExtras {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s3);
-  margin-top: var(--hk-s4);
-}
-
-.hideToggleRow {
+.checkRow {
   display: flex;
   align-items: center;
   gap: var(--hk-s2);
-  font-size: 13.5px;
-  color: var(--hk-ink-2);
-  cursor: pointer;
-}
-
-.fieldLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
-  margin-bottom: var(--hk-s2);
-}
-
-.dateBlock {
-  margin-top: var(--hk-s2);
-}
-
-.addressGroups {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s4);
-  margin-top: var(--hk-s4);
-}
-
-.addressCard {
-  border: 1px solid var(--hk-border-2);
-  border-radius: var(--hk-r-md);
-  padding: var(--hk-s4);
-}
-
-.addressHead {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-bottom: var(--hk-s3);
-}
-
-.addressLabel {
-  font-family: var(--hk-font-display);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--hk-ink);
-}
-
-.addressLine {
-  font-size: 12.5px;
-  color: var(--hk-muted);
-}
-
-.groupItems {
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s2);
-  margin-bottom: var(--hk-s4);
-  list-style: none;
-}
-
-.groupItemRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--hk-s3);
-  font-size: 13.5px;
-  color: var(--hk-ink-2);
-}
-
-.reassignSelect {
-  border: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  border-radius: var(--hk-r-sm);
-  padding: 6px 8px;
-  font-size: 12.5px;
-  color: var(--hk-ink-2);
   min-height: 44px;
+  font-size: 14px;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.linkButton {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hk-pine);
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
 }
 
 .addAddressForm {
-  margin-top: var(--hk-s4);
-  padding-top: var(--hk-s4);
-  border-top: 1px dashed var(--hk-border-2);
   display: flex;
   flex-direction: column;
   gap: var(--hk-s3);
+  margin-top: var(--hk-s2);
+  padding-top: var(--hk-s4);
+  border-top: 1px dashed var(--hk-border-2);
 }
 
 .addAddressActions {
@@ -210,33 +225,49 @@
   gap: var(--hk-s2);
 }
 
-.addAddressBtn {
-  margin-top: var(--hk-s4);
+.giftBody,
+.giftExtras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
 }
+
+.reassignSelect {
+  align-self: flex-start;
+  margin-top: 4px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-sm);
+  background: var(--hk-surface);
+  font-size: 13px;
+  color: var(--hk-ink-2);
+}
+
+/* --- Shared: payment ------------------------------------------------- */
 
 .paymentOptions {
   display: flex;
   flex-direction: column;
-  gap: var(--hk-s3);
-  margin-top: var(--hk-s4);
+  gap: var(--hk-s2);
 }
 
 .paymentTile {
   display: flex;
   align-items: center;
   gap: var(--hk-s3);
+  min-height: 56px;
+  padding: var(--hk-s3) var(--hk-s4);
   border: 1.5px solid var(--hk-border-2);
-  background: var(--hk-surface);
   border-radius: var(--hk-r-md);
-  padding: var(--hk-s4);
+  background: var(--hk-surface);
   text-align: left;
   color: var(--hk-ink-2);
-  min-height: 44px;
   transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
 }
 
 .paymentTile:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -253,63 +284,440 @@
 }
 
 .paymentTileTitle {
-  font-family: var(--hk-font-display);
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
+  color: var(--hk-ink);
 }
 
 .paymentTileHint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+/* --- Shared: bill ---------------------------------------------------- */
+
+.bill {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.billRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+  padding-block: 6px;
+  font-size: 14px;
+  color: var(--hk-ink-2);
+}
+
+.billRow dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.billRow dd {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.billHint {
   font-size: 12px;
   color: var(--hk-muted);
 }
 
-.aside {
-  position: sticky;
-  top: 84px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--hk-s2);
+.billTotal {
+  margin-top: var(--hk-s2);
+  padding-top: var(--hk-s3);
+  border-top: 1px dashed var(--hk-border-2);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hk-ink);
+}
+
+.cashbackNote {
+  margin: var(--hk-s2) 0 0;
+  font-size: 12.5px;
+  color: var(--hk-gold-text-sm);
+}
+
+.terms {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+}
+
+.terms a {
+  color: var(--hk-pine);
+  text-decoration: underline;
 }
 
 .formError {
-  color: var(--hk-terracotta);
+  margin: 0;
   font-size: 13px;
-  text-align: center;
-}
-
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
-
-  /* Below 900px the summary sits inline after the address/payment
-     sections — its CTA becomes a fixed bottom bar via `stickyOnMobile`
-     (see StickySummary.module.css) once narrow enough (~640px). */
-  .aside {
-    position: static;
-    padding-top: var(--hk-s3);
-  }
-}
-
-@media (max-width: 640px) {
-  /* Clears the fixed "Place order" bar `stickyOnMobile` pins to the
-     viewport bottom. */
-  .page {
-    padding-bottom: 84px;
-  }
+  line-height: 1.5;
+  color: var(--hk-terracotta-text);
 }
 
 /*
-  The line under "Placing order…" (M28). Quiet and display-italic, the
-  same voice as the hero's aside and the route skeletons — company during
-  the wait, not another instruction.
+  The line under "Placing order…" (M28). Quiet and display-italic —
+  company during the wait, not another instruction.
 */
 .placingNote {
+  margin: 0;
   font-family: var(--hk-font-display);
   font-style: italic;
   font-size: 13.5px;
   line-height: 1.45;
   color: var(--hk-muted);
-  margin: var(--hk-s3) 0 0;
   text-align: center;
+}
+
+/* --- Pay bar (food: always; gift: phones only) ----------------------- */
+
+.payBar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 30;
+  padding: var(--hk-s3) var(--hk-s4);
+  padding-bottom: calc(var(--hk-s3) + env(safe-area-inset-bottom, 0px));
+  background: var(--hk-surface);
+  border-top: 1px solid var(--hk-border);
+  box-shadow: 0 -6px 18px rgba(43, 36, 28, 0.08);
+}
+
+.payBarInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s4);
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.payBarTotal {
+  display: flex;
+  flex-direction: column;
+}
+
+.payBarAmount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--hk-ink);
+}
+
+.payBarHint {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+.payBarHint a {
+  color: var(--hk-pine);
+  font-weight: 600;
+}
+
+.payBarButton {
+  flex: 1;
+  max-width: 280px;
+}
+
+/* ================================================================ FOOD */
+
+.food {
+  padding-bottom: 120px;
+}
+
+.foodColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.backLink {
+  align-self: flex-start;
+  font-size: 13.5px;
+  color: var(--hk-pine);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s4) var(--hk-s5);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  scroll-margin-top: 88px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hk-ink);
+}
+
+.cardHint {
+  margin: -8px 0 0;
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.eyebrow {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hk-muted-2);
+}
+
+.kitchenHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--hk-s2);
+  padding-bottom: var(--hk-s2);
+  border-bottom: 1px solid var(--hk-border);
+}
+
+.kitchenName {
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.kitchenName a {
+  color: inherit;
+}
+
+.kitchenArea {
+  font-size: 13px;
+  color: var(--hk-muted);
+}
+
+.inlineLink {
+  align-self: flex-start;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hk-pine);
+}
+
+.food .terms {
+  text-align: center;
+}
+
+/* ================================================================ GIFT */
+
+.gift .subtitle {
+  margin: 4px 0 var(--hk-s5);
+  font-size: 14px;
+  color: var(--hk-muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--hk-s6);
+  align-items: start;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--hk-s4);
+  padding: var(--hk-s5);
+}
+
+.step + .step {
+  border-top: 1px solid var(--hk-border);
+}
+
+.stepTitle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hk-s2);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--hk-ink);
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--hk-pine);
+  color: var(--hk-on-pine);
+  font-size: 13px;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  min-width: 0;
+}
+
+.segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--hk-s2);
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: var(--hk-s2) var(--hk-s3);
+  border: 1.5px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--hk-ink-2);
+  cursor: pointer;
+}
+
+.segment:focus-within {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.segmentSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+}
+
+.shipment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s4);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+}
+
+.shipmentHead {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hk-success);
+}
+
+.bottomPlace {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hk-s4);
+  padding: var(--hk-s5);
+  border-top: 1px solid var(--hk-border);
+  background: var(--hk-surface-2);
+  border-radius: 0 0 var(--hk-r-lg) var(--hk-r-lg);
+}
+
+.bottomPlaceTotal {
+  font-size: 15px;
+  color: var(--hk-ink);
+}
+
+.bottomPlaceTotal strong {
+  color: var(--hk-terracotta);
+}
+
+.aside {
+  position: sticky;
+  top: 84px;
+}
+
+.summaryBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  padding: var(--hk-s5);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+}
+
+.summaryButton {
+  width: 100%;
+}
+
+.summaryTitle {
+  padding-top: var(--hk-s3);
+  border-top: 1px solid var(--hk-border);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--hk-ink);
+}
+
+.orderTotal {
+  color: var(--hk-terracotta);
+}
+
+.summaryFootnote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--hk-muted);
+}
+
+.payBarMobileOnly {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .step {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--hk-s3);
+  }
+
+  .aside {
+    position: static;
+  }
+
+  .gift {
+    padding-bottom: 120px;
+  }
+
+  .payBarMobileOnly {
+    display: block;
+  }
+}
+
+@media (max-width: 560px) {
+  .card,
+  .step,
+  .summaryBox {
+    padding: var(--hk-s4);
+  }
+
+  .segmented {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bottomPlace {
+    display: none;
+  }
 }

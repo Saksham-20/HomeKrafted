@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { activeDiscountPct, applyDiscount } from '../../catalog/vendor-discount';
+import { dietaryTagsToFrontend } from '../../catalog/dietary-tag.util';
 
 /**
  * Resolves a raw `CartItem` row (product-or-hamper polymorphic, see
@@ -51,6 +52,18 @@ export interface ResolvedLine {
   isHamper: boolean;
   /** Stock cap for a product line — omitted (unbounded) for hamper lines. */
   maxQuantity?: number;
+  /**
+   * What the line is (2026-09-15) — checkout lays itself out for food or
+   * for gifts from this. A hamper line is `craft`: it is assembled to give.
+   */
+  kind: 'food' | 'craft';
+  /** Frontend spelling (`non-vegetarian`), so checkout draws the same diet mark the card does. */
+  dietary: string[];
+  /**
+   * Who made it — name, slug and the coarse public area label only. Never
+   * the pickup address (M36b): this payload is the buyer's.
+   */
+  maker?: { name: string; slug: string; location: string };
 }
 
 export async function resolveCartLine(db: Db, item: RawCartItem): Promise<ResolvedLine> {
@@ -59,7 +72,13 @@ export async function resolveCartLine(db: Db, item: RawCartItem): Promise<Resolv
       where: { id: item.hamperId },
       include: {
         box: true,
-        items: { include: { product: { include: { weightOptions: true } } } },
+        items: {
+          include: {
+            product: {
+              include: { weightOptions: true, vendor: { select: { name: true, slug: true, location: true } } },
+            },
+          },
+        },
       },
     });
     if (!hamper) {
@@ -87,6 +106,17 @@ export async function resolveCartLine(db: Db, item: RawCartItem): Promise<Resolv
       unitPrice,
       lineTotal: unitPrice * item.quantity,
       isHamper: true,
+      kind: 'craft',
+      dietary: [],
+      ...(hamper.items[0]
+        ? {
+            maker: {
+              name: hamper.items[0].product.vendor.name,
+              slug: hamper.items[0].product.vendor.slug,
+              location: hamper.items[0].product.vendor.location,
+            },
+          }
+        : {}),
     };
   }
 
@@ -102,7 +132,7 @@ export async function resolveCartLine(db: Db, item: RawCartItem): Promise<Resolv
       // M46 — the storefront discount is applied here, in the one place a
       // line price is derived, so a cart preview and the order created
       // from it can never disagree about it either.
-      vendor: { select: { discountPct: true, discountEndsAt: true } },
+      vendor: { select: { discountPct: true, discountEndsAt: true, name: true, slug: true, location: true } },
     },
   });
   if (!product) {
@@ -135,5 +165,8 @@ export async function resolveCartLine(db: Db, item: RawCartItem): Promise<Resolv
     ...(discountPct > 0 ? { listUnitPrice, discountPct } : {}),
     isHamper: false,
     maxQuantity: weight?.stock,
+    kind: product.kind === 'food' ? 'food' : 'craft',
+    dietary: dietaryTagsToFrontend(product.dietary),
+    maker: { name: product.vendor.name, slug: product.vendor.slug, location: product.vendor.location },
   };
 }

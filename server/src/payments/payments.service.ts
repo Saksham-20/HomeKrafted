@@ -8,7 +8,8 @@ import { OrdersService } from '../orders/orders.service';
 import { WalletService } from '../wallet/wallet.service';
 import { CreateRazorpayOrderDto } from './dto/create-razorpay-order.dto';
 import { RazorpayClient } from './razorpay.client';
-import { verifyRazorpaySignature } from './razorpay-signature.util';
+import { VerifyRazorpayPaymentDto } from './dto/verify-razorpay-payment.dto';
+import { verifyCheckoutSignature, verifyRazorpaySignature } from './razorpay-signature.util';
 
 /** Dev/test-mode placeholders shipped in `.env.example` — matched exactly so a real (even test-account) key pair always takes the live code path. */
 const PLACEHOLDER_KEY_ID = 'rzp_test_placeholder';
@@ -103,6 +104,9 @@ export class PaymentsService {
     }
 
     const amountPaise = Math.round(amount * 100);
+    // Razorpay refuses an order under ₹1; saying so here beats a 500 from
+    // their API with their wording in it.
+    if (amountPaise < 100) throw new BadRequestException('The minimum online payment is ₹1.');
 
     // One Homekrafted order opens at most one *live* Razorpay order.
     //
@@ -233,6 +237,70 @@ export class PaymentsService {
     const paymentId = paymentEntity.id;
     const razorpayOrderId = paymentEntity.order_id;
 
+    const outcome = await this.settleCapture(razorpayOrderId, paymentId);
+    if (outcome === 'duplicate') return { received: true, note: 'duplicate delivery — already processed' };
+
+    return { received: true };
+  }
+
+  /**
+   * The browser half of confirmation (Razorpay Standard Checkout's
+   * "verify payment signature" step). The webhook stays the backstop: a
+   * buyer who closes the tab before this call still gets their order
+   * placed when `payment.captured` arrives.
+   *
+   * Three checks, in order, and nothing is written until all pass:
+   *  1. the HMAC over `order_id|payment_id` with the key secret — a
+   *     mismatch is a 400 and nothing is marked paid;
+   *  2. the Razorpay order is one this signed-in user opened — someone
+   *     else's is a 404, the same answer as one that does not exist;
+   *  3. Razorpay itself says the payment is `captured`, for this order and
+   *     this amount. A valid signature only proves the payment belongs to
+   *     the order. `authorized` (auto-capture not finished yet) is answered
+   *     `pending` and left to the webhook rather than guessed at.
+   *
+   * Shares `settleCapture` with the webhook and its dedup key, so the two
+   * paths racing each other apply the money exactly once.
+   */
+  async verifyCheckout(userId: string, dto: VerifyRazorpayPaymentDto): Promise<{ verified: true; status: 'captured' | 'pending' }> {
+    if (this.isMockMode()) throw new BadRequestException('Online payments are not configured on this server.');
+
+    const keySecret = this.config.get('razorpay.keySecret', { infer: true });
+    if (!verifyCheckoutSignature(dto.razorpay_order_id, dto.razorpay_payment_id, dto.razorpay_signature, keySecret)) {
+      throw new BadRequestException('Payment signature did not match. Nothing was marked as paid.');
+    }
+
+    const rpOrder = await this.prisma.razorpayOrder.findUnique({ where: { razorpayOrderId: dto.razorpay_order_id } });
+    if (!rpOrder || rpOrder.userId !== userId) throw new NotFoundException('Payment not found');
+    if (rpOrder.status === 'captured') return { verified: true, status: 'captured' };
+
+    const payment = await this.razorpayClient.fetchPayment(dto.razorpay_payment_id);
+    if (payment.order_id !== dto.razorpay_order_id || payment.amount !== Math.round(Number(rpOrder.amount) * 100)) {
+      throw new BadRequestException('That payment does not match this order. Nothing was marked as paid.');
+    }
+    if (payment.status === 'authorized') return { verified: true, status: 'pending' };
+    if (payment.status !== 'captured') {
+      throw new BadRequestException(`Payment is ${payment.status}, not captured. Nothing was marked as paid.`);
+    }
+
+    await this.settleCapture(dto.razorpay_order_id, dto.razorpay_payment_id);
+    return { verified: true, status: 'captured' };
+  }
+
+  /**
+   * Applies a captured payment: credit the wallet or place the order, and
+   * mark the Razorpay order captured — once. Called only after the caller
+   * has independently established the capture (webhook HMAC, or checkout
+   * signature plus a Razorpay API read).
+   *
+   * Idempotent by construction: the `WebhookEvent` insert (keyed on
+   * `payment.captured:paymentId`, the same key from both callers) and the
+   * credit/order-transition happen inside one `$transaction` — a repeat
+   * either loses the unique-insert race (reported as `duplicate`, nothing
+   * re-applied) or finds `RazorpayOrder.status` already `captured`.
+   */
+  private async settleCapture(razorpayOrderId: string, paymentId: string): Promise<'applied' | 'duplicate'> {
+    const event = 'payment.captured';
     try {
       await this.prisma.$transaction(async (tx) => {
         // Dedup claim first — if this exact (event, payment) was already
@@ -257,11 +325,11 @@ export class PaymentsService {
       });
     } catch (err) {
       if (isUniqueConstraintError(err)) {
-        return { received: true, note: 'duplicate delivery — already processed' };
+        return 'duplicate';
       }
       throw err;
     }
 
-    return { received: true };
+    return 'applied';
   }
 }

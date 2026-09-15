@@ -13,6 +13,7 @@ import { useCart } from "@/lib/cart/CartContext";
 import { useWallet } from "@/lib/wallet/WalletContext";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { MobileDrawer } from "./MobileDrawer";
+import { FoodComingSoonTag } from "@/components/food/FoodComingSoonBanner";
 import styles from "./Header.module.css";
 
 /** One row of a tab's dropdown panel (M56). */
@@ -170,6 +171,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
           <div key={item.href + item.label} className={styles.navItem}>
             <Link href={item.href} className={styles.navLink}>
               {item.label}
+              {item.href === "/shop" && <FoodComingSoonTag className={styles.navSoonTag} />}
             </Link>
             {menu && menu.length > 0 && (
               <div className={styles.navMenu}>
@@ -202,6 +204,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
             <div key={item.href + item.label} className={styles.navItem}>
               <Link href={item.href} className={styles.navLink}>
                 {item.label}
+                {item.href === "/shop" && <FoodComingSoonTag className={styles.navSoonTag} />}
               </Link>
               {menu && menu.length > 0 && (
                 <div className={styles.navMenu}>

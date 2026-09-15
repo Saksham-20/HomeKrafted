@@ -77,6 +77,26 @@ export async function createRazorpayOrder(
   return http.post<RazorpayOrderResult>("/payments/razorpay/order", input);
 }
 
+export interface RazorpayVerifyResult {
+  verified: true;
+  /** `pending` = Razorpay authorised it but has not captured yet; the webhook finishes it. */
+  status: "captured" | "pending";
+}
+
+/**
+ * `POST /payments/razorpay/verify` — hands Checkout's success values to the
+ * server, which checks the signature and asks Razorpay whether the money
+ * was captured before applying it. A refusal (`400` for a mismatch) is
+ * thrown, never swallowed: it is the only explanation the buyer gets.
+ */
+export async function verifyRazorpayPayment(input: {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}): Promise<RazorpayVerifyResult> {
+  return http.post<RazorpayVerifyResult>("/payments/razorpay/verify", input);
+}
+
 export interface PaymentsConfig {
   /** `false` when this deployment has no usable Razorpay keys — see the server's `PaymentsService.cardPaymentsEnabled`. */
   cardPaymentsEnabled: boolean;

@@ -1,7 +1,7 @@
 import type { Order, OrderGift, OrderItem, OrderShipment, PaymentMethod } from "@/lib/types";
 import { nextOrderNumber } from "@/lib/data/orders";
 import { currentUser } from "@/lib/data/user";
-import { computeCashback, computeShipping } from "@/lib/cart/pricing";
+import { computeCashback, computeShipping, DEFAULT_DELIVERY_RULE } from "@/lib/cart/pricing";
 import { deliveryDateOptions } from "@/lib/schedule";
 import { http, isMockMode } from "./http";
 
@@ -71,7 +71,7 @@ const orders: Order[] = [];
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (isMockMode()) {
     const subtotal = input.lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
-    const shippingFee = computeShipping(subtotal);
+    const shippingFee = computeShipping(subtotal, DEFAULT_DELIVERY_RULE);
     const cashbackEarned = computeCashback(subtotal);
     const total = subtotal + shippingFee;
 

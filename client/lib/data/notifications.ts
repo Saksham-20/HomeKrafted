@@ -57,7 +57,7 @@ export const notifications: Notification[] = [
     channel: "email",
     category: "promo",
     title: "Festive hampers are live",
-    body: "New festive hampers just dropped — free shipping over ₹999.",
+    body: "New festive hampers just dropped.",
     read: true,
     createdAt: "2026-07-15T08:00:00+05:30",
   },

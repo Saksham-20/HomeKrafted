@@ -26,6 +26,10 @@ import {
   type GiftIntent,
 } from "@/lib/gift/gift-intent";
 import type { Product } from "@/lib/types";
+import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
+import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
+import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
+import { usePublicSettings } from "@/components/settings/usePublicSettings";
 import styles from "./ProductPurchasePanel.module.css";
 
 export interface ProductPurchasePanelProps {
@@ -283,9 +287,24 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
     product.weightOptions.find((w) => w.sku === selectedSku) ?? product.weightOptions[0];
   const stock = weight?.stock ?? 0;
   const soldOut = stock <= 0;
+  const foodOrdersOpen = useFoodOrdersOpen();
+  const deliveryRule = usePublicSettings();
+  /**
+   * Said only when the settings say it. This line read "Free delivery over
+   * ₹499" while the rule was ₹999 — a number nothing enforced.
+   */
+  const deliveryNote = !deliveryRule
+    ? undefined
+    : deliveryRule.deliveryFee <= 0
+      ? "Free delivery"
+      : deliveryRule.freeDeliveryThreshold > 0
+        ? `Free delivery over ${formatCurrency(deliveryRule.freeDeliveryThreshold)}`
+        : undefined;
+  /** Food is browsable but not buyable while it is coming soon (`lib/food-launch.ts`). */
+  const foodClosed = product.kind === "food" && foodOrdersOpen === false;
 
   async function handleAdd() {
-    if (soldOut || adding) return;
+    if (soldOut || foodClosed || adding) return;
     setAdding(true);
     setAddError(null);
     setOtherMaker(null);
@@ -405,21 +424,31 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
         Earn {formatCurrency(cashback)} wallet cashback on this order
       </div>
 
+      {foodClosed && <FoodComingSoonBanner />}
+
       <div className={styles.buyRow} ref={buyRowRef}>
         <QuantityStepper
           value={quantity}
           onChange={setQuantity}
           max={soldOut ? 1 : stock}
-          disabled={soldOut}
+          disabled={soldOut || foodClosed}
           aria-label="Quantity"
         />
         <Button
           variant="primary"
           className={styles.addToCart}
           onClick={handleAdd}
-          disabled={soldOut || adding}
+          disabled={soldOut || foodClosed || adding}
         >
-          {soldOut ? "Sold out" : added ? "Added ✓" : adding ? "Adding…" : "Add to cart"}
+          {soldOut
+            ? "Sold out"
+            : foodClosed
+              ? FOOD_BUTTON_LABEL
+              : added
+                ? "Added ✓"
+                : adding
+                  ? "Adding…"
+                  : "Add to cart"}
         </Button>
         <button
           type="button"
@@ -495,7 +524,7 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
             <span className={styles.decisionSubtitle}>
               {product.prepTimeMins
                 ? `Prepared fresh to order (${product.prepTimeMins} mins notice)`
-                : "Fresh batch prepared daily · Free delivery over ₹499"}
+                : `Fresh batch prepared daily${deliveryNote ? ` · ${deliveryNote}` : ""}`}
             </span>
 
             <div className={styles.pincodeWidget}>
@@ -817,10 +846,10 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
           variant="primary"
           size="sm"
           onClick={handleAdd}
-          disabled={soldOut || adding}
+          disabled={soldOut || foodClosed || adding}
           tabIndex={buyRowVisible ? -1 : 0}
         >
-          {soldOut ? "Sold out" : added ? "Added ✓" : "Add to cart"}
+          {soldOut ? "Sold out" : foodClosed ? FOOD_BUTTON_LABEL : added ? "Added ✓" : "Add to cart"}
         </Button>
       </div>
     </div>

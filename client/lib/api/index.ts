@@ -30,4 +30,5 @@ export * from "./about";
 export * from "./search";
 export * from "./meals";
 export * from "./taxonomy";
+export * from "./settings";
 export * from "./errors";

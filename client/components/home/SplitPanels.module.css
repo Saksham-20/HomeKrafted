@@ -453,3 +453,10 @@
     transform: none;
   }
 }
+
+/* The food half's "Coming soon" pill (2026-09-15). It sits on a dark
+   photograph, so it keeps its own light fill rather than a translucent
+   one; the pill's own ink is the AA gold-on-tint pair. */
+.soonTag {
+  align-self: flex-start;
+}

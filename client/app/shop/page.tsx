@@ -8,6 +8,7 @@ import { ShopClient } from "./ShopClient";
 import { HeroBanner } from "@/components/browse/HeroBanner";
 import { pageMetadata } from "@/lib/seo";
 import styles from "./Shop.module.css";
+import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
 
 export interface ShopPageProps {
   /**
@@ -137,6 +138,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             </div>
           </div>
         </div>
+      </div>
+      {/* Food is browsable but not buyable yet (lib/food-launch.ts). */}
+      <div className={clsx("container", "container-wide")}>
+        <FoodComingSoonBanner />
       </div>
       <ShopClient
         products={products}

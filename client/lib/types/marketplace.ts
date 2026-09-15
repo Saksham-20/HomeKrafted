@@ -669,6 +669,20 @@ export interface ServerCartLine extends CartItem {
   /** The storefront sale that produced `unitPrice`, when one applied. */
   discountPct?: number;
   isHamper: boolean;
+  /**
+   * What the line is (2026-09-15). Checkout reads it to lay itself out for
+   * food or for gifts. Optional: a server older than this field omits it.
+   */
+  kind?: ProductKind;
+  dietary?: DietaryTag[];
+  /** Who made it — name, slug and the coarse public area label. Never an address. */
+  maker?: CartLineMaker;
+}
+
+export interface CartLineMaker {
+  name: string;
+  slug?: string;
+  location?: string;
 }
 
 /** M8.4a — the real `GET /cart` response envelope; `count`/`subtotal`/`shippingFee`/`total`/`cashbackEstimate` are server-computed, same rules as `lib/cart/pricing.ts`. */

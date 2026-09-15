@@ -6,13 +6,14 @@ import { WalletModule } from '../wallet/wallet.module';
 import { LaundryModule } from '../laundry/laundry.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { SettingsModule } from '../admin/settings.module';
 import { OrderNotificationsService } from './order-notifications.service';
 
 @Module({
   // `AdminAuditModule` rather than `AdminModule` — that would be a cycle.
   // `POST /orders/:id/refund` is `@Roles('admin')`, so it owes an audit
   // row like every other admin mutation.
-  imports: [AdminAuditModule, WalletModule, IdempotencyModule, LaundryModule, NotificationsModule],
+  imports: [AdminAuditModule, WalletModule, IdempotencyModule, LaundryModule, NotificationsModule, SettingsModule],
   controllers: [OrdersController],
   providers: [OrdersService, OrderNotificationsService],
   // Exported for `PaymentsModule` — the Razorpay webhook transitions a
