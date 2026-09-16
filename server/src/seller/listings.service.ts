@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductTag } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
+import { PRODUCT_INCLUDE, mapProductForMaker } from '../catalog/mappers/product.mapper';
+import { AdminSettingsService } from '../admin/settings.service';
 import { initialAdminSubmission, initialSubmission, requeueOnEdit } from '../catalog/moderation';
 import { AttributesService } from '../catalog/attributes.service';
 import {
@@ -58,6 +59,7 @@ export class SellerListingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly attributes: AttributesService,
+    private readonly settings: AdminSettingsService,
   ) {}
 
   async list(vendorId: string) {
@@ -66,13 +68,21 @@ export class SellerListingsService {
       include: PRODUCT_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
-    return products.map(mapProduct);
+    // **The maker's own view: base prices** (2026-09-16). This is the
+    // portal, so every figure here is the one they typed and the one they
+    // are paid; `buyerPrice` rides alongside so the list can show what a
+    // shopper sees without the client re-deriving the fee.
+    const rate = await this.settings.getCommissionRate();
+    return products.map((p) => mapProductForMaker(p, rate));
   }
 
   /** Ownership-scoped: 404s (not 403) for a real product id belonging to another vendor. */
   async getOne(vendorId: string, productId: string) {
-    const product = await this.assertOwned(vendorId, productId);
-    return mapProduct(product);
+    const [product, rate] = await Promise.all([
+      this.assertOwned(vendorId, productId),
+      this.settings.getCommissionRate(),
+    ]);
+    return mapProductForMaker(product, rate);
   }
 
 
@@ -287,7 +297,7 @@ export class SellerListingsService {
       return product;
     });
 
-    return mapProduct(created);
+    return mapProductForMaker(created, await this.settings.getCommissionRate());
   }
 
   async update(
@@ -453,7 +463,7 @@ export class SellerListingsService {
       });
     });
 
-    return mapProduct(updated);
+    return mapProductForMaker(updated, await this.settings.getCommissionRate());
   }
 
   /**
@@ -471,7 +481,7 @@ export class SellerListingsService {
       data: { isAvailable },
       include: PRODUCT_INCLUDE,
     });
-    return mapProduct(updated);
+    return mapProductForMaker(updated, await this.settings.getCommissionRate());
   }
 
   async remove(vendorId: string, productId: string): Promise<void> {

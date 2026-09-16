@@ -35,7 +35,7 @@ describe('admin HomeKrafter detail (M32)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 

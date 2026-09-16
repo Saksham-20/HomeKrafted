@@ -39,7 +39,7 @@ describe('vendor availability', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const kitchen = await createKitchen(h);
     vendorSlug = kitchen.vendor.slug;
     vendorId = kitchen.vendor.id;

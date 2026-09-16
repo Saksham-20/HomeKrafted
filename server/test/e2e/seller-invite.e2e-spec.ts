@@ -30,7 +30,7 @@ describe('approval hands the HomeKrafter a way in', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 

@@ -35,7 +35,7 @@ describe('admin payouts', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const kitchen = await createKitchen(h);
     sellerId = kitchen.seller.id;
     admin = await createActor(h, 'admin');

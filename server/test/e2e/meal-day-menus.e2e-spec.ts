@@ -32,7 +32,7 @@ describe('meal plan day menus', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   const iso = (daysFromToday: number) => {

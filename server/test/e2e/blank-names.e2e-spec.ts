@@ -29,7 +29,7 @@ describe('a name has to be readable', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   const register = (name: string) =>

@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import { DeliveryJobStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
-import { RawCartItem, resolveCartLine } from '../common/pricing/resolve-cart-line';
+import { RawCartItem, resolveCartLines } from '../common/pricing/resolve-cart-line';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { WalletService } from '../wallet/wallet.service';
 import { LaundryService } from '../laundry/laundry.service';
@@ -53,10 +53,12 @@ export class OrdersService {
   /**
    * Creates an order from the caller's current `Cart` — never from
    * anything client-submitted. Every line's price is recomputed fresh
-   * from the DB (`resolveCartLine`, the same function `CartService.getCart`
+   * from the DB (`resolveCartLines`, the same function `CartService.getCart`
    * uses, so a shopper's cart preview and what they're actually charged
-   * can never disagree), snapshotted onto `OrderItem.price` so the order
-   * doesn't drift if the catalog price changes later. Stock is validated
+   * can never disagree), snapshotted onto `OrderItem.price` (and its
+   * `sellerAmount`/`commissionAmount`/`gstAmount` split) so the order
+   * doesn't drift if the catalog price or the commission rate changes
+   * later. Stock is validated
    * up front and then re-validated + decremented atomically inside the
    * transaction (`updateMany` with a `stock: { gte }` guard) to close the
    * race where two requests could otherwise both pass the pre-check.
@@ -142,7 +144,12 @@ export class OrdersService {
       : await this.prisma.address.findFirst({ where: { userId, isDefault: true, archivedAt: null } });
     const fallbackAddressId = dto.defaultAddressId ?? defaultAddress?.id;
 
-    const resolvedLines = await Promise.all(rawItems.map((item) => resolveCartLine(this.prisma, item)));
+    // The rate is read once here and carried through the whole create —
+    // never re-read mid-function — so a line priced against it and the
+    // `subtotal`/`total` summed from those lines can never straddle an
+    // admin's settings change mid-request.
+    const rate = await this.settings.getCommissionRate();
+    const resolvedLines = await resolveCartLines(this.prisma, rawItems, rate);
 
     // A basket filled before food was switched to "coming soon" must not
     // check out through the back door (`common/food-orders.ts`).
@@ -247,7 +254,19 @@ export class OrdersService {
                 hamperId: item.hamperId ?? undefined,
                 name: resolved.name,
                 quantity: item.quantity,
+                // What the buyer is charged, per unit — base + commission + GST.
                 price: resolved.unitPrice,
+                // The split behind it, snapshotted at checkout (2026-09-16).
+                // A payout later sums `sellerAmount` directly rather than
+                // re-deriving it against whatever rate is configured on the
+                // day it's requested — the same reason `commissionPct`/
+                // `gstPct` are the rates *applied* to this line, not a
+                // pointer back to the live setting.
+                sellerAmount: resolved.unitSellerAmount,
+                commissionAmount: resolved.unitCommission,
+                gstAmount: resolved.unitGst,
+                commissionPct: resolved.commissionPct,
+                gstPct: resolved.gstPct,
                 addressId: addressIdByItemId.get(item.id)!,
                 giftWrap: item.giftWrap,
               };

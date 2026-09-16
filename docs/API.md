@@ -1094,11 +1094,11 @@ filtered client-side).
 
 | Endpoint | Seller type | Notes |
 |---|---|---|
-| `GET /seller/me` | **M17.** The caller's own `Seller` record (`+ vendorName`, `vendorSlug`), resolved from their session — there is no id parameter. Added because the web client had no way to read it and was resolving the signed-in kitchen from **mock data**, falling back to a demo record for every real HomeKrafter. **M37:** carries `commission: { pct, enabled }` — the platform rate the listing form's "you receive ₹N" line computes with, server-supplied so no screen hardcodes a percentage. |
+| `GET /seller/me` | **M17.** The caller's own `Seller` record (`+ vendorName`, `vendorSlug`), resolved from their session — there is no id parameter. Added because the web client had no way to read it and was resolving the signed-in kitchen from **mock data**, falling back to a demo record for every real HomeKrafter. carries `commission: { pct, enabled, gstPct }` — the platform rate the listing form's "you receive ₹N → customer pays ₹M" line computes with (`client/lib/commission.ts#markupBreakdown`, GST included), server-supplied so no screen hardcodes a percentage. |
 | `GET /seller/dashboard` | any | Shape branches on `seller.type` — maker: `{ todayOrdersCount, todayRevenue, pendingPayoutAmount, lowStockCount, rating, reviewCount }` (mirrors `SellerDashboardSnapshot`); laundry: `{ todayPickupsCount, todayDeliveriesCount, weekEarnings, pendingPayoutAmount, rating, reviewCount }` (`PartnerDashboardSnapshot`); snack: `{ incomingOrdersCount, menuSize, earnings, pendingPayoutAmount }` (`SnackDashboardSnapshot`). `pendingPayoutAmount` is computed live (see Payouts below), not read off a stale field. |
 | `GET /seller/storefront` | any | The caller's own `Vendor` (resolved via `seller.vendorId`, never a param). The "maker only" 403 this used to carry went in M12 — one supply role, every module. |
 | `PATCH /seller/storefront` | any | Body: `{ name?, bio?, location?, avatarSrc?, bannerSrc? }`. No `vendorId` field on the DTO — always the resolved seller's own vendor. **`name` renames the storefront (M60)**: it writes `Vendor.name` and `Seller.displayName` in one transaction (same fact, two readers) and **never re-derives `slug`**, which is in every shared and indexed storefront URL. Two kitchens may hold the same name — accounts are told apart by phone and email, which are unique — but the shape is checked by the same `checkBusinessName` `/sell` applies, so an autofilled email address or a phone number is a `400` with the sentence saying which box and why. There are no branches: one HomeKrafter is one storefront with one pickup address (`VendorProfile.pickup*`), because a second location would be a second `Vendor` and split one kitchen's reviews, followers and payouts in two. |
-| `PUT /seller/discount` | **M46.** Body: `{ pct, endsAt? }`. The HomeKrafter's own sale on their own listings. Its own route rather than a field on `PATCH /seller/storefront` — that one is bio, location and artwork; this changes the price of every listing at once. `pct: 0` turns it off (and clears the date with it). `pct > 50` is a 400; an `endsAt` in the past is a 400 with a sentence, because a stored past date reads on every screen as "10% off until last Tuesday". `endsAt` is **exclusive**. **The discount is the kitchen's money** — commission is computed on what was actually charged. |
+| `PUT /seller/discount` | **M46.** Body: `{ pct, endsAt? }`. The HomeKrafter's own sale on their own listings. Its own route rather than a field on `PATCH /seller/storefront` — that one is bio, location and artwork; this changes the price of every listing at once. `pct: 0` turns it off (and clears the date with it). `pct > 50` is a 400; an `endsAt` in the past is a 400 with a sentence, because a stored past date reads on every screen as "10% off until last Tuesday". `endsAt` is **exclusive**. **The discount is the kitchen's money** — it comes off their own base price, *before* the markup commission fee is added on top (`mapProduct`: discount first, then the fee), so the discount's rupee cost reaches the payout 1:1 and Homekrafted's own fee on that line shrinks with it too, never charged against the pre-discount figure. |
 | `PATCH /seller/specialties` | any | **M33.** Body: `{ specialties: SellerSpecialty[] }` → `{ specialties }`. The only route that can change `Seller.specialties` after approval, so a HomeKrafter approved for food can take on gifting **under the same account** rather than filing a second application. Full replacement, not an append — dropping a category has to work too. `400` on an empty list, and on newly adding a withdrawn tag (`laundry`/`cleaning`); one already on the row is kept, so a legacy partner is not locked out of the screen. Re-derives `Vendor.type` in the same transaction. Grants nothing: access has never depended on `specialties` (M12), and every listing still enters the M22 review queue individually. |
 
 ### Analytics (M16 — `server/src/seller/analytics.controller.ts`)
@@ -1107,14 +1107,20 @@ filtered client-side).
 |---|---|
 | `GET /seller/analytics?days=30` | `{ days, from, to, totals, series[], topItems[], byWeekday[] }`. `days` is clamped to 1–365 and echoed back, so the client renders the window it got rather than the one it asked for. Scoped through `resolveHomeKrafter`; the window is the only thing a caller chooses. |
 
-**Revenue is the seller's line-item share, not the order total.** A
-marketplace order can span several kitchens, so crediting each of them
-with the whole `Order.total` — which is what the admin GMV figure does,
-deliberately, as a platform-wide proxy — would overstate what a home cook
-earns and disagree with what they are actually paid out. Every
-marketplace figure sums `OrderItem.price * quantity` over that vendor's
-own products. Snack orders and laundry bookings belong to one seller
-outright, so those use their own totals.
+**Revenue is the seller's line-item share, not the order total — and,
+since the markup commission model (2026-09-16), their earnings, not what
+the buyer paid.** A marketplace order can span several kitchens, so
+crediting each of them with the whole `Order.total` — which is what the
+admin GMV figure does, deliberately, as a platform-wide proxy — would
+overstate what a home cook earns and disagree with what they are
+actually paid out. And `OrderItem.price` is now the buyer-facing figure
+with Homekrafted's fee already added, so crediting it directly would
+overstate earnings a second way. Every marketplace figure sums
+`COALESCE(OrderItem.sellerAmount, OrderItem.price) * quantity` over that
+vendor's own products — `sellerAmount` on markup-model rows, `price`
+unmodified as its pre-migration fallback. Snack orders and laundry
+bookings belong to one seller outright and were never migrated to markup
+pricing, so those use their own totals.
 
 Measured on the seed data: one 30-day window contained three orders
 touching `vd1` with totals of ₹987, ₹518 and ₹899. One of them spans two
@@ -1311,23 +1317,37 @@ inbound orders the M8.3a doc noted were seamed here.
 ### Payouts — all 3 types (`server/src/seller/payouts.controller.ts`)
 
 `Payout` is its own ledger row (not a `WalletTransaction`) per the
-milestone brief — no money actually moves anywhere yet in M8.3b, this
-only records the request; a real payout-provider integration (bank
+milestone brief — no money actually moves anywhere yet, this only
+records the request; a real payout-provider integration (bank
 transfer/Razorpay Payouts, and an admin "mark paid" action) is a later
-seam (M8.3c/M9). Earnings are computed **server-side** from the seller's
-own *delivered* records — maker: `Σ OrderItem.price × quantity` for items
-on `vendorId === seller.vendorId` where `Order.status = "delivered"`;
-laundry: `Σ LaundryBooking.estimatedTotal` where `partnerId ===
-seller.id` and `status = "delivered"`; snack: `Σ SnackOrder.total` where
-`sellerId === seller.id` and `status = "delivered"` — never a
-client-submitted amount. "Pending balance" = that computed total minus
-the sum of every `Payout` (paid + pending) already recorded for this
-seller, floored at 0.
+seam. Earnings are computed **server-side** from the seller's own
+*delivered* records, never a client-submitted amount.
+
+**Two streams, two rules, since the markup commission model
+(2026-09-16).** A marketplace `OrderItem.price` is now the buyer-charged
+figure (the maker's base plus Homekrafted's fee plus GST on it), and the
+line's own recorded split is what a payout pays: `Σ COALESCE(OrderItem.
+sellerAmount, OrderItem.price) × quantity` for items on `vendorId ===
+seller.vendorId` where `Order.status = "delivered"` — paid **in full**,
+never deducted a second time, whether `sellerAmount` is populated (the
+fee was already collected from the buyer) or NULL (a pre-migration row,
+"fully payable" is the documented transition rule). Laundry and snacks
+were never migrated to markup pricing — still typed at the maker's
+sticker price with no fee embedded — so those two still go through the
+old deduction: `Σ LaundryBooking.estimatedTotal` where `partnerId ===
+seller.id` and `status = "delivered"`, `Σ SnackOrder.total` where
+`sellerId === seller.id` and `status = "delivered"`, combined and split
+by `computePayoutSplit` exactly as before this model existed. "Pending
+balance" = marketplace's already-net total, computed fresh each time,
+plus the legacy streams' computed total minus the sum of every `Payout`
+(paid + pending) already recorded for this seller — see
+`allocateClaimedGross` below for how that subtraction is kept honest
+across the model change.
 
 | Endpoint | Notes |
 |---|---|
-| `GET /seller/payouts` | `{ items: Payout[], summary: {totalPaid, totalPending, lifetimeEarned}, pendingBalance, commission }`. `items` = mine, newest `periodEnd` first. **M37:** each item carries `grossAmount`/`commissionAmount`/`commissionPct` (absent on pre-M37 rows, where `amount` was always gross); `commission` is `{ enabled, pct, grossPending, commissionOnPending, netPending }` — while `enabled` is false the figures are an estimate at the configured rate and `pendingBalance` stays gross; enabled, `pendingBalance` is the net a request would pay. |
-| `POST /seller/payouts/request` | Computes the pending balance and inserts a new `status: "pending"` `Payout` (`periodStart` = the day after the latest existing payout's `periodEnd`, or the seller's `createdAt` if none; `periodEnd` = now). `400` if the pending balance is `≤ 0`. `409` if a `pending` payout already exists for this seller (one in flight at a time) — enforced under a `FOR UPDATE` lock on the `Seller` row (M21), so two simultaneous requests produce one payout and one `409`, not two payouts. `Idempotency-Key` is supported but does **not** cover this: it de-duplicates a repeat of one request, and a double-click sends two. No `sellerId`/amount field on the request at all — the strongest form of isolation here is that there's no id parameter through which to even attempt targeting another seller's payout. **M37:** the split is computed once here and stored on the row — `amount` is the payable figure (net while `commissionEnabled` is on, gross otherwise) and `grossAmount`/`commissionAmount`/`commissionPct` record the arithmetic; a disabled-era row reads gross/0/0. **2026-09-02:** `gstAmount`/`gstPct` join them — GST charged on the commission fee (`commissionGstPct`, default 18%), applied only while commission is; gross = amount + commission + gst to the paisa, and `GET /seller/payouts`' `commission` block gains `gstPct`/`gstOnPending`. The pending balance subtracts `COALESCE(grossAmount, amount)` over prior payouts, so enabling the flag never double-counts commission already deducted. |
+| `GET /seller/payouts` | `{ items: Payout[], summary: {totalPaid, totalPending, lifetimeEarned}, pendingBalance, commission }`. `items` = mine, newest `periodEnd` first, each carrying `grossAmount`/`commissionAmount`/`commissionPct` (absent on pre-M37 rows, where `amount` was always gross — and 0/0/0 on a marketplace-only payout, since nothing is deducted there any more). `commission` is `{ enabled, pct, gstPct, grossPending, commissionOnPending, gstOnPending, netPending, marketplaceCommissionCollected, marketplaceGstCollected }` — `commissionOnPending`/`gstOnPending` are the **legacy-stream deduction only** (0 with no laundry/snack earnings pending); `marketplaceCommissionCollected`/`marketplaceGstCollected` (2026-09-16) are informational — the fee already collected from buyers on pending marketplace lines, never subtracted from `netPending`. While `enabled` is false the legacy figures are an estimate at the configured rate. |
+| `POST /seller/payouts/request` | Computes the pending balance and inserts a new `status: "pending"` `Payout` (`periodStart` = the day after the latest existing payout's `periodEnd`, or the seller's `createdAt` if none; `periodEnd` = now). `400` if the pending balance is `≤ 0`. `409` if a `pending` payout already exists for this seller (one in flight at a time) — enforced under a `FOR UPDATE` lock on the `Seller` row (M21), so two simultaneous requests produce one payout and one `409`, not two payouts. `Idempotency-Key` is supported but does **not** cover this: it de-duplicates a repeat of one request, and a double-click sends two. No `sellerId`/amount field on the request at all — the strongest form of isolation here is that there's no id parameter through which to even attempt targeting another seller's payout. `amount` = marketplace net (always, uncut) plus the legacy split's `amount` (net while `commissionEnabled` is on, gross otherwise); `grossAmount`/`commissionAmount`/`commissionPct`/`gstAmount`/`gstPct` record the **legacy-only** arithmetic — 0/0 on a payout with no legacy component. **Mixed-era tracking:** no pre-2026-09-16 `Payout` row recorded which share of its `grossAmount` was marketplace vs. legacy, so `allocateClaimedGross` (`server/src/seller/payout-split.ts`) attributes as much of a seller's total already-claimed gross to marketplace as could possibly be true, capped at their lifetime marketplace gross — an estimate that can only ever understate marketplace's claimed share, never overstate it, which is what stops a marketplace payout from ever being paid out twice across the model change. |
 
 ### Taxonomy suggestions (M50) — `server/src/seller/taxonomy.controller.ts`
 
@@ -1392,11 +1412,16 @@ prefixes a leading formula character with `'`. Applied at the single
 point every export passes through, so it cannot be forgotten per-column.
 (Visible on real data: a phone number exports as `'+919008033445`.)
 
-**`commissionPct` is modelling only.** `Payout` amounts are gross and
-settlement happens by hand, so nothing deducts it. It exists because
-"what would a 12% take rate have earned last quarter" has to be
-answerable before the business can set one — and every surface that
-renders it says so.
+**`admin/analytics`'s `modelledCommission` is a what-if, not a sum of
+what was charged.** It answers "what would a 12% take rate have earned
+over this window" so the business can decide a rate before setting one —
+settlement itself happens by hand either way. Since the markup commission
+model (2026-09-16) a real fee can already be embedded in `gmvTotal` while
+`commissionEnabled` is on, so `getAnalytics` divides the window's GMV
+back down to its base by the *current* markup factor before applying the
+model — otherwise a real fee already inside the buyer-paid total would be
+modelled a second time on top of itself. While disabled the factor is 1
+and this is a no-op, exactly the pre-2026-09-16 figure.
 
 ### Sellers + the onboarding approval queue (`server/src/admin/sellers.controller.ts`)
 
@@ -1412,10 +1437,10 @@ ever reads/decides on rows it didn't create.
 | Endpoint | Notes |
 |---|---|
 | `GET /admin/sellers` | One page: `{ items, page, pageSize, total }`. Query: `specialty` (a single `SellerSpecialty`, matched with `has` — a HomeKrafter with several appears under each), `q` (display name or storefront name), `onboarding` (**M32**: `no_credentials` = no password at all, so no way in exists yet — every HomeKrafter approved before M32; `awaiting` = issued sign-in details never used; `onboarded` = chose their own password), `page`, `pageSize` (default 25, max 100). Every seller (any type/status), newest first. **M32:** each item carries `signIn: { status, username, issuedAt, claimedAt }` with `status` one of the three above — `mustChangePassword` alone cannot tell "chose their own password" from "was never given one", and both read `false`. **M37:** `temporaryPassword` is gone from this payload (and from the column behind it): the plaintext exists only in the response of the issue/approve call itself, so the directory no longer ships every un-onboarded kitchen's live password in one body. Admin-only — it appears on no buyer-facing payload. |
-| `GET /admin/sellers/:id/detail` | **M32.** Everything about one HomeKrafter on one screen — `{ seller, vendor, contact, signIn, activity, application }`. `contact` carries email and phone (admin-only: reaching a kitchen by phone is the whole onboarding path while no provider key is set). `activity.revenue` is their **line-item share**, never the order total. `application` is the row they were approved on, matched by email, and is absent for a kitchen created by hand. |
+| `GET /admin/sellers/:id/detail` | **M32.** Everything about one HomeKrafter on one screen — `{ seller, vendor, contact, signIn, activity, application }`. `contact` carries email and phone (admin-only: reaching a kitchen by phone is the whole onboarding path while no provider key is set). `activity.revenue` is their **line-item share, in earnings terms** — never the order total, and since the markup commission model (2026-09-16) never the buyer-charged `OrderItem.price` either; it sums `COALESCE(sellerAmount, price)`. `application` is the row they were approved on, matched by email, and is absent for a kitchen created by hand. |
 | `GET /admin/sellers/:id` | Single seller detail. |
 | `PATCH /admin/sellers/:id/status` | Body: `{ status: "approved" \| "suspended" }` — suspend an active seller or reactivate a suspended one. Audited (`seller.suspend`/`seller.reactivate`). |
-| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, commissionEnabled, commissionGstPct, defaultDeliveryRadiusKm, servicedPincodePrefixes, menuLockTime }`. **2026-09-02** added `commissionGstPct` (default 18): GST the platform charges on its own commission fee — rides on the fee, never on a HomeKrafter's earnings, so it deducts only while `commissionEnabled` is on. **M37** added `commissionEnabled` (default **false**, strict `'true'` parse — anything else reads as off, the direction that fails safe for money): whether payout requests actually deduct `commissionPct`. While off the rate drives estimates only. **M36** added `servicedPincodePrefixes` — comma-separated pincode prefixes Homekrafted currently *delivers* to (`"160,1401,1403,1341,1346"` is the Chandigarh tricity). It is the launch gate and it is **buyer-facing only**: it must never gate an application, an approval, or a HomeKrafter's portal, or the pre-M36 waitlist is back under a new name. It **fails open** — an empty or missing value means no gate, because an empty catalogue cannot be told apart from a broken site by the visitor or by us. A malformed prefix is refused on write (where it can be reported) while the reader silently drops junk. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. `hamperBuilderEnabled` was removed in M18 with the builder it gated; a stale row is ignored rather than surfaced. **2026-09-15** added `foodOrdersOpen` — **open unless the stored value is exactly `'false'`** (the reverse of `commissionEnabled`: an untouched database keeps selling food). Off = food is browsable but not buyable: `POST /cart/items` on a food listing, `POST /orders` from a basket holding food, `POST /meal-subscriptions` all answer **409 `FOOD_COMING_SOON`** with a sentence, and a reorder skips food lines with that reason (`server/src/common/food-orders.ts`). Gifts are unaffected; existing orders and running meal plans carry on. **2026-09-15** also added `deliveryFee` (₹, default **0** — owner: free delivery while live payments are tested; 0–1,000) and `freeDeliveryThreshold` (₹, default 999; 0 = no free-delivery offer; 0–1,00,000), replacing the hardcoded ₹49-under-₹999. `GET /cart` and `POST /orders` compute the fee from the same two values, so a basket and the order charged cannot disagree; an order already placed keeps the fee on its row. Both are public (`GET /settings/public`). |
+| `GET /admin/settings` | **M16 (M5).** `{ commissionPct, commissionEnabled, commissionGstPct, defaultDeliveryRadiusKm, servicedPincodePrefixes, menuLockTime }`. **2026-09-02** added `commissionGstPct` (default 18): GST the platform charges on its own commission fee — rides on the fee, never on a HomeKrafter's earnings, so it deducts only while `commissionEnabled` is on. **M37** added `commissionEnabled` (default **false**, strict `'true'` parse — anything else reads as off, the direction that fails safe for money): whether the fee is charged at all. Since the markup commission model (2026-09-16) that means a buyer's price carries `commissionPct` (plus GST) on top of the catalogue's stored base — a marketplace payout is never deducted, whatever this flag says; laundry/snack payout requests (never migrated to markup pricing) are the ones that still deduct it. While off the rate drives estimates only, and a buyer pays exactly the stored base. **M36** added `servicedPincodePrefixes` — comma-separated pincode prefixes Homekrafted currently *delivers* to (`"160,1401,1403,1341,1346"` is the Chandigarh tricity). It is the launch gate and it is **buyer-facing only**: it must never gate an application, an approval, or a HomeKrafter's portal, or the pre-M36 waitlist is back under a new name. It **fails open** — an empty or missing value means no gate, because an empty catalogue cannot be told apart from a broken site by the visitor or by us. A malformed prefix is refused on write (where it can be reported) while the reader silently drops junk. Missing rows fall back to defaults, so a database that has never had a setting written behaves exactly like the constants it replaced. `hamperBuilderEnabled` was removed in M18 with the builder it gated; a stale row is ignored rather than surfaced. **2026-09-15** added `foodOrdersOpen` — **open unless the stored value is exactly `'false'`** (the reverse of `commissionEnabled`: an untouched database keeps selling food). Off = food is browsable but not buyable: `POST /cart/items` on a food listing, `POST /orders` from a basket holding food, `POST /meal-subscriptions` all answer **409 `FOOD_COMING_SOON`** with a sentence, and a reorder skips food lines with that reason (`server/src/common/food-orders.ts`). Gifts are unaffected; existing orders and running meal plans carry on. **2026-09-15** also added `deliveryFee` (₹, default **0** — owner: free delivery while live payments are tested; 0–1,000) and `freeDeliveryThreshold` (₹, default 999; 0 = no free-delivery offer; 0–1,00,000), replacing the hardcoded ₹49-under-₹999. `GET /cart` and `POST /orders` compute the fee from the same two values, so a basket and the order charged cannot disagree; an order already placed keeps the fee on its row. Both are public (`GET /settings/public`). |
 | `PATCH /admin/settings` | Partial. Commission 0–100%, GST-on-commission 0–100%, radius 1–100 km, `menuLockTime` a 24-hour `HH:MM` (M37 — when a delivery date's meal menu and its skip close, IST, the evening before; default `20:00`), validated in the DTO **and** the service — a take rate over 100% is a typo, not a setting, and that boundary shouldn't depend on which door the value came through. Audited (`platform_settings.update`) with before/after. |
 | `GET /settings/public` | **M17. Public — no auth.** The allowlisted subset, built by **picking** keys (`PUBLIC_SETTING_KEYS`), never by deleting them: a new setting is private until it is named there, which is the direction that fails safe. The commission rate is a commercial term and never appears here. **2026-09-15:** `{ foodOrdersOpen, deliveryFee, freeDeliveryThreshold }` — whether food can be bought, and the delivery rule a basket shows (homemade food "coming soon"). Empty from M18 (when `hamperBuilderEnabled` left) until then. `Cache-Control: public, max-age=60`. |
 | `GET /admin/exports/:kind` | **M16 (M5).** `orders` \| `sellers` \| `payouts`, optional `?days=`. Returns a real `text/csv` download with a UTF-8 BOM (so Excel on Windows reads a HomeKrafter's name rather than mangling it) — not JSON the client turns into a Blob, so an accountant can be sent a URL. **Any other `kind` is a `400` naming the valid ones** (audit 2026-08-06: the `switch` had no `default`, so it returned `undefined`, the caller destructured `{ filename }` off it, and a mistyped URL became a 500 that quoted the internal error). |

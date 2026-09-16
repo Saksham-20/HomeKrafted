@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { parseTimeLabel } from '../meals/meal-brackets';
 import { DEFAULT_MENU_LOCK_TIME } from '../meals/menu-lock';
+import { CommissionRate } from '../common/pricing/commission';
 
 /**
  * The settings this platform actually has (M16, M5).
@@ -138,11 +139,75 @@ export class AdminSettingsService {
   ) {}
 
   /**
+   * The settings, cached in process for `SETTINGS_TTL_MS`.
+   *
+   * These used to be one `findMany` per call, and the markup commission
+   * model (2026-09-16) put a call on **every catalogue read** — the rate
+   * is needed to price a card, so `/products`, `/vendors/:slug/products`
+   * and every cart preview grew a settings round-trip they did not have.
+   * A table of eight rows read on the hot path is a waste worth removing.
+   *
+   * Invalidated exactly, in `update()`, so an admin changing the rate
+   * sees it on their very next read rather than up to a second later —
+   * the TTL is the belt, the invalidation is the braces. The API runs
+   * `instances: 1` under pm2 (`ecosystem.config.cjs`), so today the
+   * invalidation is complete; the TTL is what keeps the staleness bounded
+   * and small if that ever becomes a cluster.
+   *
+   * **Nothing here may be cached for longer than a person would wait
+   * before deciding the switch is broken.** A settings screen that saves
+   * and then reads back the old value is indistinguishable from one that
+   * did not save.
+   */
+  private cached: { value: PlatformSettings; readAt: number } | null = null;
+
+  private static readonly SETTINGS_TTL_MS = 5_000;
+
+  async get(): Promise<PlatformSettings> {
+    const hit = this.cached;
+    if (hit && Date.now() - hit.readAt < AdminSettingsService.SETTINGS_TTL_MS) {
+      return hit.value;
+    }
+    const value = await this.read();
+    this.cached = { value, readAt: Date.now() };
+    return value;
+  }
+
+  /**
+   * Drops the cache without touching the database — for anything that
+   * changes `PlatformSetting` rows **without** going through `update()`,
+   * which is the only other thing that invalidates it. The e2e harness's
+   * `resetDatabase` is the one caller: a raw `TRUNCATE` between tests
+   * leaves this cache holding whatever the previous test last read, so a
+   * test asserting the defaults could see up to `SETTINGS_TTL_MS` of a
+   * neighbour's settings — a flake that reads as unrelated and is timing-
+   * dependent on how fast the suite happens to run.
+   */
+  invalidateCache(): void {
+    this.cached = null;
+  }
+
+  /**
+   * The commission rate in force, in the shape `common/pricing/
+   * commission.ts` takes.
+   *
+   * Every surface that prices something for a buyer goes through this
+   * rather than reaching into `PlatformSettings` and assembling the three
+   * fields itself — assembling them by hand is how one call site ends up
+   * passing the configured `pct` with `enabled` hardcoded true, which
+   * charges a fee the admin switched off.
+   */
+  async getCommissionRate(): Promise<CommissionRate> {
+    const { commissionPct, commissionGstPct, commissionEnabled } = await this.get();
+    return { pct: commissionPct, gstPct: commissionGstPct, enabled: commissionEnabled };
+  }
+
+  /**
    * Missing rows fall back to the defaults rather than erroring, so a
    * database that has never had a setting written behaves exactly like
    * the hardcoded constants it replaced.
    */
-  async get(): Promise<PlatformSettings> {
+  private async read(): Promise<PlatformSettings> {
     const rows = await this.prisma.platformSetting.findMany();
     const byKey = new Map(rows.map((r) => [r.key, r.value]));
 
@@ -275,6 +340,10 @@ export class AdminSettingsService {
     if (writes.length === 0) return before;
 
     await this.prisma.$transaction(writes);
+    // Exact invalidation, not a wait for the TTL: an admin who saves the
+    // commission rate and is handed back the old one has been told the
+    // write failed.
+    this.cached = null;
     const after = await this.get();
 
     // Before/after, because "who dropped the commission to 2%" is the

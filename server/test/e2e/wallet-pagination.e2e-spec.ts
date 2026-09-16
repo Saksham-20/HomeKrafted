@@ -23,7 +23,7 @@ describe('wallet ledger pagination', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /**

@@ -31,7 +31,7 @@ describe('POST /auth/continue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   describe('signing up', () => {

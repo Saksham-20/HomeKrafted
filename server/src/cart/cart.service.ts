@@ -7,7 +7,7 @@ import {
 import { Cart } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
-import { resolveCartLine } from '../common/pricing/resolve-cart-line';
+import { resolveCartLines } from '../common/pricing/resolve-cart-line';
 import { isPurchasable } from '../catalog/moderation';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { AddHamperItemDto } from './dto/add-hamper-item.dto';
@@ -41,11 +41,15 @@ export class CartService {
 
   async getCart(userId: string) {
     const cart = await this.getOrCreateCart(userId);
-    const rawItems = await this.prisma.cartItem.findMany({ where: { cartId: cart.id }, orderBy: { id: 'asc' } });
-    const lines = await Promise.all(rawItems.map((item) => resolveCartLine(this.prisma, item)));
+    const [rawItems, settings, rate] = await Promise.all([
+      this.prisma.cartItem.findMany({ where: { cartId: cart.id }, orderBy: { id: 'asc' } }),
+      this.settings.get(),
+      this.settings.getCommissionRate(),
+    ]);
+    const lines = await resolveCartLines(this.prisma, rawItems, rate);
 
     const subtotal = lines.reduce((sum, l) => sum + l.lineTotal, 0);
-    const shippingFee = computeShipping(subtotal, await this.settings.get());
+    const shippingFee = computeShipping(subtotal, settings);
 
     return {
       id: cart.id,

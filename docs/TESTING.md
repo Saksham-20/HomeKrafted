@@ -1043,30 +1043,40 @@ saving.
   meal-menu lock time. Every change is written to the audit log with its
   before and after.
 
-> While the commission switch is **off** (the shipped default), the rate
-> is estimates only — payouts are gross and settlement is manual, and
-> every screen showing a figure says so. Feature flags are deliberately
-> *not* on the settings screen; the page explains why.
+> While the commission switch is **off** (the shipped default), a buyer
+> pays exactly the price a HomeKrafter typed and nothing is ever
+> deducted from anyone. Feature flags are deliberately *not* on the
+> settings screen; the page explains why.
 
-### Commission engine (M37)
+### Commission engine — the markup model (2026-09-16)
 
-The platform can now actually deduct its take rate, behind a switch that
-ships **off**. To walk the whole loop:
+**The platform's fee is something the buyer pays on top, not something
+taken out of the seller** — the reverse of how this used to work. A
+HomeKrafter types what they want to receive; the fee (and GST on the
+fee) is added to make the price a customer sees. To walk the whole loop:
 
-1. As a HomeKrafter with delivered orders, open **Payouts**: a breakdown
-   card shows unclaimed earnings, the commission at the configured rate
-   and the net — labelled *"estimate — nothing is deducted yet"*. The
-   listing editor shows the same arithmetic live under the price tiers
-   ("Customer pays ₹450 → commission (10%) ₹45 → you receive ₹405"),
-   with the inverse ("to take home X, price at Y").
-2. Request a payout: it arrives **gross**, and the admin queue's banner
-   says every figure is the full order value.
-3. As admin, **Settings → "Deduct commission from payouts"** on, save
-   (audited). The payouts banner flips: new rows arrive net.
-4. Request another payout as the HomeKrafter: the row now shows its own
-   split — gross − commission (rate) — on both the seller history and
-   the admin queue, and the amount to settle is the net. Rows from step
-   2 keep their gross figure untouched: nothing recalculates a request
+1. As a HomeKrafter, open the listing editor and type a price under
+   "Your payout" — with the switch on, the earnings box shows the
+   arithmetic live: *"You receive ₹100 → commission (+20%) +₹20 → GST on
+   commission +₹3.60 → customer pays ₹123.60"*. With the switch off, the
+   box doesn't appear at all — nothing is added, full stop.
+2. As a shopper, that listing's price on `/gifts`/`/shop`/its product
+   page **is** ₹123.60 — the same figure, computed server-side on every
+   read, never something the browser adds.
+3. Buy it and let the order reach **delivered**. As the HomeKrafter, open
+   **Payouts**: your pending balance is **₹100**, in full — a
+   marketplace sale is never deducted at payout, because the fee was
+   already collected from the buyer when they checked out. This is true
+   whether the switch is on or off *at the time you request the
+   payout* — what mattered was whether it was on when the order was
+   placed.
+4. To see an actual deduction happen, it has to be on the **snack**
+   (WhatsApp) or **laundry** side — those never moved to the markup
+   model, so a delivered snack order's payout still shows *gross −
+   commission (rate) − GST on that* the old way, and only while the
+   switch is on. Request one: the row shows its own split, and the
+   amount to settle is the net. A row requested while the switch was off
+   keeps its gross figure untouched: nothing recalculates a request
    already made.
 
 ### Pre-order and days off (M16)

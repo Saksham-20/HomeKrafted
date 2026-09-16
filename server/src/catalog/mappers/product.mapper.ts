@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { dietaryTagsToFrontend } from '../dietary-tag.util';
 import { activeDiscountPct, applyDiscount } from '../vendor-discount';
+import { CommissionRate, NO_COMMISSION as NO_MARKUP, markUp } from '../../common/pricing/commission';
 
 /**
  * The include shape every catalog query needs to fully serialize a
@@ -28,14 +29,37 @@ export const PRODUCT_INCLUDE = {
 
 export type ProductWithRelations = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
 
-/** Same basis `ShopClient.tsx`'s `priceOf()` uses — the default weight option's price. */
-export function defaultPriceOf(product: ProductWithRelations): number {
+/**
+ * Same basis `ShopClient.tsx`'s `priceOf()` uses — the default weight
+ * option's price, **marked up** so the price-range filter and the
+ * `price-asc`/`price-desc` sorts work on the number a buyer actually
+ * sees. A filter that reads base prices would drop a ₹950 listing out of
+ * an "under ₹1,000" search the moment the fee pushed it past the bound.
+ *
+ * Takes only the narrow shape the phase-one browse query selects, so that
+ * read does not have to grow to call it.
+ */
+export function defaultPriceOf(
+  product: { defaultWeightSku: string | null; weightOptions: { sku: string; price: Prisma.Decimal | number }[] },
+  rate: CommissionRate,
+): number {
   const weight =
     product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ?? product.weightOptions[0];
-  return weight ? Number(weight.price) : 0;
+  return weight ? markUp(Number(weight.price), rate).buyerPrice : 0;
 }
 
-export function mapProduct(product: ProductWithRelations) {
+/**
+ * A listing as a **buyer** sees it: every price marked up by the
+ * commission in force (2026-09-16).
+ *
+ * `rate` is a required argument and deliberately not defaulted. Stored
+ * prices are the maker's base, so a call site that forgot to pass one
+ * would under-charge silently on a screen that looks perfectly normal —
+ * as a required parameter it is a build error instead. Use
+ * `mapProductForMaker` on the two surfaces that legitimately show a maker
+ * their own figure.
+ */
+export function mapProduct(product: ProductWithRelations, rate: CommissionRate) {
   // One `now` for the whole product, so two weight tiers of the same
   // listing cannot land on opposite sides of an expiry.
   const discountPct = activeDiscountPct(product.vendor, new Date());
@@ -66,8 +90,14 @@ export function mapProduct(product: ProductWithRelations) {
     weightOptions: product.weightOptions.map((w) => ({
       sku: w.sku,
       label: w.label,
-      price: Number(w.price),
-      mrp: Number(w.mrp),
+      /**
+       * Buyer-facing, marked up from the stored base (2026-09-16). `mrp`
+       * takes the **same** factor: marking up the price and not the
+       * struck-through figure would silently change the advertised
+       * saving on every listing the moment a rate was set.
+       */
+      price: markUp(Number(w.price), rate).buyerPrice,
+      mrp: markUp(Number(w.mrp), rate).buyerPrice,
       stock: w.stock,
       /**
        * M46. Present only while a discount is running, and computed
@@ -75,8 +105,16 @@ export function mapProduct(product: ProductWithRelations) {
        * the number a buyer is shown and the number they are charged have
        * to come from the same place (the M15 refund lesson, and why
        * `resolveCartLine` is the only price authority in the cart).
+       *
+       * Discount first, then the fee (2026-09-16). The maker funds the
+       * discount (M46), so it comes off *their* base; the fee is then
+       * charged on what the maker is actually receiving. Charging the fee
+       * on the pre-discount base would make the platform's cut larger
+       * than the rate says whenever a storefront ran a sale.
        */
-      ...(discountPct > 0 ? { salePrice: applyDiscount(Number(w.price), discountPct) } : {}),
+      ...(discountPct > 0
+        ? { salePrice: markUp(applyDiscount(Number(w.price), discountPct), rate).buyerPrice }
+        : {}),
     })),
     /**
      * The HomeKrafter's storefront discount, when one is running (M46).
@@ -175,5 +213,52 @@ export function mapProduct(product: ProductWithRelations) {
     moderatedAt: product.moderatedAt?.toISOString(),
     submittedAt: product.submittedAt?.toISOString(),
     featured: product.featured,
+  };
+}
+
+/**
+ * A listing as its **maker** (or an admin editing on their behalf) sees
+ * it: prices are the stored base — the figure they typed into the form
+ * and the figure they are paid — with the buyer-facing number carried
+ * alongside so the portal can show both without doing the arithmetic
+ * itself.
+ *
+ * Two separate functions rather than one with a flag, because the failure
+ * mode of getting it wrong is asymmetric: a maker shown a buyer price is
+ * confused, a buyer shown a base price is under-charged and the platform
+ * eats the fee. A named function is something you have to choose.
+ */
+export function mapProductForMaker(product: ProductWithRelations, rate: CommissionRate) {
+  const discountPct = activeDiscountPct(product.vendor, new Date());
+
+  return {
+    ...mapProduct(product, NO_MARKUP),
+    weightOptions: product.weightOptions.map((w) => {
+      const base = Number(w.price);
+      const charged = markUp(discountPct > 0 ? applyDiscount(base, discountPct) : base, rate);
+      return {
+        sku: w.sku,
+        label: w.label,
+        price: base,
+        mrp: Number(w.mrp),
+        stock: w.stock,
+        ...(discountPct > 0 ? { salePrice: applyDiscount(base, discountPct) } : {}),
+        /** What a buyer is charged for this option right now, fee included. */
+        buyerPrice: charged.buyerPrice,
+      };
+    }),
+    /**
+     * The fee on the default option, so the listing editor can state it in
+     * rupees rather than re-deriving a percentage the server already
+     * resolved. Absent when nothing is charged.
+     */
+    ...(rate.enabled && rate.pct > 0
+      ? {
+          commission: {
+            pct: rate.pct,
+            gstPct: rate.gstPct,
+          },
+        }
+      : {}),
   };
 }

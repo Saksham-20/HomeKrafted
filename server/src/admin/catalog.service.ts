@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductModerationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
+import { PRODUCT_INCLUDE, mapProduct, mapProductForMaker } from '../catalog/mappers/product.mapper';
+import { AdminSettingsService } from './settings.service';
 import { mapReview } from '../reviews/reviews.mapper';
 import { mapSnackForOwner } from '../snacks/snacks.mapper';
 import { ReviewAggregatesService } from '../reviews/review-aggregates.service';
@@ -67,6 +68,18 @@ const DECIDED_ORDER = [{ createdAt: 'desc' as const }, { id: 'desc' as const }];
 type ProductWithNames = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
 
 export interface PaginatedCatalog {
+  /**
+   * Buyer-facing prices (2026-09-16) — `mapProduct`, not
+   * `mapProductForMaker`. `ProductModerationRow`'s "Preview card" renders
+   * `<ProductCard>` straight off this row under the label "As a buyer
+   * sees it" (CLAUDE.md: "the admin catalogue row previews the
+   * buyer-facing card") — handing it a maker's base price would silently
+   * show an admin a number no shopper is ever charged, whenever the fee
+   * is on. The single-product read/write endpoints (`getById`, `create`,
+   * `update`) are the ones that legitimately want `mapProductForMaker` —
+   * they feed the *edit form*, where the editable box is the figure a
+   * maker types and is paid.
+   */
   items: (ReturnType<typeof mapProduct> & {
     vendorName: string;
     categoryName: string;
@@ -105,6 +118,15 @@ export class AdminCatalogService {
     // built for; the rules that differ for an admin are carried by
     // `ListingWriteOptions`, not by a second copy of the write.
     private readonly listings: SellerListingsService,
+    // The commission rate (2026-09-16). The *edit* screen (`getById`,
+    // `create`, `update`) shows an admin listing on a maker's behalf
+    // (M44) base prices and carries `buyerPrice` beside them, never the
+    // marked-up figure in the editable box — they type the maker's
+    // take-home, exactly as the maker would. The *list* (`listProducts`,
+    // via `withNames`) shows buyer-facing prices instead, because its
+    // "As a buyer sees it" card preview has to match what a shopper is
+    // actually charged (`PaginatedCatalog`'s doc comment).
+    private readonly settings: AdminSettingsService,
   ) {}
 
   /**
@@ -295,9 +317,10 @@ export class AdminCatalogService {
         .map((g) => [g.productId!, g._sum.quantity ?? g._count.id]),
     );
 
+    const rate = await this.settings.getCommissionRate();
     return {
       items: products.map((p) => ({
-        ...mapProduct(p),
+        ...mapProduct(p, rate),
         vendorName: vendorNameById.get(p.vendorId) ?? 'Unknown vendor',
         categoryName: categoryNameById.get(p.categoryId) ?? 'Uncategorised',
         orderCount: orderCountById.get(p.id) ?? 0,
@@ -420,7 +443,7 @@ export class AdminCatalogService {
       this.prisma.category.findUnique({ where: { id: product.categoryId }, select: { name: true } }),
     ]);
     return {
-      ...mapProduct(product),
+      ...mapProductForMaker(product, await this.settings.getCommissionRate()),
       vendorName: vendor?.name ?? 'Unknown vendor',
       categoryName: category?.name ?? 'Uncategorised',
     };
@@ -490,7 +513,7 @@ export class AdminCatalogService {
       select: { name: true },
     });
     return {
-      ...mapProduct(updated),
+      ...mapProductForMaker(updated, await this.settings.getCommissionRate()),
       vendorName: existing.vendor.name,
       categoryName: category?.name ?? 'Uncategorised',
     };

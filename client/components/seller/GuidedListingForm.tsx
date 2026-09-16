@@ -22,7 +22,7 @@ import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { Textarea } from "@/components/ui/Textarea";
-import { markupBreakdown } from "@/lib/commission";
+import { markupBreakdown, type CommissionRate } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
@@ -367,11 +367,18 @@ export function GuidedListingForm({
     setStep((s) => s + 1);
   }
 
-  // Default row for earnings preview
-  const commPct = commission?.pct ?? 20;
+  // Default row for earnings preview. Absent/unloaded reads as "no fee" —
+  // never a guessed rate: showing a 20% markup nobody has actually turned
+  // on would tell a HomeKrafter a customer pays more than they will.
+  const commissionRate: CommissionRate = {
+    pct: commission?.pct ?? 0,
+    gstPct: commission?.gstPct ?? 0,
+    enabled: commission?.enabled ?? false,
+  };
+  const commPct = commissionRate.pct;
   const defaultRow = rows[0] ?? { price: "0" };
   const price = Number(defaultRow.price) || 0;
-  const markup = markupBreakdown(price, commPct);
+  const markup = markupBreakdown(price, commissionRate);
 
   return (
     <div className={styles.wrap}>
@@ -676,7 +683,9 @@ export function GuidedListingForm({
                         />
                       </div>
                       <span className={styles.fieldHint}>
-                        Your payout. Platform commission (+{commPct}%) is added for customer.
+                        {commissionRate.enabled
+                          ? `Your payout. Platform commission (+${commPct}%, plus GST) is added for the customer.`
+                          : "Your payout. Nothing is added for the customer right now."}
                       </span>
                     </label>
                     <label className={styles.field}>
@@ -693,7 +702,7 @@ export function GuidedListingForm({
                     </label>
                   </div>
 
-                  {index === 0 && price > 0 && (
+                  {index === 0 && price > 0 && commissionRate.enabled && (
                     <div className={styles.commissionBox}>
                       <div className={styles.commissionRow}>
                         <span className={styles.commissionLabel}>You receive (your payout)</span>
@@ -707,12 +716,18 @@ export function GuidedListingForm({
                           +{formatCurrency(markup.commission)}
                         </span>
                       </div>
+                      {markup.gst > 0 && (
+                        <div className={styles.commissionRow}>
+                          <span className={styles.commissionLabel}>GST on commission</span>
+                          <span className={styles.commissionAdd}>+{formatCurrency(markup.gst)}</span>
+                        </div>
+                      )}
                       <div className={clsx(styles.commissionRow, styles.commissionTotal)}>
                         <span className={styles.commissionLabel}>Listing price for customer</span>
                         <span className={styles.commissionValue}>{formatCurrency(markup.customerPrice)}</span>
                       </div>
                       <div className={styles.commissionHintNote}>
-                        It’ll be {formatCurrency(markup.customerPrice)} for the customer after commissions.
+                        It’ll be {formatCurrency(markup.customerPrice)} for the customer, all fees included.
                       </div>
                     </div>
                   )}

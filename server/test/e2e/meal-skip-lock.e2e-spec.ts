@@ -9,6 +9,7 @@ import {
   createKitchen,
   resetDatabase,
 } from './harness';
+import { isMenuLocked } from '../../src/meals/menu-lock';
 
 /**
  * The menu lock, from the buyer's side (M37).
@@ -36,7 +37,7 @@ describe('meal skip + pause under the menu lock', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   const setLockTime = async (value: string) => {
@@ -157,12 +158,23 @@ describe('meal skip + pause under the menu lock', () => {
       where: { subscriptionId },
       orderBy: { scheduledFor: 'asc' },
     });
-    // Tomorrow's meal was already being planned — it survives the pause.
-    expect(rows[0].status).toBe('scheduled');
-    // Everything after it stopped.
-    for (const row of rows.slice(1)) {
-      expect(row.status).toBe('cancelled');
+    // A row already being planned survives the pause; everything unlocked
+    // stops. With `menuLockTime: '00:00'` that's normally just tomorrow's
+    // meal — but the lock instant is `00:00 IST minus one day`, so during
+    // the ~5½-hour gap after IST midnight (`now` in UTC has rolled past
+    // today's lock boundary but the calendar day hasn't), the day after
+    // tomorrow is locked too. Read the boundary the same way the service
+    // does rather than hardcoding "only the first row survives", or the
+    // assertion flakes for exactly that window (as this one did at
+    // 2026-09-17 00:11 IST).
+    const now = new Date();
+    for (const row of rows) {
+      const expectedStatus = isMenuLocked(row.scheduledFor, '00:00', now) ? 'scheduled' : 'cancelled';
+      expect(row.status).toBe(expectedStatus);
     }
+    // At least one row must actually be locked, or this test is not
+    // exercising the rule it exists to check.
+    expect(rows.some((row) => row.status === 'scheduled')).toBe(true);
     expect(rows).toHaveLength(deliveries.length);
 
     // And the pause message said so, on the meals category. Polled, not

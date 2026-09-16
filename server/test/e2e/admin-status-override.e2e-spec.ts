@@ -64,7 +64,7 @@ describe('PATCH /admin/orders/:type/:id/status', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
     buyer = await createActor(h, 'consumer');
   });

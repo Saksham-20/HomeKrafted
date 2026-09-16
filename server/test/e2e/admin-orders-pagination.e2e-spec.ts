@@ -38,7 +38,7 @@ describe('admin unified order list', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 

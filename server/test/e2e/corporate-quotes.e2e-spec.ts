@@ -39,7 +39,7 @@ describe('corporate quotes', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
     const kitchen = await createKitchen(h);
     vendorId = kitchen.vendor.id;

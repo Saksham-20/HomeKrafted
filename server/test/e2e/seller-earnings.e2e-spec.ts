@@ -40,7 +40,7 @@ describe('seller earnings', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   async function setup() {

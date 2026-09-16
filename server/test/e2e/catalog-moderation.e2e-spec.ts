@@ -47,7 +47,7 @@ describe('catalogue review gate', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const kitchen = await createKitchen(h);
     vendorId = kitchen.vendor.id;
     vendorSlug = kitchen.vendor.slug;

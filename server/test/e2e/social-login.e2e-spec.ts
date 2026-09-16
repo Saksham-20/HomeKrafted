@@ -119,7 +119,7 @@ describe('POST /auth/social/:provider', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   describe('a valid token', () => {

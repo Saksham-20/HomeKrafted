@@ -30,9 +30,10 @@ import {
   getOccasions,
   getAdminProductById,
   updateProductAdmin,
+  getPlatformSettings,
 } from "@/lib/api";
 import { isDirty } from "@/lib/portal/dirty";
-import type { Category, Occasion, Product } from "@/lib/types";
+import type { Category, Occasion, Product, SellerCommission } from "@/lib/types";
 
 function productToFormValues(product: Product): ListingFormValues {
   const defaultRowIndex = Math.max(
@@ -94,6 +95,13 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [occasions, setOccasions] = useState<Occasion[]>([]);
+  /**
+   * The live commission rate (2026-09-16), so an admin listing on a
+   * maker's behalf sees the same "you receive ₹N → customer pays ₹M"
+   * preview a HomeKrafter does on their own edit screen — absent while
+   * loading reads as no fee (`ListingForm`'s own rule), never a guess.
+   */
+  const [commission, setCommission] = useState<SellerCommission | undefined>();
   const [values, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
   const [initialValues, setInitialValues] = useState<ListingFormValues | undefined>();
   const [loading, setLoading] = useState(true);
@@ -106,14 +114,21 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [cats, occs, product] = await Promise.all([
+      const [cats, occs, product, settings] = await Promise.all([
         getCategories(),
         getOccasions(),
         getAdminProductById(productId),
+        // `undefined` on failure by its own contract (a read, not a
+        // mutation — the M36 carve-out) — the listing editor loads either
+        // way, it only costs the earnings preview.
+        getPlatformSettings(),
       ]);
       if (cancelled) return;
       setCategories(cats);
       setOccasions(occs);
+      if (settings) {
+        setCommission({ pct: settings.commissionPct, enabled: settings.commissionEnabled, gstPct: settings.commissionGstPct });
+      }
       if (product) {
         const loaded = productToFormValues(product);
         setValues(loaded);
@@ -209,6 +224,7 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
           occasions={occasions}
           taxonomy={adminTaxonomyActions}
           errors={fieldErrors}
+          commission={commission}
         />
         <SaveBar
           dirty={isDirty(initialValues, values)}

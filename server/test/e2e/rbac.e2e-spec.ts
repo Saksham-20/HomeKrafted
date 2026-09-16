@@ -43,7 +43,7 @@ describe('role gating and row scoping', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const category = await createCategory(h);
 
     const mine = await createKitchen(h, { name: 'My Kitchen' });

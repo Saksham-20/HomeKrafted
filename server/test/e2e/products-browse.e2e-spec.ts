@@ -41,7 +41,7 @@ describe('the product catalogue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /** `count` listings, deliberately with ties on rating and review count. */

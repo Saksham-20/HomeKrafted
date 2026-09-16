@@ -1,5 +1,105 @@
 # Changelog
 
+## 2026-09-16 (later) — Finishing the markup commission model, and a double-deduction it left behind
+
+A prior session that day had started reversing M37's commission model —
+buyer pays a markup, not the seller a deduction — and left it half-wired:
+`resolveCartLine`/`resolveCartLines` renamed with a new required
+signature and two callers (`CartService`, `OrdersService`) still calling
+the old one, which **does not compile**. This session finished it, found
+and fixed a real money bug the half-finished state would have shipped,
+and audited every other reader of the columns it touches.
+
+**The double-deduction.** Completing the wiring alone would have made
+`SellerPayoutsService` deduct commission from a marketplace payout *and*
+have the buyer already pay it — `OrderItem.price` is now the buyer-charged
+figure (base + fee + GST), and the payout's `computeDeliveredEarningsTx`
+was still summing `price * quantity` as "gross" and running it through
+`computePayoutSplit`'s deduction. Fixed: a marketplace line is paid its
+recorded `sellerAmount` in full, always — the fee was already collected
+from the buyer, so it is never taken from a payout a second time.
+Laundry (withdrawn) and WhatsApp snack earnings were never migrated to
+markup pricing and still go through the old deduction, unchanged.
+`allocateClaimedGross` (`payout-split.ts`) is the new piece: no pre-2026
+`Payout` row recorded a marketplace/legacy split, so it attributes as
+much of a seller's already-claimed gross to marketplace as could possibly
+be true — capped at their lifetime marketplace gross — which is what
+keeps a marketplace payout from ever being paid twice across the model
+change.
+
+**Seller-facing "earnings" figures were quietly measuring the platform's
+own fee.** `SellerAnalyticsService`, the seller dashboard's "Today's
+revenue", and both the admin seller-leaderboard and product-leaderboard
+summed `OrderItem.price` — now the buyer-charged figure — as if it were
+the maker's take-home. All four now read `sellerAmount` (falling back to
+`price` on pre-migration rows, where it never carried a fee). The admin
+dashboard's `modelledCommission` "what-if" figure divides the window's
+GMV back down to its base before modelling a rate on it, so a real
+embedded fee is never modelled a second time on top of itself.
+
+**The admin catalogue's "Preview card" was showing admins a price no
+buyer would ever see.** `AdminCatalogService.listProducts` had switched
+to `mapProductForMaker` (base prices) for the whole list, including the
+row that renders `<ProductCard>` under the label "As a buyer sees it".
+Split: the list stays on `mapProduct` (buyer-facing, matching the client's
+existing `Product` type); `getById`/`create`/`update` — which feed the
+edit form — keep `mapProductForMaker`, where showing the maker's own
+figure is the point.
+
+**The listing-form "customer pays" preview was wrong twice.** It ignored
+GST on the fee entirely, and it defaulted to an assumed 20% commission
+even when the real rate hadn't loaded or was off — so a HomeKrafter could
+be told "it'll be ₹120 for the customer" while the server would actually
+charge ₹123.60, or shown a markup box at all while `commissionEnabled`
+was false. `client/lib/commission.ts` now mirrors the server's
+`markUp` arithmetic exactly (GST included), and absent/unloaded reads as
+"no fee", never a guessed rate.
+
+**`prisma/migrate-to-markup-prices.ts` didn't exist**, despite the
+migration's own comment naming it as the deliberate, operator-run cutover
+step. Written: dry-run by default, refuses to run twice without
+`--force`, divides every stored price by the live markup factor so a
+buyer sees the identical number immediately after it runs. Production has
+had `commissionEnabled` on (20%, 18% GST) since 2026-09-05 under the old
+model — this has to run at the moment this ships, or every price on the
+site jumps ~23.6% with no line of this diff touching a row.
+
+**Two test infrastructure bugs, found because the new tests exposed
+them.** `AdminSettingsService`'s 5-second settings cache (added the same
+day, for the hot catalogue-pricing read path) is invisible to the e2e
+harness's `resetDatabase`, which truncates `PlatformSetting` with raw SQL
+— so a settings assertion could read up to 5s of a *previous* test's
+values, a flake with no apparent relationship to the test that failed.
+`resetDatabase` now takes the whole `Harness` and calls a new
+`AdminSettingsService.invalidateCache()`; `computePayoutSplit` gained the
+matching fix (a zero-gross-but-enabled split was reporting the configured
+rate instead of 0, the one case that class of bug hadn't been exercised
+before this session's mostly-marketplace-only payout scenarios). Also
+found and fixed while running the full suite: `meal-subscriptions`'s skip
+test asserted on the *first* scheduled delivery, which fails every run
+after 8pm IST once `menu-lock.ts`'s lock window has passed for a
+next-day delivery — moved to the last delivery in the cycle. And
+`section-flags`'s `shippingScope` tests were asserting the pre-2026-09-15
+default ("a gift is always national" forces every craft listing to
+`national` regardless of what's requested) — rewritten to test food's
+real default and craft's real override.
+
+Full server unit (562), server e2e (677, run `--runInBand` — the suite
+has a documented fire-and-forget notification race under heavy parallel
+load, pre-existing and unrelated to this work), and client (700) suites
+green. New coverage: `test/unit/commission.spec.ts`,
+`client/lib/commission.spec.ts` (rewritten for the GST-aware signature),
+and `allocateClaimedGross`/zero-gross cases added to
+`test/unit/payout-split.spec.ts`.
+
+**Closed the same session:** the admin listing editor
+(`AdminListingEditorClient`, editing on a maker's behalf) didn't pass a
+`commission` prop to the shared `ListingForm`, so an admin never saw the
+"customer pays ₹X" preview a HomeKrafter sees on their own edit screen —
+it degraded safely (showed nothing extra, never a wrong number), but now
+fetches `GET /admin/settings` alongside the listing and gets full parity
+with the seller's own screen.
+
 ## 2026-09-16 — One checkout, marks instead of photos, and a gift that stopped calling itself a kitchen
 
 Owner session over the G3 surfaces. Five of these are defects found in the

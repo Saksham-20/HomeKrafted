@@ -40,7 +40,7 @@ describe('HomeKrafter verification', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const kitchen = await createKitchen(h);
     sellerId = kitchen.seller.id;
     vendorSlug = kitchen.vendor.slug;

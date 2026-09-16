@@ -45,7 +45,7 @@ describe('seller analytics', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const category = await createCategory(h);
 
     const myKitchen = await createKitchen(h, { name: 'My Kitchen' });

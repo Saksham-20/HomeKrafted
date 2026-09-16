@@ -46,7 +46,7 @@ describe('an approved HomeKrafter can sign in', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 
@@ -164,7 +164,7 @@ describe('GET /seller/me', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   it('returns the caller\'s own kitchen, not the first one in the database', async () => {

@@ -47,7 +47,7 @@ describe('rider deliveries (R2)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   async function tinyJpeg(hex: string): Promise<Buffer> {

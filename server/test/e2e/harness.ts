@@ -4,6 +4,7 @@ import { PrismaClient, ProductKind, ProductModerationStatus, UserRole } from '@p
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { ALL_ADMIN_SCOPES } from '../../src/common/admin-scopes';
+import { AdminSettingsService } from '../../src/admin/settings.service';
 
 /**
  * End-to-end harness — a real Nest app, a real Postgres database, real
@@ -29,6 +30,13 @@ export interface Harness {
   /** `request(app.getHttpServer())` with the `/api/v1` prefix already applied. */
   api: () => request.Agent;
   close: () => Promise<void>;
+  /**
+   * `AdminSettingsService`'s in-process cache (2026-09-16), so
+   * `resetDatabase` can drop it after truncating `PlatformSetting` — see
+   * `AdminSettingsService.invalidateCache`'s doc comment for why a raw
+   * `TRUNCATE` alone leaves it stale.
+   */
+  settings: AdminSettingsService;
 }
 
 export const API_PREFIX = '/api/v1';
@@ -87,39 +95,40 @@ export async function createHarness(): Promise<Harness> {
       await prisma.$disconnect();
       await app.close();
     },
+    settings: moduleRef.get(AdminSettingsService),
   };
 }
 
 /**
- * Empties every table between suites.
+ * Empties every table between suites, and drops any in-process cache a
+ * service might be holding on top of them.
  *
  * One statement, so foreign keys never dictate an order that has to be
  * maintained by hand as the schema grows — a truncation list that silently
  * stops covering a new table is how tests start leaking into each other.
  * `_prisma_migrations` is excluded: dropping it would strand the database
  * mid-lineage.
+ *
+ * **Takes the whole `Harness`, not just `prisma` (2026-09-16).** A raw
+ * `TRUNCATE` is invisible to `AdminSettingsService`'s 5-second cache —
+ * `AdminSettingsService.invalidateCache`'s doc comment has the failure
+ * this caused: a settings assertion could read up to 5s of whatever a
+ * *previous* test last wrote, a flake with no relationship to the test
+ * that fails. Any future service that caches in-process the same way
+ * owes the same call here.
  */
-export async function resetDatabase(prisma: PrismaClient): Promise<void> {
+export async function resetDatabase(h: Harness): Promise<void> {
+  const prisma = h.prisma;
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables
     WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
   `;
-  if (tables.length === 0) return;
+  if (tables.length === 0) {
+    h.settings.invalidateCache();
+    return;
+  }
   const list = tables.map((t) => `"public"."${t.tablename}"`).join(', ');
 
-  // Retried on deadlock, because some writes deliberately outlive the
-  // request that triggered them.
-  //
-  // Order notifications (M18) are fire-and-forget — a paid order must not
-  // roll back because a WhatsApp message failed — so an `INSERT` into
-  // `Notification` can still be in flight when the *next* test's reset
-  // starts. `TRUNCATE ... CASCADE` takes an ACCESS EXCLUSIVE lock on every
-  // table at once and deadlocks against it (Postgres `40P01`).
-  //
-  // Retrying is the right fix rather than making delivery synchronous:
-  // the asynchrony is a product decision worth keeping, and the loser of a
-  // deadlock is always safe to repeat. Three attempts with a short backoff
-  // — a genuinely stuck reset still fails rather than hanging the suite.
   /**
    * Wait a bounded time for the lock, then say why we could not get it.
    *
@@ -153,6 +162,7 @@ export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   for (let attempt = 0; ; attempt += 1) {
     try {
       await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE;`);
+      h.settings.invalidateCache();
       return;
     } catch (err) {
       const text = String(err);
@@ -419,7 +429,27 @@ export async function createOrder(
   opts: {
     userId: string;
     addressId: string;
-    items: { productId: string; name: string; price: number; quantity?: number }[];
+    items: {
+      productId: string;
+      name: string;
+      price: number;
+      quantity?: number;
+      /**
+       * The markup-model split (2026-09-16). Omitted (the default) seeds
+       * a **pre-migration-shaped** row — `sellerAmount` etc. left NULL,
+       * `price` read as the fee-free sticker it always was for a row this
+       * old — which is exactly what a spec wants when testing the
+       * "fully payable" transition rule. Pass these to simulate an order
+       * placed **after** the migration, where `price` already carries
+       * Homekrafted's fee and `sellerAmount` is what the maker actually
+       * earns from it.
+       */
+      sellerAmount?: number;
+      commissionAmount?: number;
+      gstAmount?: number;
+      commissionPct?: number;
+      gstPct?: number;
+    }[];
     status?: 'pending_payment' | 'placed' | 'packed' | 'shipped' | 'delivered' | 'cancelled';
     placedAt?: Date;
     deliveredAt?: Date | null;
@@ -452,6 +482,11 @@ export async function createOrder(
           name: i.name,
           quantity: i.quantity ?? 1,
           price: i.price,
+          sellerAmount: i.sellerAmount,
+          commissionAmount: i.commissionAmount,
+          gstAmount: i.gstAmount,
+          commissionPct: i.commissionPct,
+          gstPct: i.gstPct,
           addressId: opts.addressId,
           sku,
         })),

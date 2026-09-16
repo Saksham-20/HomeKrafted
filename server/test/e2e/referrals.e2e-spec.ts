@@ -42,7 +42,7 @@ describe('a referral', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   async function signUp(name: string, referredByCode?: string) {

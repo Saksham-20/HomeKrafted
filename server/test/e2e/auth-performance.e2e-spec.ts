@@ -24,7 +24,7 @@ describe('auth performance changes (M31)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /** Reads the claims out of an access token without verifying it — we minted it. */

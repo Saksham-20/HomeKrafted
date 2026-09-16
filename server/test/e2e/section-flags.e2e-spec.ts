@@ -39,7 +39,7 @@ describe('M20 section flags', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const kitchen = await createKitchen(h);
     seller = await createActor(h, 'seller', { sellerId: kitchen.seller.id });
     foodCategoryId = (await createCategory(h)).id;
@@ -120,33 +120,38 @@ describe('M20 section flags', () => {
   });
 
   describe('shippingScope', () => {
-    it('shows a national listing to a buyer far outside the delivery radius', async () => {
-      /*
-        The rule that makes the gifts vertical work: `national` skips the
-        radius gate entirely. Deriving this from `kind` would forbid a
-        kitchen posting pickles across India, which is why it is its own
-        column.
-      */
-      const national = await createLiveListing(
-        listingBody({ kind: 'craft', shippingScope: 'national' }),
-      );
-      const local = await createLiveListing(
+    /*
+      The rule that makes the gifts vertical work: `national` skips the
+      radius gate entirely. Deriving this from `kind` alone would forbid a
+      kitchen posting pickles across India, which is why it is its own
+      column — **except for `craft`**, where "a gift is always national"
+      (2026-09-15, CLAUDE.md) means `SellerListingsService` forces it
+      regardless of what the form asked for. `shippingScope` is a real
+      *choice* only on a `food` listing now.
+    */
+    it('a craft listing is always national, whatever shippingScope was requested', async () => {
+      const askedLocal = await createLiveListing(
         listingBody({ kind: 'craft', shippingScope: 'local', name: 'Stoneware mugs' }),
       );
+      expect(askedLocal.body.shippingScope).toBe('national');
 
-      // Mumbai — roughly 1,500km from the tricity, far outside any radius.
+      // Mumbai — roughly 1,500km from the tricity, far outside any radius
+      // — reachable precisely because the request above was overridden.
       const res = await h
         .api()
         .get(`${API_PREFIX}/products?kind=craft&lat=19.076&lng=72.8777`)
         .expect(200);
-
       const slugs = res.body.items.map((p: { slug: string }) => p.slug);
-      expect(slugs).toContain(national.body.slug);
-      expect(slugs).not.toContain(local.body.slug);
+      expect(slugs).toContain(askedLocal.body.slug);
     });
 
-    it('defaults to local', async () => {
-      const res = await createListing(listingBody({ kind: 'craft' })).expect(201);
+    it('a food listing keeps the shippingScope it was given, and defaults to local', async () => {
+      const national = await createLiveListing(
+        listingBody({ categoryId: foodCategoryId, name: 'Mango thokku', shippingScope: 'national' }),
+      );
+      expect(national.body.shippingScope).toBe('national');
+
+      const res = await createListing(listingBody({ categoryId: foodCategoryId, name: 'Chana chaat' })).expect(201);
       expect(res.body.shippingScope).toBe('local');
     });
   });

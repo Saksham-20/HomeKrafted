@@ -1841,21 +1841,23 @@ export async function getCategoriesAdmin(): Promise<Category[]> {
 
 export interface PlatformSettings {
   /**
-   * The take rate. Deducted from payouts only while `commissionEnabled`
-   * is on (M37); off, it drives the modelled commission line on
-   * analytics and the estimates on the seller's payout screen and
-   * listing form.
+   * The platform's fee, as a percentage of a HomeKrafter's own base
+   * price. Since the markup commission model (2026-09-16) a buyer pays
+   * this on top of the base, not a deduction from the maker's payout —
+   * `commissionEnabled` still gates whether it's charged at all. Off, it
+   * drives the modelled commission line on analytics and the listing
+   * form's live preview instead of a real charge.
    */
   commissionPct: number;
   /**
-   * Whether payouts actually deduct the rate above (M37). Defaults off —
-   * flipping it is a business decision, and every screen says which mode
-   * it is in.
+   * Whether the fee above is actually charged. Defaults off — flipping
+   * it is a business decision, and every screen says which mode it is
+   * in. Off means a buyer pays exactly the catalogue's stored base.
    */
   commissionEnabled: boolean;
   /**
-   * GST the platform charges on its commission fee (2026-09-02) — rides
-   * on the fee, so it deducts only while `commissionEnabled` is on.
+   * GST the platform charges on its own fee (2026-09-02) — rides on the
+   * fee, so it applies only while `commissionEnabled` is on.
    */
   commissionGstPct: number;
   /** Given to a new HomeKrafter whose application didn't state one. */

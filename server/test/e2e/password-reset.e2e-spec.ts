@@ -31,7 +31,7 @@ describe('password reset', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   const forgot = (email: string) =>

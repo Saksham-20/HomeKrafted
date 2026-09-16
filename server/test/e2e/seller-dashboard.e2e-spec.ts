@@ -37,7 +37,7 @@ describe('GET /seller/dashboard', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   it('counts today\'s orders and revenue for this vendor only', async () => {

@@ -24,7 +24,7 @@ describe('auth hardening', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   describe('suspension takes effect on the next request, not the next login', () => {

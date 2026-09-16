@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from './mappers/product.mapper';
+import { AdminSettingsService } from '../admin/settings.service';
 import { mapVendor } from './mappers/vendor.mapper';
 import { VendorProfileService } from './vendor-profile.service';
 import { VendorAvailabilityService } from './vendor-availability.service';
@@ -12,6 +13,7 @@ export class VendorsService {
     private readonly prisma: PrismaService,
     private readonly profiles: VendorProfileService,
     private readonly availability: VendorAvailabilityService,
+    private readonly settings: AdminSettingsService,
   ) {}
 
   /**
@@ -139,6 +141,9 @@ export class VendorsService {
       where: { vendorId: vendor.id, ...PUBLICLY_LISTED, isAvailable: true },
       include: PRODUCT_INCLUDE,
     });
-    return products.map((p) => mapProduct(p));
+    // A storefront is a buyer surface, so its prices carry the fee — the
+    // same numbers `/gifts` and `/shop` show for the same listings.
+    const rate = await this.settings.getCommissionRate();
+    return products.map((p) => mapProduct(p, rate));
   }
 }

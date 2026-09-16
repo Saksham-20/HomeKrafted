@@ -363,6 +363,7 @@ export class SellerService {
       pendingListingsCount,
       lowStockCount,
       todayOrders,
+      todayRevenueRows,
       pendingPayoutAmount,
       todayPickupsCount,
       todayDeliveriesCount,
@@ -385,8 +386,31 @@ export class SellerService {
       this.prisma.order.aggregate({
         where: { placedAt: { gte: todayStart }, items: { some: { product: { vendorId } } } },
         _count: { _all: true },
-        _sum: { total: true },
       }),
+      // The kitchen's own earnings today, not what the buyer paid — see
+      // `analytics.service.ts`'s doc comment for why `sellerAmount` (not
+      // `price`) and why per-line rather than `Order.total` (which also
+      // carries the shipping fee, never the kitchen's money). "One
+      // basket, one maker" (M57) means every order touching this vendor
+      // is wholly this vendor's, so no line-item filter is needed here
+      // the way the analytics service needs one.
+      //
+      // `todayStart` is cast to `::timestamp`, not left for Postgres to
+      // infer — `placedAt` is `timestamp without time zone` and a bare
+      // Date parameter compared against it goes through the connection's
+      // session timezone, same trap `computeGmvSeries` above documents.
+      // On a non-UTC connection that silently moves the boundary by the
+      // zone offset (measured: 2 of 2 orders placed minutes ago read as
+      // not-today). Casting the ISO string keeps both sides in the naive
+      // UTC-wall-clock frame the column actually stores.
+      this.prisma.$queryRaw<{ total: number | null }[]>`
+        SELECT SUM(COALESCE(oi."sellerAmount", oi."price") * oi."quantity")::float8 AS total
+        FROM "OrderItem" oi
+        JOIN "Order" o ON o.id = oi."orderId"
+        WHERE o."placedAt" >= ${todayStart.toISOString()}::timestamp AND oi."productId" IN (
+          SELECT id FROM "Product" WHERE "vendorId" = ${vendorId}
+        )
+      `,
       payoutsService.getPendingBalance(seller),
       this.prisma.laundryBooking.count({
         where: { partnerId: seller.id, pickupDate: { gte: utcDayStart, lt: utcDayEnd } },
@@ -429,7 +453,7 @@ export class SellerService {
     return {
       // Storefront / marketplace
       todayOrdersCount: todayOrders._count._all,
-      todayRevenue: Number(todayOrders._sum.total ?? 0),
+      todayRevenue: todayRevenueRows[0]?.total ?? 0,
       listingsCount,
       activeListingsCount,
       pendingListingsCount,

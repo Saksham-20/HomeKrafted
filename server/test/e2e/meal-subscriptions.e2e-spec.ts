@@ -44,7 +44,7 @@ describe('Meal subscriptions', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     buyer = await createActor(h, 'consumer');
     const address = await createAddress(h, buyer.userId);
     addressId = address.id;
@@ -226,12 +226,20 @@ describe('Meal subscriptions', () => {
       .send(subscribeBody())
       .expect(201);
 
-    const firstDelivery = created.body.deliveries[0];
+    // The **last** scheduled delivery, not the first (2026-09-16). A
+    // 6-meal Mon–Fri cycle's first delivery can be as little as a day
+    // out, and `menu-lock.ts` locks a date's menu at `menuLockTime` (20:00
+    // IST) *the evening before* — so this test failed every run after 8pm,
+    // asserting on a delivery the app had correctly, deliberately locked.
+    // The last delivery is comfortably more than a lock-window away
+    // regardless of what hour the suite happens to run at, and the
+    // assertions below don't care which delivery was skipped.
+    const targetDelivery = created.body.deliveries[created.body.deliveries.length - 1];
     const originalEnd = created.body.endDate;
 
     await h
       .api()
-      .patch(`${API_PREFIX}/meal-subscriptions/${created.body.id}/deliveries/${firstDelivery.id}/skip`)
+      .patch(`${API_PREFIX}/meal-subscriptions/${created.body.id}/deliveries/${targetDelivery.id}/skip`)
       .set(auth(buyer))
       .expect(200);
 
@@ -241,7 +249,7 @@ describe('Meal subscriptions', () => {
       .set(auth(buyer))
       .expect(200);
 
-    const skipped = after.body.deliveries.find((d: { id: string }) => d.id === firstDelivery.id);
+    const skipped = after.body.deliveries.find((d: { id: string }) => d.id === targetDelivery.id);
     expect(skipped.status).toBe('skipped');
 
     // The meal is owed, so the cycle grew a day at the far end and the

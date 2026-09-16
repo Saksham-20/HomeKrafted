@@ -39,7 +39,7 @@ describe('hamper listings', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     const kitchen = await createKitchen(h);
     vendorId = kitchen.vendor.id;
     seller = await createActor(h, 'seller', { sellerId: kitchen.seller.id });

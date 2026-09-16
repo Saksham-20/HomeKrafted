@@ -34,7 +34,7 @@ describe('vendor blackout cascade onto meal deliveries', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   async function kitchenWithSubscriber() {

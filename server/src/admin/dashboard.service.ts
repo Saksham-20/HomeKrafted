@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AdminOrderType } from './orders.service';
 import { AdminSettingsService } from './settings.service';
 import { AdminSupportService } from './support.service';
+import { markUpFactor } from '../common/pricing/commission';
 
 export interface AdminDashboardSnapshot {
   /** Sum of every unified order/booking/snack-order total — a proxy for GMV; nets nothing out (vendor payout share is a `Payout`-ledger concern, not this KPI). */
@@ -90,10 +91,13 @@ export interface AdminAnalyticsSnapshot {
   /**
    * Modelled platform take on the window's GMV at the configured
    * `commissionPct` — a what-if over gross sales, **not** a sum of what
-   * was deducted. Whether payouts actually deduct the rate is
-   * `commissionEnabled` (M37, default off); either way this figure stays
-   * modelled, because "what would a 12% take rate have earned" is a
-   * question the business needs answered before it can change one.
+   * was actually charged. Whether the markup model is actually adding the
+   * fee to a buyer's price is `commissionEnabled`; either way this figure
+   * stays modelled, because "what would a 12% take rate earn" is a
+   * question the business needs answered before it can change one — and
+   * since 2026-09-16, `getAnalytics` divides `windowGmv` back down to its
+   * base before applying the model, so a real embedded fee (while
+   * enabled) is never modelled a second time on top of itself.
    */
   commissionPct: number;
   modelledCommission: number;
@@ -282,11 +286,19 @@ export class AdminDashboardService {
         this.settings.get(),
       ]);
     const windowGmv = gmvSeries.reduce((sum, p) => sum + p.gmv, 0);
+    // The markup model (2026-09-16) means `windowGmv` (buyer-paid) can
+    // already have a real commission baked into it when `commissionEnabled`
+    // is on — so modelling "pct% of GMV" straight off it would be pct% on
+    // top of a figure that already includes pct%, over-stating the what-if
+    // by roughly pct² worth of itself. Dividing out the *current* markup
+    // factor first recovers the base the model is meant to apply to; while
+    // disabled the factor is 1 and this is a no-op, exactly today's figure.
+    const windowGmvAtBase = windowGmv / markUpFactor({ pct: settings.commissionPct, gstPct: settings.commissionGstPct, enabled: settings.commissionEnabled });
 
     return {
       days,
       commissionPct: settings.commissionPct,
-      modelledCommission: Math.round(windowGmv * (settings.commissionPct / 100) * 100) / 100,
+      modelledCommission: Math.round(windowGmvAtBase * (settings.commissionPct / 100) * 100) / 100,
       gmvSeries,
       ordersByType,
       topSellers: topSellers.slice(0, 6),
@@ -411,13 +423,21 @@ export class AdminDashboardService {
    * query is `COUNT(DISTINCT "orderId")`. The old loop got that by
    * collapsing each order's items into a per-vendor map before
    * incrementing.
+   *
+   * **`revenue` is each maker's earnings, not what buyers paid for their
+   * goods (2026-09-16).** `sellerAmount` is what the markup commission
+   * model actually pays out; `price` is read only as its pre-migration
+   * fallback, where it never carried a fee. A leaderboard ranking makers
+   * by a number that includes Homekrafted's own cut would rank the ones
+   * charging the most fee highest, not the ones actually earning the
+   * most.
    */
   private async computeSellerLeaderboard(): Promise<AnalyticsLeaderboardRow[]> {
     const [makerRows, laundryRows, snackRows] = await Promise.all([
       this.prisma.$queryRaw<{ vendorId: string; revenue: unknown; orderCount: bigint }[]>`
-        SELECT p."vendorId"                              AS "vendorId",
-               SUM(oi."price" * oi."quantity")           AS "revenue",
-               COUNT(DISTINCT oi."orderId")              AS "orderCount"
+        SELECT p."vendorId"                                             AS "vendorId",
+               SUM(COALESCE(oi."sellerAmount", oi."price") * oi."quantity") AS "revenue",
+               COUNT(DISTINCT oi."orderId")                             AS "orderCount"
         FROM "OrderItem" oi
         JOIN "Product" p ON p."id" = oi."productId"
         WHERE oi."productId" IS NOT NULL
@@ -496,16 +516,23 @@ export class AdminDashboardService {
       .slice(0, LEADERBOARD_LIMIT);
   }
 
+  /**
+   * Ranked by earnings, matching `computeSellerLeaderboard` on the same
+   * screen (2026-09-16) — `sellerAmount` when the row carries the markup
+   * split, `price` unmodified as its pre-migration fallback. Ranking by
+   * the buyer-facing figure instead would rank a listing partly by
+   * Homekrafted's own fee on it.
+   */
   private async computeProductLeaderboard(): Promise<AnalyticsProductRow[]> {
     const items = await this.prisma.orderItem.findMany({
       where: { productId: { not: null } },
-      select: { productId: true, name: true, price: true, quantity: true },
+      select: { productId: true, name: true, price: true, sellerAmount: true, quantity: true },
     });
 
     const byProduct = new Map<string, AnalyticsProductRow>();
     for (const item of items) {
       if (!item.productId) continue;
-      const revenue = Number(item.price) * item.quantity;
+      const revenue = Number(item.sellerAmount ?? item.price) * item.quantity;
       const existing = byProduct.get(item.productId);
       if (existing) {
         existing.unitsOrdered += item.quantity;

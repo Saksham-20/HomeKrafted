@@ -52,7 +52,7 @@ describe('a courier carries gifts, never food', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /**

@@ -305,24 +305,45 @@ means.
 
 ---
 
-## 3b. Take rate — the engine exists, the switch is off ⚠️
+## 3b. Take rate — collecting is one audited toggle, not a build ⚠️
 
-**M37 built the commission engine; collecting is now one audited toggle,
-not a build.** `PlatformSettings.commissionEnabled` (default **off**)
-decides whether `POST /seller/payouts/request` deducts `commissionPct`;
-when it does, the split (`grossAmount`/`commissionAmount`/`commissionPct`)
-is stored on every payout row, the seller's payout screen and listing
-form show the arithmetic (estimates while off, and they say so), and the
-admin queue's warning flips from "these amounts are gross" to "new rows
-are net; old rows aren't recalculated". Mixed-era maths is safe: pending
-balances subtract `COALESCE(grossAmount, amount)`, so flipping the flag
-never re-offers already-deducted commission as payable.
+**Production has `commissionEnabled` on** — 20%, 18% GST, live since
+2026-09-05 — so this is no longer the "switch is off" question this
+section used to describe; it is a running commercial decision, auditable
+on `/admin/settings`.
 
-What remains is the commercial decision itself, and it is still a hard
-gate on anything recurring: with the flag off, 5% cashback on every order
-and the ₹49 flat shipping subsidy below ₹999 leave the unit economics on
-a low-value item inverted, and a daily subscription multiplies that per
-cycle.
+**2026-09-16 (local, not yet deployed): the whole model reversed from a
+seller-side deduction to a buyer-side markup**, on the owner's decision
+— a HomeKrafter types what they want to receive, and the buyer is
+charged that plus the fee plus GST on it, computed fresh on every read
+(`server/src/common/pricing/commission.ts`). This is not a bug fix to
+this section, it is a different feature: under the old model `amount` on
+a `Payout` row was net-of-deduction while the flag was on; under the new
+one a **marketplace** payout is never deducted at all — the fee was
+already collected from the buyer at checkout, recorded on the
+`OrderItem` — and only the legacy streams the model didn't reach
+(laundry, withdrawn; WhatsApp snack orders) still deduct at payout time
+the way every stream used to. `PlatformSettings.commissionEnabled`
+remains the single switch either way: off means a buyer pays exactly the
+catalogue's stored base and nothing is ever deducted anywhere.
+
+**Before this can deploy, `prisma/migrate-to-markup-prices.ts` has to run
+against production, at the moment of cutover.** Every stored price on
+the live site is still a *buyer-facing* sticker under the old model —
+deploying the new read path against untouched rows would mark every
+listing up by the live factor (~23.6% at today's rate) with no line of
+code touching a price. The script is a one-time, operator-run, dry-run-
+by-default pass that divides every stored price by the current markup
+factor first, so a buyer sees the identical number immediately after the
+switch. Read its own header before running it; it refuses to run twice.
+
+The commercial decision the take rate represents is unchanged by any of
+this: with the flag off, 5% cashback on every order leaves the unit
+economics on a low-value item thin, and a daily subscription multiplies
+that per cycle. (The ₹49 flat shipping subsidy below ₹999 this section
+used to cite is itself gone — `deliveryFee`/`freeDeliveryThreshold` are
+now `/admin/settings` fields, defaulting to ₹0/₹999 while live payments
+are being tested; see `docs/API.md`'s `GET /admin/settings`.)
 
 1. **Decide the take rate before recurring revenue ships** — then flip
    `commissionEnabled` on `/admin/settings` (audited), or decide

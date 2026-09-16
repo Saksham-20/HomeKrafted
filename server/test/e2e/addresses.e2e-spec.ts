@@ -50,7 +50,7 @@ describe('a delivery address', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     buyer = await createActor(h);
   });
 

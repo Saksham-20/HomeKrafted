@@ -40,7 +40,7 @@ describe('admin catalogue queue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 
@@ -155,7 +155,7 @@ describe('admin support queue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 
@@ -279,7 +279,7 @@ describe('admin HomeKrafter list', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 
@@ -360,7 +360,7 @@ describe('admin wallet overview', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 
@@ -493,7 +493,7 @@ describe('admin payout queue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 
@@ -559,7 +559,7 @@ describe('admin corporate inquiry queue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 

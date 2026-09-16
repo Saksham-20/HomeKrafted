@@ -36,7 +36,7 @@ describe('OTP test bypass', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   const verify = (phone: string, code: string) =>

@@ -3,7 +3,7 @@ import { Prisma, Seller } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { IdempotencyService } from '../common/idempotency/idempotency.service';
 import { AdminSettingsService } from '../admin/settings.service';
-import { computePayoutSplit } from './payout-split';
+import { computePayoutSplit, allocateClaimedGross } from './payout-split';
 import { mapPayout } from './mappers/payout.mapper';
 
 /**
@@ -16,6 +16,19 @@ import { mapPayout } from './mappers/payout.mapper';
  * brief — a real payout-provider integration (bank transfer/Razorpay
  * Payouts) is a later-milestone seam; this milestone only records the
  * request.
+ *
+ * **Two streams, two rules, since the markup commission model
+ * (2026-09-16).** A marketplace `OrderItem` now carries its own split —
+ * the buyer paid the commission, not the maker — so marketplace earnings
+ * are `COALESCE(sellerAmount, price)` paid **in full**, never run
+ * through `computePayoutSplit` again (see `payout-split.ts`'s doc
+ * comment for why `sellerAmount IS NULL` legacy rows are read the same
+ * way: "fully payable" is the documented one-time transition rule, not a
+ * bug). Laundry (withdrawn) and snack (WhatsApp) earnings were never
+ * migrated to markup pricing — they're still typed at the maker's
+ * sticker price with no fee embedded — so `computePayoutSplit` still
+ * applies to that combined "legacy" total, exactly as it did before this
+ * model existed.
  */
 @Injectable()
 export class SellerPayoutsService {
@@ -26,46 +39,43 @@ export class SellerPayoutsService {
   ) {}
 
   async list(seller: Seller) {
-    const [rows, grossPending, settings] = await Promise.all([
-      this.prisma.payout.findMany({ where: { sellerId: seller.id }, orderBy: { periodEnd: 'desc' } }),
-      this.grossPending(seller),
-      this.settings.get(),
-    ]);
+    const [pending, settings] = await Promise.all([this.pendingBreakdown(seller), this.settings.get()]);
+    const rows = await this.prisma.payout.findMany({ where: { sellerId: seller.id }, orderBy: { periodEnd: 'desc' } });
 
     const totalPaid = rows.filter((p) => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0);
     const totalRequestedPending = rows.filter((p) => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0);
 
-    // What a payout request would actually pay right now, and its
-    // arithmetic (M37). While `commissionEnabled` is off the split is an
-    // *estimate at the configured rate* and `netPending === grossPending`;
-    // the client says which — this is the transparency /terms promised.
-    const split = computePayoutSplit(
-      grossPending,
+    // The estimate-vs-applied split still only concerns the legacy
+    // (laundry/snack) share — a marketplace line's fee is either already
+    // embedded in what the buyer paid or (pre-migration, still pending)
+    // forgiven, never a function of the switch.
+    const legacySplit = computePayoutSplit(
+      pending.legacyGross,
       settings.commissionPct,
       settings.commissionEnabled,
       settings.commissionGstPct,
     );
-    const estimate = computePayoutSplit(
-      grossPending,
-      settings.commissionPct,
-      true,
-      settings.commissionGstPct,
-    );
+    const legacyEstimate = computePayoutSplit(pending.legacyGross, settings.commissionPct, true, settings.commissionGstPct);
 
     return {
       items: rows.map(mapPayout),
       summary: { totalPaid, totalPending: totalRequestedPending, lifetimeEarned: totalPaid + totalRequestedPending },
-      pendingBalance: split.amount,
+      pendingBalance: round2(pending.marketplaceNet + legacySplit.amount),
       commission: {
         enabled: settings.commissionEnabled,
         pct: settings.commissionPct,
-        // GST on the fee (2026-09-02) — same estimate-vs-applied rule as
-        // the commission figures beside it.
         gstPct: settings.commissionGstPct,
-        grossPending: split.grossAmount,
-        commissionOnPending: settings.commissionEnabled ? split.commissionAmount : estimate.commissionAmount,
-        gstOnPending: settings.commissionEnabled ? split.gstAmount : estimate.gstAmount,
-        netPending: settings.commissionEnabled ? split.amount : estimate.amount,
+        grossPending: round2(pending.marketplaceGross + pending.legacyGross),
+        // What would still be deducted from a payout right now — the
+        // legacy share only. A marketplace fee is never deducted here; it
+        // was already collected from the buyer at checkout.
+        commissionOnPending: settings.commissionEnabled ? legacySplit.commissionAmount : legacyEstimate.commissionAmount,
+        gstOnPending: settings.commissionEnabled ? legacySplit.gstAmount : legacyEstimate.gstAmount,
+        netPending: round2(pending.marketplaceNet + (settings.commissionEnabled ? legacySplit.amount : legacyEstimate.amount)),
+        // Informational only — already collected from buyers on
+        // marketplace sales, never deducted from what this payout pays.
+        marketplaceCommissionCollected: round2(pending.marketplaceCommissionCollected),
+        marketplaceGstCollected: round2(pending.marketplaceGstCollected),
       },
     };
   }
@@ -97,29 +107,29 @@ export class SellerPayoutsService {
         throw new ConflictException('A payout request is already pending for this account');
       }
 
-      const [earnings, alreadyRequestedGross, latestPayout, settings] = await Promise.all([
-        this.computeDeliveredEarningsTx(tx, seller),
-        this.sumRequestedGrossTx(tx, seller.id),
+      const [pending, latestPayout, settings] = await Promise.all([
+        this.pendingBreakdown(seller, tx),
         tx.payout.findFirst({ where: { sellerId: seller.id }, orderBy: { periodEnd: 'desc' } }),
         this.settings.get(),
       ]);
 
-      const grossPending = Math.max(0, Math.round((earnings - alreadyRequestedGross) * 100) / 100);
-      if (grossPending <= 0) {
-        throw new BadRequestException('No pending earnings to request a payout for');
-      }
-
-      // The split is computed once, here, and stored on the row (M37):
-      // `amount` stays the payable figure, and the three columns beside
-      // it say what was deducted at what rate — so a payout from a
-      // disabled era reads gross/0/0 rather than looking like a 0% rate
-      // was ever decided.
-      const split = computePayoutSplit(
-        grossPending,
+      // The legacy split is computed once, here, and stored on the row
+      // (M37): `amount` stays the payable figure, and the three columns
+      // beside it say what was deducted at what rate — so a payout from a
+      // disabled era, or one with no legacy component at all, reads
+      // gross/0/0 rather than looking like a 0% rate was ever decided.
+      const legacySplit = computePayoutSplit(
+        pending.legacyGross,
         settings.commissionPct,
         settings.commissionEnabled,
         settings.commissionGstPct,
       );
+      const amount = round2(pending.marketplaceNet + legacySplit.amount);
+      const grossAmount = round2(pending.marketplaceGross + legacySplit.grossAmount);
+
+      if (amount <= 0) {
+        throw new BadRequestException('No pending earnings to request a payout for');
+      }
 
       const periodStart = latestPayout ? new Date(latestPayout.periodEnd.getTime() + 24 * 60 * 60 * 1000) : seller.createdAt;
       const periodEnd = new Date();
@@ -127,12 +137,14 @@ export class SellerPayoutsService {
       const payout = await tx.payout.create({
         data: {
           sellerId: seller.id,
-          amount: split.amount,
-          grossAmount: split.grossAmount,
-          commissionAmount: split.commissionAmount,
-          commissionPct: split.commissionPct,
-          gstAmount: split.gstAmount,
-          gstPct: split.gstPct,
+          amount,
+          grossAmount,
+          // The legacy deduction alone — a marketplace line never has
+          // commission taken from the payout itself.
+          commissionAmount: legacySplit.commissionAmount,
+          commissionPct: legacySplit.commissionPct,
+          gstAmount: legacySplit.gstAmount,
+          gstPct: legacySplit.gstPct,
           periodStart,
           periodEnd,
           status: 'pending',
@@ -144,22 +156,71 @@ export class SellerPayoutsService {
 
   /** Non-tx read used by the dashboard + `GET /seller/payouts` — what a payout request would actually pay right now (net when commission is enabled). */
   async getPendingBalance(seller: Seller): Promise<number> {
-    const [grossPending, settings] = await Promise.all([this.grossPending(seller), this.settings.get()]);
-    return computePayoutSplit(
-      grossPending,
+    const [pending, settings] = await Promise.all([this.pendingBreakdown(seller), this.settings.get()]);
+    const legacySplit = computePayoutSplit(
+      pending.legacyGross,
       settings.commissionPct,
       settings.commissionEnabled,
       settings.commissionGstPct,
-    ).amount;
+    );
+    return round2(pending.marketplaceNet + legacySplit.amount);
   }
 
-  /** Delivered earnings not yet claimed by any payout row, in gross terms. */
-  private async grossPending(seller: Seller): Promise<number> {
-    const [earnings, alreadyRequestedGross] = await Promise.all([
-      this.computeDeliveredEarnings(seller),
-      this.sumRequestedGrossTx(this.prisma, seller.id),
+  /**
+   * The two earnings streams, each netted against what this seller has
+   * already claimed in a past payout — marketplace in **net** terms (no
+   * further deduction, ever), legacy in **gross** terms (still split by
+   * `computePayoutSplit` at request time, exactly as before this model
+   * existed).
+   *
+   * The "already claimed" split is an estimate — see
+   * `allocateClaimedGross`'s doc comment for why it has to be, and why
+   * the direction it's wrong in is always safe.
+   */
+  private async pendingBreakdown(
+    seller: Seller,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<{
+    marketplaceGross: number;
+    marketplaceNet: number;
+    marketplaceCommissionCollected: number;
+    marketplaceGstCollected: number;
+    legacyGross: number;
+  }> {
+    const [everEarned, claimedTotalGross] = await Promise.all([
+      this.computeDeliveredEarningsTx(tx, seller),
+      this.sumRequestedGrossTx(tx, seller.id),
     ]);
-    return Math.max(0, Math.round((earnings - alreadyRequestedGross) * 100) / 100);
+
+    const { marketplace: marketplaceClaimed, legacy: legacyClaimed } = allocateClaimedGross(
+      claimedTotalGross,
+      everEarned.marketplaceGross,
+    );
+
+    // A marketplace line's net/gross ratio isn't constant (the rate can
+    // change over time), so the claimed *net* is read off the same
+    // proportion of the claimed *gross* rather than re-derived from
+    // today's rate — an already-settled payout must not be recomputed
+    // against a rate that came later.
+    const marketplaceNetRatio = everEarned.marketplaceGross > 0 ? everEarned.marketplaceNet / everEarned.marketplaceGross : 0;
+    const marketplaceClaimedNet = marketplaceClaimed * marketplaceNetRatio;
+    const commissionRatio = everEarned.marketplaceGross > 0 ? everEarned.marketplaceCommission / everEarned.marketplaceGross : 0;
+    const gstRatio = everEarned.marketplaceGross > 0 ? everEarned.marketplaceGst / everEarned.marketplaceGross : 0;
+
+    const marketplaceGrossPending = Math.max(0, round2(everEarned.marketplaceGross - marketplaceClaimed));
+    const marketplaceNetPending = Math.max(0, round2(everEarned.marketplaceNet - marketplaceClaimedNet));
+
+    return {
+      marketplaceGross: marketplaceGrossPending,
+      marketplaceNet: marketplaceNetPending,
+      // Informational split of the pending marketplace gross, at the
+      // same proportion as the lifetime figures — for the "already
+      // collected from buyers" line on the payout screen, never for
+      // deducting anything.
+      marketplaceCommissionCollected: marketplaceGrossPending * commissionRatio,
+      marketplaceGstCollected: marketplaceGrossPending * gstRatio,
+      legacyGross: Math.max(0, round2(everEarned.legacyGross - legacyClaimed)),
+    };
   }
 
   /**
@@ -180,14 +241,16 @@ export class SellerPayoutsService {
     return rows[0]?.total ?? 0;
   }
 
-  private async computeDeliveredEarnings(seller: Seller): Promise<number> {
-    return this.computeDeliveredEarningsTx(this.prisma, seller);
-  }
-
   private async computeDeliveredEarningsTx(
     tx: Prisma.TransactionClient | PrismaService,
     seller: Seller,
-  ): Promise<number> {
+  ): Promise<{
+    marketplaceGross: number;
+    marketplaceNet: number;
+    marketplaceCommission: number;
+    marketplaceGst: number;
+    legacyGross: number;
+  }> {
     // Sum every stream a HomeKrafter can earn from, rather than picking one
     // by `seller.type`. Under the single-role model the same account can
     // sell jars, run pickups and take WhatsApp snack orders in the same
@@ -202,8 +265,12 @@ export class SellerPayoutsService {
     // `$queryRaw` runs on the transaction client, so a payout request
     // still reads inside its own transaction.
     const [marketplaceRows, bookings, orders] = await Promise.all([
-      tx.$queryRaw<{ total: number | null }[]>`
-        SELECT SUM(oi."price" * oi."quantity")::float8 AS total
+      tx.$queryRaw<{ gross: number | null; net: number | null; commission: number | null; gst: number | null }[]>`
+        SELECT
+          SUM(oi."price" * oi."quantity")::float8 AS gross,
+          SUM(COALESCE(oi."sellerAmount", oi."price") * oi."quantity")::float8 AS net,
+          SUM(COALESCE(oi."commissionAmount", 0) * oi."quantity")::float8 AS commission,
+          SUM(COALESCE(oi."gstAmount", 0) * oi."quantity")::float8 AS gst
         FROM "OrderItem" oi
         JOIN "Product" p ON p.id = oi."productId"
         JOIN "Order" o ON o.id = oi."orderId"
@@ -221,9 +288,20 @@ export class SellerPayoutsService {
 
     // `SUM` over no rows is SQL NULL, not 0 — a HomeKrafter with nothing
     // delivered yet must read as ₹0 earned, never NaN.
-    const marketplace = marketplaceRows[0]?.total ?? 0;
+    const marketplace = marketplaceRows[0];
     const laundry = Number(bookings._sum.estimatedTotal ?? 0);
     const snacks = Number(orders._sum.total ?? 0);
-    return marketplace + laundry + snacks;
+    return {
+      marketplaceGross: marketplace?.gross ?? 0,
+      marketplaceNet: marketplace?.net ?? 0,
+      marketplaceCommission: marketplace?.commission ?? 0,
+      marketplaceGst: marketplace?.gst ?? 0,
+      legacyGross: laundry + snacks,
+    };
   }
+}
+
+/** Money rounded to paise — matches `payout-split.ts`'s own rule. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
 }

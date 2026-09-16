@@ -439,6 +439,43 @@ key wins and **no client rebuild is required**. Steps:
 Update `NEXT_PUBLIC_RAZORPAY_KEY_ID` too for tidiness, but it is only a
 fallback — it is not what is used.
 
+### Switching to the markup commission model (2026-09-16)
+
+**Not part of `deploy.sh`, and it has to happen in a specific order.**
+The code reverses M37's deduction model — a buyer now pays the maker's
+base price plus Homekrafted's fee, computed fresh on every read
+(`docs/API.md`'s commission sections, `CLAUDE.md`) — but every price
+already stored in `WeightOption`/`MealPlan` on production is still a
+*buyer-facing* sticker under the old model. Deploying the new read path
+against untouched rows marks every listing up by the live commission
+factor the instant it ships, with no line of the diff touching a price.
+
+Production has `commissionEnabled` on (20%, 18% GST) since 2026-09-05 —
+so this is not a "flip a switch later" migration, it has to run *at* the
+moment this code goes live:
+
+1. `scripts/deploy.sh --skip-install` (or the normal flow) as usual —
+   this applies the additive schema migration
+   (`20260916140000_markup_commission`), which adds nullable columns and
+   moves no money and no prices.
+2. **Immediately after, before any real traffic reads a price**, run the
+   data pass once:
+   ```bash
+   cd server && npx ts-node prisma/migrate-to-markup-prices.ts       # dry run first — read its report
+   cd server && npx ts-node prisma/migrate-to-markup-prices.ts --apply
+   ```
+   It divides every stored price by the *current* markup factor, so a
+   buyer sees the identical number on their very next request — only the
+   meaning of the column changes. It refuses to run a second time (a
+   `PlatformSetting` marker), so re-running the dry run afterwards is
+   always safe to sanity-check.
+3. Spot-check a real product page and a fresh cart against the numbers
+   the dry-run report printed before you ran `--apply`.
+
+Skipping step 2, or running it twice, are both real-money mistakes in
+opposite directions — read the script's own header comment before running
+it on production.
+
 ### Shadowfax courier despatch (M57)
 
 **Off by default (`SHADOWFAX_ENABLED=false`).** Booking a real rider costs

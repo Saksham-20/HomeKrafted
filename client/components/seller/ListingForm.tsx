@@ -10,7 +10,7 @@ import { ChoiceCards } from "@/components/portal/ChoiceCards";
 import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "@/components/portal/Field";
 import { FormSection } from "@/components/portal/FormSection";
 import type { DietaryTag, ProductKind, ProductTag, SellerCommission } from "@/lib/types";
-import { markupBreakdown } from "@/lib/commission";
+import { markupBreakdown, type CommissionRate } from "@/lib/commission";
 import {
   ALLERGEN_NONE,
   ALLERGEN_OPTIONS,
@@ -233,10 +233,16 @@ export function ListingForm({
     [categoryOptions, values.categoryId],
   );
 
-  // Earnings line inputs: seller payout + commission markup (+pct%)
-  const commPct = commission?.pct ?? 20;
+  // Earnings line inputs: seller payout + commission markup (+pct%, +GST on
+  // the fee). Absent/unloaded reads as "no fee" — never a guessed rate.
+  const commissionRate: CommissionRate = {
+    pct: commission?.pct ?? 0,
+    gstPct: commission?.gstPct ?? 0,
+    enabled: commission?.enabled ?? false,
+  };
+  const commPct = commissionRate.pct;
   const defaultRowPrice = Number(values.weightRows[values.defaultRowIndex]?.price) || 0;
-  const markup = markupBreakdown(defaultRowPrice, commPct);
+  const markup = markupBreakdown(defaultRowPrice, commissionRate);
 
   /**
    * Switching kind can strand the chosen category on the other side of the
@@ -506,7 +512,11 @@ export function ListingForm({
                 />
                 {row.colour ? <p className={styles.colourEcho}>{row.colour}</p> : null}
               </div>
-              <Field label="Your payout (₹)" className={styles.cell} hint={`+${commPct}% commission added`}>
+              <Field
+                label="Your payout (₹)"
+                className={styles.cell}
+                hint={commissionRate.enabled ? `+${commPct}% commission (+GST) added` : "Nothing added right now"}
+              >
                 <Input
                   dense
                   type="number"
@@ -557,12 +567,14 @@ export function ListingForm({
           <Plus size={15} strokeWidth={2} aria-hidden="true" />
           Add another size
         </button>
-        {defaultRowPrice > 0 ? (
+        {defaultRowPrice > 0 && commissionRate.enabled ? (
           <p className={styles.earnings} aria-live="polite">
             You receive {formatCurrency(markup.sellerWants)} → commission (+{commPct}%){" "}
-            +{formatCurrency(markup.commission)} → customer pays {formatCurrency(markup.customerPrice)}.
+            +{formatCurrency(markup.commission)}
+            {markup.gst > 0 ? <> → GST on commission +{formatCurrency(markup.gst)}</> : null} → customer pays{" "}
+            {formatCurrency(markup.customerPrice)}.
             <br />
-            <strong>It’ll be {formatCurrency(markup.customerPrice)} for the customer after commissions.</strong>
+            <strong>It’ll be {formatCurrency(markup.customerPrice)} for the customer, all fees included.</strong>
           </p>
         ) : null}
       </FormSection>

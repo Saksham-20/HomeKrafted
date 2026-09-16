@@ -3,7 +3,8 @@ import { Prisma } from '@prisma/client';
 import { distanceKm, formatDistanceKm } from '../common/geo';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListProductsQueryDto } from './dto/list-products.query.dto';
-import { PRODUCT_INCLUDE, mapProduct } from './mappers/product.mapper';
+import { PRODUCT_INCLUDE, defaultPriceOf, mapProduct } from './mappers/product.mapper';
+import { AdminSettingsService } from '../admin/settings.service';
 import { dietaryTagsFromFrontend } from './dietary-tag.util';
 import { splitCsv } from './split-csv.util';
 import { PUBLICLY_LISTED, isDirectlyResolvable } from './moderation';
@@ -24,18 +25,12 @@ const DEFAULT_PAGE_SIZE = 20;
  * phase-one select to satisfy a type: the default option's price, falling
  * back to the first, and 0 for a listing with no options at all.
  */
-function slimDefaultPriceOf(product: {
-  defaultWeightSku: string;
-  weightOptions: { sku: string; price: Prisma.Decimal }[];
-}): number {
-  const weight =
-    product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ?? product.weightOptions[0];
-  return weight ? Number(weight.price) : 0;
-}
-
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: AdminSettingsService,
+  ) {}
 
   /**
    * List + filter + sort + paginate — mirrors `ShopClient.tsx`'s client-side
@@ -172,6 +167,10 @@ export class ProductsService {
 
   async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
     const where = this.browseWhere(query);
+    // Once per request, not once per row: a card's price and the price
+    // range it was filtered against must come from the same rate, or a
+    // listing can be filtered in at one number and rendered at another.
+    const rate = await this.settings.getCommissionRate();
 
     const sortMode = query.sort ?? 'most-loved';
     const buyerCoords =
@@ -225,7 +224,7 @@ export class ProductsService {
         }),
         this.prisma.product.count({ where }),
       ]);
-      return { items: rows.map((row) => mapProduct(row)), page, pageSize, total };
+      return { items: rows.map((row) => mapProduct(row, rate)), page, pageSize, total };
     }
 
     /**
@@ -330,7 +329,12 @@ export class ProductsService {
       });
     }
 
-    let withPrice = inRange.map((p) => ({ product: p, price: slimDefaultPriceOf(p) }));
+    // The **buyer-facing** price, fee included (2026-09-16) — so "under
+    // ₹1,000" filters and `price-asc` sort the numbers on the cards, not
+    // the makers' base figures underneath them. `defaultPriceOf` is the
+    // shared helper the mapper uses; this file used to carry a private
+    // copy of it, which is exactly the shape that drifts.
+    let withPrice = inRange.map((p) => ({ product: p, price: defaultPriceOf(p, rate) }));
 
     if (query.minPrice !== undefined) {
       withPrice = withPrice.filter((x) => x.price >= query.minPrice!);
@@ -392,7 +396,7 @@ export class ProductsService {
       const km = distanceByProduct.get(id);
       return [
         {
-          ...mapProduct(row),
+          ...mapProduct(row, rate),
           ...(km !== undefined
             ? { distanceKm: Math.round(km * 10) / 10, distanceLabel: formatDistanceKm(km) }
             : {}),
@@ -419,10 +423,13 @@ export class ProductsService {
    * which for a slugified product name is not guessing at all.
    */
   async getBySlug(slug: string): Promise<ReturnType<typeof mapProduct>> {
-    const product = await this.prisma.product.findUnique({ where: { slug }, include: PRODUCT_INCLUDE });
+    const [product, rate] = await Promise.all([
+      this.prisma.product.findUnique({ where: { slug }, include: PRODUCT_INCLUDE }),
+      this.settings.getCommissionRate(),
+    ]);
     if (!product || !isDirectlyResolvable(product.moderationStatus)) {
       throw new NotFoundException('Product not found');
     }
-    return mapProduct(product);
+    return mapProduct(product, rate);
   }
 }

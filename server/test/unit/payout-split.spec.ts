@@ -1,4 +1,4 @@
-import { computePayoutSplit } from '../../src/seller/payout-split';
+import { allocateClaimedGross, computePayoutSplit } from '../../src/seller/payout-split';
 
 /** Expected values computed by hand (docs/TESTS.md rule), never recorded from a run. */
 describe('computePayoutSplit', () => {
@@ -67,5 +67,39 @@ describe('computePayoutSplit', () => {
     expect(split.grossAmount).toBe(100.01);
     expect(split.commissionAmount).toBe(10);
     expect(split.amount).toBe(90.01);
+  });
+
+  it('enabled but nothing to pay out: the applied rate records as 0, same as a disabled era — never "we deducted at 10% and it came to nothing"', () => {
+    expect(computePayoutSplit(0, 10, true, 18)).toEqual({
+      amount: 0,
+      grossAmount: 0,
+      commissionAmount: 0,
+      commissionPct: 0,
+      gstAmount: 0,
+      gstPct: 0,
+    });
+  });
+});
+
+/** Expected values computed by hand (docs/TESTS.md rule), never recorded from a run. */
+describe('allocateClaimedGross', () => {
+  it('a fresh seller (nothing claimed yet) attributes nothing to either stream', () => {
+    expect(allocateClaimedGross(0, 5000)).toEqual({ marketplace: 0, legacy: 0 });
+  });
+
+  it('claimed total fits entirely inside marketplace gross ever earned: all of it is attributed to marketplace', () => {
+    // The conservative direction — assume as much of what was already
+    // paid out as could possibly be true was marketplace, so a
+    // marketplace line already settled under the old blended model can
+    // never be paid out a second time.
+    expect(allocateClaimedGross(3000, 5000)).toEqual({ marketplace: 3000, legacy: 0 });
+  });
+
+  it('claimed total exceeds marketplace gross ever earned: the excess is attributed to legacy', () => {
+    expect(allocateClaimedGross(8000, 5000)).toEqual({ marketplace: 5000, legacy: 3000 });
+  });
+
+  it('no marketplace gross has ever existed: the whole claimed total is legacy', () => {
+    expect(allocateClaimedGross(1200, 0)).toEqual({ marketplace: 0, legacy: 1200 });
   });
 });

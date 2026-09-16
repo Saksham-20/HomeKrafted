@@ -66,7 +66,7 @@ describe('order notifications', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     buyer = await createActor(h);
     // The buyer needs a phone for WhatsApp to be attemptable at all — a
     // channel with no contact info on file is skipped, not failed.

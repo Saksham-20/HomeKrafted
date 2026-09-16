@@ -2298,11 +2298,29 @@ model WeightOption {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   sku       String  @unique
   label     String
+  /// **The HomeKrafter's base price — their take-home, not what the buyer
+  /// pays** (2026-09-16, the markup commission model). The buyer-facing
+  /// figure is `base + commission + GST on the commission`, derived on
+  /// every read by `common/pricing/commission.ts` and never stored, so an
+  /// admin changing the rate reprices the catalogue with no backfill.
+  ///
+  /// Nothing may read this column and show it to a buyer. `mapProduct`
+  /// and `resolveCartLine` both take the rate as a **required** argument
+  /// for that reason: a call site nobody updated fails the build instead
+  /// of quietly under-charging.
   price     Decimal @db.Decimal(10, 2)
+  /// The struck-through "was" price, **also in base terms**, so the
+  /// discount a buyer sees is the same percentage the maker set. Marked
+  /// up by the same factor as `price` on the way out — marking up one and
+  /// not the other would change the advertised saving.
   mrp       Decimal @db.Decimal(10, 2)
   stock     Int     @default(0)
 
   @@index([productId])
+  /// The price-range filter and `most-loved` paging both read price off
+  /// the default option; `@@index([productId])` alone means every one of
+  /// those reads the row by product and sorts by hand.
+  @@index([productId, price])
 }
 
 model Cart {
@@ -2490,20 +2508,42 @@ model Order {
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId String?
-  product   Product? @relation(fields: [productId], references: [id])
-  sku       String?
-  hamperId  String?
-  hamper    Hamper?  @relation(fields: [hamperId], references: [id])
-  name      String
-  quantity  Int
-  price     Decimal  @db.Decimal(10, 2)
-  addressId String
-  address   Address  @relation(fields: [addressId], references: [id])
-  giftWrap  Boolean  @default(false)
+  id               String   @id @default(cuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String?
+  product          Product? @relation(fields: [productId], references: [id])
+  sku              String?
+  hamperId         String?
+  hamper           Hamper?  @relation(fields: [hamperId], references: [id])
+  name             String
+  quantity         Int
+  /// What the buyer was charged per unit — base **plus** commission and
+  /// the GST on it (2026-09-16). This is the figure that sums to
+  /// `Order.subtotal`; it is not what the maker earns.
+  price            Decimal  @db.Decimal(10, 2)
+  /// The maker's share of one unit, recorded at checkout.
+  ///
+  /// **A payout sums this column; it never re-derives the split.** The
+  /// rate is a setting an admin can change, and an order already placed
+  /// must not change what it earned when they do — the same reason M37
+  /// stores the split on `Payout` rather than recomputing it. NULL on
+  /// pre-2026-09-16 rows, which were charged under the deduction model;
+  /// `COALESCE("sellerAmount", "price")` reads those as fully payable,
+  /// which is what the listing form had already promised their makers.
+  sellerAmount     Decimal? @db.Decimal(10, 2)
+  /// Homekrafted's fee on one unit, as charged. 0 when the rate was off.
+  commissionAmount Decimal? @db.Decimal(10, 2)
+  /// GST on that fee. 0 when there was no fee to tax.
+  gstAmount        Decimal? @db.Decimal(10, 2)
+  /// The rates *applied* to this line — 0 when nothing was charged, never
+  /// the rate that happened to be configured. A row from a disabled era
+  /// must not read as a 0% business decision.
+  commissionPct    Decimal? @db.Decimal(5, 2)
+  gstPct           Decimal? @db.Decimal(5, 2)
+  addressId        String
+  address          Address  @relation(fields: [addressId], references: [id])
+  giftWrap         Boolean  @default(false)
 
   @@index([orderId])
   /// The hottest missing index in the schema. A HomeKrafter's orders are

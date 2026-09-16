@@ -42,7 +42,7 @@ describe('money paths under concurrency', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /** A HomeKrafter with exactly one delivered order behind them, so a payout is owed. */

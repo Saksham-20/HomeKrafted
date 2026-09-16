@@ -46,7 +46,7 @@ describe('the catalogue review queue', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
     kitchen = await createKitchen(h);
   });

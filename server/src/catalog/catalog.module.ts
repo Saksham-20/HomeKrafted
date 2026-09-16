@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MealsModule } from '../meals/meals.module';
+import { SettingsModule } from '../admin/settings.module';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { VendorsController } from './vendors.controller';
@@ -27,7 +28,11 @@ import { VendorAvailabilityService } from './vendor-availability.service';
   // to reach the meal deliveries already sold for that date. This is the
   // import direction that forced settings out of AdminModule (see
   // `admin/settings.module.ts`).
-  imports: [MealsModule],
+  // `SettingsModule` for the commission rate (2026-09-16). Stored
+  // catalogue prices are the maker's base, so every buyer-facing read
+  // here has to mark them up — the rate is not optional context, it is
+  // part of answering "what does this cost".
+  imports: [MealsModule, SettingsModule],
   controllers: [
     ProductsController,
     VendorsController,

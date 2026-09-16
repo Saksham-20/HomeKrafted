@@ -34,7 +34,7 @@ describe('meal plan capacity under concurrency', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   async function onePlanOneSeat() {

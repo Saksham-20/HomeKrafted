@@ -24,7 +24,7 @@ describe('seller application intake (M32)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   const valid = {

@@ -33,7 +33,7 @@ describe('admin-issued sign-in details (M32)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /** An approved HomeKrafter whose account has no password, as approval leaves it. */

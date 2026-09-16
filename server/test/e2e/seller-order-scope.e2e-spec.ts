@@ -35,7 +35,7 @@ describe('seller order scope + multi-vendor advance guard', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /** Two kitchens sharing one order, plus a solo order for kitchen A. */

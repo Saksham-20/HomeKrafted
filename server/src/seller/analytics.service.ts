@@ -66,14 +66,21 @@ function percentChange(current: number, previous: number): number | null {
  * nothing told them which item earns, which day is busy, or whether this
  * month is better than last.
  *
- * **Revenue here is the seller's line-item share, not the order total.**
- * A marketplace order can span several vendors, so attributing the whole
- * `Order.total` to each of them (which is what the admin GMV proxy does,
- * deliberately and with a comment saying so) would overstate a home
- * cook's earnings and disagree with what they are actually paid. Every
- * marketplace figure below sums `OrderItem.price * quantity` over that
- * vendor's own products. Snack orders and laundry bookings belong to one
- * seller outright, so those use their own totals.
+ * **Revenue here is the seller's line-item share, not the order total —
+ * and, since the markup commission model (2026-09-16), their earnings,
+ * not what the buyer paid.** A marketplace order can span several
+ * vendors, so attributing the whole `Order.total` to each of them (which
+ * is what the admin GMV proxy does, deliberately and with a comment
+ * saying so) would overstate a home cook's earnings and disagree with
+ * what they are actually paid. And `OrderItem.price` is now the
+ * buyer-facing figure with Homekrafted's fee already added — crediting
+ * this screen with it would overstate earnings a second way, by a
+ * platform fee the kitchen never receives. Every marketplace figure below
+ * sums `COALESCE(OrderItem.sellerAmount, OrderItem.price) * quantity`
+ * over that vendor's own products — `sellerAmount` on markup-model rows,
+ * `price` unmodified on pre-migration rows where it never carried a fee.
+ * Snack orders and laundry bookings belong to one seller outright and
+ * were never migrated to markup pricing, so those use their own totals.
  *
  * Everything is computed from rows on read. Nothing is stored — the same
  * rule the rest of M15/M16 follows.
@@ -217,7 +224,14 @@ export class SellerAnalyticsService {
         const mine = order.items.filter((i) => i.productId && productIds.includes(i.productId));
         let revenue = 0;
         for (const item of mine) {
-          const lineTotal = Number(item.price) * item.quantity;
+          // What the kitchen actually earns (2026-09-16) — `item.price` is
+          // the buyer-facing figure, fee included, since the markup
+          // commission model; `sellerAmount` is null only on pre-migration
+          // rows, where `price` carried no fee and is still the right
+          // number. Using the buyer-facing figure here would credit this
+          // dashboard's "earnings" with a platform fee the kitchen never
+          // receives.
+          const lineTotal = Number(item.sellerAmount ?? item.price) * item.quantity;
           revenue += lineTotal;
           unitsSold += item.quantity;
           const key = item.productId as string;

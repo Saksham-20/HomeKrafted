@@ -47,7 +47,7 @@ describe('order cancellation and returns', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     buyer = await createActor(h);
     const { vendor } = await createKitchen(h);
     const category = await createCategory(h);

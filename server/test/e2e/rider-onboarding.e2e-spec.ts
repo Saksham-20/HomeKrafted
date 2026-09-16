@@ -34,7 +34,7 @@ describe('rider onboarding (R1)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
   });
 
   /** A minimal, real JPEG — small enough to be fast, real enough to pass `sniffImage` and `processImage`. */

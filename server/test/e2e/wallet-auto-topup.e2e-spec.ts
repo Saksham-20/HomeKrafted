@@ -42,7 +42,7 @@ describe('Wallet auto top-up (disabled — must not credit)', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     buyer = await createActor(h, 'consumer');
     admin = await createActor(h, 'admin');
   });

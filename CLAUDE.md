@@ -130,21 +130,81 @@ assume is already handled.
   over by hand. `POST /admin/sellers/:id/resend-invite` re-sends and burns
   the previous link. Until the keys are set, **this still caps supply
   growth**; it is now one afternoon of config and nothing else.
-- **The commission engine exists; the switch is off (M37).**
-  `commissionEnabled` (PlatformSettings, default **false**, strict
-  `'true'` parse) decides whether a payout request deducts
-  `commissionPct`. The split is computed once at request time
-  (`server/src/seller/payout-split.ts`) and **stored on the row** —
-  `amount` stays the payable figure; `grossAmount`/`commissionAmount`/
-  `commissionPct` are its arithmetic, absent on pre-M37 rows where
-  `amount` was always gross. Pending balances subtract
-  `COALESCE(grossAmount, amount)` so flipping the flag never
-  double-counts. The rate rides on `GET /seller/me` (`commission:
-  { pct, enabled }`) — the listing form and payout screen compute from
-  it, **never a hardcoded percentage** — and every surface says
-  "estimate" while the flag is off. Flipping it is a business decision
-  (audited, on `/admin/settings`), not a bug fix — don't turn it on in
-  passing, and don't recalculate a payout already requested.
+- **Commission is a markup the buyer pays, not a deduction from the
+  seller (2026-09-16, reverses M37).** A HomeKrafter types the price
+  they want to receive; the buyer is charged that plus Homekrafted's fee
+  plus GST on the fee. `WeightOption.price`/`mrp` and
+  `MealPlan.pricePerMeal` are the maker's **base** — every buyer-facing
+  read marks it up on the fly (`server/src/common/pricing/commission.ts`
+  — `markUp`/`buyerPrice`/`markUpFactor`/`baseFromBuyerPrice`, all pure,
+  no clock, no database), and nothing stores a marked-up price. Reversed
+  because the listing form was rewritten to markup wording ("you receive
+  ₹100 → customer pays ₹120") on 2026-09-09 and the server did not move
+  with it for a week — a maker was promised ₹100, a buyer was charged
+  ₹100, and the payout paid ₹76.40 (M37's deduction still running
+  underneath). `commissionEnabled` (PlatformSettings, default **false**,
+  strict `'true'` parse) still gates whether the fee is charged at all —
+  off means the buyer pays exactly the base, safe to flip either
+  direction with nobody charged for something they were not shown.
+  **Production has had it on (20%, 18% GST) since 2026-09-05**, under the
+  old deduction model; `prisma/migrate-to-markup-prices.ts` is the
+  one-time, operator-run data pass that has to run at cutover — it
+  divides every stored price by the live markup factor so a buyer sees
+  the identical number immediately after, only the meaning of the column
+  changes. Read its own header before running it.
+  - **`mapProduct(product, rate)` vs `mapProductForMaker(product, rate)`**
+    (`catalog/mappers/product.mapper.ts`) — two named functions, not one
+    with a flag, because the failure mode of confusing them is
+    asymmetric: a maker shown a buyer price is confused, a buyer shown a
+    base price under-charges and the platform eats the fee. `mapProduct`
+    is every buyer surface (`/products`, `/gifts`, `/shop`, a storefront,
+    a cart line via `resolveCartLines`). `mapProductForMaker` is the two
+    surfaces that legitimately show a maker their own figure — the
+    seller's own listing read/write (`SellerListingsService`) and the
+    **admin edit form** (`AdminCatalogService.getById`/`create`/`update`,
+    feeding the shared `ListingForm`) — never the admin catalogue *list*,
+    whose "Preview card" renders `<ProductCard>` labelled "As a buyer
+    sees it" and therefore needs `mapProduct` like every other shopper
+    surface (`PaginatedCatalog`'s doc comment has the reasoning). `rate`
+    is a **required** argument on both — a call site nobody updated is a
+    compile error, not a silently wrong price.
+  - **An order records its own split, once, at checkout.** `OrderItem`
+    gained `sellerAmount`/`commissionAmount`/`gstAmount`/`commissionPct`/
+    `gstPct` (nullable) alongside the existing `price` (now the
+    buyer-charged figure). A rate change must never move money on an
+    order already placed, so a payout **sums `sellerAmount`**
+    (`COALESCE(sellerAmount, price)`), never re-derives the split against
+    whatever the rate happens to be on the day it's requested — the same
+    shape M37 gave `Payout` itself, one layer down.
+  - **A marketplace line is paid in full, always — never deducted at
+    payout.** The fee is either already collected from the buyer
+    (`sellerAmount` populated) or forgiven on transition
+    (`sellerAmount IS NULL`, a pre-migration row — "fully payable" is a
+    documented one-time rule, not a bug). `commissionEnabled` no longer
+    touches a marketplace payout at all. **Laundry (withdrawn) and
+    WhatsApp snack orders were never migrated to markup pricing** — still
+    typed at the maker's sticker price with no fee embedded — so
+    `computePayoutSplit`'s deduction still applies to that combined
+    "legacy" total exactly as it did before this model existed
+    (`SellerPayoutsService`, `payout-split.ts`).
+  - **Mixed-era gross tracking is an estimate, and it is safe in one
+    direction only.** No pre-2026-09-16 `Payout` row recorded a
+    marketplace/legacy split, so `allocateClaimedGross` (`payout-split.ts`)
+    attributes as much of a seller's already-claimed gross to marketplace
+    as could possibly be true — capped at the total marketplace gross
+    they have ever earned — which guarantees marketplace is never
+    double-paid. The estimate can only ever be wrong in the other
+    direction (a slight, self-correcting overstatement of the legacy
+    share), never toward paying out money twice.
+  - The rate rides on `GET /seller/me` (`commission: { pct, enabled,
+    gstPct }`) — the listing form and payout screen compute from it,
+    **never a hardcoded percentage**, and `client/lib/commission.ts`'s
+    `markupBreakdown` mirrors the server's arithmetic exactly (GST
+    included) for the live "customer pays ₹X" preview while typing a
+    price; absent/unloaded reads as **no fee**, never a guessed rate.
+    Flipping `commissionEnabled` is a business decision (audited, on
+    `/admin/settings`), not a bug fix — don't turn it on in passing, and
+    don't recalculate a payout already requested.
 - **The "Backed by" strip is unverified, and now carries the
   logos.** CUNA, ISB AIC and CGC-J VentureNest — `backedBy` in
   `lib/data/site.ts`, rendered by `components/about/AboutClient.tsx`
@@ -1629,9 +1689,14 @@ on every admin controller.
 `PUT /seller/discount` (its own route — `PATCH /seller/storefront` is bio,
 location and artwork; this changes the price of every listing at once).
 
-- **The kitchen funds it.** The percentage comes off what a buyer pays and
-  commission is computed on what was charged, so the HomeKrafter absorbs
-  all of it. The seller screen states that in rupees before the input. A
+- **The kitchen funds it.** The percentage comes off the HomeKrafter's own
+  base price, before the markup commission fee is added on top — so the
+  discount reaches the payout 1:1 (`product.mapper.ts`: "discount first,
+  then the fee", 2026-09-16) and the HomeKrafter absorbs all of it. A
+  side effect worth knowing: since the fee is a percentage of the
+  discounted base, Homekrafted's own commission on that line shrinks
+  during a sale too — never charged on the pre-discount figure. The
+  seller screen states the discount in rupees before the input. A
   platform-funded discount is a different feature with a budget attached —
   don't quietly turn this into one.
 - **`catalog/vendor-discount.ts` never reads the clock.** Every function

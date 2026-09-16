@@ -38,7 +38,7 @@ describe('Seller application — unresolvable areas are unapprovable', () => {
   });
 
   beforeEach(async () => {
-    await resetDatabase(h.prisma);
+    await resetDatabase(h);
     admin = await createActor(h, 'admin');
   });
 

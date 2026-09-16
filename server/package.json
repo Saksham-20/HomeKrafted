@@ -19,6 +19,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:rider-zones": "ts-node prisma/seed-rider-zones.ts",
+    "prisma:migrate-to-markup-prices": "ts-node prisma/migrate-to-markup-prices.ts",
     "prisma:studio": "prisma studio",
     "db:reset": "prisma migrate reset",
     "test": "jest",

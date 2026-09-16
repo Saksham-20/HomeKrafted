@@ -501,9 +501,13 @@ export class AdminSellersService {
       // order can span several kitchens, and crediting each with the whole
       // thing overstates what a home cook earned and disagrees with what
       // they are paid (`analytics.service.ts`, same rule). No status
-      // filter, matching that service.
+      // filter, matching that service. `sellerAmount` (2026-09-16) is what
+      // they actually earn under the markup model; `price` is its
+      // pre-migration fallback, where it never carried a fee — using the
+      // buyer-facing `price` alone would credit this figure with
+      // Homekrafted's own cut.
       this.prisma.$queryRaw<{ revenue: number | null }[]>`
-        SELECT COALESCE(SUM(oi."price" * oi."quantity"), 0)::float AS revenue
+        SELECT COALESCE(SUM(COALESCE(oi."sellerAmount", oi."price") * oi."quantity"), 0)::float AS revenue
         FROM "OrderItem" oi
         JOIN "Product" p ON p."id" = oi."productId"
         WHERE p."vendorId" = ${vendorId}
