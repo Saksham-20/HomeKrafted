@@ -114,6 +114,45 @@ export const CATEGORY_ICONS: Record<string, string> = {
   mugs: 'lucide:coffee',
   serveware: 'lucide:soup',
   'trays-and-coasters': 'lucide:square',
+
+  /*
+    The slugs production actually has (2026-09-16).
+
+    The entries above were written from the taxonomy in
+    GIFTING-REWORK §3; the live tree grew its own shorter slugs for the
+    same shelves before that plan existed — `flowers`, not
+    `flowers-and-plants`; `paintings`, not `original-paintings`. Running
+    the seed matched 19 of 57 rows and left two live *departments*
+    drawing the fallback, which is the one thing the icon system is
+    supposed to stop. Both spellings stay: a slug is never re-derived
+    (the M58 rule), so the old ones are still what a renamed shelf would
+    carry.
+
+    Only shelves whose subject is unambiguous are listed. `textiles`,
+    `dry-fruits` and the recipient/cuisine trees are deliberately absent
+    — a wrong mark is worse than the honest wrapped gift, and an admin
+    picks one on /admin/catalog/categories.
+  */
+  crochet: 'lucide-lab:yarn-ball',
+  'handmade-gifts': 'craft:gift',
+  'festive-gifts': 'lucide:sparkles',
+  flowers: 'craft:flowers',
+  'scented-candles': 'craft:candles',
+  ceramics: 'craft:home-decor',
+  necklaces: 'hugeicons:necklace',
+  bracelets: 'lucide:link',
+  paintings: 'lucide:palette',
+  'custom-prints': 'lucide:printer',
+  engraved: 'craft:personalised',
+  'name-and-initial': 'craft:personalised',
+  'sweets-ladoos': 'lucide:candy',
+  desserts: 'lucide:cake',
+  'cakes-and-desserts': 'lucide:cake',
+  breakfast: 'lucide:croissant',
+  'snacks-and-namkeen': 'lucide:popcorn',
+  'street-food': 'lucide:popcorn',
+  'lunch-and-dinner': 'lucide:utensils',
+  combos: 'lucide:package',
 };
 
 async function main() {
