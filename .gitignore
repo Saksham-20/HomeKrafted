@@ -98,6 +98,11 @@ client/.design-sync/ds-styles.css
 # Local dev upload store (see UPLOAD_DIR in server/.env)
 server/.uploads/
 
+# Local dev KYC store (see RIDER_KYC_DIR in server/.env, R1). Never the
+# public upload path — a rider's Aadhaar/DL/PAN photos are streamed only
+# to an admin, never served by nginx or committed here.
+server/.private/
+
 # UI/UX review evidence (2026-09) — screenshots of the running build at two
 # viewports in all four roles, plus the images extracted from the client's
 # change document. Local only, for the same two reasons the entries above

@@ -17,6 +17,8 @@ export interface ProductGridCardProps {
   href: string;
   /** Forwarded to `ProductCard` — first card of an above-the-fold grid only. */
   priority?: boolean;
+  /** One line of fact under the title — see `ProductCard`. */
+  factLine?: string | null;
   className?: string;
 }
 
@@ -34,7 +36,7 @@ export interface ProductGridCardProps {
  * stock and the first size that is otherwise; a listing with no size in
  * stock renders "Sold out" instead of a button.
  */
-export function ProductGridCard({ product, makerName, href, priority, className }: ProductGridCardProps) {
+export function ProductGridCard({ product, makerName, href, priority, factLine, className }: ProductGridCardProps) {
   const { addItem } = useCart();
   const foodOrdersOpen = useFoodOrdersOpen();
   const foodClosed = product.kind === "food" && foodOrdersOpen === false;
@@ -70,6 +72,7 @@ export function ProductGridCard({ product, makerName, href, priority, className 
       product={product}
       makerName={makerName}
       priority={priority}
+      factLine={factLine}
       className={className}
       // `href`, not `router.push` (M22). The card is now a real link, so
       // it can be opened in a new tab and — the actual defect — activated

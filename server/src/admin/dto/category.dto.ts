@@ -1,4 +1,5 @@
-import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 import { ProductKind } from '@prisma/client';
 
 const GROUPS = Object.values(ProductKind);
@@ -60,4 +61,41 @@ export class UpdateCategoryDto {
   @IsInt()
   @Min(0)
   sortOrder?: number;
+
+  /**
+   * G1 — the committed icon id this shelf renders with
+   * (`client/lib/icons/registry.ts`). A blank clears it back to the
+   * wrapped-gift fallback. It is a column rather than a slug-to-icon map
+   * in code, which is what left 17 of 26 live tiles on the same basket.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  icon?: string | null;
+
+  /** G1 — one buyer-facing sentence, also the grounding text for a later suggestion. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  description?: string | null;
+
+  /** G1 — other words for this shelf: "achaar", "kada", "diya". */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(40, { each: true })
+  synonyms?: string[];
+}
+
+/** G1 — retire a shelf without deleting it; every existing link keeps resolving. */
+export class ArchiveCategoryDto {
+  @BooleanField()
+  archived!: boolean;
+}
+
+/** G1 — fold one shelf into another (the live "Home Décor"/"Home Decor" pair). */
+export class MergeCategoryDto {
+  @IsString()
+  @MinLength(1)
+  intoId!: string;
 }

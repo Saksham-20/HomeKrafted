@@ -2,7 +2,7 @@ import type { MouseEvent } from "react";
 import Link from "next/link";
 import clsx from "clsx";
 import { Clock } from "lucide-react";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { CardPhotos } from "./CardPhotos";
 import { Tag } from "./Tag";
 import { DietDot } from "./DietDot";
 import { formatCurrency } from "@/lib/format";
@@ -30,6 +30,16 @@ export interface ProductCardProps {
    * component doc). A card with no destination is not clickable.
    */
   href?: string;
+  /**
+   * One line of fact under the title, from real columns (G3 §5.1).
+   *
+   * Built by `lib/gift/fact-line.ts`, which answers `null` far more often
+   * than it answers a sentence — that is the point. This slot is where
+   * `/gifts` used to carry "Authentic" and a size label reading "One", and
+   * the 2026-09-14 sweep deleted that family for claiming what no column
+   * said. A card with nothing answered renders nothing here.
+   */
+  factLine?: string | null;
   wishlisted?: boolean;
   onToggleWishlist?: () => void;
   added?: boolean;
@@ -94,6 +104,17 @@ function stop(event: MouseEvent) {
  * variant removes the finding outright rather than working around it, and
  * closes the door on a second surface adopting the shape.
  */
+/**
+ * The size label a listing gets when nobody named a size: "One" (the guided
+ * form's `DEFAULT_SIZE_LABEL`) in any case, or "One · Mint, Silver" where the
+ * colour swatches were merged onto it. Only the size half is a placeholder;
+ * the colours are real, but the card has no room to say them well and the
+ * product page does.
+ */
+function isPlaceholderSize(label: string): boolean {
+  return label.split("·")[0].trim().toLowerCase() === "one";
+}
+
 function isRecentlyCreated(product: Product): boolean {
   const dateStr = product.createdAt ?? product.submittedAt ?? product.moderatedAt;
   if (!dateStr) return false;
@@ -137,6 +158,7 @@ export function ProductCard({
   product,
   makerName,
   href,
+  factLine = null,
   wishlisted = false,
   onToggleWishlist,
   added = false,
@@ -150,27 +172,43 @@ export function ProductCard({
   const weight =
     product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ??
     product.weightOptions[0];
-  const image = product.images[0];
   const tag = resolveMerchandisingBadge(product, soldOut);
   const diet = dietOf(product);
   const preOrder = preOrderLabel(product);
+  /*
+    The line under the name says only what a column records.
+
+    No reviews is not a rating of zero: every craft listing used to show
+    "★ 0.0 (0)", the worst possible score on its first day (M16's
+    `cancellationRate` rule — absence gets said as absence).
+
+    Two fallbacks are gone (2026-09-16, docs/GIFTING-REWORK.md B7).
+    "Authentic" was printed on every unreviewed listing older than a month,
+    a claim nothing records (the 2026-09-14 trust rule). And a size label
+    of "One" — the guided form's default, 65 of 86 live gifts — told a
+    buyer nothing, so a single-size listing prints no size at all.
+  */
+  const reviewPart =
+    product.reviewCount > 0
+      ? `★ ${product.rating.toFixed(1)} (${product.reviewCount})`
+      : isRecentlyCreated(product) && !soldOut
+        ? "New"
+        : null;
+  const sizePart = weight && !isPlaceholderSize(weight.label) ? weight.label : null;
+  const metaLine = [reviewPart, sizePart].filter(Boolean).join(" · ");
   return (
     <div
       className={clsx(styles.card, href && styles.clickable, className)}
       data-testid="product-card"
     >
       <div className={styles.imageWrap}>
-        <ImageSlot
-          ratio="1/1"
-          label={image?.placeholder ?? product.name}
-          // The product's name, not the placeholder caption — a screen
-          // reader hearing "MANGO THOKKU — HERO" has been read a filename.
-          alt={product.name}
-          src={image?.src}
-          sizes="(max-width: 640px) 45vw, (max-width: 1180px) 30vw, 260px"
-          priority={priority}
-          compact
-        />
+        {/*
+          The photographs, with arrows when the maker uploaded more than
+          one. `alt` is the product's name, not the placeholder caption —
+          a screen reader hearing "MANGO THOKKU — HERO" has been read a
+          filename.
+        */}
+        <CardPhotos images={product.images} name={product.name} priority={priority} />
         {tag && <Tag label={tag} className={styles.tag} />}
         {/*
           "Pre-order · 2 days" (2026-09-05, owner). On the photograph
@@ -231,24 +269,8 @@ export function ProductCard({
             product.name
           )}
         </span>
-        <span className={styles.meta}>
-          {/*
-            No reviews is not a rating of zero. Every craft listing showed
-            "★ 0.0 (0)", which reads as "rated zero out of five" for a maker
-            nobody has reviewed yet — the worst possible score, shown to
-            every listing on its first day. Same rule as M16's
-            `cancellationRate`, which is `null` rather than `0` before
-            anything has closed: absence gets said as absence.
-          */}
-          {product.reviewCount > 0 ? (
-            `★ ${product.rating.toFixed(1)} (${product.reviewCount})`
-          ) : isRecentlyCreated(product) && !soldOut ? (
-            "New"
-          ) : (
-            "Authentic"
-          )}
-          {weight ? ` · ${weight.label}` : null}
-        </span>
+        {metaLine && <span className={styles.meta}>{metaLine}</span>}
+        {factLine && <span className={styles.factLine}>{factLine}</span>}
         <div className={styles.priceRow}>
           {/*
             M46 — three prices exist on a discounted listing and only two

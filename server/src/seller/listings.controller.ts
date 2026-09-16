@@ -4,6 +4,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { RequestUser } from '../common/types/jwt-payload.type';
 import { SellerService } from './seller.service';
 import { SellerListingsService } from './listings.service';
+import { AttributesService } from '../catalog/attributes.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { SetAvailabilityDto } from './dto/set-availability.dto';
@@ -21,7 +22,29 @@ export class SellerListingsController {
   constructor(
     private readonly sellerService: SellerService,
     private readonly listingsService: SellerListingsService,
+    private readonly attributes: AttributesService,
   ) {}
+
+  /**
+   * G1 — what this shelf asks, so the form can draw it
+   * (docs/GIFTING-REWORK.md §4).
+   *
+   * **The same rows the server validates against**, which is the whole
+   * point: until now the question set lived in the client alone
+   * (`listing-families.ts`), so nothing could refuse a wrong answer and
+   * the two had already drifted — five live craft shelves appeared in no
+   * family at all, and thirty bangle listings were asked the generic set.
+   *
+   * It is on the seller controller rather than a public one because it is
+   * a form's schema, and a form is something a signed-in HomeKrafter
+   * fills; the buyer-facing shape of the same data is
+   * `GET /catalog/facets`.
+   */
+  @Get('schema/:categoryId')
+  async schema(@CurrentUser() user: RequestUser, @Param('categoryId') categoryId: string) {
+    await this.sellerService.resolveHomeKrafter(user);
+    return this.attributes.listingSchema(categoryId);
+  }
 
   @Get()
   async list(@CurrentUser() user: RequestUser) {

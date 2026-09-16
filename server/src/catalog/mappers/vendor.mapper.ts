@@ -109,11 +109,24 @@ export function mapCategory(category: {
   group?: 'food' | 'craft';
   sortOrder?: number;
   parentId?: string | null;
+  icon?: string | null;
+  description?: string | null;
 }) {
   return {
     id: category.id,
     slug: category.slug,
     name: category.name,
+    /**
+     * G1/G3 — the mark this shelf draws with, and the sentence under its
+     * heading. Both were columns with no reader: `Category.icon` shipped
+     * with G1 and nothing returned it, so every chip and tile on the
+     * browse pages fell back to the wrapped gift however carefully an
+     * admin had chosen. That is the same "a column with no reader is the
+     * same bug as a column with no writer" note the `group` field below
+     * already carries — twice in one mapper.
+     */
+    icon: category.icon ?? null,
+    description: category.description ?? null,
     imagePlaceholder: category.imagePlaceholder,
     imageSrc: category.imageSrc ?? undefined,
     productCount: category.productCount,

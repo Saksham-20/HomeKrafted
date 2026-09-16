@@ -6,7 +6,11 @@
    remains law — this file is purely additive, imported once immediately
    AFTER `globals.css` in `app/layout.tsx` so these vars are available
    everywhere `--hk-*` tokens are. Do not add values here that already have
-   a home in tokens.css — this is only for the recurring gaps below. */
+   a home in tokens.css — this is only for the recurring gaps below.
+
+   It overrides `tokens.css` in exactly THREE places, each documented at
+   its own name: `--hk-muted`/`--hk-muted-2` (contrast), `--hk-dur`
+   (motion), and `--hk-font-body` (the Hanken Grotesk swap). */
 
 :root {
   /* ---- On-solid-pine text ----
@@ -121,6 +125,31 @@
      (the family/weight rules stay per-module), so a page that genuinely
      needs to differ says so in one line next to this name. */
   --hk-page-title: clamp(30px, 3.4vw, 40px);
+
+  /* ---- The body face (2026-09-16 — the THIRD override of tokens.css) ----
+     `tokens.css` ships `--hk-font-body: 'IBM Plex Sans', system-ui,
+     sans-serif`. DESIGN.md's approved type direction replaces it with
+     Hanken Grotesk: the same neutrality with warmer counters, where Plex
+     Sans is IBM's corporate UI voice and reads as institutional SaaS.
+     `tokens.css` is still untouched and still law; reverting is deleting
+     this one line.
+
+     **It is here rather than in `globals.css` because of the app.**
+     `mobile/ npm run theme` generates the native type scale from
+     `tokens.css` + this file and nothing else — it never sees the
+     `globals.css` next/font bridge. Declaring the swap only there would
+     have left the web on Hanken Grotesk and both native apps on Plex
+     Sans, from one file that says the site has one body face.
+
+     Hence the shape of the value, which is doing two jobs. The browser
+     resolves `var(--font-hanken)` to the family next/font registered
+     (a hashed name, never the literal). The theme generator reads the
+     first **quoted** name out of the stack, so the literal
+     `'Hanken Grotesk'` is what tells it to register
+     `HankenGrotesk_400Regular`/`_500Medium`/`_600SemiBold` — the names
+     `@expo-google-fonts/hanken-grotesk` exports. Change one and change
+     the other, or the two halves of the product drift apart in silence. */
+  --hk-font-body: var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif;
 
   /* ---- Brand Vibrancy & High-Contrast Accents (2026-09-10) ----
      Introduces warm saffron and spiced terracotta to provide clear visual

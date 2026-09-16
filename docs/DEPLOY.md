@@ -497,6 +497,46 @@ wired and tested; none of it leaves the box until `WHATSAPP_*` and
 `pm2 logs homekrafted-api` as `[WHATSAPP STUB]` / `[EMAIL STUB]` lines —
 which is also where to look to confirm the fan-out is firing.
 
+### Rider fleet (R1–R3, `docs/RIDER-APP.md`)
+
+Own-fleet delivery for the Chandigarh tricity — a separate thing from
+Shadowfax above: this is Homekrafted's own riders, dispatched from
+`DispatchService`'s offer loop, not a third-party courier booking.
+
+| Variable | Notes |
+|---|---|
+| `RIDER_KYC_DIR` | Where a rider's Aadhaar/DL/PAN photos land — a directory nginx never serves. Production **must** point this outside the git clone (same reasoning as `UPLOAD_DIR`); the dev default `./.private/rider-kyc` sits inside the clone for convenience only. Default in production: `/var/lib/homekrafted/private/rider-kyc`. |
+| `RIDER_DISPATCH_ENABLED` | Master switch for the 5s offer tick (D6). `false` (the default) = the dispatcher never runs and no rider is ever offered a job — `POST /admin/deliveries` (manual despatch) still works regardless, so a job can be created and hand-assigned (`POST /admin/deliveries/:id/reassign`) before this is ever turned on. |
+
+**R3's cash & payout numbers are `PlatformSetting` rows, not env vars** —
+same mechanism as the pay-table knobs (`rider.basePay` etc., R2), so
+there is no restart to change one. Missing rows fall back to the R1/R2
+defaults. One new key: `rider.companyUpiId` (string, no default — unset
+means `null`, and `GET /rider/cash` hands that straight to the app, which
+hides the deposit-pay button and says "Ask support how to deposit"
+instead of rendering a placeholder VPA nobody should pay). **Set it
+before telling any rider to use the deposit flow** — there is deliberately
+no fallback address.
+
+**Seed the launch zones before turning dispatch on** — an `unassigned`
+job with no `DeliveryZone` covering it, or no rider whose `homeZoneId`
+matches, will never be offered to anyone:
+
+```bash
+cd server
+npx ts-node prisma/seed-rider-zones.ts   # or: npm run prisma:seed:rider-zones
+```
+
+Additive and idempotent by zone name — safe to re-run, and it never
+touches a radius or centre an admin has since edited on
+`/admin/riders/zones`.
+
+**Nothing here is safe to turn on until riders exist.** `RIDER_DISPATCH_ENABLED=true`
+with zero `approved` riders online is harmless (the tick finds nothing to
+offer) but also invisible — a real deployment sequence is: seed zones →
+onboard and approve at least one rider → confirm they can go online
+(`POST /rider/duty`) → only then flip the switch.
+
 ## Demo-content seeders — the four that are safe on production
 
 `server/prisma/seed.ts` **clears every table it owns** before re-inserting.

@@ -154,6 +154,14 @@ export interface AppConfig {
      * disposable.
      */
     kycDir: string;
+    /**
+     * R2's master switch for `DispatchService`. Off by default — booking
+     * happens via the offer/accept loop only once the rider app is real
+     * traffic; until then `POST /admin/deliveries` still works by hand
+     * (it does not read this flag), same split `shadowfax.enabled` draws
+     * between manual despatch and the automatic poll.
+     */
+    dispatchEnabled: boolean;
   };
 }
 
@@ -289,5 +297,10 @@ export default (): AppConfig => ({
   },
   rider: {
     kycDir: process.env.RIDER_KYC_DIR ?? './.private/rider-kyc',
+    // R2's master switch, same shape as `shadowfax.enabled`: off by
+    // default, so `DispatchService`'s `onModuleInit` never starts its
+    // `setInterval` and no offer is ever created — a deployment with the
+    // rider app not yet live must not start pinging anyone.
+    dispatchEnabled: (process.env.RIDER_DISPATCH_ENABLED ?? '').trim() === 'true',
   },
 });

@@ -21,7 +21,16 @@ export type UploadPurpose =
   | "application"
   | "collection"
   /** A shopper's own profile picture (2026-09-04) — mirrors the server's closed set. */
-  | "profile";
+  | "profile"
+  /**
+   * R2 (docs/RIDER-APP.md) — a rider's delivery-proof photo (pickup,
+   * drop, failed attempt) and a HomeKrafter's parcel handover shot. Not
+   * used by any `client/` screen today (the rider app is `rider/`, a
+   * separate package that does not compile this file) — added here only
+   * to keep this union matching the server's closed set, per this file's
+   * own rule above.
+   */
+  | "delivery";
 
 export interface UploadedImage {
   /** What to persist and render. Relative (`/uploads/...`) on local-disk storage, absolute once a CDN driver is in use. */

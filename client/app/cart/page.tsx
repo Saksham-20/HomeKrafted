@@ -1,19 +1,18 @@
-import type { Metadata } from "next";
-import { CartPageClient } from "@/components/cart/CartPageClient";
+import { redirect } from "next/navigation";
 
 /**
- * Never indexable: a cart is per-visitor and has no content to rank.
- * `robots.ts` disallows the path too — this is the belt to that braces,
- * for a crawler arriving from an external link rather than by crawling.
+ * `/cart` is `/checkout` now (owner, 2026-09-16).
  *
- * Server wrapper only, so this file can export `metadata` at all — the
- * screen itself is `"use client"` (see `CartPageClient`).
+ * The two pages listed the same lines, and the cart's only unique job was
+ * a button to the other one — a page load that asked for a decision and
+ * gave nothing back. The basket is the first section of checkout now,
+ * editable in place, so nothing is lost by arriving there directly.
+ *
+ * **A redirect, not a deletion.** `/cart` is in shared links, in the
+ * header's basket icon on older cached pages, and in anything a buyer
+ * bookmarked; a 404 there would read as a lost basket, which is the exact
+ * fear this path is attached to.
  */
-export const metadata: Metadata = {
-  title: "Your cart",
-  robots: { index: false, follow: false },
-};
-
 export default function CartPage() {
-  return <CartPageClient />;
+  redirect("/checkout");
 }

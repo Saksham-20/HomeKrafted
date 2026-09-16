@@ -1,5 +1,725 @@
 # Changelog
 
+## 2026-09-16 — One checkout, marks instead of photos, and a gift that stopped calling itself a kitchen
+
+Owner session over the G3 surfaces. Five of these are defects found in the
+running product, not in review.
+
+**"Mr Bean Teddy comes as kitchen."** A crocheted soft toy told buyers
+"Tricity delivery in 2–4 hours", "Fresh batch prepared daily" and, on a
+pincode outside the tricity, "Kitchen delivers within 15 km". Every one of
+those read `shippingScope` without looking at `kind`, and `local` is the
+value **every craft listed before the 2026-09-15 "a gift is always
+national" rule still carries** — so this was most of the gifts catalogue,
+not one row. `lib/product/delivery-copy.ts` branches on `kind` first: a
+craft posts, full stop, and only food gets a kitchen's language. It also
+stops reading a gift's `prepTimeMins` as minutes, which had been rendering
+"(10080 mins notice)" for something made over a week.
+
+**An approved listing that never appeared.** FuzzBall Factory's crochet
+porcupine was `active`, `craft`, in stock and absent from `/gifts`. It is
+**paused** — `isAvailable=false`, the maker's own "am I making this today"
+switch — which is working as designed and is a data fix, not a code one.
+What the hunt turned up is that `GET /vendors/:slug/products` filtered on
+`PUBLICLY_LISTED` **only**, so a paused listing vanished from browse and
+stayed on its own maker's storefront, openable and addable to a basket.
+CLAUDE.md's rule is that a buyer needs both switches to pass; that query
+was applying one.
+
+**Cart and checkout are one page.** `/cart` listed the same lines as
+checkout and its only unique job was a button to the other one. The basket
+is now step 1 of `/checkout`, editable in place, and `/cart` redirects —
+a redirect and not a deletion, because that path is in shared links and
+the basket icon, and a 404 there reads as a lost basket. The old read-only
+"Review items" step became "Delivery date", which is the part that was
+genuinely per-shipment.
+
+**Browse spreads the makers.** The ask was "i dont want that all first 10
+products should be of same krafter". `spreadByMaker` is a round-robin over
+the ranked list, not a shuffle: a shuffle would disagree between the server
+and the browser (React #418), repeat a listing across pages, and show a
+shared link something else. Ranking still picks *which* of a maker's gifts
+leads; it just cannot own the first screenful. Default sort only — an
+explicit price sort has to actually ascend.
+
+**Categories draw marks, never photographs** (reversing G3 §5.1.3). A
+listing's photo standing in for a whole shelf goes stale the moment that
+listing sells, and shelves with no usable picture left the row half-built.
+This immediately exposed the failure the registry exists to prevent, from
+the other end: `mapCategory` **never returned `Category.icon`**, so every
+chip fell back to the wrapped gift however carefully an admin had chosen
+one — a column with no reader, the same bug that mapper's own `group`
+comment already describes. `prisma/seed-category-icons.ts` fills a
+starting mark for 70-odd known shelves, additive and idempotent, never
+overwriting a choice (the `seed-avatars.ts` contract).
+
+**"Pick your area" takes a pincode, not a list of sectors.** It was a
+native `<select>` of twenty-one hand-written tricity areas, which opened
+over the dialog it belonged to and had to be scrolled — and as *data* it
+could only ever answer for the launch city, so somebody in Faridabad had
+no way to say where they were. That is M36's waitlist bug on the buyer
+side. `GET /pincodes/:pincode` now returns the centroid, which is the one
+thing those coordinates are good for: M36 forbids writing them onto
+`Vendor.lat`/`lng` because a 12 km error hides a real storefront from its
+own neighbourhood, while a buyer's position only orders the grid and is
+never a gate.
+
+**Product cards carry arrows** when a maker uploaded more than one photo.
+They sit above the card's stretched link and stop the event, or an arrow
+navigates instead of advancing; they are real buttons, so a keyboard
+reaches them; and they are not rendered at all for a single photo.
+
+Tests: 703 client (58 suites).
+
+## 2026-09-16 — G3: the gifts page, and an icon vocabulary
+
+`docs/GIFTING-REWORK.md` §5–§6, built on G1's taxonomy. The page now opens
+on the departments a buyer can actually shop, and every mark on it is a
+choice an admin made rather than a slug somebody mapped in code.
+
+**Icons are a committed catalogue, not a runtime fetch.**
+`scripts/build-icons.mjs` pulls 45 bodies out of `@iconify-json/{lucide,
+lucide-lab,hugeicons}` at build time, normalises them to one 1.5px stroke,
+and writes `lib/icons/icon-bodies.generated.ts` — 4.9 KB gzipped, nothing
+fetched at build or request time, no attribution owed (ISC/MIT).
+`@iconify/react` was the three-line version and is the wrong shape here: it
+asks `api.iconify.design` for icon data at runtime, which is a third-party
+host on the request path (`images.remotePatterns` is empty on purpose), and
+it is a client component that renders an empty span until it mounts.
+`components/ui/Icon.tsx` has no hooks and no browser APIs, so from a Server
+Component it costs the browser nothing.
+
+**Two vocabularies, one per level.** Department tiles keep the hand-drawn
+two-tone pine-and-gold marks (M33) — **six new ones**, because the gift
+taxonomy has ten departments and that file was drawn for four craft
+categories, so six tiles would have fallen back to the wrapped gift. The
+first pass at three of them was wrong in a way only rendering shows: the
+yarn ball with two ears read as a cat, or to a second look a cartoon bomb.
+It is a bear's head now. Subcategory chips, filter rows and attribute
+options take monoline icons.
+
+**`Category.icon` is picked, never derived.** A slug→icon map in code only
+covers the shelves that existed the day it was written — which is how
+seventeen tiles ended up on one basket emoji — so the id is a stored value
+an admin chooses from `lib/icons/registry.ts` on
+`/admin/catalog/categories`, and a shelf minted next week gets a mark with
+no deploy. That editor asked an operator to **type** the id until this
+milestone; it is a grouped picker with a live preview now, because the
+failure mode of the text box was silent (an unrecognised id falls back and
+looks like a shelf nobody got round to). `icon-registry.spec.ts` fails the
+build when the registry and the generated file disagree in either
+direction, when a `craft:` id has no art, and on any body carrying
+`<script`, an `href`, an `xlink:`, an inline handler or a hardcoded hex —
+`Icon` writes these through `dangerouslySetInnerHTML`, which is safe only
+because the input is a committed build-time constant.
+
+**Emoji have left the browse pages.** `lib/category-emoji.ts` is deleted;
+`/shop`'s chips draw the same `<Icon>`. An emoji renders differently on
+every OS, and the fallback basket was the page's one AI-slop tell.
+
+**The `/gifts` page is the departments now.** The photo wash is gone — a
+decorative gradient sized at a third of the viewport, so on a page whose
+entire job is to show handmade objects, the objects started below the fold.
+The photograph moved into the department tiles, where each face is **a real
+listing's own photograph** chosen server-side, with the department's mark as
+a corner badge. Only departments with something live are drawn (D2): the
+tiles this replaces had 18 of 26 dimmed and disabled, so most of the control
+was dead controls. Choosing one discloses its subcategory chips rather than
+navigating — the buyer's side of the listing form's own rule.
+
+**A sentence, not a wall of pills.** "A gift for **anyone** for **any
+occasion** under **any budget**" — and those three selects *are* the
+recipient, occasion and price controls, with deliberately no second pill for
+any of them, because two controls for one filter is how a page ends up
+disagreeing with itself. Native `<select>`, for the same reason `SortSelect`
+is: the platform's own picker beats anything we would write for eight
+options. Recipient is the one control that reloads, because it is a G1
+attribute answer and `mapProduct` does not carry attribute values onto a
+card — there is nothing client-side to match it against.
+
+**The card states a fact or says nothing.** `lib/gift/fact-line.ts` reads
+`fulfilment`, `prepTimeMins` and `isPersonalisable` and returns `null` far
+more often than a sentence — a missing `fulfilment` is never read as "ready
+to ship", which would be the platform promising a dispatch date on a maker's
+behalf. It is the slot that used to carry "Authentic" and a size label
+reading "One". A prep time under a day prints no number: "Made to order · 3
+hours" on a handmade object reads as a mistake.
+
+Also: the grid is **4 across at 1440** (it was 6, which on 1352px of
+container is a ~210px card — too small to judge the one thing the grid
+exists to let somebody judge); a sticky translucent toolbar with a solid
+fallback under `prefers-reduced-transparency`; Dispatch and Personalisable
+facets, both reading G1 columns now carried by `mapProduct`; a "Coming up"
+strip whose countdown is computed server-side and shipped as text (the M12
+React #418 rule); and the "Picks" facet is gone, its one real value kept as
+"On sale".
+
+Found by rendering rather than review: `auto-fit` collapsed the empty tracks
+and stretched a two-department catalogue into two wide bars (`auto-fill`
+holds the tile size), and the Coming-up strip linked at `/occasions/:slug`,
+which 404s — occasions live at `/collections/:slug`.
+
+**`/gifts` now makes six API calls per render** (products, categories,
+departments, facets, occasions, vendors) against a 120-request-per-minute
+throttle. One visitor is fine; a crawler or a sweep is not, and §5.4's move
+of filtering to the server is where that gets resolved.
+
+**A refinement pass over the built page** (apple-design + impeccable) found
+four things worth recording. **Every corner on the new surfaces was
+square**: the CSS referenced `--hk-r1/r2/r3` and `--hk-shadow-1`, none of
+which exist — the real names are `--hk-r-sm/md/lg/xl/pill` and
+`--hk-shadow-card`, and an undefined custom property fails to nothing
+rather than loudly. The toolbar and the tiles declared **elevation twice**
+(a 1px border under a soft shadow is the ghost card), so each now states
+itself once — the toolbar with its border and blur, the tile with its
+border and a surface change on hover. The finder sentence wrapped as
+"A gift for [anyone] for" / "[any occasion] under [any budget]" at 390px,
+stranding a preposition at the end of a line pointing at nothing; a clause
+is now a word and the blank it governs, unbreakable, so it wraps to the
+three lines §5.1.2 asks for. And a department tile's name and its count
+were the two ends of a three-column row, so a wrapped name pushed its own
+count to the far edge — they are one stacked group now, since proximity is
+what says they belong together.
+
+`.hk-wonk` is applied to the `/gifts` `<h1>`, which is the decision
+DESIGN.md deferred to this milestone, with `letter-spacing: -0.02em`
+because Fraunces reads loose at 40px. The caret is themed site-wide: it
+shipped as a stock blue bar in a pine-and-gold form, which is a browser
+surface belonging to no design system.
+
+Tests: 677 client tests (57 suites), 143 of them the new icon registry scan.
+
+## 2026-09-16 — G1: the gift taxonomy, and what a shelf asks
+
+`docs/GIFTING-REWORK.md` §3–§4, the server half. All additive: every new
+column is nullable or defaulted and every new table starts empty, so a live
+catalogue is unchanged until the seeds run and an admin fills them.
+
+**What a shelf asks is data now, not code.** Four tables —
+`AttributeDefinition` → `AttributeOption` → `CategoryAttribute` →
+`ProductAttributeValue` — replace `client/lib/sell/listing-families.ts`,
+a hardcoded slug map that had already drifted from the database: five live
+craft shelves appeared in no family, so thirty bangle listings were asked
+the generic question set, and the server knew nothing of families at all
+and so could not refuse a wrong answer. Rows rather than a JSONB column,
+because a facet count is a `GROUP BY optionId`, an option's label can be
+renamed without rewriting every listing that chose it, and "did this edit
+change something material" is a set comparison. Counts are computed from
+rows, never incremented (M15).
+
+**The server validates, and a refusal is a sentence.**
+`catalog/attribute-values.ts` is pure and the client mirrors it more
+loosely, the identifier-parser direction. A missing required answer or an
+unknown option is a 400 with `problems: [{ field, message }]`; an answer to
+a question the shelf does *not* ask is dropped rather than refused, so
+moving a listing between departments does not meet a wall of errors and a
+client built before an admin edited the question set keeps working. Two
+flags carry rules: `trustSensitive` (allergens, nickel-free, vegan, age
+suitability, 925 silver) is **never filled in by a machine**, and `material`
+is M22's material change per attribute — editing the metal a bangle is made
+of re-queues a live listing; changing a colour swatch does not.
+
+**Absence is still not an answer.** No row for "metal" matches no metal
+filter and is never read as "none of them". A facet is offered only once
+half the listings in view have answered it, and `GET /catalog/facets`
+returns `unanswered` so the sheet can say "12 listings haven't said" — a
+buyer cannot otherwise tell "none match" from "nobody was asked".
+
+**Three endpoints.** `GET /catalog/departments` returns only departments
+with something live on them (D2 — 18 of 26 live tiles were dimmed and
+disabled, so the dead controls were most of the control), each faced with a
+real listing's photograph, never stock or generated imagery.
+`GET /catalog/facets` takes the **same query** `GET /products` takes and
+builds its `where` from the same function, because a facet count computed
+from a different filter than the grid is a number that disagrees with the
+page under it. `GET /seller/listings/schema/:categoryId` hands the form the
+same question set the server validates against. `GET /products` gained
+`attr[key]=`, `recipient=`, `fulfilment=` and `personalisable=` — **OR
+within a facet, AND across facets**, which is the intersection today's page
+gets wrong (ticking "Earrings" and "For Her" returns every earring *plus*
+every for-her item).
+
+**A shelf is archived or merged, never deleted.** `archivedAt` retires one
+while every link and order pointing at it keeps resolving — which is how
+M58's recipient shelves stop being categories once recipient is a facet —
+and `mergedIntoId` folds the live "Home Décor"/"Home Decor" pair into one,
+moving the listings across and 301ing the old slug. A merge does not
+re-queue what it moves: an admin tidying our own duplicate must not take a
+live catalogue off sale.
+
+**D10 shipped with it: a courier and an edible gift.** Chocolates stay on
+the gifts side rather than moving to `food`, which would have taken fourteen
+live listings off sale while `foodOrdersOpen` is off — so `kind === 'craft'`
+is no longer the whole courier predicate. A listing under Chocolates &
+Edible Gifts travels only when its maker has marked `heatSafePacked`;
+absent, it is local delivery. The default fails toward not putting it in a
+van, because the cost of the other direction is melted chocolate arriving
+as somebody's gift and a refund a home maker pays.
+
+**`Product` also gained** `fulfilment` (NULL matches neither Dispatch
+filter — how long it takes stays `prepTimeMins`, so the Pre-order badge
+keeps one source of truth), the four personalisation columns (D11; the
+buyer-facing half is G4), `packedWeightGrams`, and D13's compliance fields
+(`netQuantity`, `genericName`, `countryOfOrigin`). Nothing here publishes a
+pickup address — that question went to counsel and M36b stands.
+
+**Seeds and the data pass.** `seed-gift-taxonomy.ts` (ten departments, 40
+subcategories) and `seed-gift-attributes.ts` (42 questions, 144 options) are
+additive and idempotent, verified by running each twice. The taxonomy seed
+**adopts** the live shelf a department replaces rather than minting a twin
+beside it; the rename is left to the admin-approved data pass, because a
+seed that renamed a live shelf would be deciding something a person is
+supposed to approve, to a name that is in shared URLs. Nothing is re-filed
+automatically: `prisma/propose-recategorisation.ts` is read-only and
+prints a CSV with the matched word on every row, including the listings it
+could not place.
+
+**Three admin screens, so the taxonomy is editable by the people who own
+it.** `/admin/catalog/categories` grew a per-shelf editor (description,
+synonyms, icon) and the two decisions a taxonomy needs: retire and merge.
+Both are inline two-steps with the sentence saying what will happen *before*
+the button — the portal's no-`window.confirm` rule — because a prompt cannot
+explain that a merge moves listings and leaves the old address working, and
+that is the whole thing worth knowing before pressing it. Merge targets are
+filtered to the same side of the catalogue.
+
+`/admin/catalog/attributes` is the question set itself: what each question
+asks, its answers, and which shelves ask it. The three switches
+(`trustSensitive`, `material`, required-vs-optional) are explained **once**
+in a legend above the list rather than repeated on every card — the first
+version put the same three paragraphs on each of forty-two cards, so one
+question filled the screen; three now fit above the fold.
+
+`/admin/catalog/recategorise` proposes where each live gift belongs and
+moves nothing until somebody agrees with it, one row at a time. There is
+deliberately no "move them all" button (M36: a guess written onto a real
+storefront looks authoritative). Every row shows **the words it matched**,
+and the listings the rule could not place have their own filter rather than
+being dropped — those are the ones that most need a person. The matcher is
+one pure module shared with the CLI script, so the CSV reviewed offline is
+the same set of proposals the screen approves.
+
+Exercised in a browser against a scratch database, which found two things
+review had not: the "already there" check read only the `ProductCategory`
+join, and pre-M58 rows carry a primary with no join row — so the screen
+offered a move onto the shelf a listing was already filed under (suggested
+moves 7 → 5, "Already right" 0 → 2). Fixed in both callers.
+
+Tests: 531 server unit tests (25 new — attribute validation, the courier
+rule, and the admin-only structural scan).
+
+## 2026-09-16 — Hanken Grotesk, and Fraunces as a variable face
+
+DESIGN.md's typography phase, shipped ahead of the `/gifts` redesign
+(`docs/GIFTING-REWORK.md` D12, owner: redesigning a page on a font that is
+about to change means doing the spacing twice). No layout was touched.
+
+**The body face is Hanken Grotesk.** It replaces IBM Plex Sans, whose
+corporate-UI voice reads as institutional SaaS on a page about somebody's
+kitchen. Same three weights (400/500/600), so the type ramp did not move
+and nothing was respaced: measured after the swap, `/shop` and `/gifts`
+keep a 509px header search field at 1280 and 1440 (the M34 floor is
+210px), and no route at 1440/1280/390 scrolls sideways.
+
+**The swap is one line, in `tokens.extend.css` rather than the
+`globals.css` next/font bridge** — the third documented override of
+`tokens.css`, which stays untouched and stays law. That file is also the
+native apps' theme source (`mobile/ npm run theme` reads `tokens.css` +
+`tokens.extend.css` and never sees `globals.css`), so declaring it in the
+bridge would have left the web on Hanken Grotesk and both apps on Plex
+Sans, from a file claiming the site has one body face. The value names the
+family twice on purpose: the browser resolves `var(--font-hanken)` to
+next/font's hashed family, and the generator reads the quoted
+`'Hanken Grotesk'` to build the `@expo-google-fonts/hanken-grotesk`
+export names. `mobile/` swapped its dependency and regenerated.
+
+**Fraunces now loads as the variable file** (`axes: ['SOFT', 'WONK']`),
+not four static instances. `font-variation-settings` does nothing to a
+static instance, so the "hand-lettered jam-label" display treatment
+DESIGN.md asks for was unreachable before this. `.hk-wonk` in
+`globals.css` carries `SOFT 75, WONK 1`; it is **applied to nothing yet** —
+which headings take it is a design decision that belongs with the browse
+redesign, and it is measured at ~1px of width so applying it later
+reflows nothing.
+
+**Kalam is loaded for the maker's-hand annotations** with a
+`.hk-annotation` class, also unused so far (phase 2 puts it on featured
+tiles). The ration is in the class comment and in CLAUDE.md: max two per
+screen, always `aria-hidden`, never the only place a fact is stated. It is
+kept out of `tokens.extend.css` on purpose — no app screen draws an
+annotation, and a token there would owe a font in the binary.
+
+**Contrast re-measured, and one failure is older than this change.**
+`e2e/tests/a11y.spec.ts` and the full `node e2e/sweep.mjs` (174 visits)
+report exactly one: `MakerPortrait`'s initials disc on `/shop`, terracotta
+on the canvas at 4.23:1. The same run against live production fails
+identically, so it predates the font and is left for its own fix.
+
+## 2026-09-16 — G0: Handcrafted Gifts clean-up
+
+The first milestone of `docs/GIFTING-REWORK.md` (plan and research written
+2026-09-15; owner answered its decisions on 2026-09-16). Small fixes to the
+live `/gifts` page that do not wait on the new taxonomy. Measured on
+production beforehand: 86 gifts, 9 makers, 31 craft categories.
+
+**Parent shelves are selectable (D3).** 30 jewellery and 11 candle listings,
+48% of live gifts, were filed directly on a parent shelf, and a parent
+rendered as a heading with no chip and no checkbox, so no category filter
+reached them. CLAUDE.md M58 already said "a parent is browsable"; the page
+never did it. `lib/category-sections.ts` gains `shelfFamily` and
+`expandShelfSelection`; the chip row puts each parent before its children,
+the sheet gives each group an "All …" row, and a parent's count is its
+listings plus its children's, each listing once.
+
+**Empty shelves are hidden on `/gifts` (D2).** 18 of 26 tiles were disabled.
+This reverses M56's "dimmed, never hidden" on `/gifts` only; `/shop` is
+unchanged, and makers and admins still see every shelf in their pickers.
+
+**Sold out sorts last, and the default is "Recommended" (D9).** No gift has a
+review, so "Most loved" sorted on nothing, and the first row at 1440px was
+six sold-out Rakhi hampers. `lib/gift-sort.ts#sortGifts` splits sold-out off
+in every sort; the default leads with gifts for a dated occasion within six
+weeks, then rating, then newest (the API's tiebreak is creation order,
+which put the oldest listings first; checked against live data on a local
+production build). Which occasions count as soon is decided by the Server
+Component and passed as ids, so the browser never reads the clock (M12). The
+URL key stays `most-loved`; `SortSelect` takes a `defaultLabel`.
+
+**No location popup on `/gifts` (D8).** Every gift ships nationwide and the
+modal's copy was about kitchens cooking nearby.
+
+**The card's grey line says only what a column records.** "Authentic" (every
+unreviewed listing older than a month) and a size of "One" (the guided form's
+default, 65 of 86 gifts) are gone site-wide; a card with neither a review nor
+a real size prints no line. `.priceRow` now anchors to the bottom, since
+`space-between` floated the name to the middle once the line could be absent.
+
+**`getCraftProducts` asks for 500, not 100.** `/gifts` filters client-side,
+so the 101st live gift would have silently vanished, the failure `/shop` hit
+at 113 food listings.
+
+**Taxonomy names compare with accents folded.** Production has "Home Décor"
+(top level) and "Home Decor" (under Candles & Home). Every duplicate check
+used Prisma's `mode: 'insensitive'`, which folds case only, and
+`seed-craft-subcategories.ts` checked only under the same parent.
+`server/src/common/fold-name.ts` folds case, Latin accents and whitespace
+(not Devanagari vowel signs, which are marks too, and not "&"/"and" or
+plurals); it is used by admin category create/rename, occasion create, both
+taxonomy-suggestion paths and all three category seeds, which now treat a
+same-named shelf anywhere on their side as already there. The existing
+duplicate rows are not merged yet; that is the G0 data pass.
+
+Tests: `lib/gift-sort.spec.ts` (new), `lib/category-sections.spec.ts`
+(parent expansion), `test/unit/fold-name.spec.ts` (new),
+`test/unit/occasion-create.spec.ts` (accent duplicate). Client jest 523
+passed; server unit 502 passed; server typecheck clean; seeds typecheck.
+
+## 2026-09-15 — R3: cash and payouts (server)
+
+Milestone three of `docs/RIDER-APP.md`: the cash a rider collects on a
+COD delivery (R2's `cod_collected` ledger row) now has somewhere to go.
+A rider can deposit it back by UPI and self-report the UTR; an admin
+verifies or rejects; a weekly payout is generated per rider, taking the
+current cash debt out of what they're owed, and is paid or rejected the
+same "records a settlement, does not perform one" way the seller payout
+queue has worked since M15. No schema change — R1 landed the whole §3
+shape (`RiderCashEntry`, `RiderDeposit`, `RiderPayout`, including the
+`@@unique([riderId, periodStart, periodEnd])` a generate call needs to be
+idempotent) in one migration, confirmed again by `prisma migrate diff`
+against a scratch database (only the known pre-existing
+`Product.allergens` default-value line, unrelated to this milestone).
+
+**`src/rider/cash-ledger.ts` — one pure module, and every reader now goes
+through it.** `balanceOf` (sum a rider's ledger rows), `isCodBlocked`
+(strict `>`, matching R2's own dispatch contract — a rider sitting
+*exactly* at their limit is still fine for one more COD offer, not
+refused for having no room left), and `deductionFor({ mode, entries,
+earnings, now })` — §2.4's payout arithmetic. `deduct_from_payout` (the
+default) takes the whole current balance, capped at what the payout is
+worth; `deposit` mode only counts entries older than a week
+(`DEPOSIT_GRACE_DAYS`), the grace §2.4 promises a rider who has said
+they'll pay it back themselves. Neither ever goes negative or above
+`earnings`. `dispatch.ts`'s per-job cash-limit filter now calls
+`isCodBlocked` instead of repeating the comparison inline.
+
+**Deposits: pending, then verified in the same transaction as the ledger
+entry.** `POST /rider/cash/deposits` refuses an amount over the current
+balance and writes nothing to the ledger yet — only a `RiderDeposit` row,
+`pending`. `POST /admin/rider-deposits/:id/verify` (scope `finance`,
+`Idempotency-Key`-guarded) flips the status to `verified` **and** writes
+the `deposit` ledger entry (negative — the sign convention) inside one
+transaction, guarded by `updateMany({ where: { status: 'pending' } })` so
+a double-click can't deduct twice. The UTR's own DB-level uniqueness
+(already on the R1 schema) turns a duplicate submission into a 409
+naming it, rather than an admin discovering the same payment claimed
+twice by hand.
+
+**Payouts: `generate` is idempotent per rider+period two ways at once.**
+For each approved rider, a `findUnique` on the row's own unique key skips
+anyone already generated for this exact window before writing anything —
+calling `generate` twice with the same period produces one payout, not
+two. The unique constraint itself is the backstop against two concurrent
+`generate` calls racing past that check: a P2002 on one rider's insert is
+caught and treated as "somebody else just won this one," not a failure
+of the whole batch. Riders who earned nothing this period are skipped —
+a zero-row payout tells nobody anything. `pay` (`{ reference }`) records
+that a transfer happened out of band; it performs none, same M15 rule the
+seller payout queue has always followed. `reject` reverses the deduction
+with an `adjustment` ledger entry rather than deleting the
+`payout_deduction` row — the ledger keeps both the original deduction and
+its reversal on record. Both `generate` and `pay` are
+`Idempotency-Key`-guarded per the brief; `reject`'s own guarded
+`updateMany` already makes a retry a 409 rather than a double reversal.
+
+**`PUT /admin/riders/:id/cash-adjustment` — the escape hatch for a
+mistake.** Signed (`amount` can be negative), a `note` is required (same
+reason every refusal in this codebase carries a sentence: this write
+isn't self-explanatory from its own type), audited, and
+`Idempotency-Key`-guarded. It sits on `AdminRidersController`
+(`riders`-scoped) but declares a **handler-level** `@RequireAdminScope
+('finance')` override — `RequireAdminScope`'s own doc comment names
+exactly this shape as the intended use of that escape hatch, and this is
+a direct write to the cash ledger, the same section every other
+money-moving rider route sits under.
+
+**`GET /rider/cash`** — balance, limit, `codBlocked` (`isCodBlocked` on
+the current balance), settlement mode, pending deposits, a paged ledger,
+and `companyUpiId` (`rider.companyUpiId`, a new `PlatformSetting` — `null`
+until an admin types one into `/admin/settings`, which is what tells the
+app to hide the pay button and say "Ask support how to deposit" instead
+of rendering a placeholder VPA nobody should pay). **`GET
+/rider/earnings?from&to`** — per-job pay rows (`mapEarningsJobForRider`,
+new in `rider-jobs.mapper.ts`, same "areas only" rule as the job-history
+mapper — `pickupArea`/`dropArea`, never a street line), totals, and this
+rider's payout history.
+
+**Review fix — the same cash was charged twice in two ways.** A deposit
+still awaiting verification was ignored both by payout generation (a rider
+who sent ₹500 on Monday had ₹500 deducted again on Sunday) and by the
+deposit form (two pending deposits could together exceed what was owed).
+And deposit mode summed only ledger entries older than 7 days, so a
+deposit made yesterday against cash collected ten days ago left the ₹500
+looking overdue. `deductionFor` now subtracts pending deposits and treats
+grace as "collected in the last 7 days"; `depositableAmount` caps a new
+deposit; the app's deposit sheet uses the same figure. Pinned by new unit
+cases and an e2e case that generates a payout while a deposit is pending.
+
+**Docs:** `docs/API.md` gains the R3 route table with verbatim response
+shapes; `docs/RIDER-APP.md`'s status line moves to "R3 built"; this
+entry.
+
+## 2026-09-15 — R2: deliveries move (server)
+
+Milestone two of `docs/RIDER-APP.md`: the fleet actually carries a
+parcel. A `DeliveryJob` can be dispatched by hand from `/admin/deliveries`,
+offered to the nearest eligible online rider on a 5s tick, accepted or
+declined, walked through arrival/pickup/drop with photo proofs and a
+geofence, delivered against a constant-time OTP compare, and the order it
+belongs to moves with it. Cash is recorded on delivery (a ledger row);
+spending it is R3. No `client/`, `mobile/` or `rider/` changes beyond the
+one `UploadPurpose` type union entry both packages already share.
+
+**`DispatchService`, off by default (`RIDER_DISPATCH_ENABLED`).** Same
+`setInterval` + env-gate + single-flight-guard shape as
+`ShippingService`'s reconciliation poll: every 5s it expires offers past
+their `expiresAt` (job back to `unassigned`), then offers each
+`unassigned` job to the top of `rankCandidates` — approved, online, a
+location fix inside 120s, holding no other active job or live offer
+anywhere, in the job's zone (or home-zoned to it), and, only on a COD job,
+not already over their own cash limit with this job's amount added.
+Nearest by straight-line distance to pickup, ties broken by fewest
+deliveries today. A job with no candidate for `rider.unassignedAlertMin`
+raises a `riders`-scoped admin an `account`-category alert once (in-memory,
+cleared the moment a candidate is found — a restart re-arms it, which
+costs one duplicate message). `DispatchService.tick(now)` is exposed
+directly so the e2e suite drives it deterministically rather than waiting
+on the real timer, per the brief.
+
+**One new column, everything else was already there.** R1 landed the
+whole §3 shape in one migration so R2 wouldn't need a schema change —
+true for everything except the delivery-OTP wrong-guess counter.
+`DeliveryJob.otpAttempts` (`20260914150000_r2_delivery_jobs`) is the one
+addition; 5 wrong guesses (`otp-lock.ts#isOtpLocked`) locks the job to
+support and every further guess is refused without even comparing it.
+`prisma migrate diff` against a scratch database confirms the tree is
+otherwise in step with `schema.prisma`.
+
+**Rider settings are `PlatformSetting` rows under a `rider.` prefix**
+(`RiderSettingsService`), read the same way `AdminSettingsService` reads
+everything else — missing rows fall back to the brief's own defaults
+(`basePay` 2500, `perKm` 600, `freeKm` 2, `waitPerMin` 100, `freeWaitMin`
+10, `arriveRadiusM` 300, `offerTimeoutSec` 45, `unassignedAlertMin` 10, all
+paise/metres/seconds as named). Deliberately **not** folded into the
+general `/admin/settings` screen's typed interface — these are dispatch
+internals nobody has asked to tune from that screen yet, and the
+underlying mechanism is identical so a `rider.*`-scoped admin surface can
+read/write the same rows later without a schema change.
+
+**`rider-pay.ts#payFor` computes in integer paise, always** — the R1–R4
+brief's cross-cutting money rule. Distance is billed in whole 0.1km,
+rounded half-up, beyond `freeKm`; wait in whole minutes beyond
+`freeWaitMin`. `RiderJobsService` writes the rupee figure (`/100`) onto
+`DeliveryJob`'s `Decimal(12,2)` columns twice: an estimate at job
+creation (distance is known, wait is not), the real figure at
+`picked-up` (actual wait time between `arrivedPickupAt` and now).
+
+**COD is split proportionally, never dumped on one kitchen or one
+address** (`cod-split.ts#allocateCodAmount`, pure). A multi-vendor COD
+order's collectible cash is split by each vendor's own line subtotal
+first, then a vendor with lines to more than one address splits its own
+share the same way — every group but the last rounds normally, the last
+absorbs whatever rounding left over, so the parts always sum to the
+order's real total.
+
+**Addresses: a third, narrower surface for `VendorProfile.pickup*`
+(M36b names two).** A rider sees the pickup address only while holding a
+job `accepted`/`at_pickup`, and the buyer's address/phone only
+`picked_up`/`at_drop` — all of it in one function,
+`rider-jobs.mapper.ts#mapActiveJobForRider`, split from every other
+mapper in that file by a marker comment.
+`test/unit/rider-address-privacy.spec.ts` fails the build if a pickup or
+buyer-address field is read anywhere else in the file, and separately
+proves the gated function still actually reads them (a canary against the
+region silently emptying out). The delivery OTP itself never reaches a
+rider-facing mapper at all — only `mapDeliveryForBuyer` returns it, and
+only before the job is delivered.
+
+**A fleet job moves its order forward exactly like a Shadowfax parcel
+does, read from a different carrier** — `DeliveryOrderReconcileService`,
+`ShippingService.reconcileOrderStatus`'s shape, shared by
+`RiderJobsService` (`picked-up`/`deliver`) and `AdminDeliveriesService`
+(`override-deliver`) rather than kept as two copies. The weakest job
+decides (`shipped` once every job is at least `picked_up`, `delivered`
+once every job is `delivered`), never backwards, and an order line no
+`DeliveryJob` covers blocks the change entirely — the M57 mixed-basket
+lesson, applied to the fleet.
+
+**Every `/rider/jobs/*` transition is one guarded `updateMany({ where: {
+status: from } })`.** `POST .../deliver` compares the buyer's OTP in
+constant time and requires a `drop` proof first; `POST .../picked-up`
+requires a `pickup_rider` proof; `POST .../fail` requires a
+`failed_attempt` proof — the last needing its own upload route,
+`POST /rider/jobs/:id/failed-photo`, which isn't in the brief's literal
+§4 list but is required by the same section's own proof-gate rule (no
+other route exists to satisfy it). All three proof routes, plus the
+seller's `POST /seller/deliveries/:jobId/handover-photo`, use the
+**public** upload pipeline under a new purpose, `delivery` — added to
+both `UploadPurpose` unions (server and `client/lib/api/uploads.ts`,
+unused by any `client/` screen but kept in step per that file's own
+rule). `POST /rider/duty` going online needs an approved rider and a
+location fix — **not** a clear cash balance (that only filters which
+*offers* reach a rider, D9); going offline is refused while a job is
+still theirs.
+
+**Buyer and seller each get a narrow, phone-free view.**
+`GET /orders/:id` gains `delivery: { status, riderFirstName, otp }` (otp
+present only before delivered; on a multi-kitchen order the *least
+advanced* job is surfaced, so a buyer sees the parcel that still needs
+attention, not a sibling kitchen's already-delivered one).
+`GET /seller/orders/:id/delivery` gives a HomeKrafter the same shape
+minus `otp`, plus `vehicleType` — deliberately no rider phone (D14: that
+line is the rider's to the buyer, not the kitchen's).
+
+**`POST /admin/deliveries`, alone among this file's routes, is scoped
+`orders` rather than `riders`** — dispatching a parcel for an existing
+order is an orders-desk action, and an operator working that queue
+should not also need the rider-fleet review section. Every other
+`/admin/deliveries/*` route (`list`, `detail`, `reassign`, `cancel`,
+`override-deliver`) stays `riders`-scoped, the section the rest of the
+fleet's admin surface already lives in.
+
+**Two concurrent accepts on the same live offer: exactly one wins**, and
+the e2e proves it as a genuine race (`Promise.all`, not a
+sequential retry) — the offer and the job transition in one Prisma
+interactive transaction, so a job-side guard failure rolls the offer's
+own status write back with it rather than leaving the two disagreeing.
+
+Docs: `docs/API.md` (the full R2 route table), `docs/DATA-MODEL.md`
+(`otpAttempts`, the reconcile/dispatch/pay/cod-split modules),
+`docs/DEPLOY.md` (`RIDER_DISPATCH_ENABLED`, zone seeding before turning
+it on), `.env.example`, `docs/RIDER-APP.md`'s status line, this file's
+own M36b paragraph (now three surfaces) and Rider fleet section.
+
+## 2026-09-14 — R1: riders exist (server)
+
+Own-fleet delivery, milestone one of `docs/RIDER-APP.md`: server-side
+onboarding only. A shopper can become a rider, fill in the application,
+upload KYC documents and be reviewed and approved by an admin. Nothing
+here dispatches a job, moves cash or pays anyone — that is R2/R3/R4. No
+`client/`, `mobile/` or `rider/` changes.
+
+**`UserRole.rider`** joins `consumer|seller|admin`, minted only through
+`POST /rider-enrolment` — a signed-in shopper flips role and gets a fresh
+token pair (role rides in the JWT, so the old token still says
+`consumer`). A seller or admin account is refused with a `409` naming the
+reason; enrolling twice as the same rider is idempotent. The route
+deliberately carries **no `@Roles(...)`** — the brief's shape was
+`@Roles('consumer', 'rider')`, but `RolesGuard` throws its own 403 for
+anyone outside that list before the handler runs, which would make the
+seller/admin refusal unreachable. `rbac-structure.spec.ts` now scans
+`src/rider/*.controller.ts` for `@Roles('rider')` too, with this one file
+allowlisted and a structural assertion that it really carries no role
+decorator (so the allowlist can't quietly go stale).
+
+**The schema lands in one pass** (`Rider`, `RiderDocument`,
+`DeliveryZone` plus, so the model settles once, R2/R3/R4's `DeliveryJob`,
+`DeliveryOffer`, `DeliveryProof`, `RiderLocationPing`, `RiderCashEntry`,
+`RiderDeposit`, `RiderPayout`, `RiderSosEvent` — see `docs/DATA-MODEL.md`).
+Two migration files, not one: Postgres refuses to *use* an enum value
+added by `ALTER TYPE … ADD VALUE` in the same transaction that added it
+(the M22 lesson, same split), and this change adds `AdminScope.riders`
+**and** backfills it onto every existing admin in the same family of
+files. `AdminScope.riders` follows the M47 rule to the letter — every
+*existing* admin gets it, including an intentionally-scoped sub-admin,
+because that is the same call M47's own migration made.
+
+**KYC documents never touch the public upload store.** `RIDER_KYC_DIR`
+(new env var, gitignored `.private/` locally) is a directory nginx never
+serves; `RiderDocumentsService` reuses the same re-encode pipeline
+(`sniffImage` + `processImage` — EXIF strip, capped WebP) but writes
+straight to disk there. No API response, anywhere, ever returns a
+`storageKey` or a file path — the only read is
+`GET /admin/riders/:id/documents/:kind/file`, which streams the bytes to
+an authenticated, `riders`-scoped, audited admin request.
+
+**The brief's `{ message, missing: string[] }` 400 shape doesn't survive
+this API's actual envelope.** `AllExceptionsFilter` normalises every
+thrown error to `{ error: { code, message } }` and drops any other field
+— so a structured `missing` array would be silently stripped before a
+client ever saw it. `POST /rider/me/submit` and
+`POST /admin/riders/:id/approve` instead throw `BadRequestException` with
+an **array of strings**, which is the filter's own already-supported
+multi-item shape (the same one class-validator's field errors use): Nest
+joins it into one sentence and marks the response `VALIDATION_ERROR`.
+`describeMissing` (`src/rider/missing-item-labels.ts`) turns each raw key
+into a short clause first. Found writing the e2e spec, not in review — an
+assertion on `body.missing` that would have silently passed against
+`undefined` had the test not also asserted the array's *contents*.
+
+**Required documents follow the vehicle, and `ev_bike` is a bicycle.** A
+sub-250W electric cycle needs no DL or RC in India — `ev_bike` is treated
+exactly like `bicycle` in `requiredDocumentKinds` (`src/rider/
+required-documents.ts`), with its own comment saying so, so an e-cycle
+rider is never asked for paperwork nobody issues them.
+
+**Two migrations were briefly out of order** after the repo moved under
+this session: `20260914130000_product_allergens` (a separate, already
+merged and already-deployed change) sorted between the two draft names
+this milestone first used. Renamed to `20260914140000`/`20260914140100`
+so they apply after it; verified clean on a fresh scratch database both
+ways — `migrate deploy` in file order, then `migrate diff --exit-code`
+against `schema.prisma` with zero rider-attributable drift. (One
+pre-existing, unrelated line of drift remains from the allergens
+migration itself — a DB-level default the Prisma model never declared,
+the same class of gap M47/M50 already documented and is not this
+milestone's to fix.)
+
+Also: the D5 zone circles ship seeded nowhere yet (that's the admin
+screen's `POST /admin/riders/zones`, exercised by the e2e spec's own
+fixture) — `prisma/seed-rider-zones.ts` from the original brief is
+deferred, since R1 has no dispatcher to hand a seeded zone to yet and an
+unused seed script is a stale one within a milestone.
+
 ## 2026-09-14 — The landing page, judged and repaired
 
 A design review of `/` run against `DESIGN.md`, the craft floor and the

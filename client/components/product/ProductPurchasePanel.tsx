@@ -26,6 +26,7 @@ import {
   type GiftIntent,
 } from "@/lib/gift/gift-intent";
 import type { Product } from "@/lib/types";
+import { deliverySubtitle, deliveryTitle, pincodeMessage } from "@/lib/product/delivery-copy";
 import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
 import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
 import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
@@ -166,30 +167,13 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
             window.localStorage.setItem("hk_delivery_pincode", pin);
           } catch {}
         }
-        if (product.shippingScope === "national") {
-          setPincodeStatus({
-            pincode: pin,
-            serviced: true,
-            district: result?.district,
-            message: `✓ Delivering to ${pin}${result?.district ? ` (${result.district})` : ""} · 3–5 business days · Pan-India delivery`,
-          });
-        } else {
-          if (result?.serviced) {
-            setPincodeStatus({
-              pincode: pin,
-              serviced: true,
-              district: result.district,
-              message: `✓ Delivering to ${pin} (${result.district}) · 2–4 hours fresh delivery · ₹49 delivery (Free over ₹499)`,
-            });
-          } else {
-            setPincodeStatus({
-              pincode: pin,
-              serviced: false,
-              district: result?.district,
-              message: `✕ Fresh delivery is not available to ${pin}. Kitchen delivers within 15 km in Chandigarh Tricity. Nationwide shipped items can be delivered.`,
-            });
-          }
-        }
+        const verdict = pincodeMessage(product, pin, result?.district, Boolean(result?.serviced));
+        setPincodeStatus({
+          pincode: pin,
+          serviced: verdict.serviced,
+          district: result?.district,
+          message: verdict.message,
+        });
       } catch {
         setPincodeStatus({
           pincode: pin,
@@ -200,7 +184,7 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
         setCheckingPincode(false);
       }
     },
-    [product.shippingScope],
+    [product],
   );
 
   useEffect(() => {
@@ -517,15 +501,13 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
                 ? pincodeStatus.serviced
                   ? `Delivering to ${pincodeStatus.pincode}${pincodeStatus.district ? ` (${pincodeStatus.district})` : ""}`
                   : `Service unavailable to ${pincodeStatus.pincode}`
-                : product.shippingScope === "national"
-                  ? "Pan-India delivery in 3–5 business days"
-                  : "Tricity delivery in 2–4 hours"}
+                : deliveryTitle(product)}
             </span>
-            <span className={styles.decisionSubtitle}>
-              {product.prepTimeMins
-                ? `Prepared fresh to order (${product.prepTimeMins} mins notice)`
-                : `Fresh batch prepared daily${deliveryNote ? ` · ${deliveryNote}` : ""}`}
-            </span>
+            {/* `null` for a gift whose maker answered nothing — a quiet
+                line beats an invented one. */}
+            {deliverySubtitle(product, deliveryNote) ? (
+              <span className={styles.decisionSubtitle}>{deliverySubtitle(product, deliveryNote)}</span>
+            ) : null}
 
             <div className={styles.pincodeWidget}>
               <div className={styles.pincodePrompt}>Check delivery to your pincode:</div>

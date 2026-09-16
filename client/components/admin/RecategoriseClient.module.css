@@ -1,0 +1,34 @@
+/* G1 §3.5 — the bulk Recategorise screen. */
+
+.wrap { display: flex; flex-direction: column; gap: var(--hk-s4); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--hk-s2); }
+
+.row {
+  padding: var(--hk-s3) var(--hk-s4);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--hk-s4); flex-wrap: wrap;
+}
+.main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.name { font-family: var(--hk-font-display); font-size: 16px; margin: 0; color: var(--hk-ink); }
+.meta { margin: 0; color: var(--hk-muted); font-size: 13px; }
+
+/* The words the rule matched on — receipt type, because it is evidence
+   rather than prose, and it is the operator's whole audit trail. */
+.why {
+  margin: 0;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--hk-muted);
+}
+
+.action { display: flex; align-items: center; gap: var(--hk-s3); flex-wrap: wrap; }
+.proposed { font-size: 14px; color: var(--hk-ink); }
+.done { font-size: 14px; color: var(--hk-pine); }
+.empty { margin: 0; color: var(--hk-muted); font-size: 14px; }
+
+@media (max-width: 640px) {
+  .row { flex-direction: column; align-items: stretch; }
+  .action { justify-content: space-between; }
+}

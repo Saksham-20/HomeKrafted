@@ -26,6 +26,7 @@
  * hand-tagged shelf goes stale the moment a maker edits a price.
  */
 import { PrismaClient, ProductKind } from '@prisma/client';
+import { findSameName } from '../src/common/fold-name';
 
 const prisma = new PrismaClient();
 
@@ -75,9 +76,9 @@ async function main() {
     // Name match is deliberately unscoped by parent: a top-level shelf
     // duplicating the name of somebody's subcategory is the ambiguity
     // above, so an existing row anywhere in the tree counts as "there".
-    const existing = await prisma.category.findFirst({
-      where: { name: { equals: shelf.name, mode: 'insensitive' } },
-    });
+    // Case- and accent-folded (`src/common/fold-name.ts`): "Home Décor"
+    // must find "Home Decor".
+    const existing = findSameName(await prisma.category.findMany(), shelf.name);
     if (existing) {
       console.log(`= ${shelf.name} (already there)`);
       continue;

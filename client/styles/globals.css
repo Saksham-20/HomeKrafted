@@ -13,9 +13,19 @@
    file is imported after tokens.css, this :root block wins the cascade. */
 :root {
   --hk-font-display: var(--font-fraunces), Georgia, serif;
-  --hk-font-body: var(--font-plex-sans), system-ui, sans-serif;
   --hk-font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* The maker's-hand annotation face (DESIGN.md typography). It is NOT in
+     `tokens.extend.css` on purpose: that file is the native app's theme
+     source too, and nothing in the app uses an annotation yet — adding it
+     there would owe a font in the binary for a face no screen draws. Use
+     `.hk-annotation` below; see its rules before reaching for this. */
+  --hk-font-annotate: var(--font-kalam), "Kalam", cursive;
 }
+
+/* `--hk-font-body` is deliberately NOT declared here. It lives in
+   `tokens.extend.css`, which is the one file both the web and
+   `mobile/ npm run theme` read — see the note beside it there. */
 
 *,
 *::before,
@@ -52,6 +62,18 @@ body {
 ::selection {
   background: var(--hk-pine);
   color: #ffffff;
+}
+
+/*
+  The caret is a browser surface too, and it ships belonging to no design
+  system — a stock blue bar in a pine-and-gold form. It is the cheapest
+  signal that a page was built rather than assembled.
+*/
+input,
+textarea,
+select,
+[contenteditable] {
+  caret-color: var(--hk-pine);
 }
 
 a {
@@ -318,6 +340,35 @@ body:has([data-surface="consumer"]) .container-prose {
    invisible until somebody who needs it hits it. */
 
 /* Visible to a screen reader, not to the eye. */
+/* ---- Display "wonk" (DESIGN.md typography) ----
+   Fraunces' SOFT and WONK axes, on the display sizes only: softened
+   terminals and the single-storey `g`/swapped `w` that give it the
+   hand-lettered jam-label energy. Flat Fraunces reads like a bank.
+
+   Two rules. It is for **display sizes** — card titles and anything at
+   body size stay flat, where the wonk reads as a rendering fault rather
+   than a choice. And it needs the variable face, which is why
+   `app/layout.tsx` loads Fraunces with `axes` instead of four static
+   instances; on a static instance this declaration does nothing at all
+   and fails silently. */
+.hk-wonk {
+  font-variation-settings: "SOFT" 75, "WONK" 1;
+}
+
+/* ---- The maker's hand ----
+   A Kalam annotation. **Max two per screen** and always `aria-hidden`:
+   it is a drawn mark, not copy, and anything it says must also be said
+   in real type somewhere on the page (DESIGN.md). The slight rotation is
+   part of the mark; it is not animated, so the reduced-motion floor has
+   nothing to strip. */
+.hk-annotation {
+  font-family: var(--hk-font-annotate);
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--hk-muted);
+  transform: rotate(-2deg);
+}
+
 .hk-sr-only {
   position: absolute;
   width: 1px;

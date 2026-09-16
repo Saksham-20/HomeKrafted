@@ -1,0 +1,193 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s5);
+}
+
+.tiles {
+  display: grid;
+  /*
+    `auto-fill`, never `auto-fit`. `auto-fit` collapses the empty tracks,
+    so a catalogue with two live departments stretched two tiles across the
+    whole row as a pair of wide bars — measured, not hypothetical. With
+    `auto-fill` the empty tracks stay and a tile is a tile whether there
+    are two of them or nine.
+  */
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--hk-s4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tiles > li {
+  display: flex;
+}
+
+.tile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--hk-s3);
+  width: 100%;
+  /* Every tile in a row is the same height, so a department whose name
+     wraps to two lines does not make its neighbours look clipped. */
+  height: 100%;
+  padding: var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+/*
+  Elevation is declared once — the border, not a border *and* a shadow.
+  A 1px border under a wide soft shadow is the ghost card, and these tiles
+  already sit on the canvas rather than floating over it.
+*/
+.tile:hover {
+  border-color: var(--hk-pine);
+  background: var(--hk-surface-2, var(--hk-surface));
+}
+
+/* Feedback on press, not on release (§5.3). */
+.tile:active {
+  transform: scale(0.97);
+  transition-duration: 100ms;
+}
+
+.tileOpen {
+  border-color: var(--hk-pine);
+  box-shadow: inset 0 0 0 1px var(--hk-pine);
+}
+
+/*
+  The mark on its own tinted ground. It is the tile's subject now, so it
+  gets the space the photograph had rather than sitting on it as a badge.
+*/
+.face {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--hk-r-md);
+  background: var(--hk-pine-tint, color-mix(in srgb, var(--hk-pine) 8%, transparent));
+  color: var(--hk-pine);
+}
+
+/*
+  The name and its count are one group, stacked. They were two ends of a
+  three-column row, so on a phone a wrapped two-line name pushed its own
+  count to the far edge of the tile and the pair stopped reading as one
+  fact — proximity implies relationship, so they sit together.
+*/
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 500;
+  line-height: 1.25;
+  /* Two lines, then ellipsis: a four-line department name is not a tile. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.count {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+}
+
+.children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  padding: 7px 12px;
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+.chip:hover {
+  border-color: var(--hk-pine);
+}
+
+.chip:active {
+  transform: scale(0.97);
+  transition-duration: 100ms;
+}
+
+.chipOn {
+  background: var(--hk-pine);
+  border-color: var(--hk-pine);
+  color: var(--hk-on-pine);
+  /* The ring has to be visible on the filled chip too (M34). */
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+.chipIcon {
+  flex: none;
+  opacity: 0.85;
+}
+
+.chipCount {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/*
+  The subcategory row's entry (§5.3): a fade and a 4px rise, no stagger.
+  `@starting-style` is what lets this be a real entry animation with no
+  mount effect and no piece of state that can be left wrong — the element
+  simply has a "before it existed" style.
+*/
+@media (prefers-reduced-motion: no-preference) {
+  @starting-style {
+    .children {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+
+  .children {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 180ms var(--hk-ease), transform 180ms var(--hk-ease);
+  }
+}
+
+@media (max-width: 560px) {
+  .tiles {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .face {
+    width: 44px;
+  }
+}

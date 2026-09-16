@@ -1,0 +1,12 @@
+-- R2 (docs/RIDER-APP.md) — the one column R2 needed that R1's schema
+-- didn't already carry: the delivery-OTP wrong-guess counter
+-- (`otp-lock.ts#isOtpLocked`, 5 attempts). Every other R2 table/column
+-- landed with R1's migrations so the model would settle once; this is
+-- the one genuine gap.
+--
+-- The generated diff also proposed dropping the default on
+-- `Product.allergens` — a pre-existing drift line unrelated to this
+-- change (it predates R2 and shows up against every migration in this
+-- tree, not just this one), so it is deliberately left out of this
+-- migration rather than folded in here as a side effect.
+ALTER TABLE "DeliveryJob" ADD COLUMN     "otpAttempts" INTEGER NOT NULL DEFAULT 0;

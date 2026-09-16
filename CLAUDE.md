@@ -38,6 +38,13 @@ accounts).
   four-phase roadmap. **Phase 1 shipped (M15); phases 2–4 are the
   standing backlog** — check it before proposing new work, so a "great
   idea" isn't already a ranked item there.
+- **Gifting rework (plan, 2026-09-15):** `docs/GIFTING-REWORK.md` — the
+  `/gifts` redesign, a department + attribute taxonomy, one auto-reveal
+  listing form replacing both, and the hooks for AI-assisted listing later.
+  §0 holds the owner's answers; several reverse rules in this file. **G0 and
+  G1 built 2026-09-16, not yet deployed** — the production migration and
+  data pass still need a go-ahead and a backup in the turn they happen;
+  read the plan before touching `/gifts`, categories or the listing forms.
 - **Notifications (what the platform sends, and when):**
   `docs/NOTIFICATIONS.md` — every trigger, its recipient, its channel and
   the line of code it comes from. Two paths: direct email (credentials
@@ -253,7 +260,8 @@ and the Prisma enum for nothing a user sees.
 - **Next.js** (App Router, React, TypeScript), npm
 - Styling: **CSS Modules** over `styles/tokens.css` (no Tailwind, no inline
   styles like the prototype)
-- Fonts: `next/font/google` — Fraunces, IBM Plex Sans, IBM Plex Mono
+- Fonts: `next/font/google` — Fraunces (variable), **Hanken Grotesk**,
+  IBM Plex Mono, Kalam (annotations) — see Fonts & tokens wiring
 - Icons: `lucide-react` (line icons) + inline SVG for brand marks
   (WhatsApp/App Store/Play) when needed
 - `clsx` for conditional className composition
@@ -591,6 +599,23 @@ soon" pill rides on the landing food half and the Homemade Food tab.
   `NEXT_PUBLIC_FOOD_ORDERS_OPEN=true` (the one-basket rule's reasoning).
 - Snacks order over WhatsApp and are not gated; that is a separate call.
 
+## Checkout is one page, and the area question is a pincode (2026-09-16)
+
+- **`/cart` redirects to `/checkout`.** The basket is step 1 there,
+  editable in place. The two pages listed the same lines and the cart's
+  only unique job was a button to the other one. It is a **redirect, not
+  a deletion**: `/cart` is in shared links and the header's basket icon,
+  and a 404 on that path reads as a lost basket.
+- **Nothing asks a buyer to pick from a list of sectors.** The location
+  prompt and the checkout confirm both take a **pincode** (or a GPS fix).
+  The twenty-one curated tricity areas were a constant in the client, so
+  they could only answer for the launch city — somebody in Faridabad had
+  no way to say where they were, which is M36's waitlist bug on the buyer
+  side. `GET /pincodes/:pincode` returns the centroid for this, and that
+  is the **only** thing it may be used for: M36 forbids writing it onto
+  `Vendor.lat`/`lng`, where a 12 km error hides a real storefront from its
+  own neighbourhood. A buyer's position only orders the grid.
+
 ## One basket, one maker (2026-09-14)
 
 A cart holds one `Vendor`'s things. `POST /cart/items` answers **409
@@ -621,6 +646,57 @@ A cart holds one `Vendor`'s things. `POST /cart/items` answers **409
   is unreachable. Same code, same sentence.
 - **Never cache the maker on `Cart`.** It is one more column to keep in
   step on every remove; the cart is small and the join is free.
+
+## Rider fleet (R1/R2, 2026-09-14/15) — own delivery partners
+
+Plan and every decision: **`docs/RIDER-APP.md`**. `UserRole.rider` +
+`Rider`, `RiderDocument`, `DeliveryZone` (R1); `DeliveryJob`,
+`DeliveryOffer`, `DeliveryProof`, `RiderLocationPing`, `RiderCashEntry`
+now move (R2) — cash/payout screens and SOS are still R3/R4. The app is a
+**second Expo project, `rider/`** (`in.homekrafted.rider`) — not a mode
+of `mobile/`, because background location puts a listing under Play's
+sensitive-permission review, and it does not compile `client/lib`.
+
+- **Enrolment flips `consumer` → `rider` and re-issues tokens**
+  (`POST /rider-enrolment`). It carries no `@Roles` on purpose: a seller or
+  admin must reach the handler to get the 409 sentence, not a bare 403.
+  Every other `src/rider` controller is `@Roles('rider')` at the class,
+  pinned by `rbac-structure.spec.ts`.
+- **KYC photos never touch `/uploads`.** They are re-encoded like every
+  upload and written to `RIDER_KYC_DIR` (not served by nginx); no response
+  ever carries a path, and admins read them through an audited,
+  `no-store` stream. **Only the last 4 Aadhaar digits are stored.**
+- **`AdminScope.riders`** was backfilled onto every existing admin (M47).
+- **D6's offer loop is `DispatchService`, off by default
+  (`RIDER_DISPATCH_ENABLED`).** Same `setInterval` + env-gate shape as
+  `ShippingService`'s reconciliation poll — one offer at a time, nearest
+  eligible online rider (`src/rider/dispatch.ts#rankCandidates`, pure),
+  45s to accept, a decline or expiry puts the job back to `unassigned`
+  for the next 5s tick. `POST /admin/deliveries` (manual despatch, scope
+  `orders`) works regardless of the flag.
+- **The buyer's delivery OTP never reaches the rider's own app.** It is
+  minted at job creation, shown to the buyer (order page; WhatsApp/SMS is
+  R4), and the rider reads it back to them and types what they hear.
+  5 wrong guesses locks the job to support (`otp-lock.ts`); the codepath
+  compares in constant time, same discipline as `ShippingService`'s
+  callback-token check.
+- **A fleet job may only push the order it belongs to forward, and only
+  when it covers every line of it** —
+  `DeliveryOrderReconcileService.reconcile`, `ShippingService
+  .reconcileOrderStatus`'s exact shape read from a different carrier. An
+  order line no `DeliveryJob` covers (a mixed craft-and-food basket, the
+  M57 lesson again) blocks the change entirely rather than the fleet
+  closing an order it only partly carried.
+- **A rider sees the pickup address and the buyer's address/phone only
+  for a job they hold in the right status window** — `accepted`/
+  `at_pickup` for the kitchen, `picked_up`/`at_drop` for the buyer. This
+  is a deliberate **third** surface for `VendorProfile.pickup*` (M36b
+  named two: the admin verification panel, a HomeKrafter's own portal).
+  All of it lives in one function, `rider-jobs.mapper.ts
+  #mapActiveJobForRider`, and `rider-address-privacy.spec.ts` fails the
+  build if a pickup/address field is read anywhere else in that file —
+  history responses, offers and the buyer/seller delivery summaries all
+  carry area labels only.
 
 ## Meal subscriptions (M19) — the recurring product, and its money rules
 
@@ -737,6 +813,165 @@ maker edits a price.
   groups are two shelves — and a duplicate is a **409 naming the existing
   row**, never a silent hand-back (M43).
 
+## What a shelf asks is data (G1, 2026-09-16)
+
+`docs/GIFTING-REWORK.md` §3–§4, and `docs/DATA-MODEL.md` has the shapes.
+Four tables — `AttributeDefinition` (the question) → `AttributeOption` (an
+allowed answer) → `CategoryAttribute` (which shelf asks it, how strongly) →
+`ProductAttributeValue` (one listing's answer) — plus five new `Category`
+columns (`icon`, `description`, `synonyms`, `archivedAt`, `mergedIntoId`).
+
+It replaces `client/lib/sell/listing-families.ts`, a hardcoded slug map that
+had **already drifted from the database**: `handmade-jewellery`,
+`candles-home`, `self-care`, `personalised-gifts` and `home-decor-2` were in
+no family, so thirty live bangle listings were asked the generic question
+set — and the server knew nothing of families at all, so it could not refuse
+a wrong answer. Rules that are easy to undo by accident:
+
+- **Rows, never a JSONB column.** A facet count is a `GROUP BY optionId`, a
+  label can be renamed without rewriting every listing that chose it, and
+  "did this edit change something material" is a set comparison — the shape
+  `ProductCategory` already uses. M15's rule holds: counts are computed
+  from rows, **never incremented**.
+- **The server is the authority; the client mirrors it looser.** Same
+  direction as the two identifier parsers. `validateAttributeValues`
+  (pure, `catalog/attribute-values.ts`) refuses a missing `required` answer
+  or an unknown option with one sentence per field, and an answer to a
+  question the shelf does **not** ask is **dropped rather than refused** —
+  moving a listing from Candles to Home Décor must not meet a wall of
+  errors about burn time.
+- **Absence is not an answer**, again. No row for "metal" matches *no*
+  metal filter and never reads as "none of them". A facet is offered only
+  once **half** the listings in view have answered it, and the sheet says
+  how many have not — a buyer cannot otherwise tell "none match" from
+  "nobody was asked".
+- **`trustSensitive` is never prefilled by a machine** (§8.2) — allergens,
+  nickel-free, vegan, age suitability, small parts, shelf life, 925 silver.
+  A wrong guess there is the platform making a safety claim on a maker's
+  behalf, not a tidy-up somebody corrects later. It rides on the schema
+  response so the form can mark it; a flag the client cannot see is a rule
+  the client cannot honour.
+- **`material` is M22's material change**, per attribute: editing that
+  answer re-queues a live listing, and a colour swatch must not.
+- **A child inherits its parent's questions and may override them**
+  (`inheritedSpecs`), so the global questions (recipient, craft, colour)
+  hang off the department and dropping one drops it everywhere under it.
+- **Admin-only**, pinned by `test/unit/attribute-admin-only.spec.ts` —
+  the third of these scans after categories (M58) and occasions (M43), for
+  the same reason one layer down: a seller who could add a question would
+  be writing the form every other maker on that shelf fills in.
+  `ProductAttributeValue` is deliberately exempt; that is the maker
+  answering. The screens are `/admin/catalog/attributes` (the question set)
+  and `/admin/catalog/categories` (a shelf's description, synonyms, icon,
+  and its retire/merge decisions), and the point of them is that **adding a
+  question needs no deploy**.
+- **A shelf is archived or merged, never deleted.** `archivedAt` retires
+  one while every link, breadcrumb and order pointing at it keeps
+  resolving (this is how M58's recipient shelves stop being categories once
+  recipient is a facet); `mergedIntoId` folds the live "Home Décor"/"Home
+  Decor" pair into one and 301s the old slug. A merge **never re-queues**
+  the listings it moves — an admin tidying our own duplicate must not take
+  a live catalogue off sale (M44).
+- **Nothing is re-filed automatically** (§3.5). `/admin/catalog/recategorise`
+  proposes and a person approves each row — there is deliberately no "move
+  them all" button. Every row carries **the words it matched**, and the
+  listings the rule could not place get their own filter rather than being
+  dropped. `src/admin/recategorise.ts` is the pure matcher, shared with
+  `prisma/propose-recategorisation.ts` (read-only, prints the same set as a
+  CSV) so the offline review and the screen cannot drift. The M36 rule: a
+  guess written onto a real storefront looks authoritative, and "a script
+  did it" is not something a maker can argue with.
+- **The seeds adopt, they do not rename.** `seed-gift-taxonomy.ts` files
+  the new subcategories under the live shelf a department replaces
+  (`formerly`) rather than minting a twin beside it, and only ever fills a
+  blank `description`/`synonyms`. The rename is the data pass's job.
+
+## Icons (G3, 2026-09-16) — a committed catalogue, and a picked id
+
+`lib/icons/registry.ts` is the vocabulary; `scripts/build-icons.mjs` writes
+`lib/icons/icon-bodies.generated.ts`; `components/ui/Icon.tsx` draws it.
+
+- **Nothing is fetched, at build time or at request time.** The bodies are
+  committed (the `build-chef-avatars.mjs` stance) and the
+  `@iconify-json/*` packages are devDependencies that never reach a
+  browser. **Don't reach for `@iconify/react`** — it asks
+  `api.iconify.design` for icon data at runtime, which is a third-party
+  host on the request path, and it is a client component that renders an
+  empty span until it mounts. `unplugin-icons` wants webpack; this app
+  builds with Turbopack.
+- **Two vocabularies, one per level, never in the same row.** `craft:*`
+  are the hand-drawn two-tone marks in `CraftIcon.tsx` and are for
+  **department tiles** — at 40px a UI-chrome line icon reads as a button
+  rather than an offer, and they are the only marks that exist for Diwali
+  and Rakhi. Everything else is monoline `lucide`/`lucide-lab`/`hugeicons`
+  for **chips, filter rows and attribute options**.
+- **`Category.icon` is a stored id an admin picked, never derived from a
+  slug.** A slug→icon map in code covers only the shelves that existed the
+  day somebody wrote it, which is how seventeen tiles ended up on one
+  basket emoji. The picker is on `/admin/catalog/categories`, and it is a
+  list rather than a text box because a mistyped id **falls back silently**
+  and looks like a shelf nobody got round to.
+- **An unknown or empty id draws the wrapped gift.** `Category.icon` is
+  admin input; a typo is a normal state and an empty box is not an error.
+- **`icon-registry.spec.ts` fails the build** when the registry and the
+  generated file disagree *in either direction*, when a `craft:` id has no
+  art, and on a body carrying `<script`, `href`, `xlink:`, an `on*=`
+  handler or a hardcoded hex. `Icon` writes bodies through
+  `dangerouslySetInnerHTML`, which is safe only while that input is a
+  committed build-time constant — an upstream set that started shipping a
+  remote reference would otherwise arrive on the next `npm update`.
+- **Emoji are gone from the browse pages.** `lib/category-emoji.ts` is
+  deleted. An emoji renders differently on every OS.
+- **A category draws its mark, never a photograph** (owner, 2026-09-16 —
+  this reverses G3 §5.1.3, which faced each department tile with a real
+  listing's photo). One listing standing in for a whole shelf goes stale
+  the moment it sells, and a shelf whose listings carry no picture fell
+  through to a hatch beside neighbours that had one. `CategoryTile`,
+  `QuickFilterChips` and `DepartmentTiles` all draw `<Icon>`.
+- **`mapCategory` must return `icon`.** It did not until 2026-09-16, so
+  every chip and tile fell back to the wrapped gift however carefully an
+  admin had chosen one — a column with no reader, which is the same bug as
+  a column with no writer (that mapper's own `group` field carries the
+  identical note from M20). `prisma/seed-category-icons.ts` gives the
+  known shelves a starting mark: additive, idempotent, only ever fills a
+  NULL, never overwrites a choice — the `seed-avatars.ts` contract.
+
+## A gift is not a kitchen (2026-09-16)
+
+`lib/product/delivery-copy.ts` decides what the product page says about
+getting something to somebody, and it **branches on `kind` before
+`shippingScope`**.
+
+- A crocheted soft toy was described as "Tricity delivery in 2–4 hours",
+  "Fresh batch prepared daily" and "Kitchen delivers within 15 km",
+  because the panel read `shippingScope` alone — and `local` is what
+  **every craft listed before the 2026-09-15 "a gift is always national"
+  rule still carries**. So this was most of the gifts catalogue.
+- **A craft posts, full stop.** `isPosted` is `kind === 'craft' ||
+  shippingScope === 'national'`; only food is ever bound to the tricity,
+  and only food gets a kitchen's language.
+- **A gift's `prepTimeMins` counts days, not minutes.** Rendering it as
+  "(10080 mins notice)" was the other half of the same bug; the gift side
+  reads `lib/gift/fact-line.ts` instead, which says nothing at all when
+  the maker answered nothing.
+- This is M51's rule met from the other side: there a `kind` branch
+  invented a trust claim, here the *absence* of one invented a delivery
+  claim. Both are the platform speaking for a maker.
+
+**Both availability switches, on every buyer surface.** `GET
+/vendors/:slug/products` filtered on `PUBLICLY_LISTED` only, so a listing
+the HomeKrafter had paused disappeared from `/gifts` and `/shop` and
+stayed on their own storefront, openable and addable to a basket. The
+rule has always been that a buyer needs both `moderationStatus` **and**
+`isAvailable` to pass; a new query answering a buyer owes both.
+
+**Browse spreads the makers** (`lib/gift-sort.ts#spreadByMaker`). A
+round-robin over the ranked list under the default sort, so no one
+storefront owns the first screenful. Deliberately **not** a shuffle: that
+would disagree between the server render and the browser (React #418),
+repeat a listing across pages, and show a shared link something else.
+Ranking still decides which of a maker's gifts leads.
+
 ## Diet marks and the pre-order badge (2026-09-05)
 
 Two owner asks, and both turned on the same rule: **absence is not an
@@ -783,11 +1018,24 @@ answer.**
 rider collects from the HomeKrafter's own kitchen. Booked when the
 kitchen marks an order **packed** — that is when a parcel exists.
 
-- **A courier carries gifts and never food (2026-09-06, owner).**
-  `courier-eligibility.ts` is the one place that decides, and the
-  predicate is `Product.kind === 'craft'` — the same one `/gifts` browses
-  on, so what a buyer sees under "Handcrafted Gifts" is exactly what a
-  rider collects. It is deliberately **not** `shippingScope`, which
+- **A courier carries gifts and never food (2026-09-06, owner), and since
+  D10 not quite every gift.** `courier-eligibility.ts` is still the one
+  place that decides. The base predicate is `Product.kind === 'craft'` —
+  the same one `/gifts` browses on, so what a buyer sees under "Handcrafted
+  Gifts" is very nearly exactly what a rider collects. **The exception is
+  edible gifts (2026-09-16, owner D10):** chocolates stayed on the gifts
+  side rather than moving to `food`, which would have taken fourteen live
+  listings off sale while `foodOrdersOpen` is off — so a craft row can now
+  be something that melts in a van. A listing filed under **Chocolates &
+  Edible Gifts** (the department slug, matched through `ProductCategory` so
+  a subcategory counts) travels **only when its maker has set
+  `heatSafePacked`**; the default `false` keeps it on local delivery, which
+  is the safe direction — the cost of being wrong the other way is a bag of
+  liquid chocolate arriving as a gift and a refund a home maker pays.
+  `NON_COURIER_LINE` gained the matching clause, so an order holding an
+  unclaimed edible gift is one a courier callback may not drive forward
+  (the mixed-basket rule, arriving by a second route). Pinned by
+  `test/unit/courier-edible-gifts.spec.ts`. It is deliberately **not** `shippingScope`, which
   answers how far a listing may travel and would pull in a jar of pickle
   marked `national`; nor `Vendor.type` or `specialties`, which are
   discovery tags that must never decide anything (M12). The food half is
@@ -944,14 +1192,19 @@ and every valid Indian pincode is approvable.
   location would be a second `Vendor` and split one kitchen's reviews,
   followers and payouts in two (the M33 rule). Pinned by
   `server/test/unit/seller-storefront-name.spec.ts`.
-- **The pickup address is private, and that promise is enforced (M36b).**
-  `/sell` asks for the address a rider collects from — a home cook's
-  **home address** — and says on the form that buyers never see it.
-  `VendorProfile.pickup*` is readable on exactly **two** surfaces: the
-  admin verification panel (which owns `addressVerified`, so it has to
-  show the address it is verifying) and the HomeKrafter's own
-  `/seller/profile`. The buyer gets `Vendor.location`, a coarse area
-  label, and nothing more. `server/test/unit/vendor-privacy.spec.ts`
+- **The pickup address is private, and that promise is enforced (M36b;
+  a third surface since R2).** `/sell` asks for the address a rider
+  collects from — a home cook's **home address** — and says on the form
+  that buyers never see it. `VendorProfile.pickup*` is readable on
+  exactly **three** surfaces: the admin verification panel (which owns
+  `addressVerified`, so it has to show the address it is verifying), the
+  HomeKrafter's own `/seller/profile`, and — since R2, and narrower than
+  either — **Homekrafted's own fleet rider, only for a job they hold
+  `accepted`/`at_pickup`** (`docs/RIDER-APP.md`'s Rider fleet section;
+  `rider-jobs.mapper.ts#mapActiveJobForRider`, gated by the job's own
+  `status`, pinned by `server/test/unit/rider-address-privacy.spec.ts`).
+  The buyer gets `Vendor.location`, a coarse area label, and nothing
+  more. `server/test/unit/vendor-privacy.spec.ts`
   fails the build if `src/catalog`'s public region reads those columns —
   it scans `vendor-profile.service.ts` **by region**, because that file
   holds both `publicProfile` and the seller-only `ownProfile`. Never
@@ -1261,7 +1514,10 @@ critical: a tablist may only contain tabs), and forty-one places said
   then one floating control card holding `QuickFilterChips` (every
   shelf as an emoji pill — `lib/category-emoji.ts`, decoration only,
   `aria-hidden`; zero-count dimmed+disabled after the populated ones,
-  never hidden) over `FilterPillBar` (Airbnb-shaped dropdown pills for
+  never hidden — **except on `/gifts` since 2026-09-16**, where an empty
+  shelf is not rendered and a parent shelf is its own selectable chip
+  matching its children, `lib/category-sections.ts#expandShelfSelection`;
+  owner decisions D2/D3 in `docs/GIFTING-REWORK.md`) over `FilterPillBar` (Airbnb-shaped dropdown pills for
   the 2–3 most-used facets + an "All filters" button; popovers, not
   dialogs — Esc/outside-press close, no trap owed). The full checkbox
   set lives in `MobileFilterSheet` at **every** width (real dialog:
@@ -1288,6 +1544,9 @@ critical: a tablist may only contain tabs), and forty-one places said
   (labels in `lib/browse-facets.ts#SHIPPING_LABELS`); absent means
   `local` (pre-M20 rows). Demo food rows were backfilled by
   `seed-catalogue.ts`; a real kitchen's own choice is never touched.
+  **A gift is always `national` (2026-09-15, owner)** — both forms stop
+  asking for a craft, and `SellerListingsService` forces it on create and
+  edit, so "I deliver it nearby" is a food-only question.
 - **The three nav tabs carry dropdown panels (M56)**, built server-side
   in `components/layout/Header.tsx` from the live category/occasion
   tables (never a second hand-kept list) and revealed by CSS
@@ -1344,9 +1603,6 @@ on every admin controller.
   `ALL_ADMIN_SCOPES` (`src/common/admin-scopes.ts`, derived from the
   Prisma enum). The seed and the e2e harness did not, and a bare
   `role: 'admin'` promotion produces an account that signs in, renders an
-  **A gift is always `national` (2026-09-15, owner)** — both forms stop
-  asking for a craft, and `SellerListingsService` forces it on create and
-  edit, so "I deliver it nearby" is a food-only question.
   empty panel and 403s everywhere — which reads as a broken deploy.
   Pinned by `test/unit/admin-scopes.spec.ts`.
 - **Read from the database, never the token.** Revocation has to bite
@@ -1477,11 +1733,13 @@ centralized as real CSS custom properties in `client/styles/tokens.extend.css`
 `components/ui/*.module.css` file can reference `var(--hk-...)` instead of
 repeating the raw hex. `tokens.css` itself stays untouched and remains law —
 `tokens.extend.css` is **almost** purely additive and NOT part of the
-`handoff/` design system. It overrides `tokens.css` in exactly **two**
-places, both at the end of the list and both documented in the file: the
-corrected `--hk-muted`/`--hk-muted-2` (contrast), and `--hk-dur`
+`handoff/` design system. It overrides `tokens.css` in exactly **three**
+places, each documented at its own name in the file: the corrected
+`--hk-muted`/`--hk-muted-2` (contrast), `--hk-dur`
 (M28 — motion slowed from `.28s` to `.36s`; `--hk-ease` was left alone,
-it is already a decelerating curve). Everything else adds.
+it is already a decelerating curve), and `--hk-font-body`
+(2026-09-16 — Hanken Grotesk replaces IBM Plex Sans, below). Everything
+else adds.
 
 - `--hk-on-pine: #eadfc9` — copy on solid `--hk-pine` (announcement bar,
   tag chips, badges on dark cards, PromoBand's dark variant,
@@ -2544,17 +2802,46 @@ before touching it:
 
 ## Fonts & tokens wiring (established in M0 — don't re-derive this)
 
-`app/layout.tsx` loads all three families via `next/font/google` and
-exposes them as CSS variables on `<html>`: `--font-fraunces`,
-`--font-plex-sans`, `--font-plex-mono` (Fraunces: 400–700 + italic; Plex
-Sans: 400/500/600; Plex Mono: 400/500). `styles/tokens.css` is imported
-first (verbatim copy, ships literal `'Fraunces', Georgia, serif` etc. font
-stacks) and `styles/globals.css` imports second, re-declaring
-`--hk-font-display` / `--hk-font-body` / `--hk-font-mono` to point at the
-loaded font vars with the same fallbacks — later import wins the cascade,
-so tokens.css never needs editing. Components should keep using
+`app/layout.tsx` loads the families via `next/font/google` and exposes
+each as a CSS variable on `<html>`: `--font-fraunces`, `--font-hanken`,
+`--font-plex-mono`, `--font-kalam`, `--font-script`. `styles/tokens.css`
+is imported first (verbatim copy, ships literal `'Fraunces', Georgia,
+serif` etc. font stacks) and `styles/globals.css` imports second,
+re-declaring `--hk-font-display` / `--hk-font-mono` to point at the loaded
+font vars with the same fallbacks — later import wins the cascade, so
+tokens.css never needs editing. Components should keep using
 `var(--hk-font-display)` etc.; they'll resolve to the real loaded fonts
 automatically.
+
+**The body face is Hanken Grotesk since 2026-09-16** (DESIGN.md typography
+phase 1; it was IBM Plex Sans, whose corporate-UI voice the refinement
+direction is moving away from). Same three weights — 400/500/600 — so the
+type ramp did not move. Three things about the swap:
+
+- **`--hk-font-body` is declared in `tokens.extend.css`, not in the
+  `globals.css` bridge**, and that is the whole reason it is an override
+  of `tokens.css` rather than an addition. `mobile/ npm run theme`
+  generates the native type scale from `tokens.css` + `tokens.extend.css`
+  and **never sees `globals.css`** — declaring the swap there would have
+  left the web on Hanken Grotesk and both apps on Plex Sans.
+- **Its value carries the family name twice on purpose:**
+  `var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif`. The
+  browser resolves the var (next/font registers a hashed family name,
+  never the literal); the theme generator reads the first *quoted* name to
+  build `HankenGrotesk_400Regular` and friends, which is what
+  `@expo-google-fonts/hanken-grotesk` exports. Changing either half means
+  changing `mobile/scripts/generate-theme.mjs`'s `FAMILIES` map and
+  `mobile/src/theme/fonts.ts` with it.
+- **Fraunces is loaded as the variable face** (`axes: ['SOFT', 'WONK']`,
+  no `weight`), because `font-variation-settings` does nothing to a static
+  instance. `.hk-wonk` in `globals.css` is the display treatment DESIGN.md
+  asks for — **display sizes only**; at body size the wonk reads as a
+  rendering fault. It is on `/gifts`'s `<h1>` and nothing else so far
+  (G3); a heading taking it should tighten tracking to about -0.02em with
+  it, because Fraunces reads loose at display size. `.hk-annotation` is the Kalam mark: **max two per
+  screen**, always `aria-hidden`, never the only place a fact is stated.
+  Kalam is deliberately **not** in `tokens.extend.css` — no app screen
+  draws an annotation, and a token there owes a font in the binary.
 
 ## Naming conventions established in M0
 

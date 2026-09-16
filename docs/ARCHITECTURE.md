@@ -11,9 +11,11 @@ shape is finalized — this doc is the prose version until then.
   `styles/tokens.css` (the design system's single source of truth). No
   Tailwind, no CSS-in-JS, no inline styles (the prototype's inline-style
   approach is a visual reference only, not a technique to carry forward).
-- **Fonts:** `next/font/google` — Fraunces, IBM Plex Sans, IBM Plex Mono —
-  loaded once in `app/layout.tsx`, exposed as CSS variables consumed by
-  the token font-family vars (see `docs/DESIGN-SYSTEM.md`).
+- **Fonts:** `next/font/google` — Fraunces (variable), Hanken Grotesk,
+  IBM Plex Mono, Kalam — loaded once in `app/layout.tsx`, exposed as CSS
+  variables consumed by the token font-family vars (see
+  `docs/DESIGN-SYSTEM.md`). Hanken Grotesk replaced IBM Plex Sans as the
+  body face on 2026-09-16.
 - **Icons:** `lucide-react` for line icons; inline SVG for brand marks
   (WhatsApp, App Store, Play) that must stay unrecolored.
 - **Data (M0–M7):** typed mock data (`lib/data/`) behind an `async`

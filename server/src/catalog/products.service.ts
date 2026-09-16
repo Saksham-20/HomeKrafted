@@ -46,7 +46,21 @@ export class ProductsService {
    * neither price (the `defaultWeightSku` option's, not min/any) nor
    * distance is a column — see the two phases inside.
    */
-  async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
+  /**
+   * Every filter in a browse query that a database can answer, as one
+   * `where`.
+   *
+   * Extracted in G1 so the **grid and the facet counts are built from the
+   * same object** (`GET /catalog/facets` takes this exact query DTO). Two
+   * copies of this logic would drift, and the symptom is a filter promising
+   * "12 gifts" over a page showing nine, with nothing to say which is
+   * right.
+   *
+   * Price and distance are deliberately **not** here: neither is a column
+   * (price is the `defaultWeightSku` option's, distance is computed per
+   * buyer), so both stay in the phased application-side pass in `list`.
+   */
+  browseWhere(query: ListProductsQueryDto): Prisma.ProductWhereInput {
     // Allowlist, not `{ not: 'hidden' }` — see `moderation.ts`. With the
     // old denylist, M22's `pending` would have been public and the review
     // gate would have done nothing visible enough to notice.
@@ -116,6 +130,48 @@ export class ProductsService {
     if (query.kind !== undefined) {
       where.kind = query.kind;
     }
+
+    // G1 — the gift facets (GIFTING-REWORK §3.2). Each is AND-ed onto the
+    // query; the values inside one are OR-ed. `attr` is a record of
+    // attribute key to comma-separated option values.
+    const attrFilters: Record<string, string[]> = {};
+    for (const [key, raw] of Object.entries(query.attr ?? {})) {
+      if (typeof raw !== 'string') continue;
+      const values = splitCsv(raw);
+      if (values.length > 0) attrFilters[key] = values;
+    }
+    if (query.recipient) {
+      // The gift finder's own spelling of `attr[recipient]`.
+      attrFilters.recipient = [...(attrFilters.recipient ?? []), ...splitCsv(query.recipient)];
+    }
+    const attrConditions = Object.entries(attrFilters).map(([key, values]) => ({
+      // One `some` per attribute is what makes this an intersection: a
+      // single `some` naming every option would match a listing that
+      // answered any one of them, which is the union bug this replaces.
+      attributeValues: {
+        some: { attribute: { is: { key } }, option: { is: { value: { in: values } } } },
+      },
+    }));
+    if (attrConditions.length > 0) {
+      // `where.AND` is already the free-text search's; keep both.
+      const existing = Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : [];
+      where.AND = [...existing, ...attrConditions];
+    }
+    if (query.fulfilment !== undefined) {
+      // A listing that never answered matches neither value, because the
+      // column is NULL and `equals` does not match NULL. That is the
+      // intent, not an accident of SQL — see the DTO.
+      where.fulfilment = query.fulfilment;
+    }
+    if (query.personalisable !== undefined) {
+      where.isPersonalisable = query.personalisable;
+    }
+
+    return where;
+  }
+
+  async list(query: ListProductsQueryDto): Promise<PaginatedResult<ReturnType<typeof mapProduct>>> {
+    const where = this.browseWhere(query);
 
     const sortMode = query.sort ?? 'most-loved';
     const buyerCoords =

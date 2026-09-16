@@ -264,6 +264,96 @@ const personalised = (
 );
 
 // ---------------------------------------------------------------------------
+// Department marks added for G3 (§6).
+//
+// The gift taxonomy has ten departments and this file was drawn for four
+// craft categories, so six of the ten tiles would have fallen back to the
+// wrapped gift — which is the "seventeen tiles on one basket" failure the
+// icon registry exists to stop, one level up. Same geometry as everything
+// above: 32×32, 1.5 stroke, gold doing one job per mark.
+// ---------------------------------------------------------------------------
+
+/** Home Décor — a bellied vase under a short strung toran. */
+const homeDecor = (
+  <>
+    <path d="M13 11.5c0 2-3.2 3.4-3.2 7.6c0 4 2.8 6.4 6.2 6.4s6.2-2.4 6.2-6.4c0-4.2-3.2-5.6-3.2-7.6" />
+    <path d="M12.6 11.5h6.8" />
+    <path d="M10.6 19.2h10.8" stroke={GOLD} />
+    <path d="M8 5.5h16" stroke={GOLD} />
+    <path d="M12 5.5v2M16 5.5v2.8M20 5.5v2" stroke={GOLD} />
+    <circle cx="12" cy="8.2" r=".8" fill={GOLD} stroke={GOLD} />
+    <circle cx="16" cy="9" r=".8" fill={GOLD} stroke={GOLD} />
+    <circle cx="20" cy="8.2" r=".8" fill={GOLD} stroke={GOLD} />
+  </>
+);
+
+/** Bath & Self-care — a bar of soap with a leaf on it. */
+const selfCare = (
+  <>
+    <rect x="5.5" y="14" width="21" height="11" rx="3" />
+    <path d="M5.5 18.5h21" />
+    <path
+      d="M16 12.5c0-3.2 2.2-5.6 5.4-5.6c0 3.3-2.2 5.6-5.4 5.6Z"
+      fill={GOLD}
+      stroke={GOLD}
+    />
+    <path d="M16 12.5c-.6-2.2-2-3.6-4-4.2" stroke={GOLD} />
+  </>
+);
+
+/**
+ * Kids & Soft Toys — a bear's head.
+ *
+ * The first version was a ball of yarn with two ears, which read as a cat
+ * — or, to two people asked, a cartoon bomb. A round head with round ears
+ * is the one shape that says soft toy at 40px without a caption.
+ */
+const kids = (
+  <>
+    <circle cx="16" cy="18.5" r="7.5" />
+    <circle cx="8.8" cy="10.8" r="3.4" />
+    <circle cx="23.2" cy="10.8" r="3.4" />
+    <circle cx="13.2" cy="17" r=".9" fill={INK} />
+    <circle cx="18.8" cy="17" r=".9" fill={INK} />
+    <path d="M16 20.2a2.6 2.6 0 0 1-2.4 1.6M16 20.2a2.6 2.6 0 0 0 2.4 1.6" stroke={GOLD} />
+    <path d="M14.7 20.2h2.6" stroke={GOLD} />
+  </>
+);
+
+/** Flowers & Plants — one bloom on a stem. */
+const flowers = (
+  <>
+    <path d="M16 15.5V27" />
+    <path d="M16 21c-1.6-2.4-3.6-3.4-6-3c.4 2.6 2.2 4 6 3Z" />
+    <circle cx="16" cy="11" r="2.4" fill={GOLD} stroke={GOLD} />
+    <ellipse cx="16" cy="5.9" rx="2.5" ry="3.1" stroke={GOLD} />
+    <ellipse cx="20.9" cy="9.2" rx="3.1" ry="2.5" stroke={GOLD} />
+    <ellipse cx="11.1" cy="9.2" rx="3.1" ry="2.5" stroke={GOLD} />
+    <ellipse cx="19.2" cy="14.7" rx="2.5" ry="3" stroke={GOLD} transform="rotate(35 19.2 14.7)" />
+    <ellipse cx="12.8" cy="14.7" rx="2.5" ry="3" stroke={GOLD} transform="rotate(-35 12.8 14.7)" />
+  </>
+);
+
+/** Chocolates & Edible Gifts — a scored slab with one square lifted. */
+const chocolates = (
+  <>
+    <path d="M7 11.5A2.5 2.5 0 0 1 9.5 9h10A2.5 2.5 0 0 1 22 11.5v11A2.5 2.5 0 0 1 19.5 25h-10A2.5 2.5 0 0 1 7 22.5Z" />
+    <path d="M14.5 9v16M7 17h15" />
+    <path d="M19.5 5.5h5.5v5.5h-5.5Z" fill={GOLD} stroke={GOLD} />
+  </>
+);
+
+/** Kitchen & Dining — a mug on a saucer. */
+const kitchen = (
+  <>
+    <path d="M8.5 10h12v8.5a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5Z" />
+    <path d="M20.5 12.5h1.8a2.8 2.8 0 0 1 0 5.6h-1.8" stroke={GOLD} />
+    <path d="M6 26.5h20" stroke={GOLD} />
+    <path d="M12 6.4c0 1 1 1.2 1 2.2M17 5.6c0 1.2 1 1.4 1 2.6" stroke={GOLD} />
+  </>
+);
+
+// ---------------------------------------------------------------------------
 // Slug → art. Both maps are open: an unknown slug returns `undefined`.
 // ---------------------------------------------------------------------------
 
@@ -301,3 +391,37 @@ export function categoryArt(slug: string): ReactNode | undefined {
 
 /** The generic mark, for a category slug nothing else covers. */
 export const giftArt = gift;
+
+/**
+ * `craft:*` registry id → art (G3 §6).
+ *
+ * This is deliberately **not** the slug map above. `CATEGORY_ART` guesses
+ * a mark from a shelf's slug, which only ever covers the shelves that
+ * existed the day somebody wrote it; this one is keyed on an id an admin
+ * *chose*, so a department minted next week gets a real mark without a
+ * deploy. The slug map stays for the pre-G3 tiles that still read it.
+ *
+ * An unknown id draws the wrapped gift — `Icon` has already narrowed to
+ * the registry, so this is the belt to that braces.
+ */
+const CRAFT_BY_ID: Record<string, ReactNode> = {
+  "craft:gift": gift,
+  "craft:jewellery": jewellery,
+  "craft:candles": candles,
+  "craft:art-prints": artPrints,
+  "craft:personalised": personalised,
+  "craft:home-decor": homeDecor,
+  "craft:self-care": selfCare,
+  "craft:kids": kids,
+  "craft:flowers": flowers,
+  "craft:chocolates": chocolates,
+  "craft:kitchen": kitchen,
+};
+
+/** Art for a `craft:*` id, falling back to the wrapped gift. */
+export function craftArt(id: string): ReactNode {
+  return CRAFT_BY_ID[id] ?? gift;
+}
+
+/** Every `craft:*` id this file can draw — read by `icon-registry.spec.ts`. */
+export const CRAFT_ICON_IDS: string[] = Object.keys(CRAFT_BY_ID);

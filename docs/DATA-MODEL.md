@@ -945,3 +945,211 @@ schema; this is the same idea at this catalogue's scale. No schema change
   asked"), and `listing-families.spec.ts` fails the build on any required
   field the validator does not enforce or `LISTING_FIELD_ORDER` cannot jump
   to.
+
+## Gift departments + attributes (G1, 2026-09-16)
+
+`docs/GIFTING-REWORK.md` §4. All additive — every new column is nullable or
+defaulted and every new table starts empty, so a live catalogue is unchanged
+until the seeds and the admin screens fill them.
+
+**`Category` gained five columns.** `icon` (a committed icon id an admin
+picks — a column and *not* a slug-to-icon map in code, which is what left 17
+of 26 live tiles drawing the same basket), `description` (one buyer-facing
+sentence, also the grounding text a later suggestion is matched against),
+`synonyms` (`achaar`, `kada`, `diya` — read by search and the keyword
+suggester, never rendered as a name), `archivedAt` (retired but still
+resolving: this is how M58's recipient shelves stop being categories once
+recipient is a facet — **archived, never deleted**, because their slugs are
+in shared URLs) and `mergedIntoId` (the live "Home Décor"/"Home Decor" pair
+folds into one, and the old slug 301s).
+
+**Four tables carry what a shelf asks**, and the split is the point:
+
+| Table | What it is |
+|---|---|
+| `AttributeDefinition` | the question — `key` (stable, never renamed), `label` (renameable), `kind`, `unit`, `filterable`, `trustSensitive`, `material` |
+| `AttributeOption` | an allowed answer — `value` stable, `label` renameable, `synonyms`, `hex` for swatches |
+| `CategoryAttribute` | which shelf asks it, and how strongly (`required`/`encouraged`/`optional`) |
+| `ProductAttributeValue` | one listing's answer — one row per chosen option, so a facet count is a `GROUP BY` |
+
+Rules that ride on the model:
+
+- **Rows, not a JSONB blob.** A facet count is a `GROUP BY optionId`, an
+  option's label can be renamed without rewriting every listing that chose
+  it, and "did this edit change something material" is a set comparison —
+  the shape `ProductCategory` already uses. The M15 rule holds: counts are
+  computed from rows, **never incremented**.
+- **Absence is not an answer.** A listing with no row for "metal" matches
+  *no* metal filter and is never read as "none of them". A facet is offered
+  only once at least half the listings in view have answered it, and the
+  sheet says how many have not.
+- **`trustSensitive` is never filled in by a machine** (§8.2) — allergens,
+  nickel-free, vegan, age suitability, shelf life, 925 silver. A wrong guess
+  there is the platform making a safety claim on a maker's behalf.
+- **`material` means M22's material change**: editing that answer re-queues
+  a live listing. Most attributes are not — a colour swatch must not take
+  one off sale.
+- **A child inherits its parent's questions and may override them**
+  (`inheritedSpecs`), so dropping one from a department drops it from every
+  subcategory at once.
+- **Admin-only**, pinned by `test/unit/attribute-admin-only.spec.ts`. A
+  seller who could add a question would be writing the form every other
+  maker on that shelf fills in. `ProductAttributeValue` is deliberately
+  exempt — that is the maker answering.
+
+**`Product` gained the gift facts.** `fulfilment` (`ready_to_ship` /
+`made_to_order`; NULL is "nobody was asked" and matches neither filter —
+**how long it takes stays `prepTimeMins`**, asked in days and stored in
+minutes, because a second lead-time column is a second source of truth for
+the Pre-order badge), `isPersonalisable` + `personalisationPrompt` /
+`personalisationMaxChars` / `personalisationFee` (D11; the buyer-facing half
+is G4), `packedWeightGrams`, and `heatSafePacked`.
+
+**`heatSafePacked` is D10's whole mechanism.** Chocolates stayed on the
+gifts side rather than moving to `food`, which would have taken fourteen
+live listings off sale while `foodOrdersOpen` is off — so `kind === 'craft'`
+is no longer the whole courier predicate. A listing filed under
+**Chocolates & Edible Gifts** travels only when its maker has marked it
+packed heat-safe; the default `false` keeps it on local delivery, which is
+the safe direction (`src/shipping/courier-eligibility.ts`,
+`test/unit/courier-edible-gifts.spec.ts`).
+
+**The compliance columns (D13, §3.6)** — `netQuantity` + `netQuantityUnit`,
+`genericName`, `countryOfOrigin`, alongside the existing `madeIn`. Not legal
+advice; the Legal Metrology and E-Commerce Rules references are in the plan.
+All nullable, because a blank on a pre-G1 row reads as "nobody was asked"
+rather than as a declaration of nothing. **Nothing here publishes a pickup
+address** — the "geographic address" question went to counsel and the
+owner's interim answer is city + state only, so M36b stands untouched.
+
+## Rider fleet (R1/R2, docs/RIDER-APP.md)
+
+Own-fleet delivery for the Chandigarh tricity. `UserRole.rider` and
+`AdminScope.riders` are new; every other enum and table below is new too.
+Landed as **two migrations run back to back**
+(`20260914140000_r1_rider_fleet_enums`,
+`20260914140100_r1_rider_fleet_tables`) rather than one — Postgres refuses
+to *use* an enum value added by `ALTER TYPE … ADD VALUE` inside the same
+transaction that added it (the same split `20260806090000_m22_moderation_states`
+used for `ProductModerationStatus`), and this migration both adds
+`AdminScope.riders` and backfills it onto every existing admin
+(`UPDATE "User" SET "adminScopes" = array_append(…)`) in the same file
+family.
+
+**The whole §3 shape landed in one pass (R1); R2 and R3 put the rest of
+those tables to work — no schema change needed for either.** `Rider`,
+`RiderDocument`, `DeliveryZone`, `DeliveryJob`, `DeliveryOffer`,
+`DeliveryProof` and `RiderLocationPing` (R2), then `RiderCashEntry`,
+`RiderDeposit` and `RiderPayout` (R3) all have real services and routes
+now. `RiderSosEvent` is still R4.
+
+- **`Rider` is 1:1 with `User`, the way `Seller` is** — a rider signs in
+  through the same account system, and `role` flips `consumer -> rider` at
+  `POST /rider-enrolment` (`RiderEnrolmentService`), never at registration.
+  Two separate FKs to `User` (`userId`, `approvedById`) need explicit
+  Prisma relation names (`"RiderAccount"`, `"RiderApprovedBy"`) — the only
+  place in this section that does, since every other FK to `User` from a
+  rider table is the only one of its kind between that pair of models.
+- **Every identity/vehicle/bank field is nullable**, deliberately — the
+  onboarding form saves one screen at a time
+  (`PUT /rider/me/application`), so a half-finished application has to
+  persist without failing validation on fields not reached yet.
+  Completeness (and the required-document set, which depends on
+  `vehicleType`) is enforced in `RiderOnboardingService`, not by a
+  `NOT NULL` constraint.
+- **D12 — never a full Aadhaar number.** `aadhaarLast4 CHAR(4)`; a
+  12-digit submission is refused with its own message
+  (`application-fields.ts#checkAadhaarLast4`), not silently truncated.
+- **Cash never gets a stored balance.** `Rider.cashLimit` is the ceiling;
+  the balance itself is `SUM(RiderCashEntry.amount)`, computed on read —
+  the same rule as every other aggregate in this codebase (ratings,
+  `followerCount`). R1's `GET /rider/me` already read it this way before
+  anything wrote a row; R2 adds the first writer (`cod_collected` on
+  delivery) and R3 the rest (`deposit` on a verified `RiderDeposit`,
+  `payout_deduction`/`adjustment` from the payout queue) — every one of
+  them goes through `src/rider/cash-ledger.ts`, R3's single pure module
+  for the sign convention and the dispatch/payout arithmetic built on it.
+- **`RiderDocument` is one row per `(riderId, kind)`** — a re-upload
+  replaces it and resets `status` to `pending`, never accumulates rows.
+  `storageKey` is a path under `RIDER_KYC_DIR`
+  (`<riderId>/<kind>-<uuid>.webp`), never a URL, and **no API response
+  anywhere returns it** — the only read is a streamed, audited, admin-only
+  route.
+- **`DeliveryZone` is a circle** (D5): `centerLat`/`centerLng`/`radiusKm`
+  (3–10, default 6), `isActive` — closed, never deleted, since a real
+  rider or job may already point at one. `zoneFor` (`src/rider/zones.ts`)
+  is pure: the nearest zone whose circle actually *contains* the point,
+  never a bare nearest-centre lookup, and it excludes inactive zones.
+- **`DeliveryJob` snapshots its pickup/drop coordinates** rather than
+  joining live to `Vendor`/`Address` — both can move after a job exists,
+  and a rider mid-delivery has to keep navigating to the point they
+  accepted. Unique on `(orderId, vendorId, addressId)`, the same shape
+  `Consignment` uses and for the same reason: safe to re-run creation.
+  Deliberately a **separate object from `Consignment`** (D4): a
+  `Consignment` is a gifts-only courier record fed by an unsigned
+  callback; a fleet job carries food, an OTP, photos, a rider, cash and
+  pay.
+- **Money columns are `Decimal(12,2)`**, matching every other money column
+  in this schema (`Payout.amount`) — never a float, and (per the R1–R4
+  brief's cross-cutting rule) code that computes pay does so in integer
+  paise internally before it is ever written to one of these columns.
+- **`RiderCashEntry.amount` is signed** — `cod_collected` positive (the
+  rider owes the platform), `deposit`/`payout_deduction` negative,
+  `adjustment` either way (R3's `cash-ledger.ts`).
+- **Nothing here is exempt from the M47 rule.** `AdminScope.riders` was
+  backfilled onto every *existing* admin, not only ones with the full
+  set — an intentionally-scoped sub-admin (say, `support`-only) gets it
+  too. That is the literal reading of "backfill every existing admin",
+  the same call M47's own migration made when it invented the concept;
+  it is not "every scope a new admin section adds auto-grants to every
+  sub-admin going forward" as an ongoing rule — only this one-time
+  migration does it.
+
+### R2's one schema change
+
+`DeliveryJob.otpAttempts Int @default(0)` (`20260914150000_r2_delivery_jobs`)
+is the only column R2 needed beyond what R1 already carried. It counts
+wrong guesses at `POST /rider/jobs/:id/deliver`; `src/rider/otp-lock.ts
+#isOtpLocked` compares it to `MAX_OTP_ATTEMPTS` (5) and the job's
+`failureReason` is set to a fixed sentence once it locks — the job's
+`status` does **not** change, so an admin's `override-deliver` (or a
+future support flow) is still working with a job in its real state, not
+one auto-failed out from under a rider mid-delivery.
+
+- **Pay is computed twice, in paise, never as JS floats.**
+  `src/rider/rider-pay.ts#payFor({ distanceKm, waitMinutes, settings })`
+  is pure — distance billed in whole 0.1km beyond `settings.freeKm`,
+  rounded half-up; wait billed in whole minutes beyond
+  `settings.freeWaitMin`. `RiderJobsService` calls it once at job
+  creation (distance known, wait assumed 0 — the offer's displayed
+  estimate) and again at `picked-up` (the real wait, from
+  `arrivedPickupAt` to now), converting to rupees (`/100`) only at the
+  point it writes `DeliveryJob.basePay/distancePay/waitPay/totalPay`.
+  `incentivePay` is a column with no writer yet — an admin manual bonus
+  is unbuilt.
+- **`rider.*` settings are `PlatformSetting` rows, read through
+  `RiderSettingsService`, not `AdminSettingsService`.** Same underlying
+  mechanism (missing row → the brief's own default), deliberately a
+  separate reader: these eight numbers (`basePay`, `perKm`, `freeKm`,
+  `waitPerMin`, `freeWaitMin`, `arriveRadiusM`, `offerTimeoutSec`,
+  `unassignedAlertMin`) are dispatch internals, not yet exposed on the
+  general `/admin/settings` screen.
+- **`DeliveryOffer.riderId` is the only place a candidate is recorded
+  before acceptance.** `DeliveryJob.riderId` stays `NULL` while
+  `status = 'offered'` — it is written only inside the accept
+  transaction, alongside `status → accepted`. A rider therefore never
+  "has" a job by virtue of an outstanding offer; `hasActiveJob` in
+  `dispatch.ts` and "one offer at a time" both read *both*
+  `DeliveryJob.riderId` (active statuses) and any `DeliveryOffer` row
+  still `status = 'offered'` for that rider, anywhere.
+- **`allocateCodAmount` (`src/rider/cod-split.ts`) is pure and
+  rounding-exact.** Every group but the last is rounded independently;
+  the last absorbs whatever is left, so `Σ shares === totalCod` to the
+  rupee even though the proportional shares individually would not sum
+  exactly. Used twice per COD job creation: once across every vendor on
+  the order, once across one vendor's own (vendor, address) groups.
+- **`DeliveryOrderReconcileService` is `ShippingService
+  .reconcileOrderStatus` read for a different carrier**, shared by
+  `RiderJobsService` and `AdminDeliveriesService` rather than kept twice.
+  Same weakest-job and mixed-basket rules, same never-backwards rank
+  table, same `void`-and-swallow on the buyer notification.

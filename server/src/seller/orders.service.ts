@@ -3,6 +3,8 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
 import { ShippingService } from '../shipping/shipping.service';
+import { JOB_WITH_RELATIONS_INCLUDE } from '../rider/rider-jobs.types';
+import { mapDeliveryForSeller } from '../rider/rider-jobs.mapper';
 import { mapOrderForSeller, SellerOrderWithRelations } from './mappers/seller-order.mapper';
 
 const SELLER_ORDER_INCLUDE = {
@@ -141,6 +143,16 @@ export class SellerOrdersService {
     if (next === 'packed') void this.shipping.bookForOrder(orderId);
 
     return mapOrderForSeller(updated, vendorId);
+  }
+
+  /** `GET /seller/orders/:id/delivery` — the own-fleet job carrying this kitchen's own lines, if any. `null` when no `DeliveryJob` exists yet for this (order, vendor). */
+  async delivery(vendorId: string, orderId: string) {
+    await this.assertOwned(vendorId, orderId);
+    const job = await this.prisma.deliveryJob.findFirst({
+      where: { orderId, vendorId },
+      include: JOB_WITH_RELATIONS_INCLUDE,
+    });
+    return job ? mapDeliveryForSeller(job) : null;
   }
 
   private async assertOwned(vendorId: string, orderId: string): Promise<SellerOrderWithRelations> {

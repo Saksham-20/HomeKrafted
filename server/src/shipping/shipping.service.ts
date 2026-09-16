@@ -281,7 +281,25 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
   private async ensureConsignments(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: { include: { product: { select: { vendorId: true, kind: true } } } } },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                vendorId: true,
+                kind: true,
+                // D10: an edible gift travels only when its maker packs it
+                // heat-safe, and which shelf it sits on is what says it is
+                // one — `courier-eligibility.ts` decides, this only feeds it.
+                heatSafePacked: true,
+                categories: {
+                  select: { category: { select: { slug: true, parent: { select: { slug: true } } } } },
+                },
+              },
+            },
+          },
+        },
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
 

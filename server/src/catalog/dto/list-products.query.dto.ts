@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsNumber, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 
 export type ProductSort = 'most-loved' | 'price-asc' | 'price-desc' | 'nearest';
@@ -82,6 +82,51 @@ export class ListProductsQueryDto {
   @IsOptional()
   @IsIn(['food', 'craft'])
   kind?: 'food' | 'craft';
+
+  /**
+   * G1 — attribute filters, as `?attr[metal]=brass,copper&attr[scent_family]=floral`.
+   *
+   * **OR within one attribute, AND across attributes** — the facet model
+   * the whole browse layer already uses. Ticking two metals widens; adding
+   * a scent narrows. The alternative (OR everywhere) is what made today's
+   * page return every earring *plus* every for-her item when a buyer
+   * wanted the ones that are both.
+   *
+   * A key nothing knows about matches nothing rather than being refused: a
+   * stale bookmark should return an honest empty page with its filters
+   * shown, not a 400 a buyer cannot act on. Parsed defensively — it is a
+   * URL, so it comes from anybody.
+   */
+  @IsOptional()
+  @IsObject()
+  attr?: Record<string, string>;
+
+  /**
+   * Who the gift is for, as `?recipient=her,kids`. Shorthand for
+   * `attr[recipient]`, because it is one of the three controls the gift
+   * finder sentence *is* and a readable URL is worth one alias. Both
+   * spellings mean the same rows; supplying both ORs them together.
+   */
+  @IsOptional()
+  @IsString()
+  recipient?: string;
+
+  /**
+   * `ready_to_ship` or `made_to_order` (`Product.fulfilment`).
+   *
+   * A listing that never answered matches **neither** — absence is not an
+   * answer, so nothing is quietly advertised as ready to post on a maker's
+   * behalf.
+   */
+  @IsOptional()
+  @IsIn(['ready_to_ship', 'made_to_order'])
+  fulfilment?: 'ready_to_ship' | 'made_to_order';
+
+  /** Only listings the maker will personalise (`Product.isPersonalisable`). */
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @BooleanField()
+  personalisable?: boolean;
 
   /**
    * Return the kitchens that CANNOT reach this buyer too, marked rather

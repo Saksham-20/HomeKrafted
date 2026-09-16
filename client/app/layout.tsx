@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans, Kaushan_Script } from "next/font/google";
+import { Fraunces, Hanken_Grotesk, IBM_Plex_Mono, Kalam, Kaushan_Script } from "next/font/google";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
 import "@/styles/tokens.extend.css";
@@ -15,20 +15,31 @@ import { LocationPrompt } from "@/components/location/LocationPrompt";
 import { MobileOverflowDetector } from "@/components/debug/MobileOverflowDetector";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 
-// Fraunces (display/headings/prices) — 400-700 + italic, per the design system.
+// Fraunces (display/headings/prices) — the VARIABLE face + italic.
+//
+// It used to load four static instances. DESIGN.md's type direction asks
+// for `SOFT 70-80, WONK 1` at display sizes (the `.hk-wonk` utility in
+// globals.css), and `font-variation-settings` does nothing to a static
+// instance — the axes only exist on the variable file. Naming an axis in
+// `axes` requires dropping `weight`, which is also why the whole 100-900
+// range is now available rather than four steps; `opsz` is deliberately
+// left off so it keeps tracking the rendered size on its own.
 const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
   style: ["normal", "italic"],
+  axes: ["SOFT", "WONK"],
   variable: "--font-fraunces",
   display: "swap",
 });
 
-// IBM Plex Sans (body/controls/nav) — 400/500/600.
-const plexSans = IBM_Plex_Sans({
+// Hanken Grotesk (body/controls/nav) — 400/500/600. Replaced IBM Plex Sans
+// on 2026-09-16 (DESIGN.md typography, phase 1): same neutrality, warmer
+// counters, without Plex's institutional-SaaS voice. Same three weights, so
+// nothing in the type ramp had to move.
+const hanken = Hanken_Grotesk({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
-  variable: "--font-plex-sans",
+  variable: "--font-hanken",
   display: "swap",
 });
 
@@ -37,6 +48,19 @@ const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-plex-mono",
+  display: "swap",
+});
+
+// Kalam (Indian Type Foundry) — the maker's hand, for annotations only:
+// "Dadi's bestseller ->" beside a tile. DESIGN.md rations it hard — **max
+// two per screen**, always decorative and `aria-hidden`, never carrying a
+// fact that exists nowhere else. Use the `.hk-annotation` class rather
+// than reaching for the variable, so the ration stays greppable. Single
+// weight.
+const kalam = Kalam({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-kalam",
   display: "swap",
 });
 
@@ -99,7 +123,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} ${kaushan.variable}`}
+      className={`${fraunces.variable} ${hanken.variable} ${plexMono.variable} ${kalam.variable} ${kaushan.variable}`}
     >
       <body>
         <AuthProvider>

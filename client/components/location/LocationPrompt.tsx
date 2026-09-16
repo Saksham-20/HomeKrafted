@@ -3,14 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MapPin } from "lucide-react";
+import { PincodeLocation } from "./PincodeLocation";
 import { Button } from "@/components/ui/Button";
 import { useLocation } from "@/lib/location/LocationContext";
-import { areasByCity } from "@/lib/geo";
 import { FOCUSABLE, trapTab } from "@/lib/focus-trap";
 import styles from "./LocationPrompt.module.css";
 
-/** Consumer routes where the visitor is mid-task and the ask can wait. */
-const SUPPRESSED_ON = ["/login", "/signup", "/forgot-password", "/reset-password", "/checkout"];
+/**
+ * Consumer routes where the visitor is mid-task and the ask can wait.
+ *
+ * `/gifts` (2026-09-16, docs/GIFTING-REWORK.md D8): every gift ships
+ * nationwide, so where somebody lives changes nothing on that page, and
+ * the modal's own copy is about kitchens cooking nearby. It opened over
+ * the gifts grid on every first visit.
+ */
+const SUPPRESSED_ON = ["/login", "/signup", "/forgot-password", "/reset-password", "/checkout", "/gifts"];
 
 /**
  * The opening "where are you?" ask.
@@ -38,11 +45,10 @@ const SUPPRESSED_ON = ["/login", "/signup", "/forgot-password", "/reset-password
  */
 export function LocationPrompt() {
   const pathname = usePathname();
-  const { ready, asked, locating, error, requestBrowserLocation, setArea, dismiss } = useLocation();
+  const { ready, asked, locating, error, requestBrowserLocation, dismiss } = useLocation();
   // Closes the moment the user answers, before the persisted `asked` flag
   // has round-tripped through storage.
   const [closed, setClosed] = useState(false);
-  const [pending, setPending] = useState("");
   const cardRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
 
@@ -107,13 +113,6 @@ export function LocationPrompt() {
     if (ok) setClosed(true);
   }
 
-  function handlePick(areaId: string) {
-    setPending(areaId);
-    if (!areaId) return;
-    setArea(areaId);
-    setClosed(true);
-  }
-
   function handleSkip() {
     dismiss();
     setClosed(true);
@@ -139,25 +138,9 @@ export function LocationPrompt() {
             {locating ? "Finding you…" : "Use my current location"}
           </Button>
 
-          <div className={styles.divider}>or pick your area</div>
+          <div className={styles.divider}>or enter your pincode</div>
 
-          <select
-            className={styles.select}
-            value={pending}
-            onChange={(event) => handlePick(event.target.value)}
-            aria-label="Choose your area"
-          >
-            <option value="">Choose your area…</option>
-            {areasByCity().map((group) => (
-              <optgroup key={group.city} label={group.city}>
-                {group.areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          <PincodeLocation onResolved={() => setClosed(true)} />
 
           <button type="button" className={styles.skip} onClick={handleSkip}>
             Skip for now — show me everything

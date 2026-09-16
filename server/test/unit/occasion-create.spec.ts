@@ -34,12 +34,8 @@ function serviceWith(existing: Partial<OccasionRow>[]) {
 
   const prisma = {
     occasion: {
-      findFirst: jest.fn().mockImplementation((args: { where: { name: { equals: string } } }) => {
-        const wanted = args.where.name.equals.toLowerCase();
-        return Promise.resolve(
-          existing.find((o) => (o.name ?? '').toLowerCase() === wanted) ?? null,
-        );
-      }),
+      // The service loads the names and folds them itself (common/fold-name.ts).
+      findMany: jest.fn().mockImplementation(() => Promise.resolve(existing.map((o) => ({ name: o.name ?? '' })))),
       findUnique: jest.fn().mockImplementation((args: { where: { slug?: string } }) =>
         Promise.resolve(existing.find((o) => o.slug === args.where.slug) ?? null),
       ),
@@ -83,6 +79,14 @@ describe('AdminCollectionsService.createOccasion', () => {
   it('refuses a name that already exists, whatever the case', async () => {
     const { service, created } = serviceWith([{ name: 'Diwali', slug: 'diwali' }]);
     await expect(service.createOccasion('admin-1', { name: 'diwali' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(created).toHaveLength(0);
+  });
+
+  it('refuses a name that differs only by an accent (the Home Décor / Home Decor duplicate)', async () => {
+    const { service, created } = serviceWith([{ name: 'Teej', slug: 'teej' }, { name: 'Nuakhai Juhar', slug: 'nuakhai' }]);
+    await expect(service.createOccasion('admin-1', { name: 'Nuákhai  Juhar' })).rejects.toBeInstanceOf(
       ConflictException,
     );
     expect(created).toHaveLength(0);

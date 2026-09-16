@@ -2535,12 +2535,186 @@ export async function createCategory(input: CreateCategoryInput): Promise<Catego
   return http.post<Category>("/admin/collections/categories", input);
 }
 
+export interface UpdateCategoryInput extends Partial<CreateCategoryInput> {
+  /** G1 — a committed icon id from `lib/icons/registry.ts`; `null` clears it. */
+  icon?: string | null;
+  description?: string | null;
+  synonyms?: string[];
+}
+
 export async function updateCategory(
   id: string,
-  input: Partial<CreateCategoryInput>,
+  input: UpdateCategoryInput,
 ): Promise<Category> {
   if (isMockMode()) {
     throw new Error("Editing a category needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
   }
   return http.patch<Category>(`/admin/collections/categories/${id}`, input);
+}
+
+// ---------------------------------------------------------------------------
+// G1 — retiring, merging, and what a shelf asks
+// (docs/GIFTING-REWORK.md §3–§4)
+// ---------------------------------------------------------------------------
+
+/**
+ * Retire a shelf, or put it back.
+ *
+ * Archiving is **not deleting**: every link, breadcrumb and order pointing
+ * at the shelf keeps resolving, which is what makes it safe to do to a slug
+ * that is in URLs people have shared. The server refuses while the shelf
+ * still has live children, naming how many — and that sentence is what the
+ * screen shows, so this throws rather than swallowing it (M36).
+ */
+export async function setCategoryArchived(id: string, archived: boolean): Promise<Category> {
+  if (isMockMode()) {
+    throw new Error("Archiving a shelf needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.patch<Category>(`/admin/collections/categories/${id}/archived`, { archived });
+}
+
+/**
+ * Fold one shelf into another, moving its listings across.
+ *
+ * The server refuses across `group` and while the source has children, each
+ * with the sentence saying what to do first. Nothing is re-queued: an admin
+ * tidying our own duplicate must not take a live catalogue off sale (M44).
+ */
+export async function mergeCategory(
+  id: string,
+  intoId: string,
+): Promise<{ merged: boolean; listingsMoved: number; into: { id: string; name: string } }> {
+  if (isMockMode()) {
+    throw new Error("Merging shelves needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.post(`/admin/collections/categories/${id}/merge`, { intoId });
+}
+
+/** One listing and where the rule thinks it belongs (G1 §3.5). */
+export interface RecategorisationProposal {
+  productId: string;
+  name: string;
+  maker: string;
+  currentShelf: { id: string; name: string };
+  /** `null` when the rule matched nothing, or when it is already there. */
+  proposed: { categoryId: string; name: string } | null;
+  /** The words that matched — the operator's whole audit trail. */
+  why: string[];
+  confidence: "keep" | "none" | "low" | "high";
+}
+
+export async function getRecategorisationProposals(
+  kind: "craft" | "food" = "craft",
+): Promise<RecategorisationProposal[]> {
+  if (isMockMode()) return [];
+  return http.get<RecategorisationProposal[]>(`/admin/catalog/recategorise?kind=${kind}`);
+}
+
+/**
+ * Approve one proposed move. **One row at a time on purpose** — the screen
+ * exists so a person reads each proposal and the words it matched, and a
+ * "move everything" button would be the automatic re-filing §3.5 rules out.
+ */
+export async function applyRecategorisation(
+  productId: string,
+  categoryId: string,
+): Promise<unknown> {
+  if (isMockMode()) {
+    throw new Error("Moving a listing needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.post("/admin/catalog/recategorise", { productId, categoryId });
+}
+
+/** One of a shelf's questions, as the admin screen edits it. */
+export interface AdminAttribute {
+  id: string;
+  key: string;
+  label: string;
+  helpText: string | null;
+  kind: "single" | "multi" | "text" | "number" | "boolean" | "dimensions";
+  unit: string | null;
+  filterable: boolean;
+  /** Never prefilled by a machine — allergens, vegan, age suitability (§8.2). */
+  trustSensitive: boolean;
+  /** Editing this answer re-queues a live listing (M22). */
+  material: boolean;
+  options: { id: string; value: string; label: string; hex: string | null; synonyms: string[] }[];
+  shelves: { categoryId: string; name: string; requirement: AttributeRequirement }[];
+}
+
+export type AttributeRequirement = "required" | "encouraged" | "optional";
+
+export async function getAttributes(): Promise<AdminAttribute[]> {
+  if (isMockMode()) return [];
+  return http.get<AdminAttribute[]>("/admin/collections/attributes");
+}
+
+/**
+ * Every one of these five is a **mutation that hands its refusal up** (M36).
+ * The server names the question that already uses a key and the option that
+ * already uses a value, rather than silently handing back the existing row
+ * (the M43 rule) — and the screen's banner is built on them throwing.
+ */
+export async function createAttribute(input: {
+  key: string;
+  label: string;
+  kind: AdminAttribute["kind"];
+  helpText?: string;
+  unit?: string;
+  filterable?: boolean;
+  trustSensitive?: boolean;
+  material?: boolean;
+}): Promise<AdminAttribute> {
+  if (isMockMode()) {
+    throw new Error("Adding a question needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.post<AdminAttribute>("/admin/collections/attributes", input);
+}
+
+/** `key` is absent on purpose — it is what every stored answer points at. */
+export async function updateAttribute(
+  id: string,
+  input: {
+    label?: string;
+    helpText?: string | null;
+    unit?: string | null;
+    filterable?: boolean;
+    trustSensitive?: boolean;
+    material?: boolean;
+  },
+): Promise<AdminAttribute> {
+  if (isMockMode()) {
+    throw new Error("Editing a question needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.patch<AdminAttribute>(`/admin/collections/attributes/${id}`, input);
+}
+
+export async function addAttributeOption(
+  attributeId: string,
+  input: { value: string; label: string; hex?: string; synonyms?: string[] },
+): Promise<{ id: string; value: string; label: string }> {
+  if (isMockMode()) {
+    throw new Error("Adding an option needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.post(`/admin/collections/attributes/${attributeId}/options`, input);
+}
+
+/**
+ * Ask a question on a shelf, or stop asking it (`requirement: null`).
+ *
+ * Unlinking leaves the listings' existing answers in place — a shelf that
+ * stops asking has not made the answers wrong.
+ */
+export async function setShelfQuestion(
+  categoryId: string,
+  attributeId: string,
+  requirement: AttributeRequirement | null,
+): Promise<{ linked: boolean }> {
+  if (isMockMode()) {
+    throw new Error("Editing a shelf’s questions needs the real API — set NEXT_PUBLIC_USE_MOCK=false.");
+  }
+  return http.patch(`/admin/collections/categories/${categoryId}/questions`, {
+    attributeId,
+    requirement,
+  });
 }

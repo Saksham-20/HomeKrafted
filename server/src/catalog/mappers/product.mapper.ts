@@ -112,6 +112,18 @@ export function mapProduct(product: ProductWithRelations) {
      * *this* dish, or it is not made.
      */
     prepTimeMins: product.prepTimeMins ?? undefined,
+    /**
+     * G1's three browse-facing answers, carried so a card can state a fact
+     * instead of a claim (G3 §5.1).
+     *
+     * All three are **nullable and sent as-is**. `fulfilment` NULL is "the
+     * maker never said", which matches neither Dispatch filter and draws no
+     * fact line — the absence-is-not-an-answer rule, one column over. A
+     * card that guessed "Ready to ship" from a null would be the platform
+     * promising a dispatch date on a maker's behalf.
+     */
+    fulfilment: product.fulfilment ?? undefined,
+    isPersonalisable: product.isPersonalisable,
     // Round-trips with the seller's edit form. Without it the "also list
     // this on my snacks menu" checkbox reads as unticked on a listing that
     // is already on the menu, and saving would quietly take it off.

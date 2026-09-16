@@ -436,6 +436,8 @@ A stored trust score is a number with no owner that stops being true the
 first time a kitchen's behaviour changes — the same reasoning that made
 M15 recompute rating aggregates instead of incrementing them.
 | `GET /categories`, `GET /categories/:slug` | public | `Category[]` / `Category` |
+| `GET /catalog/departments?kind=craft` | public | **G1.** The department tiles for the browse page: each non-empty top-level shelf with `{ id, slug, name, description, icon, count, imageSrc, children[] }`. **A department with nothing live on it is not returned** (D2 — with 86 gifts, 18 of 26 tiles were dimmed and disabled, so the dead controls were most of the control); the admin and seller pickers still list every shelf. `imageSrc` is **a real listing's photograph** — the highest-ranked publicly listed one on that department — never stock or generated imagery; `null` when none of its listings carries a photo, and the client draws the labelled placeholder, which looks like a missing asset because it is one. Children are the non-empty subcategories, counted through `ProductCategory` so a parent matches its children (M58). |
+| `GET /catalog/facets?…` | public | **G1.** Counts for the current selection: `{ total, facets: [{ key, label, kind, unit, answered, unanswered, options: [{ value, label, hex, count }] }] }`. **Takes the same query `GET /products` takes** and builds its `where` from the same function (`ProductsService.browseWhere`), deliberately: a facet count computed from a different filter than the grid is a number that disagrees with the page under it, and nobody can tell which is lying. A facet appears only once **at least half** the listings in view have answered it, and `unanswered` is what lets the sheet say "12 listings haven't said" — the absence-is-not-an-answer rule, since a buyer cannot otherwise tell "none match" from "nobody was asked". |
 | `GET /occasions`, `GET /occasions/:slug` | public | `Occasion[]` / `Occasion`. **M16** adds `celebratedOn?`, `tagline?`, `imageSrc?` — see the occasion-hub note below. |
 | `GET /collections`, `GET /collections/:slug` | public | `Collection[]` / `Collection` — `productIds` ordered by `CollectionProduct.sortOrder`. **M16** adds `imageSrc?`, `featured`, `sortOrder`; the list is ordered by `sortOrder` then `title` (title, not id, so two guides at the same position don't swap between requests). |
 
@@ -639,6 +641,31 @@ today.
   nothing changes in M8.4 beyond the `OrderStatus` union update above;
   documenting it here so the DB migration and the wire format not
   matching visually isn't a surprise.
+
+**Gift facets on `GET /products` (G1, 2026-09-16).** Four parameters, all
+optional, all AND-ed onto the query:
+
+- **`attr[key]=a,b`** — attribute filters, e.g.
+  `?attr[metal]=brass,copper&attr[scent_family]=floral`. **OR within one
+  attribute, AND across attributes**, which is the facet model the browse
+  layer already uses: ticking two metals widens, adding a scent narrows.
+  One `some` clause per attribute is what makes it an intersection — a
+  single `some` naming every option matches a listing that answered any one
+  of them, which is the union bug this replaces (today's page returns every
+  earring *plus* every for-her item). A key nothing knows about matches
+  nothing rather than being refused, so a stale bookmark returns an honest
+  empty page with its filters shown.
+- **`recipient=her,kids`** — shorthand for `attr[recipient]`, because it is
+  one of the three controls the gift-finder sentence *is* and a readable URL
+  is worth one alias. Both spellings mean the same rows.
+- **`fulfilment=ready_to_ship|made_to_order`** — a listing that never
+  answered matches **neither**, so nothing is advertised as ready to post on
+  a maker's behalf.
+- **`personalisable=true`** — `Product.isPersonalisable`.
+
+A department is not a separate parameter: `category` already matches a
+parent through its children (M58), so `?category=jewellery-and-accessories`
+is the department filter.
 
 ## Wallet & Payments (M8.2 — real, `server/src/{wallet,payments}/`)
 
@@ -1540,6 +1567,31 @@ never block writing the log itself.
 |---|---|
 | `GET /admin/audit` | `?targetType=&actorId=&page=&pageSize=` all optional. `{ items: [{id,actorId,actorName,actorEmail,action,targetType,targetId,metadata,createdAt}], page, pageSize, total, targetTypes }`, newest first. **M27** adds `targetTypes` — the distinct entity kinds actually present, unfiltered, so the UI filter's options come from the data instead of a hand-typed list of Prisma model names that goes stale the first time a new kind is logged. Read by `/admin/audit`, which shipped in M27; note the filters there are exactly these two plus pagination — action and date filters were **not** faked client-side over one page, which would lie on the one screen whose job is completeness. |
 
+### Gift taxonomy + attributes (G1, `server/src/admin/`)
+
+All on `AdminCollectionsController` — `@Roles('admin')` plus
+`@RequireAdminScope('catalog')`, so they sit behind the fail-closed
+`/api/v1/admin` path rule like every other admin route. Every one is
+audited.
+
+| Route | Notes |
+|---|---|
+| `PATCH /admin/collections/categories/:id` | **G1 adds `icon`, `description`, `synonyms`** to the existing rename/re-parent/re-order body. The slug is still never re-derived — it is in every shared and indexed URL (M58). |
+| `PATCH /admin/collections/categories/:id/archived` | `{ archived: boolean }`. Retires a shelf **without deleting it**: it leaves the pickers and the browse page while every link, breadcrumb and order pointing at it keeps resolving. This is how M58's recipient shelves stop being categories once recipient is a facet. Refuses while the shelf still has live children, naming how many. Reversible. |
+| `POST /admin/collections/categories/:id/merge` | `{ intoId }`. Folds one shelf into another — production holds both "Home Décor" and "Home Decor" (§3.1). Moves every `ProductCategory` link across **skipping duplicates** (the pair is unique), re-points any listing whose *primary* category was the source, then archives the source with `mergedIntoId` so its old URL resolves and redirects. Refuses across `group` (merging would file food under gifts) and while the source has children. **Nothing is re-queued**: an admin tidying our own duplicate must not take a live catalogue off sale (M44). |
+| `GET /admin/collections/attributes` | Every question with its options and the shelves that ask it. |
+| `POST /admin/collections/attributes` | `{ key, label, kind, helpText?, unit?, filterable?, trustSensitive?, material? }`. `key` is normalised to `lower_snake` and is **never editable afterwards** — it is what a stored answer and a shared filter URL both point at, the same contract as a category slug. A duplicate key is a **409 naming the existing question**, never a silent hand-back (M43). |
+| `PATCH /admin/collections/attributes/:id` | Label, help text, unit and the three flags. `key` is deliberately absent from the DTO. |
+| `POST /admin/collections/attributes/:id/options` | `{ value, label, hex?, synonyms? }`. `value` is stable, `label` renameable. A clash on either — the label compared **case- and accent-folded** (`fold-name.ts`) — is a 409 naming the existing option. |
+| `PATCH /admin/collections/categories/:id/questions` | `{ attributeId, requirement }` asks a question on a shelf; `requirement: null` stops asking it. A child inherits its parent's questions, so linking a department reaches every subcategory under it. **Unlinking leaves the listings' existing answers in place** — a shelf that stops asking has not made the answers wrong, and re-linking gets them back. |
+
+The point of these is that **adding a question to a shelf needs no deploy**.
+Until G1, "what the form asks" was a hardcoded slug map in the client
+(`listing-families.ts`) that had already drifted from the database: five
+live craft shelves appeared in no question set at all, so thirty bangle
+listings were asked the generic one, and the server — which knew nothing of
+families — could not refuse a wrong answer.
+
 ## Health
 
 | Endpoint | Auth | Returns |
@@ -1627,6 +1679,7 @@ one at all, it's always resolved from the JWT).
 |---|---|---|
 | `getSeller(sellerId)` / `getSellerVendor(vendorId)` | `Seller \| undefined` / `Vendor \| undefined` | No longer separate lookups — `GET /seller/dashboard` resolves the caller's own seller+vendor server-side; `GET /seller/storefront` returns the vendor directly. |
 | `getSellerListings(vendorId)` / `getSellerListing(vendorId, id)` | `Product[]` / `Product \| undefined` | `GET /seller/listings` / `GET /seller/listings/:id` |
+| `getListingSchema(categoryId)` | `{ categoryId, questions[] }` | `GET /seller/listings/schema/:categoryId` |
 | `createSellerListing(vendorId, input)` | `Product` | `POST /seller/listings` |
 | `updateSellerListing(vendorId, id, input)` | `Product \| undefined` | `PATCH /seller/listings/:id` |
 | `deleteSellerListing(vendorId, id)` | `void` | `DELETE /seller/listings/:id` |
@@ -1954,6 +2007,34 @@ filed under Breakfast, Desserts and the rest.
 | `POST` | `/admin/collections/categories` | **The only route that creates a `Category`.** `{ name, group?, parentId? }`. `group` is ignored when `parentId` is set — a subcategory follows its parent. `409` naming the existing row on a duplicate (scoped to the same parent); `400` on a two-deep nest. Audited. |
 | `PATCH` | `/admin/collections/categories/:id` | Rename, re-parent, re-order. The **slug is never re-derived** — it is in every shared browse URL. `400` if the category has children of its own and is being made a child, or is made its own parent. Audited. |
 
+**G1 (2026-09-16) added to both listing bodies:** `attributes?: [{ key,
+value?, values?, text?, number?, boolean? }]` — the shelf's own questions,
+validated server-side against `CategoryAttribute` for the category on
+**this** listing (`catalog/attribute-values.ts`). A missing `required`
+answer or a value that is not one of the shelf's choices is a **400
+`LISTING_ATTRIBUTES_INVALID`** carrying `problems: [{ field, message }]`,
+one sentence per field, written to be shown on the form. An answer to a
+question the shelf does **not** ask is **dropped, not refused** — moving a
+listing from Candles to Home Décor must not meet a wall of errors about
+burn time, and a client built before an admin edited the question set keeps
+working. Editing an answer the shelf marks `material` re-queues a live
+listing (M22); a colour swatch does not. Also accepted:
+`fulfilment`, `isPersonalisable`, `personalisationPrompt`,
+`personalisationMaxChars`, `personalisationFee`, `packedWeightGrams`,
+`heatSafePacked` (D10 — the only thing that lets a courier carry an edible
+gift), and the compliance fields `netQuantity`, `netQuantityUnit`,
+`genericName`, `countryOfOrigin`. Every one is optional and omitting it
+leaves the column alone, so a client that knows nothing of them cannot wipe
+answers another screen collected.
+
+`GET /seller/listings/schema/:categoryId` returns what that shelf asks —
+`{ categoryId, questions: [{ key, label, helpText, kind, unit, requirement,
+trustSensitive, material, options[] }] }` — which is **the same set the
+server validates against**. `trustSensitive` rides along on purpose: the
+form marks those as the maker's own declaration and a later suggestion is
+forbidden from prefilling them (§8.2), and a flag the client cannot see is
+a rule the client cannot honour.
+
 `POST /seller/listings` and `PATCH /seller/listings/:id` accept
 `categoryIds: string[]` — the *extra* shelves. `categoryId` stays the
 required primary, and the server folds it into the join, so
@@ -1964,3 +2045,539 @@ show it under" box is seeded from.
 **Changing the set re-queues the listing for moderation**, compared as
 sets so a re-order does not. `POST /seller/taxonomy-suggestions` and the
 admin approve body both take `parentCategoryId`.
+
+## Rider fleet — onboarding (R1 — real, `server/src/rider/` + `server/src/admin/riders/`)
+
+Own-fleet delivery for the Chandigarh tricity — see `docs/RIDER-APP.md`
+for the full plan. **R1 is onboarding only**: a shopper becomes a rider,
+fills in the application, uploads KYC documents, and an admin reviews and
+approves them. Deliveries, cash, payouts and SOS are R2/R3/R4 — their
+tables exist (landed in one migration so the model settles once) but
+nothing reads or writes them yet.
+
+`UserRole.rider` is a new role, alongside `consumer|seller|admin`;
+`AdminScope.riders` is a new sub-admin scope (M47). Every existing admin
+was backfilled with it, same as every scope M47 added since.
+
+### `POST /rider-enrolment` — the one door in
+
+Not under `/rider/*`, and deliberately carries **no `@Roles(...)`** — see
+its controller's own doc comment for why: the brief's shape for this
+route is `@Roles('consumer', 'rider')`, but `RolesGuard` throws its own
+403 for anyone outside that list before the handler runs, which would
+make the seller/admin refusal below unreachable. The route is open to any
+authenticated role and `RiderEnrolmentService` decides.
+
+| Case | Result |
+|---|---|
+| `consumer` | Flips `role` to `rider`, creates the `Rider` row, mints a **fresh token pair** (role is a JWT claim — the old token still says `consumer`). |
+| `rider` (already) | Idempotent — a fresh token pair, no second `Rider` row. |
+| `seller` / `admin` | `409` — "This number already has a HomeKrafter/admin account — use a different number to ride." |
+
+Response is a plain `AuthResult` — `{ accessToken, refreshToken, user }`
+— the same shape `/auth/login`/`/auth/continue` return.
+
+### `/rider/*` (`@Roles('rider')`) — a rider not yet `approved` may use every route below
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/rider/me` | Profile, status, document checklist (`documents` + `missingDocuments`, the latter derived from `vehicleType` via `requiredDocumentKinds`), cash summary (`{ balance: 0, limit, settlementMode }` in R1 — the ledger is R3). Unmasked: this is the rider's own data. |
+| `PUT` | `/rider/me/application` | Partial save, one onboarding screen at a time. `400` on the *first* invalid field with a real sentence (`application-fields.ts`), never a decorator's stock message. `409` once the application is not `applied`\|`rejected`. |
+| `POST` | `/rider/me/consents` | `{ agreementVersion?, privacyVersion?, location?, bgv? }` — four independent, timestamped consents; sending a version *is* accepting it. |
+| `POST` | `/rider/me/submit` | `applied\|rejected -> under_review`. `400` when incomplete — see **The missing-items refusal** below. `409` once already submitted/decided. |
+| `GET` | `/rider/zones` | Active `DeliveryZone`s only. |
+| `POST` | `/rider/documents/:kind` | Multipart, field `file`. `kind` is one of `RiderDocumentKind` minus `police_verification` (never self-uploaded). Re-encoded exactly like a public upload (`sniffImage` + `processImage` — EXIF strip, WebP), written to `RIDER_KYC_DIR` — **never** the public upload store. **The response is `{ kind, status, uploadedAt }` — no URL, ever.** A re-upload replaces the row and resets it to `pending`. |
+
+### The missing-items refusal
+
+The brief's shape for an incomplete `POST /rider/me/submit` was a
+structured `{ message, missing: string[] }` 400 body. That is not
+achievable under this API's actual, shared error envelope:
+`AllExceptionsFilter` normalises **every** thrown error to `{ error: {
+code, message } }` and drops any other field on the thrown body — so a
+`missing` array would be silently stripped before it ever reached a
+client. Both `RiderOnboardingService.submit` and (for the parallel
+"approve before every document is approved" case)
+`AdminRidersService.approve` instead throw `new
+BadRequestException(items: string[])`, which Nest's own `createBody`
+turns into `{ message: items, error: 'Bad Request' }` — the filter's
+already-supported multi-item shape (the same one class-validator's field
+errors use), joined with `'; '` into one sentence and marked
+`VALIDATION_ERROR`. `describeMissing` (`src/rider/missing-item-labels.ts`)
+turns each raw key (`fullName`, `homeZoneId`, `selfie`, `aadhaar_front`,
+…) into a short clause before it's joined. A future milestone that needs
+a machine-parseable list back (R5's app, sending a rider to the right
+onboarding step) will need its own mechanism — this is not it.
+
+### `/admin/riders/*` (`@Roles('admin')`, `@RequireAdminScope('riders')`)
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/admin/riders?status=&zoneId=&page=` | Default filter `under_review` — the queue with work in it (the portal-kit rule). |
+| `GET` | `/admin/riders/:id` | Full detail. `bankAccountNumber` masked to the last 4 digits unless `?reveal=bank`, which is **audited** (`rider.bank_reveal`) even when nothing else changes. |
+| `GET` | `/admin/riders/:id/documents/:kind/file` | The bytes, not a URL — `Content-Type: image/webp`, `Cache-Control: no-store`. Audited `rider.document_view` on every call. |
+| `PATCH` | `/admin/riders/:id/documents/:kind` | `{ status: 'approved'\|'rejected', note? }` — `note` required on a rejection (the M22 rule: a refusal needs a reason). A rejection notifies the rider (`account` category) with `note` verbatim. |
+| `POST` | `/admin/riders/:id/approve` | `under_review -> approved`, guarded (`updateMany where status = 'under_review'`, `count === 1` or `409`). Refuses (`400`) until every required document (per `vehicleType`) is itself `approved`. |
+| `POST` | `/admin/riders/:id/reject` | `{ reason }`, `under_review -> rejected`. Reopens the application form (`rejected` is an editable status). |
+| `POST` | `/admin/riders/:id/suspend` | `{ reason }`, `approved -> suspended`. Forces the rider offline. |
+| `POST` | `/admin/riders/:id/reinstate` | `suspended -> approved`. |
+| `PATCH` | `/admin/riders/:id/cash-limit` | `{ amount }`, 0–20000. The ledger that reads it is R3; R1 only stores the number. |
+
+Every mutation above writes an `AdminAuditLog` row (`AdminAuditLogService`,
+same as the rest of the admin panel) and, for approve/reject/document-
+reject, notifies the rider through `NotificationsDeliveryService`
+(category `account`, so it defaults to WhatsApp on — this is transactional,
+not marketing).
+
+### `/admin/riders/zones` (`@Roles('admin')`, `@RequireAdminScope('riders')`)
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/admin/riders/zones` | Every zone, active or not. |
+| `POST` | `/admin/riders/zones` | `{ name, city, centerLat, centerLng, radiusKm? }` — D5: a circle. `radiusKm` 3–10 (default 6); `centerLat`/`centerLng` bounded 29–32°N / 75–78°E (a tricity sanity check, not a service-area fence). `409` naming the existing zone on a duplicate name. |
+| `PATCH` | `/admin/riders/zones/:id` | Partial update, including `isActive: false` — a zone is **closed**, never deleted (real riders and jobs may already point at it). |
+
+### Private KYC storage — not the public upload pipeline
+
+`RIDER_KYC_DIR` (env, default `/var/lib/homekrafted/private/rider-kyc` in
+prod, `./.private/rider-kyc` in dev — gitignored) is a directory nginx
+never serves. `RiderDocumentsService` writes straight to disk there
+(`<riderId>/<kind>-<uuid>.webp`) rather than going through
+`UploadsService`/`StorageDriver` — those write under a *public* root by
+design. No response anywhere ever returns a `storageKey` or a file path;
+the only read is the streamed, audited, scope-gated admin route above.
+
+## Rider fleet — deliveries move (R2 — real, `server/src/rider/` + `server/src/admin/riders/` + `server/src/seller/deliveries.*`)
+
+The delivery journey (`docs/RIDER-APP.md` §2.3): a job is created (by hand,
+today), offered to the nearest eligible online rider, accepted or declined,
+walked through pickup and drop with photo proofs and a geofence, delivered
+against a buyer-read OTP, and the order it belongs to moves with it. Cash
+is *recorded* here (a `RiderCashEntry` row on delivery); spending it —
+deposits, payouts, the settlement screens — is R3.
+
+**Response envelope note.** A handler that returns `null` (`GET
+/rider/offers/current` and `GET /rider/jobs/active` when there is nothing
+to show) sends an **empty body**, not the JSON literal `null` — `200`,
+`Content-Length: 0`, no `Content-Type`. A client must treat an empty
+response the same as it would treat `null`, not attempt to `JSON.parse` it.
+
+### `/rider/duty` + `/rider/location` (`@Roles('rider')`)
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| `POST` | `/rider/duty` | `{ online: boolean, lat?: number, lng?: number }` | `200`. Going online requires `lat`/`lng` and an `approved` rider — **not** a clear cash balance (D9: the cash limit only filters which *offers* reach a rider, never whether they can go on duty). Going offline is `409` while any job is `accepted\|at_pickup\|picked_up\|at_drop`. Response: `{ isOnline: boolean, onlineSince?: string }`. |
+| `POST` | `/rider/location` | `{ pings: Array<{ lat, lng, accuracyM?, speedMps?, recordedAt: ISOString, jobId? }> }` (≤ 50) | `200`. A ping older than 10 minutes (relative to the request) or with `accuracyM > 100` is dropped before it reaches `RiderLocationPing` or `Rider.lastLat/lastLng`. Response: `{ accepted: number, total: number }` — `accepted` may be less than `pings.length`, never an error. |
+
+### `/rider/offers/*` (`@Roles('rider')`) — D6's one-offer-at-a-time loop
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/rider/offers/current` | The one live offer for this rider, or an empty body. |
+| `POST` | `/rider/offers/:id/accept` | `200` with the full active-job shape (below) on success. `404` if the offer isn't this rider's; `409` if it is no longer `offered` (expired, already accepted/declined by a genuine race — see below) or the job moved under it. |
+| `POST` | `/rider/offers/:id/decline` | `200`, `{ declined: true }`. Job returns to `unassigned`; the next dispatch tick never re-offers it to this rider (`alreadyOffered`). |
+
+`GET /rider/offers/current` response shape:
+
+```json
+{
+  "id": "…", "jobId": "…", "status": "offered", "expiresAt": "2026-09-15T…Z",
+  "pickupArea": "Chandigarh Central", "distanceToPickupKm": 0.4,
+  "dropArea": "Sector 35", "routeDistanceKm": 1.7,
+  "codAmount": 500, "pay": 2500
+}
+```
+
+`distanceToPickupKm` is `undefined` when the rider has no location fix yet
+(never a guess). `pickupArea`/`dropArea` are the zone name / `Vendor
+.location` / `Address.area`-or-`city` — never a street line. `pay` here is
+the estimate computed at job creation (distance only, wait unknown); it
+is refined at `picked-up`.
+
+**Two concurrent `accept` calls on the same offer: exactly one wins.**
+The offer and the job transition inside one Prisma interactive
+transaction — a guarded `updateMany` on the offer, then a guarded
+`updateMany` on the job; if the job-side guard fails the whole
+transaction (including the offer's own write) rolls back, so the two
+rows can never disagree about which won.
+
+### `/rider/jobs/*` (`@Roles('rider')`) — §2.3, one guarded transition per step
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| `GET` | `/rider/jobs/active` | — | The job this rider currently holds (`accepted\|at_pickup\|picked_up\|at_drop`), or an empty body. Full active-job shape (below). |
+| `GET` | `/rider/jobs?page&pageSize` | — | `{ items: [...], page, pageSize, total }`. History shape (below) — **area labels only, no address, no phone, no OTP.** |
+| `POST` | `/rider/jobs/:id/arrived-pickup` | `{ lat, lng }` | `200`. `accepted → at_pickup`. `400` naming the distance if outside `rider.arriveRadiusM` (300m default): `"You are 1.2 km from the kitchen — tap Arrived when you are there."` Returns the active-job shape. |
+| `POST` | `/rider/jobs/:id/pickup-photo` | multipart `file` | `201`, `{ stage: "pickup_rider", url }`. `409` unless `at_pickup`. |
+| `POST` | `/rider/jobs/:id/picked-up` | — | `200`. `at_pickup → picked_up`, **`400` without a `pickup_rider` proof on file**. Computes and stores `basePay`/`distancePay`/`waitPay`/`totalPay` (wait = time since `arrivedPickupAt`). Advances the order to `shipped` once every job on it is at least `picked_up` (never on a mixed basket a fleet job doesn't fully cover). Returns the active-job shape — **`pickup` is gone from it now** (D13). |
+| `POST` | `/rider/jobs/:id/arrived-drop` | `{ lat, lng }` | `200`. `picked_up → at_drop`, same geofence/refusal shape as arrived-pickup, against the drop point. |
+| `POST` | `/rider/jobs/:id/drop-photo` | multipart `file` | `201`, `{ stage: "drop", url }`. `409` unless `at_drop`. |
+| `POST` | `/rider/jobs/:id/failed-photo` | multipart `file` | `201`, `{ stage: "failed_attempt", url }`. **Not in the R2 brief's literal route list** — added because the same brief requires a `failed_attempt` proof before `POST .../fail` succeeds, and no other route could produce one. Same shape as the other two proof routes. |
+| `POST` | `/rider/jobs/:id/deliver` | `{ otp: string (4 chars), cashCollected?: boolean }` | `200`. **`400` without a `drop` proof on file.** OTP compared in constant time; a wrong guess is `400` naming attempts left (`"That code doesn't match. 3 attempts left."`); the 5th wrong guess (and everything after) is `409` with a fixed sentence pointing at support — the job is **not** auto-failed, an admin's `override-deliver` is the way through. On success: `at_drop → delivered`, `deliveredAt` stamped, and — only when `cashCollected` is true and the job carries `codAmount` — one `RiderCashEntry(cod_collected)` row for the exact `codAmount`. Advances the order to `delivered` on the same weakest-job/mixed-basket rule as `picked-up`. **Returns an empty body** — the job is no longer "active". |
+| `POST` | `/rider/jobs/:id/fail` | `{ reason: string }` | `200`. **`400` without a `failed_attempt` proof on file.** `at_drop → failed`, `failureReason = reason`. No further automatic action — an admin resolves it (`reassign`/`cancel`/`override-deliver`). Returns the active-job shape (now `null`/empty, since `failed` is not an "active" status). |
+
+Every transition above is refused `409` with `"This delivery is
+"<status>" — …"` when the job is not in the state the step expects, and
+`404` when the job doesn't exist or isn't this rider's — never
+distinguished from each other.
+
+**Active-job shape** (`GET /rider/jobs/active`, and the body every
+transition above returns on success unless noted otherwise):
+
+```json
+{
+  "id": "…", "jobNumber": "HKD-260915-A1B2C", "status": "at_pickup",
+  "distanceKm": 1.7, "codAmount": 500, "pay": 2500,
+  "offeredAt": "…", "acceptedAt": "…", "arrivedPickupAt": "…",
+  "pickedUpAt": null, "arrivedDropAt": null,
+  "pickup": {
+    "vendorName": "Anjali's Kitchen",
+    "addressLine1": "H.No. 7, Sector 34", "addressLine2": null,
+    "landmark": null, "pincode": "160034", "phone": "9000000001",
+    "lat": 30.7196, "lng": 76.7601
+  },
+  "drop": null
+}
+```
+
+`pickup` is present **only** while `status` is `accepted`/`at_pickup`;
+`drop` (`{ recipientFirstName, addressLine1, addressLine2?, city,
+pincode, instructions?, phone, lat, lng }`) is present **only** while
+`status` is `picked_up`/`at_drop`. Neither carries `deliveryOtp` — that
+field never appears in any rider-facing response, ever.
+
+**History shape** (`GET /rider/jobs`'s `items[]`):
+
+```json
+{
+  "id": "…", "jobNumber": "…", "status": "delivered",
+  "pickupArea": "Chandigarh Central", "dropArea": "Sector 35",
+  "distanceKm": 1.7, "codAmount": 500, "pay": 4780,
+  "offeredAt": "…", "acceptedAt": "…", "arrivedPickupAt": "…",
+  "pickedUpAt": "…", "arrivedDropAt": "…", "deliveredAt": "…",
+  "cancelReason": null, "failureReason": null, "createdAt": "…"
+}
+```
+
+### Seller — `/seller/deliveries/*` and `/seller/orders/:id/delivery` (`@Roles('seller')`)
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/seller/deliveries/:jobId/handover-photo` | multipart `file`. `201`, `{ stage: "pickup_chef", url }`. `404` unless the job is this HomeKrafter's own vendor's; `409` unless the job is `accepted\|at_pickup`. |
+| `GET` | `/seller/orders/:id/delivery` | The fleet job (if any) carrying this kitchen's own lines of this order. `200`, `{ status, riderFirstName?, vehicleType? }` or an empty body when no job exists yet. **No rider phone** (D14 — that line is the rider's to the buyer, not the kitchen's). |
+
+### Buyer — `GET /orders/:id` gains `delivery`
+
+Present only when a `DeliveryJob` exists for the order (absent entirely
+otherwise — no `delivery: null`):
+
+```json
+"delivery": { "status": "picked_up", "riderFirstName": "Test", "otp": "4821" }
+```
+
+`otp` is present only before `status` is `delivered` — it has nothing
+left to prove afterwards. On a multi-kitchen order the **least
+advanced** job is surfaced (a still-in-progress or `failed` parcel, never
+a sibling kitchen's already-`delivered` one).
+
+### `/admin/deliveries/*`
+
+`@Roles('admin')`, `@RequireAdminScope('riders')` at the controller —
+**except `create`, overridden to `@RequireAdminScope('orders')`** on the
+handler (dispatching a parcel for an existing order is an orders-desk
+action; an operator working that queue shouldn't also need the
+rider-fleet review section, and a `riders`-scoped reviewer has no reason
+to mint delivery jobs for orders they've never looked at).
+
+| Method | Path | Body | Scope | Notes |
+|---|---|---|---|---|
+| `POST` | `/admin/deliveries` | `{ orderId, vendorId }` | `orders` | Manual despatch (`DeliveryJobsService.createForOrder`, R2 — not wired to a seller's "packed" yet, that's W1). `201`, an **array** of the detail shape (below) — one job per distinct address this vendor's lines on the order ship to, usually one. Idempotent: re-posting the same `(orderId, vendorId)` returns the existing job(s) rather than duplicating. `400` if an address on the order has no map pin. |
+| `GET` | `/admin/deliveries?status&page&pageSize` | — | `riders` | `{ items: [summary…], page, pageSize, total }`. |
+| `GET` | `/admin/deliveries/:id` | — | `riders` | Full detail shape, including proofs, offer history and the job's location pings (≤ 200, newest first). |
+| `POST` | `/admin/deliveries/:id/reassign` | `{ riderId?: string }` | `riders` | Withdraws any live offer. With `riderId`: direct-assigns that (approved) rider, `→ accepted`, skipping the offer loop. Without: `→ unassigned` for the next dispatch tick. `409` once the job is past `at_pickup`. |
+| `POST` | `/admin/deliveries/:id/cancel` | `{ reason }` | `riders` | `→ cancelled`, `cancelReason = reason`. `409` if already `delivered`/`cancelled`. |
+| `POST` | `/admin/deliveries/:id/override-deliver` | `{ reason }` | `riders` | The one path that stamps `delivered` without a matching OTP — for a buyer who lost their phone. Audited with the reason; runs the same order-reconcile as a normal `deliver`. `409` if already `delivered`/`cancelled`/`returned`. |
+
+Summary shape (`GET /admin/deliveries`'s `items[]`):
+
+```json
+{
+  "id": "…", "jobNumber": "…", "status": "offered",
+  "vendorName": "Anjali's Kitchen", "dropCity": "Chandigarh",
+  "zoneName": "Chandigarh Central", "riderId": null, "riderName": null,
+  "codAmount": 500, "pay": undefined, "createdAt": "…"
+}
+```
+
+Detail shape (`GET /admin/deliveries/:id`, and every mutation's response):
+
+```json
+{
+  "id": "…", "jobNumber": "…", "status": "at_drop", "orderId": "…",
+  "vendor": { "id": "…", "name": "Anjali's Kitchen" },
+  "pickup": {
+    "addressLine1": "H.No. 7, Sector 34", "addressLine2": null,
+    "landmark": null, "pincode": "160034", "phone": "9000000001",
+    "lat": 30.7196, "lng": 76.7601
+  },
+  "drop": {
+    "recipientName": "Priya Sharma", "addressLine1": "H.No. 42, Sector 35-B",
+    "addressLine2": null, "city": "Chandigarh", "pincode": "160035",
+    "phone": "9123456789", "instructions": null,
+    "lat": 30.7266, "lng": 76.7554
+  },
+  "zoneName": "Chandigarh Central", "distanceKm": 1.7,
+  "codAmount": 500, "deliveryOtp": "4821", "otpAttempts": 1,
+  "pay": { "basePay": 25, "distancePay": 0, "waitPay": 0, "incentivePay": null, "totalPay": 25 },
+  "rider": { "id": "…", "name": "Test Rider", "vehicleType": "bicycle" },
+  "offeredAt": "…", "acceptedAt": "…", "arrivedPickupAt": "…",
+  "pickedUpAt": "…", "arrivedDropAt": "…", "deliveredAt": null,
+  "cancelReason": null, "failureReason": null,
+  "proofs": [ { "id": "…", "stage": "pickup_rider", "url": "/uploads/delivery/…", "lat": null, "lng": null, "takenAt": "…" } ],
+  "offers": [ { "id": "…", "riderId": "…", "riderName": "Test Rider", "status": "accepted", "offeredAt": "…", "expiresAt": "…", "respondedAt": "…" } ],
+  "pings": [ { "lat": 30.7196, "lng": 76.7601, "accuracyM": null, "recordedAt": "…" } ],
+  "createdAt": "…", "updatedAt": "…"
+}
+```
+
+Unlike every rider-facing shape above, the admin detail carries the
+**exact** pickup/drop address and `deliveryOtp` unconditionally — an
+admin is one of M36b's original two allowed surfaces for
+`VendorProfile.pickup*`, and resolving a dispute needs the whole picture
+regardless of which step the job stopped at.
+
+### Pure modules worth knowing about (no HTTP surface of their own)
+
+| Module | What it does |
+|---|---|
+| `src/rider/rider-pay.ts#payFor` | `{ distanceKm, waitMinutes, settings } → { basePay, distancePay, waitPay, totalPay }`, all in **paise**. |
+| `src/rider/dispatch.ts#rankCandidates` | `{ job, candidates, now } →` eligible rider ids, nearest first. `ROAD_FACTOR` (1.3) also lives here — what `DeliveryJob.distanceKm` is haversine × . |
+| `src/rider/geofence.ts#withinMetres` | The "Arrived" gate. |
+| `src/rider/otp-lock.ts` | `isOtpLocked`, `otpMatches` (constant-time), `MAX_OTP_ATTEMPTS` (5). |
+| `src/rider/cod-split.ts#allocateCodAmount` | Proportional COD split across (vendor, address) groups, remainder to the last. |
+| `src/rider/delivery-order-reconcile.service.ts` | Shared by `RiderJobsService` and `AdminDeliveriesService` — the weakest-job/mixed-basket order-status rule. |
+
+## Rider fleet — cash and payouts (R3 — real, `server/src/rider/rider-cash.*` + `server/src/admin/riders/{deposits,payouts}.*`)
+
+§2.4: the cash a rider collects on delivery (R2's `cod_collected` ledger
+row) settling out — a UPI deposit self-reported and admin-verified, or
+taken out of a generated weekly payout. **This does not move money** —
+`pay` records a settlement the same way `POST /admin/payouts/:id/pay`
+always has (M15); the transfer itself happens out of band.
+
+`src/rider/cash-ledger.ts` is the one pure module every reader goes
+through: `balanceOf`, `isCodBlocked` (strict `>` — a rider exactly at
+their limit is still fine, matching R2's own dispatch contract), and
+`deductionFor({ mode, entries, earnings, now })` (the payout arithmetic —
+`deduct_from_payout` takes the whole current balance capped at the
+payout's own earnings; `deposit` mode only counts entries older than 7
+days, `DEPOSIT_GRACE_DAYS`).
+
+### `/rider/cash` and `/rider/earnings` (`@Roles('rider')`)
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| `GET` | `/rider/cash?page&pageSize` | — | Balance, limit, `codBlocked`, settlement mode, pending deposits, a paged ledger, `companyUpiId`. |
+| `POST` | `/rider/cash/deposits` | `{ amount, utr }` | `utr` — exactly 12 digits (a UPI RRN). `201`, `status: "pending"`, **no ledger entry yet**. `400` if `amount` exceeds the current balance. `409` on a UTR already submitted (DB-level unique). |
+| `PUT` | `/rider/settlement-mode` | `{ mode: "deduct_from_payout" \| "deposit" }` | `200`, `{ settlementMode }`. |
+| `GET` | `/rider/earnings?from&to` | — | Both optional; absent means unbounded on that side. Per delivered-job pay rows, totals, and this rider's payout history. |
+
+`GET /rider/cash` response shape (verbatim, from
+`test/e2e/rider-cash.e2e-spec.ts`):
+
+```json
+{
+  "balance": 500,
+  "limit": 1500,
+  "codBlocked": false,
+  "settlementMode": "deduct_from_payout",
+  "pendingDeposits": [],
+  "entries": {
+    "items": [
+      {
+        "id": "cmu2j51d50030zn2jmfu2fxnm",
+        "type": "cod_collected",
+        "amount": 500,
+        "note": "Collected on delivery of HKD-260915-UP0G0",
+        "createdAt": "2026-09-15T10:29:20.297Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "total": 1
+  },
+  "companyUpiId": null
+}
+```
+
+`companyUpiId` is the `rider.companyUpiId` `PlatformSetting` — `null`
+until an admin types one into `/admin/settings`; that is what tells the
+app to hide the pay button and say "Ask support how to deposit" instead
+of rendering a placeholder VPA nobody should actually pay.
+
+`POST /rider/cash/deposits` response shape:
+
+```json
+{
+  "id": "cmu2j51dr0036zn2j3bven9r2",
+  "amount": 300,
+  "utr": "123456789012",
+  "status": "pending",
+  "createdAt": "2026-09-15T10:29:20.320Z"
+}
+```
+
+`GET /rider/earnings` response shape:
+
+```json
+{
+  "jobs": [
+    {
+      "jobNumber": "HKD-260915-7PJFE",
+      "pickupArea": "Test Zone",
+      "dropArea": "Chandigarh",
+      "basePay": 25,
+      "distancePay": 0,
+      "waitPay": 0,
+      "incentivePay": 0,
+      "totalPay": 25,
+      "deliveredAt": "2026-09-15T10:29:21.158Z"
+    }
+  ],
+  "totals": { "jobCount": 1, "totalEarnings": 25 },
+  "payouts": [
+    {
+      "id": "cmu2j523800bozn2jce60dmpz",
+      "periodStart": "2026-09-17",
+      "periodEnd": "2026-09-19",
+      "earnings": 50,
+      "cashDeducted": 0,
+      "adjustments": 0,
+      "net": 50,
+      "status": "paid",
+      "reference": "UTR-TEST-2",
+      "paidAt": "2026-09-15T10:29:21.238Z"
+    }
+  ]
+}
+```
+
+`jobs[]` is **areas only** — `pickupArea`/`dropArea` (zone name / vendor
+location / address area-or-city), never a street line — same rule as the
+job-history mapper. A payout still `pending` carries no `reference`/
+`paidAt`; a `rejected` one carries neither.
+
+### `/admin/rider-deposits/*` (`@Roles('admin')`, `@RequireAdminScope('finance')`)
+
+**`finance`, not `riders`** — this is money moving, the same section
+every other money-mutating rider route sits under.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| `GET` | `/admin/rider-deposits?status&page&pageSize` | — | Default filter `pending`. |
+| `POST` | `/admin/rider-deposits/:id/verify` | — | `Idempotency-Key`. `pending → verified` **and** the `deposit` ledger entry (negative) written in one transaction. `409` once not `pending`. |
+| `POST` | `/admin/rider-deposits/:id/reject` | `{ reason }` | `pending → rejected`, no ledger entry. `reason` reaches the rider verbatim (`account` category, the M22 rule). |
+
+`POST .../verify` response shape:
+
+```json
+{
+  "id": "cmu2j51dr0036zn2j3bven9r2",
+  "riderId": "cmu2j516i0012zn2j38i1raaf",
+  "amount": 300,
+  "utr": "123456789012",
+  "status": "verified",
+  "decidedAt": "2026-09-15T10:29:20.364Z",
+  "createdAt": "2026-09-15T10:29:20.320Z"
+}
+```
+
+### `/admin/rider-payouts/*` (`@Roles('admin')`, `@RequireAdminScope('finance')`)
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| `GET` | `/admin/rider-payouts?status&page&pageSize` | — | Default filter `pending`. |
+| `POST` | `/admin/rider-payouts/generate` | `{ periodStart, periodEnd }` (ISO 8601) | `Idempotency-Key`. `201`, an **array** of the newly-created payouts only (idempotent per rider+period — a rider already generated for this exact window, or one who earned nothing in it, is silently skipped, not returned). |
+| `POST` | `/admin/rider-payouts/:id/pay` | `{ reference? }` | `Idempotency-Key`. `pending → paid`, `paidAt` stamped. **Records a settlement, does not perform one** (M15's own rule). `409` once not `pending`. |
+| `POST` | `/admin/rider-payouts/:id/reject` | `{ reason }` | `pending → rejected`. If `cashDeducted > 0`, reverses it with an `adjustment` ledger entry (never deletes the `payout_deduction` row — both stay on record). `reason` reaches the rider verbatim. `409` once not `pending`. |
+
+`POST .../generate` response shape (an array — here, one rider earned
+something in the window):
+
+```json
+[
+  {
+    "id": "cmu2j522a00atzn2jwaimvgy3",
+    "riderId": "cmu2j51we008ezn2jmysnke9q",
+    "periodStart": "2026-09-14",
+    "periodEnd": "2026-09-16",
+    "earnings": 25,
+    "cashDeducted": 25,
+    "adjustments": 0,
+    "net": 0,
+    "status": "pending",
+    "createdAt": "2026-09-15T10:29:21.203Z"
+  }
+]
+```
+
+`POST .../pay` response shape:
+
+```json
+{
+  "id": "cmu2j523200bfzn2jo6yvf28r",
+  "riderId": "cmu2j51we008ezn2jmysnke9q",
+  "periodStart": "2026-09-16",
+  "periodEnd": "2026-09-17",
+  "earnings": 100,
+  "cashDeducted": 0,
+  "adjustments": 0,
+  "net": 100,
+  "status": "paid",
+  "reference": "UTR-TEST-1",
+  "paidAt": "2026-09-15T10:29:21.233Z",
+  "createdAt": "2026-09-15T10:29:21.231Z"
+}
+```
+
+`POST .../reject` response shape (same as `.../pay` above, minus
+`reference`/`paidAt`, `status: "rejected"`).
+
+### `PUT /admin/riders/:id/cash-adjustment` (`@Roles('admin')`, handler-level `@RequireAdminScope('finance')` — see below)
+
+The escape hatch for fixing a mistake in the ledger. Sits on
+`AdminRidersController`, whose class is `riders`-scoped — a **handler-level
+scope override** (`RequireAdminScope`'s own doc comment names exactly this
+shape as its intended use) makes this one route `finance` instead, since
+it is a direct write to the cash ledger, the same section every other
+money-moving rider route sits under.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| `PUT` | `/admin/riders/:id/cash-adjustment` | `{ amount, note }` | `Idempotency-Key`. `amount` is **signed** — positive adds to what the rider owes, negative reduces it — and cannot be `0`. `note` is required (1–500 chars). Writes one `RiderCashEntry(type: 'adjustment')`, audited (`rider.cash_adjustment`), notifies the rider (`account` category). `200`. |
+
+Response shape:
+
+```json
+{
+  "id": "cmu2j52av00dyzn2jwjiga9pa",
+  "amount": 150,
+  "note": "Manual correction after a support call",
+  "createdAt": "2026-09-15T10:29:21.512Z"
+}
+```
+
+### Changed 2026-09-16
+
+- `GET /pincodes/:pincode` also returns **`lat`/`lng`** — the pincode's
+  centroid, so a buyer can place themselves by typing six digits instead
+  of choosing from a hardcoded area list. It is for positioning a
+  **buyer** only; M36 forbids writing it onto `Vendor.lat`/`lng`.
+- `GET /categories` and `GET /categories/:slug` now carry **`icon`** and
+  **`description`**. Both were columns with no reader, so every browse
+  chip and department tile drew the fallback mark.
+- `GET /vendors/:slug/products` now filters on **`isAvailable`** as well
+  as `PUBLICLY_LISTED`. A listing the HomeKrafter has paused is no longer
+  reachable from their public storefront.
+- `GET /products` carries **`fulfilment`** and **`isPersonalisable`**, so
+  a card can state a dispatch fact instead of a claim.

@@ -280,6 +280,31 @@ export interface Category {
    * to.
    */
   parentId?: string | null;
+
+  /**
+   * G1 — the committed icon id this shelf renders with, picked by an admin
+   * from `lib/icons/registry.ts`. Absent or unknown draws the wrapped-gift
+   * fallback.
+   *
+   * A stored value and **not a slug-to-icon map in code**, which is what
+   * left 17 of 26 live tiles drawing the same basket emoji: a shelf added
+   * after the map was written had no entry, and nothing failed when that
+   * happened.
+   */
+  icon?: string | null;
+  /** G1 — one buyer-facing sentence about the shelf. */
+  description?: string | null;
+  /** G1 — other words for it ("achaar", "kada"); search reads them, nothing renders them. */
+  synonyms?: string[];
+  /**
+   * G1 — retired, but still resolving. An archived shelf leaves the
+   * pickers and the browse page while every link and order pointing at it
+   * keeps working; this is how M58's recipient shelves stop being
+   * categories once recipient is a facet.
+   */
+  archivedAt?: string | null;
+  /** G1 — this shelf was folded into another; its slug redirects there. */
+  mergedIntoId?: string | null;
 }
 
 /** A top-level shelf with its subcategories (M58) — what `/admin/collections/categories` returns. */
@@ -533,6 +558,17 @@ export interface Product {
    * dish, or it is not made. See `lib/pre-order.ts`.
    */
   prepTimeMins?: number;
+  /**
+   * How this gift reaches a buyer (G1) — `ready_to_ship` or `made_to_order`.
+   *
+   * **Absent is "the maker never said"**, not "ready". It matches neither
+   * Dispatch filter and draws no fact line on a card: a card that read a
+   * missing value as ready-to-ship would be the platform promising a
+   * dispatch date on somebody else's behalf.
+   */
+  fulfilment?: "ready_to_ship" | "made_to_order";
+  /** Whether the maker takes a name, date or message on this gift (G1/D11). */
+  isPersonalisable?: boolean;
   /**
    * On the WhatsApp snacks menu (M20). Absent reads as `false`.
    *

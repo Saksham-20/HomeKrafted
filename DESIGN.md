@@ -104,6 +104,24 @@ direction is reversible in one commit.
 1. **Tokens + fonts:** `tokens.extend.css` overrides (canvas, borders,
    surface-soft), `layout.tsx` font swap (Hanken Grotesk, Kalam), display
    wonk classes. Run the contrast sweep.
+   - **Type half landed 2026-09-16** (not yet deployed): Hanken Grotesk is
+     the body face, Fraunces loads as the variable file so `SOFT`/`WONK`
+     exist at all, and `.hk-wonk` + `.hk-annotation` are in `globals.css`.
+     Contrast measured after the swap — `a11y.spec.ts` and the 174-visit
+     sweep are clean but for one **pre-existing** failure (`MakerPortrait`
+     initials on `/shop`, 4.23:1, identical on live production).
+   - **Colour half still to do:** paper canvas `#F7F1E6`, warm card border
+     `#E5DCC9`, `#FFFCF5` surface-soft. Deliberately a separate change —
+     it re-tints every surface and owes its own contrast pass, and the
+     font swap had to be measurable on the ground it ships on today.
+   - **`.hk-wonk` is applied to `/gifts`'s `<h1>` (2026-09-16, G3).** That
+     was the deferred decision: which headings get the wonk belonged with
+     the redesign rather than a site-wide find-and-replace. It is one
+     heading, at 40px, where the display face is doing the page's talking —
+     and the `<h1>` took `letter-spacing: -0.02em` with it, because
+     Fraunces at that size reads too loose at the default. Large type wants
+     negative tracking; the floor is -0.04em. The rest of the site's
+     headings are still flat, deliberately.
 2. **Provenance:** receipt-meta block on kitchen cards + product cards;
    Kalam annotation slots (rationed) on featured tiles.
 3. **Editorial scale:** hero card treatment in browse grids and landing rails.
@@ -112,4 +130,5 @@ direction is reversible in one commit.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-09-02 | Initial refinement direction approved (preview reviewed) | Owner: "consistent with logo and current design, just classier, content unchanged". Three-voice consultation converged on: keep Fraunces/push harder, replace Plex Sans, warm canvas, provenance density. |
+| 2026-09-16 | Body face swapped site-wide (web + both native themes) ahead of the `/gifts` redesign | `docs/GIFTING-REWORK.md` D12, owner: "ship font change first". Redesigning a page on a font that is about to change means doing the spacing twice. The app is included because one `--hk-font-body` feeds both. |
 | 2026-09-02 | Paper canvas supersedes "white-first, never beige" | White-on-white read as emptiness at current catalogue size; owner-approved reversal, one-commit reversible. |

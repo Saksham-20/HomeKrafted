@@ -119,7 +119,7 @@ export function WishlistPageClient({ products, vendorNameById }: WishlistPageCli
       {movedNames.length > 0 && !moveError && (
         <p className={styles.toast} role="status">
           Moved {movedNames[movedNames.length - 1]} to your cart.{" "}
-          <Link href="/cart" className={styles.toastLink}>
+          <Link href="/checkout" className={styles.toastLink}>
             View cart →
           </Link>
         </p>

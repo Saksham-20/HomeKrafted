@@ -12,7 +12,6 @@ import { FilterGroup, FilterOptionList } from "@/components/browse/FilterGroup";
 import { FilterPillBar } from "@/components/browse/FilterPillBar";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
 import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
-import { CATEGORY_EMOJI } from "@/lib/category-emoji";
 import { splitCategorySections } from "@/lib/category-sections";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
@@ -436,7 +435,7 @@ export function ShopClient({
       label: category.name,
       count: counts.category.get(category.id) ?? 0,
       selected: selectedCategories.has(category.id),
-      icon: CATEGORY_EMOJI[category.slug],
+      icon: category.icon,
       imageSrc: category.imageSrc,
     }))
     .filter((chip) => chip.count > 0 || chip.selected);

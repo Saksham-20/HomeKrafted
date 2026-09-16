@@ -1,0 +1,36 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  gap: var(--hk-s2);
+  width: 100%;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font: inherit;
+  /* Receipt type: six digits are a number somebody reads back. */
+  font-family: var(--hk-font-mono);
+  letter-spacing: 0.08em;
+}
+
+.input:focus-visible {
+  border-color: var(--hk-pine);
+}
+
+.error {
+  margin: 0;
+  color: var(--hk-terracotta-text);
+  font-size: 13.5px;
+}

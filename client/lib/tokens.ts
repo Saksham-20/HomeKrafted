@@ -52,6 +52,10 @@ export const tokens = {
   },
   font: {
     display: "'Fraunces', Georgia, serif",
+    // Mirrors `handoff/` verbatim, and the site no longer renders this:
+    // `styles/tokens.extend.css` overrides `--hk-font-body` to Hanken
+    // Grotesk (2026-09-16, DESIGN.md). Read the CSS var, not this, for
+    // anything that has to match what a visitor sees.
     body: "'IBM Plex Sans', system-ui, sans-serif",
     mono: "'IBM Plex Mono', ui-monospace, monospace",
   },

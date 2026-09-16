@@ -32,6 +32,9 @@ import { AdminAuditLogService } from '../admin/audit-log.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { SellerTaxonomyController } from './taxonomy.controller';
 import { TaxonomySuggestionsService } from '../admin/taxonomy-suggestions.service';
+import { UploadsModule } from '../uploads/uploads.module';
+import { SellerDeliveriesController } from './deliveries.controller';
+import { SellerDeliveriesService } from './deliveries.service';
 
 /**
  * M8.3b — the owner-scoped seller-portal API for all 3 seller types
@@ -62,6 +65,10 @@ import { TaxonomySuggestionsService } from '../admin/taxonomy-suggestions.servic
     // M50 — `NotificationsDeliveryService`, which the taxonomy-suggestion
     // service below tells a HomeKrafter their decision through.
     NotificationsModule,
+    // R2 (docs/RIDER-APP.md) — `UploadsService` for the pickup handover
+    // photo (`POST /seller/deliveries/:jobId/handover-photo`, purpose
+    // `delivery`).
+    UploadsModule,
   ],
   controllers: [
     SellerController,
@@ -76,6 +83,7 @@ import { TaxonomySuggestionsService } from '../admin/taxonomy-suggestions.servic
     SellerProfileController,
     SellerAnalyticsController,
     SellerTaxonomyController,
+    SellerDeliveriesController,
   ],
   providers: [
     SellerService,
@@ -89,6 +97,7 @@ import { TaxonomySuggestionsService } from '../admin/taxonomy-suggestions.servic
     SellerPayoutsService,
     SellerProfileService,
     SellerAnalyticsService,
+    SellerDeliveriesService,
     // For the self-set kitchen pin (`PATCH /seller/profile/coords`) —
     // same stateless-two-instances reasoning as `SettingsModule`'s
     // provider comment; its only dependency is the global PrismaService.

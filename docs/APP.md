@@ -511,7 +511,7 @@ adds one says so in its first DoD line and bumps `runtimeVersion`.
 
 | Module | Milestone | Dev client |
 |---|---|---|
-| `expo-font` + `@expo-google-fonts/{fraunces,ibm-plex-sans,ibm-plex-mono}` | A1a — **landed** | rebuild |
+| `expo-font` + `@expo-google-fonts/{fraunces,hanken-grotesk,ibm-plex-mono}` | A1a — **landed** (body face swapped from `ibm-plex-sans` to `hanken-grotesk` on 2026-09-16) | rebuild |
 | `expo-location` | A3 — **landed** | rebuild — and re-run `expo prebuild`: the config plugin writes `NSLocationWhenInUseUsageDescription` and the two Android permissions, and a dev client built before them refuses the request with no prompt |
 | `@react-native-community/netinfo` | A0 — **landed** | rebuild — the two-code offline taxonomy depends on it |
 | `@react-native-async-storage/async-storage` | A3 — **installed** | rebuild — backs the offline query cache (public catalogue roots only) |

@@ -17,6 +17,14 @@ export interface SortSelectProps {
    * not among its options.
    */
   hasDistance: boolean;
+  /**
+   * What the default sort (`most-loved`) is called on this page. `/gifts`
+   * says "Recommended" (2026-09-16): its default puts in-stock gifts and
+   * gifts for an occasion coming up first, and "Most loved" on a catalogue
+   * with no reviews named a ranking that was not happening. The URL key
+   * stays `most-loved` so shared links keep working.
+   */
+  defaultLabel?: string;
 }
 
 /**
@@ -25,7 +33,7 @@ export interface SortSelectProps {
  * pill paint — a custom listbox would re-buy keyboard and screen-reader
  * behaviour the platform already ships.
  */
-export function SortSelect({ value, onChange, hasDistance }: SortSelectProps) {
+export function SortSelect({ value, onChange, hasDistance, defaultLabel = "Most loved" }: SortSelectProps) {
   return (
     <label className={styles.sortRow}>
       <ArrowUpDown size={14} strokeWidth={2} aria-hidden className={styles.sortIcon} />
@@ -40,7 +48,7 @@ export function SortSelect({ value, onChange, hasDistance }: SortSelectProps) {
         value={value}
         onChange={(event) => onChange(event.target.value as BrowseSortKey)}
       >
-        <option value="most-loved">Most loved</option>
+        <option value="most-loved">{defaultLabel}</option>
         {(hasDistance || value === "nearest") && <option value="nearest">Nearest first</option>}
         <option value="price-asc">Price: low to high</option>
         <option value="price-desc">Price: high to low</option>

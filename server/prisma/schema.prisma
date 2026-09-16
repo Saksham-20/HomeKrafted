@@ -1640,6 +1640,46 @@ model Category {
   /// to name, so an unset value is stable rather than random.
   sortOrder        Int         @default(0)
 
+  /// G1. The committed icon id this shelf renders with, e.g.
+  /// `"lucide-lab:yarn-ball"` or `"craft:diya"` — picked by an admin from
+  /// `client/lib/icons/registry.ts`.
+  ///
+  /// **A column, deliberately, and never a slug-to-icon map in code.** The
+  /// map version is what left 17 of 26 live tiles drawing the same basket
+  /// emoji: a shelf added after the map was written has no entry, and
+  /// nothing fails when that happens. An unknown or empty id renders the
+  /// wrapped-gift fallback, so a bad value costs one tile rather than a
+  /// page.
+  icon         String?
+  /// One buyer-facing sentence about the shelf. Shown under a department
+  /// heading, and it is also the grounding text an AI listing suggestion
+  /// is matched against later (GIFTING-REWORK §8) — which is why it says
+  /// what the shelf *is* rather than selling it.
+  description  String?
+  /// Other words for this shelf — "achaar", "kada", "diya". Search and the
+  /// keyword suggester read them; they are never rendered as a name. This
+  /// is what lets a maker who types their own word still land on the
+  /// shared shelf, instead of asking for a second one (M50's reasoning).
+  synonyms     String[]
+  /// G1. Retired, but not deleted. An archived shelf leaves the pickers
+  /// and the browse page while every link, breadcrumb and order that
+  /// already points at it keeps resolving. The recipient shelves M58
+  /// seeded become recipient *facet values* this way — archived, never
+  /// dropped, because deleting them would break URLs people have shared.
+  archivedAt   DateTime?
+  /// G1. This shelf was merged into another one (the live catalogue holds
+  /// "Home Décor" and "Home Decor" — §3.1). Browse resolves a merged slug
+  /// to its target and the page 301s, so the old URL keeps working; a
+  /// rename still never re-derives a slug (M58).
+  mergedIntoId String?
+  mergedInto   Category?  @relation("CategoryMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom   Category[] @relation("CategoryMerge")
+
+  /// G1. Which questions this shelf asks, and how strongly — see
+  /// `CategoryAttribute`. Children inherit their parent's set unless they
+  /// name the same attribute themselves.
+  attributes CategoryAttribute[]
+
   products         Product[]
   /// M58. Every category this product sits on, the primary included — see
   /// `ProductCategory`.
@@ -1648,6 +1688,8 @@ model Category {
 
   @@index([group, sortOrder])
   @@index([parentId, sortOrder])
+  /// Browse hides archived shelves on every query, so the flag leads.
+  @@index([archivedAt])
 }
 
 /// M58 — a product may sit on several shelves.
@@ -1672,6 +1714,149 @@ model ProductCategory {
   /// `categoryId` is not the leading column of the unique above, and every
   /// browse query filters on it.
   @@index([categoryId])
+}
+
+/// G1 (GIFTING-REWORK §4). **What a shelf asks is data, not code.**
+///
+/// Until G1 the question set lived in `client/lib/sell/listing-families.ts`
+/// as a hardcoded slug map, and it had already drifted from the database:
+/// `handmade-jewellery`, `candles-home`, `self-care`, `personalised-gifts`
+/// and `home-decor-2` appear in no family, so thirty live bangle listings
+/// were asked the generic question set. The server knew nothing of families
+/// at all, so it could not validate an answer, and nothing could ground a
+/// suggestion on them.
+///
+/// Four tables, and the split is the point: a **definition** is the
+/// question ("Metal or base"), an **option** is an allowed answer
+/// ("oxidised"), a **CategoryAttribute** says which shelf asks it and how
+/// strongly, and a **ProductAttributeValue** is one listing's answer.
+///
+/// Why rows rather than a JSONB blob on `Product`: a facet count is a
+/// `GROUP BY optionId`, an option's label can be renamed without rewriting
+/// every listing that chose it, and "did this edit change something
+/// material" is a set comparison — the same shape `ProductCategory` uses
+/// for shelves (M58). The M15 rule holds here too: **counts are computed
+/// from rows, never incremented.**
+enum AttributeKind {
+  single
+  multi
+  text
+  number
+  boolean
+  dimensions
+}
+
+model AttributeDefinition {
+  id             String        @id @default(cuid())
+  /// The stable machine key — "metal", "scent_family", "recipient". Never
+  /// renamed: it is what a filter in a shared URL and a stored answer both
+  /// point at. Rename `label` instead.
+  key            String        @unique
+  label          String
+  helpText       String?
+  kind           AttributeKind
+  /// "cm", "g", "hours" — for `number`/`dimensions` questions.
+  unit           String?
+  /// Whether this question may appear as a browse filter at all. A
+  /// filterable attribute still only *shows* once enough listings in view
+  /// have answered it (see `ProductAttributeValue`).
+  filterable     Boolean       @default(false)
+  /// **Never prefilled by a machine; only ever answered by a person.**
+  /// Allergens, "nickel-free", "vegan", age suitability, a licence number,
+  /// shelf life. A wrong guess here is not a tidy-up someone corrects
+  /// later — it is a claim the platform made on a maker's behalf about
+  /// whether something is safe to put on your skin or give to a child.
+  /// GIFTING-REWORK §8.2; pinned by a structural spec.
+  trustSensitive Boolean       @default(false)
+  /// Changing this answer on a live listing re-queues it (M22's "material
+  /// change" — name, description, category, photo). Most attributes are
+  /// not: switching a colour swatch should not take a listing off sale.
+  material       Boolean       @default(false)
+  /// Where this question sits when several shelves ask it. A shelf may
+  /// override with `CategoryAttribute.sortOrder`.
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  options    AttributeOption[]
+  categories CategoryAttribute[]
+  values     ProductAttributeValue[]
+}
+
+model AttributeOption {
+  id          String              @id @default(cuid())
+  attributeId String
+  attribute   AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  /// The stable machine value, never renamed — the same contract as
+  /// `AttributeDefinition.key`, and for the same reason.
+  value       String
+  label       String
+  /// "kada" for a bangle, "jhumka" for an earring: search and the keyword
+  /// suggester read them so a maker's own word still lands on the shared
+  /// option.
+  synonyms    String[]
+  /// Colour swatches only. A colour is a swatch a buyer recognises, which
+  /// is why it moved out of the size label it used to be typed into.
+  hex         String?
+  sortOrder   Int                 @default(0)
+
+  values ProductAttributeValue[]
+
+  @@unique([attributeId, value])
+  @@index([attributeId, sortOrder])
+}
+
+/// How hard a shelf pushes for an answer. `required` refuses the save —
+/// so anything declared required must also be **reachable and refusable**
+/// on the form, the `listing-families.spec.ts` lesson: `dietary` was
+/// required by three families, enforced by nothing, and labelled
+/// "Optional" on the screen.
+enum AttributeRequirement {
+  required
+  encouraged
+  optional
+}
+
+model CategoryAttribute {
+  categoryId  String
+  category    Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attributeId String
+  attribute   AttributeDefinition  @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  requirement AttributeRequirement @default(optional)
+  sortOrder   Int                  @default(0)
+
+  /// **Admin-only, pinned by a structural spec** the way
+  /// `category-admin-only.spec.ts` pins category creation. What a shelf
+  /// asks is shared vocabulary: a seller who could add a question to a
+  /// department would be writing the form every other maker on that shelf
+  /// fills in. They ask, an admin decides (M50).
+  @@id([categoryId, attributeId])
+  @@index([attributeId])
+}
+
+model ProductAttributeValue {
+  id          String              @id @default(cuid())
+  productId   String
+  product     Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeId String
+  attribute   AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  /// One row per chosen option, so a `multi` answer is several rows. That
+  /// is what makes a facet count a `GROUP BY`.
+  optionId    String?
+  option      AttributeOption?    @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  text        String?
+  number      Decimal?            @db.Decimal(12, 3)
+  boolean     Boolean?
+  createdAt   DateTime            @default(now())
+
+  /// **Absence is not an answer** (the diet-mark and pre-order rule). A
+  /// listing with no row for "metal" matches *no* metal filter — it is
+  /// never read as "none of them". A facet is offered only once enough
+  /// listings in view have answered it, and the filter sheet says how many
+  /// have not.
+  @@unique([productId, attributeId, optionId])
+  @@index([attributeId, optionId])
+  @@index([productId])
 }
 
 model Occasion {
@@ -1831,6 +2016,23 @@ model CollectionProduct {
 /// sets — not full entities, so a join table doesn't pay for itself).
 /// `occasionIds` (many-to-many with real query patterns — "products for
 /// this occasion") gets a proper join table (`ProductOccasion`) instead.
+/// G1. Whether a gift exists already or is made once it is ordered.
+///
+/// NULL is "not stated", never `ready_to_ship` — the absence-is-not-an-
+/// answer rule (`prepTimeMins`, `dietary`, `workingDays`). A listing that
+/// never answered matches neither Dispatch filter, because promising a
+/// buyer something is ready to post when nobody said so is the kind of
+/// claim the 2026-09-14 sweep went through the tree removing.
+///
+/// **How long "made to order" takes is NOT a new column** — it is the
+/// existing per-listing `prepTimeMins` (2026-09-05), asked in days on a
+/// gift form and stored in minutes. A second lead-time column would be a
+/// second source of truth for the Pre-order badge.
+enum Fulfilment {
+  ready_to_ship
+  made_to_order
+}
+
 model Product {
   id                  String                  @id @default(cuid())
   slug                String                  @unique
@@ -1964,20 +2166,73 @@ model Product {
   /// and says *which plan*, so the flag was a second, weaker source of
   /// truth for one fact — and nothing ever read it.
   isSnack             Boolean                 @default(false)
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
 
-  images        ProductImage[]
-  weightOptions WeightOption[]
-  occasions     ProductOccasion[]
-  categories    ProductCategory[]
-  collections   CollectionProduct[]
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  wishlistItems WishlistItem[]
-  hamperItems   HamperItem[]
-  mealPlans     MealPlan[]
-  quoteLines    CorporateQuoteLine[]
+  /// G1 — gifts first, but none of these is gift-only.
+  ///
+  /// Does this exist on a shelf, or is it made once somebody orders it?
+  /// NULL means nobody was asked — see `Fulfilment`.
+  fulfilment              Fulfilment?
+  /// Whether the buyer may add their own name, date or message. Today
+  /// "personalised" exists only as the *name of a shelf*, so a listing
+  /// cannot say "add a name" and an order cannot carry the name somebody
+  /// typed. The buyer-facing half is G4.
+  isPersonalisable        Boolean     @default(false)
+  /// What to ask the buyer for — "Name to engrave", "Date for the card".
+  /// The maker writes it, because only they know what they can actually
+  /// put on the thing.
+  personalisationPrompt   String?
+  personalisationMaxChars Int?
+  /// What the maker charges for it, added server-side at checkout like any
+  /// other price, with commission computed on it the same way (D11). NULL
+  /// means free.
+  personalisationFee      Decimal?    @db.Decimal(10, 2)
+  /// Packed weight for a courier booking (grams). NULL is not stated.
+  packedWeightGrams       Int?
+  /// D10 (owner, 2026-09-16). An edible gift a courier may carry, because
+  /// **the maker has said they pack it heat-safe**. It gates nothing else.
+  ///
+  /// Chocolates stay on the gifts side rather than moving to `food`, so
+  /// `courier-eligibility.ts`'s `kind === 'craft'` predicate is no longer
+  /// the whole story: an edible gift is carried only when this is true,
+  /// and is local delivery otherwise. Default `false` is the safe
+  /// direction — nobody has claimed anything, so nothing is posted.
+  heatSafePacked          Boolean     @default(false)
+
+  /// D13 / §3.6 — the label declarations an e-commerce listing owes
+  /// (Legal Metrology (Packaged Commodities) Rules 2011 r.6(10);
+  /// Consumer Protection (E-Commerce) Rules 2020 r.5(3)(a)/r.6). Not legal
+  /// advice; sources in the plan. **Nothing here publishes a pickup
+  /// address** — the seller's geographic address question went to counsel
+  /// and the owner's interim answer is city + state only (M36b stands).
+  ///
+  /// The quantity on the label — "250", with `netQuantityUnit` "g".
+  netQuantity     Decimal? @db.Decimal(10, 3)
+  netQuantityUnit String?
+  /// The commodity's ordinary name ("scented soy candle"), which is not
+  /// the listing's *brand* name ("Chai Latte"). Derivable from the
+  /// subcategory, so the form offers that and lets the maker correct it.
+  genericName     String?
+  /// Defaults to India at the form, not in the column: a blank on a
+  /// pre-G1 row means nobody was asked, and stamping every one of them
+  /// "India" would be inventing a declaration.
+  countryOfOrigin String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images          ProductImage[]
+  weightOptions   WeightOption[]
+  occasions       ProductOccasion[]
+  categories      ProductCategory[]
+  collections     CollectionProduct[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  wishlistItems   WishlistItem[]
+  hamperItems     HamperItem[]
+  mealPlans       MealPlan[]
+  /// G1. This listing's answers to its shelf's questions.
+  attributeValues ProductAttributeValue[]
+  quoteLines      CorporateQuoteLine[]
 
   @@index([vendorId])
   @@index([categoryId])
@@ -3407,6 +3662,14 @@ model DeliveryJob {
 
   cancelReason  String?
   failureReason String?
+
+  /// Wrong delivery-OTP guesses at `POST /rider/jobs/:id/deliver`,
+  /// compared in constant time. R2's `otp-lock.ts#isOtpLocked` is the
+  /// pure threshold check (5); once locked, `failureReason` carries the
+  /// sentence and every further guess is refused without even looking at
+  /// the code — an admin's `override-deliver` is the way through, not a
+  /// reset of this counter.
+  otpAttempts Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

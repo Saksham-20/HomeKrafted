@@ -29,7 +29,16 @@ export type UploadPurpose =
    * land in the same folder as their shop's artwork, which is a different
    * thing owned by a different screen.
    */
-  | 'profile';
+  | 'profile'
+  /**
+   * R2 (docs/RIDER-APP.md) — a delivery proof photo: the rider's own
+   * pickup/drop shot, the kitchen's handover shot, a failed-attempt door
+   * shot (`DeliveryProof`). The **public** pipeline on purpose — unlike a
+   * KYC document (`RiderDocumentsService`, which never touches this
+   * service), a proof photo is shown to the buyer, the kitchen and an
+   * admin in a dispute.
+   */
+  | 'delivery';
 
 const PURPOSES: readonly UploadPurpose[] = [
   'listing',
@@ -39,6 +48,7 @@ const PURPOSES: readonly UploadPurpose[] = [
   'laundry',
   'collection',
   'profile',
+  'delivery',
 ];
 
 export function isUploadPurpose(value: string): value is UploadPurpose {

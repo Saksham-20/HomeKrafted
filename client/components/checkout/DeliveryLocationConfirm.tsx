@@ -2,7 +2,7 @@
 
 import { MapPin } from "lucide-react";
 import { useLocation } from "@/lib/location/LocationContext";
-import { areasByCity } from "@/lib/geo";
+import { PincodeLocation } from "@/components/location/PincodeLocation";
 import styles from "./DeliveryLocationConfirm.module.css";
 
 /**
@@ -23,7 +23,7 @@ export interface DeliveryLocationConfirmProps {
 }
 
 export function DeliveryLocationConfirm({ hasSelectedAddress }: DeliveryLocationConfirmProps = {}) {
-  const { ready, area, source, coords, setArea, requestBrowserLocation, locating } = useLocation();
+  const { ready, area, source, coords, requestBrowserLocation, locating } = useLocation();
 
   if (!ready || hasSelectedAddress) return null;
 
@@ -62,23 +62,9 @@ export function DeliveryLocationConfirm({ hasSelectedAddress }: DeliveryLocation
               Kitchens only accept orders inside their delivery range.
             </span>
           </span>
-          <select
-            className={styles.select}
-            defaultValue=""
-            onChange={(event) => event.target.value && setArea(event.target.value)}
-            aria-label="Delivery area"
-          >
-            <option value="">Choose your area…</option>
-            {areasByCity().map((group) => (
-              <optgroup key={group.city} label={group.city}>
-                {group.areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          {/* Six digits, not a list of hand-written sectors — see
+              `PincodeLocation`. */}
+          <PincodeLocation />
         </>
       )}
     </div>

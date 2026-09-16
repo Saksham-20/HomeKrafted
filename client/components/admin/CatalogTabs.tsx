@@ -3,7 +3,7 @@ import clsx from "clsx";
 import styles from "./CatalogTabs.module.css";
 
 export interface CatalogTabsProps {
-  active: "products" | "categories" | "reviews" | "suggestions";
+  active: "products" | "categories" | "attributes" | "recategorise" | "reviews" | "suggestions";
   /** Shelves and occasions waiting on a decision. Omitted (or 0) draws no badge. */
   pendingSuggestions?: number;
 }
@@ -39,6 +39,20 @@ export function CatalogTabs({ active, pendingSuggestions = 0 }: CatalogTabsProps
         aria-current={active === "categories" ? "page" : undefined}
       >
         Categories
+      </Link>
+      <Link
+        href="/admin/catalog/attributes"
+        className={clsx(styles.tab, active === "attributes" && styles.tabActive)}
+        aria-current={active === "attributes" ? "page" : undefined}
+      >
+        Questions
+      </Link>
+      <Link
+        href="/admin/catalog/recategorise"
+        className={clsx(styles.tab, active === "recategorise" && styles.tabActive)}
+        aria-current={active === "recategorise" ? "page" : undefined}
+      >
+        Recategorise
       </Link>
       <Link
         href="/admin/catalog/reviews"

@@ -347,7 +347,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
           </Link>
 
           <Link
-            href="/cart"
+            href="/checkout"
             className={clsx(styles.utilityIcon, styles.cartButton)}
             aria-label={`Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
           >

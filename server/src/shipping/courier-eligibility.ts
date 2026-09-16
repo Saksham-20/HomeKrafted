@@ -25,13 +25,61 @@ import { Prisma, ProductKind } from '@prisma/client';
  * that must never decide access (M12), and one kitchen can list both a
  * curry and a candle.
  *
+ * **D10 (2026-09-16) put one exception inside that predicate**, and it is
+ * still only in this file: chocolates and other edible gifts stayed on the
+ * gifts side, so a craft row can now be something that melts. See
+ * `EDIBLE_GIFT_DEPARTMENT_SLUG` below.
+ *
  * If this ever needs narrowing to long deliveries only, the change is
  * `&& product.shippingScope === national` **here**, and nowhere else —
  * which is the whole reason this is a function and not four inlined
  * `kind === 'craft'` checks.
  */
-export function isCourierEligible(product: { kind: ProductKind } | null | undefined): boolean {
-  return product?.kind === ProductKind.craft;
+/**
+ * The slug of the edible-gifts department (D10, owner 2026-09-16).
+ *
+ * Chocolates stayed on the gifts side rather than moving to `food`, which
+ * would have taken fourteen live listings off sale while `foodOrdersOpen`
+ * is off. So `kind === 'craft'` is no longer the whole predicate: a box of
+ * truffles is a craft row that melts in a van.
+ *
+ * Matched on the **department**, not on a per-listing flag, because that is
+ * the fact a maker actually states — they file it under Chocolates, and
+ * the shelf is what makes the food questions appear. A listing anywhere
+ * under this department (the department itself or one of its children)
+ * counts; `ProductCategory` carries the complete set including the primary
+ * (M58), so one `some` reaches both.
+ */
+export const EDIBLE_GIFT_DEPARTMENT_SLUG = 'chocolates-and-edible-gifts';
+
+/** What the two functions below need to see on a listing to decide. */
+export interface CourierProductFacts {
+  kind: ProductKind;
+  /** The maker's declaration that they pack it to survive a van. */
+  heatSafePacked?: boolean;
+  /** Every shelf it sits on, primary included — `ProductCategory` (M58). */
+  categories?: { category: { slug: string; parent?: { slug: string } | null } }[];
+}
+
+/** Is this listing filed under the edible-gifts department? */
+function isEdibleGift(product: CourierProductFacts): boolean {
+  return (product.categories ?? []).some(
+    ({ category }) =>
+      category.slug === EDIBLE_GIFT_DEPARTMENT_SLUG ||
+      category.parent?.slug === EDIBLE_GIFT_DEPARTMENT_SLUG,
+  );
+}
+
+export function isCourierEligible(product: CourierProductFacts | null | undefined): boolean {
+  if (product?.kind !== ProductKind.craft) return false;
+  // An edible gift travels only when its maker has said they pack it
+  // heat-safe. The default is `false`, so a chocolate listing nobody has
+  // answered for is **not** posted — it is local delivery until somebody
+  // makes the claim. Failing toward "don't put it in a van" is the only
+  // safe direction: the cost of being wrong the other way is a bag of
+  // liquid chocolate arriving as a gift, and a refund a home maker pays.
+  if (isEdibleGift(product)) return product.heatSafePacked === true;
+  return true;
 }
 
 /**
@@ -43,7 +91,28 @@ export function isCourierEligible(product: { kind: ProductKind } | null | undefi
  * no `Product` row, so it has no kitchen to collect from and cannot be a
  * parcel — booking one would send a rider to nobody.
  */
-export const COURIER_ELIGIBLE_PRODUCT: Prisma.ProductWhereInput = { kind: ProductKind.craft };
+/** The edible-gifts department, or anything filed under it. */
+const EDIBLE_GIFT_SHELF: Prisma.ProductCategoryWhereInput = {
+  category: {
+    is: {
+      OR: [
+        { slug: EDIBLE_GIFT_DEPARTMENT_SLUG },
+        { parent: { is: { slug: EDIBLE_GIFT_DEPARTMENT_SLUG } } },
+      ],
+    },
+  },
+};
+
+export const COURIER_ELIGIBLE_PRODUCT: Prisma.ProductWhereInput = {
+  kind: ProductKind.craft,
+  OR: [
+    // Not an edible gift at all: the ordinary case, and every craft row
+    // written before D10.
+    { categories: { none: EDIBLE_GIFT_SHELF } },
+    // An edible gift whose maker packs it heat-safe.
+    { heatSafePacked: true },
+  ],
+};
 
 export const COURIER_ELIGIBLE_LINE: Prisma.OrderItemWhereInput = {
   product: { is: COURIER_ELIGIBLE_PRODUCT },
@@ -75,5 +144,10 @@ export const NON_COURIER_LINE: Prisma.OrderItemWhereInput = {
     // form says what it means in SQL either way.
     { productId: null },
     { product: { is: { kind: { not: ProductKind.craft } } } },
+    // D10: an edible gift nobody has said is heat-safe is a line no rider
+    // is carrying, so an order holding one may not be driven forward by a
+    // courier callback — the mixed-basket rule, arriving by a second
+    // route now that a craft row can be uncarried.
+    { product: { is: { categories: { some: EDIBLE_GIFT_SHELF }, heatSafePacked: false } } },
   ],
 };

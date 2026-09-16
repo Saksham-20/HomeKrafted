@@ -127,7 +127,16 @@ export class VendorsService {
     const vendor = await this.prisma.vendor.findUnique({ where: { slug } });
     if (!vendor) throw new NotFoundException('Vendor not found');
     const products = await this.prisma.product.findMany({
-      where: { vendorId: vendor.id, ...PUBLICLY_LISTED },
+      // **Both switches, not one.** `moderationStatus` is the admin's and
+      // `isAvailable` is the HomeKrafter's "am I making this today" — and
+      // CLAUDE.md's rule is that a buyer needs both to pass. Browse has
+      // always applied both; this query applied only the first, so a
+      // paused listing vanished from `/gifts` and `/shop` and stayed on
+      // its maker's own storefront, where it could be opened and added to
+      // a basket. Found while working out why an approved listing was
+      // missing from browse: it was paused, and the storefront was the
+      // one surface still showing it.
+      where: { vendorId: vendor.id, ...PUBLICLY_LISTED, isAvailable: true },
       include: PRODUCT_INCLUDE,
     });
     return products.map((p) => mapProduct(p));

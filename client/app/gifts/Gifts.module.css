@@ -3,57 +3,27 @@
    since both are "a curated slice of the catalogue" and looking different
    would imply they behave differently. */
 
-/* Full-bleed band (M59b) — the tint used to stop at the container's
-   edge, which read as a rendering fault at wide viewports. */
-/* The long-banner hero (M59c): `HeroBanner` fills this behind the copy —
-   its wash carries the gold tint the gradient used to, solid over the
-   text column. `relative` is what the banner's `inset: 0` sizes to. */
-.hero {
+/*
+  The compact title band (G3 §5.1.1).
+
+  The photo wash is gone. It was a decorative gradient carrying no
+  information, sized at a third of the viewport (2026-09-05) so the gifts
+  themselves started below the fold — on a page whose entire job is to show
+  handmade objects. The photograph moved into the department tiles, where
+  each one is a real listing's own picture and therefore tells you what is
+  on that shelf. The band is now ≤180px on desktop.
+*/
+.band {
   position: relative;
   background: var(--hk-bg);
-  /* No bottom rule: the banner's wash fades the photograph into the
-     canvas (owner, 2026-09-05: "extend it down a little, fading it to
-     the background"), and a hairline under a fade is a hard edge on a
-     soft one. */
+  border-bottom: 1px solid var(--hk-border);
 }
 
-/* Desktop: the band is at least a third of the viewport (owner,
-   2026-09-05: "make the image … cover at least 30% of the page"), and
-   the control card is pulled up over its lower part so the photograph
-   fades out *behind* the filters rather than stopping above them. The
-   copy stays at the top; everything under it is photograph. The
-   overlap number lives in `GiftsClient.module.css` (`.controlCard`)
-   and the two must move together — hero height minus copy minus overlap
-   is the breathing room above the card, which is the other thing the
-   owner asked for. */
-@media (min-width: 781px) {
-  .hero {
-    min-height: max(320px, 34vh);
-  }
-}
-
-/* Compacted with /shop's (2026-09-05) — same band, same reasoning, and
-   the two verticals have to keep the same composition. */
-.heroInner {
-  position: relative;
-  z-index: 1;
-  /* Symmetric padding; on desktop the band's height comes from `.hero`'s
-     `min-height` below, not from padding, so the photograph under the
-     copy is a share of the viewport rather than a fixed pixel count. */
-  padding-block: var(--hk-s5) var(--hk-s5);
+.bandInner {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: var(--hk-s3);
-}
-
-.heroCopy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--hk-s2);
-  /* Leaves the photograph its half — see `Shop.module.css`. */
-  max-width: min(100%, 780px);
+  padding-block: var(--hk-s5);
 }
 
 /* The blurb beside the title, on its baseline — see `Shop.module.css`. */
@@ -76,6 +46,13 @@
 }
 
 .title {
+  /*
+    The display treatment DESIGN.md deferred to this milestone: `.hk-wonk`
+    is applied in the markup, and the tracking tightens because Fraunces at
+    40px reads too loose at the default. Large type wants negative tracking;
+    the floor is -0.04em and -0.02 sits better here.
+  */
+  letter-spacing: -0.02em;
   font-family: var(--hk-font-display);
   font-weight: 600;
   font-size: var(--hk-page-title);

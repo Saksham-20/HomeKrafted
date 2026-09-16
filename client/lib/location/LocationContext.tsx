@@ -35,13 +35,17 @@ const LOCATION_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 30; // 30 days
  * GPS fix and a hand-picked sector deserve different copy ("Using your
  * location" vs "Delivering to Sector 35").
  */
-export type LocationSource = "gps" | "area" | "none";
+export type LocationSource = "gps" | "area" | "pincode" | "none";
 
 interface StoredLocation {
   source: LocationSource;
   areaId?: string;
   lat?: number;
   lng?: number;
+  /** The six digits the visitor typed, when that is how they placed themselves. */
+  pincode?: string;
+  /** What that pincode resolves to — "Chandigarh, Chandigarh". */
+  placeLabel?: string;
   /** Set once the user has answered the prompt either way, so we stop asking. */
   asked: boolean;
 }
@@ -64,6 +68,21 @@ export interface LocationValue {
   requestBrowserLocation: () => Promise<boolean>;
   /** Pick a tricity area by hand — the fallback when permission is denied. */
   setArea: (areaId: string) => void;
+  /**
+   * Place yourself by pincode (owner, 2026-09-16).
+   *
+   * The curated area list is twenty-one hand-written tricity places, so
+   * it could only ever answer for the launch city — somebody in Faridabad
+   * had no way to say where they were, which is M36's waitlist bug
+   * wearing a different hat. Six digits works anywhere in India, and the
+   * coordinates come from the pincode table rather than from a constant
+   * in the client.
+   */
+  setPincode: (pincode: string, lat: number, lng: number, placeLabel: string) => void;
+  /** The pincode the visitor typed, when that is how they placed themselves. */
+  pincode?: string;
+  /** A readable place for that pincode — what the header shows. */
+  placeLabel?: string;
   /** Dismiss the prompt without choosing. Browsing continues unfiltered. */
   dismiss: () => void;
   /** Forget the stored location (the "change area" affordance). */
@@ -202,6 +221,14 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const setPincode = useCallback(
+    (pincode: string, lat: number, lng: number, placeLabel: string) => {
+      setError(undefined);
+      persist({ source: "pincode", pincode, placeLabel, lat, lng, asked: true });
+    },
+    [persist],
+  );
+
   const dismiss = useCallback(() => {
     persist({ ...(stored ?? { source: "none" }), source: stored?.source ?? "none", asked: true });
   }, [persist, stored]);
@@ -226,11 +253,14 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       error,
       requestBrowserLocation,
       setArea,
+      setPincode,
+      pincode: stored?.pincode,
+      placeLabel: stored?.placeLabel,
       dismiss,
       clear,
       areas: TRICITY_AREAS,
     };
-  }, [stored, ready, locating, error, requestBrowserLocation, setArea, dismiss, clear]);
+  }, [stored, ready, locating, error, requestBrowserLocation, setArea, setPincode, dismiss, clear]);
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { Icon } from "@/components/ui/Icon";
 import styles from "./QuickFilterChips.module.css";
 
 export interface QuickFilterChip {
@@ -9,10 +9,16 @@ export interface QuickFilterChip {
   label: string;
   count: number;
   selected: boolean;
-  /** Decorative emoji, rendered aria-hidden — see `lib/category-emoji.ts`. */
-  icon?: string;
-  /** The shelf's photograph (`Category.imageSrc`) — the tile face when present. */
-  imageSrc?: string;
+  /**
+   * The shelf's icon id (`Category.icon`), drawn by `<Icon>`.
+   *
+   * Was a decorative emoji keyed on slug until G3. An emoji renders
+   * differently on every OS — and the fallback basket was on seventeen
+   * chips at once, because a slug→emoji map in code only ever covers the
+   * shelves that existed the day somebody wrote it. An admin picks this
+   * one, and a shelf minted next week has a mark without a deploy.
+   */
+  icon?: string | null;
 }
 
 export interface QuickFilterChipsProps {
@@ -57,12 +63,10 @@ export function QuickFilterChips({ label, chips, onToggle }: QuickFilterChipsPro
           onClick={() => onToggle(chip.id)}
         >
           <span className={styles.face} aria-hidden="true">
-            {chip.imageSrc ? (
-              // alt="" — the tile's visible label is the next node.
-              <ImageSlot ratio="4/3" label={chip.label} alt="" src={chip.imageSrc} sizes="72px" compact />
-            ) : (
-              <span className={styles.faceEmoji}>{chip.icon ?? "🧺"}</span>
-            )}
+            {/* The mark, never a listing's photograph — see `CategoryTile`. */}
+            <span className={styles.faceIcon}>
+              <Icon id={chip.icon} size={26} />
+            </span>
             <span className={styles.faceCount}>{chip.count}</span>
           </span>
           <span className={styles.tileLabel}>{chip.label}</span>

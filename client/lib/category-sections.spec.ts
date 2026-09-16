@@ -1,4 +1,4 @@
-import { splitCategorySections } from "./category-sections";
+import { expandShelfSelection, shelfFamily, splitCategorySections } from "./category-sections";
 import type { Category } from "./types";
 
 const cat = (id: string, name: string, parentId?: string | null): Category => ({
@@ -44,5 +44,30 @@ describe("splitCategorySections", () => {
     delete (legacy as { parentId?: string | null }).parentId;
     const { flat } = splitCategorySections([legacy]);
     expect(flat.map((c) => c.id)).toEqual(["x"]);
+  });
+});
+
+describe("shelfFamily / expandShelfSelection (D3: a parent is selectable)", () => {
+  const tree = [
+    cat("jewel", "Handmade Jewellery"),
+    cat("earrings", "Earrings", "jewel"),
+    cat("rings", "Rings", "jewel"),
+    cat("crochet", "Crochet"),
+  ];
+
+  it("a parent covers itself and its children — listings filed on the parent included", () => {
+    expect(shelfFamily("jewel", tree)).toEqual(["jewel", "earrings", "rings"]);
+  });
+
+  it("a child or a childless shelf covers only itself", () => {
+    expect(shelfFamily("earrings", tree)).toEqual(["earrings"]);
+    expect(shelfFamily("crochet", tree)).toEqual(["crochet"]);
+  });
+
+  it("expands every selected parent and keeps selected children as they are", () => {
+    expect([...expandShelfSelection(["jewel", "crochet"], tree)].sort()).toEqual(
+      ["crochet", "earrings", "jewel", "rings"],
+    );
+    expect([...expandShelfSelection([], tree)]).toEqual([]);
   });
 });

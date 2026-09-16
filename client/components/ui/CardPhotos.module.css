@@ -1,0 +1,107 @@
+.photo {
+  /* Each photo fades in over the last one. */
+  animation: hkPhotoIn var(--hk-dur) var(--hk-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo {
+    animation: none;
+  }
+}
+
+@keyframes hkPhotoIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+  Above the card's stretched link (which is z-index 0 on `::after`), the
+  same lift the wishlist and add buttons take.
+*/
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-top: -15px;
+  border: 1px solid var(--hk-border);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--hk-surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--hk-ink);
+  cursor: pointer;
+  /* Hidden until the card is hovered on a pointer device — see below. */
+  opacity: 0;
+  transition: opacity var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+.arrow:active {
+  transform: scale(0.94);
+  transition-duration: 100ms;
+}
+
+.prev {
+  left: 8px;
+}
+
+.next {
+  right: 8px;
+}
+
+/*
+  A touch screen has no hover, so there the arrows are the only way
+  through the photos and are always visible. On a pointer device they
+  appear with the card, which keeps the grid quiet until somebody is
+  actually looking at one.
+*/
+@media (hover: hover) and (pointer: fine) {
+  [data-testid="product-card"]:hover .arrow,
+  .arrow:focus-visible {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  .arrow {
+    opacity: 1;
+  }
+}
+
+/* Keyboard users get them whatever the input model says. */
+.arrow:focus-visible {
+  opacity: 1;
+}
+
+.dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--hk-r-pill);
+  background: color-mix(in srgb, var(--hk-surface) 80%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--hk-muted);
+  opacity: 0.5;
+}
+
+.dotOn {
+  background: var(--hk-pine);
+  opacity: 1;
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Settings2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/portal/Field";
@@ -9,9 +9,10 @@ import { LoadingRows } from "@/components/portal/LoadingRows";
 import { Notice } from "@/components/portal/Notice";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CatalogTabs } from "./CatalogTabs";
+import { ShelfEditor } from "./ShelfEditor";
 import { ApiError } from "@/lib/api/http";
 import { createCategory, getCategoryTree, updateCategory } from "@/lib/api/admin";
-import type { CategoryNode } from "@/lib/types";
+import type { Category, CategoryNode } from "@/lib/types";
 import type { ProductKind } from "@/lib/types";
 import styles from "./CategoriesClient.module.css";
 
@@ -44,6 +45,9 @@ export function CategoriesClient() {
   const [saving, setSaving] = useState(false);
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  // G1 — which shelf's editor is open. One at a time: these are decisions
+  // made while looking at the row next to it, not a form to fill in.
+  const [editing, setEditing] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -181,6 +185,43 @@ export function CategoriesClient() {
     );
   }
 
+  /**
+   * G1 — the shelf's description, synonyms, icon, and its retire/merge
+   * controls. Opens under the row it belongs to.
+   *
+   * Merge targets are the **other top-level shelves on the same side of
+   * the catalogue**, because that is what the server will accept: merging
+   * across `group` would file food under gifts, and it refuses. Offering a
+   * target that is going to be refused is a control that lies.
+   */
+  function editorFor(node: Category, group: ProductKind) {
+    if (editing !== node.id) return null;
+    return (
+      <ShelfEditor
+        shelf={node}
+        mergeTargets={(tree ?? [])
+          .filter((candidate) => (candidate.group ?? "food") === group && candidate.id !== node.id)
+          .map((candidate) => ({ id: candidate.id, name: candidate.name }))}
+        onChanged={() => setReloadToken((n) => n + 1)}
+        onClose={() => setEditing(null)}
+      />
+    );
+  }
+
+  function editButton(node: Category) {
+    return (
+      <button
+        className={styles.add}
+        type="button"
+        onClick={() => setEditing(editing === node.id ? null : node.id)}
+        aria-expanded={editing === node.id}
+        aria-label={`Edit ${node.name}`}
+      >
+        <Settings2 aria-hidden size={15} /> Edit
+      </button>
+    );
+  }
+
   function nameControl(node: { id: string; name: string }) {
     if (renaming?.id === node.id) {
       return (
@@ -241,14 +282,23 @@ export function CategoriesClient() {
                   <div className={styles.parentHead}>
                     {nameControl(parent)}
                     <span className={styles.slug}>{parent.slug}</span>
+                    {/* An archived shelf stays on this screen — an admin is
+                        the one person who needs to see it, and hiding it
+                        here is how a retired shelf becomes unfindable. */}
+                    {parent.archivedAt ? <span className={styles.retired}>Retired</span> : null}
                     {addButton(parent.id, group, `Add a subcategory under ${parent.name}`, parent.name)}
+                    {editButton(parent)}
                   </div>
+                  {editorFor(parent, group)}
                   {parent.children.length > 0 && (
                     <ul className={styles.children}>
                       {parent.children.map((child) => (
                         <li className={styles.child} key={child.id}>
                           {nameControl(child)}
                           <span className={styles.slug}>{child.slug}</span>
+                          {child.archivedAt ? <span className={styles.retired}>Retired</span> : null}
+                          {editButton(child)}
+                          {editorFor(child, group)}
                         </li>
                       ))}
                     </ul>
@@ -266,7 +316,7 @@ export function CategoriesClient() {
     <div>
       <AdminPageHeader
         title="Categories"
-        subtitle="The shelves buyers browse by. A HomeKrafter can ask for one from their listing form; approving that ask is what creates it, and so is the button here. Press a name to rename it."
+        subtitle="The shelves buyers browse by. A HomeKrafter can ask for one from their listing form; approving that ask is what creates it, and so is the button here. Press a name to rename it, or Edit for its description, search words, icon, and the questions it asks."
       />
 
       <CatalogTabs active="categories" />

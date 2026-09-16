@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, TaxonomyKind, TaxonomySuggestionStatus } from '@prisma/client';
+import { findSameName } from '../common/fold-name';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAuditLogService } from './audit-log.service';
 import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
@@ -92,28 +93,26 @@ export class TaxonomySuggestionsService {
     const name = tidy(dto.name);
     if (!name) throw new BadRequestException('Give it a name.');
 
-    const existing =
+    // Case- and accent-folded (`common/fold-name.ts`).
+    const existing = findSameName(
       dto.kind === 'category'
-        ? await this.prisma.category.findFirst({
-            where: { name: { equals: name, mode: 'insensitive' } },
-          })
-        : await this.prisma.occasion.findFirst({
-            where: { name: { equals: name, mode: 'insensitive' } },
-          });
+        ? await this.prisma.category.findMany({ select: { name: true } })
+        : await this.prisma.occasion.findMany({ select: { name: true } }),
+      name,
+    );
     if (existing) {
       throw new ConflictException(
         `“${existing.name}” is already on the list — pick it rather than asking for it.`,
       );
     }
 
-    const alreadyAsked = await this.prisma.taxonomySuggestion.findFirst({
-      where: {
-        kind: dto.kind as TaxonomyKind,
-        status: 'pending',
-        name: { equals: name, mode: 'insensitive' },
-        suggestedById: userId,
-      },
-    });
+    const alreadyAsked = findSameName(
+      await this.prisma.taxonomySuggestion.findMany({
+        where: { kind: dto.kind as TaxonomyKind, status: 'pending', suggestedById: userId },
+        select: { name: true },
+      }),
+      name,
+    );
     if (alreadyAsked) {
       throw new ConflictException(
         `You have already asked for “${alreadyAsked.name}”. We will let you know once it is looked at.`,
@@ -214,12 +213,13 @@ export class TaxonomySuggestionsService {
       // are two different shelves — and re-checked here against the
       // **final** name, not the suggested one, because an admin may have
       // renamed it on the way in (M50).
-      const clash = await this.prisma.category.findFirst({
-        where: {
-          name: { equals: name, mode: 'insensitive' },
-          parentId: parent?.id ?? null,
-        },
-      });
+      const clash = findSameName(
+        await this.prisma.category.findMany({
+          where: { parentId: parent?.id ?? null },
+          select: { name: true },
+        }),
+        name,
+      );
       if (clash) {
         throw new ConflictException(
           `“${clash.name}” already exists — reject this with that as the reason instead of adding a second one.`,
@@ -265,9 +265,7 @@ export class TaxonomySuggestionsService {
       return mapTaxonomySuggestion(updated);
     }
 
-    const clash = await this.prisma.occasion.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' } },
-    });
+    const clash = findSameName(await this.prisma.occasion.findMany({ select: { name: true } }), name);
     if (clash) {
       throw new ConflictException(
         `“${clash.name}” already exists — reject this with that as the reason instead of adding a second one.`,

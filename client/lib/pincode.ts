@@ -42,4 +42,14 @@ export interface PincodeLookup {
   /** How far apart this pincode's post offices are — the admin screen's business, not a buyer's. */
   spreadKm: number;
   approximate: boolean;
+  /**
+   * The pincode's centroid, for placing a **buyer** (2026-09-16).
+   *
+   * Never for placing a storefront: M36's rule is that this is the median
+   * 12.4 km out, and `Vendor.lat`/`lng` decides whether a real kitchen is
+   * visible to its own neighbourhood. A buyer's position only orders the
+   * grid, and location is never a gate.
+   */
+  lat?: number;
+  lng?: number;
 }

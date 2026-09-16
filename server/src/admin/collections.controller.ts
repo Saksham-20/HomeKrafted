@@ -7,8 +7,20 @@ import { AdminCollectionsService } from './collections.service';
 import { UpsertCollectionDto } from './dto/upsert-collection.dto';
 import { CreateOccasionDto } from './dto/create-occasion.dto';
 import { UpdateOccasionDto } from './dto/update-occasion.dto';
-import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
+import {
+  ArchiveCategoryDto,
+  CreateCategoryDto,
+  MergeCategoryDto,
+  UpdateCategoryDto,
+} from './dto/category.dto';
+import {
+  CreateAttributeDto,
+  CreateAttributeOptionDto,
+  SetShelfQuestionDto,
+  UpdateAttributeDto,
+} from './dto/attribute.dto';
 import { AdminCategoriesService } from './categories.service';
+import { AdminAttributesService } from './attributes.service';
 
 /** Occasion `Collection` CMS — title/description/occasion + ordered product membership. */
 @Controller('admin/collections')
@@ -19,6 +31,7 @@ export class AdminCollectionsController {
   constructor(
     private readonly collectionsService: AdminCollectionsService,
     private readonly categoriesService: AdminCategoriesService,
+    private readonly attributesService: AdminAttributesService,
   ) {}
 
   /**
@@ -54,6 +67,91 @@ export class AdminCollectionsController {
     @Body() dto: UpdateCategoryDto,
   ) {
     return this.categoriesService.update(admin.userId, id, dto);
+  }
+
+  /**
+   * G1 — retire a shelf without deleting it.
+   *
+   * This is how M58's recipient shelves stop being categories once
+   * recipient is a facet: **archived, never dropped**, because their slugs
+   * are in URLs people have shared and in everything Google has indexed.
+   */
+  @Patch('categories/:id/archived')
+  archiveCategory(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: ArchiveCategoryDto,
+  ) {
+    return this.categoriesService.setArchived(admin.userId, id, dto.archived);
+  }
+
+  /**
+   * G1 — fold one shelf into another, moving its listings across.
+   *
+   * Production holds both "Home Décor" and "Home Decor" (§3.1). The source
+   * keeps resolving and redirects (`mergedIntoId`), and **nothing is
+   * re-queued**: an admin tidying up our own duplicate must not take a
+   * live catalogue off sale (M44).
+   */
+  @Post('categories/:id/merge')
+  mergeCategory(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: MergeCategoryDto,
+  ) {
+    return this.categoriesService.merge(admin.userId, id, dto.intoId);
+  }
+
+  /**
+   * G1 — the attribute templates (docs/GIFTING-REWORK.md §4).
+   *
+   * The point of these five routes is that **adding a question to a shelf
+   * needs no deploy**. Until G1 "what the form asks" was a hardcoded map
+   * in the client that had already drifted from the database, so five live
+   * craft shelves appeared in no question set at all.
+   */
+  @Get('attributes')
+  listAttributes() {
+    return this.attributesService.list();
+  }
+
+  @Post('attributes')
+  createAttribute(@CurrentUser() admin: RequestUser, @Body() dto: CreateAttributeDto) {
+    return this.attributesService.create(admin.userId, dto);
+  }
+
+  /** The `key` is deliberately not editable — see the DTO. */
+  @Patch('attributes/:id')
+  updateAttribute(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateAttributeDto,
+  ) {
+    return this.attributesService.update(admin.userId, id, dto);
+  }
+
+  @Post('attributes/:id/options')
+  addAttributeOption(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: CreateAttributeOptionDto,
+  ) {
+    return this.attributesService.addOption(admin.userId, id, dto);
+  }
+
+  /** Ask a question on a shelf, or (with `requirement: null`) stop asking it. */
+  @Patch('categories/:id/questions')
+  setShelfQuestion(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: SetShelfQuestionDto,
+  ) {
+    return this.attributesService.setShelfQuestion(
+      admin.userId,
+      id,
+      dto.attributeId,
+      dto.requirement ?? null,
+    );
   }
 
   @Get()

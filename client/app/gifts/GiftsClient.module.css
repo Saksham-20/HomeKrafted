@@ -61,20 +61,6 @@
   white-space: nowrap;
 }
 
-.pricePanel {
-  padding: var(--hk-s2) var(--hk-s2) var(--hk-s3);
-  min-width: 240px;
-}
-
-.pricePanelTitle {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
-  margin-bottom: var(--hk-s3);
-}
-
 .filterTitle {
   font-family: var(--hk-font-mono);
   font-size: 11px;
@@ -90,10 +76,62 @@
   margin-top: var(--hk-s3);
 }
 
+/*
+  Four across at 1440, three at tablet, two on a phone (G3 §5.1.7).
+
+  It was six, which on 1352px of container is a ~210px card — too small to
+  judge a handmade object, which is the one thing this grid exists to let
+  somebody do. `auto-fill` with a 200px floor produced that six; an
+  explicit four-column track does not. Page size stays 24, which divides by
+  4, 3 and 2, so no page ends ragged.
+*/
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--hk-s4);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--hk-s5) var(--hk-s4);
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/*
+  The sticky toolbar (§5.1.5). It sits under the two-row header, so `top`
+  is that height — a wrong number here hides the count behind the nav.
+
+  Translucent with a fallback: `prefers-reduced-transparency` is a real
+  setting somebody turns on because a blur over moving content is hard to
+  read, and the honest answer there is a solid bar, not a fainter one.
+  No layout change on stick, so nothing shifts and CLS stays nil.
+*/
+.toolbar {
+  position: sticky;
+  top: 72px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-wrap: wrap;
+  padding: var(--hk-s3) var(--hk-s4);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-lg);
+  background: color-mix(in srgb, var(--hk-surface) 86%, transparent);
+  backdrop-filter: blur(10px) saturate(180%);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .toolbar {
+    background: var(--hk-surface);
+    backdrop-filter: none;
+  }
 }
 
 .noMatch {
@@ -161,4 +199,54 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--hk-s3);
   }
+}
+
+/*
+  The personalisable toggle in the sticky toolbar (§5.1.5).
+
+  Two states, so a button with `aria-pressed` — the portal kit's
+  `SegmentedFilter` reasoning applied to a single control. Never a
+  `role="tab"`, and never a dropdown holding one checkbox.
+*/
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  padding: 8px 14px;
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+.toggle:hover:not(:disabled) {
+  border-color: var(--hk-pine);
+}
+
+.toggle:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 100ms;
+}
+
+.toggleOn {
+  background: var(--hk-pine);
+  border-color: var(--hk-pine);
+  color: var(--hk-on-pine);
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+/* Dimmed, and it keeps its tooltip saying why — never silently dead. */
+.toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggleCount {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  opacity: 0.75;
 }

@@ -345,6 +345,15 @@ export const LISTING_LIMITS = {
   shelfLife: 200,
   storageInstructions: 500,
   servingGuidance: 200,
+  // G1 (2026-09-16) — the gift facts and D13's label declarations. The
+  // form that asks them is G2; these are here now because this file is the
+  // mirror of the server DTO and the spec below fails the build the moment
+  // the two disagree. That guard is the reason `weightOptions.0.sku` no
+  // longer reaches a home cook's screen as an error message.
+  personalisationPrompt: 120,
+  netQuantityUnit: 16,
+  genericName: 120,
+  countryOfOrigin: 80,
 } as const;
 
 /** Minutes of notice the server accepts — `@Max(43200)`, i.e. 30 days. */

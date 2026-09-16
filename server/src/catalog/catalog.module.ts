@@ -5,6 +5,8 @@ import { ProductsService } from './products.service';
 import { VendorsController } from './vendors.controller';
 import { VendorsService } from './vendors.service';
 import { CategoriesController } from './categories.controller';
+import { DepartmentsController } from './departments.controller';
+import { AttributesService } from './attributes.service';
 import { OccasionsController } from './occasions.controller';
 import { CollectionsController } from './collections.controller';
 import { HamperBoxesController } from './hamper-boxes.controller';
@@ -30,6 +32,7 @@ import { VendorAvailabilityService } from './vendor-availability.service';
     ProductsController,
     VendorsController,
     CategoriesController,
+    DepartmentsController,
     OccasionsController,
     CollectionsController,
     HamperBoxesController,
@@ -38,6 +41,7 @@ import { VendorAvailabilityService } from './vendor-availability.service';
     ProductsService,
     VendorsService,
     TaxonomyService,
+    AttributesService,
     VendorProfileService,
     VendorAvailabilityService,
   ],
@@ -45,6 +49,16 @@ import { VendorAvailabilityService } from './vendor-availability.service';
   // editor) and `AdminModule` (verification), which both need the same
   // completion/trust computation the storefront renders — one definition
   // of "how complete is this profile", not three.
-  exports: [ProductsService, VendorsService, VendorProfileService, VendorAvailabilityService],
+  // `AttributesService` is exported for `SellerModule` (the listing form
+  // reads the same question set the server validates against) and
+  // `AdminModule` (the attribute templates screen) — one definition of
+  // "what does this shelf ask", never three.
+  exports: [
+    ProductsService,
+    VendorsService,
+    VendorProfileService,
+    VendorAvailabilityService,
+    AttributesService,
+  ],
 })
 export class CatalogModule {}

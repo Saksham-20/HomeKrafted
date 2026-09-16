@@ -108,14 +108,18 @@ Three families, all via `next/font/google`, loaded once in
 
 | Family | Token var | Weights loaded | Use |
 |---|---|---|---|
-| Fraunces | `--hk-font-display` | 400, 500, 600, 700 + italic | headings, product names, prices |
-| IBM Plex Sans | `--hk-font-body` | 400, 500, 600 | body copy, controls, nav |
+| Fraunces | `--hk-font-display` | the **variable** face, `SOFT`+`WONK` axes, + italic | headings, product names, prices |
+| Hanken Grotesk | `--hk-font-body` | 400, 500, 600 | body copy, controls, nav |
 | IBM Plex Mono | `--hk-font-mono` | 400, 500 | eyebrows, meta, always UPPERCASE + `letter-spacing: .12–.22em` |
+| Kalam | `--hk-font-annotate` | 400 | `.hk-annotation` only — decorative maker's-hand marks, max two per screen, always `aria-hidden` |
 
 `next/font` exposes each as a CSS variable on `<html>`
-(`--font-fraunces`/`--font-plex-sans`/`--font-plex-mono`);
-`styles/globals.css` re-points the `--hk-font-*` token vars at them
-(imported after `tokens.css`, so it wins the cascade) — component CSS
+(`--font-fraunces`/`--font-hanken`/`--font-plex-mono`/`--font-kalam`);
+`styles/globals.css` re-points the display, mono and annotation token
+vars at them, and `styles/tokens.extend.css` re-points `--hk-font-body`
+(both imported after `tokens.css`, so they win the cascade; the body face
+is in the extend file because the native apps' theme is generated from it
+and never sees `globals.css` — see CLAUDE.md, Fonts & tokens wiring) — component CSS
 never needs to reference `--font-fraunces` etc. directly, just the
 `--hk-font-*` tokens as usual.
 

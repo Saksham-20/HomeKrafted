@@ -11,6 +11,7 @@
  *   npx ts-node prisma/seed-craft-subcategories.ts
  */
 import { PrismaClient, ProductKind } from '@prisma/client';
+import { findSameName } from '../src/common/fold-name';
 
 const prisma = new PrismaClient();
 
@@ -62,11 +63,16 @@ async function freeSlug(base: string): Promise<string> {
 }
 
 async function ensure(name: string, group: ProductKind, parentId: string | null, sortOrder: number) {
-  const existing = await prisma.category.findFirst({
-    where: { name: { equals: name, mode: 'insensitive' }, parentId },
-  });
+  // Case- and accent-folded, and **not only under this parent** (2026-09-16).
+  // A same-named shelf anywhere on this side of the catalogue counts as
+  // "there": scoping the check to the parent is how production got a
+  // "Home Decor" under Candles & Home beside the top-level "Home Décor".
+  const inGroup = await prisma.category.findMany({ where: { group } });
+  const existing =
+    findSameName(inGroup.filter((c) => c.parentId === parentId), name) ?? findSameName(inGroup, name);
   if (existing) {
-    console.log(`  = ${name} (already there)`);
+    const where = existing.parentId === parentId ? 'already there' : `already there as "${existing.name}" elsewhere; not duplicated`;
+    console.log(`  = ${name} (${where})`);
     return existing;
   }
   const created = await prisma.category.create({
@@ -88,12 +94,10 @@ async function ensure(name: string, group: ProductKind, parentId: string | null,
 async function main() {
   for (const tree of TREES) {
     console.log(`${tree.group}: ${tree.parent}`);
-    const parent = await prisma.category.findFirst({
-      where: {
-        name: { equals: tree.parent, mode: 'insensitive' },
-        parentId: null,
-      },
-    });
+    const parent = findSameName(
+      await prisma.category.findMany({ where: { parentId: null } }),
+      tree.parent,
+    );
 
     if (!parent) {
       console.warn(`  ! Parent category "${tree.parent}" not found — skipping tree`);

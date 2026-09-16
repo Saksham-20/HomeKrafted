@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DeliveryJobStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
 import { RawCartItem, resolveCartLine } from '../common/pricing/resolve-cart-line';
@@ -16,8 +16,24 @@ import { ListOrdersQueryDto } from './dto/list-orders.query.dto';
 import { mapOrder, orderStatusToFrontend } from './order.mapper';
 import { toOrderHistoryEntry, toLaundryHistoryEntry } from './order-history.util';
 import { isPurchasable, unavailableReason } from '../catalog/moderation';
+import { JOB_WITH_RELATIONS_INCLUDE } from '../rider/rider-jobs.types';
+import { mapDeliveryForBuyer } from '../rider/rider-jobs.mapper';
 
 const ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
+
+/** Least-advanced-first, for picking which job to surface on a multi-kitchen order — see `deliveryForBuyer`. */
+const JOB_STATUS_RANK: Record<DeliveryJobStatus, number> = {
+  unassigned: 0,
+  offered: 1,
+  accepted: 2,
+  at_pickup: 3,
+  picked_up: 4,
+  at_drop: 5,
+  failed: 6,
+  delivered: 7,
+  cancelled: 8,
+  returned: 8,
+};
 
 @Injectable()
 export class OrdersService {
@@ -285,7 +301,31 @@ export class OrdersService {
   async getById(userId: string, id: string) {
     const order = await this.prisma.order.findUnique({ where: { id }, include: ORDER_INCLUDE });
     if (!order || order.userId !== userId) throw new NotFoundException('Order not found');
-    return mapOrder(order);
+    const mapped = mapOrder(order);
+    const delivery = await this.deliveryForBuyer(id);
+    return delivery ? { ...mapped, delivery } : mapped;
+  }
+
+  /**
+   * R2 (docs/RIDER-APP.md) — the own-fleet rider's status, first name and
+   * (until delivered) the delivery OTP, for `GET /orders/:id`'s
+   * `delivery` field. `undefined` when no `DeliveryJob` exists for this
+   * order — the ordinary case for every order the fleet never touched.
+   *
+   * A multi-kitchen order can carry more than one job; the **least
+   * advanced** one is surfaced (a failed or still-in-progress parcel is
+   * what the buyer needs to see, not a sibling kitchen's already-
+   * delivered one) — the same "weakest job" reasoning
+   * `DeliveryOrderReconcileService` uses for the order's own status.
+   */
+  private async deliveryForBuyer(orderId: string) {
+    const jobs = await this.prisma.deliveryJob.findMany({
+      where: { orderId },
+      include: JOB_WITH_RELATIONS_INCLUDE,
+    });
+    if (jobs.length === 0) return undefined;
+    const weakest = jobs.reduce((min, job) => (JOB_STATUS_RANK[job.status] < JOB_STATUS_RANK[min.status] ? job : min), jobs[0]!);
+    return mapDeliveryForBuyer(weakest);
   }
 
   /**

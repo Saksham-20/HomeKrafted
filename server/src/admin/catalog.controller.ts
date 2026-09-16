@@ -12,13 +12,48 @@ import { ModerateReviewDto } from './dto/moderate-review.dto';
 import { ListAdminReviewsQueryDto } from './dto/list-admin-reviews.query.dto';
 import { parseDateParam } from '../meals/day-menus.service';
 import { SetDayMenuDto } from '../meals/dto/set-day-menu.dto';
+import { ProductKind } from '@prisma/client';
+import { AdminRecategoriseService } from './recategorise.service';
+import { ApplyRecategorisationDto } from './dto/recategorise.dto';
 
 /** Unscoped catalog + review moderation — any vendor's products, any target's reviews. */
 @Controller('admin/catalog')
 @Roles('admin')
 @RequireAdminScope('catalog')
 export class AdminCatalogController {
-  constructor(private readonly catalogService: AdminCatalogService) {}
+  constructor(
+    private readonly catalogService: AdminCatalogService,
+    private readonly recategorise: AdminRecategoriseService,
+  ) {}
+
+  /**
+   * G1 — where each live listing probably belongs
+   * (docs/GIFTING-REWORK.md §3.5).
+   *
+   * Read-only. **Nothing is re-filed automatically**: the screen shows
+   * these and an admin approves the rows they agree with, because a guess
+   * written onto a real storefront looks authoritative (the M36 rule).
+   * Every row carries the words that matched, and a listing the rule could
+   * not place is returned with `confidence: "none"` rather than omitted —
+   * that is the one a person most needs to see.
+   */
+  @Get('recategorise')
+  listProposals(@Query('kind') kind?: string) {
+    return this.recategorise.proposals(kind === 'food' ? ProductKind.food : ProductKind.craft);
+  }
+
+  /**
+   * Move one listing onto a shelf. `actor: 'admin'` all the way down, so
+   * it does not re-queue: an operator fixing our taxonomy must not take a
+   * live listing off sale (M44).
+   */
+  @Post('recategorise')
+  applyProposal(
+    @CurrentUser() admin: RequestUser,
+    @Body() dto: ApplyRecategorisationDto,
+  ) {
+    return this.recategorise.apply(admin.userId, dto.productId, dto.categoryId);
+  }
 
   @Get('products')
   listProducts(@Query() query: ListAdminCatalogQueryDto) {

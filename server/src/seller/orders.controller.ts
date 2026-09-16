@@ -47,4 +47,16 @@ export class SellerOrdersController {
     const seller = await this.sellerService.resolveHomeKrafter(user);
     return this.ordersService.advance(seller.vendorId, id);
   }
+
+  /**
+   * R2 (docs/RIDER-APP.md) — the own-fleet rider carrying this kitchen's
+   * parcel of this order, if one exists. Rider first name, status,
+   * vehicle type — **no rider phone** (D14: that is the rider's own line
+   * to the buyer, not the kitchen's).
+   */
+  @Get(':id/delivery')
+  async delivery(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    const seller = await this.sellerService.resolveHomeKrafter(user);
+    return this.ordersService.delivery(seller.vendorId, id);
+  }
 }

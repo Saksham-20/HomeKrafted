@@ -1,0 +1,77 @@
+/* G1 — `/admin/catalog/attributes`, the questions each shelf asks. */
+
+.wrap { display: flex; flex-direction: column; gap: var(--hk-s4); }
+.head { display: flex; flex-direction: column; gap: var(--hk-s3); }
+
+.add {
+  display: inline-flex; align-items: center; gap: 5px; align-self: flex-start;
+  border: 1px dashed var(--hk-border); background: transparent; color: var(--hk-pine);
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+.add:hover { border-color: var(--hk-pine); }
+.add:focus-visible { outline: 2px solid var(--hk-focus-ring, var(--hk-pine)); outline-offset: 2px; }
+
+.addForm { padding: var(--hk-s4); display: flex; flex-direction: column; gap: var(--hk-s3); }
+.actions { display: flex; align-items: center; gap: var(--hk-s2); flex-wrap: wrap; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--hk-s3); }
+.card { padding: var(--hk-s4); display: flex; flex-direction: column; gap: var(--hk-s3); }
+.cardHead { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--hk-s3); flex-wrap: wrap; }
+
+.label { font-family: var(--hk-font-display); font-size: 18px; margin: 0; color: var(--hk-ink); }
+.meta { margin: 2px 0 0; color: var(--hk-muted); font-size: 13px; }
+
+/* Receipt type for the machine names — a key and an option value are
+   identifiers, not words, and the mono face is what says so (DESIGN.md). */
+.key {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--hk-muted);
+}
+
+.switches {
+  display: grid; gap: var(--hk-s3);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  border-top: 1px solid var(--hk-border); padding-top: var(--hk-s3);
+}
+
+.panel {
+  display: flex; flex-direction: column; gap: var(--hk-s4);
+  border-top: 1px solid var(--hk-border); padding-top: var(--hk-s3);
+}
+.section { display: flex; flex-direction: column; gap: var(--hk-s3); }
+.sectionTitle { font-family: var(--hk-font-display); font-size: 15px; margin: 0; color: var(--hk-ink); }
+.hint { margin: 0; color: var(--hk-muted); font-size: 13px; line-height: 1.5; max-width: 68ch; }
+.empty { margin: 0; color: var(--hk-muted); font-size: 14px; }
+
+.options { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--hk-s2); }
+.option {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--hk-border); border-radius: 999px;
+  padding: 4px 10px; font-size: 13px; color: var(--hk-ink);
+}
+.swatch { width: 12px; height: 12px; border-radius: 50%; border: 1px solid var(--hk-border); }
+
+.shelves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.shelf {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--hk-s3);
+  padding: 4px 0; border-bottom: 1px solid var(--hk-divider, var(--hk-border));
+}
+.shelf:last-child { border-bottom: none; }
+.shelfName { font-size: 14px; color: var(--hk-ink); }
+
+@media (max-width: 640px) {
+  .shelf { flex-direction: column; align-items: stretch; gap: 6px; }
+}
+
+/* Said once, above the list. The three switches on each card carry the
+   same three meanings, and repeating the prose on every row turned a
+   screen of forty questions into the same paragraph forty times. */
+.legend { padding: var(--hk-s3) var(--hk-s4); }
+.legendList {
+  margin: 0; display: grid; gap: var(--hk-s3);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.legendList dt { font-size: 13px; font-weight: 600; color: var(--hk-ink); margin: 0; }
+.legendList dd { margin: 2px 0 0; font-size: 13px; line-height: 1.5; color: var(--hk-muted); }

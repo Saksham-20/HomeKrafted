@@ -3,6 +3,13 @@ import { Prisma, ProductTag } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct } from '../catalog/mappers/product.mapper';
 import { initialAdminSubmission, initialSubmission, requeueOnEdit } from '../catalog/moderation';
+import { AttributesService } from '../catalog/attributes.service';
+import {
+  AttributeAnswer,
+  hasMaterialAttributeChange,
+  NormalisedAnswer,
+  validateAttributeValues,
+} from '../catalog/attribute-values';
 import { dietaryTagsFromFrontend } from '../catalog/dietary-tag.util';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -48,7 +55,10 @@ export interface ListingWriteOptions {
  */
 @Injectable()
 export class SellerListingsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attributes: AttributesService,
+  ) {}
 
   async list(vendorId: string) {
     const products = await this.prisma.product.findMany({
@@ -83,6 +93,104 @@ export class SellerListingsService {
     return ids;
   }
 
+  /**
+   * G1 — check a listing's answers against what its shelf asks, and turn
+   * them into rows.
+   *
+   * **The server is the authority** (GIFTING-REWORK §4). Until now "what
+   * the form asks" lived only in the client, so nothing could refuse a
+   * wrong answer — and the client's own map had drifted from the database.
+   * A refusal here is a 400 carrying one sentence per field, written to be
+   * shown to the person filling the form, the same shape `/sell`'s
+   * `APPLICATION_INVALID` uses.
+   */
+  private async resolveAttributes(
+    categoryId: string,
+    submitted: AttributeAnswer[] | undefined,
+  ): Promise<{ answers: NormalisedAnswer[]; specs: Awaited<ReturnType<AttributesService['specsFor']>> }> {
+    const specs = await this.attributes.specsFor(categoryId);
+    // Nothing sent and nothing required: the ordinary case for every
+    // client written before G1, and for a shelf with no questions yet.
+    const { problems, answers } = validateAttributeValues(specs, submitted ?? []);
+    if (problems.length > 0) {
+      throw new BadRequestException({
+        code: 'LISTING_ATTRIBUTES_INVALID',
+        message: problems[0].message,
+        problems,
+      });
+    }
+    return { answers, specs };
+  }
+
+  /**
+   * Replace a listing's attribute rows with the answers given.
+   *
+   * A full replacement, like the shelf list and the occasion list beside
+   * it: a set that only ever grows is one nobody can correct. Runs inside
+   * the caller's transaction so a half-written answer set cannot outlive a
+   * failed save.
+   */
+  private async writeAttributes(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    answers: NormalisedAnswer[],
+  ) {
+    await tx.productAttributeValue.deleteMany({ where: { productId } });
+    if (answers.length === 0) return;
+
+    const definitions = await tx.attributeDefinition.findMany({
+      where: { key: { in: answers.map((answer) => answer.key) } },
+      include: { options: true },
+    });
+    const byKey = new Map(definitions.map((definition) => [definition.key, definition]));
+
+    const rows: Prisma.ProductAttributeValueCreateManyInput[] = [];
+    for (const answer of answers) {
+      const definition = byKey.get(answer.key);
+      if (!definition) continue;
+      if (answer.optionValues.length > 0) {
+        for (const value of answer.optionValues) {
+          const option = definition.options.find((candidate) => candidate.value === value);
+          if (!option) continue;
+          rows.push({ productId, attributeId: definition.id, optionId: option.id });
+        }
+        continue;
+      }
+      rows.push({
+        productId,
+        attributeId: definition.id,
+        text: answer.text,
+        number: answer.number,
+        boolean: answer.boolean,
+      });
+    }
+    if (rows.length > 0) await tx.productAttributeValue.createMany({ data: rows });
+  }
+
+  /** The listing's current answers, in the shape the comparison takes. */
+  private async currentAnswers(productId: string): Promise<NormalisedAnswer[]> {
+    const rows = await this.prisma.productAttributeValue.findMany({
+      where: { productId },
+      include: { attribute: { select: { key: true } }, option: { select: { value: true } } },
+    });
+    const byKey = new Map<string, NormalisedAnswer>();
+    for (const row of rows) {
+      const answer = byKey.get(row.attribute.key) ?? {
+        key: row.attribute.key,
+        optionValues: [],
+        text: null,
+        number: null,
+        boolean: null,
+      };
+      if (row.option) answer.optionValues.push(row.option.value);
+      if (row.text !== null) answer.text = row.text;
+      if (row.number !== null) answer.number = Number(row.number);
+      if (row.boolean !== null) answer.boolean = row.boolean;
+      byKey.set(row.attribute.key, answer);
+    }
+    return [...byKey.values()];
+  }
+
   async create(vendorId: string, dto: CreateListingDto, options: ListingWriteOptions = {}) {
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });
     if (!category) throw new NotFoundException('Category not found');
@@ -97,62 +205,86 @@ export class SellerListingsService {
 
     const categoryIds = await this.resolveCategoryIds(dto.categoryId, dto.categoryIds);
 
+    // G1 — refused before anything is written, so a listing never exists
+    // in a state its own shelf calls incomplete.
+    const { answers } = await this.resolveAttributes(dto.categoryId, dto.attributes);
+
     const slug = await this.uniqueSlug(dto.name);
 
-    const created = await this.prisma.product.create({
-      data: {
-        slug,
-        vendorId,
-        name: dto.name,
-        categoryId: dto.categoryId,
-        dietary: dietaryTagsFromFrontend(dto.dietary ?? []),
-        // `?? null` rather than `?? 0`: an unanswered question is not an
-        // answer of "no notice needed" (see the column's own comment).
-        prepTimeMins: dto.prepTimeMins ?? null,
-        defaultWeightSku: dto.defaultWeightSku,
-        tags: (dto.tags ?? []) as ProductTag[],
-        isPackaged: dto.isPackaged,
-        isHamper: dto.isHamper ?? false,
-        // M20 section flags. All three default the way a pre-M20 listing
-        // behaved, so an old client that sends none of them is unchanged.
-        kind: dto.kind ?? 'food',
-        // A gift is always posted (owner, 2026-09-15) — courier carries
-        // crafts, never food, and "local" on a craft only hid it from buyers
-        // outside the maker's radius. The web forms stop asking; this holds
-        // it for every client.
-        shippingScope: (dto.kind ?? 'food') === 'craft' ? 'national' : (dto.shippingScope ?? 'local'),
-        isSnack: dto.isSnack ?? false,
-        cashbackPct: dto.cashbackPct,
-        description: dto.description,
-        // Craft-specific physical specs — NULL for food listings
-        dimensions: dto.dimensions ?? null,
-        material: dto.material ?? null,
-        careInstructions: dto.careInstructions ?? null,
-        ingredients: dto.ingredients ?? null,
-        // `[]` on a listing nobody asked, which is not a declaration —
-        // see the column comment. The form's "None of these" is a value.
-        allergens: dto.allergens ?? [],
-        shelfLife: dto.shelfLife ?? null,
-        storageInstructions: dto.storageInstructions ?? null,
-        // M22 — explicit rather than leaning on the column default, because
-        // a reader of this method needs to see that a new listing is not
-        // live yet. `submittedAt` is what the admin queue orders on.
-        //
-        // M44: an admin-authored listing goes straight to `active` with
-        // that admin recorded in the moderation columns. See
-        // `ListingWriteOptions`.
-        ...(options.actor === 'admin' && options.moderatorUserId
-          ? initialAdminSubmission(options.moderatorUserId)
-          : initialSubmission()),
-        images: {
-          create: [{ placeholder: `${dto.name} product photo`, src: dto.imagePath || undefined, ratio: '1/1', sortOrder: 0 }],
+    const created = await this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          slug,
+          vendorId,
+          name: dto.name,
+          categoryId: dto.categoryId,
+          dietary: dietaryTagsFromFrontend(dto.dietary ?? []),
+          // `?? null` rather than `?? 0`: an unanswered question is not an
+          // answer of "no notice needed" (see the column's own comment).
+          prepTimeMins: dto.prepTimeMins ?? null,
+          defaultWeightSku: dto.defaultWeightSku,
+          tags: (dto.tags ?? []) as ProductTag[],
+          isPackaged: dto.isPackaged,
+          isHamper: dto.isHamper ?? false,
+          // M20 section flags. All three default the way a pre-M20 listing
+          // behaved, so an old client that sends none of them is unchanged.
+          kind: dto.kind ?? 'food',
+          // A gift is always posted (owner, 2026-09-15) — courier carries
+          // crafts, never food, and "local" on a craft only hid it from buyers
+          // outside the maker's radius. The web forms stop asking; this holds
+          // it for every client.
+          shippingScope: (dto.kind ?? 'food') === 'craft' ? 'national' : (dto.shippingScope ?? 'local'),
+          isSnack: dto.isSnack ?? false,
+          cashbackPct: dto.cashbackPct,
+          description: dto.description,
+          // Craft-specific physical specs — NULL for food listings
+          dimensions: dto.dimensions ?? null,
+          material: dto.material ?? null,
+          careInstructions: dto.careInstructions ?? null,
+          ingredients: dto.ingredients ?? null,
+          // `[]` on a listing nobody asked, which is not a declaration —
+          // see the column comment. The form's "None of these" is a value.
+          allergens: dto.allergens ?? [],
+          shelfLife: dto.shelfLife ?? null,
+          storageInstructions: dto.storageInstructions ?? null,
+          // G1. Every one of these defaults to "nobody was asked" rather
+          // than to a value: `fulfilment` NULL matches neither Dispatch
+          // filter, and `heatSafePacked` false keeps an edible gift off a
+          // courier until its maker says they pack it for one.
+          fulfilment: dto.fulfilment ?? null,
+          isPersonalisable: dto.isPersonalisable ?? false,
+          personalisationPrompt: dto.personalisationPrompt ?? null,
+          personalisationMaxChars: dto.personalisationMaxChars ?? null,
+          personalisationFee: dto.personalisationFee ?? null,
+          packedWeightGrams: dto.packedWeightGrams ?? null,
+          heatSafePacked: dto.heatSafePacked ?? false,
+          netQuantity: dto.netQuantity ?? null,
+          netQuantityUnit: dto.netQuantityUnit ?? null,
+          genericName: dto.genericName ?? null,
+          countryOfOrigin: dto.countryOfOrigin ?? null,
+          // M22 — explicit rather than leaning on the column default, because
+          // a reader of this method needs to see that a new listing is not
+          // live yet. `submittedAt` is what the admin queue orders on.
+          //
+          // M44: an admin-authored listing goes straight to `active` with
+          // that admin recorded in the moderation columns. See
+          // `ListingWriteOptions`.
+          ...(options.actor === 'admin' && options.moderatorUserId
+            ? initialAdminSubmission(options.moderatorUserId)
+            : initialSubmission()),
+          images: {
+            create: [{ placeholder: `${dto.name} product photo`, src: dto.imagePath || undefined, ratio: '1/1', sortOrder: 0 }],
+          },
+          weightOptions: { create: dto.weightOptions },
+          occasions: { create: (dto.occasionIds ?? []).map((occasionId) => ({ occasionId })) },
+          // M58 — the complete set, primary included.
+          categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
         },
-        weightOptions: { create: dto.weightOptions },
-        occasions: { create: (dto.occasionIds ?? []).map((occasionId) => ({ occasionId })) },
-        // M58 — the complete set, primary included.
-        categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
-      },
-      include: PRODUCT_INCLUDE,
+        include: PRODUCT_INCLUDE,
+      });
+
+      await this.writeAttributes(tx, product.id, answers);
+      return product;
     });
 
     return mapProduct(created);
@@ -194,6 +326,25 @@ export class SellerListingsService {
       dto.categoryIds !== undefined &&
       (existingExtras.size !== nextExtras.size || [...nextExtras].some((id) => !existingExtras.has(id)));
 
+    // G1 — the shelf's own questions, judged against the category the
+    // listing ends up on (which may be the one this edit is moving it to).
+    const nextCategoryId = dto.categoryId ?? existing.categoryId;
+    const attributeChange =
+      dto.attributes === undefined
+        ? { answers: undefined, material: false }
+        : await (async () => {
+            const { answers, specs } = await this.resolveAttributes(nextCategoryId, dto.attributes);
+            // M22, read through attributes: only an answer the shelf calls
+            // material re-queues a live listing. A colour swatch must not
+            // take one off sale; the metal a bangle is made of must.
+            const material = hasMaterialAttributeChange(
+              specs,
+              await this.currentAnswers(productId),
+              answers,
+            );
+            return { answers, material };
+          })();
+
     // M44 — an admin edit is a reviewed edit; see `ListingWriteOptions`.
     const requeue = options.actor === 'admin' ? {} : requeueOnEdit(
       existing.moderationStatus,
@@ -217,7 +368,8 @@ export class SellerListingsService {
         // absent both mean "no photo" — same normalisation the write path
         // applies below.
         (dto.imagePath !== undefined &&
-          (dto.imagePath || undefined) !== (existing.images[0]?.src ?? undefined)),
+          (dto.imagePath || undefined) !== (existing.images[0]?.src ?? undefined)) ||
+        attributeChange.material,
     );
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -251,6 +403,10 @@ export class SellerListingsService {
         });
       }
 
+      if (attributeChange.answers !== undefined) {
+        await this.writeAttributes(tx, productId, attributeChange.answers);
+      }
+
       return tx.product.update({
         where: { id: productId },
         data: {
@@ -276,6 +432,21 @@ export class SellerListingsService {
           allergens: dto.allergens,
           shelfLife: dto.shelfLife,
           storageInstructions: dto.storageInstructions,
+          // G1 — `undefined` means "this save did not mention it", which
+          // leaves the column alone. That is what lets a client that knows
+          // nothing of these fields keep saving a listing without wiping
+          // answers somebody else's screen collected.
+          fulfilment: dto.fulfilment,
+          isPersonalisable: dto.isPersonalisable,
+          personalisationPrompt: dto.personalisationPrompt,
+          personalisationMaxChars: dto.personalisationMaxChars,
+          personalisationFee: dto.personalisationFee,
+          packedWeightGrams: dto.packedWeightGrams,
+          heatSafePacked: dto.heatSafePacked,
+          netQuantity: dto.netQuantity,
+          netQuantityUnit: dto.netQuantityUnit,
+          genericName: dto.genericName,
+          countryOfOrigin: dto.countryOfOrigin,
           ...requeue,
         },
         include: PRODUCT_INCLUDE,

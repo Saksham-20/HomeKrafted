@@ -106,15 +106,43 @@ export async function getProductById(id: string): Promise<Product | undefined> {
  * (`shippingScope`), and a locally-delivered craft should still be filtered
  * like anything else. Sending coords and letting the server judge is the
  * only version that stays correct when a maker changes their mind.
+ *
+ * `pageSize: 500` (2026-09-16), the server's own `@Max(500)` — the same
+ * reasoning as `getFoodProducts` below. `/gifts` filters this list
+ * client-side, so at 100 the 101st live gift would silently vanish from the
+ * page, newest first; the catalogue held 86 when that was caught. Past 500
+ * this needs server-side filtering (docs/GIFTING-REWORK.md §5.4).
  */
-export async function getCraftProducts(near?: { lat: number; lng: number }): Promise<Product[]> {
+export interface CraftBrowseOptions {
+  near?: { lat: number; lng: number };
+  /**
+   * The gift finder's "for ___" (G1 `recipient` attribute).
+   *
+   * Filtered **server-side**, unlike every other control on `/gifts`,
+   * because a recipient is an `AttributeDefinition` answer and
+   * `mapProduct` does not carry attribute values onto a card — there is
+   * nothing in the fetched list to match against. §5.4 has the rest of
+   * the filtering following it to the server once the catalogue outgrows
+   * one page; this one had to go first.
+   */
+  recipient?: string;
+}
+
+export async function getCraftProducts(
+  options?: { lat: number; lng: number } | CraftBrowseOptions,
+): Promise<Product[]> {
+  // Accepts the old bare-coords argument as well, because every existing
+  // caller passes `getBuyerCoords()` straight in.
+  const opts: CraftBrowseOptions =
+    options && "lat" in options ? { near: options } : (options ?? {});
   if (isMockMode()) return products.filter((p) => p.kind === "craft" && isBrowsable(p));
   const page = await http.get<ProductsPage>("/products", {
     auth: false,
     query: {
-      pageSize: 100,
+      pageSize: 500,
       kind: "craft",
-      ...(near ? { lat: near.lat, lng: near.lng } : {}),
+      ...(opts.near ? { lat: opts.near.lat, lng: opts.near.lng } : {}),
+      ...(opts.recipient ? { recipient: opts.recipient } : {}),
     },
   });
   return page.items;

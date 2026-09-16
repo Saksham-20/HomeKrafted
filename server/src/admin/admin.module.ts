@@ -37,10 +37,23 @@ import { AdminWalletService } from './wallet.service';
 import { AdminCollectionsController } from './collections.controller';
 import { AdminCollectionsService } from './collections.service';
 import { AdminCategoriesService } from './categories.service';
+import { AdminAttributesService } from './attributes.service';
+import { AdminRecategoriseService } from './recategorise.service';
 import { AdminDashboardController } from './dashboard.controller';
 import { AdminDashboardService } from './dashboard.service';
 import { AdminCorporateController } from './corporate.controller';
 import { AdminCorporateService } from './corporate.service';
+import { AdminRiderZonesController } from './riders/zones.controller';
+import { AdminRiderZonesService } from './riders/zones.service';
+import { AdminRidersController } from './riders/riders.controller';
+import { AdminRidersService } from './riders/riders.service';
+import { AdminDeliveriesController } from './riders/deliveries.controller';
+import { AdminDeliveriesService } from './riders/deliveries.service';
+import { AdminRiderDepositsController } from './riders/deposits.controller';
+import { AdminRiderDepositsService } from './riders/deposits.service';
+import { AdminRiderPayoutsController } from './riders/payouts.controller';
+import { AdminRiderPayoutsService } from './riders/payouts.service';
+import { RiderModule } from '../rider/rider.module';
 
 /**
  * M8.3c — the unscoped admin-panel API surface, the inverse of
@@ -89,6 +102,11 @@ import { AdminCorporateService } from './corporate.service';
     // M37 — settings live in their own module so feature modules can
     // read them without importing all of AdminModule (cycle risk).
     SettingsModule,
+    // R2 (docs/RIDER-APP.md) — `DeliveryJobsService` (manual despatch,
+    // `POST /admin/deliveries`) and `DeliveryOrderReconcileService`
+    // (`override-deliver`). One-way, same shape as `SellerModule` above:
+    // `RiderModule` does not import `AdminModule`.
+    RiderModule,
   ],
   controllers: [
     // Unauthenticated, unlike everything else here — see the controller's
@@ -110,11 +128,19 @@ import { AdminCorporateService } from './corporate.service';
     AdminAuditController,
     AdminSettingsController,
     AdminTaxonomyController,
-    // R1 (docs/RIDER-APP.md) — the rider fleet modules are NOT wired here
-    // yet. Their wiring was committed in e7cc509 while `src/rider/` and
-    // `src/admin/riders/` were still untracked, so `nest build` failed on
-    // the box with five TS2307s and the deploy aborted. Re-add the imports
-    // and the registrations in the SAME commit that adds those directories.
+    // R1 (docs/RIDER-APP.md) — rider fleet: zones + the onboarding review
+    // queue. `riders` scope, its own controllers, same split every other
+    // section of the panel uses. Wired here alongside `src/admin/riders/`
+    // and `src/rider/` themselves in one commit — e7cc509 committed this
+    // wiring while those directories were still untracked, which broke
+    // `nest build` on a fresh clone (see `app.module.ts`'s matching note).
+    AdminRiderZonesController,
+    AdminRidersController,
+    // R2 — the despatch queue (`/admin/deliveries`).
+    AdminDeliveriesController,
+    // R3 — cash & payouts (`/admin/rider-deposits`, `/admin/rider-payouts`).
+    AdminRiderDepositsController,
+    AdminRiderPayoutsController,
   ],
   providers: [
     AdminUsersService,
@@ -128,10 +154,17 @@ import { AdminCorporateService } from './corporate.service';
     AdminWalletService,
     AdminCollectionsService,
     AdminCategoriesService,
+    AdminAttributesService,
+    AdminRecategoriseService,
     AdminCorporateService,
     AdminDashboardService,
     AdminExportsService,
     TaxonomySuggestionsService,
+    AdminRiderZonesService,
+    AdminRidersService,
+    AdminDeliveriesService,
+    AdminRiderDepositsService,
+    AdminRiderPayoutsService,
   ],
 })
 export class AdminModule {}

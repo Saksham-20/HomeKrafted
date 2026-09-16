@@ -84,17 +84,42 @@
   color: var(--hk-terracotta);
 }
 
+/*
+  A phone gets two lines, not four squeezed columns (2026-09-16, measured
+  at 390px on the combined checkout). `flex-wrap` alone left `.body` — the
+  only flexible child — sharing the row with a fixed-width stepper and
+  price column, so the name wrapped to three lines and collided with the
+  stepper beside it. A grid names where each part goes instead: the photo
+  and the name on top, the stepper and the money under them.
+*/
 @media (max-width: 640px) {
   .row {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-areas:
+      "img body"
+      "qty total";
+    align-items: center;
+    column-gap: var(--hk-s3);
+    row-gap: var(--hk-s3);
   }
 
   .image {
+    grid-area: img;
     width: 64px;
   }
 
+  .body {
+    grid-area: body;
+  }
+
+  .qtyCol {
+    grid-area: qty;
+  }
+
   .totalCol {
-    margin-left: auto;
+    grid-area: total;
+    min-width: 0;
   }
 }
 

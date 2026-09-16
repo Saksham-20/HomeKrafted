@@ -1,0 +1,83 @@
+.sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--hk-s2) var(--hk-s3);
+  /* Fraunces at display size: tighten, per DESIGN.md and the type floor. */
+  letter-spacing: -0.02em;
+  /* Display face, because this is the page's question, not a form label. */
+  font-family: var(--hk-font-display);
+  font-size: clamp(20px, 2.2vw, 28px);
+  line-height: 1.5;
+  color: var(--hk-ink);
+}
+
+/*
+  A clause is a word and the blank it governs, and it never breaks between
+  them. Left to wrap freely the sentence read "A gift for [anyone] for" /
+  "[any occasion] under [any budget]" at 390px — the preposition stranded
+  at the end of a line, pointing at nothing. Now it wraps to three lines,
+  one clause each, which is what §5.1.2 asks for.
+*/
+.clause {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--hk-s2);
+  white-space: nowrap;
+  /* The select inside may shrink; the words may not. */
+  min-width: 0;
+}
+
+.word {
+  white-space: nowrap;
+}
+
+/*
+  The select is styled as the underlined blank in a sentence, not as a
+  form control: a chrome-heavy dropdown three times in one line reads as
+  a form, and this is meant to read as a question.
+*/
+.select {
+  appearance: none;
+  padding: 2px 26px 3px 8px;
+  max-width: 100%;
+  font: inherit;
+  font-weight: 600;
+  color: var(--hk-pine);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--hk-gold);
+  border-radius: var(--hk-r-sm) var(--hk-r-sm) 0 0;
+  cursor: pointer;
+  /* The chevron, drawn rather than shipped as an asset. */
+  background-image: linear-gradient(45deg, transparent 50%, var(--hk-pine) 50%),
+    linear-gradient(135deg, var(--hk-pine) 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  transition: background-color var(--hk-dur) var(--hk-ease);
+}
+
+.select:hover {
+  background-color: var(--hk-gold-tint, rgba(185, 135, 36, 0.08));
+}
+
+/* iOS zooms a focused control under 16px and never zooms back (M29). */
+@media (max-width: 640px) {
+  .select {
+    font-size: max(16px, 1em);
+  }
+}
+
+@media (max-width: 560px) {
+  .sentence {
+    /* Three lines on a phone, one clause each — §5.1.2. */
+    font-size: 19px;
+    gap: var(--hk-s2);
+  }
+
+  /* Each clause takes the full row, so the three read as three lines. */
+  .clause {
+    flex: 1 0 100%;
+  }
+}

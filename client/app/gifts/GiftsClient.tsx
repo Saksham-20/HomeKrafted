@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
@@ -11,14 +12,16 @@ import { BrowsePagination } from "@/components/browse/BrowsePagination";
 import { FilterGroup, FilterOptionList } from "@/components/browse/FilterGroup";
 import { FilterPillBar } from "@/components/browse/FilterPillBar";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
-import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
-import { CATEGORY_EMOJI } from "@/lib/category-emoji";
-import { splitCategorySections } from "@/lib/category-sections";
+import { DepartmentTiles } from "@/components/gifts/DepartmentTiles";
+import { GiftFinder, type FinderOption } from "@/components/gifts/GiftFinder";
+import { giftFactLine } from "@/lib/gift/fact-line";
+import { expandShelfSelection, shelfFamily, splitCategorySections } from "@/lib/category-sections";
+import { sortGifts } from "@/lib/gift-sort";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
-import { PRODUCT_TAG_VALUES } from "@/lib/browse-params";
 import { isOnSale, productMatchesFacets, productShelves, SHIPPING_LABELS } from "@/lib/browse-facets";
 import { listingPrice } from "@/lib/kitchens";
+import type { Department } from "@/lib/api/catalog";
 import type { Category, Occasion, Product } from "@/lib/types";
 import styles from "./GiftsClient.module.css";
 
@@ -35,13 +38,36 @@ const PRIORITY_CARDS = 3;
  */
 const PAGE_SIZE = 24;
 
+/**
+ * The budget bands in the finder sentence.
+ *
+ * Fixed rather than derived from the catalogue: a band computed from
+ * today's prices moves every time a maker lists something, so a shared
+ * "under ₹1,000" link would mean something different next week. These are
+ * the round numbers somebody actually thinks in.
+ */
+const BUDGETS: { value: string; label: string; max: number }[] = [
+  { value: "500", label: "₹500", max: 500 },
+  { value: "1000", label: "₹1,000", max: 1000 },
+  { value: "2500", label: "₹2,500", max: 2500 },
+  { value: "5000", label: "₹5,000", max: 5000 },
+];
+
 const priceOf = listingPrice;
 
 export interface GiftsClientProps {
   products: Product[];
+  /** Non-empty departments with their tile photo and subcategories (G1). */
+  departments: Department[];
+  /** The finder's recipient, filtered server-side — see `getCraftProducts`. */
+  recipient: string;
+  /** The options that recipient select offers, from `GET /catalog/facets`. */
+  recipientOptions: FinderOption[];
   /** Craft-group categories only — the server page scopes them (M51's facet rule). */
   categories: Category[];
   occasions: Occasion[];
+  /** Dated occasions close enough to lead the default sort — decided by the server page. */
+  soonOccasionIds: string[];
   vendorNameById: Record<string, string>;
   /** See `useBrowseFilters` — the server's query string, verbatim. */
   initialQuery: string;
@@ -58,8 +84,12 @@ export interface GiftsClientProps {
  */
 export function GiftsClient({
   products,
+  departments,
+  recipient,
+  recipientOptions,
   categories,
   occasions,
+  soonOccasionIds,
   vendorNameById,
   initialQuery,
 }: GiftsClientProps) {
@@ -93,14 +123,34 @@ export function GiftsClient({
   } = browse;
 
   const [sheetOpen, setSheetOpen] = useState(false);
+  /*
+    Dispatch and personalisable (§5.1.5).
+
+    Both filter client-side over the fetched list, because `mapProduct`
+    now carries `fulfilment` and `isPersonalisable` onto the card — unlike
+    recipient, which is an attribute answer and has to go to the server.
+    Neither is in `useBrowseFilters` yet: that hook is shared with `/shop`,
+    where a thali has no dispatch mode.
+  */
+  const [selectedFulfilment, setSelectedFulfilment] = useState<Set<string>>(new Set());
+  const [personalisableOnly, setPersonalisableOnly] = useState(false);
 
   const counts = useMemo(() => {
     const category = new Map<string, number>();
     const occasion = new Map<string, number>();
     const tag = new Map<string, number>();
     const shipping = new Map<string, number>();
+    const fulfilment = new Map<string, number>();
+    let personalisable = 0;
     let sale = 0;
     for (const product of products) {
+      // NULL is "the maker never said" and counts toward neither mode —
+      // never toward ready-to-ship, which would be the page promising a
+      // dispatch nobody promised.
+      if (product.fulfilment) {
+        fulfilment.set(product.fulfilment, (fulfilment.get(product.fulfilment) ?? 0) + 1);
+      }
+      if (product.isPersonalisable) personalisable += 1;
       // Every shelf, not the primary alone (M58) — a chip counting only
       // `categoryId` reads a smaller number than the catalogue holds, and
       // a zero-count chip is dimmed AND disabled, so a shelf carrying only
@@ -114,15 +164,22 @@ export function GiftsClient({
       shipping.set(scope, (shipping.get(scope) ?? 0) + 1);
       if (isOnSale(product)) sale += 1;
     }
-    return { category, occasion, tag, shipping, sale };
-  }, [products]);
+    // A parent counts every listing on itself or any child (D3), once each —
+    // a listing on two children of one parent is one listing under it.
+    for (const parent of categories.filter((c) => categories.some((child) => child.parentId === c.id))) {
+      const family = new Set(shelfFamily(parent.id, categories));
+      category.set(parent.id, products.filter((p) => productShelves(p).some((id) => family.has(id))).length);
+    }
+    return { category, occasion, tag, shipping, sale, fulfilment, personalisable };
+  }, [products, categories]);
 
   const filtered = useMemo(
     () =>
       products.filter(
         (product) =>
           productMatchesFacets(product, {
-            categories: selectedCategories,
+            // A selected parent matches its children too (D3).
+            categories: expandShelfSelection(selectedCategories, categories),
             occasions: selectedOccasions,
             dietary: new Set(),
             tags: selectedTags,
@@ -130,26 +187,21 @@ export function GiftsClient({
             shipping: selectedShipping,
           }) &&
           priceOf(product) >= priceRange[0] &&
-          priceOf(product) <= priceRange[1],
+          priceOf(product) <= priceRange[1] &&
+          (selectedFulfilment.size === 0 ||
+            (product.fulfilment !== undefined && selectedFulfilment.has(product.fulfilment))) &&
+          (!personalisableOnly || product.isPersonalisable === true),
       ),
-    [products, selectedCategories, selectedOccasions, selectedTags, saleOnly, selectedShipping, priceRange],
+    [products, categories, selectedCategories, selectedOccasions, selectedTags, saleOnly, selectedShipping, priceRange, selectedFulfilment, personalisableOnly],
   );
 
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    if (sort === "price-asc") list.sort((a, b) => priceOf(a) - priceOf(b));
-    else if (sort === "price-desc") list.sort((a, b) => priceOf(b) - priceOf(a));
-    // Same gap as /shop had (M59): the codec accepted ?sort=nearest and
-    // this sorter ignored it. Absent distance sorts last.
-    else if (sort === "nearest")
-      list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-    else
-      list.sort((a, b) => {
-        if (b.rating !== a.rating) return b.rating - a.rating;
-        return b.reviewCount - a.reviewCount;
-      });
-    return list;
-  }, [filtered, sort]);
+  const soon = useMemo(() => new Set(soonOccasionIds), [soonOccasionIds]);
+  // Sold out last in every sort; the default is "Recommended" (D9) — see
+  // `lib/gift-sort.ts`.
+  const sorted = useMemo(
+    () => sortGifts(filtered, sort, { soonOccasionIds: soon, priceOf }),
+    [filtered, sort, soon],
+  );
 
   const hasDistance = useMemo(
     () => products.some((product) => product.distanceKm !== undefined),
@@ -181,6 +233,23 @@ export function GiftsClient({
       label: SHIPPING_LABELS[scope],
       onRemove: () => toggle(selectedShipping, setSelectedShipping, scope),
     })),
+    ...[...selectedFulfilment].map((mode) => ({
+      key: `ful-${mode}`,
+      label: mode === "ready_to_ship" ? "Ready to ship" : "Made to order",
+      onRemove: () => onFulfilment(mode),
+    })),
+    ...(personalisableOnly
+      ? [
+          {
+            key: "personalisable",
+            label: "Personalisable",
+            onRemove: () => {
+              setPersonalisableOnly(false);
+              setPage(1);
+            },
+          },
+        ]
+      : []),
     ...(saleOnly
       ? [
           {
@@ -198,6 +267,7 @@ export function GiftsClient({
   const activeCount = activeChips.length;
 
   const categorySplit = useMemo(() => splitCategorySections(categories), [categories]);
+  const hasItems = (option: { count: number; checked: boolean }) => option.count > 0 || option.checked;
   const facetOf = (category: (typeof categories)[number]) => ({
     id: category.id,
     label: category.name,
@@ -218,52 +288,50 @@ export function GiftsClient({
     count: counts.occasion.get(occasion.id) ?? 0,
     checked: selectedOccasions.has(occasion.id),
   }));
-  const picksFacets = [
-    ...PRODUCT_TAG_VALUES.map((tag) => ({
-      id: tag as string,
-      label: tag as string,
-      count: counts.tag.get(tag) ?? 0,
-      checked: selectedTags.has(tag),
-    })),
-    { id: "__sale", label: "On sale", count: counts.sale, checked: saleOnly },
-  ];
+  /*
+    Dispatch, from `Product.fulfilment` (G1).
+
+    Only the two answered modes are offered. There is deliberately no
+    "not stated" row: it is not something a buyer wants, it is something
+    we failed to ask, and a filter for it would put the gap in front of
+    the wrong person. The count on each row says how many said so.
+  */
+  const fulfilmentFacets = (["ready_to_ship", "made_to_order"] as const).map((mode) => ({
+    id: mode as string,
+    label: mode === "ready_to_ship" ? "Ready to ship" : "Made to order",
+    count: counts.fulfilment.get(mode) ?? 0,
+    checked: selectedFulfilment.has(mode),
+  }));
+
+  const saleFacets = [{ id: "__sale", label: "On sale", count: counts.sale, checked: saleOnly }];
   const onShipping = (id: string) =>
     toggle(selectedShipping, setSelectedShipping, id as "local" | "national");
   const onOccasion = (id: string) => toggle(selectedOccasions, setSelectedOccasions, id);
-  const onPick = (id: string) => {
-    if (id === "__sale") {
-      setSaleOnly(!saleOnly);
-      setPage(1);
-      return;
-    }
-    toggle(selectedTags, setSelectedTags, id as (typeof PRODUCT_TAG_VALUES)[number]);
+  const onSale = () => {
+    setSaleOnly(!saleOnly);
+    setPage(1);
   };
-
-  const pricePanel = (
-    <div className={styles.pricePanel}>
-      <div className={styles.pricePanelTitle}>Price</div>
-      <PriceRange
-        min={priceBounds[0]}
-        max={priceBounds[1]}
-        valueMin={priceRange[0]}
-        valueMax={priceRange[1]}
-        onChange={(range) => {
-          setPriceRange(range);
-          setPage(1);
-        }}
-      />
-    </div>
-  );
+  const onFulfilment = (id: string) => {
+    setSelectedFulfilment((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    setPage(1);
+  };
 
   /** The "All filters" sheet's contents. */
   const filterControls = (
     <>
       <FilterGroup
         title="Category"
-        options={categorySplit.flat.map(facetOf)}
+        options={categorySplit.flat.map(facetOf).filter(hasItems)}
         sections={categorySplit.sections.map(({ parent, children }) => ({
           label: parent.name,
-          options: children.map(facetOf),
+          // The parent is its own first row, so a listing filed on it
+          // directly is reachable (D3).
+          options: [{ ...facetOf(parent), label: `All ${parent.name}` }, ...children.map(facetOf)].filter(hasItems),
         }))}
         onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
       />
@@ -274,7 +342,13 @@ export function GiftsClient({
         options={occasionFacets}
         onToggle={onOccasion}
       />
-      <FilterGroup title="Picks" options={picksFacets} onToggle={onPick} />
+      <FilterGroup
+        title="Dispatch"
+        defaultOpen={selectedFulfilment.size > 0}
+        options={fulfilmentFacets}
+        onToggle={onFulfilment}
+      />
+      <FilterGroup title="On sale" options={saleFacets} onToggle={onSale} />
       <div className={styles.priceGroup}>
         <div className={styles.filterTitle}>Price</div>
         <PriceRange
@@ -290,6 +364,44 @@ export function GiftsClient({
       </div>
     </>
   );
+
+  /*
+    The department a buyer has opened, and the subcategory chips under it.
+
+    Progressive disclosure, the buyer's side of the same rule the listing
+    form follows (§5.1.3): nobody is shown eleven subcategory chips until
+    they have said which department they are in. `openDepartment` is view
+    state and stays out of the URL — what a shared link has to carry is
+    which shelves are *selected*, which it already does.
+
+    These three sit **above** the "nothing listed yet" early return below,
+    with every other hook. Declared after it they were called only on the
+    renders that got past it, so the first render with a catalogue called
+    three more hooks than the empty one before it — "rendered more hooks
+    than during the previous render", which is a crash, not a warning.
+  */
+  const router = useRouter();
+  const [openDepartment, setOpenDepartment] = useState<string | null>(null);
+
+  /*
+    Dated occasions first, each carrying its date, then the evergreen ones.
+
+    `celebratedOn` is an absolute date, never a recurrence rule — Diwali
+    lands on a different Gregorian date every year — so a passed one simply
+    sorts last rather than being rolled forward by arithmetic here.
+  */
+  const occasionOptions: FinderOption[] = useMemo(() => {
+    const withCount = occasions.filter((occasion) => (counts.occasion.get(occasion.id) ?? 0) > 0);
+    const dated = withCount.filter((occasion) => occasion.celebratedOn);
+    const evergreen = withCount.filter((occasion) => !occasion.celebratedOn);
+    return [
+      ...dated
+        .slice()
+        .sort((a, b) => (a.celebratedOn ?? "").localeCompare(b.celebratedOn ?? ""))
+        .map((occasion) => ({ value: occasion.id, label: occasion.name })),
+      ...evergreen.map((occasion) => ({ value: occasion.id, label: occasion.name })),
+    ];
+  }, [occasions, counts]);
 
   // The pre-M56 "nothing listed yet" state, distinct from "your filters
   // matched nothing": one means the vertical is still filling, the other
@@ -309,17 +421,41 @@ export function GiftsClient({
     );
   }
 
-  const categoryChips = [
-    ...categorySplit.flat,
-    ...categorySplit.sections.flatMap((section) => section.children),
-  ].map((category) => ({
-    id: category.id,
-    label: category.name,
-    count: counts.category.get(category.id) ?? 0,
-    selected: selectedCategories.has(category.id),
-    icon: CATEGORY_EMOJI[category.slug],
-    imageSrc: category.imageSrc,
-  }));
+
+  /* The finder's three answers, each one a real control and not a second copy of one. */
+  const occasionValue = selectedOccasions.size === 1 ? [...selectedOccasions][0] : "";
+  const budgetValue =
+    BUDGETS.find((band) => priceRange[1] === band.max && priceRange[0] === priceBounds[0])?.value ?? "";
+
+  function onFinderOccasion(value: string) {
+    setSelectedOccasions(value ? new Set([value]) : new Set());
+    setPage(1);
+  }
+
+  function onFinderBudget(value: string) {
+    const band = BUDGETS.find((option) => option.value === value);
+    setPriceRange(band ? [priceBounds[0], band.max] : priceBounds);
+    setPage(1);
+  }
+
+  /*
+    The recipient is the one control that reloads the page.
+
+    It is an `AttributeDefinition` answer (G1) and `mapProduct` does not
+    carry attribute values onto a card, so there is nothing in the fetched
+    list to match it against client-side — it is filtered by the server and
+    arrives as a new render. `replace`, not `push`, so choosing three
+    recipients in a row does not fill the back button (the browse-params
+    rule).
+  */
+  function onFinderRecipient(value: string) {
+    const params = new URLSearchParams(window.location.search);
+    if (value) params.set("recipient", value);
+    else params.delete("recipient");
+    params.delete("page");
+    const query = params.toString();
+    router.replace(query ? `/gifts?${query}` : "/gifts", { scroll: false });
+  }
 
   return (
     <section className={clsx("container", "container-wide", styles.layout)}>
@@ -333,29 +469,87 @@ export function GiftsClient({
       </MobileFilterSheet>
 
       <div className={styles.main}>
-        {/* The floating control card (M59b) — see ShopClient. */}
-        <div className={styles.controlCard}>
-          <QuickFilterChips
-            label="Filter by category"
-            chips={categoryChips}
-            onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
+        {/*
+          The finder sentence and the departments sit above the toolbar:
+          they are the page's question and its shelves, and the toolbar is
+          the narrowing you do once you have answered it.
+        */}
+        <GiftFinder
+          recipients={recipientOptions}
+          occasions={occasionOptions}
+          budgets={BUDGETS}
+          recipient={recipient}
+          occasion={occasionValue}
+          budget={budgetValue}
+          onRecipient={onFinderRecipient}
+          onOccasion={onFinderOccasion}
+          onBudget={onFinderBudget}
+        />
+
+        <DepartmentTiles
+          departments={departments}
+          openId={openDepartment}
+          onOpen={setOpenDepartment}
+          selectedChildIds={selectedCategories}
+          onToggleChild={(id) => {
+            toggle(selectedCategories, setSelectedCategories, id);
+          }}
+        />
+
+        {/*
+          The toolbar sticks (§5.1.5). It carries the count, the dispatch
+          and personalisable facets, All filters and the sort — but no
+          occasion, recipient or price pill, because those three are the
+          finder sentence above and two controls for one filter is how a
+          page ends up disagreeing with itself.
+        */}
+        <div className={styles.toolbar}>
+          <span className={styles.resultCount}>
+            {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
+          </span>
+          <FilterPillBar
+            className={styles.pillBar}
+            pills={[
+              {
+                key: "dispatch",
+                label: "Dispatch",
+                activeCount: selectedFulfilment.size,
+                content: <FilterOptionList options={fulfilmentFacets} onToggle={onFulfilment} />,
+              },
+              {
+                key: "delivery",
+                label: "Delivery",
+                activeCount: selectedShipping.size,
+                content: <FilterOptionList options={shippingFacets} onToggle={onShipping} />,
+              },
+            ]}
+            allFiltersCount={activeCount + (priceNarrowed ? 1 : 0)}
+            onAllFilters={() => setSheetOpen(true)}
           />
-          <div className={styles.controlRow}>
-            <span className={styles.resultCount}>
-              {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
+          {/*
+            A toggle, not a pill with one checkbox in it: it has exactly two
+            states and a dropdown to reach a single tick is a step for
+            nothing. Disabled when nothing in the catalogue is
+            personalisable, and it says so rather than silently emptying
+            the grid.
+          */}
+          <button
+            type="button"
+            className={clsx(styles.toggle, personalisableOnly && styles.toggleOn)}
+            aria-pressed={personalisableOnly}
+            disabled={counts.personalisable === 0}
+            title={counts.personalisable === 0 ? "No maker has offered personalisation yet" : undefined}
+            onClick={() => {
+              setPersonalisableOnly(!personalisableOnly);
+              setPage(1);
+            }}
+          >
+            Personalisable
+            <span className={styles.toggleCount} aria-hidden="true">
+              {counts.personalisable}
             </span>
-            <FilterPillBar
-              className={styles.pillBar}
-              pills={[
-                { key: "occasion", label: "Occasion", activeCount: selectedOccasions.size, content: <FilterOptionList options={occasionFacets} onToggle={onOccasion} /> },
-                { key: "price", label: "Price", activeCount: priceNarrowed ? 1 : 0, content: pricePanel },
-                { key: "delivery", label: "Delivery", activeCount: selectedShipping.size, content: <FilterOptionList options={shippingFacets} onToggle={onShipping} /> },
-              ]}
-              allFiltersCount={activeCount + (priceNarrowed ? 1 : 0)}
-              onAllFilters={() => setSheetOpen(true)}
-            />
-            <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} />
-          </div>
+          </button>
+          <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} defaultLabel="Recommended" />
         </div>
 
         {activeChips.length > 0 && (
@@ -385,6 +579,7 @@ export function GiftsClient({
                 makerName={vendorNameById[product.vendorId] ?? "Homekrafted"}
                 href={`/product/${product.slug}`}
                 priority={index < PRIORITY_CARDS}
+                factLine={giftFactLine(product)}
               />
             ))}
           </div>

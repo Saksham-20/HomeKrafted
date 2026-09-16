@@ -1,0 +1,67 @@
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s4);
+  flex-wrap: wrap;
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+  white-space: nowrap;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  padding: 6px 12px;
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  background: var(--hk-surface);
+  font-size: 14px;
+  color: var(--hk-ink);
+  text-decoration: none;
+  transition: border-color var(--hk-dur) var(--hk-ease);
+}
+
+.item:hover {
+  border-color: var(--hk-pine);
+  /* The global link-hover recolour would put brand gold on these words. */
+  color: var(--hk-ink);
+}
+
+.item:active {
+  transform: scale(0.97);
+  transition-duration: 100ms;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  color: var(--hk-pine);
+}
+
+.name {
+  font-weight: 500;
+}
+
+/* The countdown is the receipt-type fact, not the label. */
+.days {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  color: var(--hk-muted);
+}

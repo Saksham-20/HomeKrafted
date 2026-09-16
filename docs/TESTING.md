@@ -443,6 +443,34 @@ Open the site in a **fresh browser window** (or clear site data).
 ### 1. Shopper — browse
 Sign in as **Ananya**.
 
+**New on 2026-09-16 — the body typeface changed, site-wide:**
+
+- Everything that is not a heading, a price or a small-caps meta line is
+  now set in **Hanken Grotesk** instead of IBM Plex Sans. Nothing moved:
+  same sizes, same weights, same spacing. What to look for is anything
+  that looks *wrong* rather than different — a label spilling out of its
+  button, a line of text overlapping another, a word cut off. On a phone,
+  check the header, the filter sheet and the checkout form especially.
+- Headings (Fraunces) and the uppercase mono lines are unchanged.
+
+**New on 2026-09-16 — Handcrafted Gifts clean-up (`/gifts`, G0 of
+`docs/GIFTING-REWORK.md`):**
+
+- **Open `/gifts` in a private window.** No "Where should we deliver?"
+  popup should appear on this page (it still appears on the home page and
+  the food shop). Gifts post anywhere, so it had nothing to ask.
+- **Parent shelves are clickable.** In the category row, "Handmade
+  Jewellery" and "Candles & Home" are tiles of their own; tapping one shows
+  everything on it, including its subcategories. In **All filters**, each
+  group now starts with an "All …" row you can tick.
+- **No greyed-out tiles.** A category with nothing on it is not shown at all
+  on `/gifts`. (The food shop still greys them out, unchanged.)
+- **Sold out goes last.** In every sort, sold-out gifts sit at the end of
+  the grid. The default sort is now called **Recommended**.
+- **Cards say less.** The grey line under a gift's name no longer says
+  "Authentic", and a gift with a single size no longer says "One". A card
+  with no reviews and no real size simply has no grey line.
+
 **New on 2026-09-05 — check these first on a wide screen (1440px+):**
 
 - **The header has two rows.** Top: the logo, a wide search box, then
@@ -1632,6 +1660,69 @@ Worth testing: mark an order packed for a kitchen with **no pickup address
 on file**. The order must still advance to `packed`, and the parcel must
 appear in the despatch queue saying the address is missing. A courier being
 unbookable must never block a kitchen from recording that it has cooked.
+
+## Checkout, the basket and where you are (2026-09-16)
+
+`/cart` sends you to `/checkout`. The basket is the first section there
+and is editable in place — change a quantity or remove a line without
+leaving the page. Worth testing: a quantity the maker cannot fill must
+**not** move the number on screen; the server's own sentence appears
+instead.
+
+"Where should we deliver?" asks for a **pincode** now, or takes a GPS fix.
+There is no list of sectors to scroll. Worth testing: a pincode that does
+not exist says so and leaves what you typed alone, and "Skip for now"
+still shows the whole catalogue — location is never a gate.
+
+A **gift never speaks like a kitchen.** Open any handmade gift and check
+the delivery block: it should say "Posted anywhere in India", never
+"Fresh batch prepared daily" or "Kitchen delivers within 15 km", even for
+older listings whose delivery scope still says local.
+
+A listing a HomeKrafter has **paused** is gone from browse *and* from
+their own storefront. If an approved listing is missing from `/gifts`,
+that switch is the first thing to check — it is on the listing in the
+seller portal.
+
+## The gift taxonomy screens (G1)
+
+Three screens under `/admin/catalog`, and none of them changes anything a
+buyer sees until somebody presses a button on them.
+
+**Shelves** (`/admin/catalog/categories`) — clicking **Edit** on a row opens
+what a shelf is besides its name: a one-sentence description, other words
+for it (comma separated, so "gift box" stays one synonym), and its icon id.
+Under that are the two decisions:
+
+- **Retire** hides a shelf from the pickers and the browse page. Nothing is
+  deleted — check that an old link to it still resolves afterwards, and
+  that the row comes back with **Bring it back**.
+- **Merge** moves every listing onto another shelf and retires this one. It
+  is offered only for shelves on the same side of the catalogue. Worth
+  testing: merge a shelf holding a listing that is *also* on the target
+  shelf already — nothing should be duplicated, and the count in the
+  confirmation should say how many actually moved.
+
+Both say what they will do in a sentence **before** the button, and both
+ask twice. Neither sends the listings it touches back into the review queue.
+
+**Questions** (`/admin/catalog/attributes`) — what each shelf asks a maker.
+The three switches are explained once in the legend at the top: *answer
+matters* re-queues a live listing when it changes, *trust-sensitive* means
+nothing may ever fill it in automatically, and *required* refuses a listing
+without it. Worth testing: add an option to a question, then open
+`/seller/listings/new` on a shelf that asks it — the new answer must be
+offered with no deploy.
+
+**Recategorise** (`/admin/catalog/recategorise`) — where each live gift
+probably belongs on the new shelves. **Nothing moves until you press "Move
+it" on a row**, and there is deliberately no button that moves everything.
+Every row prints the words it matched on, which is the whole audit trail.
+Three filters worth opening: *Suggested moves* (the default), *Couldn't
+place* — the listings the rule gave up on, which are the ones that most
+need a person — and *Already right*, so the screen says what it did **not**
+want to touch. A moved row stays on screen marked "Moved to …" rather than
+vanishing.
 
 ## Categories and subcategories (M58)
 

@@ -46,7 +46,7 @@ export function CartBar() {
     <>
       <div className={styles.spacer} aria-hidden="true" />
       <Link
-        href="/cart"
+        href="/checkout"
         className={styles.bar}
         aria-label={`View cart: ${itemsLabel}, ${formatCurrency(subtotal)}`}
       >

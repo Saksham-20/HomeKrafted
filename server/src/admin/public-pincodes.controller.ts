@@ -63,6 +63,23 @@ export class PublicPincodesController {
        */
       spreadKm: record.spreadKm,
       approximate: record.spreadKm > TRUSTWORTHY_SPREAD_KM,
+      /**
+       * The pincode's centroid, so a **buyer** can place themselves by
+       * typing six digits instead of picking from a list of hand-curated
+       * areas (owner, 2026-09-16: "pick your area uses pin code or
+       * current location, dont hard code any places and sectors").
+       *
+       * This is the one use these coordinates are actually good for.
+       * M36's rule is that the centroid must never be written onto
+       * `Vendor.lat`/`lng` — it is the median 12.4 km out, and that column
+       * decides whether a real storefront is visible to its own
+       * neighbourhood. A buyer's position decides only which kitchens sort
+       * first, and location is never a gate, so an approximate fix costs
+       * an imperfect ordering and nothing else. `approximate` above says
+       * when even that is loose.
+       */
+      lat: record.lat,
+      lng: record.lng,
     };
   }
 }

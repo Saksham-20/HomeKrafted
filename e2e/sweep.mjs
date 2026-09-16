@@ -142,6 +142,10 @@ const ROUTES = [
   ['/admin/catalog', 'admin'],
   [`/admin/catalog/${F.ownListing}`, 'admin'],
   ['/admin/catalog/reviews', 'admin'],
+  // G1 — the gift taxonomy screens.
+  ['/admin/catalog/categories', 'admin'],
+  ['/admin/catalog/attributes', 'admin'],
+  ['/admin/catalog/recategorise', 'admin'],
   ['/admin/orders', 'admin'],
   [`/admin/orders/marketplace/${F.order}`, 'admin'],
   ['/admin/payouts', 'admin'],

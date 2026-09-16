@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { findSameName } from '../common/fold-name';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapCollection, mapOccasion } from '../catalog/mappers/vendor.mapper';
 import { AdminAuditLogService } from './audit-log.service';
@@ -162,11 +163,12 @@ export class AdminCollectionsService {
   async createOccasion(adminUserId: string, dto: CreateOccasionDto) {
     const name = dto.name.trim().replace(/\s+/g, ' ');
 
-    // Case-insensitive: the duplicate that actually happens is "Onam"
-    // typed next to "onam", not a byte-identical one.
-    const clash = await this.prisma.occasion.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' } },
-    });
+    // Case- and accent-folded: the duplicate that actually happens is "Onam"
+    // typed next to "onam", not a byte-identical one (`common/fold-name.ts`).
+    const clash = findSameName(
+      await this.prisma.occasion.findMany({ select: { name: true } }),
+      name,
+    );
     if (clash) {
       throw new ConflictException(
         `“${clash.name}” already exists — pick it from the list instead of adding it again.`,

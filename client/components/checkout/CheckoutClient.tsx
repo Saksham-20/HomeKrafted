@@ -13,6 +13,7 @@ import { SlotPicker } from "@/components/ui/SlotPicker";
 import { Textarea } from "@/components/ui/Textarea";
 import { AddressForm, EMPTY_ADDRESS_FORM, type AddressFormValues } from "./AddressForm";
 import { OrderConfirmation } from "./OrderConfirmation";
+import { CartLineRow } from "@/components/cart/CartLineRow";
 import { useCart } from "@/lib/cart/CartContext";
 import { checkoutModeOf } from "@/lib/cart/checkout-mode";
 import { dietOf } from "@/lib/diet";
@@ -89,7 +90,7 @@ export function CheckoutClient() {
   /** The delivery rule from `/admin/settings`; `undefined` until read, and Place order waits for it. */
   const publicSettings = usePublicSettings();
   const { user } = useAuth();
-  const { items, ready, lineInfo, subtotal, assignAddress, clear } = useCart();
+  const { items, ready, lineInfo, subtotal, assignAddress, clear, updateQty, removeItem } = useCart();
   // Live wallet balance (M6) — every balance-sufficiency check reads this
   // instead of a static prop, so a top-up/payment made in another tab/
   // screen this session is reflected immediately.
@@ -569,6 +570,48 @@ export function CheckoutClient() {
     gets the food layout, because the kitchen delivering it sets the terms.
   */
   const lineInfos = items.map((item) => ({ item, info: lineInfo(item) }));
+
+  /*
+    The basket, editable here (owner, 2026-09-16: "combine cart and
+    checkout page").
+
+    `/cart` and `/checkout` were two pages showing the same lines, and the
+    cart's only job was a button to the other one — a step that asked for
+    a page load and gave nothing back. Flipkart runs one continuous flow
+    for this reason; Amazon keeps a cart page because it is also a
+    save-for-later shelf, which this cart is not.
+
+    A refused quantity change must not move the number on screen: the
+    mutations are awaited and the server's own sentence is shown, the
+    same rule the cart page already followed.
+  */
+  const itemsSection = (
+    <div className={styles.lines}>
+      {lineInfos.map(({ item, info }) => (
+        <CartLineRow
+          key={item.id}
+          info={info}
+          onQtyChange={(quantity) => {
+            setCartError(null);
+            void updateQty(item.id, quantity).catch((err: unknown) =>
+              setCartError(cartUpdateErrorMessage(err)),
+            );
+          }}
+          onRemove={() => {
+            setCartError(null);
+            void removeItem(item.id).catch((err: unknown) =>
+              setCartError(cartUpdateErrorMessage(err)),
+            );
+          }}
+        />
+      ))}
+      {cartError ? (
+        <p className={styles.lineError} role="alert">
+          {cartError}
+        </p>
+      ) : null}
+    </div>
+  );
   const mode = checkoutModeOf(lineInfos.map(({ info }) => info));
   const maker = lineInfos.map(({ info }) => info.maker).find(Boolean);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -852,9 +895,7 @@ export function CheckoutClient() {
     return (
       <section className={clsx("container", styles.page, styles.food)}>
         <div className={styles.foodColumn}>
-          <Link href="/cart" className={styles.backLink}>
-            ← Back to basket
-          </Link>
+          {/* No "back to basket": the basket is the section below. */}
           <h1 className={styles.title}>Checkout</h1>
           {mockBanner}
           {foodClosed && <FoodComingSoonBanner />}
@@ -867,10 +908,10 @@ export function CheckoutClient() {
               </span>
               {maker?.location && <span className={styles.kitchenArea}>{maker.location}</span>}
             </div>
-            {itemList}
-            <Link href="/cart" className={styles.inlineLink}>
-              Edit basket
-            </Link>
+            {/* Editable here — "Edit basket" used to send somebody to
+                `/cart` and back, which is the round trip this page exists
+                to remove. */}
+            {itemsSection}
           </div>
 
           <div className={styles.card}>
@@ -999,9 +1040,16 @@ export function CheckoutClient() {
 
       <div className={styles.layout}>
         <div className={styles.main}>
+          <section className={styles.step} aria-labelledby="step-items">
+            <h2 id="step-items" className={styles.stepTitle}>
+              <span className={styles.stepNumber}>1</span> Your items
+            </h2>
+            <div className={styles.stepBody}>{itemsSection}</div>
+          </section>
+
           <section className={styles.step} aria-labelledby="step-address">
             <h2 id="step-address" className={styles.stepTitle}>
-              <span className={styles.stepNumber}>1</span> Delivery address
+              <span className={styles.stepNumber}>2</span> Delivery address
             </h2>
             <div className={styles.stepBody}>
               <div className={styles.segmented} role="radiogroup" aria-label="Who is it for?">
@@ -1032,21 +1080,25 @@ export function CheckoutClient() {
 
           <section className={styles.step} aria-labelledby="step-gift">
             <h2 id="step-gift" className={styles.stepTitle}>
-              <span className={styles.stepNumber}>2</span> Gift options
+              <span className={styles.stepNumber}>3</span> Gift options
             </h2>
             <div className={styles.stepBody}>{giftExtras}</div>
           </section>
 
           <section className={styles.step} aria-labelledby="step-payment">
             <h2 id="step-payment" className={styles.stepTitle}>
-              <span className={styles.stepNumber}>3</span> Payment method
+              <span className={styles.stepNumber}>4</span> Payment method
             </h2>
             <div className={styles.stepBody}>{paymentChoices}</div>
           </section>
 
           <section className={styles.step} aria-labelledby="step-review">
             <h2 id="step-review" className={styles.stepTitle}>
-              <span className={styles.stepNumber}>4</span> Review items and delivery
+              {/* The items are editable in step 1 now; what is left here
+                  is the part that is genuinely per-shipment — which date
+                  each address gets, and which address each item goes to
+                  when there is more than one. */}
+              <span className={styles.stepNumber}>5</span> Delivery date
             </h2>
             <div className={styles.stepBody}>
               {isGift ? (
@@ -1063,6 +1115,18 @@ export function CheckoutClient() {
                   />
                   {itemList}
                 </div>
+              ) : groupEntries.length === 0 ? (
+                /*
+                  Every line is grouped by the address it ships to, so with
+                  no address saved yet there is nothing to group and this
+                  step rendered as a numbered heading over 65px of nothing
+                  (measured in the browser, 2026-09-16). An empty numbered
+                  step reads as a screen that failed to load; say what
+                  fills it instead.
+                */
+                <p className={styles.stepEmpty}>
+                  Add a delivery address in step 2 and the dates we can deliver on appear here.
+                </p>
               ) : (
                 groupEntries.map(([addressId, groupItems]) => {
                   const address = addressList.find((a) => a.id === addressId);
@@ -1130,15 +1194,6 @@ export function CheckoutClient() {
               )}
             </div>
           </section>
-
-          <div className={styles.bottomPlace}>
-            <Button variant="primary" onClick={handlePlaceOrder} disabled={placeDisabled}>
-              {placeLabel}
-            </Button>
-            <span className={styles.bottomPlaceTotal}>
-              Order total: <strong>{formatCurrency(total)}</strong>
-            </span>
-          </div>
         </div>
 
         <aside className={styles.aside}>{summaryBox}</aside>

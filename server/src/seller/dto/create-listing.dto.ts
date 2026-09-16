@@ -48,6 +48,51 @@ export class WeightOptionInputDto {
  * `slug`/`rating`/`reviewCount` either — server-generated, never
  * client-set.
  */
+
+/**
+ * G1 — one answer to one of the shelf's questions
+ * (docs/GIFTING-REWORK.md §4). Which questions a shelf asks is data, so
+ * this carries a `key` rather than the DTO growing a field per attribute.
+ *
+ * The shape is loose on purpose and the **server is the authority**
+ * (`catalog/attribute-values.ts`): an answer to a question this shelf does
+ * not ask is dropped rather than refused, so a client built before an
+ * admin edited the question set keeps working.
+ */
+export class ListingAttributeDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(64)
+  key!: string;
+
+  /** A single-choice answer's option value. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  value?: string;
+
+  /** A multi-choice answer's option values. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  values?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  text?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  number?: number;
+
+  @IsOptional()
+  @BooleanField()
+  boolean?: boolean;
+}
+
 export class CreateListingDto {
   /**
    * Capped as of the 2026-08-07 audit. `name` and `description` had a
@@ -287,4 +332,99 @@ export class CreateListingDto {
   @IsString()
   @MaxLength(80)
   fulfillmentType?: string;
+
+  /**
+   * G1 — the shelf's own questions, answered.
+   *
+   * Validated against `CategoryAttribute` for the category on **this**
+   * listing, which is what replaces the hardcoded family map that had
+   * already drifted from the database.
+   */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ListingAttributeDto)
+  attributes?: ListingAttributeDto[];
+
+  /**
+   * G1 — does this exist already, or is it made once somebody orders it?
+   * Omitted means nobody was asked, which matches neither Dispatch filter.
+   * How long it takes is the existing `prepTimeMins`, not a second column.
+   */
+  @IsOptional()
+  @IsIn(['ready_to_ship', 'made_to_order'])
+  fulfilment?: 'ready_to_ship' | 'made_to_order';
+
+  /** G1/D11 — will the maker add a name, date or message to it? */
+  @IsOptional()
+  @BooleanField()
+  isPersonalisable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  personalisationPrompt?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  personalisationMaxChars?: number;
+
+  /**
+   * What the maker charges to personalise it. Added server-side at
+   * checkout, with commission computed on it like any other price (D11).
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100000)
+  personalisationFee?: number;
+
+  /** Packed weight in grams, for a courier booking. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50000)
+  packedWeightGrams?: number;
+
+  /**
+   * D10 — an edible gift the maker packs to survive a van. It is the only
+   * thing that lets a courier carry one (`courier-eligibility.ts`); false
+   * or absent keeps it on local delivery, which is the safe direction.
+   */
+  @IsOptional()
+  @BooleanField()
+  heatSafePacked?: boolean;
+
+  /**
+   * D13 / §3.6 — the label declarations an online listing owes (Legal
+   * Metrology r.6(10)). Optional on the wire because every listing written
+   * before G1 has none, and a blank reads as "nobody was asked" rather
+   * than as a declaration of nothing.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  netQuantity?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  netQuantityUnit?: string;
+
+  /** The commodity's ordinary name ("scented soy candle"), not the brand. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  genericName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  countryOfOrigin?: string;
 }
