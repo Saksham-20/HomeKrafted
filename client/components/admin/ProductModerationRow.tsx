@@ -125,6 +125,28 @@ export function ProductModerationRow({ product, onAction }: ProductModerationRow
           {product.moderationNote && (
             <span className={styles.note}>Reason on file: {product.moderationNote}</span>
           )}
+          {/*
+            The other switch (2026-09-16).
+
+            `moderationStatus` is this screen's decision; `isAvailable` is
+            the HomeKrafter's "am I making this today", and a buyer needs
+            both. Nothing here read the second one, so approving a paused
+            listing left the row saying `active` while it stayed invisible
+            on every browse page — measured on production, where one craft
+            was approved twice and never appeared, and the operator had
+            nowhere to find out why. Approve is not broken and this is the
+            sentence that says so.
+
+            Only on an otherwise-live listing: on a pending or rejected row
+            the moderation state is already the reason it is not public,
+            and two explanations for one absence is worse than one.
+          */}
+          {status === "active" && product.isAvailable === false && (
+            <span className={styles.note}>
+              Approved, but the maker has this paused — it stays off the shop until they switch it
+              back on in their portal.
+            </span>
+          )}
         </div>
         <span className={styles.price}>{weight ? formatCurrency(weight.price) : "—"}</span>
         <StatusPill status={status} className={styles.statusPill} />

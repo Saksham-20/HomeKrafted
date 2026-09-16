@@ -66,6 +66,18 @@
 }
 
 /*
+  A department that *is* the filter — one with no subcategories, which
+  selects on press rather than disclosing a chip row. It reads heavier
+  than `.tileOpen` because open is a disclosure and this is a choice
+  that has narrowed the grid underneath.
+*/
+.tileSelected {
+  border-color: var(--hk-pine);
+  background: var(--hk-pine-tint);
+  box-shadow: inset 0 0 0 1px var(--hk-pine);
+}
+
+/*
   The mark on its own tinted ground. It is the tile's subject now, so it
   gets the space the photograph had rather than sitting on it as a badge.
 */

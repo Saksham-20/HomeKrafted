@@ -143,6 +143,24 @@ export function mapProduct(product: ProductWithRelations) {
     careInstructions: product.careInstructions ?? undefined,
     moderationStatus: product.moderationStatus,
     /**
+     * The HomeKrafter's own "am I making this today" switch (2026-09-16).
+     *
+     * A buyer needs this **and** `moderationStatus` to pass, and this
+     * mapper returned only the second — so no screen anywhere could see
+     * it. An admin approved a listing, the row read `active`, and it
+     * stayed invisible to every buyer with nothing saying why; measured
+     * on production, where one approved craft had been re-approved twice
+     * and never appeared. A column with no reader is the same bug as a
+     * column with no writer (the `mapCategory.icon` lesson, one file
+     * over).
+     *
+     * Public payloads only ever carry `true` — every buyer-facing query
+     * filters on it before this runs — so it leaks nothing; it is for the
+     * admin queue and the portal, which need to tell the two switches
+     * apart.
+     */
+    isAvailable: product.isAvailable,
+    /**
      * M22. The HomeKrafter's portal reads these to show *why* a listing is
      * not live and what to do about it — the whole point of recording a
      * reason. They ride the shared mapper rather than a portal-only one

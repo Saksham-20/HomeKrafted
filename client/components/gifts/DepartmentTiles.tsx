@@ -10,8 +10,9 @@ export interface DepartmentTilesProps {
   /** The department currently open, by id, or `null`. */
   openId: string | null;
   onOpen: (id: string | null) => void;
-  selectedChildIds: ReadonlySet<string>;
-  onToggleChild: (id: string) => void;
+  /** Selected category ids — a department's own id counts (D3). */
+  selectedIds: ReadonlySet<string>;
+  onToggle: (id: string) => void;
 }
 
 /**
@@ -44,8 +45,8 @@ export function DepartmentTiles({
   departments,
   openId,
   onOpen,
-  selectedChildIds,
-  onToggleChild,
+  selectedIds,
+  onToggle,
 }: DepartmentTilesProps) {
   const open = departments.find((department) => department.id === openId) ?? null;
 
@@ -53,18 +54,38 @@ export function DepartmentTiles({
     <div className={styles.wrap}>
       <ul className={styles.tiles}>
         {departments.map((department) => {
-          const isOpen = department.id === openId;
+          /*
+            A department with nothing under it filters on press
+            (2026-09-16). Pressing a tile only ever revealed a chip row, so
+            a childless department — Crochet on production, with one live
+            gift and no subcategories — rendered a button that set
+            `aria-pressed` and changed nothing on the screen. A control
+            that cannot act is the thing this row was rebuilt to remove.
+
+            Selecting the department itself is already a supported answer:
+            `expandShelfSelection` matches a parent to its children, so one
+            id covers the shelf either way (D3).
+          */
+          const hasChildren = department.children.length > 0;
+          const isOpen = hasChildren && department.id === openId;
+          const isSelected = selectedIds.has(department.id);
           return (
             <li key={department.id}>
               <button
                 type="button"
-                className={clsx(styles.tile, isOpen && styles.tileOpen)}
-                aria-pressed={isOpen}
+                className={clsx(
+                  styles.tile,
+                  isOpen && styles.tileOpen,
+                  isSelected && styles.tileSelected,
+                )}
+                aria-pressed={hasChildren ? isOpen : isSelected}
                 // The count is part of the name a screen reader hears:
                 // "Jewellery & Accessories, 24 gifts" is the whole offer,
                 // and the visible count is not otherwise associated.
                 aria-label={`${department.name}, ${department.count} ${department.count === 1 ? "gift" : "gifts"}`}
-                onClick={() => onOpen(isOpen ? null : department.id)}
+                onClick={() =>
+                  hasChildren ? onOpen(isOpen ? null : department.id) : onToggle(department.id)
+                }
               >
                 {/*
                   The department's mark is the face (owner, 2026-09-16).
@@ -98,15 +119,36 @@ export function DepartmentTiles({
          * re-runs the entry rather than swapping contents in place.
          */
         <ul className={styles.children} key={open.id} aria-label={`Inside ${open.name}`}>
+          {/*
+            The department is its own first chip, so a gift filed directly
+            on it rather than on one of its subcategories is reachable —
+            the D3 rule `FilterGroup` already follows in the filter sheet.
+            Without it, opening a department and pressing every chip in the
+            row can still miss listings sitting on the parent.
+          */}
+          <li>
+            <button
+              type="button"
+              className={clsx(styles.chip, selectedIds.has(open.id) && styles.chipOn)}
+              aria-pressed={selectedIds.has(open.id)}
+              onClick={() => onToggle(open.id)}
+            >
+              <Icon id={open.icon} size={16} className={styles.chipIcon} />
+              <span>All {open.name}</span>
+              <span className={styles.chipCount} aria-hidden="true">
+                {open.count}
+              </span>
+            </button>
+          </li>
           {open.children.map((child) => {
-            const selected = selectedChildIds.has(child.id);
+            const selected = selectedIds.has(child.id);
             return (
               <li key={child.id}>
                 <button
                   type="button"
                   className={clsx(styles.chip, selected && styles.chipOn)}
                   aria-pressed={selected}
-                  onClick={() => onToggleChild(child.id)}
+                  onClick={() => onToggle(child.id)}
                 >
                   <Icon id={child.icon} size={16} className={styles.chipIcon} />
                   <span>{child.name}</span>

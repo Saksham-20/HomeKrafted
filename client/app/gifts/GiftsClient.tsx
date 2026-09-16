@@ -490,8 +490,8 @@ export function GiftsClient({
           departments={departments}
           openId={openDepartment}
           onOpen={setOpenDepartment}
-          selectedChildIds={selectedCategories}
-          onToggleChild={(id) => {
+          selectedIds={selectedCategories}
+          onToggle={(id) => {
             toggle(selectedCategories, setSelectedCategories, id);
           }}
         />
