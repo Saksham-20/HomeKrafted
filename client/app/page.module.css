@@ -30,15 +30,15 @@
   overflow-x: clip;
 }
 
-/* ── Full Viewport Hero Screen ────────────────────────────────── */
-.heroScreen {
-  height: 100dvh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  overflow: hidden;
-}
+/*
+ * `.heroScreen`/`.heroSplitWrap` (the 100dvh food/gifts split hero
+ * wrapper) are retired while the ISB Mohali campaign banner
+ * (`<IsbCrochetBanner>`) stands in for the hero — nothing references
+ * them. `SplitPanels.tsx` itself is untouched and still renders
+ * correctly; reintroducing this wrapper is a one-line job in `page.tsx`
+ * once the campaign push ends. Deleted rather than commented out, since
+ * the git history is the "how to bring it back" reference.
+ */
 
 .afterHeroSection {
   margin-top: clamp(18px, 2.4vw, 36px);

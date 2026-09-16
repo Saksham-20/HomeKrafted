@@ -912,7 +912,11 @@ export const products: Product[] = [
     slug: "crochet-amigurumi-soft-toy",
     vendorId: "vd12",
     name: "Crochet Amigurumi Soft Toy",
-    categoryId: "ct12",
+    // Mirrors production's own filing (DepartmentTiles.tsx's "Crochet on
+    // production, with one live gift" note) — was wrongly parked under
+    // Personalised Gifts (ct12) here, the same mock/prod drift ct14's own
+    // comment in categories.ts flags.
+    categoryId: "ct14",
     occasionIds: ["oc1", "oc6"],
     dietary: [],
     images: [

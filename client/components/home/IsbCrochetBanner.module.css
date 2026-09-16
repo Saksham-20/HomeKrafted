@@ -1,0 +1,47 @@
+/*
+  Full-bleed, edge to edge — the landing header's fixed, transparent bar
+  (`Header.module.css`'s `.landing`) is built to float over exactly this
+  shape of thing: a dark-topped hero image, white nav text with a text
+  shadow, and its own dark-to-transparent scrim doing the contrast work.
+  A discrete rounded card sitting at the page's very top (the M0 version
+  of this banner) got its top edge visually chopped by that fixed bar
+  instead — full-bleed is what the header expects.
+*/
+.banner {
+  display: block;
+  width: 100%;
+  position: relative;
+  --hk-focus-ring: var(--hk-gold-bright);
+  /*
+   * The landing header floats fixed and transparent over whatever's at
+   * the top of the page (`Header.module.css`'s `.landing`, M52/M56) —
+   * built for a dark full-bleed photo, where its own scrim does the
+   * legibility work. This banner is a flat illustrated graphic with no
+   * quiet zone at its own top edge (yarn ball, heart doodle, a badge in
+   * the corner all bleed to y=0), so the nav sat directly on top of
+   * dense artwork instead of a calm surface — this pine band gives it
+   * one, same tone as the header's own scrim, so the overlay reads as
+   * intentional rather than as the nav cutting into the art.
+   */
+  padding-top: 72px;
+  background: linear-gradient(180deg, var(--hk-pine-deep) 0%, var(--hk-pine) 100%);
+}
+
+@media (max-width: 900px) {
+  .banner {
+    padding-top: 72px;
+  }
+}
+
+
+
+.image {
+  width: 100%;
+  transition: transform 0.5s var(--hk-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image {
+    transition: none;
+  }
+}

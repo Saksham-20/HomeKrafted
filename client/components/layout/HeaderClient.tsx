@@ -227,7 +227,18 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     </nav>
   );
 
-  const showLogo = !onLanding || revealed || heroExpanded;
+  /*
+   * The M52/M56 "logo hands over" reveal (hidden until the hero's own
+   * brand lockup scrolls past, then fades in) assumed a photographic
+   * hero carrying its own wordmark moment. The ISB Mohali campaign
+   * banner (`IsbCrochetBanner`, 2026-09-16, owner) replaced that hero
+   * with a flat graphic that carries no Homekrafted mark of its own, so
+   * waiting for a "hand-over" that never visually happens just left the
+   * landing page with no logo whatsoever. Always show it while this
+   * banner stands in for the hero; restore `!onLanding || revealed ||
+   * heroExpanded` if the split hero (`SplitPanels`) comes back.
+   */
+  const showLogo = true;
 
   return (
     <header

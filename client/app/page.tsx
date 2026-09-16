@@ -1,7 +1,7 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { PromoBand } from "@/components/ui/PromoBand";
-import { Hero } from "@/components/home/Hero";
+import { IsbCrochetBanner } from "@/components/home/IsbCrochetBanner";
 import { Ticker } from "@/components/home/Ticker";
 import { HowItWorks } from "@/components/home/HowItWorks";
 import { SellCta } from "@/components/home/SellCta";
@@ -239,11 +239,14 @@ export default async function Home() {
     <div className={styles.landingPage}>
       <script {...jsonLdProps(siteJsonLd)} />
 
-      {/* ── 1. Full-Screen Hero & Ticker ── */}
-      <div className={styles.heroScreen}>
-        <Hero />
-        <Ticker />
-      </div>
+      {/*
+        ── 1. ISB Mohali crochet pre-order hero (owner, 2026-09-16) ──
+        Stands in for the food/gifts split hero for the length of this
+        campaign — a single full-bleed banner, clickable everywhere,
+        nothing else sharing the first screenful with it.
+      */}
+      <IsbCrochetBanner />
+      <Ticker />
 
       {/* ── 3. Bestsellers & Trending with Segmented Toggle ── */}
       <div className={clsx(styles.reveal, styles.afterHeroSection)}>

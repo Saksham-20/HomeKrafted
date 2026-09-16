@@ -128,9 +128,27 @@ export const categories: Category[] = [
     name: "Personalised Gifts",
     imagePlaceholder: "PERSONALISED",
     imageSrc: "/images/categories/personalised-gifts.jpg",
-    productCount: 2,
+    productCount: 1,
     group: "craft",
     sortOrder: 13,
+  },
+  /*
+   * Mirrors a real production row (2026-09-16) that this file had never
+   * picked up — same drift the comment above already flags for the other
+   * four craft categories. No `imageSrc` yet (no photo shipped for it
+   * locally): falls back to the hatch placeholder rather than pointing at
+   * a file that doesn't exist, and the home page's category rail already
+   * filters on `imageSrc` being set (`app/page.tsx`), so this correctly
+   * stays off that rail until real art lands.
+   */
+  {
+    id: "ct14",
+    slug: "crochet",
+    name: "Crochet",
+    imagePlaceholder: "CROCHET",
+    productCount: 1,
+    group: "craft",
+    sortOrder: 14,
   },
 ];
 

@@ -97,12 +97,16 @@ const HALVES = [
   {
     key: "gifts" as const,
     index: "02",
-    href: "/gifts",
+    // ISB Mohali crochet pre-order push (owner, 2026-09-16): this half
+    // routes into the same `/gifts?category=crochet` filter as
+    // `IsbCrochetBanner`, so the hero and the banner agree. Revert to
+    // plain `/gifts` once the campaign push ends.
+    href: "/gifts?category=crochet",
     Icon: Gift,
-    eyebrow: "Send one",
+    eyebrow: "Now open · ISB Mohali",
     title: "Handcrafted gifts",
-    blurb: "Made by hand by independent HomeKrafters, and carefully packed and posted.",
-    cta: "Browse gifts",
+    blurb: "Pre-order our handmade crochet — from our ISB Mohali pop-up, made by hand by independent HomeKrafters.",
+    cta: "Shop crochet pre-orders",
     src: "/images/site/split-gifts.jpg",
     alt: "A basket of yarn beside a macramé hanging and crocheted pieces",
   },
