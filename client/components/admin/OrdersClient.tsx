@@ -21,6 +21,19 @@ const TYPE_FILTERS: { value: AdminOrderType | "all"; label: string }[] = [
 ];
 
 /**
+ * Live = still owed a delivery — every status except the terminal ones
+ * per kind. Added 2026-09-16 for the ISB Mohali crochet pre-order push
+ * (hand-delivered, no seller-account access for whoever's delivering),
+ * but it's a general "what still needs attention" view, not scoped to
+ * one campaign — same status set as `LIVE_*_STATUSES` in
+ * `server/src/admin/orders.service.ts` and `lib/api/admin.ts`.
+ */
+const STATUS_FILTERS: { value: "all" | "live"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "live", label: "Live" },
+];
+
+/**
  * `/admin/orders` (M11a) — unified, unscoped visibility across the
  * order-shaped tables (marketplace `Order`, `SnackOrder`, legacy
  * `LaundryBooking`), filterable by module + a name/reference search.
@@ -36,6 +49,7 @@ export function OrdersClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<AdminOrderType | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "live">("all");
   const [query, setQuery] = useState("");
   // The value the request is actually made with. Typing a reference is
   // now a network call per keystroke unless it settles first.
@@ -60,6 +74,7 @@ export function OrdersClient() {
       try {
         const result = await getAllOrdersUnified({
           type: typeFilter === "all" ? undefined : typeFilter,
+          live: statusFilter === "live" ? true : undefined,
           q: debouncedQuery || undefined,
           page,
         });
@@ -78,7 +93,7 @@ export function OrdersClient() {
     return () => {
       cancelled = true;
     };
-  }, [ready, role, typeFilter, debouncedQuery, page]);
+  }, [ready, role, typeFilter, statusFilter, debouncedQuery, page]);
 
   const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
   const initialLoad = !ready || (loading && orders.length === 0 && !error);
@@ -90,7 +105,7 @@ export function OrdersClient() {
         subtitle={
           initialLoad
             ? undefined
-            : typeFilter === "all" && !debouncedQuery
+            : typeFilter === "all" && statusFilter === "all" && !debouncedQuery
               ? `${total} order${total === 1 ? "" : "s"} across marketplace and snacks`
               : `${total} order${total === 1 ? "" : "s"} match these filters`
         }
@@ -106,6 +121,15 @@ export function OrdersClient() {
           />
         }
       >
+        <SegmentedFilter
+          label="Filter by status"
+          value={statusFilter}
+          onChange={(next) => {
+            setStatusFilter(next);
+            setPage(1);
+          }}
+          options={STATUS_FILTERS}
+        />
         <SegmentedFilter
           label="Filter by module"
           value={typeFilter}

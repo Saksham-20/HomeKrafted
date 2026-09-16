@@ -161,41 +161,72 @@ export interface PaginatedOrders {
 }
 
 /**
+ * The non-terminal statuses per kind — an order/booking still owed
+ * delivery, which is what the admin orders screen's "Live" tab means
+ * (2026-09-16, owner: the ISB Mohali crochet pre-order push, hand-delivered
+ * for now, needs an easy way to find what's still outstanding). Everything
+ * else per kind is either not yet paid for (`pending_payment`, which is
+ * not a live order either — nobody has anything to deliver yet) or terminal
+ * (`delivered`/`cancelled`/`returned`).
+ *
+ * Kept next to `ORDER_STATUS_MAP`/`LAUNDRY_STATUS_MAP`/`SNACK_STATUS_MAP`
+ * on purpose: a status added to one of those maps without a decision here
+ * would otherwise silently vanish from or leak into "Live".
+ */
+const LIVE_MARKETPLACE_STATUSES: OrderStatus[] = ['placed', 'confirmed', 'packed', 'shipped'];
+const LIVE_LAUNDRY_STATUSES: LaundryBookingStatus[] = [
+  'scheduled',
+  'picked_up',
+  'in_progress',
+  'out_for_delivery',
+];
+const LIVE_SNACK_STATUSES: SnackOrderStatus[] = ['received', 'accepted', 'out_for_delivery'];
+
+/**
  * The search predicates, one per source table, matching the three fields
  * the admin list row actually shows: reference, customer, HomeKrafter.
+ * `live` ANDs in the non-terminal-status filter above — composed as a
+ * sibling key rather than nested, so `{}` (no search, no live filter)
+ * still short-circuits to reading every row.
  *
  * `mode: 'insensitive'` throughout — an admin typing a customer's name in
  * lower case is the normal case, and a case-sensitive search that returns
  * nothing reads as "this order does not exist".
  */
-function marketplaceSearchWhere(q?: string): Prisma.OrderWhereInput {
-  if (!q) return {};
+function marketplaceSearchWhere(q?: string, live?: boolean): Prisma.OrderWhereInput {
   const contains = { contains: q, mode: 'insensitive' as const };
   return {
-    OR: [
-      { orderNumber: contains },
-      { user: { name: contains } },
-      { items: { some: { product: { vendor: { name: contains } } } } },
-    ],
+    ...(q
+      ? {
+          OR: [
+            { orderNumber: contains },
+            { user: { name: contains } },
+            { items: { some: { product: { vendor: { name: contains } } } } },
+          ],
+        }
+      : {}),
+    ...(live ? { status: { in: LIVE_MARKETPLACE_STATUSES } } : {}),
   };
 }
 
-function laundrySearchWhere(q?: string): Prisma.LaundryBookingWhereInput {
-  if (!q) return {};
+function laundrySearchWhere(q?: string, live?: boolean): Prisma.LaundryBookingWhereInput {
   const contains = { contains: q, mode: 'insensitive' as const };
   return {
-    OR: [{ bookingNumber: contains }, { user: { name: contains } }, { partner: { displayName: contains } }],
+    ...(q
+      ? { OR: [{ bookingNumber: contains }, { user: { name: contains } }, { partner: { displayName: contains } }] }
+      : {}),
+    ...(live ? { status: { in: LIVE_LAUNDRY_STATUSES } } : {}),
   };
 }
 
-function snackSearchWhere(q?: string): Prisma.SnackOrderWhereInput {
-  if (!q) return {};
+function snackSearchWhere(q?: string, live?: boolean): Prisma.SnackOrderWhereInput {
   const contains = { contains: q, mode: 'insensitive' as const };
   // A snack order's "reference" is its own id upper-cased, and its
   // customer name is stored on the row (there is no `User` — these arrive
   // over WhatsApp from someone who may never have signed in).
   return {
-    OR: [{ id: contains }, { customerName: contains }, { seller: { displayName: contains } }],
+    ...(q ? { OR: [{ id: contains }, { customerName: contains }, { seller: { displayName: contains } }] } : {}),
+    ...(live ? { status: { in: LIVE_SNACK_STATUSES } } : {}),
   };
 }
 
@@ -232,15 +263,16 @@ export class AdminOrdersService {
     const page = Math.min(query.page ?? 1, MAX_ORDER_PAGE);
     const pageSize = query.pageSize ?? DEFAULT_ORDER_PAGE_SIZE;
     const q = query.q?.trim() || undefined;
+    const live = query.live || undefined;
     const depth = page * pageSize;
 
     const wants = (kind: AdminOrderType) => !type || type === kind;
 
     const [marketplace, laundry, snack, total] = await Promise.all([
-      wants('marketplace') ? this.listMarketplace(q, depth) : Promise.resolve([]),
-      wants('laundry') ? this.listLaundry(q, depth) : Promise.resolve([]),
-      wants('snack') ? this.listSnack(q, depth) : Promise.resolve([]),
-      this.countUnified(type, q),
+      wants('marketplace') ? this.listMarketplace(q, depth, undefined, undefined, live) : Promise.resolve([]),
+      wants('laundry') ? this.listLaundry(q, depth, undefined, undefined, live) : Promise.resolve([]),
+      wants('snack') ? this.listSnack(q, depth, undefined, undefined, live) : Promise.resolve([]),
+      this.countUnified(type, q, live),
     ]);
 
     const merged = [...marketplace, ...laundry, ...snack].sort(
@@ -279,16 +311,16 @@ export class AdminOrdersService {
    * from a page — cannot distinguish "the last page" from "as deep as we
    * looked".
    */
-  private async countUnified(type: AdminOrderType | undefined, q?: string): Promise<number> {
+  private async countUnified(type: AdminOrderType | undefined, q?: string, live?: boolean): Promise<number> {
     const wants = (kind: AdminOrderType) => !type || type === kind;
     const [marketplace, laundry, snack] = await Promise.all([
       wants('marketplace')
-        ? this.prisma.order.count({ where: marketplaceSearchWhere(q) })
+        ? this.prisma.order.count({ where: marketplaceSearchWhere(q, live) })
         : Promise.resolve(0),
       wants('laundry')
-        ? this.prisma.laundryBooking.count({ where: laundrySearchWhere(q) })
+        ? this.prisma.laundryBooking.count({ where: laundrySearchWhere(q, live) })
         : Promise.resolve(0),
-      wants('snack') ? this.prisma.snackOrder.count({ where: snackSearchWhere(q) }) : Promise.resolve(0),
+      wants('snack') ? this.prisma.snackOrder.count({ where: snackSearchWhere(q, live) }) : Promise.resolve(0),
     ]);
     return marketplace + laundry + snack;
   }
@@ -548,9 +580,19 @@ export class AdminOrdersService {
   // (vendor/partner/seller/customer) rather than N+1 querying per row.
   // -----------------------------------------------------------------
 
-  private async listMarketplace(q: string | undefined, depth: number, since?: Date, onlyId?: string): Promise<AdminOrderSummary[]> {
+  private async listMarketplace(
+    q: string | undefined,
+    depth: number,
+    since?: Date,
+    onlyId?: string,
+    live?: boolean,
+  ): Promise<AdminOrderSummary[]> {
     const orders = await this.prisma.order.findMany({
-      where: { ...marketplaceSearchWhere(q), ...(since ? { placedAt: { gte: since } } : {}), ...(onlyId ? { id: onlyId } : {}) },
+      where: {
+        ...marketplaceSearchWhere(q, live),
+        ...(since ? { placedAt: { gte: since } } : {}),
+        ...(onlyId ? { id: onlyId } : {}),
+      },
       include: ORDER_INCLUDE,
       orderBy: { placedAt: 'desc' },
       take: depth,
@@ -594,9 +636,19 @@ export class AdminOrdersService {
     });
   }
 
-  private async listLaundry(q: string | undefined, depth: number, since?: Date, onlyId?: string): Promise<AdminOrderSummary[]> {
+  private async listLaundry(
+    q: string | undefined,
+    depth: number,
+    since?: Date,
+    onlyId?: string,
+    live?: boolean,
+  ): Promise<AdminOrderSummary[]> {
     const bookings = await this.prisma.laundryBooking.findMany({
-      where: { ...laundrySearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}), ...(onlyId ? { id: onlyId } : {}) },
+      where: {
+        ...laundrySearchWhere(q, live),
+        ...(since ? { createdAt: { gte: since } } : {}),
+        ...(onlyId ? { id: onlyId } : {}),
+      },
       include: BOOKING_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: depth,
@@ -628,9 +680,19 @@ export class AdminOrdersService {
     }));
   }
 
-  private async listSnack(q: string | undefined, depth: number, since?: Date, onlyId?: string): Promise<AdminOrderSummary[]> {
+  private async listSnack(
+    q: string | undefined,
+    depth: number,
+    since?: Date,
+    onlyId?: string,
+    live?: boolean,
+  ): Promise<AdminOrderSummary[]> {
     const orders = await this.prisma.snackOrder.findMany({
-      where: { ...snackSearchWhere(q), ...(since ? { createdAt: { gte: since } } : {}), ...(onlyId ? { id: onlyId } : {}) },
+      where: {
+        ...snackSearchWhere(q, live),
+        ...(since ? { createdAt: { gte: since } } : {}),
+        ...(onlyId ? { id: onlyId } : {}),
+      },
       include: SNACK_ORDER_INCLUDE,
       orderBy: { createdAt: 'desc' },
       take: depth,

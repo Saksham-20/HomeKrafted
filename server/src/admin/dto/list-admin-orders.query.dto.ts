@@ -1,4 +1,5 @@
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 import { AdminOrderType } from '../orders.service';
 
 const TYPES: AdminOrderType[] = ['marketplace', 'laundry', 'snack'];
@@ -8,6 +9,18 @@ export class ListAdminOrdersQueryDto {
   @IsOptional()
   @IsIn(TYPES, { message: `type must be one of ${TYPES.join(', ')}` })
   type?: AdminOrderType;
+
+  /**
+   * `true` narrows to orders/bookings still awaiting delivery — every
+   * status except the terminal ones per kind (`delivered`/`cancelled`/
+   * `returned` for marketplace, `delivered`/`cancelled` for laundry,
+   * `delivered` for snacks). See `LIVE_*_STATUSES` in `orders.service.ts`
+   * for the exact set. `@BooleanField()`, not a bare `@IsBoolean()` — the
+   * M17 lesson (`?live=false` must not become `true`).
+   */
+  @IsOptional()
+  @BooleanField()
+  live?: boolean;
 
   /**
    * Matches an order reference, the customer's name, or a HomeKrafter's

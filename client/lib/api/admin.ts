@@ -85,8 +85,10 @@ import type {
   Collection,
   ID,
   LaundryBooking,
+  LaundryBookingStatus,
   Occasion,
   Order,
+  OrderStatus,
   PayoutStatus,
   Product,
   ProductModerationStatus,
@@ -97,6 +99,7 @@ import type {
   SellerSpecialty,
   SellerStatus,
   SnackOrder,
+  SnackOrderStatus,
   SupportTicket,
   SupportTicketStatus,
   AdminScope,
@@ -717,7 +720,14 @@ export interface AdminOrdersQuery {
   type?: AdminOrderType;
   q?: string;
   page?: number;
+  /** Narrows to orders/bookings still awaiting delivery — see `LIVE_*_STATUSES` server-side. */
+  live?: boolean;
 }
+
+/** The non-terminal statuses per kind — mirrors `LIVE_*_STATUSES` in `server/src/admin/orders.service.ts`. Mock mode has no server to ask, so it keeps its own copy; the two must stay in step. */
+const LIVE_MARKETPLACE_STATUSES: OrderStatus[] = ["placed", "confirmed", "packed", "shipped"];
+const LIVE_LAUNDRY_STATUSES: LaundryBookingStatus[] = ["scheduled", "picked-up", "in-progress", "out-for-delivery"];
+const LIVE_SNACK_STATUSES: SnackOrderStatus[] = ["received", "accepted", "out-for-delivery"];
 
 export interface AdminOrdersPage {
   items: AdminOrderSummary[];
@@ -741,6 +751,7 @@ export async function getAllOrdersUnified(query: AdminOrdersQuery = {}): Promise
     const params = new URLSearchParams();
     if (query.type) params.set("type", query.type);
     if (query.q) params.set("q", query.q);
+    if (query.live) params.set("live", "true");
     if (query.page && query.page > 1) params.set("page", String(query.page));
     const qs = params.toString();
     return http.get<AdminOrdersPage>(`/admin/orders${qs ? `?${qs}` : ""}`);
@@ -764,7 +775,16 @@ export async function getAllOrdersUnified(query: AdminOrdersQuery = {}): Promise
     placedAt: order.placedAt,
   }));
 
-  const laundry: AdminOrderSummary[] = [...seedLaundryBookings, ...placedBookings].map((booking) => ({
+  // `getPlacedBookings()` mock mode is `seedLaundryBookings` itself (M37 —
+  // laundry withdrawn, "the seeded history" is the whole story, see its
+  // own doc comment), not an *additional* set on top of it the way
+  // `getPlacedOrders()` genuinely is for marketplace (checkout still
+  // creates real orders in mock mode). Spreading both here duplicated
+  // every booking under an identical React key (`laundry:${booking.id}`),
+  // which is what let a cancelled/delivered row visually survive the
+  // Live filter below — the filter and count were already correct, only
+  // the render was corrupted by the duplicate key.
+  const laundry: AdminOrderSummary[] = placedBookings.map((booking) => ({
     id: `laundry:${booking.id}`,
     type: "laundry",
     reference: booking.bookingNumber,
@@ -789,8 +809,15 @@ export async function getAllOrdersUnified(query: AdminOrdersQuery = {}): Promise
   }));
 
   const q = query.q?.trim().toLowerCase();
+  const isLive = (o: AdminOrderSummary) =>
+    o.type === "marketplace"
+      ? (LIVE_MARKETPLACE_STATUSES as string[]).includes(o.status)
+      : o.type === "laundry"
+        ? (LIVE_LAUNDRY_STATUSES as string[]).includes(o.status)
+        : (LIVE_SNACK_STATUSES as string[]).includes(o.status);
   const items = [...marketplace, ...laundry, ...snacks]
     .filter((o) => !query.type || o.type === query.type)
+    .filter((o) => !query.live || isLive(o))
     .filter(
       (o) =>
         !q ||
