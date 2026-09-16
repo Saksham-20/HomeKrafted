@@ -51,6 +51,20 @@ import styles from "./CheckoutClient.module.css";
 
 /** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
 const MOCK_GIFT_ADDRESS_ID = "gift-recipient";
+
+/**
+ * Replaces the delivery-date picker for a craft/gift shipment (2026-09-16).
+ * Shadowfax isn't wired for any maker yet, so there's no real date to offer:
+ * a craft order is made after it's placed, and a real date only exists once
+ * it's packed and handed to a courier (or, for the ISB pop-up, delivered by
+ * hand). One message for every craft order rather than ISB-specific
+ * wording — the "we don't have Shadowfax info yet" reason is the same for
+ * all of them today. `deliveryDate` still goes to the server as the
+ * rolling-window default (`firstDateId`) — it's simply never shown or
+ * chosen here, and nothing downstream reads it as a promise yet.
+ */
+const CRAFT_PENDING_MESSAGE =
+  "This is made to order — please allow 2–3 days while it's prepared. We'll show a delivery date here once it's packed and on its way.";
 const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 
 /**
@@ -91,6 +105,15 @@ export function CheckoutClient() {
   const publicSettings = usePublicSettings();
   const { user } = useAuth();
   const { items, ready, lineInfo, subtotal, assignAddress, clear, updateQty, removeItem } = useCart();
+  /**
+   * A shipment's date picker is craft-only when every line in it is —
+   * `checkoutModeOf` already guarantees gift-mode carries no food line, so
+   * this is really "no legacy line with `kind` unset", which keeps the
+   * picker showing for the handful of pre-M20 rows that predate the field
+   * rather than guessing they're craft.
+   */
+  const isAllCraft = (list: typeof items) =>
+    list.length > 0 && list.every((item) => lineInfo(item).kind === "craft");
   // Live wallet balance (M6) — every balance-sufficiency check reads this
   // instead of a static prop, so a top-up/payment made in another tab/
   // screen this session is reflected immediately.
@@ -1106,13 +1129,17 @@ export function CheckoutClient() {
                   <span className={styles.shipmentHead}>
                     Delivering to {recipient.recipientName || "your recipient"}
                   </span>
-                  <SlotPicker
-                    variant="day"
-                    columns={4}
-                    options={dateOptions}
-                    value={giftDateId || firstDateId}
-                    onChange={setGiftDateId}
-                  />
+                  {isAllCraft(items) ? (
+                    <p className={styles.craftNotice}>{CRAFT_PENDING_MESSAGE}</p>
+                  ) : (
+                    <SlotPicker
+                      variant="day"
+                      columns={4}
+                      options={dateOptions}
+                      value={giftDateId || firstDateId}
+                      onChange={setGiftDateId}
+                    />
+                  )}
                   {itemList}
                 </div>
               ) : groupEntries.length === 0 ? (
@@ -1136,13 +1163,17 @@ export function CheckoutClient() {
                         Delivering to {address?.label ?? "your address"}
                         {address ? ` · ${address.city}` : ""}
                       </span>
-                      <SlotPicker
-                        variant="day"
-                        columns={4}
-                        options={dateOptions}
-                        value={dateByAddress[addressId] ?? firstDateId}
-                        onChange={(id) => setDateByAddress((current) => ({ ...current, [addressId]: id }))}
-                      />
+                      {isAllCraft(groupItems) ? (
+                        <p className={styles.craftNotice}>{CRAFT_PENDING_MESSAGE}</p>
+                      ) : (
+                        <SlotPicker
+                          variant="day"
+                          columns={4}
+                          options={dateOptions}
+                          value={dateByAddress[addressId] ?? firstDateId}
+                          onChange={(id) => setDateByAddress((current) => ({ ...current, [addressId]: id }))}
+                        />
+                      )}
                       <ul className={styles.itemList}>
                         {groupItems.map((item) => {
                           const info = lineInfo(item);

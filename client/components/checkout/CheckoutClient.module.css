@@ -622,6 +622,17 @@
   color: var(--hk-success);
 }
 
+/* Stands in for the date picker on a craft/gift shipment — see `CRAFT_PENDING_MESSAGE`. */
+.craftNotice {
+  padding: var(--hk-s3) var(--hk-s4);
+  background: var(--hk-pine-tint);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-md);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-2);
+}
+
 /*
   A step's empty state. A numbered step with nothing under it reads as a
   screen that failed to load rather than one waiting on an earlier answer.
