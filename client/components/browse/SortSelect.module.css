@@ -41,3 +41,32 @@
 .sortSelect:focus-visible {
   outline: none; /* the pill's focus-within ring carries it */
 }
+
+/* Shares the toolbar with a view switch/toggle and "All filters" on a
+   phone. **The select's own text cannot shrink below 16px** —
+   `globals.css`'s iOS-zoom rule forces `select { font-size: 16px
+   !important }` under 780px and its own comment says not to fight it
+   with a module rule, so only the chrome around the text (padding, the
+   icon, the row height) gives width back here. */
+/* One breakpoint, not two (owner, 2026-09-17) — a version that only hid
+   the icon under 420px re-showed it at 421-479px with less spare room
+   than 414px had, so the row it shares with a view switch or a toggle
+   wrapped there despite fitting narrower. Drop it for the whole range. */
+@media (max-width: 640px) {
+  .sortRow {
+    min-height: 32px;
+    padding-left: 2px;
+  }
+
+  .sortSelect {
+    padding: 5px 4px 5px 3px;
+    min-height: 30px;
+  }
+
+  /* `aria-hidden` decoration — the accessible name is the select's own
+     `aria-label="Sort"`, not the icon, so dropping it costs nothing a
+     screen reader announces. */
+  .sortIcon {
+    display: none;
+  }
+}

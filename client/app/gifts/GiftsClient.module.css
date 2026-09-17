@@ -203,6 +203,37 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--hk-s3);
   }
+
+  /* Count · All filters · Personalisable · Recommended, one row, no
+     wrap (owner, 2026-09-17) — the toolbar's own gap tightens and
+     `.toggle` shrinks to match `FilterPillBar`'s `.allBtn` and
+     `SortSelect`'s mobile compaction. */
+  .toolbar {
+    gap: var(--hk-s1h);
+    padding: 10px var(--hk-s3);
+  }
+
+  /* Desktop's `flex: 1; min-width: 0` lets the pill bar shrink to make
+     room for a full set of dropdown pills — on mobile only `.allBtn`
+     survives (`FilterPillBar.module.css` hides the rest), and `min-width:
+     0` let the flex row shrink this wrapper *below* that single button's
+     own width, so the button overflowed its shrunk parent and sat on
+     top of `.toggle`. Fixed size here, content size everywhere else. */
+  .pillBar {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  /* Hidden for the whole ≤640 range, not a narrower sub-breakpoint
+     (owner, 2026-09-17) — a version that only hid this under 420px
+     re-showed it at 421-479px with less spare room than 414px had, so
+     the row wrapped there despite fitting narrower. The sort
+     `<select>`'s text is pinned to 16px by the iOS-zoom rule and cannot
+     shrink, so the count — which the hero above and the grid below
+     already carry — is the one given up across the whole range. */
+  .resultCount {
+    display: none;
+  }
 }
 
 /*
@@ -253,4 +284,26 @@
   font-family: var(--hk-font-mono);
   font-size: 11px;
   opacity: 0.75;
+}
+
+/* Shares the toolbar row with `.allBtn` and the sort `<select>` on a
+   phone (owner, 2026-09-17: keep it to one line) — placed after the
+   base rule above on purpose, since a `@media` block earlier in the
+   file loses a same-specificity tie to an unscoped rule that comes
+   later in source order regardless of which one the viewport matches. */
+@media (max-width: 640px) {
+  .toggle {
+    padding: 6px 7px;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  /* The count digit is the last thing given up to keep the row from
+     wrapping — same call as hiding `.resultCount` above: the toggle's
+     own on/off state and its disabled tooltip (when nothing is
+     personalisable) still say everything the control needs to say
+     without it. */
+  .toggleCount {
+    display: none;
+  }
 }

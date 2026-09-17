@@ -94,4 +94,28 @@
   .pillWrap {
     display: none;
   }
+
+  /* `.allBtn` is what's left in the row — it shares the toolbar with a
+     view switch or a sort control, so it owes its own compaction too
+     (owner, 2026-09-17: don't let the row wrap onto a second line). */
+  .allBtn {
+    min-height: 32px;
+    padding: 0 6px;
+    gap: 2px;
+    font-size: 11px;
+  }
+
+  /* The two icon props (`SlidersHorizontal` 15, `ChevronDown` 14) are
+     set in the component; CSS `width`/`height` on the `<svg>` still wins
+     over its own presentation attributes. */
+  .allBtn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .badge {
+    min-width: 15px;
+    height: 15px;
+    font-size: 9.5px;
+  }
 }

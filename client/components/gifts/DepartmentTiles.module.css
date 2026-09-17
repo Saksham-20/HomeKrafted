@@ -225,7 +225,7 @@
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
-    gap: var(--hk-s3);
+    gap: var(--hk-s2);
     /* `.hk-strip-fade`'s fade reads against the page canvas here, not
        `--hk-surface` (its default) — this strip sits directly on `.main`,
        not inside a white card. */
@@ -236,21 +236,24 @@
     margin: -2px;
   }
 
+  /* 76px (was 104) — Flipkart's own category row is the density
+     reference (owner, 2026-09-17): a department shortcut should read as
+     small and numerous, not as a product card in its own right. */
   .tiles > li {
-    flex: 0 0 104px;
+    flex: 0 0 76px;
   }
 
   .tile {
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;
-    gap: var(--hk-s2);
-    padding: var(--hk-s3) var(--hk-s2);
+    gap: 4px;
+    padding: var(--hk-s2) var(--hk-s1h);
   }
 
   .face {
-    width: 40px;
-    height: 40px;
+    width: 32px;
+    height: 32px;
   }
 
   .label {
@@ -258,10 +261,12 @@
   }
 
   .name {
-    font-size: 12.5px;
+    font-size: 10.5px;
+    line-height: 1.15;
+    -webkit-line-clamp: 1;
   }
 
   .count {
-    font-size: 10px;
+    font-size: 9px;
   }
 }

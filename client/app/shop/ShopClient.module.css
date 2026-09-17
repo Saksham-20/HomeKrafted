@@ -268,4 +268,53 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--hk-s3);
   }
+
+  /* Kitchens/Dishes · All filters · Sort, one row, no wrap (owner,
+     2026-09-17) — the desktop cluster gap (s4, above) is generous on
+     purpose but too wide for a phone that also has to fit the view
+     switch and `FilterPillBar`'s own mobile-compacted `.allBtn`. */
+  .controlRow {
+    gap: var(--hk-s0);
+  }
+
+  /* Desktop's `flex: 1; min-width: 0` lets the pill bar shrink to fit a
+     full set of dropdown pills — on mobile only `.allBtn` survives
+     (`FilterPillBar.module.css` hides the rest), and `min-width: 0` let
+     the flex row shrink this wrapper *below* that single button's own
+     width, overflowing it into the view switch beside it. Fixed size
+     here, content size everywhere else (the `/gifts` toolbar has the
+     same fix, same reason). */
+  .pillBar {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .viewSwitch {
+    padding: 0;
+    gap: 1px;
+  }
+
+  .viewBtn {
+    min-height: 32px;
+    padding: 0 5px;
+    gap: 3px;
+    font-size: 11.5px;
+  }
+
+  /* Hidden, not shrunk, and for the whole ≤640 range rather than a
+     narrower sub-breakpoint (owner, 2026-09-17) — a two-tier version of
+     this rule (shrink under 640, hide only under 420) re-showed the
+     count at 421-479px with nowhere near enough room for it, so the row
+     wrapped there despite fitting at 414px: *wider* and *worse*.
+     `Kitchens`/`Dishes` alone still says which view is active; the count
+     is real information ("11 kitchens deliver here" vs a bare label) but
+     it's the last thing given up here, same call as dropping `/gifts`'
+     `.toggleCount` across its own mobile range. */
+  .viewCount {
+    display: none;
+  }
+
+  .viewCountMuted {
+    display: none;
+  }
 }

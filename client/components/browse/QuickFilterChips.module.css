@@ -129,3 +129,31 @@
   opacity: 0.5;
   filter: grayscale(1);
 }
+
+/* Phone: a shortcut row over the catalogue reads as the catalogue
+   itself at 80px a tile — five and a peek of a sixth is the whole
+   screen. Flipkart's own category row is the reference (owner,
+   2026-09-17): smaller marks, six-plus visible, one line of label. */
+@media (max-width: 640px) {
+  .rail {
+    gap: var(--hk-s1h);
+  }
+
+  .tile {
+    width: 58px;
+    gap: 4px;
+  }
+
+  .faceCount {
+    top: 3px;
+    right: 3px;
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+
+  .tileLabel {
+    font-size: 10px;
+    line-height: 1.15;
+    -webkit-line-clamp: 1;
+  }
+}
