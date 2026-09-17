@@ -1,4 +1,11 @@
-import type { Order, OrderGift, OrderItem, OrderShipment, PaymentMethod } from "@/lib/types";
+import type {
+  Order,
+  OrderDeliveryMode,
+  OrderGift,
+  OrderItem,
+  OrderShipment,
+  PaymentMethod,
+} from "@/lib/types";
 import { nextOrderNumber } from "@/lib/data/orders";
 import { currentUser } from "@/lib/data/user";
 import { computeCashback, computeShipping, DEFAULT_DELIVERY_RULE } from "@/lib/cart/pricing";
@@ -48,6 +55,20 @@ export interface CreateOrderInput {
    * and generate a fresh one for a genuinely new order.
    */
   idempotencyKey?: string;
+  /**
+   * Hand-delivery onto the ISB campus (2026-09-17). Absent means
+   * `"standard"`, so nothing that existed before this sends it.
+   *
+   * The server writes the destination itself for a campus order and
+   * ignores `defaultAddressId` and every per-line address
+   * (`server/src/common/delivery/isb-campus.ts`) — so this is a request
+   * for a way of delivering, not an address.
+   */
+  deliveryMode?: OrderDeliveryMode;
+  /** Where on campus to hand it over. Required by the server when `deliveryMode` is `"isb-campus"`. */
+  campusDrop?: string;
+  /** A number to ring on arrival, if it differs from the one on the account. */
+  campusPhone?: string;
 }
 
 /** Mock-mode-only in-memory order "table" — see `createOrder`'s doc comment. */
@@ -71,7 +92,11 @@ const orders: Order[] = [];
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
   if (isMockMode()) {
     const subtotal = input.lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
-    const shippingFee = computeShipping(subtotal, DEFAULT_DELIVERY_RULE);
+    // Mock mode charges what the server would: nothing for a campus
+    // order, whatever the rule says. A mock branch that skips a rule is
+    // a rule the only people who can test it never see.
+    const shippingFee =
+      input.deliveryMode === "isb-campus" ? 0 : computeShipping(subtotal, DEFAULT_DELIVERY_RULE);
     const cashbackEarned = computeCashback(subtotal);
     const total = subtotal + shippingFee;
 
@@ -119,6 +144,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       shipments: input.shipments,
       gift: input.gift,
       paymentMethod: input.paymentMethod,
+      deliveryMode: input.deliveryMode,
+      campusDrop: input.campusDrop,
+      campusPhone: input.campusPhone,
     },
     { idempotencyKey: input.idempotencyKey },
   );

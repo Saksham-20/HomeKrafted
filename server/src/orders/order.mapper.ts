@@ -60,5 +60,9 @@ export function mapOrder(order: OrderWithRelations) {
     cancelledAt: order.cancelledAt?.toISOString(),
     deliveredAt: order.deliveredAt?.toISOString(),
     paymentMethod: order.paymentMethod,
+    // 2026-09-17 — how it gets there. `standard` on every pre-existing
+    // row; `isb-campus` is the hand-delivery the buyer chose, and the
+    // order screens read it to say so rather than promising a courier.
+    deliveryMode: order.deliveryMode === 'isb_campus' ? ('isb-campus' as const) : ('standard' as const),
   };
 }

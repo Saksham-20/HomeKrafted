@@ -19,6 +19,7 @@ import { BULK_TRACK_MAX, ShadowfaxClient } from './shadowfax.client';
 import { buildCreateOrderPayload, ShadowfaxPayloadError } from './shadowfax-payload';
 import { advancesConsignment, consignmentStatusFor, orderStatusFor, statusRank } from './shadowfax-status';
 import { COURIER_ELIGIBLE_PRODUCT, isCourierEligible, NON_COURIER_LINE } from './courier-eligibility';
+import { isCampusDelivery } from '../common/delivery/isb-campus';
 
 /** Where a courier-driven order may be pushed to. Never past `delivered`, never backwards. */
 const ORDER_RANK: Record<OrderStatus, number> = {
@@ -257,6 +258,18 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
    */
   async bookForOrder(orderId: string): Promise<void> {
     if (!this.isEnabled()) return;
+    /**
+     * A campus order is carried by us, so no courier is booked for it and
+     * **nothing is recorded** — not a `failed` consignment either, because
+     * nothing failed (2026-09-17, owner). The kitchen marks it packed, we
+     * collect it, and the order is closed by hand, exactly like the food
+     * half. `common/delivery/isb-campus.ts` has the reasoning.
+     */
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { deliveryMode: true },
+    });
+    if (isCampusDelivery(order?.deliveryMode)) return;
     try {
       const consignments = await this.ensureConsignments(orderId);
       for (const consignment of consignments) {

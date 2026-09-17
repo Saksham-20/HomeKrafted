@@ -740,3 +740,72 @@
   color: var(--hk-terracotta-text);
   font-size: 14px;
 }
+
+/*
+ * Hand-delivery onto the ISB campus (2026-09-17, owner) — the panel
+ * behind the third destination option. Same field vocabulary as the
+ * address form above it, so choosing the option does not look like it
+ * opened a different product.
+ */
+.campusBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+.campusNote {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: var(--hk-s3) var(--hk-s4);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-2);
+  /* The tinted surface, not the gold fill: this is a statement of fact,
+     not a promotion. */
+  background: var(--hk-surface-soft, var(--hk-surface));
+  color: var(--hk-ink);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.campusNote svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--hk-pine);
+}
+
+.campusField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campusLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.campusInput {
+  padding: 10px 12px;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-2);
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-body);
+  /* 16px is the floor on a phone — anything smaller makes iOS Safari zoom
+     the page on focus and never zoom back (M29). The global rule in
+     globals.css enforces it; this matches it rather than relying on it. */
+  font-size: 16px;
+}
+
+.campusInput:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 1px;
+}
+
+.campusHint {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--hk-muted-2);
+}

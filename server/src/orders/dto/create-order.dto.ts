@@ -5,10 +5,12 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  MaxLength,
   MinLength,
   ValidateNested,
 } from 'class-validator';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
+import { CAMPUS_DROP_MAX_LENGTH } from '../../common/delivery/isb-campus';
 
 export class OrderShipmentInputDto {
   @IsString()
@@ -80,4 +82,46 @@ export class CreateOrderDto {
 
   @IsIn(['wallet', 'razorpay', 'cod'])
   paymentMethod!: 'wallet' | 'razorpay' | 'cod';
+
+  /**
+   * How it reaches the buyer (2026-09-17). Optional, and absent means
+   * `standard` — every client written before this keeps working
+   * unchanged.
+   *
+   * `isb-campus` is hand-delivery onto the ISB campus: no delivery fee
+   * whatever the platform charges, no courier booked, and **the server
+   * writes the destination** (`common/delivery/isb-campus.ts`), ignoring
+   * `defaultAddressId` and every per-item address. Taking the address
+   * from the request would make free hand-delivery claimable for an
+   * address in another state, where nothing would ever collect it.
+   */
+  @IsOptional()
+  @IsIn(['standard', 'isb-campus'])
+  deliveryMode?: 'standard' | 'isb-campus';
+
+  /**
+   * Where on campus to hand it over — "AC4, room 212", "Exec housing
+   * block B". The one part of a campus address we cannot know, and
+   * **required** when `deliveryMode` is `isb-campus`, enforced in the
+   * service because it depends on another field: a parcel on a campus
+   * that size with no building on it is one somebody has to chase the
+   * buyer about.
+   */
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(CAMPUS_DROP_MAX_LENGTH)
+  campusDrop?: string;
+
+  /**
+   * A number to ring on arrival, if it differs from the one on the
+   * account. Optional: the account's own phone is used otherwise, and an
+   * account with neither is refused with a sentence saying so rather than
+   * a parcel nobody can deliver.
+   */
+  @IsOptional()
+  @IsString()
+  @MinLength(4)
+  @MaxLength(20)
+  campusPhone?: string;
 }

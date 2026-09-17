@@ -294,6 +294,17 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
               <span>Payment</span>
               <span>{PAYMENT_LABEL[order.paymentMethod] ?? order.paymentMethod}</span>
             </div>
+            {/* 2026-09-17 — a campus order is carried by us, so the screen
+                says so rather than leaving the buyer to read a courier
+                promise into "on its way". Absent on every order placed
+                before the option existed, which is why it is a check on
+                the value and not on the field. */}
+            {order.deliveryMode === "isb-campus" && (
+              <div className={styles.itemRow}>
+                <span>Delivery</span>
+                <span>Hand-delivered on the ISB campus by Homekrafted</span>
+              </div>
+            )}
           </div>
         </Card>
       )}

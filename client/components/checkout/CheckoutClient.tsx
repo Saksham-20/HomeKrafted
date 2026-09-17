@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
-import { Wallet as WalletIcon, CreditCard, Gift, ShieldAlert } from "lucide-react";
+import { Wallet as WalletIcon, Building2, CreditCard, Gift, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { DietDot } from "@/components/ui/DietDot";
@@ -54,6 +54,7 @@ import {
   recipientMissingMessage,
 } from "@/lib/checkout/address-required";
 import { focusFirstError } from "@/components/portal/focus-first-error";
+import { withoutCampusAddress } from "@/lib/checkout/campus-delivery";
 import styles from "./CheckoutClient.module.css";
 
 /** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
@@ -139,7 +140,16 @@ export function CheckoutClient() {
    */
   const walletKnown = walletReady && !walletFailed;
 
-  const [addressList, setAddressList] = useState<Address[]>([]);
+  const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
+  /**
+   * What the buyer may pick. The campus address is written by the server
+   * when they choose "Deliver to ISB" and lives on their account so every
+   * order, label and receipt keeps rendering a real destination — but
+   * picking it here would place a *standard* order to campus, with a
+   * delivery fee and a courier booked for a parcel we were going to walk
+   * over. `lib/checkout/campus-delivery.ts` has the reasoning.
+   */
+  const addressList = useMemo(() => withoutCampusAddress(savedAddresses), [savedAddresses]);
   const [accountReady, setAccountReady] = useState(false);
   const [showAddAddress, setShowAddAddress] = useState(false);
   const [newAddress, setNewAddress] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
@@ -147,7 +157,21 @@ export function CheckoutClient() {
   const [addressError, setAddressError] = useState<string | null>(null);
   const [cartError, setCartError] = useState<string | null>(null);
 
-  const [isGift, setIsGift] = useState(false);
+  /**
+   * Where the order goes (2026-09-17). Three destinations now, not two:
+   * the buyer's own address, somebody else's as a gift, or hand-delivery
+   * onto the ISB campus.
+   *
+   * `isGift` stays derived rather than becoming a third piece of state —
+   * it is read in a dozen places (gift wrap, the message card, the
+   * recipient fields, the delivery-date panel) and every one of them
+   * still means exactly "is this going to somebody else".
+   */
+  const [shipTo, setShipTo] = useState<"me" | "gift" | "isb">("me");
+  const isGift = shipTo === "gift";
+  const isCampus = shipTo === "isb";
+  const [campusDrop, setCampusDrop] = useState("");
+  const [campusPhone, setCampusPhone] = useState("");
   const [recipient, setRecipient] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
   const [hidePrice, setHidePrice] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
@@ -209,7 +233,12 @@ export function CheckoutClient() {
       if (cancelled) return;
       const intent = readGiftIntent();
       if (!hasGiftIntent(intent)) return;
-      setIsGift(Boolean(intent.shipToRecipient || intent.wrap || intent.messageCard));
+      // The product page's "Make it a gift" intent only ever asks for the
+      // gift destination, never the campus one — so it selects `gift` and
+      // leaves a campus choice alone if one has somehow been made first.
+      if (intent.shipToRecipient || intent.wrap || intent.messageCard) {
+        setShipTo((current) => (current === "isb" ? current : "gift"));
+      }
       setGiftWrap(Boolean(intent.wrap));
       setWantsCard(Boolean(intent.messageCard));
       if (intent.message) setGiftMessage(intent.message);
@@ -226,7 +255,7 @@ export function CheckoutClient() {
       ([addresses, w, payments]) => {
         if (cancelled) return;
         setDeliveryDateOptions(buildDeliveryDates());
-        setAddressList(addresses);
+        setSavedAddresses(addresses);
         if (w.payWithWalletDefault && w.balance > 0) setPreferredPaymentMethod("wallet");
         setCardPayments(payments.cardPaymentsEnabled);
         setAccountReady(true);
@@ -274,8 +303,11 @@ export function CheckoutClient() {
   // Until the rule is read the fee is unknown, and "Free" would be a guess
   // at the one number the buyer is about to pay — so it shows "…" and
   // Place order waits (below). The server charges from the same settings.
-  const shippingKnown = publicSettings !== undefined;
-  const shipping = publicSettings ? computeShipping(subtotal, publicSettings) : 0;
+  // A campus order is free whatever the platform charges, so the fee is
+  // known before the settings are — there is no rule left to read
+  // (`server/src/common/delivery/isb-campus.ts`).
+  const shippingKnown = isCampus || publicSettings !== undefined;
+  const shipping = isCampus ? 0 : publicSettings ? computeShipping(subtotal, publicSettings) : 0;
   const freeOver = freeDeliveryHint(publicSettings, shipping);
   const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
@@ -331,7 +363,7 @@ export function CheckoutClient() {
           country: "India",
           isDefault: false,
         };
-        setAddressList((current) => [...current, address]);
+        setSavedAddresses((current) => [...current, address]);
       } else {
         const address = await createAddress({
           label: "New address",
@@ -343,7 +375,7 @@ export function CheckoutClient() {
           state: newAddress.state,
           pincode: newAddress.pincode,
         });
-        setAddressList((current) => [...current, address]);
+        setSavedAddresses((current) => [...current, address]);
       }
       setNewAddress(EMPTY_ADDRESS_FORM);
       setShowAddAddress(false);
@@ -388,6 +420,15 @@ export function CheckoutClient() {
     setFormError(null);
 
     if (items.length === 0) return;
+
+    if (isCampus && !campusDrop.trim()) {
+      // Named and focused, like every other refusal on this screen — the
+      // server refuses this too, but a round trip to be told about a box
+      // two inches away is not an answer.
+      setFormError("Tell us where on campus to hand it over — a building, block or room.");
+      focusFirstError("campus-drop");
+      return;
+    }
 
     if (isGift) {
       // Same treatment as "Save address" above: name the empty boxes and
@@ -472,6 +513,9 @@ export function CheckoutClient() {
         paymentMethod,
         walletApplied,
         idempotencyKey: idempotencyKeyRef.current,
+        deliveryMode: isCampus ? "isb-campus" : undefined,
+        campusDrop: isCampus ? campusDrop.trim() : undefined,
+        campusPhone: isCampus ? campusPhone.trim() || undefined : undefined,
       });
     } catch (err) {
       setFormError(apiErrorMessage(err, "We couldn't place this order. Nothing was charged — please try again."));
@@ -672,13 +716,18 @@ export function CheckoutClient() {
     }
   }
 
-  function toggleGift(next: boolean) {
-    setIsGift(next);
-    if (!next) {
+  function chooseDestination(next: "me" | "gift" | "isb") {
+    setShipTo(next);
+    if (next !== "gift") {
       setGiftWrap(false);
       setWantsCard(false);
       setGiftMessage("");
     }
+  }
+
+  /** The checkbox in "Make it a gift" still speaks in booleans. */
+  function toggleGift(next: boolean) {
+    chooseDestination(next ? "gift" : "me");
   }
 
   const mockBanner = mock && (
@@ -823,6 +872,55 @@ export function CheckoutClient() {
         </button>
       )}
     </>
+  );
+
+  /**
+   * The ISB panel. Two fields, because the campus address itself is not
+   * the buyer's to type — the server writes it
+   * (`server/src/common/delivery/isb-campus.ts`) and the only thing we
+   * cannot know is which building to walk to.
+   *
+   * It states the two facts that make the option worth choosing, and
+   * neither is a guess: the fee really is zero server-side, and the
+   * handover really does start when the maker marks it packed. It does
+   * **not** promise a time — nothing here knows one (M51).
+   */
+  const campusFields = (
+    <div className={styles.campusBody}>
+      <p className={styles.campusNote}>
+        <Building2 size={15} strokeWidth={1.9} aria-hidden="true" />
+        <span>
+          <strong>We bring it onto campus ourselves.</strong> No delivery charge, and it starts
+          moving as soon as the maker has packed it — no courier in between.
+        </span>
+      </p>
+      <label className={styles.campusField}>
+        <span className={styles.campusLabel}>Where on campus?</span>
+        <input
+          id="campus-drop"
+          className={styles.campusInput}
+          value={campusDrop}
+          onChange={(event) => setCampusDrop(event.target.value)}
+          maxLength={120}
+          placeholder="e.g. AC4, room 212 — or Exec housing block B"
+        />
+        <span className={styles.campusHint}>
+          A building, block or room. It goes on the parcel, so write what you would tell a
+          friend meeting you there.
+        </span>
+      </label>
+      <label className={styles.campusField}>
+        <span className={styles.campusLabel}>Phone for the handover (optional)</span>
+        <input
+          id="campus-phone"
+          className={styles.campusInput}
+          value={campusPhone}
+          onChange={(event) => setCampusPhone(event.target.value)}
+          maxLength={20}
+          placeholder={user?.phone ?? "We'll use the number on your account"}
+        />
+      </label>
+    </div>
   );
 
   const recipientFields = (
@@ -1122,13 +1220,29 @@ export function CheckoutClient() {
                     name="ship-to"
                     className="hk-sr-only"
                     checked={isGift}
-                    onChange={() => toggleGift(true)}
+                    onChange={() => chooseDestination("gift")}
                   />
                   <Gift size={14} aria-hidden="true" />
                   Send as a gift
                 </label>
+                {/* Hand-delivery onto the ISB campus (2026-09-17, owner).
+                    A third destination rather than a tick-box on the
+                    buyer's own address, because it is not an address the
+                    buyer types — the server writes it — and the delivery
+                    it buys is a different one. */}
+                <label className={clsx(styles.segment, isCampus && styles.segmentSelected)}>
+                  <input
+                    type="radio"
+                    name="ship-to"
+                    className="hk-sr-only"
+                    checked={isCampus}
+                    onChange={() => chooseDestination("isb")}
+                  />
+                  <Building2 size={14} aria-hidden="true" />
+                  Deliver to ISB
+                </label>
               </div>
-              {isGift ? recipientFields : addressPicker}
+              {isCampus ? campusFields : isGift ? recipientFields : addressPicker}
             </div>
           </section>
 

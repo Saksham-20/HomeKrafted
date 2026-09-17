@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DeliveryJobStatus, Prisma } from '@prisma/client';
+import { DeliveryJobStatus, OrderDeliveryMode, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeCashback, computeShipping } from '../common/pricing/pricing.util';
 import { RawCartItem, resolveCartLines } from '../common/pricing/resolve-cart-line';
@@ -19,6 +19,14 @@ import { isPurchasable, unavailableReason } from '../catalog/moderation';
 import { JOB_WITH_RELATIONS_INCLUDE } from '../rider/rider-jobs.types';
 import { mapDeliveryForBuyer } from '../rider/rider-jobs.mapper';
 import { assertSameMaker, assertSingleMakerCart } from '../cart/one-maker-cart';
+import {
+  CAMPUS_DROP_MAX_LENGTH,
+  ISB_ADDRESS_LABEL,
+  ISB_CAMPUS_ADDRESS,
+  campusAwareShippingFee,
+  deliveryModeFromWire,
+  isCampusDelivery,
+} from '../common/delivery/isb-campus';
 
 const ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
 
@@ -140,10 +148,25 @@ export class OrdersService {
       }
     }
 
-    const defaultAddress = dto.defaultAddressId
-      ? undefined
-      : await this.prisma.address.findFirst({ where: { userId, isDefault: true, archivedAt: null } });
-    const fallbackAddressId = dto.defaultAddressId ?? defaultAddress?.id;
+    /**
+     * Hand-delivery onto the ISB campus (2026-09-17, owner).
+     *
+     * The destination is written here, from `ISB_CAMPUS_ADDRESS`, and
+     * every per-item address and `defaultAddressId` is ignored for these
+     * orders — see `common/delivery/isb-campus.ts` for why taking it from
+     * the request would make free hand-delivery claimable for an address
+     * nobody is going to walk to.
+     */
+    const deliveryMode = deliveryModeFromWire(dto.deliveryMode);
+    const campusAddressId = isCampusDelivery(deliveryMode)
+      ? await this.resolveCampusAddress(userId, dto)
+      : undefined;
+
+    const defaultAddress =
+      dto.defaultAddressId || campusAddressId
+        ? undefined
+        : await this.prisma.address.findFirst({ where: { userId, isDefault: true, archivedAt: null } });
+    const fallbackAddressId = campusAddressId ?? dto.defaultAddressId ?? defaultAddress?.id;
 
     // The rate is read once here and carried through the whole create —
     // never re-read mid-function — so a line priced against it and the
@@ -160,9 +183,14 @@ export class OrdersService {
 
     const addressIdByItemId = new Map<string, string>();
     for (const item of rawItems) {
-      const addressId = shipsToRecipient
-        ? dto.gift!.recipientAddressId!
-        : (item.addressId ?? fallbackAddressId);
+      const addressId = campusAddressId
+        ? // A campus order goes to the campus, whatever the basket says —
+          // including over a gift recipient's address, since we are the
+          // ones carrying it and we carry it to one place.
+          campusAddressId
+        : shipsToRecipient
+          ? dto.gift!.recipientAddressId!
+          : (item.addressId ?? fallbackAddressId);
       if (!addressId) {
         throw new BadRequestException(
           `No shipping address for cart item ${item.id} — assign one via POST /cart/items/:id/address or pass defaultAddressId`,
@@ -202,7 +230,13 @@ export class OrdersService {
 
     const subtotal = resolvedLines.reduce((sum, l) => sum + l.lineTotal, 0);
     // The fee the buyer saw on their basket, read from the same settings.
-    const shippingFee = computeShipping(subtotal, await this.settings.get());
+    // Zero for a campus order whatever the platform charges — "no
+    // delivery cost" is the offer, not a side effect of `deliveryFee`
+    // happening to be 0 today (`common/delivery/isb-campus.ts`).
+    const shippingFee = campusAwareShippingFee(
+      deliveryMode,
+      computeShipping(subtotal, await this.settings.get()),
+    );
     const cashbackEarned = computeCashback(subtotal);
     const total = subtotal + shippingFee;
     const walletApplied = dto.paymentMethod === 'wallet' ? total : 0;
@@ -253,6 +287,7 @@ export class OrdersService {
           walletApplied,
           cashbackEarned,
           paymentMethod: dto.paymentMethod,
+          deliveryMode,
           items: {
             create: rawItems.map((item, index) => {
               const resolved = resolvedLines[index];
@@ -345,6 +380,74 @@ export class OrdersService {
    * delivered one) — the same "weakest job" reasoning
    * `DeliveryOrderReconcileService` uses for the order's own status.
    */
+  /**
+   * The buyer's ISB campus address, created on first use and updated
+   * after (2026-09-17).
+   *
+   * **One row per buyer, not one per order.** It carries
+   * `ISB_ADDRESS_LABEL`, so a buyer who orders to campus every week ends
+   * up with one "ISB campus" entry in their address book rather than
+   * fifteen identical ones — and the drop detail on it is always the one
+   * they typed for the order being placed, because that is the only
+   * version anybody is about to walk to.
+   *
+   * The street lines come from `ISB_CAMPUS_ADDRESS` and never from the
+   * request. `campusDrop` is the one field the buyer supplies, and it is
+   * required here rather than in the DTO because it depends on
+   * `deliveryMode` — `class-validator` cannot express that, and a
+   * conditional rule spelled out in two places drifts.
+   */
+  private async resolveCampusAddress(userId: string, dto: CreateOrderDto): Promise<string> {
+    const drop = dto.campusDrop?.trim();
+    if (!drop) {
+      throw new BadRequestException(
+        'Tell us where on campus to hand it over — a building, block or room.',
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true, phone: true },
+    });
+    const phone = dto.campusPhone?.trim() || user?.phone?.trim();
+    if (!phone) {
+      // Refused with the fix in the sentence, rather than writing a
+      // parcel nobody can ring the door for.
+      throw new BadRequestException(
+        'Add a phone number we can ring when we reach the campus, or save one to your account.',
+      );
+    }
+
+    const fields = {
+      label: ISB_ADDRESS_LABEL,
+      recipientName: user?.name?.trim() || 'ISB campus delivery',
+      phone,
+      line1: ISB_CAMPUS_ADDRESS.line1,
+      line2: drop.slice(0, CAMPUS_DROP_MAX_LENGTH),
+      city: ISB_CAMPUS_ADDRESS.city,
+      state: ISB_CAMPUS_ADDRESS.state,
+      pincode: ISB_CAMPUS_ADDRESS.pincode,
+      country: ISB_CAMPUS_ADDRESS.country,
+    };
+
+    // `archivedAt: null` like every other point an address is chosen
+    // (2026-09-06): a buyer who deleted their campus entry gets a fresh
+    // one rather than an order pointing at something they threw away.
+    const existing = await this.prisma.address.findFirst({
+      where: { userId, label: ISB_ADDRESS_LABEL, archivedAt: null },
+      select: { id: true },
+    });
+    if (existing) {
+      await this.prisma.address.update({ where: { id: existing.id }, data: fields });
+      return existing.id;
+    }
+    const created = await this.prisma.address.create({
+      data: { ...fields, userId },
+      select: { id: true },
+    });
+    return created.id;
+  }
+
   private async deliveryForBuyer(orderId: string) {
     const jobs = await this.prisma.deliveryJob.findMany({
       where: { orderId },

@@ -218,6 +218,15 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
               <span className={styles.metaLabel}>Payment</span>
               <span>{order.paymentMethod}</span>
             </div>
+            {/* 2026-09-17 — the kitchen's part ends at "packed" either
+                way, but without this the screen implies a courier will
+                collect. For a campus order Homekrafted collects it. */}
+            {order.deliveryMode === "isb-campus" && (
+              <div className={styles.metaRow}>
+                <span className={styles.metaLabel}>Collection</span>
+                <span>We collect this one — ISB campus hand-delivery</span>
+              </div>
+            )}
             <p className={styles.itemMeta}>
               This is the figure your payout is computed from — the buyer&apos;s
               basket total isn&apos;t shown here.

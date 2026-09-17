@@ -80,6 +80,10 @@ export function mapOrderForSeller(order: SellerOrderWithRelations, vendorId: str
     cancelledAt: order.cancelledAt?.toISOString(),
     deliveredAt: order.deliveredAt?.toISOString(),
     paymentMethod: order.paymentMethod,
+    // 2026-09-17 — the kitchen needs to know a campus order is collected
+    // by us rather than by a courier, because "packed" is where their
+    // part ends either way but the screen otherwise promises a rider.
+    deliveryMode: order.deliveryMode === 'isb_campus' ? ('isb-campus' as const) : ('standard' as const),
     // True when another kitchen's items share this order. Drives the
     // client-side explainer for why shipped/delivered are admin-only
     // moves on a shared order — see `SellerOrdersService.advance`.

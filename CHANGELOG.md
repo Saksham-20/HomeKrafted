@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-09-17 (later) — Deliver to ISB
+
+Owner: a third delivery option at checkout — hand-delivery onto the ISB
+campus, no delivery cost, carried by us as soon as the maker has packed
+it; everything else stays a courier job (and the Shadowfax production
+keys are still not live, so this is the one delivery path that works end
+to end today). `Order.deliveryMode` (`standard` | `isb-campus`, default
+`standard`, additive migration, nothing backfilled) +
+`server/src/common/delivery/isb-campus.ts`, which owns every rule: the
+server writes the destination so the offer cannot be claimed for an
+address in another state, the fee is forced to zero whatever
+`deliveryFee` is set to, and `ShippingService` books no courier and
+records nothing for these orders. One `ISB campus` address row per buyer,
+updated per order and filtered out of every address picker. Both order
+screens name it. See CLAUDE.md's own section.
+
 ## 2026-09-17 (later) — QA sweep of the order lifecycle, three fixes
 
 Owner asked for an end-to-end test of the whole workflow across all

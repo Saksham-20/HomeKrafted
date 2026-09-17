@@ -1153,3 +1153,27 @@ one auto-failed out from under a rider mid-delivery.
   `RiderJobsService` and `AdminDeliveriesService` rather than kept twice.
   Same weakest-job and mixed-basket rules, same never-backwards rank
   table, same `void`-and-swallow on the buyer notification.
+
+## `Order.deliveryMode` (2026-09-17)
+
+`standard` | `isb_campus` (wire value `isb-campus`), default `standard`,
+additive, nothing backfilled — no order placed before this existed was
+hand-carried onto a campus.
+
+`standard` is what every order already was: a courier parcel for a gift
+(M57) or the kitchen's own delivery for food. `isb_campus` is
+hand-delivery onto the ISB campus by Homekrafted — `shippingFee` forced
+to 0 whatever the platform charges, and no `Consignment` ever booked.
+
+The destination is **not** a column: a campus order points at a normal
+`Address` row that the server writes, labelled `ISB campus`, one per
+buyer, with the buyer's drop detail ("AC4, room 212") in `line2`. That
+keeps every order, parcel label and old receipt rendering a real
+destination with no new relation — at the cost that the row shows up in
+the buyer's address list, which is why
+`client/lib/checkout/campus-delivery.ts` filters it out of every picker
+(picking it under "deliver to me" would place a standard order to campus,
+with a fee and a courier).
+
+Rules live in `server/src/common/delivery/isb-campus.ts`; CLAUDE.md has
+the reasoning.

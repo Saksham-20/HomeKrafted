@@ -826,6 +826,9 @@ export type OrderStatus =
   | "cancelled"
   | "returned";
 
+/** How an order reaches the buyer — see `Order.deliveryMode`. */
+export type OrderDeliveryMode = "standard" | "isb-campus";
+
 export type PaymentMethod = "wallet" | "razorpay" | "cod";
 
 export type RefundStatus = "none" | "requested" | "processing" | "refunded";
@@ -896,6 +899,15 @@ export interface Order {
   /** When the HomeKrafter marked it delivered — what the 7-day return window counts from. */
   deliveredAt?: ISODateString;
   paymentMethod: PaymentMethod;
+  /**
+   * How it physically reaches the buyer (2026-09-17).
+   *
+   * `"isb-campus"` is hand-delivery onto the ISB campus by Homekrafted —
+   * no delivery fee whatever the platform charges, and no courier parcel
+   * is ever booked for it. Absent on a pre-2026-09-17 order, which read
+   * as `"standard"`, which is what it was.
+   */
+  deliveryMode?: OrderDeliveryMode;
 }
 
 /**
@@ -924,6 +936,15 @@ export interface SellerOrder {
   cancelledAt?: ISODateString;
   deliveredAt?: ISODateString;
   paymentMethod: PaymentMethod;
+  /**
+   * How it physically reaches the buyer (2026-09-17).
+   *
+   * `"isb-campus"` is hand-delivery onto the ISB campus by Homekrafted —
+   * no delivery fee whatever the platform charges, and no courier parcel
+   * is ever booked for it. Absent on a pre-2026-09-17 order, which read
+   * as `"standard"`, which is what it was.
+   */
+  deliveryMode?: OrderDeliveryMode;
   /**
    * Another kitchen's items share this order. When true, `shipped` and
    * `delivered` are recorded by the Homekrafted team (admin override),

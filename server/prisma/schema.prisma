@@ -272,6 +272,21 @@ enum RibbonColor {
   ivory
 }
 
+/// How an order physically reaches the buyer (2026-09-17, owner).
+///
+/// `standard` is every order before this existed and every order going
+/// anywhere else: a courier parcel for a gift (M57) or the kitchen's own
+/// delivery for food. `isb_campus` is hand-carried onto the ISB campus by
+/// Homekrafted — no delivery fee whatever the platform charges, and no
+/// `Consignment` is ever booked for it. `server/src/common/delivery/isb-campus.ts`
+/// owns the rules; the destination is written by the server, never taken
+/// from the request, or the offer is claimable for an address in another
+/// state.
+enum OrderDeliveryMode {
+  standard
+  isb_campus @map("isb-campus")
+}
+
 enum OrderStatus {
   /// M8.1 seam for M8.2 (wallet debit / Razorpay capture): every order
   /// created by `POST /orders` starts here instead of `placed` — an order
@@ -2485,6 +2500,9 @@ model Order {
   /// with no money involved at all.
   cancelledAt            DateTime?
   paymentMethod          PaymentMethod
+  /// How it gets there (2026-09-17). `standard` on every pre-existing row,
+  /// which is what they were. See `OrderDeliveryMode`.
+  deliveryMode           OrderDeliveryMode @default(standard)
 
   items          OrderItem[]
   shipments      OrderShipment[]

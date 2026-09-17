@@ -2366,6 +2366,54 @@ to `POST /uploads?purpose=…`, and hand back a URL to store.
   because a WhatsApp block is per-sender and one promo would cost every
   future order update to that person.
 
+## Deliver to ISB (2026-09-17) — the one delivery we do ourselves
+
+`server/src/common/delivery/isb-campus.ts` is the only place that decides
+what campus delivery means. `Order.deliveryMode` is `standard` |
+`isb_campus` (wire value **`isb-campus`**), default `standard`, and
+nothing is backfilled — no order placed before this was hand-carried
+anywhere.
+
+The owner's brief: a buyer at ISB picks "Deliver to ISB", pays no
+delivery cost, and we carry it onto campus as soon as the maker has
+packed it. Everything else is a courier job, and the Shadowfax
+production keys are still not live — so this is the one delivery path
+that works end to end today without a carrier account.
+
+- **The server writes the destination; the request never does.** A
+  campus order ships to `ISB_CAMPUS_ADDRESS`, ignoring `defaultAddressId`
+  and every per-item address — including a gift recipient's. Otherwise
+  free hand-delivery is claimable for an address in another state: no
+  fee charged, no courier booked, and the order simply never moves.
+- **The fee is zero whatever the platform charges.** `deliveryFee` is an
+  admin setting that happens to be 0 today; the offer has to survive
+  somebody setting it to 40, so `campusAwareShippingFee` forces it.
+- **No courier is ever booked, and nothing is recorded.**
+  `ShippingService.bookForOrder` returns early — not a `failed`
+  consignment, because nothing failed. The kitchen marks it packed, we
+  collect, the order closes by hand, exactly like the food half (M57).
+- **`deliveryModeFromWire` exists because the wire value is hyphenated
+  and the Prisma member is not** (`isb_campus` via `@map`). Comparing a
+  request value against the enum directly compiles, typechecks and is
+  never true — every campus order would quietly become a standard one
+  with a fee and a courier. Parse once, there.
+- **One address row per buyer, not one per order.** It carries
+  `ISB_ADDRESS_LABEL` and is updated with the drop detail of the order
+  being placed, so a weekly buyer keeps one "ISB campus" entry.
+- **It is filtered out of every picker**
+  (`client/lib/checkout/campus-delivery.ts`). It has to exist as a real
+  `Address` so orders, labels and old receipts render a destination — but
+  picking it under "Deliver to me" would place a *standard* order to
+  campus, with a fee and a courier for a parcel we were going to walk
+  over. That is the same inconsistency arriving by a second door. It
+  stays visible in the address book, which displays rather than chooses.
+- **Both order screens say it** — "Hand-delivered on the ISB campus" for
+  the buyer, "We collect this one" for the kitchen, whose part still ends
+  at packed but whose screen otherwise implies a rider is coming.
+- The buyer supplies only what we cannot know: **where on campus**
+  (required, refused with the sentence naming the box) and a phone, which
+  falls back to the account's and is refused if there is neither.
+
 ## A listing's photos are a list (2026-09-17)
 
 `Product.images` has been `ProductImage[]` since M2 and `ProductGallery`
