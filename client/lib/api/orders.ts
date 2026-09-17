@@ -65,7 +65,12 @@ export interface CreateOrderInput {
    * for a way of delivering, not an address.
    */
   deliveryMode?: OrderDeliveryMode;
-  /** Where on campus to hand it over. Required by the server when `deliveryMode` is `"isb-campus"`. */
+  /**
+   * Where on campus to hand it over. **Optional, and checkout no longer
+   * asks** (2026-09-17) — `Order.pickupSpot`, set by an admin once the
+   * parcel is packed, is what the buyer is told. Accepted if a client
+   * still sends it.
+   */
   campusDrop?: string;
   /** A number to ring on arrival, if it differs from the one on the account. */
   campusPhone?: string;

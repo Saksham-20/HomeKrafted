@@ -387,15 +387,14 @@ export class OrdersService {
    * **One row per buyer, not one per order.** It carries
    * `ISB_ADDRESS_LABEL`, so a buyer who orders to campus every week ends
    * up with one "ISB campus" entry in their address book rather than
-   * fifteen identical ones — and the drop detail on it is always the one
-   * they typed for the order being placed, because that is the only
-   * version anybody is about to walk to.
+   * fifteen identical ones.
    *
    * The street lines come from `ISB_CAMPUS_ADDRESS` and never from the
-   * request. `campusDrop` is the one field the buyer supplies, and it is
-   * required here rather than in the DTO because it depends on
-   * `deliveryMode` — `class-validator` cannot express that, and a
-   * conditional rule spelled out in two places drifts.
+   * request. **Nothing here is required of the buyer** since 2026-09-17:
+   * `campusDrop` was mandatory while checkout asked for it, and is now
+   * accepted-if-sent so a native client already in somebody's hands is
+   * not refused. Where to hand it over is `Order.pickupSpot`, written by
+   * an admin once it is packed.
    */
   private async resolveCampusAddress(userId: string, dto: CreateOrderDto): Promise<string> {
     // The buyer is no longer asked where on campus (2026-09-17, owner) —

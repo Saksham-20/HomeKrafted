@@ -101,11 +101,15 @@ export class CreateOrderDto {
 
   /**
    * Where on campus to hand it over — "AC4, room 212", "Exec housing
-   * block B". The one part of a campus address we cannot know, and
-   * **required** when `deliveryMode` is `isb-campus`, enforced in the
-   * service because it depends on another field: a parcel on a campus
-   * that size with no building on it is one somebody has to chase the
-   * buyer about.
+   * block B".
+   *
+   * **Optional, and no longer asked for** (2026-09-17, owner). It was
+   * required while checkout had a box for it; the spot depends on who is
+   * carrying the parcel and what is open, neither knowable while somebody
+   * is paying, so `Order.pickupSpot` carries it instead — written by an
+   * admin at packing time and emailed to the buyer. Still accepted so a
+   * native client that has not shipped the change is not refused, and
+   * stored on the address when sent.
    */
   @IsOptional()
   @IsString()
