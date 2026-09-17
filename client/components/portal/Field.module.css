@@ -77,6 +77,27 @@
   color: var(--hk-muted);
 }
 
+/*
+  A number input reserves no room for the browser's native up/down
+  spinner — it draws inside the control's own end padding, on top of the
+  last digit or two. Harmless at 44px with two digits, unreadable at the
+  40px `.dense` price/stock cells this form uses once a price runs to
+  three or four digits (measured: "4500" rendered as "45" with the arrows
+  sitting over the rest). These fields are typed and pasted, never
+  stepped, so the native spinner buys nothing — hide it everywhere.
+*/
+.control[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.control[type="number"]::-webkit-inner-spin-button,
+.control[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .control:hover:not(:disabled):not(:focus-visible) {
   border-color: var(--hk-muted-2);
 }
