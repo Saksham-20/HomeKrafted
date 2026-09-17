@@ -6,14 +6,191 @@
   gap: var(--hk-s3);
 }
 
+.mainFrame {
+  position: relative;
+}
+
+/*
+ * "View" over the corner of the main image. Deliberately a labelled
+ * button rather than a bare icon: an expand glyph alone reads as
+ * decoration at this size, and the whole point is that the picture can be
+ * opened.
+ */
+.expand {
+  position: absolute;
+  right: var(--hk-s3);
+  bottom: var(--hk-s3);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  /* Solid, not translucent: it sits over a photograph whose colours are
+     unknown, and a wash over a busy image is where contrast goes. */
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  font-family: var(--hk-font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform var(--hk-dur) var(--hk-ease), box-shadow var(--hk-dur) var(--hk-ease);
+}
+
+.expand:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--hk-shadow-1);
+}
+
+.expand:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.expandLabel {
+  line-height: 1;
+}
+
 .thumbRow {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--hk-s3);
 }
 
+/* A selectable photo, so it is a real button — reset the chrome. */
+.thumb {
+  display: block;
+  padding: 0;
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-radius-2);
+  background: none;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
+}
+
+.thumb:hover {
+  transform: translateY(-1px);
+}
+
+.thumb:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+/*
+ * The selected thumbnail. Gold as a *border* is exactly what the token is
+ * for — it is never allowed to carry text (CLAUDE.md), and a 2px ring
+ * plus the inset shadow reads as selection without relying on colour
+ * alone, since `aria-pressed` is the non-visual half.
+ */
+.thumbActive {
+  border-color: var(--hk-gold);
+  box-shadow: inset 0 0 0 1px var(--hk-gold);
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  /* Above the header (50) and the location prompt (60), below the mobile
+     drawer (90) — the z-index ladder in CLAUDE.md. */
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--hk-s6);
+  background: rgba(20, 24, 21, 0.82);
+  /* A dark surface, so the ring inherits the bright variant (M34). */
+  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+.scrimHit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: zoom-out;
+}
+
+.viewerFigure {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  width: min(900px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.counter {
+  text-align: center;
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--hk-on-pine);
+}
+
+.close,
+.navButton {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--hk-border);
+  border-radius: 999px;
+  background: var(--hk-surface);
+  color: var(--hk-ink);
+  cursor: pointer;
+}
+
+.close:focus-visible,
+.navButton:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.close {
+  top: var(--hk-s4);
+  right: var(--hk-s4);
+}
+
+.prev {
+  left: var(--hk-s4);
+}
+
+.next {
+  right: var(--hk-s4);
+}
+
 @media (max-width: 900px) {
   .gallery {
     position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .scrim {
+    padding: var(--hk-s4);
+  }
+
+  /* Under the thumb rather than beside the picture: at this width a side
+     arrow overlaps the photograph it is meant to be navigating. */
+  .prev,
+  .next {
+    top: auto;
+    bottom: var(--hk-s4);
+  }
+
+  .prev {
+    left: 25%;
+  }
+
+  .next {
+    right: 25%;
   }
 }

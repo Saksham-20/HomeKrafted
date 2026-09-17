@@ -2366,6 +2366,43 @@ to `POST /uploads?purpose=…`, and hand back a URL to store.
   because a WhatsApp block is per-sender and one promo would cost every
   future order update to that person.
 
+## A listing's photos are a list (2026-09-17)
+
+`Product.images` has been `ProductImage[]` since M2 and `ProductGallery`
+always drew a main image plus a thumbnail row — but every write path took
+a single `imagePath`, deleted every row and created exactly one, and the
+thumbnails were not controls (no state, no swap, no viewer). Measured: 34
+of 34 dev-database products held exactly one image, so the row had never
+rendered for anybody. Both halves were fixed together; either alone is
+still nothing a buyer can use.
+
+- **`server/src/seller/listing-photos.ts` decides everything.**
+  `imagePaths: string[]` (cap `MAX_LISTING_PHOTOS` = 6, matching
+  `PhotoUpload`'s own default) with **index 0 the primary** — the product
+  card, the OpenGraph image and the JSON-LD image, so its identity
+  matters beyond the gallery. The single `imagePath` is **still
+  accepted** (the native app ships its own compiled client, and
+  narrowing a request value breaks clients already in people's hands);
+  a request carrying both is answered by the list.
+- **An empty list is an answer, absence is not** — `[]` means "remove
+  the photos", omitting the field leaves the rows alone. The
+  `parseStock` distinction, one column over.
+- **The primary or the set re-queues; a reorder below it does not**
+  (`photosChangedMaterially`). New imagery is something nobody approved;
+  reordering four approved pictures is tidying, and re-queueing that
+  teaches a kitchen not to touch its own gallery (M22).
+- **Both forms and the admin one use `PhotoUpload`**, the same grid the
+  storefront gallery uses — not a second upload recipe. Both write the
+  same `ListingFormValues.imagePaths`, so switching between the guided
+  and long forms still loses nothing (M45).
+- **The gallery's thumbnails are `<button>`s** — a div with `onClick`
+  does not fire on Enter or Space (M22's product-grid bug) — and ←/→
+  move selection *and* focus. The full-screen viewer owes the whole M16
+  dialog contract and honours it: focus in, shared `trapTab`, Escape,
+  focus back to the opener, scroll lock. One photo renders no thumbnail
+  row, no expand button and no counter: a gallery's furniture around a
+  single picture reads as something that failed to load the rest.
+
 ## A dashboard figure is not a row count (2026-09-17)
 
 **Every order is written at `pending_payment` before it is paid**, and

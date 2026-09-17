@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
-import { ImageUpload } from "@/components/ui/ImageUpload";
+import { PhotoUpload } from "@/components/ui/PhotoUpload";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
 import { Textarea } from "@/components/ui/Textarea";
@@ -444,17 +444,15 @@ export function GuidedListingForm({
         {step === 0 && (
           <div className={styles.stepBody} key="step-0">
             <p className={styles.lead}>
-              One clear photo, taken on your phone, in daylight if you can. This is the thing
-              that decides whether somebody stops scrolling.
+              A clear photo, taken on your phone, in daylight if you can. This is the thing
+              that decides whether somebody stops scrolling. Add a few if you have them — the
+              first one is what shoppers see on the card.
             </p>
-            <ImageUpload
-              value={values.imagePath}
-              onChange={(url) => set("imagePath", url)}
+            <PhotoUpload
+              photos={values.imagePaths}
+              onChange={(photos) => set("imagePaths", photos)}
               purpose="listing"
-              label="Photo"
-              ratio="1/1"
-              placeholderLabel="No photo yet"
-              hint="Tap to take one now, or choose one you already have"
+              label="Add a photo"
             />
             <p className={styles.aside}>
               <Camera size={14} strokeWidth={1.8} aria-hidden="true" />
@@ -693,7 +691,7 @@ export function GuidedListingForm({
                       </div>
                       <span className={styles.fieldHint}>
                         {commissionRate.enabled
-                          ? `Your payout. Platform commission (+${commPct}%, plus GST) is added for the customer.`
+                          ? `Your payout. Platform commission (+${commPct}%) is added for the customer.`
                           : "Your payout. Nothing is added for the customer right now."}
                       </span>
                     </label>
@@ -725,12 +723,6 @@ export function GuidedListingForm({
                           +{formatCurrency(markup.commission)}
                         </span>
                       </div>
-                      {markup.gst > 0 && (
-                        <div className={styles.commissionRow}>
-                          <span className={styles.commissionLabel}>GST on commission</span>
-                          <span className={styles.commissionAdd}>+{formatCurrency(markup.gst)}</span>
-                        </div>
-                      )}
                       <div className={clsx(styles.commissionRow, styles.commissionTotal)}>
                         <span className={styles.commissionLabel}>Listing price for customer</span>
                         <span className={styles.commissionValue}>{formatCurrency(markup.customerPrice)}</span>
@@ -1066,7 +1058,7 @@ export function GuidedListingForm({
                   ratio="1/1"
                   label={values.name || "Your photo"}
                   alt={values.name}
-                  src={values.imagePath || undefined}
+                  src={values.imagePaths[0] || undefined}
                   sizes="120px"
                   compact
                 />

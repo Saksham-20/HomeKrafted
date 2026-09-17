@@ -14,6 +14,11 @@ import {
 import { dietaryTagsFromFrontend } from '../catalog/dietary-tag.util';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
+import {
+  photoRowsFor,
+  photosChangedMaterially,
+  resolveListingPhotos,
+} from './listing-photos';
 
 function slugify(name: string): string {
   return name
@@ -284,7 +289,12 @@ export class SellerListingsService {
             ? initialAdminSubmission(options.moderatorUserId)
             : initialSubmission()),
           images: {
-            create: [{ placeholder: `${dto.name} product photo`, src: dto.imagePath || undefined, ratio: '1/1', sortOrder: 0 }],
+            // A list since 2026-09-17 — `ProductImage[]` and the gallery's
+            // thumbnail row have existed since M2, but every write path
+            // stored exactly one row, so the row never rendered. An empty
+            // list still creates no rows, which is what `<ImageSlot>`'s
+            // placeholder is for.
+            create: photoRowsFor(dto.name, resolveListingPhotos(dto) ?? []),
           },
           weightOptions: { create: dto.weightOptions },
           occasions: { create: (dto.occasionIds ?? []).map((occasionId) => ({ occasionId })) },
@@ -357,6 +367,11 @@ export class SellerListingsService {
           })();
 
     // M44 — an admin edit is a reviewed edit; see `ListingWriteOptions`.
+    const existingPhotos = existing.images
+      .map((image) => image.src)
+      .filter((src): src is string => Boolean(src));
+    const nextPhotos = resolveListingPhotos(dto);
+
     const requeue = options.actor === 'admin' ? {} : requeueOnEdit(
       existing.moderationStatus,
       (dto.name !== undefined && dto.name !== existing.name) ||
@@ -374,12 +389,14 @@ export class SellerListingsService {
         // listing for editing its price.
         categorySetChanged ||
         // Only a photo that actually *changed* is material (M37). The form
-        // sends the current path back on every save, so `!== undefined`
-        // alone re-queued a live listing for editing its price. `""` and
-        // absent both mean "no photo" — same normalisation the write path
-        // applies below.
-        (dto.imagePath !== undefined &&
-          (dto.imagePath || undefined) !== (existing.images[0]?.src ?? undefined)) ||
+        // sends the current list back on every save, so `!== undefined`
+        // alone re-queued a live listing for editing its price. An empty
+        // list and absent both mean "no photo" — same normalisation the
+        // write path applies below. `photosChangedMaterially` decides
+        // what counts now that there is more than one: the primary, or
+        // the set — never a reorder of the ones already approved.
+        (nextPhotos !== undefined &&
+          photosChangedMaterially(nextPhotos, existingPhotos)) ||
         attributeChange.material,
     );
 
@@ -401,17 +418,18 @@ export class SellerListingsService {
         await tx.productCategory.deleteMany({ where: { productId } });
         await tx.productCategory.createMany({ data: ids.map((categoryId) => ({ productId, categoryId })) });
       }
-      if (dto.imagePath !== undefined) {
+      if (nextPhotos !== undefined) {
+        // Rewritten wholesale rather than diffed: `sortOrder` decides
+        // which photo is the card image, so a partial update would have
+        // to renumber the survivors anyway, and the rows carry nothing
+        // worth preserving (no id is referenced anywhere else).
         await tx.productImage.deleteMany({ where: { productId } });
-        await tx.productImage.create({
-          data: {
-            productId,
-            placeholder: `${dto.name ?? existing.name} product photo`,
-            src: dto.imagePath || undefined,
-            ratio: '1/1',
-            sortOrder: 0,
-          },
-        });
+        const rows = photoRowsFor(dto.name ?? existing.name, nextPhotos);
+        if (rows.length > 0) {
+          await tx.productImage.createMany({
+            data: rows.map((row) => ({ ...row, productId })),
+          });
+        }
       }
 
       if (attributeChange.answers !== undefined) {

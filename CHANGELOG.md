@@ -29,6 +29,21 @@ and fixed, plus one feature that did not exist.
   treatment the listing form got in M45. The gift recipient's address
   gets the same sentence instead of "fill in the recipient's full
   address".
+- **A listing can hold more than one photo, and a buyer can look at
+  them.** `Product.images` has been `ProductImage[]` since M2 and
+  `ProductGallery` always drew a thumbnail row, but every write path
+  stored exactly one row and the thumbnails were not controls — no
+  state, no swap, no viewer. Measured: 34 of 34 products on a dev
+  database had exactly one image, so the row had never rendered for
+  anybody. Now: `imagePaths?: string[]` (max 6, index 0 primary, the
+  single `imagePath` still accepted for the native app) through
+  `server/src/seller/listing-photos.ts`; both listing forms and the
+  admin one use the existing `PhotoUpload` grid; and the gallery has
+  selectable thumbnails (real buttons, ←/→ move selection and focus)
+  plus a full-screen viewer honouring the whole M16 dialog contract —
+  focus in, shared `trapTab`, Escape, focus back to the opener, scroll
+  lock. Adding or removing a photo, or changing the primary, re-queues a
+  live listing (M22); reordering below the primary does not.
 
 
 ## 2026-09-17 — UI/UX refinement, all seven phases (`docs/UI-REFINEMENT.md`)

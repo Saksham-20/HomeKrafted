@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
   IsIn,
@@ -15,6 +16,7 @@ import {
 } from 'class-validator';
 import { BooleanField } from '../../common/decorators/boolean-field.decorator';
 import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
+import { MAX_LISTING_PHOTOS } from '../listing-photos';
 
 export class WeightOptionInputDto {
   @IsString()
@@ -242,10 +244,31 @@ export class CreateListingDto {
   @IsIn(['Bestseller', 'New', 'Festive', 'Curated'], { each: true })
   tags?: string[];
 
-  /** Real project asset path (e.g. "/images/products/your-product.jpg") — no upload backend yet; blank/absent keeps the `<ImageSlot>` placeholder. */
+  /**
+   * One photo path — the original single-image field, still accepted.
+   *
+   * Kept beside `imagePaths` rather than replaced: the native app ships
+   * its own compiled copy of the client on a release cycle nobody here
+   * controls, and narrowing a request value breaks clients already in
+   * people's hands (the M22 rule about `category`). A request carrying
+   * both is answered by the list.
+   */
   @IsOptional()
   @IsString()
   imagePath?: string;
+
+  /**
+   * The listing's photos, in order — **index 0 is the primary**, which is
+   * the product card, the OpenGraph image and the JSON-LD image, so its
+   * identity matters beyond the gallery. `server/src/seller/listing-photos.ts`
+   * owns the normalising and the M22 material-change question; an empty
+   * array is a real answer meaning "no photos", not silence.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_LISTING_PHOTOS)
+  @IsString({ each: true })
+  imagePaths?: string[];
 
   @IsArray()
   @ArrayNotEmpty()

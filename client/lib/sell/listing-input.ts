@@ -43,7 +43,15 @@ export interface ListingFormValues {
   isSnack: boolean;
   cashbackPct: string;
   tags: ProductTag[];
-  imagePath: string;
+  /**
+   * The listing's photos, in order — index 0 is the primary (the product
+   * card, the OpenGraph image, the JSON-LD image). A list since
+   * 2026-09-17: `Product.images` has always been one, but both forms
+   * asked for a single photo, so `ProductGallery`'s thumbnail row never
+   * had anything to draw. Both editors write this same field — the M45
+   * rule that the guided flow hides questions, never capability.
+   */
+  imagePaths: string[];
   weightRows: ListingFormWeightRow[];
   defaultRowIndex: number;
   /** Physical size of a craft item — e.g. "15 × 10 × 5 cm". Only sent when kind = 'craft'. */
@@ -108,7 +116,7 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   isSnack: false,
   cashbackPct: "5",
   tags: [],
-  imagePath: "",
+  imagePaths: [],
   weightRows: [{ label: "", colour: "", price: "", mrp: "", stock: "" }],
   defaultRowIndex: 0,
   dimensions: "",
@@ -342,7 +350,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     isSnack: values.kind === "craft" ? false : values.isSnack,
     cashbackPct: Number(values.cashbackPct) || 0,
     tags: values.tags,
-    imagePath: values.imagePath,
+    imagePaths: values.imagePaths,
     weightOptions,
     defaultWeightSku: weightOptions[values.defaultRowIndex]?.sku ?? weightOptions[0]?.sku ?? "",
     // Dimensions, materials & care instructions — supported across all listings (food, crafts, gifts)

@@ -125,6 +125,27 @@ function ensureListings(vendorId: string): Product[] {
   return listingsStore.get(vendorId)!;
 }
 
+/**
+ * `ProductImage[]` for the mock catalogue, from whichever photo field the
+ * caller sent — the same precedence the server applies (`imagePaths`
+ * wins), so local dev with `NEXT_PUBLIC_USE_MOCK=true` exercises the
+ * multi-photo path rather than a single-photo stand-in for it.
+ */
+function mockImageRows(
+  name: string,
+  input: { imagePath?: string; imagePaths?: string[] },
+): Product["images"] {
+  const paths = (input.imagePaths ?? (input.imagePath ? [input.imagePath] : []))
+    .map((src) => src.trim())
+    .filter((src, index, all) => src && all.indexOf(src) === index)
+    .slice(0, 6);
+  return paths.map((src, index) => ({
+    placeholder: index === 0 ? `${name} product photo` : `${name} photo ${index + 1}`,
+    src,
+    ratio: "1/1",
+  }));
+}
+
 function slugify(name: string): string {
   return name
     .toLowerCase()
@@ -185,8 +206,17 @@ export interface SellerListingInput {
   isSnack: boolean;
   cashbackPct: number;
   tags: ProductTag[];
-  /** Real project asset path (e.g. "/images/products/mango-thokku-pickle.jpg") — no upload backend, so this is a typed-in path; blank keeps the `<ImageSlot>` placeholder. */
+  /**
+   * One photo — the original single field. Still sent by anything that
+   * has not moved to `imagePaths`, and still accepted by the server for
+   * the native app's sake (`server/src/seller/listing-photos.ts`).
+   */
   imagePath?: string;
+  /**
+   * The listing's photos, in order; index 0 is the primary. When both are
+   * present the server answers with this one.
+   */
+  imagePaths?: string[];
   weightOptions: WeightOption[];
   defaultWeightSku: string;
   /** Physical size of a craft item, e.g. "15 × 10 × 5 cm". Optional, craft-only. */
@@ -228,13 +258,7 @@ export async function createSellerListing(
       occasionIds: input.occasionIds,
       dietary: input.dietary,
       prepTimeMins: input.prepTimeMins,
-      images: [
-        {
-          placeholder: `${input.name} product photo`,
-          src: input.imagePath || undefined,
-          ratio: "1/1",
-        },
-      ],
+      images: mockImageRows(input.name, input),
       weightOptions: input.weightOptions,
       defaultWeightSku: input.defaultWeightSku || input.weightOptions[0]?.sku || "",
       rating: 0,
@@ -311,12 +335,13 @@ export async function updateSellerListing(
       product.moderationStatus = "pending";
       product.submittedAt = new Date().toISOString();
     }
-    const firstImage = product.images[0];
-    product.images[0] = {
-      placeholder: firstImage?.placeholder ?? `${input.name} product photo`,
-      src: input.imagePath || undefined,
-      ratio: firstImage?.ratio ?? "1/1",
-    };
+    // Mock mode enforces the same shape as the server: the whole list is
+    // rewritten, so a photo removed in the form disappears here too
+    // (a mock branch that behaves differently is a rule the only people
+    // who can test it never see — the one-basket-one-maker lesson).
+    if (input.imagePaths !== undefined || input.imagePath !== undefined) {
+      product.images = mockImageRows(input.name || product.name, input);
+    }
 
     return product;
   }

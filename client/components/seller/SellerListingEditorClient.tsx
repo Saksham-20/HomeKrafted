@@ -66,7 +66,9 @@ function productToFormValues(product: Product): ListingFormValues {
     isSnack: product.isSnack ?? false,
     cashbackPct: String(product.cashbackPct),
     tags: product.tags,
-    imagePath: product.images[0]?.src ?? "",
+    // Every stored photo, in `sortOrder` (the mapper sorts) — seeding
+    // only `images[0]` would drop the rest on the next save.
+    imagePaths: product.images.map((image) => image.src).filter((src): src is string => Boolean(src)),
     weightRows: product.weightOptions.map((w) => ({
       sku: w.sku,
       label: w.label,

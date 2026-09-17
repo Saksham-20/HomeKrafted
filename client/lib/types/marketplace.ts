@@ -723,6 +723,18 @@ export interface ServerCartLine extends CartItem {
   dietary?: DietaryTag[];
   /** Who made it — name, slug and the coarse public area label. Never an address. */
   maker?: CartLineMaker;
+  /**
+   * The commission markup split behind `unitPrice`, per unit (2026-09-17)
+   * — see `server/src/common/pricing/resolve-cart-line.ts`. `unitGst` is 0
+   * while the rate is off; checkout sums it across lines for the order
+   * summary's GST row rather than re-deriving it from a rate the client
+   * does not otherwise have.
+   */
+  unitSellerAmount?: number;
+  unitCommission?: number;
+  unitGst?: number;
+  commissionPct?: number;
+  gstPct?: number;
 }
 
 export interface CartLineMaker {

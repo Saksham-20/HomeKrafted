@@ -97,6 +97,14 @@ export interface CartLineInfo {
   kind?: ProductKind;
   dietary?: DietaryTag[];
   maker?: CartLineMaker;
+  /**
+   * The GST on Homekrafted's commission, per unit (2026-09-17) — see
+   * `ServerCartLine.unitGst`. `undefined` in mock mode (no commission
+   * simulation there) and 0 while the rate is off; either way this is
+   * never shown as its own line, only summed into `gstTotal`.
+   */
+  unitGst?: number;
+  gstPct?: number;
 }
 
 export interface CartContextValue {
@@ -145,6 +153,8 @@ export interface CartContextValue {
   refresh: () => Promise<void>;
   count: number;
   subtotal: number;
+  /** GST on Homekrafted's commission, summed across the cart — already inside `subtotal`, shown separately at checkout only. See `lineInfo`'s `unitGst`. */
+  gstTotal: number;
   lineInfo: (item: CartItem) => CartLineInfo;
 }
 
@@ -445,6 +455,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           kind: line?.kind,
           dietary: line?.dietary,
           maker: line?.maker,
+          unitGst: line?.unitGst,
+          gstPct: line?.gstPct,
         };
       }
 
@@ -500,6 +512,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     () => items.reduce((sum, item) => sum + lineInfo(item).lineTotal, 0),
     [items, lineInfo],
   );
+  /**
+   * The GST on Homekrafted's commission, summed across every line
+   * (2026-09-17) — `subtotal` already has each line's GST baked into
+   * `unitPrice`, so this is purely the checkout summary's own "GST" row,
+   * never added a second time into a total. 0 (not shown) while the rate
+   * is off or in mock mode, where every `unitGst` is `undefined`.
+   */
+  const gstTotal = useMemo(
+    () => items.reduce((sum, item) => sum + (lineInfo(item).unitGst ?? 0) * item.quantity, 0),
+    [items, lineInfo],
+  );
 
   const refresh = useCallback(async () => {
     if (mock) return;
@@ -522,6 +545,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     refresh,
     count,
     subtotal,
+    gstTotal,
     lineInfo,
   };
 

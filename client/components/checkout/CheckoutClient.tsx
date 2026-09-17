@@ -111,7 +111,7 @@ export function CheckoutClient() {
   /** The delivery rule from `/admin/settings`; `undefined` until read, and Place order waits for it. */
   const publicSettings = usePublicSettings();
   const { user } = useAuth();
-  const { items, ready, lineInfo, subtotal, assignAddress, clear, updateQty, removeItem } = useCart();
+  const { items, ready, lineInfo, subtotal, gstTotal, assignAddress, clear, updateQty, removeItem } = useCart();
   /**
    * A shipment's date picker is craft-only when every line in it is —
    * `checkoutModeOf` already guarantees gift-mode carries no food line, so
@@ -1008,6 +1008,12 @@ export function CheckoutClient() {
                 </dt>
                 <dd>{!shippingKnown ? "…" : shipping === 0 ? "Free" : formatCurrency(shipping)}</dd>
               </div>
+              {gstTotal > 0 && (
+                <div className={styles.billRow}>
+                  <dt>GST (platform fee)</dt>
+                  <dd>{formatCurrency(gstTotal)}</dd>
+                </div>
+              )}
               <div className={clsx(styles.billRow, styles.billTotal)}>
                 <dt>To pay</dt>
                 <dd>{formatCurrency(total)}</dd>
@@ -1052,6 +1058,12 @@ export function CheckoutClient() {
           <dt>Delivery</dt>
           <dd>{!shippingKnown ? "…" : shipping === 0 ? "Free" : formatCurrency(shipping)}</dd>
         </div>
+        {gstTotal > 0 && (
+          <div className={styles.billRow}>
+            <dt>GST (platform fee)</dt>
+            <dd>{formatCurrency(gstTotal)}</dd>
+          </div>
+        )}
         <div className={clsx(styles.billRow, styles.billTotal)}>
           <dt>Order total</dt>
           <dd className={styles.orderTotal}>{formatCurrency(total)}</dd>

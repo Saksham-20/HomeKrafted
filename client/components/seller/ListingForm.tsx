@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { Plus, Trash2 } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { Combobox } from "@/components/ui/Combobox";
-import { ImageUpload } from "@/components/ui/ImageUpload";
+import { PhotoUpload } from "@/components/ui/PhotoUpload";
 import { ChoiceCards } from "@/components/portal/ChoiceCards";
 import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "@/components/portal/Field";
 import { FormSection } from "@/components/portal/FormSection";
@@ -62,7 +62,7 @@ const TAG_OPTIONS: ProductTag[] = ["Bestseller", "New", "Festive", "Curated"];
  * renders. `dietary` only exists for food, which the caller filters.
  */
 export const LISTING_FORM_SECTIONS = [
-  { id: "listing-photo", label: "Photo" },
+  { id: "listing-photo", label: "Photos" },
   { id: "listing-basics", label: "Name & description" },
   { id: "listing-prices", label: "Sizes & prices" },
   { id: "listing-details", label: "Details & tags" },
@@ -283,18 +283,24 @@ export function ListingForm({
     <div className={styles.form}>
       <FormSection
         id="listing-photo"
-        title="Photo"
-        description="One clear photo, taken on your phone in daylight, on a plain surface. It is the thing that decides whether somebody stops scrolling."
+        title="Photos"
+        description="Photographs taken on your phone in daylight, on a plain surface. They are the thing that decides whether somebody stops scrolling."
       >
-        <ImageUpload
-          label="Product photo"
+        {/* A list since 2026-09-17. `PhotoUpload` is the same control the
+            storefront gallery uses — a grid of thumbnails that doubles as
+            a drop zone, uploading in parallel — rather than a second
+            recipe for the same job. */}
+        <PhotoUpload
+          photos={values.imagePaths}
+          onChange={(photos) => set("imagePaths", photos)}
           purpose="listing"
-          ratio="1/1"
-          placeholderLabel={values.name || "Product photo"}
-          hint="You can save without one and add it later — but a listing without a photo sells far less."
-          value={values.imagePath}
-          onChange={(url) => set("imagePath", url)}
+          label="Add a photo"
         />
+        <p className={styles.photoHint}>
+          The first photo is the one shoppers see on the card and in search — drag is not needed,
+          just remove and re-add to change the order. You can save without any and add them later,
+          but a listing without a photo sells far less.
+        </p>
       </FormSection>
 
       <FormSection
@@ -513,7 +519,7 @@ export function ListingForm({
               <Field
                 label="Your payout (₹)"
                 className={styles.cell}
-                hint={commissionRate.enabled ? `+${commPct}% commission (+GST) added` : "Nothing added right now"}
+                hint={commissionRate.enabled ? `+${commPct}% commission added` : "Nothing added right now"}
               >
                 <Input
                   dense
@@ -568,9 +574,7 @@ export function ListingForm({
         {defaultRowPrice > 0 && commissionRate.enabled ? (
           <p className={styles.earnings} aria-live="polite">
             You receive {formatCurrency(markup.sellerWants)} → commission (+{commPct}%){" "}
-            +{formatCurrency(markup.commission)}
-            {markup.gst > 0 ? <> → GST on commission +{formatCurrency(markup.gst)}</> : null} → customer pays{" "}
-            {formatCurrency(markup.customerPrice)}.
+            +{formatCurrency(markup.commission)} → customer pays {formatCurrency(markup.customerPrice)}.
             <br />
             <strong>It’ll be {formatCurrency(markup.customerPrice)} for the customer, all fees included.</strong>
           </p>
