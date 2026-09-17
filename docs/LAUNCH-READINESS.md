@@ -198,8 +198,11 @@ Both are one action: they are the same accounts.
 
 M17 fixed the lockout in the product: a newly approved HomeKrafter signs
 in with **phone OTP**, because approval never sets a password. That path
-only works if OTP codes are actually delivered. `TWILIO_*` is still a
-placeholder, so the code is written to the server log and nowhere else.
+only works if OTP codes are actually delivered. `TWILIO_*` **is set on
+the box as of 2026-09-17 and has not been proved** — no real SMS has been
+sent through it, and a revoked key is indistinguishable from a working one
+from here. Until somebody sends one, assume the code may still be going
+only to the server log.
 
 **M21 added a second door, and it needs a different key.** Approval now
 also sends a single-use, 7-day set-password link by **email and SMS**
@@ -213,10 +216,14 @@ Two things follow:
 - `POST /admin/sellers/:id/resend-invite` re-sends and burns the older
   link, which is what you will want the first time an email bounces.
 
-**On production today, both channels are stubs, so a real HomeKrafter you
-approve is still not contacted.** This remains the single hard blocker on
-onboarding anybody — but it is now satisfied by *either* SendGrid or
-Twilio, not only Twilio.
+**Email is live on production and verified (2026-09-17)**, so an approved
+HomeKrafter *is* now contacted: Resend accepted a real send from
+`no-reply@homekrafted.in` with a 200 and a message id, which it does not
+do for an unverified domain (`server/scripts/send-test-email.mjs`). That
+retires this as the hard blocker on onboarding — it was satisfiable by
+*either* channel, and email is the one that works. SMS keys are set but
+unproven (above), so keep reading the admin screen's "we could not reach
+them" notice rather than assuming both channels fired.
 
 ---
 
@@ -231,7 +238,7 @@ not happen. That is the dangerous shape: it looks fine.
 | **Twilio** (SMS/OTP) | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | OTP codes only appear in the server log | **HomeKrafter onboarding**, phone sign-in for everyone |
 | **Razorpay live** | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | No money moves. Since 2026-08-07 the UI **says so** rather than pretending: `GET /payments/razorpay/config` reports the truth, the wallet's Add money card reads "not available yet", and checkout disables the Card / UPI tile. Before that fix the buttons were live and opened a Checkout widget that hung silently (see `docs/API.md`) | **Taking payment** — a shopper whose wallet balance can't cover an order currently cannot check out at all |
 | **WhatsApp Cloud API** | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN` | Snack orders and status updates are logged, never sent | **The entire snacks module**, whose only ordering channel is WhatsApp |
-| **SendGrid** (email) | `SENDGRID_API_KEY` | No transactional email at all | Order confirmations, receipts |
+| ~~**Email**~~ ✅ **live, verified 2026-09-17** | `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` | No transactional email at all | ~~Order confirmations, receipts~~ — sending now works; a new `EMAIL_FROM` domain needs its DKIM/SPF records again |
 | **Google sign-in** | `GOOGLE_CLIENT_IDS` (comma-separated; web id first) | The Google button does not render and the endpoint answers 503. **Not a security hole any more** (M27) — just a feature that is off | Social sign-in only |
 | **Sentry** | `SENTRY_DSN` | 500s are visible only in pm2 logs. The boot line says `Sentry: OFF` so this cannot be mistaken for "no errors" | Knowing when checkout breaks |
 | **Off-box backups** | a private GCS bucket + credentials | `pg_dump`s and **every HomeKrafter photo** exist only on the VPS. Losing the box loses both | Surviving the box |
@@ -251,9 +258,8 @@ Ranked by how soon someone hits it.
 1. ~~**No password reset, anywhere.**~~ ✅ **Shipped M18.**
    `/forgot-password` + `/reset-password`, single-use one-hour tokens,
    every session revoked on reset, and no account-existence oracle. The
-   *link* still needs `SENDGRID_API_KEY` to actually leave the box —
-   until then it lands in the server log, so the flow is testable but not
-   yet usable by a real customer.
+   link **now leaves the box** (email verified on production
+   2026-09-17), so the flow is usable by a real customer.
 2. **No refund execution.** A buyer can request a return and an admin can
    resolve it, but settlement is a wallet credit — money never returns to
    the card it came from. Razorpay refunds are not wired.
@@ -265,9 +271,9 @@ Ranked by how soon someone hits it.
 5. ~~**No order-confirmation email or SMS.**~~ ✅ **Wired M18**, still
    gated on §1. Every order status change now messages the buyer, and a
    new order or cancellation messages each HomeKrafter — WhatsApp, email
-   and in-app by default. All of it degrades to a logged stub until
-   `WHATSAPP_*` and `SENDGRID_API_KEY` are real, so the work is done and
-   the delivery is not.
+   and in-app by default. **Email delivery is verified as of
+   2026-09-17**; `WHATSAPP_*` is set but unproven, and until somebody
+   sends one that half may still be a logged stub.
 6. **No live delivery tracking** — deliberate (it is app-only, per the
    channel matrix), but buyers will ask.
 7. **Support tickets are one-way-ish.** A customer can reply and it
