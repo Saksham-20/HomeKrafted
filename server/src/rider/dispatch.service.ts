@@ -230,7 +230,7 @@ export class DispatchService implements OnModuleInit, OnModuleDestroy {
           userId: admin.id,
           category: 'account',
           title: 'A delivery has no rider yet',
-          body: `Job ${job.jobNumber} has had no eligible rider to offer it to for a while — check the despatch queue.`,
+          body: `Job ${job.jobNumber} has had no eligible rider to offer it to for a while — check the dispatch queue.`,
           refType: 'deliveryJob',
           refId: job.id,
         });

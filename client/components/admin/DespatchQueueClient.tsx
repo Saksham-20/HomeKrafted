@@ -69,7 +69,7 @@ export function DespatchQueueClient() {
         setRows([]);
         // The server's own sentence, not a generic line — it is what says
         // what to do next (M36).
-        setError(err instanceof ApiError ? err.message : "We could not load the despatch queue.");
+        setError(err instanceof ApiError ? err.message : "We could not load the dispatch queue.");
       });
     return () => {
       ignore = true;
@@ -100,7 +100,7 @@ export function DespatchQueueClient() {
   return (
     <div>
       <AdminPageHeader
-        title="Despatch"
+        title="Dispatch"
         subtitle="Courier parcels. A parcel that could not be booked is a paid order with no rider."
       />
 

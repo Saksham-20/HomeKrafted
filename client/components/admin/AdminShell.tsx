@@ -76,7 +76,7 @@ const NAV: AdminNavItem[] = [
   { label: "Users", href: "/admin/users", icon: Users, group: "People", scope: "users" },
   { label: "HomeKrafters", href: "/admin/sellers", icon: Store, group: "People", scope: "sellers", queue: "applications" },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag, group: "Orders & money", scope: "orders" },
-  { label: "Despatch", href: "/admin/shipping", icon: Truck, group: "Orders & money", scope: "orders" },
+  { label: "Dispatch", href: "/admin/shipping", icon: Truck, group: "Orders & money", scope: "orders" },
   // M15 — until this existed, a HomeKrafter's payout request had nowhere
   // to go: `pending` was terminal in practice.
   { label: "Payouts", href: "/admin/payouts", icon: Banknote, group: "Orders & money", scope: "finance", queue: "payouts" },

@@ -28,7 +28,7 @@ const ADMIN_SCOPES: { value: AdminScope; label: string; help: string }[] = [
   { value: "analytics", label: "Dashboard & analytics", help: "The overview and the reports." },
   { value: "users", label: "Users & audit", help: "Every account, and the audit trail. This is the section that hands out sections — give it out last." },
   { value: "sellers", label: "HomeKrafters", help: "Approvals, verification and sign-in details." },
-  { value: "orders", label: "Orders & corporate", help: "Order detail, status corrections, refunds, despatch and bulk enquiries." },
+  { value: "orders", label: "Orders & corporate", help: "Order detail, status corrections, refunds, dispatch and bulk enquiries." },
   { value: "catalog", label: "Catalog & collections", help: "The review queue, categories, occasions and gift guides." },
   { value: "finance", label: "Wallet & payouts", help: "Moves money." },
   { value: "support", label: "Support", help: "Customer tickets." },
