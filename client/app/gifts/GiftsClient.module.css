@@ -118,7 +118,11 @@
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: var(--hk-s3);
+  /* The count, the pill cluster, the personalisable toggle and the sort
+     are four different kinds of control at one gap — `FilterPillBar`'s
+     own internal gap is `--hk-s2`, so widening only this outer one
+     separates the clusters without spreading the pills inside each. */
+  gap: var(--hk-s4);
   flex-wrap: wrap;
   padding: var(--hk-s3) var(--hk-s4);
   border: 1px solid var(--hk-border);

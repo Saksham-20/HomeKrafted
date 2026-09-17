@@ -1,7 +1,9 @@
 "use client";
 
 import clsx from "clsx";
+import type { CSSProperties } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { categoryTint } from "@/lib/category-tint";
 import type { Department } from "@/lib/api/catalog";
 import styles from "./DepartmentTiles.module.css";
 
@@ -69,6 +71,7 @@ export function DepartmentTiles({
           const hasChildren = department.children.length > 0;
           const isOpen = hasChildren && department.id === openId;
           const isSelected = selectedIds.has(department.id);
+          const tint = categoryTint(department.id);
           return (
             <li key={department.id}>
               <button
@@ -95,9 +98,21 @@ export function DepartmentTiles({
                   shelf, it goes stale when that gift sells, and a
                   department whose listings carry no photo fell through to
                   a hatch placeholder beside neighbours that had one.
+
+                  The tint is `lib/category-tint.ts`'s deterministic
+                  ground/ink pair (2026-09-17) — the same mechanism
+                  `CategoryTile` and `QuickFilterChips` use, so nine
+                  departments read apart from each other instead of nine
+                  identical pine-tint squares. `.tileOpen`/`.tileSelected`
+                  override it with pine on purpose: a chosen or disclosed
+                  department is answering "which one", not "what colour".
                 */}
-                <span className={styles.face} aria-hidden="true">
-                  <Icon id={department.icon} size={26} />
+                <span
+                  className={styles.face}
+                  aria-hidden="true"
+                  style={{ "--tile-ground": tint.ground, "--tile-ink": tint.ink } as CSSProperties}
+                >
+                  <Icon id={department.icon} size={24} />
                 </span>
                 <span className={styles.label}>
                   <span className={styles.name}>{department.name}</span>

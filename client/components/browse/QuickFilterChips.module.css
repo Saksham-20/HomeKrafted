@@ -1,11 +1,11 @@
-/* Photo category tiles in a horizontal rail (M59; photo tiles
-   2026-09-02) — the shelf's photograph with its name under it. */
+/* Category tiles in a horizontal rail (M59; icon marks since G3; tinted
+   2026-09-17 UI refinement — see the component's own doc comment). */
 
 .rail {
   display: flex;
-  gap: var(--hk-s2);
+  gap: var(--hk-s2h);
   overflow-x: auto;
-  padding: 2px 2px 4px;
+  padding: 2px 2px 6px;
   scrollbar-width: thin;
 }
 
@@ -13,36 +13,50 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--hk-s1h);
   flex-shrink: 0;
-  /* Compact (owner, 2026-09-02): the tile is a shortcut row over the
-     catalogue, not the catalogue — 72px keeps the photo legible and
-     halves the card's height. */
-  width: 72px;
+  /* 80px (was 72): still a shortcut row over the catalogue, not the
+     catalogue, but the tinted mark reads as a small poster now rather
+     than a photo thumbnail, and needed the extra 8px to stop crowding
+     the icon against its own edge. */
+  width: 80px;
   padding: 0;
   border: none;
   background: none;
   color: var(--hk-ink-2);
   font-family: inherit;
   cursor: pointer;
+  transition: transform 120ms var(--hk-ease);
 }
 
-/* The photo face. The selection state lives on this ring, not on a fill
-   behind the label — a photograph can't turn pine the way a pill could. */
+/* Press feedback lives on the whole tile, not just the face, so the
+   label moves with it — one object, not two. */
+.tile:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+
+/* The tinted mark. One border declares the edge — no outline layered
+   under it — transparent at rest, pine when selected; that is the only
+   state this needs to carry. `--tile-ground`/`--tile-ink` come from
+   `lib/category-tint.ts`, set per-instance in the component. */
 .face {
   position: relative;
   display: block;
   width: 100%;
+  aspect-ratio: 1;
   border-radius: var(--hk-r-lg);
   overflow: hidden;
   border: 2px solid transparent;
-  outline: 1px solid var(--hk-border-2);
-  background: var(--hk-surface);
-  transition: border-color var(--hk-dur) var(--hk-ease), outline-color var(--hk-dur) var(--hk-ease);
+  background: var(--tile-ground, var(--hk-surface-2));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
+  transition: border-color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
 }
 
-.tile:hover .face {
-  outline-color: var(--hk-pine);
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover:not(:disabled) .face {
+    transform: translateY(-2px);
+  }
 }
 
 .tile:focus-visible {
@@ -53,26 +67,24 @@
 
 .tileSelected .face {
   border-color: var(--hk-pine);
-  outline-color: var(--hk-pine);
 }
 
-/* A shelf without a photograph: its emoji on the tint, same box. */
 .faceIcon {
   display: grid;
   place-items: center;
   width: 100%;
   height: 100%;
-  /* The mark is the chip's face when there is no photograph, so it takes
-     the pine ink rather than the muted label colour. */
-  color: var(--hk-pine);
+  /* The mark takes the tint's own ink — always AA-safe on `--tile-ground`
+     by construction (`lib/category-tint.ts`). */
+  color: var(--tile-ink, var(--hk-pine));
 }
 
-/* Count seal on the photo corner — mono, white plate for legibility on
-   any photograph. */
+/* Count seal on the mark's corner — mono, white plate reads over any of
+   the four tint colours the same way. */
 .faceCount {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 5px;
+  right: 5px;
   font-family: var(--hk-font-mono);
   font-size: 10px;
   line-height: 1;
@@ -88,8 +100,9 @@
 }
 
 .tileLabel {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: -0.005em;
   line-height: 1.25;
   text-align: center;
   /* Two lines then ellipsis — "Personalised Gifts" fits, an essay doesn't. */
@@ -113,10 +126,6 @@
 }
 
 .tileEmpty .face {
-  opacity: 0.55;
+  opacity: 0.5;
   filter: grayscale(1);
-}
-
-.tileEmpty:hover .face {
-  outline-color: var(--hk-border-2);
 }

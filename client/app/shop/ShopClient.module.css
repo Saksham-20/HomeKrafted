@@ -23,7 +23,9 @@
   border: 1px solid var(--hk-border);
   border-radius: var(--hk-r-xl);
   box-shadow: var(--hk-shadow-card);
-  padding: var(--hk-s2) var(--hk-s3) var(--hk-s2);
+  /* Was s2/s3 (8px/12px) all round — tight enough that the 80px tinted
+     category tiles read as clipped against the card's own edge. */
+  padding: var(--hk-s3) var(--hk-s4) var(--hk-s3);
   margin-bottom: var(--hk-s4);
 }
 
@@ -37,20 +39,30 @@
   }
 }
 
+/* Three clusters — the view switch, the filter pills, the sort control
+   — not one long undifferentiated row of pills. Each pill group already
+   declares its own edge (the switch's tinted pill, `FilterPillBar`'s own
+   1px borders); what was missing was air *between* the groups, since
+   `FilterPillBar`'s internal gap is also `--hk-s2` — a Dietary-to-Price
+   gap and a Dishes-to-Dietary gap read identically at 8px. Widening only
+   this outer gap keeps each cluster tight and separates the clusters,
+   rather than inflating the whole row (DESIGN.md's anti-whitespace
+   brief). */
 .controlRow {
   display: flex;
   align-items: center;
-  gap: var(--hk-s2);
+  gap: var(--hk-s4);
   flex-wrap: wrap;
   border-top: 1px solid var(--hk-border);
-  padding-top: var(--hk-s2);
+  padding-top: var(--hk-s3);
 }
 
 .taskChipsRail {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--hk-s2);
   overflow-x: auto;
+  margin-top: var(--hk-s2);
   padding-bottom: 4px;
   width: 100%;
 }
@@ -67,14 +79,21 @@
   background: var(--hk-surface-2);
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-pill, 999px);
-  padding: 4px 12px;
+  padding: 5px 13px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease),
+    color var(--hk-dur) var(--hk-ease), transform 120ms var(--hk-ease);
 }
 
 .taskChip:hover {
   background: var(--hk-surface-hover);
   border-color: var(--hk-pine-deep);
+}
+
+/* Feedback on press, matching the category rail above it (§5.3). */
+.taskChip:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
 }
 
 .taskChipActive {

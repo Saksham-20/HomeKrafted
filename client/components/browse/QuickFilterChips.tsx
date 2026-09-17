@@ -1,7 +1,9 @@
 "use client";
 
 import clsx from "clsx";
+import type { CSSProperties } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { categoryTint } from "@/lib/category-tint";
 import styles from "./QuickFilterChips.module.css";
 
 export interface QuickFilterChip {
@@ -29,14 +31,17 @@ export interface QuickFilterChipsProps {
 }
 
 /**
- * One-tap category tiles in a horizontal rail over the grid (M59;
- * photo tiles 2026-09-02, owner: "images for categories, text below") —
- * the Swiggy-taught pattern: the shelf's photograph with its name under
- * it. A shelf without a photo shows its emoji on a tinted block, so a
- * rail of mixed shelves stays one shape. Since M59b this is the primary
- * category control; every shelf renders, zero-count ones dimmed and
- * disabled per the M56 rule. Toggles are the same `toggle()` the
- * sheet's checkboxes call, so the rail and the checklist are one state.
+ * One-tap category tiles in a horizontal rail over the grid (M59; icon
+ * marks since G3). Since M59b this is the primary category control;
+ * every shelf renders, zero-count ones dimmed and disabled per the M56
+ * rule. Toggles are the same `toggle()` the sheet's checkboxes call, so
+ * the rail and the checklist are one state.
+ *
+ * **The tint is `lib/category-tint.ts`'s deterministic ground/ink pair
+ * (2026-09-17 UI refinement)** — the same mechanism `CategoryTile`
+ * already used on the home rail, wired in here too so the shelf reads
+ * apart from its neighbours the same way on both surfaces instead of
+ * nine identical white tiles in a row.
  */
 export function QuickFilterChips({ label, chips, onToggle }: QuickFilterChipsProps) {
   if (chips.length < 2) return null;
@@ -49,29 +54,36 @@ export function QuickFilterChips({ label, chips, onToggle }: QuickFilterChipsPro
   ];
   return (
     <div className={clsx(styles.rail, "hk-scroll")} role="group" aria-label={label}>
-      {ordered.map((chip) => (
-        <button
-          key={chip.id}
-          type="button"
-          disabled={chip.count === 0 && !chip.selected}
-          className={clsx(
-            styles.tile,
-            chip.selected && styles.tileSelected,
-            chip.count === 0 && !chip.selected && styles.tileEmpty,
-          )}
-          aria-pressed={chip.selected}
-          onClick={() => onToggle(chip.id)}
-        >
-          <span className={styles.face} aria-hidden="true">
-            {/* The mark, never a listing's photograph — see `CategoryTile`. */}
-            <span className={styles.faceIcon}>
-              <Icon id={chip.icon} size={26} />
+      {ordered.map((chip) => {
+        const tint = categoryTint(chip.id);
+        return (
+          <button
+            key={chip.id}
+            type="button"
+            disabled={chip.count === 0 && !chip.selected}
+            className={clsx(
+              styles.tile,
+              chip.selected && styles.tileSelected,
+              chip.count === 0 && !chip.selected && styles.tileEmpty,
+            )}
+            aria-pressed={chip.selected}
+            onClick={() => onToggle(chip.id)}
+          >
+            <span
+              className={styles.face}
+              aria-hidden="true"
+              style={{ "--tile-ground": tint.ground, "--tile-ink": tint.ink } as CSSProperties}
+            >
+              {/* The mark, never a listing's photograph — see `CategoryTile`. */}
+              <span className={styles.faceIcon}>
+                <Icon id={chip.icon} size={24} />
+              </span>
+              <span className={styles.faceCount}>{chip.count}</span>
             </span>
-            <span className={styles.faceCount}>{chip.count}</span>
-          </span>
-          <span className={styles.tileLabel}>{chip.label}</span>
-        </button>
-      ))}
+            <span className={styles.tileLabel}>{chip.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

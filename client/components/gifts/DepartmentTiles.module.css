@@ -2,6 +2,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--hk-s5);
+  /* The sticky toolbar follows immediately (`.main` is plain block flow,
+     no wrapper supplies a gap) — without this the last tile row sat flush
+     against the toolbar's own border. */
+  margin-bottom: var(--hk-s4);
 }
 
 .tiles {
@@ -80,6 +84,10 @@
 /*
   The mark on its own tinted ground. It is the tile's subject now, so it
   gets the space the photograph had rather than sitting on it as a badge.
+  `--tile-ground`/`--tile-ink` come from `lib/category-tint.ts`, set
+  per-instance in the component; the fallback is the original flat pine
+  tint so a tile never renders unstyled if the custom property is ever
+  missing.
 */
 .face {
   display: grid;
@@ -88,7 +96,17 @@
   height: 46px;
   flex: none;
   border-radius: var(--hk-r-md);
-  background: var(--hk-pine-tint, color-mix(in srgb, var(--hk-pine) 8%, transparent));
+  background: var(--tile-ground, var(--hk-pine-tint));
+  color: var(--tile-ink, var(--hk-pine));
+  transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease);
+}
+
+/* Open or selected answers "which one", not "what colour" — pine takes
+   over from the tile's own tint so the state reads the same on every
+   department regardless of its resting hue. */
+.tileOpen .face,
+.tileSelected .face {
+  background: var(--hk-pine-tint);
   color: var(--hk-pine);
 }
 

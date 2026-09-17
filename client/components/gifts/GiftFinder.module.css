@@ -10,6 +10,10 @@
   font-size: clamp(20px, 2.2vw, 28px);
   line-height: 1.5;
   color: var(--hk-ink);
+  /* The department tiles follow immediately with no wrapper of their own
+     (`.main` is plain block flow) — without this the question ran flush
+     into the first row of tiles. */
+  margin-bottom: var(--hk-s4);
 }
 
 /*
