@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-17 (later) — QA sweep of the order lifecycle, three fixes
+
+Owner asked for an end-to-end test of the whole workflow across all
+three roles, fixing what turned up. Flows verified against a real API
+and a real Postgres (not mock mode): buyer browse → cart → checkout →
+wallet payment, HomeKrafter confirm → packed, admin moderation approval
+and admin status override (`deliveredAt` stamped). Three defects found
+and fixed, plus one feature that did not exist.
+
+- **A dashboard figure is not a row count.** Seller "Today's revenue"/
+  "Today's orders", platform GMV, its daily series and the seller
+  analytics revenue series all counted orders still at
+  `pending_payment` — an abandoned payment sheet — and cancelled orders
+  as money. One paid ₹640 order plus one abandoned checkout read as
+  ₹1,280 on the kitchen's dashboard; dev-DB GMV overstated by ₹4,084
+  (35%). `server/src/common/orders/order-money.ts` now owns both
+  definitions (counted vs revenue-bearing) for Prisma and raw SQL.
+  See CLAUDE.md's own section.
+
+
 ## 2026-09-17 — UI/UX refinement, all seven phases (`docs/UI-REFINEMENT.md`)
 
 Owner brief: go through the whole site's UI across all three roles,

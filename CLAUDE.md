@@ -2366,6 +2366,35 @@ to `POST /uploads?purpose=…`, and hand back a URL to store.
   because a WhatsApp block is per-sender and one promo would cost every
   future order update to that person.
 
+## A dashboard figure is not a row count (2026-09-17)
+
+**Every order is written at `pending_payment` before it is paid**, and
+the cart is emptied in the same transaction — so every buyer who opens
+the payment sheet and closes it leaves a row behind carrying a full
+basket total nobody paid. Four figures summed those rows: a kitchen's
+"Today's revenue" and "Today's orders", platform GMV and its daily
+series, and the seller analytics revenue series. Measured with one paid
+₹640 order and one abandoned checkout for the same item, the kitchen's
+dashboard read **₹1,280**, and dev-DB GMV overstated by ₹4,084 (35%).
+
+`server/src/common/orders/order-money.ts` is the one place that decides,
+in both a Prisma `where` and a `$queryRaw` fragment. **Never inline the
+status list at a call site** — the defect was four call sites each
+deciding for themselves and three deciding nothing.
+
+- **`COUNTED_ORDER_STATUSES` answers "did an order happen?"** —
+  everything a buyer actually placed, cancellations included.
+- **`REVENUE_ORDER_STATUSES` answers "is this money?"** — the same set
+  less `cancelled`, because a cancellation refunds the buyer. `returned`
+  stays in: a return moves no money on its own, an admin resolves it, so
+  dropping it would understate what a kitchen is owed.
+- **Neither is the payout rule.** `SellerPayoutsService` still pays on
+  `delivered` alone and remains the authority on money actually earned;
+  these two say what a *dashboard* may claim, which is looser and more
+  immediate ("nothing delivered yet today" is not "you sold nothing").
+- A cancelled order also leaves `topItems`/`unitsSold` alone — a refunded
+  order must not make a listing look like a bestseller.
+
 ## Trust & money loops (M15) — don't quietly reopen these
 
 Phase 1 of `docs/PRODUCTION-AUDIT.md` closed five loops that had been

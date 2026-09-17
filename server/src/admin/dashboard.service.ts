@@ -4,6 +4,7 @@ import { AdminOrderType } from './orders.service';
 import { AdminSettingsService } from './settings.service';
 import { AdminSupportService } from './support.service';
 import { markUpFactor } from '../common/pricing/commission';
+import { countedOrderWhere, revenueOrderWhere, revenueStatusSql } from '../common/orders/order-money';
 
 export interface AdminDashboardSnapshot {
   /** Sum of every unified order/booking/snack-order total — a proxy for GMV; nets nothing out (vendor payout share is a `Payout`-ledger concern, not this KPI). */
@@ -339,17 +340,25 @@ export class AdminDashboardService {
   private async orderTotals(todayStart?: Date) {
     const since = todayStart ? { gte: todayStart } : undefined;
 
-    const [orderAgg, bookingAgg, snackAgg, ordersToday, bookingsToday, snacksToday] = await Promise.all([
-      this.prisma.order.aggregate({ _sum: { total: true }, _count: { _all: true } }),
-      this.prisma.laundryBooking.aggregate({ _sum: { estimatedTotal: true }, _count: { _all: true } }),
-      this.prisma.snackOrder.aggregate({ _sum: { total: true }, _count: { _all: true } }),
-      since ? this.prisma.order.count({ where: { placedAt: since } }) : Promise.resolve(0),
-      since ? this.prisma.laundryBooking.count({ where: { createdAt: since } }) : Promise.resolve(0),
-      since ? this.prisma.snackOrder.count({ where: { createdAt: since } }) : Promise.resolve(0),
-    ]);
+    const [orderAgg, orderCount, bookingAgg, snackAgg, ordersToday, bookingsToday, snacksToday] =
+      await Promise.all([
+        // An order exists at `pending_payment` from the moment a buyer
+        // presses Place order, so an abandoned payment sheet used to add
+        // its full basket total to platform GMV. `revenueOrderWhere` is
+        // money we can claim; `countedOrderWhere` is orders that happened.
+        this.prisma.order.aggregate({ where: revenueOrderWhere, _sum: { total: true } }),
+        this.prisma.order.count({ where: countedOrderWhere }),
+        this.prisma.laundryBooking.aggregate({ _sum: { estimatedTotal: true }, _count: { _all: true } }),
+        this.prisma.snackOrder.aggregate({ _sum: { total: true }, _count: { _all: true } }),
+        since
+          ? this.prisma.order.count({ where: { ...countedOrderWhere, placedAt: since } })
+          : Promise.resolve(0),
+        since ? this.prisma.laundryBooking.count({ where: { createdAt: since } }) : Promise.resolve(0),
+        since ? this.prisma.snackOrder.count({ where: { createdAt: since } }) : Promise.resolve(0),
+      ]);
 
     const ordersByType: Record<AdminOrderType, number> = {
-      marketplace: orderAgg._count._all,
+      marketplace: orderCount,
       laundry: bookingAgg._count._all,
       snack: snackAgg._count._all,
     };
@@ -394,7 +403,8 @@ export class AdminDashboardService {
       SELECT to_char(d, 'YYYY-MM-DD') AS date, SUM(amount)::float8 AS gmv, COUNT(*) AS order_count
       FROM (
         SELECT date_trunc('day', "placedAt") AS d, "total" AS amount
-          FROM "Order" WHERE "placedAt" >= ${since}::timestamp
+          FROM "Order"
+          WHERE "placedAt" >= ${since}::timestamp AND "status" IN ${revenueStatusSql}
         UNION ALL
         SELECT date_trunc('day', "createdAt"), "estimatedTotal"
           FROM "LaundryBooking" WHERE "createdAt" >= ${since}::timestamp

@@ -13,6 +13,7 @@ import {
   vendorTypeForSpecialties,
 } from '../seller-applications/specialty-taxonomy';
 import { RequestUser } from '../common/types/jwt-payload.type';
+import { countedOrderWhere, revenueStatusSql } from '../common/orders/order-money';
 import { mapVendor } from '../catalog/mappers/vendor.mapper';
 import { UpdateStorefrontDto } from './dto/update-storefront.dto';
 import { SetDiscountDto } from './dto/set-discount.dto';
@@ -383,8 +384,16 @@ export class SellerService {
       this.prisma.product.count({ where: { vendorId, isAvailable: true, moderationStatus: 'active' } }),
       this.prisma.product.count({ where: { vendorId, moderationStatus: 'pending' } }),
       this.prisma.weightOption.count({ where: { product: { vendorId }, stock: { lt: 15 } } }),
+      // `countedOrderWhere` keeps an abandoned checkout out of the
+      // count: every order exists at `pending_payment` before it is
+      // paid, so without it a buyer who opened the payment sheet and
+      // closed it shows up here as an order this kitchen received.
       this.prisma.order.aggregate({
-        where: { placedAt: { gte: todayStart }, items: { some: { product: { vendorId } } } },
+        where: {
+          ...countedOrderWhere,
+          placedAt: { gte: todayStart },
+          items: { some: { product: { vendorId } } },
+        },
         _count: { _all: true },
       }),
       // The kitchen's own earnings today, not what the buyer paid — see
@@ -407,9 +416,11 @@ export class SellerService {
         SELECT SUM(COALESCE(oi."sellerAmount", oi."price") * oi."quantity")::float8 AS total
         FROM "OrderItem" oi
         JOIN "Order" o ON o.id = oi."orderId"
-        WHERE o."placedAt" >= ${todayStart.toISOString()}::timestamp AND oi."productId" IN (
-          SELECT id FROM "Product" WHERE "vendorId" = ${vendorId}
-        )
+        WHERE o."placedAt" >= ${todayStart.toISOString()}::timestamp
+          AND o."status" IN ${revenueStatusSql}
+          AND oi."productId" IN (
+            SELECT id FROM "Product" WHERE "vendorId" = ${vendorId}
+          )
       `,
       payoutsService.getPendingBalance(seller),
       this.prisma.laundryBooking.count({

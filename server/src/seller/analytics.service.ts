@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Seller } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { countedOrderWhere } from '../common/orders/order-money';
 
 export interface SellerDailyPoint {
   date: string;
@@ -182,6 +183,13 @@ export class SellerAnalyticsService {
         ? Promise.resolve([])
         : this.prisma.order.findMany({
             where: {
+              // Not every row in this table is a sale: an order is
+              // written at `pending_payment` before it is paid, so a
+              // buyer who closed the payment sheet left a full basket
+              // total behind. Counting those inflated every figure on
+              // this screen and put them in the cancellation rate's
+              // denominator as well (`common/orders/order-money.ts`).
+              ...countedOrderWhere,
               placedAt: { gte: from, lte: to },
               items: { some: { productId: { in: productIds } } },
             },
@@ -222,6 +230,10 @@ export class SellerAnalyticsService {
         // Line-item share only — see the class doc. An order spanning
         // three kitchens must not credit each of them with all of it.
         const mine = order.items.filter((i) => i.productId && productIds.includes(i.productId));
+        // A cancelled order is refunded, so it neither earns money nor
+        // makes an item a bestseller — it must not reach `itemTotals` or
+        // `unitsSold` either (2026-09-17).
+        const isCancelled = order.status === 'cancelled';
         let revenue = 0;
         for (const item of mine) {
           // What the kitchen actually earns (2026-09-16) — `item.price` is
@@ -232,6 +244,7 @@ export class SellerAnalyticsService {
           // dashboard's "earnings" with a platform fee the kitchen never
           // receives.
           const lineTotal = Number(item.sellerAmount ?? item.price) * item.quantity;
+          if (isCancelled) continue;
           revenue += lineTotal;
           unitsSold += item.quantity;
           const key = item.productId as string;
@@ -243,8 +256,12 @@ export class SellerAnalyticsService {
         const first = firstOrderAt.get(order.userId);
         return {
           at: order.placedAt,
+          // A cancellation refunds the buyer (M15), so it is an order
+          // that happened and not money the kitchen received. It stays
+          // in `sales` — the cancellation rate is computed from these
+          // rows — and contributes nothing to any revenue sum.
           revenue,
-          cancelled: order.status === 'cancelled',
+          cancelled: isCancelled,
           settled: order.status === 'cancelled' || order.status === 'delivered',
           repeat: Boolean(first && first < order.placedAt),
         };
@@ -265,7 +282,7 @@ export class SellerAnalyticsService {
       }),
       ...bookings.map((booking) => ({
         at: booking.createdAt,
-        revenue: Number(booking.estimatedTotal),
+        revenue: booking.status === 'cancelled' ? 0 : Number(booking.estimatedTotal),
         cancelled: booking.status === 'cancelled',
         settled: booking.status === 'cancelled' || booking.status === 'delivered',
         // Not counted as repeat-or-new: a laundry booking's customer

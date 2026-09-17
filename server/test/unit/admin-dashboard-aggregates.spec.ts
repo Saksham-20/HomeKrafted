@@ -76,7 +76,13 @@ function stubPrisma(opts: {
 
   const prisma = {
     $queryRaw: queryRaw,
-    order: { aggregate: jest.fn().mockResolvedValue({ _sum: { total: 0 }, _count: { _all: 0 } }) },
+    order: {
+      aggregate: jest.fn().mockResolvedValue({ _sum: { total: 0 }, _count: { _all: 0 } }),
+      // The marketplace order *count* is its own query since 2026-09-17:
+      // GMV sums only revenue-bearing statuses while the count keeps
+      // cancellations, so one `aggregate` can no longer answer both.
+      count: jest.fn().mockResolvedValue(0),
+    },
     laundryBooking: { aggregate: jest.fn().mockResolvedValue({ _sum: { estimatedTotal: 0 }, _count: { _all: 0 } }) },
     snackOrder: { aggregate: jest.fn().mockResolvedValue({ _sum: { total: 0 }, _count: { _all: 0 } }) },
     orderItem: { findMany: jest.fn().mockResolvedValue([]) },
