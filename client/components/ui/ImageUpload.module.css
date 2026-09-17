@@ -20,12 +20,17 @@
   gap: var(--hk-s2);
 }
 
+/* Matches `components/portal/Field`'s `.label` exactly (2026-09-17) —
+   this was mono-uppercase, the one style the portal kit's own Field
+   component exists to retire from form labels (CLAUDE.md: "mono is
+   receipt type for counts and eyebrows, never a form label"). A photo
+   dropzone's own label answers the same question as any other field's
+   ("what is this"), so it takes the same style. */
 .label {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--hk-ink);
 }
 
 .removeLink {

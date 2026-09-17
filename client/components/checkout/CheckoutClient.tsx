@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
-import { Wallet as WalletIcon, CreditCard, ShieldAlert } from "lucide-react";
+import { Wallet as WalletIcon, CreditCard, Gift, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { DietDot } from "@/components/ui/DietDot";
@@ -1094,7 +1094,8 @@ export function CheckoutClient() {
                     checked={isGift}
                     onChange={() => toggleGift(true)}
                   />
-                  🎁 Send as a gift
+                  <Gift size={14} aria-hidden="true" />
+                  Send as a gift
                 </label>
               </div>
               {isGift ? recipientFields : addressPicker}

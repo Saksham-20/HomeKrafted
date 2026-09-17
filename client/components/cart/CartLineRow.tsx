@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { formatCurrency } from "@/lib/format";
@@ -60,7 +61,8 @@ export function CartLineRow({ info, onQtyChange, onRemove }: CartLineRowProps) {
       <div className={styles.totalCol}>
         <span className={styles.lineTotal}>{formatCurrency(info.lineTotal)}</span>
         <button type="button" className={styles.remove} onClick={onRemove} aria-label={`Remove ${info.name} from cart`}>
-          ✕ Remove
+          <X size={13} aria-hidden="true" />
+          Remove
         </button>
       </div>
     </div>

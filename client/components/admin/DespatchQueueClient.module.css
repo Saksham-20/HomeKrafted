@@ -16,7 +16,7 @@
 .rowMain { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .order { margin: 0; font-weight: 600; color: var(--hk-ink); display: flex; align-items: center; gap: var(--hk-s2); flex-wrap: wrap; }
 .pill { font-size: 12px; font-weight: 500; border-radius: 999px; padding: 2px 9px; background: var(--hk-bg); color: var(--hk-muted); border: 1px solid var(--hk-border); text-transform: capitalize; }
-.pill[data-status="failed"] { background: #f6e7e0; color: var(--hk-terracotta-text); border-color: #eccfc2; }
+.pill[data-status="failed"] { background: var(--hk-terracotta-tint); color: var(--hk-terracotta-text); border-color: #eccfc2; }
 .pill[data-status="delivered"] { background: #e6f0e8; color: #1d5c33; border-color: #c6ddcc; }
 .awb { margin: 0; font-family: var(--hk-font-mono); font-size: 13px; color: var(--hk-ink); }
 .reason { margin: 0; font-size: 14px; color: var(--hk-terracotta-text); }

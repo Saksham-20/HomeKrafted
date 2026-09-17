@@ -586,6 +586,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 44px;
   padding: var(--hk-s2) var(--hk-s3);
   border: 1.5px solid var(--hk-border-2);

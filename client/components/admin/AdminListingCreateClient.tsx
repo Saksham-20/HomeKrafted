@@ -9,6 +9,7 @@ import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { FormPage } from "@/components/portal/FormPage";
 import { FormSection } from "@/components/portal/FormSection";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { SaveBar } from "@/components/portal/SaveBar";
 import {
   EMPTY_LISTING_FORM,
@@ -85,26 +86,35 @@ export function AdminListingCreateClient() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<ListingFormErrors>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [cats, occs, sellerPage] = await Promise.all([
-        getCategories(),
-        getOccasions(),
-        getAllSellers(),
-      ]);
-      if (cancelled) return;
-      setCategories(cats);
-      setOccasions(occs);
-      setSellers(sellerPage.items);
-      setLoading(false);
+      try {
+        const [cats, occs, sellerPage] = await Promise.all([
+          getCategories(),
+          getOccasions(),
+          getAllSellers(),
+        ]);
+        if (cancelled) return;
+        setCategories(cats);
+        setOccasions(occs);
+        setSellers(sellerPage.items);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load the listing form. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, reloadToken]);
 
   const vendorOptions = useMemo<ComboboxOption[]>(
     () => [
@@ -172,6 +182,32 @@ export function AdminListingCreateClient() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader back={{ href: "/admin/catalog", label: "Catalog" }} title="New listing" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || loading) {

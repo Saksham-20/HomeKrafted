@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import clsx from "clsx";
+import { Star } from "lucide-react";
 import { SearchForm } from "@/components/search/SearchForm";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
 import { SnackCard } from "@/components/ui/SnackCard";
@@ -158,7 +159,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                     <span className={styles.makerText}>
                       <span className={styles.makerName}>{vendor.name}</span>
                       <span className={styles.makerMeta}>
-                        {vendor.reviewCount > 0 ? `★ ${vendor.rating.toFixed(1)} · ` : ""}
+                        {vendor.reviewCount > 0 && (
+                          <>
+                            <Star size={11} className={styles.ratingIcon} aria-hidden="true" />
+                            {vendor.rating.toFixed(1)}
+                            {" · "}
+                          </>
+                        )}
                         {vendor.location}
                       </span>
                     </span>

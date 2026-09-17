@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Check, Clock, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Payout } from "@/lib/types";
 import styles from "./PayoutRow.module.css";
@@ -36,7 +37,7 @@ export function PayoutRow({ payout, className }: PayoutRowProps) {
         )}
         aria-hidden="true"
       >
-        {isPaid ? "✓" : isRejected ? "×" : "…"}
+        {isPaid ? <Check size={16} /> : isRejected ? <X size={16} /> : <Clock size={16} />}
       </span>
       <div className={styles.body}>
         <span className={styles.title}>

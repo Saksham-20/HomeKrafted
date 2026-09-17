@@ -87,8 +87,10 @@ const CAST = [
  * The disc behind the drawing, in the site's own wash. Open Peeps is cut
  * off at the shoulders, so on a card it needs a ground of its own or it
  * floats — and the disc is what makes it a portrait rather than a
- * sticker. `--hk-sand-2`'s value, hardcoded because this file writes
- * pixels and cannot read a CSS custom property.
+ * sticker. Not a real design token — a narrow one-off (CLAUDE.md's
+ * "Known token gaps") shared by hand with `CharacterPicker.module.css`'s
+ * `.cell` background, hardcoded here because this file writes pixels
+ * and cannot read a CSS custom property.
  */
 const DISC = "#F3EEE4";
 

@@ -57,6 +57,8 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [suspending, setSuspending] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // M47 — sub-admin access. Its own draft and its own save, because
   // granting somebody the payouts screen and suspending an account are
@@ -71,17 +73,23 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const found = await getUserById(userId);
-      if (cancelled) return;
-      setUser(found ?? null);
-      const draft = toAccess(found);
-      setAccess(draft);
-      setInitialAccess(draft);
+      try {
+        const found = await getUserById(userId);
+        if (cancelled) return;
+        setUser(found ?? null);
+        const draft = toAccess(found);
+        setAccess(draft);
+        setInitialAccess(draft);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load this account. Try again."));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, userId]);
+  }, [ready, role, userId, reloadToken]);
 
   async function handleToggleSuspend() {
     if (!user || suspending) return;
@@ -132,6 +140,31 @@ export function UserDetailClient({ userId }: UserDetailClientProps) {
     } finally {
       setAccessSaving(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Account" back={{ href: "/admin/users", label: "Users" }} />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || user === undefined) {

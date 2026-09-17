@@ -39,11 +39,12 @@
 }
 
 .star {
+  display: inline-flex;
   border: none;
   background: none;
   padding: 2px;
-  font-size: 28px;
   line-height: 1;
+  cursor: pointer;
   /* Empty stars sit on white — the muted grey reads as "not chosen"
      without competing with the gold of the chosen ones. */
   color: var(--hk-border-2);

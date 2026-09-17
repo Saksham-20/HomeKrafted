@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Select } from "@/components/portal/Field";
 import { LoadingRows } from "@/components/portal/LoadingRows";
@@ -16,6 +17,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/http";
 import { scrollBehavior } from "@/lib/motion";
 import {
+  apiErrorMessage,
   approveSellerApplication,
   type ApprovedPlacement,
   assignApplicationArea,
@@ -112,6 +114,7 @@ export function SellersClient() {
   const [pageSize, setPageSize] = useState(0);
   const [page, setPage] = useState(1);
   const [reloadToken, setReloadToken] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   /** Re-reads both lists after a mutation. */
   function refetch() {
@@ -122,20 +125,27 @@ export function SellersClient() {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [sellerPage, pending] = await Promise.all([
-        getAllSellers({
-          specialty: typeFilter === "all" ? undefined : typeFilter,
-          onboarding: onboardingFilter === "all" ? undefined : onboardingFilter,
-          page,
-        }),
-        getPendingSellerApplications(),
-      ]);
-      if (cancelled) return;
-      setSellers(sellerPage.items);
-      setTotal(sellerPage.total);
-      setPageSize(sellerPage.pageSize);
-      setApplications(pending);
-      setLoading(false);
+      try {
+        const [sellerPage, pending] = await Promise.all([
+          getAllSellers({
+            specialty: typeFilter === "all" ? undefined : typeFilter,
+            onboarding: onboardingFilter === "all" ? undefined : onboardingFilter,
+            page,
+          }),
+          getPendingSellerApplications(),
+        ]);
+        if (cancelled) return;
+        setSellers(sellerPage.items);
+        setTotal(sellerPage.total);
+        setPageSize(sellerPage.pageSize);
+        setApplications(pending);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load HomeKrafters. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -164,20 +174,22 @@ export function SellersClient() {
    * never ran, and the row simply didn't change — so a refusal looked
    * exactly like a success that hadn't rendered yet.
    */
-  async function run(action: () => Promise<unknown>, fallback: string) {
+  async function run<T>(action: () => Promise<T>, fallback: string): Promise<T | undefined> {
     // Refuse a second action while one is running. Approving a
     // HomeKrafter mints an account and fires an invite; doing it twice
     // because the first click looked like nothing happened is a real
     // outcome, not a theoretical one.
-    if (actionBusy) return;
+    if (actionBusy) return undefined;
     setActionError(null);
     setActionBusy(true);
     try {
-      await action();
+      const result = await action();
       await refetch();
+      return result;
     } catch (err) {
       setActionError(err instanceof ApiError && err.message ? err.message : fallback);
       revealNotice();
+      return undefined;
     } finally {
       setActionBusy(false);
     }
@@ -194,20 +206,18 @@ export function SellersClient() {
     setInviteWarning(null);
     setApprovedSignIn(null);
     setPlacementWarning(null);
-    let report: InviteDeliveryReport | undefined;
-    let signIn: TemporarySignInDetails | undefined;
-    let placement: (ApprovedPlacement & { sellerId: string }) | undefined;
-    await run(async () => {
-      const result = await approveSellerApplication(applicationId);
-      report = result?.invite;
-      signIn = result?.signIn;
-      // Carried with the seller id so the warning can link straight at the
-      // record that needs fixing. A warning that says "go and find them"
-      // is a warning that gets dismissed.
-      placement = result?.placement
-        ? { ...result.placement, sellerId: result.seller.id }
-        : undefined;
-    }, "Couldn't approve that application. Try again.");
+    const result = await run(
+      () => approveSellerApplication(applicationId),
+      "Couldn't approve that application. Try again.",
+    );
+    const report = result?.invite;
+    const signIn = result?.signIn;
+    // Carried with the seller id so the warning can link straight at the
+    // record that needs fixing. A warning that says "go and find them"
+    // is a warning that gets dismissed.
+    const placement = result?.placement
+      ? { ...result.placement, sellerId: result.seller.id }
+      : undefined;
     if (placement) setPlacementWarning(placement);
     // The credentials, surfaced at the moment of approval rather than a
     // click away (M32) — this is when the admin is most likely to be
@@ -244,6 +254,32 @@ export function SellersClient() {
   }
 
   const lastPage = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="HomeKrafters" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                refetch();
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   if (!ready || loading) {
     return (

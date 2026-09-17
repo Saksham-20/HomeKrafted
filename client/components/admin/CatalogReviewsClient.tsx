@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingRows } from "@/components/portal/LoadingRows";
 import { Notice } from "@/components/portal/Notice";
@@ -31,22 +32,31 @@ export function CatalogReviewsClient() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const result = await getAllReviewsAdmin(page);
-      if (cancelled) return;
-      setReviews(result.items);
-      setTotal(result.total);
-      setPageSize(result.pageSize);
-      setLoading(false);
+      try {
+        const result = await getAllReviewsAdmin(page);
+        if (cancelled) return;
+        setReviews(result.items);
+        setTotal(result.total);
+        setPageSize(result.pageSize);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load reviews. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, page]);
+  }, [ready, role, page, reloadToken]);
 
   async function handleToggleHidden(reviewId: string, hidden: boolean) {
     setError(null);
@@ -73,6 +83,33 @@ export function CatalogReviewsClient() {
   const flaggedCount = reviews.filter((r) => r.flagged).length;
   const hiddenCount = reviews.filter((r) => r.hidden).length;
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Reviews" />
+        <CatalogTabs active="reviews" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   if (!ready || loading) {
     return (

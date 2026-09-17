@@ -26,6 +26,15 @@
   color: var(--hk-muted);
 }
 
+/* Sits inline in a plain-text meta line (2026-09-17), so it needs its
+   own baseline nudge rather than a flex parent's `align-items`. */
+.ratingIcon {
+  color: var(--hk-gold);
+  fill: var(--hk-gold);
+  vertical-align: -1px;
+  margin-right: 1px;
+}
+
 .description {
   font-size: 13px;
   color: var(--hk-ink-2);
@@ -62,13 +71,40 @@
   flex-shrink: 0;
 }
 
+/* The inline two-step in place of `window.confirm` (the portal rule). */
+.confirmReject {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hk-s3);
+  flex-shrink: 0;
+  padding: var(--hk-s3);
+  background: var(--hk-terracotta-tint);
+  border-radius: var(--hk-r-sm);
+}
+
+.confirmRejectText {
+  flex: 1;
+  min-width: 220px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hk-ink-2);
+}
+
+.confirmRejectActions {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-shrink: 0;
+}
+
 @media (max-width: 640px) {
   .row {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .actions {
+  .actions,
+  .confirmReject {
     width: 100%;
   }
 
@@ -109,26 +145,13 @@
   gap: var(--hk-s2);
 }
 
-/* 16px is the floor for any text control (M29): iOS Safari zooms the page
-   on a focused input smaller than that and never zooms back out. The
-   global rule in globals.css enforces it anyway; stated here so nobody
-   "tidies" this to 13px to match the row's other text. */
-.assignSelect {
+/* Sizes the shared `Select`'s own wrapper span, which is what actually
+   sits in `.assignRow`'s flex row — `Select` puts its className on the
+   inner `<select>`, not the wrapper, so flex/width live here instead. */
+.assignSelectWrap {
   flex: 1;
   min-width: 180px;
   max-width: 280px;
-  font-family: var(--hk-font-body);
-  font-size: 16px;
-  color: var(--hk-ink);
-  background: var(--hk-card);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-sm);
-  padding: 6px 8px;
-}
-
-.assignSelect:focus-visible {
-  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
-  outline-offset: 2px;
 }
 
 /*
@@ -141,9 +164,9 @@
   font-size: 12.5px;
   color: var(--hk-terracotta-text);
   /* Known token gap: there is no terracotta tint in tokens.css. Same
-     #f6e7e0 TransactionRow's debit icon uses, and the surface
+     var(--hk-terracotta-tint) TransactionRow's debit icon uses, and the surface
      `--hk-terracotta-text` was measured against (4.7:1). */
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   border: 1px solid var(--hk-border-2);
   border-radius: var(--hk-r-sm);
   padding: 6px 10px;

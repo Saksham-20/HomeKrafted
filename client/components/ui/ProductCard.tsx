@@ -1,10 +1,11 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { Clock } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 import { CardPhotos } from "./CardPhotos";
 import { Tag } from "./Tag";
 import { DietDot } from "./DietDot";
+import { RatingText } from "./RatingText";
 import { formatCurrency } from "@/lib/format";
 import { dietOf } from "@/lib/diet";
 import { preOrderLabel } from "@/lib/pre-order";
@@ -187,15 +188,20 @@ export function ProductCard({
     a claim nothing records (the 2026-09-14 trust rule). And a size label
     of "One" — the guided form's default, 65 of 86 live gifts — told a
     buyer nothing, so a single-size listing prints no size at all.
+
+    The `★` glyph is a real `<Star>` now (2026-09-17, via the shared
+    `RatingText`) — a unicode character standing in for an icon renders a
+    different glyph on every OS and is the exact pattern the icon-system
+    rule bans.
   */
-  const reviewPart =
-    product.reviewCount > 0
-      ? `★ ${product.rating.toFixed(1)} (${product.reviewCount})`
-      : isRecentlyCreated(product) && !soldOut
-        ? "New"
-        : null;
+  const reviewPart: ReactNode =
+    product.reviewCount > 0 ? (
+      <RatingText rating={product.rating} reviewCount={product.reviewCount} />
+    ) : isRecentlyCreated(product) && !soldOut ? (
+      "New"
+    ) : null;
   const sizePart = weight && !isPlaceholderSize(weight.label) ? weight.label : null;
-  const metaLine = [reviewPart, sizePart].filter(Boolean).join(" · ");
+  const metaParts = [reviewPart, sizePart].filter(Boolean);
   return (
     <div
       className={clsx(styles.card, href && styles.clickable, className)}
@@ -269,7 +275,16 @@ export function ProductCard({
             product.name
           )}
         </span>
-        {metaLine && <span className={styles.meta}>{metaLine}</span>}
+        {metaParts.length > 0 && (
+          <span className={styles.meta}>
+            {metaParts.map((part, index) => (
+              <span key={index}>
+                {index > 0 && " · "}
+                {part}
+              </span>
+            ))}
+          </span>
+        )}
         {factLine && <span className={styles.factLine}>{factLine}</span>}
         <div className={styles.priceRow}>
           {/*
@@ -313,7 +328,7 @@ export function ProductCard({
               }}
               aria-label={added ? `${product.name} added` : `Add ${product.name}`}
             >
-              {added ? "✓" : "+"}
+              {added ? <Check size={17} aria-hidden="true" /> : "+"}
             </button>
           )}
         </div>

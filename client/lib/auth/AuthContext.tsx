@@ -895,7 +895,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // is a separate question, below. `sellerRecordResolved` stays true when
   // the fetch came back *empty* — that is an answer (a corrupt session),
   // not a pending state, and the shell must show the gate for it.
-  const sellerSessionActive = signedIn && role === "seller" && !!activeSessionUserId;
+  //
+  // `activeSessionUserId` is unconditionally `undefined` in mock mode
+  // (line ~815 above) — there is no real token to carry an id, and
+  // `seller` itself resolves without one via `resolveDemoSeller` below.
+  // Requiring it unconditionally here made `sellerSessionActive`, and
+  // therefore `sellerDataReady`, permanently `false` under
+  // `NEXT_PUBLIC_USE_MOCK=true` — which is the mode this dev server runs
+  // in — so `/seller` and every screen gated on `sellerDataReady`
+  // (`MealPlansClient`, `SellerDashboardClient`, ...) never left their
+  // loading skeleton. Real mode still requires the id, because that is
+  // what scopes the `GET /seller/me` fetch below.
+  const sellerSessionActive = signedIn && role === "seller" && (mock || !!activeSessionUserId);
   // Still in flight: not answered *and* not failed. Leaving a failure in
   // this state would swap the old rejection screen for an equally wrong
   // permanent skeleton — the shell needs to be able to offer a retry.

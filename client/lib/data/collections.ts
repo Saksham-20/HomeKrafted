@@ -39,6 +39,48 @@ export const collections: Collection[] = [
     featured: true,
     sortOrder: 0,
   },
+  /*
+   * The four fixed-slug rails `app/page.tsx#resolveCollection` reads for
+   * the home page's Bestsellers/Trending toggle (see that file's own
+   * comment). Missing from mock data before 2026-09-17, so both rails
+   * fell through to the identical "top-rated of this kind" fallback and
+   * rendered the same six products in the same order — the duplicate-key
+   * console errors and the visibly repeated rail were this gap, not a
+   * bug in `resolveCollection` itself. Four distinct sets, same shape a
+   * real admin curation would take on `/admin/collections/curations`.
+   */
+  {
+    id: "cl4",
+    slug: "bestsellers-food",
+    title: "Bestsellers — Homemade Food",
+    description: "The dishes ordered again and again, across every kitchen.",
+    productIds: ["pr3", "pr6", "pr1", "pr8"],
+    sortOrder: 4,
+  },
+  {
+    id: "cl5",
+    slug: "bestsellers-craft",
+    title: "Bestsellers — Handcrafted Gifts",
+    description: "The makers' own top sellers, picked by repeat buyers.",
+    productIds: ["pr19", "pr20", "pr23", "pr30"],
+    sortOrder: 5,
+  },
+  {
+    id: "cl6",
+    slug: "trending-food",
+    title: "Trending Now — Homemade Food",
+    description: "Rising fast this week, across the tricity kitchens.",
+    productIds: ["pr9", "pr10", "pr14", "pr17"],
+    sortOrder: 6,
+  },
+  {
+    id: "cl7",
+    slug: "trending-craft",
+    title: "Trending Now — Handcrafted Gifts",
+    description: "The gifts more buyers are opening a listing page for this week.",
+    productIds: ["pr21", "pr22", "pr26", "pr28"],
+    sortOrder: 7,
+  },
 ];
 
 export function getCollectionBySlug(slug: string): Collection | undefined {

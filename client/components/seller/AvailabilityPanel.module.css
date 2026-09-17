@@ -91,6 +91,41 @@
   font-variant-numeric: tabular-nums;
 }
 
+/*
+  Canonical-state badge (2026-09-17) — was `.kind` plus a bare
+  `style={{...}}` carrying invented tokens (`--hk-amber-light`,
+  `--hk-text-subtle`, ...) that exist in no stylesheet here. Same tone
+  vocabulary as `ListingRow`'s equivalent badge.
+*/
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--hk-r-pill);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.badgeWarning {
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+}
+
+.badgeError {
+  background: var(--hk-terracotta-tint);
+  color: var(--hk-terracotta-text);
+}
+
+.badgeNeutral {
+  background: var(--hk-surface-3);
+  color: var(--hk-muted);
+}
+
+.badgeSuccess {
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+}
+
 .toggle {
   display: inline-flex;
   align-items: center;

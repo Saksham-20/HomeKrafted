@@ -12,8 +12,9 @@
 }
 
 .stars {
-  font-size: 14px;
-  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
 }
 
 .starFull {

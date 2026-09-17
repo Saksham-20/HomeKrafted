@@ -155,7 +155,19 @@ export const FAMILY_FIELDS: Record<ListingFamily, FamilyFields> = {
   },
 };
 
-/** Category slugs that name a kind of thing, grouped by the family they imply. */
+/**
+ * Category slugs that name a kind of thing, grouped by the family they
+ * imply.
+ *
+ * Kept in step with `lib/data/categories.ts` by hand — this map had already
+ * drifted from it once (`handmade-jewellery`, `candles-home`,
+ * `personalised-gifts`, `bakery`, `chocolates`, `snacks`, `hampers` were
+ * live top-level shelves resolving through no slug at all, only the weaker
+ * specialty/`kind` fallback below). `docs/GIFTING-REWORK.md` §3-4 replaces
+ * this whole map with a database-driven attribute schema (G0/G1, built but
+ * not yet deployed) — that migration is a separate, owner-gated change;
+ * this map is the interim fix until it ships.
+ */
 const SLUG_FAMILY: Record<string, ListingFamily> = {
   // cooked
   punjabi: "cooked",
@@ -171,6 +183,7 @@ const SLUG_FAMILY: Record<string, ListingFamily> = {
 
   // baked
   cookies: "baked",
+  bakery: "baked",
   desserts: "baked",
   "cakes-and-desserts": "baked",
   "sweets-ladoos": "baked",
@@ -178,7 +191,9 @@ const SLUG_FAMILY: Record<string, ListingFamily> = {
   // jarred
   pickles: "jarred",
   chutneys: "jarred",
+  chocolates: "jarred",
   "dry-fruits": "jarred",
+  snacks: "jarred",
   "snacks-and-namkeen": "jarred",
   beverages: "jarred",
 
@@ -187,18 +202,25 @@ const SLUG_FAMILY: Record<string, ListingFamily> = {
   rings: "worn",
   necklaces: "worn",
   bracelets: "worn",
+  "handmade-jewellery": "worn",
   textiles: "worn",
 
   // room
   "home-decor": "room",
   ceramics: "room",
   "scented-candles": "room",
+  "candles-home": "room",
   "wall-art": "room",
   "prints-and-posters": "room",
   "art-prints": "room",
   "custom-prints": "room",
   crochet: "room",
   flowers: "room",
+
+  // A hamper crosses the food/craft line by design (docs/GIFTING-REWORK.md
+  // and the `isHamper` flag, M18) — its own contents decide the family, not
+  // the wrapper shelf, so it stays unmapped and falls to `general` rather
+  // than being guessed either way.
 };
 
 /**

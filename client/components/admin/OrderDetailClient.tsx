@@ -12,6 +12,7 @@ import { AdminPageHeader } from "./AdminPageHeader";
 import { StatusPill } from "./StatusPill";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
+  apiErrorMessage,
   getAdminLaundryBooking,
   getAdminMarketplaceOrder,
   getAdminOrderById,
@@ -95,29 +96,37 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
    * the wallet a second time.
    */
   const [refundKey] = useState(() => `admin-refund-${type}-${id}-${crypto.randomUUID()}`);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const found = await getAdminOrderById(type, id);
-      if (cancelled) return;
-      setSummary(found ?? null);
-      if (!found) return;
+      try {
+        const found = await getAdminOrderById(type, id);
+        if (cancelled) return;
+        setSummary(found ?? null);
+        setLoadError(null);
+        if (!found) return;
 
-      if (type === "marketplace") {
-        setMarketplaceOrder(await getAdminMarketplaceOrder(id));
-      } else if (type === "laundry") {
-        // Service names ride on the booking payload since M37.
-        setLaundryBooking(await getAdminLaundryBooking(id));
-      } else {
-        setSnackOrder(await getAdminSnackOrder(id));
+        if (type === "marketplace") {
+          setMarketplaceOrder(await getAdminMarketplaceOrder(id));
+        } else if (type === "laundry") {
+          // Service names ride on the booking payload since M37.
+          setLaundryBooking(await getAdminLaundryBooking(id));
+        } else {
+          setSnackOrder(await getAdminSnackOrder(id));
+        }
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load this order. Try again."));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, type, id]);
+  }, [ready, role, type, id, reloadToken]);
 
   /**
    * Apply the chosen status, then re-read rather than assume.
@@ -173,6 +182,31 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
     } finally {
       setRefunding(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Order" back={{ href: "/admin/orders", label: "Orders" }} />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || summary === undefined) {

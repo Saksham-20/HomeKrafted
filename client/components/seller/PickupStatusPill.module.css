@@ -37,8 +37,8 @@
 }
 
 .cancelled {
-  /* #f6e7e0 — same one-off terracotta-tint hardcode `OrderStatusPill` uses for its terminal states (see root CLAUDE.md's "Known token gaps"). */
-  background: #f6e7e0;
+  /* var(--hk-terracotta-tint) — same one-off terracotta-tint hardcode `OrderStatusPill` uses for its terminal states (see root CLAUDE.md's "Known token gaps"). */
+  background: var(--hk-terracotta-tint);
   /* Terracotta is 3.77:1 on this tint — see `--hk-terracotta-text`. */
   color: var(--hk-terracotta-text);
 }

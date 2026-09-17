@@ -138,6 +138,9 @@
   position: absolute;
   top: 7px;
   left: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   background: rgba(26, 20, 14, 0.82);
   backdrop-filter: blur(4px);
   color: #ffffff;

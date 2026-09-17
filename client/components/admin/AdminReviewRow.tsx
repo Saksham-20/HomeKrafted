@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { Flag } from "lucide-react";
+import { Flag, Star } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
@@ -21,8 +21,15 @@ export function AdminReviewRow({ review, onToggleHidden }: AdminReviewRowProps) 
       <div className={styles.body}>
         <div className={styles.headRow}>
           <span className={styles.stars} aria-label={`${review.rating} out of 5 stars`}>
-            {"★".repeat(review.rating)}
-            {"☆".repeat(5 - review.rating)}
+            {Array.from({ length: 5 }, (_, index) => (
+              <Star
+                key={index}
+                size={13}
+                aria-hidden="true"
+                fill={index < review.rating ? "currentColor" : "none"}
+                className={index < review.rating ? styles.starFull : styles.starEmpty}
+              />
+            ))}
           </span>
           {review.flagged && (
             <span className={styles.flaggedBadge}>

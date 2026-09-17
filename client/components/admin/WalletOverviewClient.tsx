@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { Pager } from "@/components/portal/Pager";
 import { StatCard } from "./StatCard";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getWalletOverview, type AdminWalletOverview } from "@/lib/api";
+import { apiErrorMessage, getWalletOverview, type AdminWalletOverview } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import styles from "./WalletOverviewClient.module.css";
 
@@ -24,20 +26,55 @@ export function WalletOverviewClient() {
   const [overview, setOverview] = useState<AdminWalletOverview | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const snap = await getWalletOverview(page);
-      if (cancelled) return;
-      setOverview(snap);
-      setLoading(false);
+      try {
+        const snap = await getWalletOverview(page);
+        if (cancelled) return;
+        setOverview(snap);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load the wallet overview. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, page]);
+  }, [ready, role, page, reloadToken]);
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Wallet" subtitle="Platform-wide wallet liability and per-user balances." />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   if (!ready || !overview) {
     return (

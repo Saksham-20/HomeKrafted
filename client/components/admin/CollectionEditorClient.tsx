@@ -11,11 +11,19 @@ import { Field, FieldGrid, Input, Select, Switch, TextArea } from "@/components/
 import { FormPage } from "@/components/portal/FormPage";
 import { FormSection } from "@/components/portal/FormSection";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { SaveBar } from "@/components/portal/SaveBar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatDate } from "@/lib/format";
-import { createOccasion, getCollectionsAdmin, getOccasionsAdmin, getProducts, upsertCollection } from "@/lib/api";
+import {
+  apiErrorMessage,
+  createOccasion,
+  getCollectionsAdmin,
+  getOccasionsAdmin,
+  getProducts,
+  upsertCollection,
+} from "@/lib/api";
 import { isDirty } from "@/lib/portal/dirty";
 import type { Occasion, Product } from "@/lib/types";
 import styles from "./CollectionEditorClient.module.css";
@@ -70,45 +78,54 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [titleError, setTitleError] = useState<string | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [occs, products, collections] = await Promise.all([
-        getOccasionsAdmin(),
-        getProducts(),
-        collectionId ? getCollectionsAdmin() : Promise.resolve([]),
-      ]);
-      if (cancelled) return;
-      setOccasions(occs);
-      setAllProducts(products);
-      if (collectionId) {
-        const existing = collections.find((c) => c.id === collectionId);
-        if (existing) {
-          const loaded: GuideValues = {
-            title: existing.title,
-            description: existing.description ?? "",
-            occasionId: existing.occasionId ?? "",
-            productIds: existing.productIds,
-            imageSrc: existing.imageSrc ?? "",
-            featured: Boolean(existing.featured),
-            sortOrder: String(existing.sortOrder ?? 0),
-          };
-          setValues(loaded);
-          setInitial(loaded);
+      try {
+        const [occs, products, collections] = await Promise.all([
+          getOccasionsAdmin(),
+          getProducts(),
+          collectionId ? getCollectionsAdmin() : Promise.resolve([]),
+        ]);
+        if (cancelled) return;
+        setOccasions(occs);
+        setAllProducts(products);
+        if (collectionId) {
+          const existing = collections.find((c) => c.id === collectionId);
+          if (existing) {
+            const loaded: GuideValues = {
+              title: existing.title,
+              description: existing.description ?? "",
+              occasionId: existing.occasionId ?? "",
+              productIds: existing.productIds,
+              imageSrc: existing.imageSrc ?? "",
+              featured: Boolean(existing.featured),
+              sortOrder: String(existing.sortOrder ?? 0),
+            };
+            setValues(loaded);
+            setInitial(loaded);
+          } else {
+            setNotFound(true);
+          }
         } else {
-          setNotFound(true);
+          setInitial(EMPTY_GUIDE);
         }
-      } else {
-        setInitial(EMPTY_GUIDE);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load this collection. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, collectionId]);
+  }, [ready, role, collectionId, reloadToken]);
 
   function patch(next: Partial<GuideValues>) {
     setValues((current) => ({ ...current, ...next }));
@@ -180,6 +197,35 @@ export function CollectionEditorClient({ collectionId }: CollectionEditorClientP
       setSaving(false);
     }
     router.push("/admin/collections");
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader
+          title={isEdit ? "Edit collection" : "New collection"}
+          back={{ href: "/admin/collections", label: "Collections" }}
+        />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || loading) {

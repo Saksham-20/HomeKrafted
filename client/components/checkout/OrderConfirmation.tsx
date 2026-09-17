@@ -1,4 +1,4 @@
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Gift } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { StatusTimeline } from "@/components/ui/StatusTimeline";
 import { getOrderStatusSteps } from "@/lib/api";
@@ -85,7 +85,8 @@ export function OrderConfirmation({ order, onContinueShopping }: OrderConfirmati
         </p>
         {order.gift?.isGift && (
           <p className={styles.giftNote}>
-            🎁 Sent as a gift to {order.gift.recipientName ?? "your recipient"}
+            <Gift size={14} className={styles.giftIcon} aria-hidden="true" />
+            Sent as a gift to {order.gift.recipientName ?? "your recipient"}
             {order.gift.hidePrice ? " — prices hidden on their copy." : "."}
           </p>
         )}

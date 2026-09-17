@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { apiErrorMessage, getAdminSellerProfile, setSellerVerification } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { AdminSellerProfile } from "@/lib/types";
@@ -47,17 +48,48 @@ export function SellerVerificationPanel({ sellerId, onChanged }: SellerVerificat
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const loaded = await getAdminSellerProfile(sellerId);
-      if (!cancelled) setProfile(loaded);
+      try {
+        const loaded = await getAdminSellerProfile(sellerId);
+        if (cancelled) return;
+        setProfile(loaded);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load this HomeKrafter's profile. Try again."));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [sellerId]);
+  }, [sellerId, reloadToken]);
+
+  if (loadError) {
+    return (
+      <Notice
+        tone="danger"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setLoadError(null);
+              setReloadToken((n) => n + 1);
+            }}
+          >
+            Retry
+          </Button>
+        }
+      >
+        {loadError}
+      </Notice>
+    );
+  }
 
   if (!profile) return <LoadingRows rows={2} />;
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
-import { Sparkles, Plus, Check } from "lucide-react";
+import { Sparkles, Plus, Check, Cake, Package, Gift, type LucideIcon } from "lucide-react";
 import { getProducts, getVendors } from "@/lib/api";
 import { useCart } from "@/lib/cart/CartContext";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
@@ -36,11 +36,17 @@ function isGiftOrSurprise(p: Product): boolean {
   return /gift|hamper|candle|runner|mug|diya|jhumka|plant|toy|print/i.test(p.name);
 }
 
-function getBadge(p: Product): { text: string; className: string } {
-  if (isCakeOrDessert(p)) return { text: "🍰 BAKE", className: styles.badgeCake };
-  if (isComboOrMeal(p)) return { text: "🍱 COMBO", className: styles.badgeCombo };
-  if (isGiftOrSurprise(p)) return { text: "🎁 GIFT", className: styles.badgeGift };
-  return { text: "✨ SPECIAL", className: styles.badge };
+/*
+  These used to be emoji (🍰/🍱/🎁/✨) — a pictograph that renders a
+  different picture on every OS, exactly what the icon-system rule bans
+  (2026-09-17). Real `lucide-react` icons instead: `Icon` is the
+  component, `text` the label unchanged.
+*/
+function getBadge(p: Product): { Icon: LucideIcon; text: string; className: string } {
+  if (isCakeOrDessert(p)) return { Icon: Cake, text: "BAKE", className: styles.badgeCake };
+  if (isComboOrMeal(p)) return { Icon: Package, text: "COMBO", className: styles.badgeCombo };
+  if (isGiftOrSurprise(p)) return { Icon: Gift, text: "GIFT", className: styles.badgeGift };
+  return { Icon: Sparkles, text: "SPECIAL", className: styles.badge };
 }
 
 export function CartSuggestions() {
@@ -117,17 +123,17 @@ export function CartSuggestions() {
   );
 
   const availableTabs = useMemo(() => {
-    const tabs: { key: TabKey; label: string }[] = [
-      { key: "all", label: "✨ All items" },
+    const tabs: { key: TabKey; label: string; Icon: LucideIcon }[] = [
+      { key: "all", label: "All items", Icon: Sparkles },
     ];
     if (cakeItems.length > 0) {
-      tabs.push({ key: "cakes", label: "🍰 Cakes & Bakes" });
+      tabs.push({ key: "cakes", label: "Cakes & Bakes", Icon: Cake });
     }
     if (comboItems.length > 0) {
-      tabs.push({ key: "combos", label: "🍱 Combos & Sides" });
+      tabs.push({ key: "combos", label: "Combos & Sides", Icon: Package });
     }
     if (giftItems.length > 0) {
-      tabs.push({ key: "gifts", label: "🎁 Gifts & Craft" });
+      tabs.push({ key: "gifts", label: "Gifts & Craft", Icon: Gift });
     }
     return tabs;
   }, [cakeItems.length, comboItems.length, giftItems.length]);
@@ -191,6 +197,7 @@ export function CartSuggestions() {
                 className={clsx(styles.tab, effectiveTab === tab.key && styles.tabActive)}
                 onClick={() => setActiveTab(tab.key)}
               >
+                <tab.Icon size={12} aria-hidden="true" />
                 {tab.label}
               </button>
             ))}
@@ -219,6 +226,7 @@ export function CartSuggestions() {
                   className={styles.thumb}
                 />
                 <span className={clsx(styles.badge, badge.className)}>
+                  <badge.Icon size={11} aria-hidden="true" />
                   {badge.text}
                 </span>
               </div>

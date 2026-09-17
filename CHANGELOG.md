@@ -1,5 +1,177 @@
 # Changelog
 
+## 2026-09-17 — UI/UX refinement, all seven phases (`docs/UI-REFINEMENT.md`)
+
+Owner brief: go through the whole site's UI across all three roles,
+consistent spacing and design, restore the hover-zoom split screen,
+generalise the listing forms, remove extra stuff, keep icons/logos
+consistent, add a little colour. Full audit and seven-phase plan, and the
+complete per-phase writeup this entry summarises, in
+`docs/UI-REFINEMENT.md`. Seven phases, all shipped: **R1** (foundation
+tokens/labels/icons), **R2** (landing page hero), **R3** (browse pages —
+mostly a review that found the two pages' differences were intentional,
+not drift), **R4** (consumer detail/account/auth), **R5** (the seller
+portal + the generalised listing form, D3), **R6** (the admin panel),
+**R7** (motion review + the verification pass).
+
+**R1 — tokens, one label style, one icon system.**
+- Shipped `DESIGN.md` phase 1's colour half: `--hk-bg`/`--hk-border` now
+  the warm paper canvas (`#F7F1E6`/`#E5DCC9`), `--hk-surface-soft` added.
+  Contrast measured by hand against every text token that sits on the
+  canvas directly — all hold AA; `--hk-terracotta` (4.04:1 on the bare
+  canvas) stays a card-surface/large-text colour, which is the pattern it
+  already followed.
+- Promoted `--hk-saffron` from two unstated uses to a named role ("this
+  needs you"), named the previously-hardcoded `#f6e7e0` as
+  `--hk-terracotta-tint` and repointed 16 files at it, and added the
+  spacing scale's missing half-steps (`--hk-s0`/`-s1h`/`-s2h`/`-s3h`) and
+  a `--hk-section-y` pair for landing-page rhythm.
+- **Fixed the invisible category labels.** `CategoryTile`'s `.label` was
+  white-with-a-photo-shadow, styled for a photograph the 2026-09-16
+  "a category draws its mark, never a photograph" decision had already
+  removed — on the flat tint it actually renders over, that measured
+  ~1.1:1. Every shelf name on the home rail and the `/gifts` departments
+  was effectively unreadable. Fixed, and given a deterministic tint
+  rotation (`lib/category-tint.ts`, four AA-checked ground/ink pairs
+  hashed from the category id — same value on the server and the client,
+  never `Math.random()`) so shelves read apart from each other instead of
+  fourteen identical sage tiles.
+- **Gave every mock category a real icon.** None had `.icon` set, so
+  every shelf — 8 on the home rail, 5 on `/gifts` departments, 9 on
+  `/shop` chips — fell back to the same wrapped-gift mark. All 14 now
+  carry an id from the existing `lib/icons/registry.ts` vocabulary.
+- **One form-label style.** 13 files drew a form label in
+  mono-uppercase-11px — the exact drift `components/portal/Field` was
+  built to retire — across `/login`, `/admin/login`, checkout's address
+  form, and eight portal detail/edit screens. All now match `Field`'s
+  sentence-case style; left untouched where the mono was a legitimate
+  eyebrow or receipt-style meta line (the large majority of the pattern's
+  170 occurrences).
+- **One icon system.** Replaced every `★`/`☆`/`✓`/`✕` glyph and `🎁 🍰
+  🍱 ✨` emoji standing in for an icon across ~20 files (ratings on
+  product/kitchen/review cards, cart/chip/snack remove-and-add controls,
+  admin review rows, gift-checkout labels, cart-suggestion badges and
+  tabs) with real `lucide-react` icons — the glyphs rendered a different
+  shape on every OS, which `CLAUDE.md`'s craft floor bans outright. New
+  shared `components/ui/RatingText`. Also fixed, while touching it: the
+  product page's rating row drew five *filled* stars regardless of the
+  actual rating (3.2 and 4.9 looked identical); it now fills to the
+  rounded rating, like `ReviewCard`'s `StarRow` already did.
+- **Fixed a pre-existing duplicate-React-key source**, surfaced once
+  the collection-duplication bug below stopped masking it:
+  `CardPhotos`' photo-dot row keyed on `photo.src ?? i`, which collides
+  whenever two of a product's seed images share a src (several do, where
+  a placeholder gallery points multiple slots at one file). Now keyed on
+  position, which is what the dots represent.
+
+**R2 — the landing page hero.**
+- **Removed the scroll-driven hero transition.** `ScrollExpandMedia` and
+  the `Hero.tsx` wrapper around it (dead code since the 2026-09-16 ISB
+  banner swap) are deleted, not parked.
+- **Restored the hover-zoom split screen** (`SplitPanels`) as the band
+  directly under the ISB Mohali campaign banner rather than as the page's
+  own hero — level at rest, the half you lean toward or focus opens to
+  ~74% with the photograph zooming in under it, diagonal seam, dead
+  middle third, all inside `(hover: hover) and
+  (prefers-reduced-motion: no-preference)`; stacks level on touch. The
+  gifts panel's copy reverted from the crochet-specific campaign pitch
+  back to a general "Handcrafted gifts" door — the campaign now gets one
+  dedicated spot (the banner) instead of two.
+- **Fixed the duplicated Bestsellers/Trending rails.** The four fixed-slug
+  collections `app/page.tsx#resolveCollection` reads
+  (`bestsellers-food`/`-craft`, `trending-food`/`-craft`) didn't exist in
+  mock data, so both rails fell through to the identical "top-rated of
+  this kind" fallback and rendered the same six products in the same
+  order — the visible duplication and roughly half of the 24 console
+  duplicate-key errors on `/`. Added as real mock `Collection` rows with
+  four disjoint product sets, matching the shape a real admin curation
+  on `/admin/collections/curations` would take.
+- **Removed emoji task chips and the mislabelled filter** on `/shop`:
+  `⚡ 🌱 🌾 🎁` replaced with `lucide-react` icons, and "🎁 Gift-Ready"
+  (which filtered the `Curated` tag — a chip labelled as a property the
+  data didn't hold) renamed to "Curated picks".
+- **Admin toast copy**: dropped the decorative `✓` prefix from four
+  `CurationsClient` success messages (the admin panel "stays plain" rule).
+
+**R3 — browse pages, reviewed rather than rewritten.** `/shop`'s flat
+`QuickFilterChips` and `/gifts`'s two-level `DepartmentTiles` stay two
+components on purpose (progressive disclosure on a real category tree
+vs. a flat list, per `DepartmentTiles`' own doc comment and
+`docs/GIFTING-REWORK.md` D2/D3) — not the duplication the original audit
+assumed. Same finding for `/gifts`'s photo-less hero (a documented
+decision) and the "Personalisable 0" chip (the correct dimmed-not-hidden
+zero-count pattern). Nothing to fix beyond what R1/R2 already shipped.
+
+**R4 — consumer detail, account, auth.** `MakerPortrait` above the fold
+and a group-derived breadcrumb on `/product/[slug]`. The narrow-container
+CSS-specificity bug (B13) fixed properly in two consumer routes
+(`LegalPage.tsx`, `LoginClient.tsx`) by moving `.page` onto its own inner
+element rather than escalating selector specificity against
+`body:has([data-surface="consumer"]) .container`.
+
+**R5 — the seller portal and one listing form (owner decision D3).**
+Both `ListingForm` and `GuidedListingForm` now derive `kind`/
+`shippingScope` from the chosen category instead of asking a separate
+"what are you listing" question; `lib/sell/listing-families.ts`'s
+category→family map, which had drifted from the real catalogue (seven
+live shelves resolved through no family at all), is caught up. Fixed the
+real bug behind "`/seller` never settles" (A5): `AuthContext.tsx`'s
+`sellerSessionActive` required a field that is unconditionally `undefined`
+in mock mode, so every gated seller screen spun its skeleton forever —
+one line. Two `window.confirm` calls converted to the portal's inline
+two-step; one `role="tablist"` misuse replaced with `SegmentedFilter`;
+eleven invented CSS token names (one on a consumer-facing screen,
+`ProductPurchasePanel`) rebuilt on real tokens.
+
+**R6 — the admin panel.** The dashboard banner, stat cards, SLA row and
+sidebar queue badges disagreed (A9) because the mock API branch never
+built the `attention` object the banner reads — same shape as A5, a
+mock-data gap rather than a rendering bug. Split the stat-card grid so a
+specialty breakdown no longer orphans a ninth card on the platform-totals
+grid (B21), and labelled the legacy laundry row in "Orders by module"
+(B20). A full sweep of the other ~20 admin screens against the
+portal-kit rules found and fixed: four more invented CSS tokens, three
+static inline styles, six hand-rolled form controls swapped for
+`Field`/`Select`/`TextArea`/`SearchField`, and — the largest class —
+sixteen screens with no error handling at all on their initial data load
+(an unhandled rejection left each stuck on its loading skeleton forever)
+plus one (`SellerDetailClient`) that read a genuine network failure as
+"this HomeKrafter doesn't exist." All sixteen now follow
+`AdminDashboardClient`'s own `loadError` → `Notice` + Retry shape.
+
+**R7 — motion review and verification.** No new motion needed — nothing
+in R1–R6 added a transition outside the existing reduced-motion floor,
+and the landing split's hover-expansion remains the one authored moment
+per surface. Full verification pass (below) surfaced and fixed one
+pre-existing, unrelated static-analysis false positive in
+`lib/silent-failure.spec.ts` (`SellersClient.handleApprove`'s refusal
+was actually caught, one function away, through a local `run()` helper
+the scanner's per-function split couldn't see through — fixed by making
+`run()` generic and returning the result, removing the nested `await`).
+
+Verification: `npm run build`, `npm run lint` (0 errors), `npx tsc
+--noEmit` all clean in `client/`; `npm test` — **58 suites / 700 tests**
+in `client/`, **88 suites / 698 tests** in `server/` (read-only; nothing
+under `server/` changed), all passing. Hand-computed WCAG contrast for
+every new/changed token pairing in R1/R2; confirmed in-browser across
+every phase (0 console errors) including `/`, `/gifts`, `/shop`,
+`/admin`, `/admin/login`, `/admin/collections/curations`,
+`/admin/sellers` (both tabs), `/seller`, `/seller/meal-plans`,
+`/seller/listings`. The Playwright e2e layer
+(`e2e/tests/a11y.spec.ts`, `focus-traps.spec.ts`, `header-capacity.spec.ts`,
+`presentation.spec.ts`, `e2e/sweep.mjs`, `e2e/smoke-a5.mjs`) was attempted
+against an isolated throwaway QA stack (`scripts/qa-up.sh`) and stood
+down: Next's dev server refuses a second instance against the same
+project directory even on a different port, and freeing it would have
+meant killing the shared `:3000` dev server this environment already had
+running. Judged disproportionate to what was being checked — every new
+interactive element this pass added is an adoption of an
+already-established kit primitive (`Field`/`Input`/`Select`/`TextArea`,
+`SearchField`, the `Notice`+Retry pattern, the inline two-step confirm),
+not a new interaction shape. The throwaway DB and QA env file were
+cleaned up; the shared dev server was confirmed unaffected. A future
+session with a spare git worktree should still run that list.
+
 ## 2026-09-16 (later) — Finishing the markup commission model, and a double-deduction it left behind
 
 A prior session that day had started reversing M37's commission model —

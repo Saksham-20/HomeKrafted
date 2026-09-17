@@ -18,8 +18,9 @@
 }
 
 .stars {
-  font-size: 15px;
-  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
 }
 
 .starFull {
@@ -37,6 +38,9 @@
 }
 
 .verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--hk-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.08em;
@@ -101,8 +105,8 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--hk-pine-deep, #14281f);
-  background: var(--hk-gold-subtle, #f5ebd7);
+  color: var(--hk-pine-deep);
+  background: var(--hk-gold-tint);
   padding: 2px 6px;
   border-radius: var(--hk-r-sm);
 }

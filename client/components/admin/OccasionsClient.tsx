@@ -55,6 +55,8 @@ export function OccasionsClient() {
   const [savedId, setSavedId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // The add form. Collapsed by default: this screen's daily job is
   // rolling dates forward, and a form sitting open above that list would
@@ -78,16 +80,23 @@ export function OccasionsClient() {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const list = await getOccasionsAdmin();
-      if (cancelled) return;
-      setOccasions(list);
-      setDrafts(Object.fromEntries(list.map((o) => [o.id, toDraft(o)])));
-      setLoading(false);
+      try {
+        const list = await getOccasionsAdmin();
+        if (cancelled) return;
+        setOccasions(list);
+        setDrafts(Object.fromEntries(list.map((o) => [o.id, toDraft(o)])));
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load occasions. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, reloadToken]);
 
   function edit(id: string, patch: Partial<RowDraft>) {
     setDrafts((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
@@ -176,6 +185,33 @@ export function OccasionsClient() {
       Add an occasion
     </Button>
   );
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Occasions" actions={addButton} />
+        <CollectionsTabs active="occasions" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   if (!ready || loading) {
     return (

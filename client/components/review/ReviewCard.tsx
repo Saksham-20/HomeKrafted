@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Check, Star } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import type { Review } from "@/lib/types";
 import styles from "./ReviewCard.module.css";
@@ -8,14 +9,24 @@ export interface ReviewCardProps {
   className?: string;
 }
 
-/** Five-star row rendered as filled/outline glyphs — gold, decorative (≥16px equivalent visual weight). */
+/**
+ * Five-star row — a real `<Star>` icon, filled or outline, gold,
+ * decorative. Was the literal `★` glyph until 2026-09-17: a unicode
+ * character standing in for an icon renders a different glyph on every
+ * OS, which is exactly what the icon-system rule bans. The rating is
+ * always also stated in text beside this (`ReviewForm`'s and the
+ * product page's summary both do), so `aria-hidden` here loses nothing.
+ */
 function StarRow({ rating }: { rating: number }) {
   return (
     <span className={styles.stars} aria-hidden="true">
       {Array.from({ length: 5 }, (_, index) => (
-        <span key={index} className={index < rating ? styles.starFull : styles.starEmpty}>
-          ★
-        </span>
+        <Star
+          key={index}
+          size={15}
+          className={index < rating ? styles.starFull : styles.starEmpty}
+          fill={index < rating ? "currentColor" : "none"}
+        />
       ))}
     </span>
   );
@@ -32,7 +43,10 @@ export function ReviewCard({ review, className }: ReviewCardProps) {
       <div className={styles.head}>
         <StarRow rating={review.rating} />
         {review.verifiedPurchase && (
-          <span className={styles.verified}>✓ Verified Buyer</span>
+          <span className={styles.verified}>
+            <Check size={11} aria-hidden="true" />
+            Verified Buyer
+          </span>
         )}
       </div>
       {/* h3, not h4 — `ReviewList` heads the section with an h2, so an h4

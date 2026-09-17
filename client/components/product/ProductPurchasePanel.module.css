@@ -331,16 +331,24 @@
   border-radius: var(--hk-r-sm);
 }
 
+/*
+  2026-09-17: these four rules carried invented tokens (`--hk-pine-subtle`,
+  `--hk-pine-light`, `--hk-amber-*`, `--hk-rose-*`) that exist in neither
+  `tokens.css` nor `tokens.extend.css`, with hex fallbacks from a palette
+  (Tailwind slate/amber/rose) this brand does not use. Rebuilt on the real
+  success/gold/terracotta tone tokens the rest of the portal and site use
+  for the same three meanings (see `ListingRow.module.css`).
+*/
 .pincodeSuccess {
-  background: var(--hk-pine-subtle, #ecfdf5);
-  color: var(--hk-pine, #065f46);
-  border: 1px solid var(--hk-pine-light, #a7f3d0);
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+  border: 1px solid var(--hk-success);
 }
 
 .pincodeWarning {
-  background: var(--hk-amber-light, #fef3c7);
-  color: var(--hk-amber-dark, #92400e);
-  border: 1px solid var(--hk-amber, #f59e0b);
+  background: var(--hk-gold-tint);
+  color: var(--hk-gold-text-sm);
+  border: 1px solid var(--hk-gold-border);
 }
 
 /* Allergen tags */
@@ -363,15 +371,15 @@
 }
 
 .allergenChipWarning {
-  background: var(--hk-rose-light, #ffe4e6);
-  color: var(--hk-rose-dark, #be123c);
-  border: 1px solid var(--hk-rose, #f43f5e);
+  background: var(--hk-terracotta-tint);
+  color: var(--hk-terracotta-text);
+  border: 1px solid var(--hk-terracotta);
 }
 
 .allergenChipSafe {
-  background: var(--hk-pine-subtle, #ecfdf5);
-  color: var(--hk-pine, #065f46);
-  border: 1px solid var(--hk-pine-light, #a7f3d0);
+  background: var(--hk-success-tint);
+  color: var(--hk-success);
+  border: 1px solid var(--hk-success);
 }
 
 .servingBadge {
@@ -379,7 +387,7 @@
   font-size: 11.5px;
   font-weight: 600;
   color: var(--hk-pine);
-  background: var(--hk-pine-subtle, #ecfdf5);
+  background: var(--hk-pine-tint);
   padding: 2px 8px;
   border-radius: 4px;
   margin-left: 6px;

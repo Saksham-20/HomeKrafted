@@ -127,6 +127,13 @@
   color: var(--hk-pine);
 }
 
+.ratingIcon {
+  color: var(--hk-gold);
+  fill: var(--hk-gold);
+  vertical-align: -1px;
+  margin-right: 1px;
+}
+
 .meta {
   font-size: 13px;
   color: var(--hk-muted);

@@ -81,12 +81,24 @@
   gap: 4px;
 }
 
+/* Matches components/portal/Field's .label (2026-09-17). Most calls
+   here are a read-only key in a detail panel, where mono-as-receipt
+   would be defensible — but OrderDetailClient also uses this class for
+   an editable "Refund amount" input's label, which is unambiguously a
+   form question. One class, one job: sentence case throughout, same as
+   every other field label in the portal kit. */
 .fieldLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--hk-ink);
+}
+
+.ratingIcon {
+  color: var(--hk-gold);
+  fill: var(--hk-gold);
+  vertical-align: -1px;
+  margin-right: 1px;
 }
 
 .fieldValue {
@@ -166,7 +178,7 @@
   border: 1px solid var(--hk-pine);
   border-radius: var(--hk-r-pill);
   color: var(--hk-pine);
-  background: var(--hk-white);
+  background: var(--hk-surface);
   font-size: 14px;
   font-weight: 500;
 }

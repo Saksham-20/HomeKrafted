@@ -1,9 +1,11 @@
 import Link from "next/link";
 import clsx from "clsx";
+import { Star } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ProductGallery } from "@/components/product/ProductGallery";
 import { ProductPurchasePanel } from "@/components/product/ProductPurchasePanel";
 import { ProductTabs } from "@/components/product/ProductTabs";
+import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import type { Metadata } from "next";
 import {
   getCategoryById,
@@ -120,7 +122,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <script {...jsonLdProps(productJsonLd)} />
       <div className={clsx("container", styles.breadcrumbWrap)}>
         <span className={styles.breadcrumb}>
-          Home / Homemade Food{category ? ` / ${category.name}` : ""} /{" "}
+          {/* Was hardcoded "Homemade Food" for every product (B11,
+              docs/UI-REFINEMENT.md) — a craft listing like this candle
+              read "Home / Homemade Food / Candles & Home", the wrong half
+              of the site. Branches on `kind` the same way `/shop` and
+              `/gifts` label themselves (2026-09-17). */}
+          Home / {product.kind === "craft" ? "Handcrafted Gifts" : "Homemade Food"}
+          {category ? ` / ${category.name}` : ""} /{" "}
           <span className={styles.breadcrumbCurrent}>{product.name}</span>
         </span>
       </div>
@@ -130,19 +138,39 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <div className={styles.info}>
           {vendor && (
-            <Link href={`/storefront/${vendor.slug}`} className={styles.maker}>
-              {vendor.name}
+            // A portrait chip above the fold (B12, docs/UI-REFINEMENT.md
+            // — 2026-09-17). The maker's name was an 11px mono eyebrow
+            // and nothing else: on a platform whose whole pitch is "a
+            // real person made this", the product page that most needs
+            // to show the person showed a label instead. `alt=""` — the
+            // name text right beside it is the same fact one node later.
+            <Link href={`/storefront/${vendor.slug}`} className={styles.makerRow}>
+              <MakerPortrait vendor={vendor} size={32} alt="" />
+              <span className={styles.maker}>{vendor.name}</span>
             </Link>
           )}
           <h1 className={styles.title}>{product.name}</h1>
           {/* Five filled stars beside "0.0 · 0 reviews" was the worst of
               these: the decoration says five, the number says zero, and
-              neither is true of a listing nobody has reviewed. */}
+              neither is true of a listing nobody has reviewed.
+
+              The row itself was also always five *filled* stars — a 3.2
+              rating and a 4.9 rating drew the identical graphic, and only
+              the number beside it (easy to skim past) said otherwise.
+              Fixed 2026-09-17 alongside the glyph swap: filled up to the
+              rounded rating, same as `ReviewCard`'s `StarRow`. */}
           <div className={styles.ratingRow}>
             {product.reviewCount > 0 ? (
               <>
                 <span className={styles.stars} aria-hidden="true">
-                  ★★★★★
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <Star
+                      key={index}
+                      size={15}
+                      fill={index < Math.round(product.rating) ? "currentColor" : "none"}
+                      className={index < Math.round(product.rating) ? styles.starFull : styles.starEmpty}
+                    />
+                  ))}
                 </span>
                 <span className={styles.ratingText}>
                   {product.rating.toFixed(1)} · {product.reviewCount} reviews

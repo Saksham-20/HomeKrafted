@@ -8,10 +8,11 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CollectionsTabs } from "./CollectionsTabs";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getCollectionsAdmin, getOccasionsAdmin } from "@/lib/api";
+import { apiErrorMessage, getCollectionsAdmin, getOccasionsAdmin } from "@/lib/api";
 import type { Collection, Occasion } from "@/lib/types";
 import styles from "./CollectionsClient.module.css";
 
@@ -29,21 +30,30 @@ export function CollectionsClient() {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [occasions, setOccasions] = useState<Occasion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [list, occs] = await Promise.all([getCollectionsAdmin(), getOccasionsAdmin()]);
-      if (cancelled) return;
-      setCollections(list);
-      setOccasions(occs);
-      setLoading(false);
+      try {
+        const [list, occs] = await Promise.all([getCollectionsAdmin(), getOccasionsAdmin()]);
+        if (cancelled) return;
+        setCollections(list);
+        setOccasions(occs);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load collections. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, reloadToken]);
 
   const newButton = (
     <Button variant="primary" size="sm" onClick={() => router.push("/admin/collections/new")}>
@@ -51,6 +61,33 @@ export function CollectionsClient() {
       New collection
     </Button>
   );
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Collections" actions={newButton} />
+        <CollectionsTabs active="collections" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   if (!ready || loading) {
     return (

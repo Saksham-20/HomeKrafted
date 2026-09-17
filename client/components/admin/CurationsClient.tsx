@@ -21,7 +21,6 @@ import {
   ChevronUp,
   Flame,
   Plus,
-  Search,
   ShoppingBag,
   Sparkles,
   Star,
@@ -42,8 +41,10 @@ import { formatCurrency } from "@/lib/format";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { CollectionsTabs } from "./CollectionsTabs";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { SearchField } from "@/components/ui/SearchField";
 import styles from "./CurationsClient.module.css";
 
 // ---------------------------------------------------------------------------
@@ -384,7 +385,7 @@ export function CurationsClient() {
         return { ...prev, [activeRail]: ids };
       });
       setSaveMsg({
-        text: `✓ Swapped in "${candidate.name}". Click "Save rail" to publish live.`,
+        text: `Swapped in "${candidate.name}". Click "Save rail" to publish live.`,
         isError: false,
       });
     },
@@ -409,7 +410,7 @@ export function CurationsClient() {
     }));
 
     setSaveMsg({
-      text: `✓ Auto-populated rail with top 8 ${activeRailDef.kind === "food" ? "dishes" : "gifts"}! Click "Save rail" to publish.`,
+      text: `Auto-populated rail with top 8 ${activeRailDef.kind === "food" ? "dishes" : "gifts"}. Click "Save rail" to publish.`,
       isError: false,
     });
   }, [allKindProducts, activeRail, activeRailDef.kind]);
@@ -433,7 +434,7 @@ export function CurationsClient() {
     }));
 
     setSaveMsg({
-      text: `✓ Promoted top ${topCandidates.length} best-performing items into this rail! Click "Save rail" to publish.`,
+      text: `Promoted top ${topCandidates.length} best-performing items into this rail. Click "Save rail" to publish.`,
       isError: false,
     });
   }, [allKindProducts, activeRail, currentIds.length]);
@@ -463,7 +464,7 @@ export function CurationsClient() {
         return [...prev, saved];
       });
 
-      setSaveMsg({ text: "✓ Saved! Changes are now live on the landing page.", isError: false });
+      setSaveMsg({ text: "Saved — changes are now live on the landing page.", isError: false });
     } catch (err) {
       setSaveMsg({
         text: err instanceof Error ? err.message : "Failed to save rail.",
@@ -492,23 +493,24 @@ export function CurationsClient() {
         </div>
       )}
 
-      {/* Rail selector tabs */}
-      <div className={styles.railTabs} role="tablist" aria-label="Curated Rail">
-        {RAILS.map((rail) => {
-          const count = railProductIds[rail.slug]?.length ?? 0;
-          return (
-            <button
-              key={rail.slug}
-              role="tab"
-              aria-selected={activeRail === rail.slug}
-              className={`${styles.railTab}${activeRail === rail.slug ? ` ${styles.railTabActive}` : ""}`}
-              onClick={() => setActiveRail(rail.slug)}
-            >
-              {rail.title} ({count})
-            </button>
-          );
-        })}
-      </div>
+      {/*
+        Rail selector — was `role="tablist"`/`role="tab"` with no
+        `aria-controls`/`tabpanel` and no arrow-key navigation, so it
+        claimed the tab widget's contract without honouring it (the
+        portal rule: chips that filter what's on screen are a
+        `SegmentedFilter`, `role="group"` of `aria-pressed` buttons, never
+        a tablist).
+      */}
+      <SegmentedFilter
+        label="Curated rail"
+        value={activeRail}
+        onChange={setActiveRail}
+        options={RAILS.map((rail) => ({
+          value: rail.slug,
+          label: rail.title,
+          count: railProductIds[rail.slug]?.length ?? 0,
+        }))}
+      />
 
       {loading ? (
         <LoadingRows rows={6} />
@@ -526,7 +528,7 @@ export function CurationsClient() {
             </p>
 
             <div className={styles.liveHint}>
-              <Sparkles size={14} style={{ flexShrink: 0 }} />
+              <Sparkles size={14} />
               <span>{activeRailDef.hint}</span>
             </div>
 
@@ -577,7 +579,7 @@ export function CurationsClient() {
                 </button>
               </div>
             ) : (
-              <ul className={styles.railList} style={{ listStyle: "none", margin: 0, padding: 0 }}>
+              <ul className={styles.railList}>
                 {currentIds.map((id, idx) => {
                   const product = seenProducts.get(id);
                   const weight = product
@@ -714,7 +716,7 @@ export function CurationsClient() {
               <h3 className={styles.sectionLabel}>
                 Select from {activeRailDef.kind === "food" ? "Homemade Food" : "Handcrafted Gifts"}
               </h3>
-              <span style={{ fontSize: 12, color: "var(--hk-muted)" }}>
+              <span className={styles.availableCount}>
                 {availableCatalog.length} available
               </span>
             </div>
@@ -751,19 +753,13 @@ export function CurationsClient() {
               )}
             </div>
 
-            <div className={styles.searchBox}>
-              <span className={styles.searchIcon} aria-hidden="true">
-                <Search size={16} />
-              </span>
-              <input
-                className={styles.searchInput}
-                type="search"
-                placeholder={`Search ${activeRailDef.kind === "food" ? "dishes" : "gifts"} by name or kitchen…`}
-                value={searchQ}
-                onChange={(e) => setSearchQ(e.target.value)}
-                aria-label="Search available products"
-              />
-            </div>
+            <SearchField
+              className={styles.catalogSearch}
+              placeholder={`Search ${activeRailDef.kind === "food" ? "dishes" : "gifts"} by name or kitchen…`}
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              aria-label="Search available products"
+            />
 
             {availableCatalog.length === 0 ? (
               <div className={styles.empty}>

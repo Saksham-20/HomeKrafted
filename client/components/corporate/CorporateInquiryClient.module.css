@@ -150,12 +150,13 @@
   grid-column: 1 / -1;
 }
 
+/* Matches components/portal/Field's .label (2026-09-17) — same
+   mono-uppercase-form-label fix as LoginClient.module.css. */
 .fieldLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--hk-ink);
 }
 
 .input {

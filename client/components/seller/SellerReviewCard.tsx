@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Textarea } from "@/components/ui/Textarea";
@@ -8,13 +9,18 @@ import { formatDate } from "@/lib/format";
 import type { Review } from "@/lib/types";
 import styles from "./SellerReviewCard.module.css";
 
+/** Same fix as `components/review/ReviewCard`'s `StarRow` (2026-09-17) —
+    a real icon, not the literal `★` glyph. */
 function StarRow({ rating }: { rating: number }) {
   return (
     <span className={styles.stars} aria-hidden="true">
       {Array.from({ length: 5 }, (_, index) => (
-        <span key={index} className={index < rating ? styles.starFull : styles.starEmpty}>
-          ★
-        </span>
+        <Star
+          key={index}
+          size={15}
+          fill={index < rating ? "currentColor" : "none"}
+          className={index < rating ? styles.starFull : styles.starEmpty}
+        />
       ))}
     </span>
   );

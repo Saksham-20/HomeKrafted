@@ -1,6 +1,8 @@
 import clsx from "clsx";
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { Icon } from "@/components/ui/Icon";
+import { categoryTint } from "@/lib/category-tint";
 import type { Category } from "@/lib/types";
 import styles from "./CategoryTile.module.css";
 
@@ -12,8 +14,12 @@ export interface CategoryTileProps {
 }
 
 export function CategoryTile({ category, href, onClick, className }: CategoryTileProps) {
+  const tint = categoryTint(category.id);
   const inner = (
-    <div className={styles.cardFrame}>
+    <div
+      className={styles.cardFrame}
+      style={{ "--tile-ground": tint.ground, "--tile-ink": tint.ink } as CSSProperties}
+    >
       {/*
         A category draws its mark, never a photograph (owner, 2026-09-16).
         A photo on a category tile is one listing standing in for a whole
@@ -22,6 +28,16 @@ export function CategoryTile({ category, href, onClick, className }: CategoryTil
         shelves had no usable picture anyway so the row was half photos and
         half marks. The mark is the shelf's own identity, picked by an
         admin from the icon registry.
+
+        The tint pair is a deterministic hash of the id (`lib/category-tint`,
+        2026-09-17) — colour that tells shelves apart at a glance instead of
+        the same sage-on-sage repeated fourteen times.
+
+        `.label` used to be white with a photo drop-shadow, a leftover from
+        when a photograph sat behind it. Fixed 2026-09-17: it measured
+        ~1.1:1 on the tint it actually renders over (A1 in
+        docs/UI-REFINEMENT.md) — every shelf name on the home rail was
+        effectively invisible. It now takes the tint's own ink.
       */}
       <span className={styles.mark}>
         <Icon id={category.icon} size={42} />

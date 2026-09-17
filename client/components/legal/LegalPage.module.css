@@ -2,9 +2,22 @@
    line height is generous — closer to an article than to the rest of the
    marketplace chrome. */
 
+/*
+  B13 (docs/UI-REFINEMENT.md): this used to sit on the same element as the
+  `container`/`container-prose` utility classes, both 1180px. A doubled
+  `.page.page` selector (specificity 0,2,0) was tried and still lost —
+  `body:has([data-surface="consumer"]) .container` carries an attribute
+  selector inside `:has()`, at (0,2,1). Fixed properly by moving `.page`
+  onto its own inner element in `LegalPage.tsx` instead, with no
+  competing `container` class on it — no specificity fight to win.
+  `margin-inline: auto` is new: nothing centred this measure inside the
+  1180px article before, since centring had been `.container`'s job on
+  the combined element.
+*/
 .page {
   padding-block: var(--hk-s6) var(--hk-s8);
   max-width: 760px;
+  margin-inline: auto;
 }
 
 .header {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { followVendor, getFollowState, unfollowVendor } from "@/lib/api";
@@ -90,7 +91,14 @@ export function FollowButton({ vendorSlug, onCountChange, className }: FollowBut
       disabled={busy || !ready}
       aria-pressed={following}
     >
-      {following ? "Following ✓" : "Follow"}
+      {following ? (
+        <>
+          <Check size={14} aria-hidden="true" />
+          Following
+        </>
+      ) : (
+        "Follow"
+      )}
     </Button>
   );
 }

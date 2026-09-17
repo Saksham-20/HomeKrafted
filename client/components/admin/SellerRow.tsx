@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusPill } from "./StatusPill";
@@ -51,7 +52,13 @@ export function SellerRow({ seller, onToggleStatus }: SellerRowProps) {
         <span className={styles.meta}>
           {seller.specialties.map((sp) => SPECIALTY_LABELS[sp]).join(" · ") || "HomeKrafter"} ·
           Since {formatDate(seller.createdAt)}
-          {seller.rating ? ` · ★ ${seller.rating.toFixed(1)} (${seller.reviewCount ?? 0})` : ""}
+          {seller.rating ? (
+            <>
+              {" · "}
+              <Star size={11} className={styles.ratingIcon} aria-hidden="true" />
+              {seller.rating.toFixed(1)} ({seller.reviewCount ?? 0})
+            </>
+          ) : null}
         </span>
       </div>
       <span className={styles.badges}>

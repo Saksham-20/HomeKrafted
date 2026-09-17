@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { X } from "lucide-react";
 import styles from "./Chip.module.css";
 
 export interface ChipProps {
@@ -44,7 +45,7 @@ export function Chip({
           disabled={disabled}
           aria-label="Remove filter"
         >
-          ✕
+          <X size={12} aria-hidden="true" />
         </button>
       </span>
     );

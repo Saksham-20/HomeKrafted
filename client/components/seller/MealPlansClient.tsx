@@ -91,27 +91,22 @@ export function MealPlansClient() {
     };
   }, [sellerDataReady, reloadToken]);
 
-  async function handleClose(planId: string) {
-    const plan = plans.find((p) => p.id === planId);
-    if (!plan) return;
-    /*
-      The wording matters more than the button does. Closing stops new
-      subscribers and leaves every existing cycle running — those people
-      prepaid — and a cook who reads this as "stop cooking" would walk away
-      from meals they still owe.
-    */
-    const subscribers = plan.subscriberCount;
-    const confirmed = window.confirm(
-      `Stop taking new subscribers for "${plan.name}"?\n\n` +
-        (subscribers > 0
-          ? `The ${subscribers} ${subscribers === 1 ? "person" : "people"} already on it keep their meals — they've paid for those, and you still need to cook them. You can reopen the plan any time.`
-          : "You can reopen it any time."),
-    );
-    if (!confirmed) return;
+  /*
+    The wording matters more than the button does. Closing stops new
+    subscribers and leaves every existing cycle running — those people
+    prepaid — and a cook who reads this as "stop cooking" would walk away
+    from meals they still owe. An inline two-step, not `window.confirm`
+    (the portal rule): a browser confirm cannot carry that sentence, and
+    this decision needs it.
+  */
+  const [closingPlanId, setClosingPlanId] = useState<string | null>(null);
+
+  async function confirmClose(planId: string) {
     const updated = await closeMyMealPlan(planId);
     setPlans((current) =>
       current.map((p) => (p.id === planId ? { ...p, isActive: updated.isActive } : p)),
     );
+    setClosingPlanId(null);
   }
 
   function handleDelivered(deliveryId: string) {
@@ -220,7 +215,14 @@ export function MealPlansClient() {
         ) : (
           <div className={styles.list}>
             {plans.map((plan) => (
-              <MealPlanRow key={plan.id} plan={plan} onClose={handleClose} />
+              <MealPlanRow
+                key={plan.id}
+                plan={plan}
+                confirmingClose={closingPlanId === plan.id}
+                onRequestClose={() => setClosingPlanId(plan.id)}
+                onConfirmClose={() => confirmClose(plan.id)}
+                onCancelClose={() => setClosingPlanId(null)}
+              />
             ))}
           </div>
         )}

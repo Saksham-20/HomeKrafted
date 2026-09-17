@@ -53,6 +53,9 @@
 }
 
 .add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid var(--hk-pine);
   background: var(--hk-pine);
   color: #fff;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Field, TextArea } from "@/components/portal/Field";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import {
   getReviewQueue,
@@ -151,17 +152,14 @@ export function ReviewQueuePanel() {
                       them what to change (M22). So it is typed here rather
                       than picked from a list of codes.
                     */}
-                    <label className={styles.reasonLabel} htmlFor={`reason-${item.id}`}>
-                      What needs changing? They are shown this word for word.
-                    </label>
-                    <textarea
-                      id={`reason-${item.id}`}
-                      className={styles.reason}
-                      rows={2}
-                      value={rejecting.reason}
-                      onChange={(e) => setRejecting({ id: item.id, reason: e.target.value })}
-                      placeholder="The photo is too dark to see the jar — please reshoot in daylight."
-                    />
+                    <Field label="What needs changing? They are shown this word for word.">
+                      <TextArea
+                        rows={2}
+                        value={rejecting.reason}
+                        onChange={(e) => setRejecting({ id: item.id, reason: e.target.value })}
+                        placeholder="The photo is too dark to see the jar — please reshoot in daylight."
+                      />
+                    </Field>
                   </div>
                 )}
               </div>

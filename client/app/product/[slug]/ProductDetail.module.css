@@ -26,6 +26,15 @@
   flex-direction: column;
 }
 
+/* The portrait + eyebrow pair (2026-09-17, B12) — `.maker` keeps its own
+   styling unchanged; the row just gives it a picture beside it. */
+.makerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  align-self: flex-start;
+}
+
 .maker {
   font-family: var(--hk-font-mono);
   font-size: 11px;
@@ -51,8 +60,17 @@
 }
 
 .stars {
-  color: var(--hk-gold-text-sm);
-  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.starFull {
+  color: var(--hk-gold);
+}
+
+.starEmpty {
+  color: var(--hk-border-2);
 }
 
 .ratingText {

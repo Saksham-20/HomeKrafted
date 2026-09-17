@@ -39,7 +39,7 @@
   text-transform: uppercase;
   border-radius: var(--hk-r-pill);
   padding: 3px 9px;
-  background: var(--hk-canvas);
+  background: var(--hk-surface-3);
   color: var(--hk-ink-2);
 }
 
@@ -53,12 +53,12 @@
   color: var(--hk-pine);
 }
 
-/* #f6e7e0 — the same one-off terracotta tint `StatusPill`, `TransactionRow`
+/* var(--hk-terracotta-tint) — the same one-off terracotta tint `StatusPill`, `TransactionRow`
    and `OrderStatusPill` hardcode; see CLAUDE.md's "Known token gaps" for
    why a single-use colour is not worth a token. The *text* is
    `--hk-terracotta-text`, because the base token is 3.77:1 on this tint. */
 .status[data-status="rejected"] {
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta-text);
 }
 

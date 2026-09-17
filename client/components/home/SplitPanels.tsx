@@ -12,12 +12,23 @@ import styles from "./SplitPanels.module.css";
 type Half = "food" | "gifts";
 
 /**
- * The landing screen's two halves: homemade food on one side, handcrafted
- * gifts on the other. Level at rest, and the half you lean toward takes
- * about three quarters of the screen.
+ * The landing page's food/gifts doors: homemade food on one side,
+ * handcrafted gifts on the other. Level at rest, and the half you lean
+ * toward takes about three quarters of the screen.
  *
- * **Why the split is the hero.** The site sells two unrelated things to
- * two different intents — somebody deciding what to eat tonight, and
+ * **Positioned under the hero, not as it (2026-09-17, R2 of
+ * docs/UI-REFINEMENT.md).** `IsbCrochetBanner` currently holds the
+ * landing page's first screenful as a dedicated campaign banner; this
+ * component was the hero itself before that (and the `ScrollExpandMedia`
+ * hero — since deleted — sat between the two). It is restored here as
+ * the band immediately under the banner, which is where the two-doors
+ * question belongs regardless of which campaign is running above it:
+ * the split's own file survives a campaign swap untouched, only
+ * `app/page.tsx`'s import list changes.
+ *
+ * **Why the split still earns the treatment below.** The site sells two
+ * unrelated things to two different intents — somebody deciding what to
+ * eat tonight, and
  * somebody buying a present — and every version of this page before M51
  * asked that question in a pair of 240px buttons under a paragraph. A
  * half-screen each states it at the size of the decision, and the
@@ -61,14 +72,14 @@ type Half = "food" | "gifts";
  * 2026-08-29). Hover is read on the *container*, not per panel: the
  * pointer's x has to be inside the outer `LEAN` fraction of the width
  * before a half is called for, which leaves a third of the screen in the
- * middle where both halves stay level and the lockup between them stays
- * up. Entering a panel is not the same thing as choosing it — the
- * per-panel `onPointerEnter` version opened a half the instant the
- * pointer crossed the centre line on its way to anywhere, including the
- * header.
- *
- * `data-active` on the wrapper is also what the hero reads to collapse
- * the brand lockup above it — see `Hero.module.css`.
+ * middle where both halves stay level. Entering a panel is not the same
+ * thing as choosing it — the per-panel `onPointerEnter` version opened a
+ * half the instant the pointer crossed the centre line on its way to
+ * anywhere, including the header. (This component no longer sits under an
+ * overlaid brand lockup the way it did when it was the hero itself — see
+ * the file header — but the same "middle is neutral" rule still holds:
+ * a half opening on the way past to somewhere else is still the wrong
+ * read of the gesture.)
  *
  * **The two photographs are licensed stock, not our own and not
  * generated.** Both are Pexels (photos 8148149 and 7817374, Pexels
@@ -97,16 +108,19 @@ const HALVES = [
   {
     key: "gifts" as const,
     index: "02",
-    // ISB Mohali crochet pre-order push (owner, 2026-09-16): this half
-    // routes into the same `/gifts?category=crochet` filter as
-    // `IsbCrochetBanner`, so the hero and the banner agree. Revert to
-    // plain `/gifts` once the campaign push ends.
-    href: "/gifts?category=crochet",
+    // Reverted to plain `/gifts` (2026-09-17, R2 of docs/UI-REFINEMENT.md,
+    // D1): the ISB Mohali crochet push moved back to `IsbCrochetBanner`,
+    // which now sits above this band as its own campaign banner. This
+    // split is the general food/gifts door again — the two doors ask the
+    // page's actual question, and the campaign gets its own dedicated
+    // spot rather than narrowing "gifts" to one sub-category on the page's
+    // second screenful too.
+    href: "/gifts",
     Icon: Gift,
-    eyebrow: "Now open · ISB Mohali",
+    eyebrow: "Send one",
     title: "Handcrafted gifts",
-    blurb: "Pre-order our handmade crochet — from our ISB Mohali pop-up, made by hand by independent HomeKrafters.",
-    cta: "Shop crochet pre-orders",
+    blurb: "Made by hand by independent HomeKrafters, and carefully packed and posted.",
+    cta: "Browse gifts",
     src: "/images/site/split-gifts.jpg",
     alt: "A basket of yarn beside a macramé hanging and crocheted pieces",
   },
@@ -115,7 +129,8 @@ const HALVES = [
 /**
  * How far in from an edge the pointer has to be before that half is the
  * one you are leaning toward. 0.34 leaves the middle **third** of the
- * screen neutral, which is the band the brand lockup occupies.
+ * screen neutral — deliberate dead space, not a hair-trigger split down
+ * the centre line.
  */
 const LEAN = 0.34;
 

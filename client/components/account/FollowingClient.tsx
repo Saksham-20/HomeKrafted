@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { apiErrorMessage, getFollowedVendors, unfollowVendor } from "@/lib/api";
 import type { Vendor } from "@/lib/types";
@@ -120,7 +121,13 @@ export function FollowingClient() {
                 <span className={styles.text}>
                   <span className={styles.name}>{vendor.name}</span>
                   <span className={styles.meta}>
-                    {vendor.reviewCount > 0 ? `★ ${vendor.rating.toFixed(1)} · ` : ""}
+                    {vendor.reviewCount > 0 && (
+                      <>
+                        <Star size={11} className={styles.ratingIcon} aria-hidden="true" />
+                        {vendor.rating.toFixed(1)}
+                        {" · "}
+                      </>
+                    )}
                     {vendor.location}
                   </span>
                 </span>

@@ -102,6 +102,12 @@
   margin-top: var(--hk-s3);
 }
 
+.giftIcon {
+  color: var(--hk-terracotta);
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
 .actions {
   display: flex;
   flex-direction: column;

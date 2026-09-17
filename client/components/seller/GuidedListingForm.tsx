@@ -8,11 +8,9 @@ import {
   Camera,
   Check,
   ChevronDown,
-  Gift,
   IndianRupee,
   Plus,
   Tag,
-  UtensilsCrossed,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +19,7 @@ import { Chip } from "@/components/ui/Chip";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
 import { ImageUpload } from "@/components/ui/ImageUpload";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
+import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
 import { Textarea } from "@/components/ui/Textarea";
 import { markupBreakdown, type CommissionRate } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
@@ -170,9 +169,21 @@ export function GuidedListingForm({
   const isCraft = values.kind === "craft";
   const rows = values.weightRows;
 
-  // Rotating placeholder for the name field
+  /**
+   * Which half's shelves are on screen — a view filter, not a stored
+   * answer. Defaults to whatever `kind` the listing already has (food on
+   * a fresh form); switching it never touches `values` by itself. Only
+   * `setCategory`, below, commits anything — so browsing the Gifts side
+   * out of curiosity and then picking a food shelf after all costs
+   * nothing.
+   */
+  const [shelfSide, setShelfSide] = useState<ProductKind>(values.kind);
+
+  // Rotating placeholder for the name field — follows the browse filter
+  // rather than `isCraft`, so it shows relevant examples before a shelf
+  // (and so `kind`) has actually been picked.
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const placeholders = isCraft ? CRAFT_PLACEHOLDERS : FOOD_PLACEHOLDERS;
+  const placeholders = shelfSide === "craft" ? CRAFT_PLACEHOLDERS : FOOD_PLACEHOLDERS;
   useEffect(() => {
     const timer = setInterval(() => {
       setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
@@ -215,19 +226,23 @@ export function GuidedListingForm({
     });
   }
 
-  function setKind(kind: ProductKind) {
-    const stillValid = categories.some(
-      (c) => c.id === values.categoryId && (c.group ?? "food") === kind,
-    );
-    // Extras strand on the other side of the catalogue just as the
-    // primary can — see `ListingForm.setKind`.
+  /**
+   * The shelf picked decides `kind` (D3, 2026-09-17) — there is no separate
+   * "is it something to eat, or something to keep" question any more.
+   * `shelfSide` below is a view-only filter over which half's shelves are
+   * on screen; this is what actually commits a value, whichever search
+   * result or chip it comes from. Same shape as `ListingForm.setCategory`.
+   */
+  function setCategory(categoryId: string) {
+    const chosen = categories.find((c) => c.id === categoryId);
+    const kind: ProductKind = chosen ? chosen.group ?? "food" : values.kind;
     const keptExtras = values.categoryIds.filter((id) =>
       categories.some((c) => c.id === id && (c.group ?? "food") === kind),
     );
     onChange({
       ...values,
+      categoryId,
       kind,
-      categoryId: stillValid ? values.categoryId : "",
       categoryIds: keptExtras,
       // Gifts are posted; only food asks how it travels (`toSellerListingInput`).
       shippingScope: kind === "craft" ? "national" : values.shippingScope,
@@ -255,17 +270,17 @@ export function GuidedListingForm({
   const categoryOptions = useMemo<ComboboxOption[]>(() => {
     const nameById = new Map(categories.map((c) => [c.id, c.name]));
     return categories
-      .filter((c) => (c.group ?? "food") === values.kind)
+      .filter((c) => (c.group ?? "food") === shelfSide)
       .map((c) => {
         const parentName = c.parentId ? nameById.get(c.parentId) : undefined;
         return { value: c.id, label: parentName ? `${parentName} › ${c.name}` : c.name };
       });
-  }, [categories, values.kind]);
+  }, [categories, shelfSide]);
 
   /** Every shelf on this side as chips, grouped, plus name matches (`lib/sell/shelf-picks`). */
   const shelfPicks = useMemo(
-    () => buildShelfPicks(categories, values.kind, values.name),
-    [categories, values.kind, values.name],
+    () => buildShelfPicks(categories, shelfSide, values.name),
+    [categories, shelfSide, values.name],
   );
   const hasShelfPicks = shelfPicks.groups.length > 0;
   const [showAllShelves, setShowAllShelves] = useState(false);
@@ -451,40 +466,6 @@ export function GuidedListingForm({
 
         {step === 1 && (
           <div className={styles.stepBody} key="step-1">
-            <fieldset className={styles.choiceSet}>
-              <legend className={styles.question}>Is it something to eat, or something to keep?</legend>
-              <div className={styles.choices}>
-                {(
-                  [
-                    { kind: "food", title: "Something to eat", hint: "Pickles, sweets, cakes, snacks", Icon: UtensilsCrossed },
-                    { kind: "craft", title: "Something to keep", hint: "Candles, jewellery, art, gifts", Icon: Gift },
-                  ] as const
-                ).map(({ kind, title, hint, Icon }) => {
-                  const on = values.kind === kind;
-                  return (
-                    <button
-                      key={kind}
-                      type="button"
-                      className={clsx(styles.choice, on && styles.choiceOn)}
-                      onClick={() => setKind(kind)}
-                      aria-pressed={on}
-                    >
-                      <span className={styles.choiceIcon} aria-hidden="true">
-                        <Icon size={20} strokeWidth={1.8} />
-                      </span>
-                      <span className={styles.choiceText}>
-                        <span className={styles.choiceTitle}>{title}</span>
-                        <span className={styles.choiceHint}>{hint}</span>
-                      </span>
-                      <span className={styles.choiceTick} aria-hidden="true">
-                        {on && <Check size={14} strokeWidth={2.4} />}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-
             <label className={styles.field}>
               <span className={styles.question}>What do you call it?</span>
               <input
@@ -509,20 +490,38 @@ export function GuidedListingForm({
               </div>
 
               {/*
-                The shelf list is filtered to the side of the catalogue
-                they just picked, so a candle maker is never offered
-                "Pickles" — and the ask carries that same answer, so an
-                approved shelf lands on the right half without an admin
-                having to guess at what somebody meant. Search sits first:
-                typing a word is quicker than scanning a list.
+                Picking a shelf is what decides food-or-gift now (D3,
+                2026-09-17) — there is no separate question for it any
+                more. `shelfSide` is only a filter over which half's
+                shelves this browse panel shows, a convenience for
+                narrowing fourteen-plus shelves to a manageable list, and
+                switching it commits nothing by itself — the portal kit's
+                `SegmentedFilter` is exactly this shape, a group of
+                mutually-exclusive view filters that stay on the page.
+              */}
+              <SegmentedFilter
+                label="Browse shelves for"
+                value={shelfSide}
+                onChange={setShelfSide}
+                options={[
+                  { value: "food", label: "Food" },
+                  { value: "craft", label: "Gifts" },
+                ]}
+              />
+
+              {/*
+                Search sits first: typing a word is quicker than scanning
+                a list, and it is scoped to the same `shelfSide` filter as
+                the chips below it so the two never disagree about what is
+                on screen.
               */}
               <Combobox
                 label="Search shelves"
                 labelTone="plain"
                 value={values.categoryId ? [values.categoryId] : []}
-                onChange={(next) => set("categoryId", next[0] ?? "")}
+                onChange={(next) => setCategory(next[0] ?? "")}
                 options={categoryOptions}
-                placeholder={isCraft ? "e.g. Earrings, Candles, Wall Art…" : "e.g. Pickles, Sweets, Breakfast…"}
+                placeholder={shelfSide === "craft" ? "e.g. Earrings, Candles, Wall Art…" : "e.g. Pickles, Sweets, Breakfast…"}
                 emptyMessage="Nothing by that name — try a shorter word."
                 hint="This is how shoppers find it when they are browsing."
                 onSuggest={
@@ -530,7 +529,7 @@ export function GuidedListingForm({
                     ? (name) =>
                         taxonomy.suggestCategory!(
                           name,
-                          values.kind,
+                          shelfSide,
                           // File it beside whatever they already picked (M58).
                           parentForSuggestion(categories, values.categoryId),
                         )
@@ -553,7 +552,7 @@ export function GuidedListingForm({
                               type="button"
                               aria-pressed={on}
                               className={clsx(styles.quickPick, on && styles.quickPickSelected)}
-                              onClick={() => set("categoryId", cat.id)}
+                              onClick={() => setCategory(cat.id)}
                             >
                               {on && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
                               {cat.name}

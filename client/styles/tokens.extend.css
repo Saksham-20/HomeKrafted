@@ -8,9 +8,13 @@
    everywhere `--hk-*` tokens are. Do not add values here that already have
    a home in tokens.css — this is only for the recurring gaps below.
 
-   It overrides `tokens.css` in exactly THREE places, each documented at
-   its own name: `--hk-muted`/`--hk-muted-2` (contrast), `--hk-dur`
-   (motion), and `--hk-font-body` (the Hanken Grotesk swap). */
+   It overrides `tokens.css` at each name documented below:
+   `--hk-muted`/`--hk-muted-2` (contrast), `--hk-dur` (motion),
+   `--hk-font-body` (the Hanken Grotesk swap), `--hk-ink` (a pre-existing,
+   previously-undocumented darkening — safe direction, only raises
+   contrast), and as of the 2026-09-17 UI refinement, `--hk-bg` and
+   `--hk-border` (the DESIGN.md "Maker's Table" paper canvas, phase 1's
+   colour half — see docs/UI-REFINEMENT.md). */
 
 :root {
   /* ---- On-solid-pine text ----
@@ -154,7 +158,17 @@
   /* ---- Brand Vibrancy & High-Contrast Accents (2026-09-10) ----
      Introduces warm saffron and spiced terracotta to provide clear visual
      accents for CTA highlights, badges, and active pills, plus deep solid ink
-     for AAA contrast against parchment backgrounds. */
+     for AAA contrast against parchment backgrounds.
+
+     **Saffron's role, made explicit (2026-09-17 UI refinement).** Before
+     this pass it was live in exactly two places (checkout's pincode note,
+     a cart-suggestion accent) with no stated job. It is now the
+     "this needs you" hue: a state that wants attention without being an
+     error — admin queue counts, seller moderation notices, pre-order
+     badges, the seasonal countdown chip. It is never a second price
+     colour (terracotta keeps that) and never a second gold (gold keeps
+     fills/rules/seals) — a third amber-family hue doing the same job as
+     an existing one is exactly the drift this file exists to stop. */
   --hk-saffron: #d97706;
   --hk-saffron-deep: #b45309;
   --hk-saffron-tint: #fffbeb;
@@ -162,4 +176,59 @@
   --hk-terracotta-accent: #c05621;
   --hk-ink-high: #1a140e;
   --hk-ink: #1a140e;
+
+  /* ---- Terracotta tint, named (2026-09-17) ----
+     `#f6e7e0` was already load-bearing — it is the background
+     `--hk-terracotta-text` (above) is measured against, and sixteen
+     `*.module.css` files hardcoded the literal hex rather than a name.
+     Same shape as the `--hk-muted` fix: give the value a name instead of
+     re-deriving it at every call site. */
+  --hk-terracotta-tint: #f6e7e0;
+
+  /* ---- Paper canvas (DESIGN.md phase 1, 2026-09-17) ----
+     Owner-approved 2026-09-02, shipped here: `tokens.css` ships
+     `--hk-bg: #F4F3F0` and `--hk-border: #ECEAE4`. This is the "Maker's
+     Table" warm paper ground — white cards read as labels on kraft
+     instead of white-on-white. Measured against every text token that
+     sits on the canvas directly (`--hk-muted` 4.59:1, `--hk-muted-2`
+     4.79:1, `--hk-ink` 16.2:1, `--hk-pine` 9.8:1) — all hold AA on the
+     new value. `--hk-terracotta` (the price/accent colour) drops to
+     4.04:1 on the bare canvas, which is why it stays a card-surface or
+     large-text colour only (it always has been) and never a small label
+     directly on `--hk-bg`.
+     `tokens.css` is untouched and still law; reverting is deleting these
+     two lines. */
+  --hk-bg: #f7f1e6;
+  --hk-border: #e5dcc9;
+
+  /* ---- Soft surface (DESIGN.md phase 1) ----
+     For receipt-meta blocks and dashed-border provenance strips sitting
+     on a white card — warmer than `--hk-surface` (#FFFFFF) without
+     dropping to the canvas tone, the same relationship `--hk-surface-2`/
+     `-3` already have to `--hk-surface`. New name, not an override —
+     `tokens.css` has no equivalent. */
+  --hk-surface-soft: #fffcf5;
+
+  /* ---- Spacing, the missing small half-steps (2026-09-17) ----
+     `tokens.css`'s scale jumps 4 → 8 → 12 → 16 → 20 → 26 → 34 → 44 with
+     nothing under 4px — so a `6px`/`10px`/`14px` inset (154, 51 and 20
+     occurrences respectively, audited across every `*.module.css`) had
+     nowhere legitimate to land and was hardcoded instead. These are the
+     half-steps between the existing rails, not a second scale: reach for
+     `--hk-s2`/`--hk-s3` first, and use one of these only where a control
+     genuinely needs the finer gap (icon-to-label gaps, pill padding,
+     tight badge insets). */
+  --hk-s0: 2px;
+  --hk-s1h: 6px;
+  --hk-s2h: 10px;
+  --hk-s3h: 14px;
+
+  /* ---- Section rhythm (2026-09-17) ----
+     The landing page's bands had no shared vertical gap — every section
+     picked its own margin. One pair, used between every full-width
+     section on `/`: `--hk-section-y` for the ordinary gap,
+     `-tight` where two bands are deliberately read as one group (e.g. a
+     hero and the strip immediately under it). */
+  --hk-section-y: 72px;
+  --hk-section-y-tight: 40px;
 }

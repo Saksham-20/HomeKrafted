@@ -1,6 +1,20 @@
+/*
+  B13 (docs/UI-REFINEMENT.md). First tried as a doubled `.page.page`
+  selector (specificity 0,2,0) to beat `.container`'s (0,1,0) — that
+  works on a plain page, but `/login` is a consumer-surface route, so
+  the real competing rule is `body:has([data-surface="consumer"])
+  .container { max-width: 1440px }` at (0,2,1), which still won: the
+  form measured 1440px live, not 480px. Fixed the same way as
+  LegalPage — `.page` moved onto its own inner element in
+  `LoginClient.tsx`, off the one carrying `container`, so there is no
+  specificity fight to win. `margin-inline: auto` is new for the same
+  reason: centring used to be `.container`'s job on the combined
+  element.
+*/
 .page {
   padding-block: var(--hk-s8) var(--hk-s8);
   max-width: 480px;
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   gap: var(--hk-s5);
@@ -131,12 +145,16 @@
   gap: 6px;
 }
 
+/* Matches `components/portal/Field`'s `.label` (2026-09-17) — mono
+   uppercase is receipt type for counts and eyebrows, never a form label
+   (`.eyebrow` above is the legitimate use on this same page). "Email
+   address" and "Password" are questions somebody is answering, the same
+   job `Field` does everywhere else. */
 .label {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted-2);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--hk-ink);
 }
 
 .input {

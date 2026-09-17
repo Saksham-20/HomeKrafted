@@ -16,7 +16,9 @@ import styles from "./AdminDashboardClient.module.css";
 
 const ORDER_TYPE_LABEL: Record<AdminOrderType, string> = {
   marketplace: "Marketplace",
-  laundry: "Laundry",
+  // Withdrawn (M19) — labelled so a legacy booking reads as history, not
+  // as a live module taking orders alongside Marketplace and Snacks (B20).
+  laundry: "Laundry (legacy)",
   snack: "Snacks",
 };
 
@@ -197,9 +199,16 @@ export function AdminDashboardClient() {
           hint="See /admin/wallet for per-user balances"
         />
         <StatCard label="Active HomeKrafters" value={String(snapshot.activeHomeKraftersCount)} />
-        {/* Specialty counts overlap — one HomeKrafter can appear in several. */}
+      </div>
+
+      {/* A breakdown of "Active HomeKrafters" above, not a platform total —
+          its own grid rather than a trailing card on the 8-up totals grid,
+          which orphaned this card alone on its own row (B21). Specialty
+          counts overlap: one HomeKrafter can appear in several. */}
+      <h2 className={styles.sectionTitle}>HomeKrafters by specialty</h2>
+      <div className={styles.statGrid}>
         <StatCard
-          label="Cooking homemade food"
+          label="Cook homemade food"
           value={String(snapshot.activeBySpecialty?.homemade_food ?? 0)}
         />
         {/* Laundry is withdrawn (M19) — the card renders only while

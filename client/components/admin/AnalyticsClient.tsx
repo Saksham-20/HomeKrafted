@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { SegmentedFilter } from "@/components/portal/SegmentedFilter";
 import Link from "next/link";
 import { Download } from "lucide-react";
@@ -11,6 +13,7 @@ import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
   adminExportUrl,
+  apiErrorMessage,
   getAnalytics,
   type AdminAnalyticsSnapshot,
   type AdminExportKind,
@@ -56,19 +59,52 @@ export function AnalyticsClient() {
   const { ready, role } = useAuth();
   const [days, setDays] = useState(14);
   const [snapshot, setSnapshot] = useState<AdminAnalyticsSnapshot | undefined>(undefined);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const snap = await getAnalytics(days);
-      if (cancelled) return;
-      setSnapshot(snap);
+      try {
+        const snap = await getAnalytics(days);
+        if (cancelled) return;
+        setSnapshot(snap);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load analytics. Try again."));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, days]);
+  }, [ready, role, days, reloadToken]);
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Analytics" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   // Derived, not a `loading` flag set inside the effect (which trips
   // `react-hooks/set-state-in-effect`). Keeping the previous chart up

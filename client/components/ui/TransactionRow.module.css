@@ -25,7 +25,7 @@
 /* Terracotta-tint has no matching token (prototype's #F6E7E0) — hardcoded
    + documented, same convention as the other flagged one-off gaps. */
 .iconTile.debit {
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta);
 }
 

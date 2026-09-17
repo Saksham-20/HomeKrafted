@@ -171,48 +171,22 @@ export function SellerDashboardClient() {
         <StatCard label="Pending payout" value={formatCurrency(s?.pendingPayoutAmount ?? 0)} />
       </div>
 
-      {/* Kitchen Operating Console & Capacity (P1-01) */}
-      <div
-        style={{
-          background: "var(--hk-surface, #ffffff)",
-          border: "1px solid var(--hk-border, #e2e8f0)",
-          borderRadius: "var(--hk-r-md, 8px)",
-          padding: "14px 18px",
-          marginBottom: "18px",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "12px",
-        }}
-      >
+      {/* Kitchen operating status (P1-01) */}
+      <div className={styles.statusCard}>
         <div>
-          <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--hk-ink, #0f172a)" }}>
-            Kitchen Operating Status: <span style={{ color: "var(--hk-pine, #065f46)" }}>Active &amp; Taking Orders</span>
+          <div className={styles.statusTitle}>
+            Kitchen operating status: <span className={styles.statusActive}>Active &amp; taking orders</span>
           </div>
-          <div style={{ fontSize: "12.5px", color: "var(--hk-text-subtle, #64748b)", marginTop: "2px" }}>
+          <div className={styles.statusMeta}>
             Daily cutoff: <strong>4:00 PM IST</strong> · Orders after 4 PM prepare for next-day dispatch.
             {(s?.capacityPerDay ?? 0) > 0 && (
               <span> · Load: <strong>{(s?.todayOrdersCount ?? 0) + (s?.mealsTodayCount ?? 0)}/{s?.capacityPerDay}</strong> orders today.</span>
             )}
           </div>
         </div>
-        <div>
-          <Link
-            href="/seller/profile"
-            style={{
-              fontSize: "12px",
-              padding: "6px 12px",
-              borderRadius: "6px",
-              border: "1px solid var(--hk-border, #cbd5e1)",
-              color: "var(--hk-ink, #0f172a)",
-              textDecoration: "none",
-              fontWeight: 500,
-            }}
-          >
-            Adjust Capacity &amp; Hours →
-          </Link>
-        </div>
+        <Link href="/seller/profile" className={styles.statusAction}>
+          Adjust capacity &amp; hours →
+        </Link>
       </div>
 
       {/* Only worth the space if this HomeKrafter actually does pickups or

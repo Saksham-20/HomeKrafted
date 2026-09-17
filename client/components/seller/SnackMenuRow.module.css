@@ -80,10 +80,10 @@
    `var(--hk-terracotta)` until 2026-08-10 and the sweep never caught it,
    because no seeded snack is unavailable. */
 .unavailable {
-  /* #f6e7e0 is the terracotta tint. Local literal rather than a new token:
+  /* var(--hk-terracotta-tint) is the terracotta tint. Local literal rather than a new token:
      CLAUDE.md says not to invent token names, and the same hex is already a
      documented one-off in TransactionRow and MealPlanRow. */
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta-text);
 }
 
@@ -97,7 +97,7 @@
 }
 
 .blockedReview {
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta-text);
 }
 

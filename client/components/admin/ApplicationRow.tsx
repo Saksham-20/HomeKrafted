@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/portal/Field";
 import { StatusPill } from "./StatusPill";
 import { formatDate } from "@/lib/format";
 import { areaById, areasByCity } from "@/lib/geo";
@@ -69,14 +70,13 @@ export function ApplicationRow({
   */
   const unservicedArea = !application.pincode && !areaById(application.area ?? "");
   const [pickedArea, setPickedArea] = useState("");
-
-  function handleReject() {
-    const confirmed = window.confirm(
-      `Reject ${application.businessName}'s application?\n\n` +
-        'They will be told their application was not taken forward. This cannot be undone from here.',
-    );
-    if (confirmed) onReject(application.id);
-  }
+  /*
+    An inline two-step, not `window.confirm` (the portal rule) — a
+    misclick here sends a real applicant a permanent rejection with no
+    way back, which is exactly what the two-button-guard above this
+    already exists to slow down.
+  */
+  const [confirmingReject, setConfirmingReject] = useState(false);
 
   return (
     <Card padding="sm" className={styles.row}>
@@ -132,24 +132,25 @@ export function ApplicationRow({
               <label className="hk-sr-only" htmlFor={`assign-area-${application.id}`}>
                 Serviced area for {application.businessName}
               </label>
-              <select
-                id={`assign-area-${application.id}`}
-                className={styles.assignSelect}
-                value={pickedArea}
-                onChange={(event) => setPickedArea(event.target.value)}
-                disabled={busy}
-              >
-                <option value="">Choose a serviced area…</option>
-                {areasByCity().map((group) => (
-                  <optgroup key={group.city} label={group.city}>
-                    {group.areas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              <span className={styles.assignSelectWrap}>
+                <Select
+                  id={`assign-area-${application.id}`}
+                  value={pickedArea}
+                  onChange={(event) => setPickedArea(event.target.value)}
+                  disabled={busy}
+                >
+                  <option value="">Choose a serviced area…</option>
+                  {areasByCity().map((group) => (
+                    <optgroup key={group.city} label={group.city}>
+                      {group.areas.map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </Select>
+              </span>
               <Button
                 variant="secondary"
                 size="sm"
@@ -204,27 +205,54 @@ export function ApplicationRow({
       <span className={styles.badges}>
         <StatusPill status={application.status} />
       </span>
-      <span className={styles.actions}>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => onApprove(application.id)}
-          disabled={busy || Boolean(duplicate) || unservicedArea}
-          aria-busy={busy || undefined}
-          title={
-            duplicate
-              ? "This applicant already has a HomeKrafter account"
-              : unservicedArea
-                ? "Assign a serviced area first — the server refuses an area it cannot resolve"
-                : undefined
-          }
-        >
-          {busy ? "Working…" : "Approve"}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={handleReject} disabled={busy}>
-          Reject
-        </Button>
-      </span>
+      {confirmingReject ? (
+        <span className={styles.confirmReject} role="group" aria-label={`Reject ${application.businessName}'s application?`}>
+          <span className={styles.confirmRejectText}>
+            Reject {application.businessName}&rsquo;s application? They will be told their
+            application was not taken forward. This cannot be undone from here.
+          </span>
+          <span className={styles.confirmRejectActions}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onReject(application.id)}
+              disabled={busy}
+            >
+              Reject application
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setConfirmingReject(false)}
+              disabled={busy}
+            >
+              Never mind
+            </Button>
+          </span>
+        </span>
+      ) : (
+        <span className={styles.actions}>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onApprove(application.id)}
+            disabled={busy || Boolean(duplicate) || unservicedArea}
+            aria-busy={busy || undefined}
+            title={
+              duplicate
+                ? "This applicant already has a HomeKrafter account"
+                : unservicedArea
+                  ? "Assign a serviced area first — the server refuses an area it cannot resolve"
+                  : undefined
+            }
+          >
+            {busy ? "Working…" : "Approve"}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setConfirmingReject(true)} disabled={busy}>
+            Reject
+          </Button>
+        </span>
+      )}
     </Card>
   );
 }

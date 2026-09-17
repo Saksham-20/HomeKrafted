@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
 import { Field, Input, Switch } from "@/components/portal/Field";
 import { FormPage } from "@/components/portal/FormPage";
 import { FormSection } from "@/components/portal/FormSection";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { SaveBar } from "@/components/portal/SaveBar";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -75,22 +77,59 @@ export function SettingsClient() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const loaded = await getPlatformSettings();
-      if (cancelled || !loaded) return;
-      setSettings(loaded);
-      const next = toDraft(loaded);
-      setDraft(next);
-      setInitial(next);
+      try {
+        const loaded = await getPlatformSettings();
+        if (cancelled) return;
+        if (!loaded) {
+          setLoadError("Couldn't load platform settings. Try again.");
+          return;
+        }
+        setSettings(loaded);
+        const next = toDraft(loaded);
+        setDraft(next);
+        setInitial(next);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load platform settings. Try again."));
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, reloadToken]);
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Platform settings" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
 
   if (!ready || !settings || !draft) {
     return (

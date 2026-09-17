@@ -97,7 +97,7 @@
    SnackMenuRow's `.unavailable` — and invisible to the sweep for the same
    reason, that no seeded plan sits in a non-active state. */
 .hidden {
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta-text);
 }
 
@@ -134,6 +134,34 @@
 .closeButton:hover {
   color: var(--hk-terracotta);
   border-color: var(--hk-terracotta);
+}
+
+/* The inline two-step in place of `window.confirm` (the portal rule) —
+   full width under the row, same placement as `.moderationNote`. */
+.confirmClose {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hk-s3);
+  margin-left: 66px;
+  padding: var(--hk-s3);
+  background: var(--hk-terracotta-tint);
+  border-radius: var(--hk-r-sm);
+}
+
+.confirmCloseText {
+  flex: 1;
+  min-width: 200px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--hk-ink-2);
+}
+
+.confirmCloseActions {
+  display: flex;
+  gap: var(--hk-s2);
+  flex-shrink: 0;
 }
 
 @media (max-width: 720px) {

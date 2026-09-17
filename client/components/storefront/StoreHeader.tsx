@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Star } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
 import { FollowButton } from "./FollowButton";
@@ -56,9 +57,14 @@ export function StoreHeader({ vendor, profile }: StoreHeaderProps) {
             {/* A kitchen approved this morning has no rating, and "★ 0.0
                 (0 reviews)" says it has the worst one. See `ProductCard`. */}
             <span className={styles.rating}>
-              {vendor.reviewCount > 0
-                ? `★ ${vendor.rating.toFixed(1)} (${vendor.reviewCount} reviews)`
-                : "No reviews yet"}
+              {vendor.reviewCount > 0 ? (
+                <>
+                  <Star size={13} className={styles.ratingIcon} aria-hidden="true" />
+                  {vendor.rating.toFixed(1)} ({vendor.reviewCount} reviews)
+                </>
+              ) : (
+                "No reviews yet"
+              )}
             </span>
             <span className={styles.dot} aria-hidden="true">
               ·

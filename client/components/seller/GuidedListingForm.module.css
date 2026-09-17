@@ -121,6 +121,16 @@
   line-height: 1.2;
   color: var(--hk-ink);
   margin: 0;
+  /*
+    B22 (docs/UI-REFINEMENT.md): moving focus here on every step change
+    (below) is a programmatic `.focus()`, which this browser does not
+    always treat as ":focus-visible" — so with no base rule it fell
+    through to the UA default outline: a heavy black rectangle round a
+    heading, read as a rendering fault. `outline: none` removes that
+    default; the rule below still draws the deliberate pine ring on top
+    whenever `:focus-visible` does match.
+  */
+  outline: none;
 }
 
 .stepTitle:focus-visible {
@@ -764,7 +774,7 @@
 .extraColoursTitle {
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--hk-ink-1, #111);
+  color: var(--hk-ink);
   margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
@@ -796,7 +806,7 @@
   background: var(--hk-surface-2, #f7f7f7);
   font-family: inherit;
   font-size: 12px;
-  color: var(--hk-ink-1, #222);
+  color: var(--hk-ink);
   cursor: pointer;
   transition: all 0.12s ease;
 }
@@ -870,7 +880,7 @@
 
 .commissionValue {
   font-weight: 600;
-  color: var(--hk-ink-1, #111);
+  color: var(--hk-ink);
 }
 
 .commissionDeduct {
@@ -896,7 +906,7 @@
 .commissionTotal {
   border-top: 1px solid var(--hk-border, #e2e2e2);
   padding-top: 6px;
-  color: var(--hk-ink-1, #111);
+  color: var(--hk-ink);
 }
 
 .commissionTotal .commissionLabel {

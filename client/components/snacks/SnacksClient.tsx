@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { SnackCard } from "@/components/ui/SnackCard";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
@@ -124,7 +125,7 @@ export function SnacksClient({ snacks, categories }: SnacksClientProps) {
                 onClick={() => removeItem(item.snackId)}
                 aria-label={`Remove ${item.name} from your snack list`}
               >
-                ✕
+                <X size={13} aria-hidden="true" />
               </button>
             </span>
           ),

@@ -92,9 +92,18 @@ export function CardPhotos({ images, name, priority }: CardPhotosProps) {
             photo is coming, and a row of dots announces as nothing.
           */}
           <span className={styles.dots} aria-hidden="true">
-            {images.map((photo, i) => (
+            {/*
+              Keyed on position, not `photo.src` (fixed 2026-09-17): a dot
+              represents a slot in the row, not a particular photo's
+              identity, and `photo.src ?? i` collided the moment two
+              images shared a src — which several seed products still do
+              (placeholder galleries pointing multiple slots at one file
+              while real photography is pending). The fallback `?? i`
+              never engaged, since a shared src is still truthy.
+            */}
+            {images.map((_photo, i) => (
               <span
-                key={photo.src ?? i}
+                key={i}
                 className={i === index ? `${styles.dot} ${styles.dotOn}` : styles.dot}
               />
             ))}

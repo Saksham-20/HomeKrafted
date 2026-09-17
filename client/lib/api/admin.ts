@@ -979,12 +979,19 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
   }
 
   const pendingApplications = await getPendingSellerApplications();
+  const oldestPendingApplicationAt = pendingApplications.length
+    ? pendingApplications.map((a) => a.createdAt).sort()[0]
+    : undefined;
+
+  const pendingListings = products.filter((p) => p.moderationStatus === "pending");
+  const oldestPendingListingAt = pendingListings.length
+    ? pendingListings.map((p) => p.submittedAt ?? p.createdAt).filter(Boolean).sort()[0]
+    : undefined;
+  const flaggedListingsCount = products.filter((p) => p.moderationStatus === "flagged").length;
 
   const payoutLists = await Promise.all(sellers.map((s) => getSellerPayouts(s.id)));
-  const pendingPayoutsAmount = payoutLists
-    .flat()
-    .filter((p) => p.status === "pending")
-    .reduce((sum, p) => sum + p.amount, 0);
+  const pendingPayouts = payoutLists.flat().filter((p) => p.status === "pending");
+  const pendingPayoutsAmount = pendingPayouts.reduce((sum, p) => sum + p.amount, 0);
 
   return {
     gmvTotal,
@@ -995,8 +1002,25 @@ export async function getAdminDashboard(): Promise<AdminDashboardSnapshot> {
     activeBySpecialty,
     usersCount: users.length,
     pendingApplicationsCount: pendingApplications.length,
+    oldestPendingApplicationAt,
+    pendingListingsCount: pendingListings.length,
+    oldestPendingListingAt,
     pendingPayoutsAmount,
     walletLiability: Object.values(adminWalletsByUser).reduce((sum, w) => sum + w.balance, 0),
+    // Mirrors the real dashboard's needs-attention queue (M37) off the
+    // same figures above — this used to be missing entirely in mock
+    // mode, so the banner said "queue clear" while the stat cards below
+    // it, fed by the real counts, showed a nonzero backlog (A9).
+    // supportWaiting/corporateNew stay 0: mock mode has no ticket or
+    // corporate-inquiry fixture data backing either queue.
+    attention: {
+      pendingApplications: pendingApplications.length,
+      pendingListings: pendingListings.length,
+      supportWaiting: 0,
+      payoutRequests: pendingPayouts.length,
+      corporateNew: 0,
+      flaggedListings: flaggedListingsCount,
+    },
   };
 }
 

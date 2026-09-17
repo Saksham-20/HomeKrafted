@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import clsx from "clsx";
+import { Sparkles, Leaf, Wheat, Zap } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
@@ -469,7 +470,8 @@ export function ShopClient({
               aria-pressed={selectedShipping.has("local")}
               onClick={() => toggle(selectedShipping, setSelectedShipping, "local")}
             >
-              ⚡ Delivered nearby
+              <Zap size={13} aria-hidden="true" />
+              Delivered nearby
             </button>
             <button
               type="button"
@@ -477,7 +479,8 @@ export function ShopClient({
               aria-pressed={selectedDietary.has("vegetarian")}
               onClick={() => toggle(selectedDietary, setSelectedDietary, "vegetarian")}
             >
-              🌱 Pure veg
+              <Leaf size={13} aria-hidden="true" />
+              Pure veg
             </button>
             <button
               type="button"
@@ -500,15 +503,23 @@ export function ShopClient({
                 setPage(1);
               }}
             >
-              🌾 Sugar-Free / Gluten-Free
+              <Wheat size={13} aria-hidden="true" />
+              Sugar-free / gluten-free
             </button>
+            {/*
+              B4 (docs/UI-REFINEMENT.md): this used to say "Gift-Ready"
+              over a gift emoji while filtering the `Curated` tag — a
+              chip labelled as a property the data does not hold. Renamed
+              to what it actually filters.
+            */}
             <button
               type="button"
               className={clsx(styles.taskChip, selectedTags.has("Curated") && styles.taskChipActive)}
               aria-pressed={selectedTags.has("Curated")}
               onClick={() => toggle(selectedTags, setSelectedTags, "Curated")}
             >
-              🎁 Gift-Ready
+              <Sparkles size={13} aria-hidden="true" />
+              Curated picks
             </button>
           </div>
           <div className={styles.controlRow}>

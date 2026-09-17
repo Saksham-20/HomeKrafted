@@ -65,7 +65,7 @@
   /* Terracotta-on-tint; no --hk-terracotta-tint token exists, so this is
      the one-off documented-hardcode pattern the other .added/.debit
      tints in components/ui use. */
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta);
 }
 

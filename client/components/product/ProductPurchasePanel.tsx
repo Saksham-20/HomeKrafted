@@ -429,7 +429,12 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
             : foodClosed
               ? FOOD_BUTTON_LABEL
               : added
-                ? "Added ✓"
+                ? (
+                    <>
+                      <Check size={16} aria-hidden="true" />
+                      Added
+                    </>
+                  )
                 : adding
                   ? "Adding…"
                   : "Add to cart"}
@@ -831,7 +836,18 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
           disabled={soldOut || foodClosed || adding}
           tabIndex={buyRowVisible ? -1 : 0}
         >
-          {soldOut ? "Sold out" : foodClosed ? FOOD_BUTTON_LABEL : added ? "Added ✓" : "Add to cart"}
+          {soldOut
+            ? "Sold out"
+            : foodClosed
+              ? FOOD_BUTTON_LABEL
+              : added
+                ? (
+                    <>
+                      <Check size={15} aria-hidden="true" />
+                      Added
+                    </>
+                  )
+                : "Add to cart"}
         </Button>
       </div>
     </div>

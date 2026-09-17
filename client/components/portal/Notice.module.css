@@ -109,10 +109,10 @@
   color: var(--hk-pine);
 }
 
-/* The terracotta tint (#f6e7e0) is the one TransactionRow uses; the text
+/* The terracotta tint (var(--hk-terracotta-tint)) is the one TransactionRow uses; the text
    stays ink and the icon takes the tint-safe shade. */
 .danger {
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   border-color: #ecd3c6;
   border-left-color: var(--hk-terracotta);
   color: var(--hk-ink);

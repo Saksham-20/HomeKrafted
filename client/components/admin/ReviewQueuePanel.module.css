@@ -98,23 +98,6 @@
   margin-top: var(--hk-s2);
 }
 
-.reasonLabel {
-  font-size: 12px;
-  color: var(--hk-ink-2);
-}
-
-.reason {
-  width: 100%;
-  font-family: var(--hk-font-body);
-  font-size: 13px;
-  color: var(--hk-ink);
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border-2);
-  border-radius: var(--hk-r-md);
-  padding: var(--hk-s2);
-  resize: vertical;
-}
-
 .actions {
   display: flex;
   align-items: center;

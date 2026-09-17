@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Field, Input } from "@/components/portal/Field";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/return-to";
 import { SET_PASSWORD_PATH, sessionMustChangePassword } from "@/lib/auth/must-change-password";
@@ -141,26 +142,22 @@ export function AdminLoginClient() {
 
         <Card className={styles.card}>
           <div className={styles.form}>
-            <label className={styles.field}>
-              <span className={styles.label}>Work email</span>
-              <input
+            <Field label="Work email">
+              <Input
                 type="email"
-                className={styles.input}
                 placeholder="you@homekrafted.example"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
-            </label>
-            <label className={styles.field}>
-              <span className={styles.label}>Password</span>
-              <input
+            </Field>
+            <Field label="Password">
+              <Input
                 type="password"
-                className={styles.input}
                 placeholder="••••••••"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
               />
-            </label>
+            </Field>
             <Button
               variant="primary"
               onClick={handleSignIn}

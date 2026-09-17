@@ -63,7 +63,6 @@ const TAG_OPTIONS: ProductTag[] = ["Bestseller", "New", "Festive", "Curated"];
  */
 export const LISTING_FORM_SECTIONS = [
   { id: "listing-photo", label: "Photo" },
-  { id: "listing-kind", label: "What it is" },
   { id: "listing-basics", label: "Name & description" },
   { id: "listing-prices", label: "Sizes & prices" },
   { id: "listing-details", label: "Details & tags" },
@@ -210,29 +209,41 @@ export function ListingForm({
   const needs = (field: FamilyFieldKey) => fam.required.includes(field);
   const recipientShelf = isRecipientShelf(categorySlug);
   /**
-   * Subcategories are labelled with their parent — "Shop by meal ›
-   * Breakfast" (M58).
+   * The shelf picker offers every category, food and gift alike (D3,
+   * 2026-09-17) — there is no separate "what are you listing" question
+   * any more. `setCategory` reads `kind` off whichever shelf gets picked,
+   * the way `SellerApplicationCategory` is already derived from
+   * specialties rather than asked outright.
    *
-   * The combobox is a flat searchable list, so two shelves called
-   * "Sweets" under different parents are indistinguishable without this,
-   * and typing "breakfast" should find it whether or not the person knows
-   * which group it lives in. A parent stays listed on its own: it is
-   * browsable, showing the union of its children.
+   * Subcategories are labelled with their parent — "Shop by meal ›
+   * Breakfast" (M58) — and the group name rides in `hint`, the
+   * combobox's second line, so "Candles" (gifts) and a same-named food
+   * shelf stay tellable apart without lengthening the label itself.
    */
   const categoryOptions = useMemo(() => {
     const nameById = new Map(categories.map((c) => [c.id, c.name]));
-    return categoriesForKind.map((c) => {
+    return categories.map((c) => {
       const parentName = c.parentId ? nameById.get(c.parentId) : undefined;
-      return { value: c.id, label: parentName ? `${parentName} › ${c.name}` : c.name };
+      const groupLabel = (c.group ?? "food") === "craft" ? "Handcrafted Gifts" : "Homemade Food";
+      return {
+        value: c.id,
+        label: parentName ? `${parentName} › ${c.name}` : c.name,
+        hint: groupLabel,
+      };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- rebuilt from the same `categories` prop and `values.kind` each render
-  }, [categories, values.kind]);
+  }, [categories]);
 
-  /** The primary is chosen in its own box, so it is never offered twice. */
-  const extraCategoryOptions = useMemo(
-    () => categoryOptions.filter((o) => o.value !== values.categoryId),
-    [categoryOptions, values.categoryId],
-  );
+  /**
+   * The primary is chosen in its own box, so it is never offered twice —
+   * and an extra shelf stays on the same side of the catalogue as the
+   * primary (`categoriesForKind`), because a food listing's secondary
+   * shelf being a craft category is not something M58's multi-shelf
+   * feature was meant to allow.
+   */
+  const extraCategoryOptions = useMemo(() => {
+    const sameKindIds = new Set(categoriesForKind.map((c) => c.id));
+    return categoryOptions.filter((o) => o.value !== values.categoryId && sameKindIds.has(o.value));
+  }, [categoryOptions, categoriesForKind, values.categoryId]);
 
   // Earnings line inputs: seller payout + commission markup (+pct%, +GST on
   // the fee). Absent/unloaded reads as "no fee" — never a guessed rate.
@@ -246,24 +257,22 @@ export function ListingForm({
   const markup = markupBreakdown(defaultRowPrice, commissionRate);
 
   /**
-   * Switching kind can strand the chosen category on the other side of the
-   * catalogue, where the picker no longer lists it — leaving a value set
-   * that nothing displays. Clearing it makes the empty picker honest.
+   * The category the maker picks decides `kind` (D3, 2026-09-17) — there is
+   * no separate "what are you listing" question any more. Switching shelf
+   * across the food/craft line can strand the extras on the other side of
+   * the catalogue, where the picker no longer lists them; the same
+   * stranding `setKind` used to guard against, one level down.
    */
-  function setKind(kind: ProductKind) {
-    const stillValid = categories.some(
-      (c) => c.id === values.categoryId && (c.group ?? "food") === kind,
-    );
-    // The extras can strand on the other side of the catalogue just as
-    // the primary can, and an invisible value that still posts is worse
-    // than an empty box.
+  function setCategory(categoryId: string) {
+    const chosen = categories.find((c) => c.id === categoryId);
+    const kind: ProductKind = chosen ? chosen.group ?? "food" : values.kind;
     const keptExtras = values.categoryIds.filter((id) =>
       categories.some((c) => c.id === id && (c.group ?? "food") === kind),
     );
     onChange({
       ...values,
+      categoryId,
       kind,
-      categoryId: stillValid ? values.categoryId : "",
       categoryIds: keptExtras,
       // Gifts are posted; only food asks how it travels (`toSellerListingInput`).
       shippingScope: kind === "craft" ? "national" : values.shippingScope,
@@ -288,68 +297,11 @@ export function ListingForm({
         />
       </FormSection>
 
-      {/*
-        First of the questions, because it decides what the rest of the
-        form asks. A jeweller must not be asked whether their earrings are
-        gluten-free, and the M20 note in the plan is explicit that the
-        FSSAI badge is food-specific.
-      */}
       <FormSection
-        id="listing-kind"
-        title="What is it, and how does it travel?"
-        description="These two decide where the listing appears and who can see it."
+        id="listing-basics"
+        title="Name, shelf and description"
+        description="The shelf you pick decides what the rest of this form asks — no separate food-or-gift question."
       >
-        <Fieldset legend="What are you listing?">
-          <ChoiceCards
-            label="What are you listing?"
-            value={values.kind}
-            onChange={setKind}
-            options={[
-              {
-                value: "food",
-                title: "Homemade food",
-                hint: "Appears in the main shop, and can also go on your snacks menu.",
-              },
-              {
-                value: "craft",
-                title: "Handcrafted gift",
-                hint: "Appears on the Gifts page. No ingredient or dietary questions.",
-              },
-            ]}
-          />
-        </Fieldset>
-        {/*
-          This is the field that decides whether a buyer 300km away can see
-          the listing at all — `national` skips the delivery-radius filter
-          entirely. It is asked separately from the kind on purpose: a
-          kitchen posting pickles across India is a real case, and deriving
-          this from "is it food" would forbid it.
-        */}
-        {/* Food only: a gift is always posted (`toSellerListingInput`). */}
-        {values.kind === "food" && (
-        <Fieldset legend="How does it reach the buyer?">
-          <ChoiceCards
-            label="How does it reach the buyer?"
-            value={values.shippingScope}
-            onChange={(next) => set("shippingScope", next)}
-            options={[
-              {
-                value: "local",
-                title: "I deliver locally",
-                hint: "Only shoppers inside your delivery distance see it — right for anything eaten fresh.",
-              },
-              {
-                value: "national",
-                title: "I post it anywhere in India",
-                hint: "Shoppers across India see it. Only if you can genuinely pack and post it — a jar of pickle, not a hot meal.",
-              },
-            ]}
-          />
-        </Fieldset>
-        )}
-      </FormSection>
-
-      <FormSection id="listing-basics" title="Name, shelf and description">
         <Field label="Product name" error={errors?.name} id={listingFieldId("name")}>
           <Input
             value={values.name}
@@ -365,18 +317,17 @@ export function ListingForm({
             nothing to type into — but more importantly a `<select>` has
             no way to say *"none of these is what I make"*. Now it has.
 
-            Only the categories on this side of the catalogue. Pickles is
-            not a shelf a candle can be on, and offering it is how a
-            listing ends up filed somewhere no buyer will look — which is
-            also why the ask carries `values.kind` rather than leaving an
-            admin to guess at review time.
+            Every shelf, food and gift alike (D3) — the group name rides
+            in the combobox's hint line. Picking one decides `kind`
+            (`setCategory`), which is what used to be a separate first
+            question ("What are you listing?").
           */}
           <Field label="Category" error={errors?.categoryId} labelAsText id={listingFieldId("categoryId")}>
             <Combobox
               label="Category"
               hideLabel
               value={values.categoryId ? [values.categoryId] : []}
-              onChange={(next) => set("categoryId", next[0] ?? "")}
+              onChange={(next) => setCategory(next[0] ?? "")}
               options={categoryOptions}
               placeholder="Search shelves…"
               emptyMessage="Nothing by that name — try a shorter word."
@@ -419,6 +370,36 @@ export function ListingForm({
           </Field>
         </FieldGrid>
         {/*
+          This is the field that decides whether a buyer 300km away can see
+          the listing at all — `national` skips the delivery-radius filter
+          entirely. Food-only: a gift is always posted
+          (`toSellerListingInput`), so the question disappears once a craft
+          shelf is chosen rather than being asked and ignored. Shown only
+          once a shelf is picked, so it does not appear ahead of the
+          category question it depends on.
+        */}
+        {values.categoryId && values.kind === "food" && (
+          <Fieldset legend="How does it reach the buyer?">
+            <ChoiceCards
+              label="How does it reach the buyer?"
+              value={values.shippingScope}
+              onChange={(next) => set("shippingScope", next)}
+              options={[
+                {
+                  value: "local",
+                  title: "I deliver locally",
+                  hint: "Only shoppers inside your delivery distance see it — right for anything eaten fresh.",
+                },
+                {
+                  value: "national",
+                  title: "I post it anywhere in India",
+                  hint: "Shoppers across India see it. Only if you can genuinely pack and post it — a jar of pickle, not a hot meal.",
+                },
+              ]}
+            />
+          </Fieldset>
+        )}
+        {/*
           The "Cashback %" box used to be here, and it was a promise
           nothing kept (M46). Whatever a HomeKrafter typed was quoted on
           the product page as "earn ₹N wallet cashback" while the
@@ -447,8 +428,24 @@ export function ListingForm({
             placeholder={
               isCraft
                 ? "Describe the materials, technique, dimensions, and care instructions…"
-                : "Describe ingredients, flavor, texture, preparation method, and shelf life…"
+                : "Describe ingredients, flavour, texture, preparation method, and shelf life…"
             }
+          />
+        </Field>
+
+        <Field
+          label="Anything buyers should know?"
+          optional
+          error={errors?.disclaimer}
+          id={listingFieldId("disclaimer")}
+          hint="A caveat about this specific listing — shown next to the description, exactly as you write it."
+        >
+          <TextArea
+            rows={2}
+            autoGrow
+            value={values.disclaimer}
+            onChange={(event) => set("disclaimer", event.target.value)}
+            placeholder="e.g. Colours may vary slightly from the photos, or from batch to batch."
           />
         </Field>
       </FormSection>

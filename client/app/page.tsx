@@ -2,6 +2,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { PromoBand } from "@/components/ui/PromoBand";
 import { IsbCrochetBanner } from "@/components/home/IsbCrochetBanner";
+import { SplitPanels } from "@/components/home/SplitPanels";
 import { Ticker } from "@/components/home/Ticker";
 import { HowItWorks } from "@/components/home/HowItWorks";
 import { SellCta } from "@/components/home/SellCta";
@@ -240,13 +241,29 @@ export default async function Home() {
       <script {...jsonLdProps(siteJsonLd)} />
 
       {/*
-        ── 1. ISB Mohali crochet pre-order hero (owner, 2026-09-16) ──
-        Stands in for the food/gifts split hero for the length of this
-        campaign — a single full-bleed banner, clickable everywhere,
-        nothing else sharing the first screenful with it.
+        ── 1. ISB Mohali crochet pre-order banner (owner, 2026-09-16) ──
+        The first screenful for the length of this campaign — a single
+        full-bleed banner, clickable everywhere.
       */}
       <IsbCrochetBanner />
       <Ticker />
+
+      {/*
+        ── 2. Food/gifts doors (R2 of docs/UI-REFINEMENT.md, 2026-09-17) ──
+        `SplitPanels` restored as a band under the campaign banner rather
+        than as the page's own hero (the transition-heavy
+        `ScrollExpandMedia` hero that briefly sat here is deleted, not
+        parked — see docs/UI-REFINEMENT.md). Level at rest; the half you
+        lean toward or focus opens to ~74% with the photograph zooming in
+        under it, all inside `(hover: hover) and
+        (prefers-reduced-motion: no-preference)`. On a phone the two
+        halves stack, level, full width.
+      */}
+      <section className={clsx("container", "container-wide", styles.splitBand, styles.reveal)}>
+        <div className={styles.splitStage}>
+          <SplitPanels />
+        </div>
+      </section>
 
       {/* ── 3. Bestsellers & Trending with Segmented Toggle ── */}
       <div className={clsx(styles.reveal, styles.afterHeroSection)}>

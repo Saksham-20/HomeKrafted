@@ -21,9 +21,17 @@
 }
 
 .stars {
-  font-size: 13px;
-  color: var(--hk-gold-text-sm);
-  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.starFull {
+  color: var(--hk-gold);
+}
+
+.starEmpty {
+  color: var(--hk-border-2);
 }
 
 .flaggedBadge {
@@ -37,7 +45,7 @@
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: var(--hk-r-pill);
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   /* On the terracotta tint the base token is 3.77:1 — the same case
      `TransactionRow` and the order pills already use the text shade for.
      See `tokens.extend.css`. */

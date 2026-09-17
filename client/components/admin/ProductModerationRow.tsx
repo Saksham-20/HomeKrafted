@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { Eye, EyeOff, Pencil, Star } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Field, TextArea } from "@/components/portal/Field";
 import { ProductCard } from "@/components/ui/ProductCard";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { StatusPill } from "./StatusPill";
@@ -57,7 +58,6 @@ export function ProductModerationRow({ product, onAction }: ProductModerationRow
   const status = product.moderationStatus ?? "active";
   const weight = product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ?? product.weightOptions[0];
   const image = product.images[0];
-  const reasonFieldId = useId();
   const previewId = useId();
 
   const [pendingAction, setPendingAction] = useState<ProductModerationAction | null>(null);
@@ -232,42 +232,33 @@ export function ProductModerationRow({ product, onAction }: ProductModerationRow
 
       {pendingAction && (
         <div className={styles.reasonBox}>
-          <label className={styles.reasonLabel} htmlFor={`${reasonFieldId}-reason`}>
-            {REASON_PROMPT[pendingAction]}
-          </label>
-          <div className={styles.reasonChips} role="group" aria-label="Suggested reasons">
-            {REASON_PRESETS.map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                className={styles.reasonChip}
-                onClick={() => {
-                  setReason(preset.text);
-                  if (error) setError(null);
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <textarea
-            id={`${reasonFieldId}-reason`}
-            className={styles.reasonInput}
-            value={reason}
-            rows={2}
-            autoFocus
-            onChange={(event) => {
-              setReason(event.target.value);
-              if (error) setError(null);
-            }}
-            placeholder="e.g. The photo shows a branded wrapper — please use your own packaging."
-            aria-describedby={error ? `${reasonFieldId}-error` : undefined}
-          />
-          {error && (
-            <p className={styles.reasonError} id={`${reasonFieldId}-error`} role="alert">
-              {error}
-            </p>
-          )}
+          <Field label={REASON_PROMPT[pendingAction]} error={error ?? undefined}>
+            <div className={styles.reasonChips} role="group" aria-label="Suggested reasons">
+              {REASON_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  className={styles.reasonChip}
+                  onClick={() => {
+                    setReason(preset.text);
+                    if (error) setError(null);
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <TextArea
+              value={reason}
+              rows={2}
+              autoFocus
+              onChange={(event) => {
+                setReason(event.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="e.g. The photo shows a branded wrapper — please use your own packaging."
+            />
+          </Field>
           <div className={styles.reasonActions}>
             <Button size="sm" onClick={confirm}>
               Send and {pendingAction}

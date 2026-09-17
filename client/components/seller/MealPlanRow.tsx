@@ -1,6 +1,7 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { Pencil, PowerOff } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCurrency } from "@/lib/format";
@@ -10,7 +11,11 @@ import styles from "./MealPlanRow.module.css";
 
 export interface MealPlanRowProps {
   plan: SellerMealPlan;
-  onClose?: (planId: string) => void;
+  /** Whether the inline "stop taking subscribers" confirmation is open for this row. */
+  confirmingClose?: boolean;
+  onRequestClose?: () => void;
+  onConfirmClose?: () => void;
+  onCancelClose?: () => void;
 }
 
 /**
@@ -22,7 +27,13 @@ export interface MealPlanRowProps {
  * have to ask about — and collapsing them would leave someone toggling a
  * switch that changes nothing.
  */
-export function MealPlanRow({ plan, onClose }: MealPlanRowProps) {
+export function MealPlanRow({
+  plan,
+  confirmingClose,
+  onRequestClose,
+  onConfirmClose,
+  onCancelClose,
+}: MealPlanRowProps) {
   const review = moderationPill(plan.moderationStatus);
   // `maxSubscribers` absent means the kitchen set no ceiling. "0 seats left"
   // would close a plan that is open, so uncapped says so in words.
@@ -79,6 +90,25 @@ export function MealPlanRow({ plan, onClose }: MealPlanRowProps) {
           told neither that it happened nor why. */}
       {plan.moderationNote && <span className={styles.moderationNote}>{plan.moderationNote}</span>}
 
+      {confirmingClose && (
+        <div className={styles.confirmClose} role="group" aria-label={`Stop taking new subscribers for ${plan.name}?`}>
+          <p className={styles.confirmCloseText}>
+            Stop taking new subscribers for &ldquo;{plan.name}&rdquo;?{" "}
+            {plan.subscriberCount > 0
+              ? `The ${plan.subscriberCount} ${plan.subscriberCount === 1 ? "person" : "people"} already on it keep their meals — they've paid for those, and you still need to cook them. You can reopen the plan any time.`
+              : "You can reopen it any time."}
+          </p>
+          <div className={styles.confirmCloseActions}>
+            <Button size="sm" variant="secondary" onClick={onConfirmClose}>
+              Stop taking subscribers
+            </Button>
+            <Button size="sm" variant="secondary" onClick={onCancelClose}>
+              Never mind
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className={styles.actions}>
         <Link
           href={`/seller/meal-plans/${plan.id}`}
@@ -87,11 +117,11 @@ export function MealPlanRow({ plan, onClose }: MealPlanRowProps) {
         >
           <Pencil size={15} strokeWidth={1.7} />
         </Link>
-        {plan.isActive && (
+        {plan.isActive && !confirmingClose && (
           <button
             type="button"
             className={clsx(styles.iconLink, styles.closeButton)}
-            onClick={() => onClose?.(plan.id)}
+            onClick={onRequestClose}
             aria-label={`Stop taking new subscribers for ${plan.name}`}
           >
             <PowerOff size={15} strokeWidth={1.7} />

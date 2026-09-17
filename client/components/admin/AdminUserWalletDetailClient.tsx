@@ -37,6 +37,8 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [data, setData] = useState<AdminUserWallet | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
@@ -54,16 +56,23 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [foundUser, wallet] = await Promise.all([getUserById(userId), getUserWallet(userId)]);
-      if (cancelled) return;
-      setUser(foundUser ?? null);
-      setData(wallet);
-      setLoading(false);
+      try {
+        const [foundUser, wallet] = await Promise.all([getUserById(userId), getUserWallet(userId)]);
+        if (cancelled) return;
+        setUser(foundUser ?? null);
+        setData(wallet);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load this wallet. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, userId]);
+  }, [ready, role, userId, reloadToken]);
 
   function prependTxn(txn: WalletTransaction) {
     setData((current) =>
@@ -187,6 +196,32 @@ export function AdminUserWalletDetailClient({ userId }: AdminUserWalletDetailCli
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Wallet" back={{ href: "/admin/wallet", label: "Wallet" }} />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || loading) {

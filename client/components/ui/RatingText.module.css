@@ -1,0 +1,11 @@
+.rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.icon {
+  color: var(--hk-gold);
+  fill: var(--hk-gold);
+  flex-shrink: 0;
+}

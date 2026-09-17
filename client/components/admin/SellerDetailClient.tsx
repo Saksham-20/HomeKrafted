@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { FormPage } from "@/components/portal/FormPage";
@@ -14,6 +15,7 @@ import { SellerSignInDetails } from "./SellerSignInDetails";
 import { SellerVerificationPanel } from "./SellerVerificationPanel";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { apiErrorMessage, getAdminSellerDetail, setSellerStatus } from "@/lib/api";
+import { ApiError } from "@/lib/api/http";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { SPECIALTY_LABELS, type AdminSellerDetail } from "@/lib/types";
 import styles from "./SellerDetailClient.module.css";
@@ -41,6 +43,14 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
   const [detail, setDetail] = useState<AdminSellerDetail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * Apart from `detail === null` on purpose. `detail === null` means the
+   * server confirmed there is no such HomeKrafter (a 404); `loadError`
+   * means we don't know — a timeout, a 5xx, the network dropping — and
+   * those two must never collapse into the same "not found" card, or a
+   * blip reads as a deleted account.
+   */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // A token rather than a callable `load()`: an action re-reads the whole
   // record by bumping it, which keeps the only setState inside the
@@ -54,9 +64,19 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
     (async () => {
       try {
         const next = await getAdminSellerDetail(sellerId);
-        if (!cancelled) setDetail(next);
-      } catch {
-        if (!cancelled) setDetail(null);
+        if (cancelled) return;
+        setDetail(next);
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        if (caught instanceof ApiError && caught.status === 404) {
+          // A confirmed "no such HomeKrafter" — the only case that gets
+          // the not-found card.
+          setDetail(null);
+          setLoadError(null);
+        } else {
+          setLoadError(apiErrorMessage(caught, "Couldn't load this HomeKrafter. Try again."));
+        }
       }
     })();
     return () => {
@@ -77,6 +97,31 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="HomeKrafter" back={{ href: "/admin/sellers", label: "HomeKrafters" }} />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || detail === undefined) {
@@ -191,7 +236,16 @@ export function SellerDetailClient({ sellerId }: SellerDetailClientProps) {
             />
             <Fact
               label="Rating"
-              value={vendor.rating ? `★ ${vendor.rating.toFixed(1)} (${vendor.reviewCount ?? 0})` : "Unrated"}
+              value={
+                vendor.rating ? (
+                  <>
+                    <Star size={12} className={styles.ratingIcon} aria-hidden="true" />
+                    {vendor.rating.toFixed(1)} ({vendor.reviewCount ?? 0})
+                  </>
+                ) : (
+                  "Unrated"
+                )
+              }
             />
             <Fact label="Followers" value={String(vendor.followerCount)} />
             <Fact label="Reviews" value={String(activity.reviewCount)} />
@@ -293,7 +347,7 @@ function Fact({
   mono,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   note?: string;
   mono?: boolean;
 }) {

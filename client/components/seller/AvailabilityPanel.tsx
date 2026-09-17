@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import clsx from "clsx";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Card } from "@/components/ui/Card";
 import {
@@ -191,22 +192,15 @@ export function AvailabilityPanel() {
                   <span className={styles.kind}>{row.kind === "menu" ? "Menu" : "Storefront"}</span>
                   {row.canonicalState !== "live" && row.canonicalState !== "paused" && (
                     <span
-                      className={styles.kind}
+                      className={clsx(
+                        styles.kind,
+                        styles.badge,
+                        row.badge.variant === "warning" && styles.badgeWarning,
+                        row.badge.variant === "error" && styles.badgeError,
+                        row.badge.variant === "neutral" && styles.badgeNeutral,
+                        row.badge.variant === "success" && styles.badgeSuccess,
+                      )}
                       title={row.badge.description}
-                      style={{
-                        background:
-                          row.badge.variant === "warning"
-                            ? "var(--hk-amber-light, #fef3c7)"
-                            : row.badge.variant === "error"
-                              ? "var(--hk-rose-light, #ffe4e6)"
-                              : "var(--hk-surface-subtle, #f1f5f9)",
-                        color:
-                          row.badge.variant === "warning"
-                            ? "var(--hk-amber-dark, #92400e)"
-                            : row.badge.variant === "error"
-                              ? "var(--hk-rose-dark, #be123c)"
-                              : "var(--hk-text-subtle, #64748b)",
-                      }}
                     >
                       {row.badge.label}
                     </span>

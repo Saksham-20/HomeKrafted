@@ -34,21 +34,30 @@ export function HomePromoEditorClient() {
   const [saving, setSaving] = useState<string | undefined>(undefined);
   const [saved, setSaved] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const list = await getHomePromoBands();
-      if (cancelled) return;
-      setBands(list);
-      setInitial(Object.fromEntries(list.map((b) => [b.id, b])));
-      setLoading(false);
+      try {
+        const list = await getHomePromoBands();
+        if (cancelled) return;
+        setBands(list);
+        setInitial(Object.fromEntries(list.map((b) => [b.id, b])));
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load the home page bands. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role]);
+  }, [ready, role, reloadToken]);
 
   function patchBand(id: string, patch: Partial<HomePromoBandContent>) {
     setSaved(undefined);
@@ -77,6 +86,33 @@ export function HomePromoEditorClient() {
     } finally {
       setSaving(undefined);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader title="Home page bands" />
+        <CollectionsTabs active="promo" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || loading) {

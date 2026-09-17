@@ -20,7 +20,7 @@
 }
 
 .attention {
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   border-color: #e6c9bd;
   color: var(--hk-terracotta-text);
 }

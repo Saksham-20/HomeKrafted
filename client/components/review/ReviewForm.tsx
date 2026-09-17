@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import clsx from "clsx";
+import { Star } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { createReview } from "@/lib/api";
@@ -117,7 +118,7 @@ export function ReviewForm({
               aria-label={`${value} star${value === 1 ? "" : "s"} — ${RATING_LABELS[value]}`}
               aria-pressed={rating === value}
             >
-              ★
+              <Star size={26} fill={value <= shown ? "currentColor" : "none"} aria-hidden="true" />
             </button>
           ))}
         </div>

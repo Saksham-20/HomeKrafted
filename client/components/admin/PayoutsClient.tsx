@@ -78,9 +78,16 @@ export function PayoutsClient() {
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
-    getPlatformSettings().then((settings) => {
-      if (!cancelled && settings) setCommissionEnabled(settings.commissionEnabled);
-    });
+    getPlatformSettings()
+      .then((settings) => {
+        if (!cancelled && settings) setCommissionEnabled(settings.commissionEnabled);
+      })
+      .catch(() => {
+        // Only feeds the optional gross/net warning banner above the
+        // queue — the rest of the screen doesn't depend on it, so a
+        // failure here silently leaves the warning unshown rather than
+        // producing an unhandled rejection.
+      });
     return () => {
       cancelled = true;
     };

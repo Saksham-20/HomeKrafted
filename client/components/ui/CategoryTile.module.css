@@ -79,8 +79,11 @@
   inset: 0;
   display: grid;
   place-items: center;
-  background: var(--hk-pine-tint, #eff3ea);
-  color: var(--hk-pine, #234233);
+  /* Set per-instance from `lib/category-tint.ts` (2026-09-17); the
+     fallback is the original sage so a tile never renders unstyled if
+     the custom property is ever missing. */
+  background: var(--tile-ground, var(--hk-pine-tint, #eff3ea));
+  color: var(--tile-ink, var(--hk-pine, #234233));
 }
 
 .label {
@@ -89,10 +92,13 @@
   font-family: var(--hk-font-display);
   font-size: 14.5px;
   font-weight: 700;
-  color: #ffffff;
+  /* Fixed 2026-09-17 (A1): this used to be white-with-shadow, styled for
+     a photograph that no longer sits behind it — on the flat tint it
+     measured ~1.1:1. It now takes the same ink as the icon above it, so
+     the pair is always legible together. */
+  color: var(--tile-ink, var(--hk-pine, #234233));
   padding: 12px 14px;
   line-height: 1.2;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   letter-spacing: -0.01em;
 }
 

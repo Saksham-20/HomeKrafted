@@ -10,6 +10,7 @@ export const categories: Category[] = [
   {
     id: "ct1",
     slug: "pickles",
+    icon: "lucide-lab:jar",
     name: "Pickles",
     imagePlaceholder: "PICKLES",
     imageSrc: "/images/categories/pickles.jpg",
@@ -18,6 +19,7 @@ export const categories: Category[] = [
   {
     id: "ct2",
     slug: "chutneys",
+    icon: "lucide:soup",
     name: "Chutneys",
     imagePlaceholder: "CHUTNEYS",
     imageSrc: "/images/categories/chutneys.jpg",
@@ -26,6 +28,7 @@ export const categories: Category[] = [
   {
     id: "ct3",
     slug: "cookies",
+    icon: "lucide:cookie",
     name: "Cookies",
     imagePlaceholder: "COOKIES",
     imageSrc: "/images/categories/cookies.jpg",
@@ -34,6 +37,7 @@ export const categories: Category[] = [
   {
     id: "ct4",
     slug: "bakery",
+    icon: "lucide:croissant",
     name: "Bakery",
     imagePlaceholder: "BAKERY",
     imageSrc: "/images/categories/bakery.jpg",
@@ -42,6 +46,7 @@ export const categories: Category[] = [
   {
     id: "ct5",
     slug: "dry-fruits",
+    icon: "lucide:wheat",
     name: "Dry Fruits",
     imagePlaceholder: "DRY FRUITS",
     imageSrc: "/images/categories/dry-fruits.jpg",
@@ -50,6 +55,7 @@ export const categories: Category[] = [
   {
     id: "ct6",
     slug: "chocolates",
+    icon: "hugeicons:chocolate",
     name: "Chocolates",
     imagePlaceholder: "CHOCOLATES",
     imageSrc: "/images/categories/chocolates.jpg",
@@ -58,6 +64,7 @@ export const categories: Category[] = [
   {
     id: "ct7",
     slug: "snacks",
+    icon: "lucide:popcorn",
     name: "Snacks",
     imagePlaceholder: "SNACKS",
     imageSrc: "/images/categories/snacks.jpg",
@@ -66,6 +73,7 @@ export const categories: Category[] = [
   {
     id: "ct8",
     slug: "hampers",
+    icon: "lucide:package",
     name: "Hampers",
     imagePlaceholder: "HAMPERS",
     imageSrc: "/images/categories/hampers.jpg",
@@ -74,6 +82,7 @@ export const categories: Category[] = [
   {
     id: "ct13",
     slug: "sweets-ladoos",
+    icon: "lucide:candy",
     name: "Sweets & Ladoos",
     imagePlaceholder: "SWEETS & LADOOS",
     imageSrc: "/images/categories/sweets-ladoos.jpg",
@@ -95,6 +104,7 @@ export const categories: Category[] = [
   {
     id: "ct9",
     slug: "candles-home",
+    icon: "craft:candles",
     name: "Candles & Home",
     imagePlaceholder: "CANDLES & HOME",
     imageSrc: "/images/categories/candles-home.jpg",
@@ -105,6 +115,7 @@ export const categories: Category[] = [
   {
     id: "ct10",
     slug: "handmade-jewellery",
+    icon: "craft:jewellery",
     name: "Handmade Jewellery",
     imagePlaceholder: "JEWELLERY",
     imageSrc: "/images/categories/handmade-jewellery.jpg",
@@ -115,6 +126,7 @@ export const categories: Category[] = [
   {
     id: "ct11",
     slug: "art-prints",
+    icon: "craft:art-prints",
     name: "Art & Prints",
     imagePlaceholder: "ART & PRINTS",
     imageSrc: "/images/categories/art-prints.jpg",
@@ -125,6 +137,7 @@ export const categories: Category[] = [
   {
     id: "ct12",
     slug: "personalised-gifts",
+    icon: "craft:personalised",
     name: "Personalised Gifts",
     imagePlaceholder: "PERSONALISED",
     imageSrc: "/images/categories/personalised-gifts.jpg",
@@ -144,6 +157,7 @@ export const categories: Category[] = [
   {
     id: "ct14",
     slug: "crochet",
+    icon: "lucide-lab:yarn-ball",
     name: "Crochet",
     imagePlaceholder: "CROCHET",
     productCount: 1,

@@ -69,8 +69,16 @@
 }
 
 .rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--hk-gold-text-sm);
   font-weight: 500;
+}
+
+.ratingIcon {
+  color: var(--hk-gold);
+  fill: var(--hk-gold);
 }
 
 .dot {

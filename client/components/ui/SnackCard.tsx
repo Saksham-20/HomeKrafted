@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { Check } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { DietDot } from "./DietDot";
 import { formatCurrency } from "@/lib/format";
@@ -38,7 +39,14 @@ export function SnackCard({ snack, added = false, onAdd, className }: SnackCardP
             onClick={onAdd}
             aria-pressed={added}
           >
-            {added ? "✓ Added" : "+ Add"}
+            {added ? (
+              <>
+                <Check size={13} aria-hidden="true" />
+                Added
+              </>
+            ) : (
+              "+ Add"
+            )}
           </button>
         </div>
       </div>

@@ -76,7 +76,7 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
           {categoryName ?? "Uncategorised"} · {totalStock} unit{totalStock === 1 ? "" : "s"} available ({product.weightOptions.length} SKU{product.weightOptions.length === 1 ? "" : "s"})
         </span>
         {review && (
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "6px", marginTop: "4px" }}>
+          <div className={styles.reviewRow}>
             <span
               className={clsx(
                 styles.reviewNote,
@@ -86,15 +86,7 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
               {review.text}
             </span>
             {review.tone === "attention" && (
-              <Link
-                href={`/seller/listings/${product.id}`}
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  textDecoration: "underline",
-                  color: "var(--hk-terracotta, #b45309)",
-                }}
-              >
+              <Link href={`/seller/listings/${product.id}`} className={styles.reviewFixLink}>
                 Fix and resubmit →
               </Link>
             )}
@@ -102,28 +94,17 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
         )}
       </div>
       <span className={styles.price}>{weight ? formatCurrency(weight.price) : "—"}</span>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+      <div className={styles.priceCol}>
         <span className={clsx(styles.stockPill, stock.className)}>{stock.label}</span>
         {canonicalState !== "live" && (
           <span
-            style={{
-              fontSize: "11px",
-              padding: "2px 8px",
-              borderRadius: "12px",
-              fontWeight: 600,
-              background:
-                canonicalBadge.variant === "warning"
-                  ? "var(--hk-amber-light, #fef3c7)"
-                  : canonicalBadge.variant === "error"
-                    ? "var(--hk-rose-light, #ffe4e6)"
-                    : "var(--hk-surface-subtle, #f1f5f9)",
-              color:
-                canonicalBadge.variant === "warning"
-                  ? "var(--hk-amber-dark, #92400e)"
-                  : canonicalBadge.variant === "error"
-                    ? "var(--hk-rose-dark, #be123c)"
-                    : "var(--hk-text-subtle, #64748b)",
-            }}
+            className={clsx(
+              styles.canonicalBadge,
+              canonicalBadge.variant === "warning" && styles.canonicalWarning,
+              canonicalBadge.variant === "error" && styles.canonicalError,
+              canonicalBadge.variant === "neutral" && styles.canonicalNeutral,
+              canonicalBadge.variant === "success" && styles.canonicalSuccess,
+            )}
           >
             {canonicalBadge.label}
           </span>

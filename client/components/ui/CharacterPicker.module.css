@@ -35,8 +35,12 @@
   aspect-ratio: 1;
   border-radius: 50%;
   /* The wash the characters are drawn on, so an unselected cell is a
-     portrait rather than a hole in the card. */
-  background: var(--hk-sand-2, #f3eee4);
+     portrait rather than a hole in the card. `#f3eee4` is a narrow
+     one-off (CLAUDE.md's "Known token gaps") rather than a real token —
+     `scripts/build-chef-avatars.mjs` hardcodes the identical value for
+     the same reason, since it writes pixels and cannot read a CSS
+     custom property; keep the two in step by hand. */
+  background: #f3eee4;
   border: 2px solid transparent;
   cursor: pointer;
   transition:

@@ -45,9 +45,9 @@
 .toastError {
   font-size: 13.5px;
   color: var(--hk-terracotta-text);
-  /* Terracotta tint — no token; the same #f6e7e0 that `--hk-terracotta-text`
+  /* Terracotta tint — no token; the same var(--hk-terracotta-tint) that `--hk-terracotta-text`
      was measured against (tokens.extend.css). */
-  background: #f6e7e0;
+  background: var(--hk-terracotta-tint);
   border-radius: var(--hk-r-md);
   padding: 10px 14px;
 }

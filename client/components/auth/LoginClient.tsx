@@ -325,58 +325,61 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
     const wrongAccount = sellerContext && !signedInAsSeller;
 
     return (
-      <section className={clsx("container", styles.page)}>
-        <Card className={styles.signedInCard}>
-          <span className={styles.eyebrow}>Already signed in</span>
-          <h1 className={styles.title}>
-            {wrongAccount
-              ? "That's a different account"
-              : owesPassword
-                ? "One thing left"
-                : "You’re all set"}
-          </h1>
-          <p className={styles.subtitle}>
-            {wrongAccount
-              ? "You're signed in as a shopper. Sign out to use a HomeKrafter account."
-              : owesPassword
-                ? // "You're all set" was actively false for this person: the
-                  // portal refuses every request until they replace the
-                  // password someone else chose for them.
-                  "Choose a password of your own, and your dashboard is ready."
-                : signedInAsSeller
-                  ? "You're signed in to your Homekrafted HomeKrafter account."
-                  : signedInAsAdmin
-                    ? "You're signed in to your Homekrafted admin account."
-                    : "You're signed in to your Homekrafted account."}
-          </p>
-          <div className={styles.signedInActions}>
-            {wrongAccount ? (
-              <>
-                <Button variant="primary" onClick={signOut}>
-                  Sign out
-                </Button>
-                <Button variant="secondary" onClick={() => router.push(homeHref)}>
-                  {homeLabel}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="primary" onClick={() => router.push(homeHref)}>
-                  {homeLabel}
-                </Button>
-                <Button variant="secondary" onClick={signOut}>
-                  Sign out
-                </Button>
-              </>
-            )}
-          </div>
-        </Card>
+      <section className="container">
+        <div className={styles.page}>
+          <Card className={styles.signedInCard}>
+            <span className={styles.eyebrow}>Already signed in</span>
+            <h1 className={styles.title}>
+              {wrongAccount
+                ? "That's a different account"
+                : owesPassword
+                  ? "One thing left"
+                  : "You’re all set"}
+            </h1>
+            <p className={styles.subtitle}>
+              {wrongAccount
+                ? "You're signed in as a shopper. Sign out to use a HomeKrafter account."
+                : owesPassword
+                  ? // "You're all set" was actively false for this person: the
+                    // portal refuses every request until they replace the
+                    // password someone else chose for them.
+                    "Choose a password of your own, and your dashboard is ready."
+                  : signedInAsSeller
+                    ? "You're signed in to your Homekrafted HomeKrafter account."
+                    : signedInAsAdmin
+                      ? "You're signed in to your Homekrafted admin account."
+                      : "You're signed in to your Homekrafted account."}
+            </p>
+            <div className={styles.signedInActions}>
+              {wrongAccount ? (
+                <>
+                  <Button variant="primary" onClick={signOut}>
+                    Sign out
+                  </Button>
+                  <Button variant="secondary" onClick={() => router.push(homeHref)}>
+                    {homeLabel}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="primary" onClick={() => router.push(homeHref)}>
+                    {homeLabel}
+                  </Button>
+                  <Button variant="secondary" onClick={signOut}>
+                    Sign out
+                  </Button>
+                </>
+              )}
+            </div>
+          </Card>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className={clsx("container", styles.page)}>
+    <section className="container">
+      <div className={styles.page}>
       <div className={styles.header}>
         {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
         <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
@@ -540,6 +543,7 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
         orders. If you&rsquo;ve been approved to sell, sign in here with the number or
         email on your application.
       </p>
+      </div>
     </section>
   );
 }
