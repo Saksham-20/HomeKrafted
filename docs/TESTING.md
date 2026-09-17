@@ -1694,6 +1694,52 @@ their own storefront. If an approved listing is missing from `/gifts`,
 that switch is the first thing to check — it is on the listing in the
 seller portal.
 
+## Deliver to ISB (2026-09-17)
+
+Checkout's delivery step has a third option beside "Deliver to me" and
+"Send as a gift": **Deliver to ISB**. Pick it and the order is
+hand-delivered onto the ISB campus by us, free, as soon as the maker has
+packed it — no courier is involved at all.
+
+What to test:
+
+- The panel asks **where on campus** ("AC4, room 212") and, optionally, a
+  phone for the handover. Leaving the campus box empty and pressing Place
+  order must **name that box and jump to it**, never fail silently.
+- **Delivery reads Free** in both bill summaries the moment you pick the
+  option, even before the delivery rule has loaded — there is no fee left
+  to work out.
+- Your order afterwards says "Hand-delivered on the ISB campus by
+  Homekrafted" under Shipping & payment, and the address on it reads
+  "Indian School of Business, Knowledge City, Mohali 140306" with your
+  building in it.
+- The HomeKrafter's own order screen says **"We collect this one"**. Their
+  job still ends at "packed" — they should not be waiting for a rider.
+- Order to campus twice with different buildings: your address book keeps
+  **one** "ISB campus" entry, carrying the newer building.
+- The "ISB campus" address must **not** appear in the ordinary address
+  list under "Deliver to me", or in the per-line address dropdown. It is
+  written by us, not chosen.
+
+## A listing can have several photos (2026-09-17)
+
+Both listing forms (the four-question guided flow and the long form an
+edit opens) now take up to **six** photos instead of one, as a grid you
+can drop files onto. The **first** photo is the one shoppers see on the
+card and in search.
+
+What to test:
+
+- Add three or four photos to a listing, save, then open the product page
+  as a shopper: the thumbnails under the main picture are **pressable**
+  and swap it, ←/→ moves between them, and "View" opens a full-screen
+  viewer with arrows, a counter and Escape to close.
+- A listing with **one** photo shows no thumbnail row and no counter —
+  that is correct, not a missing feature.
+- Adding, removing or replacing the **first** photo sends the listing back
+  to the review queue (admin has to approve it again). Re-saving the same
+  photos, or reordering the ones after the first, must **not**.
+
 ## The gift taxonomy screens (G1)
 
 Three screens under `/admin/catalog`, and none of them changes anything a
