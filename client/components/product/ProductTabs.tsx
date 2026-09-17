@@ -71,7 +71,10 @@ export function ProductTabs({ product, reviews: initialReviews }: ProductTabsPro
 
       {tab === "description" ? (
         <div className={styles.descGrid}>
-          <p className={styles.desc}>{product.description}</p>
+          <div className={styles.descCol}>
+            <p className={styles.desc}>{product.description}</p>
+            {product.disclaimer && <p className={styles.disclaimer}>{product.disclaimer}</p>}
+          </div>
           {specs.length > 0 && (
             <div className={styles.specs}>
               {specs.map((row) => (

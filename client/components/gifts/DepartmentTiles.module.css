@@ -194,12 +194,56 @@
   }
 }
 
-@media (max-width: 560px) {
+/*
+  Phone: a 2-column grid of 8+ tiles ran four rows tall, pushing the
+  product grid a full extra screen down — measured on `/gifts` at 390px,
+  the products started below the fold entirely. One horizontal strip
+  (`.hk-strip-fade`, the same fade-edge scroll recipe the portal nav
+  strips use — see `styles/globals.css`) turns that into one row: every
+  department is still one swipe away, and the buyer sees products first.
+*/
+@media (max-width: 640px) {
   .tiles {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--hk-s3);
+    /* `.hk-strip-fade`'s fade reads against the page canvas here, not
+       `--hk-surface` (its default) — this strip sits directly on `.main`,
+       not inside a white card. */
+    --hk-strip-fade-bg: var(--hk-bg);
+    /* Room for the focus ring on the first/last tile, so it isn't clipped
+       by the scroll container. */
+    padding: 2px;
+    margin: -2px;
+  }
+
+  .tiles > li {
+    flex: 0 0 104px;
+  }
+
+  .tile {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: var(--hk-s2);
+    padding: var(--hk-s3) var(--hk-s2);
   }
 
   .face {
-    width: 44px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .label {
+    align-items: center;
+  }
+
+  .name {
+    font-size: 12.5px;
+  }
+
+  .count {
+    font-size: 10px;
   }
 }

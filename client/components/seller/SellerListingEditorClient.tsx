@@ -81,6 +81,7 @@ function productToFormValues(product: Product): ListingFormValues {
     ingredients: product.ingredients ?? "",
     shelfLife: product.shelfLife ?? "",
     storageInstructions: product.storageInstructions ?? "",
+    disclaimer: product.disclaimer ?? "",
     allergens: product.allergens ?? [],
     servingGuidance: product.servingGuidance ?? "",
     fulfillmentType: product.fulfillmentType ?? "fresh_nearby",

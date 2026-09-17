@@ -198,6 +198,8 @@ export interface SellerListingInput {
   ingredients?: string;
   shelfLife?: string;
   storageInstructions?: string;
+  /** A maker's own caveat about this specific listing — e.g. "colours may vary batch to batch". */
+  disclaimer?: string;
   allergens?: string[];
   servingGuidance?: string;
   fulfillmentType?: "fresh_nearby" | "nationwide" | "gift_bulk";
@@ -250,6 +252,7 @@ export async function createSellerListing(
       ingredients: input.ingredients,
       shelfLife: input.shelfLife,
       storageInstructions: input.storageInstructions,
+      disclaimer: input.disclaimer,
       dimensions: input.dimensions,
       material: input.material,
       careInstructions: input.careInstructions,
@@ -294,6 +297,7 @@ export async function updateSellerListing(
     product.ingredients = input.ingredients;
     product.shelfLife = input.shelfLife;
     product.storageInstructions = input.storageInstructions;
+    product.disclaimer = input.disclaimer;
     product.dimensions = input.dimensions;
     product.material = input.material;
     product.careInstructions = input.careInstructions;

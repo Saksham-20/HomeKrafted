@@ -257,6 +257,7 @@ export class SellerListingsService {
           allergens: dto.allergens ?? [],
           shelfLife: dto.shelfLife ?? null,
           storageInstructions: dto.storageInstructions ?? null,
+          disclaimer: dto.disclaimer ?? null,
           // G1. Every one of these defaults to "nobody was asked" rather
           // than to a value: `fulfilment` NULL matches neither Dispatch
           // filter, and `heatSafePacked` false keeps an edible gift off a
@@ -442,6 +443,7 @@ export class SellerListingsService {
           allergens: dto.allergens,
           shelfLife: dto.shelfLife,
           storageInstructions: dto.storageInstructions,
+          disclaimer: dto.disclaimer,
           // G1 — `undefined` means "this save did not mention it", which
           // leaves the column alone. That is what lets a client that knows
           // nothing of these fields keep saving a listing without wiping

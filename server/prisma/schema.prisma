@@ -2092,6 +2092,13 @@ model Product {
   allergens           String[]
   shelfLife           String?
   storageInstructions String?
+  /// A maker's own caveat about this specific listing — "colours may
+  /// vary slightly from the photos, or batch to batch". Free text,
+  /// universal (every `kind`, not gated by family the way `dimensions`/
+  /// `ingredients` are), and optional: NULL means nobody added one, not
+  /// that there is nothing to know. Shown verbatim next to the
+  /// description on the product page — never paraphrased.
+  disclaimer          String?
   madeIn              String?
   /// Physical dimensions of a craft item — stored as a free-text string
   /// such as "15 × 10 × 5 cm" so the seller can describe their product

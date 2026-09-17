@@ -586,6 +586,14 @@ export interface Product {
   shelfLife?: string;
   storageInstructions?: string;
   madeIn?: string;
+  /**
+   * A maker's own caveat about this specific listing, shown verbatim next
+   * to the description — "colours may vary slightly from the photos",
+   * "each piece is handmade, so small variations are normal". Free text,
+   * optional, and never inferred: absence means the maker didn't add one,
+   * not that there is nothing to know.
+   */
+  disclaimer?: string;
   /** Physical dimensions of a craft item, e.g. "15 × 10 × 5 cm". Only present for `kind = 'craft'`. */
   dimensions?: string;
   /** Primary material of a craft item, e.g. "100% Soy Wax". Only present for `kind = 'craft'`. */

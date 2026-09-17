@@ -8,6 +8,7 @@ import { resolveFamily } from "@/lib/sell/listing-families";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
 import { FormPage } from "@/components/portal/FormPage";
 import { LoadingRows } from "@/components/portal/LoadingRows";
+import { Notice } from "@/components/portal/Notice";
 import { SaveBar } from "@/components/portal/SaveBar";
 import {
   EMPTY_LISTING_FORM,
@@ -74,6 +75,7 @@ function productToFormValues(product: Product): ListingFormValues {
     ingredients: product.ingredients ?? "",
     shelfLife: product.shelfLife ?? "",
     storageInstructions: product.storageInstructions ?? "",
+    disclaimer: product.disclaimer ?? "",
     allergens: product.allergens ?? [],
     servingGuidance: product.servingGuidance ?? "",
     fulfillmentType: product.fulfillmentType ?? "fresh_nearby",
@@ -114,39 +116,48 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<ListingFormErrors>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!ready || role !== "admin") return;
     let cancelled = false;
     (async () => {
-      const [cats, occs, product, settings] = await Promise.all([
-        getCategories(),
-        getOccasions(),
-        getAdminProductById(productId),
-        // `undefined` on failure by its own contract (a read, not a
-        // mutation — the M36 carve-out) — the listing editor loads either
-        // way, it only costs the earnings preview.
-        getPlatformSettings(),
-      ]);
-      if (cancelled) return;
-      setCategories(cats);
-      setOccasions(occs);
-      if (settings) {
-        setCommission({ pct: settings.commissionPct, enabled: settings.commissionEnabled, gstPct: settings.commissionGstPct });
+      try {
+        const [cats, occs, product, settings] = await Promise.all([
+          getCategories(),
+          getOccasions(),
+          getAdminProductById(productId),
+          // `undefined` on failure by its own contract (a read, not a
+          // mutation — the M36 carve-out) — the listing editor loads either
+          // way, it only costs the earnings preview.
+          getPlatformSettings(),
+        ]);
+        if (cancelled) return;
+        setCategories(cats);
+        setOccasions(occs);
+        if (settings) {
+          setCommission({ pct: settings.commissionPct, enabled: settings.commissionEnabled, gstPct: settings.commissionGstPct });
+        }
+        if (product) {
+          const loaded = productToFormValues(product);
+          setValues(loaded);
+          setInitialValues(loaded);
+        } else {
+          setNotFound(true);
+        }
+        setLoadError(null);
+      } catch (caught) {
+        if (cancelled) return;
+        setLoadError(apiErrorMessage(caught, "Couldn't load this listing. Try again."));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      if (product) {
-        const loaded = productToFormValues(product);
-        setValues(loaded);
-        setInitialValues(loaded);
-      } else {
-        setNotFound(true);
-      }
-      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ready, role, productId]);
+  }, [ready, role, productId, reloadToken]);
 
   /**
    * What this listing is, which decides which questions block. Read off the
@@ -188,6 +199,32 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
     } finally {
       setSaving(false);
     }
+  }
+
+  if (loadError) {
+    return (
+      <div>
+        <AdminPageHeader back={{ href: "/admin/catalog", label: "Catalog" }} title="Edit listing" />
+        <Notice
+          tone="danger"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setLoadError(null);
+                setReloadToken((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
+          {loadError}
+        </Notice>
+      </div>
+    );
   }
 
   if (!ready || loading) {

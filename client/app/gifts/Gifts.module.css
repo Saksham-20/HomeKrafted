@@ -183,3 +183,16 @@
     gap: var(--hk-s3);
   }
 }
+
+/* Phone: the products should be the first thing in view after the title,
+   not the fourth — see `DepartmentTiles.module.css`'s matching note. */
+@media (max-width: 640px) {
+  .bandInner {
+    gap: var(--hk-s2);
+    padding-block: var(--hk-s4) var(--hk-s3);
+  }
+
+  .stats {
+    min-height: 0;
+  }
+}

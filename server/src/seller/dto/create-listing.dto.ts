@@ -310,6 +310,15 @@ export class CreateListingDto {
   storageInstructions?: string;
 
   /**
+   * A maker's own caveat about this specific listing — e.g. "colours may
+   * vary batch to batch". Universal, optional, shown verbatim.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  disclaimer?: string;
+
+  /**
    * Portion or serving recommendation — e.g. "Serves 1-2".
    */
   @IsOptional()

@@ -52,7 +52,7 @@ export function DepartmentTiles({
 
   return (
     <div className={styles.wrap}>
-      <ul className={styles.tiles}>
+      <ul className={clsx(styles.tiles, "hk-strip-fade")}>
         {departments.map((department) => {
           /*
             A department with nothing under it filters on press

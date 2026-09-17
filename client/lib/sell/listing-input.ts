@@ -55,6 +55,13 @@ export interface ListingFormValues {
   ingredients: string;
   shelfLife: string;
   storageInstructions: string;
+  /**
+   * A maker's own caveat about this specific listing — "colours may vary
+   * batch to batch". Free text, universal (every family, not gated by
+   * `FAMILY_FIELDS`), and optional: a blank box means nobody added one,
+   * not that there is nothing to know.
+   */
+  disclaimer: string;
   allergens: string[];
   servingGuidance: string;
   fulfillmentType: "fresh_nearby" | "nationwide" | "gift_bulk";
@@ -110,6 +117,7 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   ingredients: "",
   shelfLife: "",
   storageInstructions: "",
+  disclaimer: "",
   allergens: [],
   servingGuidance: "",
   fulfillmentType: "fresh_nearby",
@@ -344,6 +352,7 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     ingredients: values.ingredients.trim() || undefined,
     shelfLife: values.shelfLife.trim() || undefined,
     storageInstructions: values.storageInstructions.trim() || undefined,
+    disclaimer: values.disclaimer.trim() || undefined,
     allergens: values.allergens.length > 0 ? values.allergens : undefined,
     servingGuidance: values.servingGuidance.trim() || undefined,
   };
@@ -365,6 +374,7 @@ export interface ListingFormErrors {
   material?: string;
   careInstructions?: string;
   storageInstructions?: string;
+  disclaimer?: string;
   servingGuidance?: string;
   prepTimeMins?: string;
   personalisationPrompt?: string;
@@ -395,6 +405,7 @@ export const LISTING_LIMITS = {
   ingredients: 1000,
   shelfLife: 200,
   storageInstructions: 500,
+  disclaimer: 300,
   servingGuidance: 200,
   // G1 (2026-09-16) — the gift facts and D13's label declarations. The
   // form that asks them is G2; these are here now because this file is the
@@ -432,6 +443,7 @@ export const LISTING_FIELD_ORDER = [
   "ingredients",
   "shelfLife",
   "storageInstructions",
+  "disclaimer",
   "servingGuidance",
 ] as const;
 
@@ -548,6 +560,7 @@ export function validateListingForm(
   errors.material = tooLong("The material", values.material, LISTING_LIMITS.material);
   errors.careInstructions = tooLong("The care instructions", values.careInstructions, LISTING_LIMITS.careInstructions);
   errors.storageInstructions = tooLong("The storage instructions", values.storageInstructions, LISTING_LIMITS.storageInstructions);
+  errors.disclaimer = tooLong("The note", values.disclaimer, LISTING_LIMITS.disclaimer);
   errors.servingGuidance = tooLong("The serving guidance", values.servingGuidance, LISTING_LIMITS.servingGuidance);
 
   /*

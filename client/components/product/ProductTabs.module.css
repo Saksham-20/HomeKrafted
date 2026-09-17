@@ -32,10 +32,29 @@
   gap: var(--hk-s7);
 }
 
+.descCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
 .desc {
   font-size: 15px;
   line-height: 1.7;
   color: var(--hk-ink-3);
+}
+
+/* A maker's own caveat — set apart from the description so it reads as a
+   note, not a continuation of the copy. Terracotta text on its tint is
+   `--hk-terracotta-text` (4.55:1 on white), the AA-safe variant used
+   wherever the base terracotta would fail — see `tokens.extend.css`. */
+.disclaimer {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-terracotta-text, var(--hk-ink-3));
+  background: var(--hk-terracotta-tint, #f6e7e0);
+  border-radius: var(--hk-r-md);
+  padding: var(--hk-s3) var(--hk-s4);
 }
 
 .specs {

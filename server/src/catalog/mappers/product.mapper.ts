@@ -175,6 +175,7 @@ export function mapProduct(product: ProductWithRelations, rate: CommissionRate) 
     allergens: product.allergens,
     shelfLife: product.shelfLife ?? undefined,
     storageInstructions: product.storageInstructions ?? undefined,
+    disclaimer: product.disclaimer ?? undefined,
     madeIn: product.madeIn ?? undefined,
     dimensions: product.dimensions ?? undefined,
     material: product.material ?? undefined,
