@@ -745,13 +745,19 @@ export class AdminCatalogService {
     const existing = await this.prisma.review.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Review not found');
 
-    const updated = await this.prisma.review.update({ where: { id }, data: { hidden } });
-
     // Hiding a review has to move the rating it was counted in, or the
-    // moderator's action is invisible everywhere a rating is shown.
-    // `targetType` is a `ReviewTargetType` enum value, which is exactly
-    // the union `recompute` takes.
-    await this.reviewAggregates.recompute(updated.targetType, updated.targetId);
+    // moderator's action is invisible everywhere a rating is shown — the
+    // update and the recompute are transacted together, mirroring
+    // `ReviewsService.create`'s identical `create` + `recompute` pair, so
+    // a failure between the two can't leave `hidden` persisted while
+    // `Product.rating`/`Vendor.rating` still count (or wrongly omit) it.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.review.update({ where: { id }, data: { hidden } });
+      // `targetType` is a `ReviewTargetType` enum value, which is exactly
+      // the union `recompute` takes.
+      await this.reviewAggregates.recompute(row.targetType, row.targetId, tx);
+      return row;
+    });
 
     await this.auditLog.log({
       actorId: adminUserId,

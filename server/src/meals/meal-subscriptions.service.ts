@@ -352,17 +352,54 @@ export class MealSubscriptionsService {
     });
     const profile = plan.vendor.profile;
 
+    // pause() deliberately leaves a locked delivery `scheduled` — "a
+    // locked date's meal is already being planned" — without touching
+    // `mealsRemaining`. Those survivors are already a commitment to the
+    // kitchen and must be netted out before asking for more dates, or
+    // resume() overbooks the kitchen by however many locked rows
+    // survived the pause and orphans them (nothing else ever resolves a
+    // `scheduled` row this function didn't just create or touch).
+    const alreadyScheduled = await this.prisma.mealDelivery.findMany({
+      where: { subscriptionId: id, status: 'scheduled' },
+      select: { scheduledFor: true },
+    });
+    const mealsToSchedule = Math.max(0, subscription.mealsRemaining - alreadyScheduled.length);
+
     const startDate = earliestStartDate(new Date(), profile?.prepTimeMins);
-    const dates = scheduleDates(startDate, subscription.daysOfWeek, subscription.mealsRemaining, {
+    const dates = scheduleDates(startDate, subscription.daysOfWeek, mealsToSchedule, {
       workingDays: profile?.workingDays ?? [],
-      blackoutDates: plan.vendor.blackouts.map((b) => b.date),
+      // The locked survivors are netted out of the *count* above, but
+      // `scheduleDates` knows nothing about the dates they already
+      // occupy — if resume() runs before a locked survivor's own date
+      // has passed (pause and resume the same evening, the realistic
+      // case), the freshly generated schedule can otherwise re-claim
+      // that exact date. The `upsert` below would then match the
+      // existing locked row instead of creating a new one for a fresh
+      // date, and a paid-for meal silently vanishes. Feeding them in
+      // alongside the vendor's own blackouts keeps every generated date
+      // distinct from every already-occupied one.
+      blackoutDates: [...plan.vendor.blackouts.map((b) => b.date), ...alreadyScheduled.map((d) => d.scheduledFor)],
     });
 
-    if (dates.length < subscription.mealsRemaining) {
+    if (dates.length < mealsToSchedule) {
       throw new BadRequestException(
         `${plan.vendor.name} cannot fit your remaining ${subscription.mealsRemaining} meals on the days you picked.`,
       );
     }
+
+    // The cycle's true end (and its true next meal) spans both the
+    // locked survivors and the freshly scheduled dates — never just the
+    // latter, or a locked row earlier than `startDate` sits past the
+    // subscription's own `endDate`.
+    const allDates = [...alreadyScheduled.map((d) => d.scheduledFor), ...dates];
+    const nextDate = allDates.reduce(
+      (earliest, d) => (earliest === undefined || d < earliest ? d : earliest),
+      undefined as Date | undefined,
+    );
+    const newEndDate = allDates.reduce(
+      (latest, d) => (latest === undefined || d > latest ? d : latest),
+      undefined as Date | undefined,
+    );
 
     const updated = await this.prisma.$transaction(async (tx) => {
       for (const date of dates) {
@@ -386,7 +423,7 @@ export class MealSubscriptionsService {
         data: {
           status: 'active',
           pausedAt: null,
-          endDate: dates[dates.length - 1],
+          endDate: newEndDate ?? subscription.endDate,
         },
       });
     });
@@ -394,7 +431,7 @@ export class MealSubscriptionsService {
     this.tell(
       userId,
       'Meal plan resumed',
-      `${plan.name} is back on — next meal ${dates[0]?.toISOString().slice(0, 10)}, ${subscription.mealsRemaining} meals to go.`,
+      `${plan.name} is back on — next meal ${nextDate?.toISOString().slice(0, 10)}, ${subscription.mealsRemaining} meals to go.`,
       id,
     );
 

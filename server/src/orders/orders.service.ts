@@ -18,6 +18,7 @@ import { toOrderHistoryEntry, toLaundryHistoryEntry } from './order-history.util
 import { isPurchasable, unavailableReason } from '../catalog/moderation';
 import { JOB_WITH_RELATIONS_INCLUDE } from '../rider/rider-jobs.types';
 import { mapDeliveryForBuyer } from '../rider/rider-jobs.mapper';
+import { assertSameMaker, assertSingleMakerCart } from '../cart/one-maker-cart';
 
 const ORDER_INCLUDE = { items: true, shipments: true } satisfies Prisma.OrderInclude;
 
@@ -214,6 +215,13 @@ export class OrdersService {
     // With no key this is exactly the previous behaviour — `run` falls
     // through to a plain `$transaction`.
     return this.idempotency.run(userId, 'orders.create', idempotencyKey, async (tx) => {
+      // Defense-in-depth, not the gate — `CartService` locks and checks
+      // this on every insert, so a basket should never reach this point
+      // spanning two makers. Re-derived here, against the committed state
+      // at the moment the order is actually built, rather than trusted
+      // from whatever passed on the way in.
+      await assertSingleMakerCart(tx, cart.id);
+
       for (const item of rawItems) {
         if (item.productId && item.sku) {
           const result = await tx.weightOption.updateMany({
@@ -413,6 +421,21 @@ export class OrdersService {
         continue;
       }
 
+      // One basket, one maker (`one-maker-cart.ts`) — a reorder is a second
+      // write path into the same cart, so without this it could silently
+      // rebuild a basket spanning two vendors, which a fresh
+      // `POST /cart/items` call could never do. Skipped like every other
+      // reason above rather than failing the whole reorder.
+      try {
+        await assertSameMaker(this.prisma, cart.id, product.vendorId);
+      } catch (err) {
+        if (err instanceof ConflictException) {
+          skipped.push({ name: product.name, reason: 'From a different maker than what is already in your basket' });
+          continue;
+        }
+        throw err;
+      }
+
       const existing = await this.prisma.cartItem.findFirst({
         where: { cartId: cart.id, productId: product.id, sku: item.sku },
       });
@@ -477,6 +500,16 @@ export class OrdersService {
    */
   async cancelOrder(userId: string, orderId: string, reason?: string) {
     const result = await this.prisma.$transaction(async (tx) => {
+      // Locked before it's read, not after: two concurrent cancel calls
+      // for the same order (a double-tap before the button disables, or a
+      // client retry) would otherwise both pass a plain read of
+      // `order.status` under Postgres's default READ COMMITTED isolation
+      // and each independently restock and refund. The loser here blocks
+      // until the winner commits and then reads the already-`cancelled`
+      // row below — the same lock-then-read-fresh shape
+      // `PaymentsService.createOrder` and `ShippingService
+      // .reconcileOrderStatus` already use for this exact class of race.
+      await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
       const order = await tx.order.findUnique({ where: { id: orderId }, include: ORDER_INCLUDE });
       if (!order || order.userId !== userId) throw new NotFoundException('Order not found');
 
@@ -751,6 +784,14 @@ export class OrdersService {
     let performed: { userId: string; orderNumber: string; amount: number } | null = null;
 
     const result = await this.idempotency.run(adminUserId, 'orders.refund', idempotencyKey, async (tx) => {
+      // Locked before it's read — the `refundStatus === 'refunded'` guard
+      // below is a plain check-then-act, and under Postgres's default READ
+      // COMMITTED isolation two concurrent refund calls (a retried request,
+      // or two different idempotency keys) can both read `refundStatus:
+      // 'none'` and both credit the wallet. Same shape as `cancelOrder`'s
+      // lock above and `PaymentsService.createOrder`'s: the loser blocks
+      // until the winner commits, then reads the already-`refunded` row.
+      await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${orderId} FOR UPDATE`;
       const order = await tx.order.findUnique({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Order not found');
 
@@ -774,6 +815,31 @@ export class OrdersService {
         refType: 'order',
         refId: order.id,
       });
+
+      /**
+       * Take the cashback back too — `cancelOrder`'s exact reasoning,
+       * one path over. Cashback is credited at `placed`, so refunding the
+       * full total while leaving that credit alone pays out on an order
+       * that is being taken back: request a return, get the refund *and*
+       * keep the cashback, repeatably. This is the path every post-
+       * delivery return actually resolves through
+       * (`POST /admin/orders/order/:id/refund`), so it is the common
+       * case, not an edge one.
+       */
+      const cashback = Number(order.cashbackEarned);
+      if (cashback > 0) {
+        await this.walletService.postLedgerEntryTx(tx, {
+          walletId: wallet.id,
+          direction: 'debit',
+          category: 'cashback',
+          amount: cashback,
+          title: `Cashback reversed — refunded order #${order.orderNumber}`,
+          refType: 'order',
+          refId: order.id,
+          lifetimeSavedDelta: -cashback,
+          skipAutoTopupCheck: true,
+        });
+      }
 
       const updated = await tx.order.update({
         where: { id: orderId },

@@ -5,10 +5,17 @@ import { OrderNotificationsService } from '../orders/order-notifications.service
 import { ShippingService } from '../shipping/shipping.service';
 import { JOB_WITH_RELATIONS_INCLUDE } from '../rider/rider-jobs.types';
 import { mapDeliveryForSeller } from '../rider/rider-jobs.mapper';
-import { mapOrderForSeller, SellerOrderWithRelations } from './mappers/seller-order.mapper';
+import { itemVendorId, mapOrderForSeller, SellerOrderWithRelations } from './mappers/seller-order.mapper';
 
 const SELLER_ORDER_INCLUDE = {
-  items: { include: { product: { select: { vendorId: true } } } },
+  items: {
+    include: {
+      product: { select: { vendorId: true } },
+      // A hamper line has no `productId` of its own — resolve its maker
+      // through the hamper's items instead (see `itemVendorId`).
+      hamper: { include: { items: { select: { product: { select: { vendorId: true } } } } } },
+    },
+  },
   shipments: true,
 } satisfies Prisma.OrderInclude;
 
@@ -52,7 +59,17 @@ export class SellerOrdersService {
    * `/seller/orders`, on a table that only grows.
    */
   async list(vendorId: string, page = 1, pageSize = 50) {
-    const where = { items: { some: { product: { vendorId } } } } as const;
+    // A hamper line carries no `productId` of its own (see
+    // `SELLER_ORDER_INCLUDE`'s comment) — an order made up entirely of
+    // one only matched the plain product filter never, which meant it
+    // could never appear in this list at all.
+    const where: Prisma.OrderWhereInput = {
+      items: {
+        some: {
+          OR: [{ product: { vendorId } }, { hamper: { items: { some: { product: { vendorId } } } } }],
+        },
+      },
+    };
     const [orders, total] = await Promise.all([
       this.prisma.order.findMany({
         where,
@@ -111,7 +128,7 @@ export class SellerOrdersService {
         );
       }
 
-      const foreign = order.items.some((i) => i.product?.vendorId !== vendorId);
+      const foreign = order.items.some((i) => itemVendorId(i) !== vendorId);
       if (foreign) {
         throw new ForbiddenException(
           "This order also contains another HomeKrafter's items, so shipping and delivery are recorded for the whole order at once. The Homekrafted team updates it — mention the order number to support.",
@@ -160,7 +177,7 @@ export class SellerOrdersService {
       where: { id: orderId },
       include: SELLER_ORDER_INCLUDE,
     });
-    const ownsAnItem = order?.items.some((item) => item.product?.vendorId === vendorId);
+    const ownsAnItem = order?.items.some((item) => itemVendorId(item) === vendorId);
     if (!order || !ownsAnItem) {
       throw new NotFoundException('Order not found');
     }

@@ -1,3 +1,6 @@
+import { ConflictException } from '@nestjs/common';
+import { Prisma, PrismaClient } from '@prisma/client';
+
 /**
  * One basket holds one maker's things (owner, 2026-09-14).
  *
@@ -42,4 +45,102 @@ export function otherMakerConflict(vendorId: string, vendorName: string): OtherM
     vendorId,
     vendorName,
   };
+}
+
+type Db = PrismaClient | Prisma.TransactionClient;
+
+/**
+ * Refuse a product from a maker other than the one already in the cart.
+ *
+ * Shared between `CartService` (checked, locked, before every insert —
+ * see the `$transaction` + `SELECT ... FOR UPDATE` on `Cart` around every
+ * call site) and `OrdersService.reorder` (checked once per historical
+ * line as it's re-added, so a reorder can't silently rebuild a
+ * two-vendor basket the way a fresh `POST /cart/items` call never could).
+ *
+ * Reads the vendor off the products the cart holds rather than caching it
+ * on `Cart`: a denormalised column would be one more thing to keep in
+ * step on every remove, and the cart is small enough that the join costs
+ * nothing. The name comes back with the refusal because the shopper has
+ * to be told whose basket they already have.
+ *
+ * An empty cart accepts anything, which is what makes "empty it and
+ * start again" the way out.
+ */
+export async function assertSameMaker(db: Db, cartId: string, vendorId: string): Promise<void> {
+  const held = await db.cartItem.findFirst({
+    where: { cartId, product: { vendorId: { not: vendorId } } },
+    select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
+  });
+  if (held?.product) {
+    throw new ConflictException(otherMakerConflict(held.product.vendorId, held.product.vendor.name));
+  }
+
+  /*
+   * A hamper line carries `hamperId` and a NULL `productId`, so the
+   * query above cannot see it — leaving "add a hamper, then add
+   * anything" as the way round the rule. Its maker is the maker of the
+   * products inside it, which `CartService.addHamperItem` forces to be
+   * one before this ever runs.
+   */
+  const heldHamper = await db.cartItem.findFirst({
+    where: {
+      cartId,
+      hamper: { items: { some: { product: { vendorId: { not: vendorId } } } } },
+    },
+    select: {
+      hamper: {
+        select: {
+          items: {
+            where: { product: { vendorId: { not: vendorId } } },
+            take: 1,
+            select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
+          },
+        },
+      },
+    },
+  });
+  const other = heldHamper?.hamper?.items[0]?.product;
+  if (other) {
+    throw new ConflictException(otherMakerConflict(other.vendorId, other.vendor.name));
+  }
+}
+
+/**
+ * Defense-in-depth for `OrdersService.create()`.
+ *
+ * `assertSameMaker` above is checked (and, in `CartService`, locked) on
+ * every single insert, so a basket should never be able to reach two
+ * makers in the first place. This re-derives the maker set from whatever
+ * the cart actually holds at the moment an order is built from it, and
+ * refuses rather than silently placing a two-vendor order if it ever
+ * disagrees — the same "never trust that an earlier gate held" instinct
+ * `resolveCartLines` already applies to price.
+ */
+export async function assertSingleMakerCart(db: Db, cartId: string): Promise<void> {
+  const items = await db.cartItem.findMany({
+    where: { cartId },
+    select: {
+      product: { select: { vendorId: true, vendor: { select: { name: true } } } },
+      hamper: {
+        select: {
+          items: {
+            take: 1,
+            select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
+          },
+        },
+      },
+    },
+  });
+
+  let seen: { vendorId: string; vendorName: string } | undefined;
+  for (const item of items) {
+    const maker = item.product ?? item.hamper?.items[0]?.product;
+    if (!maker) continue;
+    if (!seen) {
+      seen = { vendorId: maker.vendorId, vendorName: maker.vendor.name };
+    } else if (maker.vendorId !== seen.vendorId) {
+      throw new ConflictException(otherMakerConflict(seen.vendorId, seen.vendorName));
+    }
+  }
 }

@@ -191,9 +191,6 @@ export class RiderJobsService {
     if (job.status !== 'at_drop') {
       throw new ConflictException(`This delivery is "${job.status}" — it can only be delivered from the drop step.`);
     }
-    if (isOtpLocked(job.otpAttempts)) {
-      throw new ConflictException(job.failureReason ?? LOCKED_SENTENCE);
-    }
 
     const hasProof = await this.prisma.deliveryProof.findFirst({ where: { jobId, stage: 'drop' } });
     if (!hasProof) {
@@ -201,16 +198,36 @@ export class RiderJobsService {
     }
 
     const candidate = dto.otp.trim();
-    if (!job.deliveryOtp || !otpMatches(candidate, job.deliveryOtp)) {
-      const updated = await this.prisma.deliveryJob.update({
-        where: { id: jobId },
-        data: { otpAttempts: { increment: 1 } },
-      });
-      if (isOtpLocked(updated.otpAttempts)) {
-        await this.prisma.deliveryJob.update({ where: { id: jobId }, data: { failureReason: LOCKED_SENTENCE } });
-        throw new ConflictException(LOCKED_SENTENCE);
+
+    // The lock check and the attempt increment have to serialise on the
+    // same row, or concurrent /deliver requests each read a stale
+    // `otpAttempts`, all pass the lock check, and all get to compare a
+    // guess before any of their increments land — turning the 5-guess
+    // ceiling into "5 guesses per wave of concurrent requests". `FOR
+    // UPDATE` inside a transaction is the same row-lock pattern
+    // `meal-subscriptions.service.ts`'s capacity check and
+    // `payments.service.ts`'s order lock use for this exact class of race.
+    const wrongGuess = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "DeliveryJob" WHERE id = ${jobId} FOR UPDATE`;
+      const current = await tx.deliveryJob.findUniqueOrThrow({ where: { id: jobId } });
+      if (isOtpLocked(current.otpAttempts)) {
+        throw new ConflictException(current.failureReason ?? LOCKED_SENTENCE);
       }
-      const left = MAX_OTP_ATTEMPTS - updated.otpAttempts;
+      if (current.deliveryOtp && otpMatches(candidate, current.deliveryOtp)) {
+        return null;
+      }
+      const attempts = current.otpAttempts + 1;
+      const locked = isOtpLocked(attempts);
+      await tx.deliveryJob.update({
+        where: { id: jobId },
+        data: { otpAttempts: attempts, ...(locked ? { failureReason: LOCKED_SENTENCE } : {}) },
+      });
+      return { attempts, locked };
+    });
+
+    if (wrongGuess) {
+      if (wrongGuess.locked) throw new ConflictException(LOCKED_SENTENCE);
+      const left = MAX_OTP_ATTEMPTS - wrongGuess.attempts;
       throw new BadRequestException(`That code doesn't match. ${left} attempt${left === 1 ? '' : 's'} left.`);
     }
 

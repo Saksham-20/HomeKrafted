@@ -566,6 +566,66 @@ describe('money paths under concurrency', () => {
     });
   });
 
+  describe('a wallet is created exactly once for a brand-new user under concurrent requests', () => {
+    /**
+     * `WalletService#getOrCreateWalletTx` used to `wallet.create()` and
+     * catch a P2002 from a losing concurrent create, falling back to
+     * `findUniqueOrThrow` on the *same* transaction client. That does not
+     * work: once a statement inside a Postgres transaction errors, the
+     * whole transaction is marked aborted, and every later statement on
+     * that same `tx` — including the fallback read — fails immediately
+     * with 25P02 ("current transaction is aborted, commands ignored until
+     * end of transaction block"). The loser's request 500'd instead of
+     * quietly reusing the winner's row.
+     *
+     * `POST /wallet/adjust` is the load-bearing case: no `Idempotency-Key`
+     * here means `IdempotencyService.run` opens a fresh `$transaction` per
+     * call (see its own doc comment), so two concurrent adjustments for
+     * the same wallet-less user genuinely race two separate transactions
+     * against `getOrCreateWalletTx` — the exact shape `OrdersService`'s
+     * cashback credit, a meal-subscription debit, or a referral credit
+     * would also produce for a first-time buyer.
+     *
+     * `createActor` already gives every registered user a wallet (see
+     * `AuthService#register`), so the row is deleted here to reproduce the
+     * "brand-new user, no wallet yet" state this bug needs.
+     */
+    it('does not abort either transaction when two admin adjustments race a first-time wallet create', async () => {
+      const admin = await createActor(h, 'admin');
+      const buyer = await createActor(h);
+      await h.prisma.wallet.delete({ where: { userId: buyer.userId } });
+
+      const adjust = (amount: number, reason: string) =>
+        h
+          .api()
+          .post(`${API_PREFIX}/wallet/adjust`)
+          .set(auth(admin))
+          .send({ userId: buyer.userId, direction: 'credit', amount, reason });
+
+      const results = await Promise.allSettled([adjust(100, 'race A'), adjust(50, 'race B')]);
+
+      const statuses = results
+        .map((r) => (r.status === 'fulfilled' ? r.value.status : 0))
+        .sort((a, b) => a - b);
+      // Before the fix, the losing side of the create race surfaced as a
+      // raw 500 (Postgres 25P02) rather than the credit it asked for.
+      expect(statuses).toEqual([201, 201]);
+
+      const wallet = await h.prisma.wallet.findUniqueOrThrow({ where: { userId: buyer.userId } });
+      expect(Number(wallet.balance)).toBe(150);
+
+      // Exactly one `Wallet` row and exactly one ledger entry per request —
+      // the race must not have produced a duplicate wallet or dropped a
+      // credit along with the aborted transaction that carried it.
+      expect(await h.prisma.wallet.count({ where: { userId: buyer.userId } })).toBe(1);
+      const entries = await h.prisma.walletTransaction.findMany({
+        where: { walletId: wallet.id, category: 'adjustment' },
+      });
+      expect(entries).toHaveLength(2);
+      expect(entries.map((e) => Number(e.amount)).sort((a, b) => a - b)).toEqual([50, 100]);
+    });
+  });
+
   describe('a redelivered WhatsApp message creates one SnackOrder', () => {
     /**
      * Driven through the service rather than `POST /whatsapp/webhook`.

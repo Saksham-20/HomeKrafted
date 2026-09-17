@@ -23,10 +23,26 @@ type ReviewTarget = 'product' | 'vendor' | 'service';
 export class ReviewAggregatesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Recompute for a target, joining an open transaction when one is supplied. */
+  /**
+   * Recompute for a target, joining an open transaction when one is
+   * supplied — and opening one of its own otherwise, because the row lock
+   * both `applyProduct`/`applyVendor` take only holds for the life of a
+   * transaction. A bare `SELECT ... FOR UPDATE` outside one releases the
+   * instant its own statement completes, which protects nothing.
+   */
   async recompute(targetType: ReviewTarget, targetId: string, tx?: Prisma.TransactionClient): Promise<void> {
-    const db = tx ?? this.prisma;
+    if (tx) {
+      await this.recomputeLocked(tx, targetType, targetId);
+      return;
+    }
+    await this.prisma.$transaction((inner) => this.recomputeLocked(inner, targetType, targetId));
+  }
 
+  private async recomputeLocked(
+    db: Prisma.TransactionClient,
+    targetType: ReviewTarget,
+    targetId: string,
+  ): Promise<void> {
     if (targetType === 'product') {
       const product = await db.product.findUnique({ where: { id: targetId }, select: { vendorId: true } });
       await this.applyProduct(db, targetId);
@@ -41,7 +57,18 @@ export class ReviewAggregatesService {
     // column, so there is nothing to keep in step.
   }
 
-  private async applyProduct(db: Prisma.TransactionClient | PrismaService, id: string): Promise<void> {
+  /**
+   * `FOR UPDATE` on the `Product` row before the aggregate read, same
+   * pattern as `WalletService`/`PaymentsService`'s row-locked read-then-
+   * write. Under Postgres's default READ COMMITTED, two reviews written
+   * for the same product at once would otherwise both read the aggregate
+   * before either write committed, and whichever `product.update` commits
+   * last would silently overwrite the other's count with a stale one. The
+   * lock serializes them: the second transaction blocks here until the
+   * first's update commits, then reads the count it left behind.
+   */
+  private async applyProduct(db: Prisma.TransactionClient, id: string): Promise<void> {
+    await db.$queryRaw`SELECT id FROM "Product" WHERE id = ${id} FOR UPDATE`;
     const stats = await db.review.aggregate({
       where: { targetType: 'product', targetId: id, hidden: false },
       _avg: { rating: true },
@@ -58,8 +85,13 @@ export class ReviewAggregatesService {
    * review of something they make. Both are "what people think of this
    * kitchen", and counting only the first would leave a storefront with
    * forty product reviews reading as unrated.
+   *
+   * Same `FOR UPDATE` reasoning as `applyProduct` — locked on the `Vendor`
+   * row, since that (and `Seller`, kept in step with it) is what this
+   * function's aggregate read-then-write race would otherwise corrupt.
    */
-  private async applyVendor(db: Prisma.TransactionClient | PrismaService, id: string): Promise<void> {
+  private async applyVendor(db: Prisma.TransactionClient, id: string): Promise<void> {
+    await db.$queryRaw`SELECT id FROM "Vendor" WHERE id = ${id} FOR UPDATE`;
     const products = await db.product.findMany({ where: { vendorId: id }, select: { id: true } });
     const stats = await db.review.aggregate({
       where: {

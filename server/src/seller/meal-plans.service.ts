@@ -197,15 +197,22 @@ export class SellerMealPlansService {
       include: { subscription: true },
     });
     if (!delivery) throw new NotFoundException('Delivery not found');
-    if (delivery.status !== 'scheduled') {
-      throw new ConflictException(`That meal is already ${delivery.status}.`);
-    }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.mealDelivery.update({
-        where: { id: deliveryId },
+      // Guarded the same way `AdminPayoutsService#claimPending` guards a
+      // payout decision: `status` rides in the WHERE clause, so Postgres
+      // evaluates it against the row it locks and exactly one of two
+      // concurrent "mark delivered" taps matches. A plain read-then-write
+      // let both taps pass the check and both decrement `mealsRemaining`,
+      // double-charging the buyer's prepaid balance for one delivery.
+      const result = await tx.mealDelivery.updateMany({
+        where: { id: deliveryId, status: 'scheduled' },
         data: { status: 'delivered', deliveredAt: new Date() },
       });
+      if (result.count === 0) {
+        const current = await tx.mealDelivery.findUniqueOrThrow({ where: { id: deliveryId } });
+        throw new ConflictException(`That meal is already ${current.status}.`);
+      }
       // `mealsRemaining` moves here and nowhere else. A skipped meal is
       // still owed, so only an actual delivery spends one.
       await tx.mealSubscription.update({

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'crypto';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -750,17 +751,26 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
         const moves = advancesConsignment(current.status, mapped);
         if (!isNewest && !moves) return 'recorded';
 
-        // Rider identity is kept once given: the carrier sends it only on
-        // out-for-pickup/delivery events, and blanking it on the next
-        // event would lose the one number support actually needs.
-        const data: Prisma.ConsignmentUpdateInput = {
-          courierStatus: event.courierStatus,
-          statusNote: event.comments,
-          currentLocation: event.location,
-          lastEventAt: event.eventAt,
-          ...(event.riderName ? { riderName: event.riderName } : {}),
-          ...(event.riderContact ? { riderContact: event.riderContact } : {}),
-        };
+        // The two concerns are independent and must not be written
+        // together just because one of them applies. A same-or-higher-rank
+        // status (`moves`) can arrive out of order — a stale event is still
+        // free to move `status` forward — but it must not also overwrite
+        // `currentLocation`/`statusNote`/`lastEventAt` with where the
+        // parcel *was*, not where it is now; conversely the freshest event
+        // updates those fields even when its own status doesn't advance
+        // the consignment.
+        const data: Prisma.ConsignmentUpdateInput = {};
+        if (isNewest) {
+          // Rider identity is kept once given: the carrier sends it only on
+          // out-for-pickup/delivery events, and blanking it on the next
+          // event would lose the one number support actually needs.
+          data.courierStatus = event.courierStatus;
+          data.statusNote = event.comments;
+          data.currentLocation = event.location;
+          data.lastEventAt = event.eventAt;
+          if (event.riderName) data.riderName = event.riderName;
+          if (event.riderContact) data.riderContact = event.riderContact;
+        }
         if (moves) {
           data.status = mapped;
           if (mapped === ConsignmentStatus.picked) data.pickedAt = event.eventAt;
@@ -1165,10 +1175,7 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('This parcel has already been delivered.');
     }
     if (!consignment.awbNumber) {
-      return this.prisma.consignment.update({
-        where: { id },
-        data: { status: ConsignmentStatus.cancelled, cancelledAt: new Date(), failureReason: reason.trim() },
-      });
+      return this.finalizeCancel(id, { failureReason: reason.trim() });
     }
     const result = await this.client.cancel(consignment.awbNumber, reason.trim());
     if (result.outcome === 'queued') {
@@ -1177,9 +1184,36 @@ export class ShippingService implements OnModuleInit, OnModuleDestroy {
         data: { statusNote: `Cancellation queued with the carrier: ${reason.trim()}` },
       });
     }
-    return this.prisma.consignment.update({
-      where: { id },
-      data: { status: ConsignmentStatus.cancelled, cancelledAt: new Date(), statusNote: reason.trim() },
+    return this.finalizeCancel(id, { statusNote: reason.trim() });
+  }
+
+  /**
+   * The write half of `cancel()`, after the delivered guard above and (on
+   * the AWB path) after the ~15s round trip to the carrier — either of
+   * which leaves a window for `ingest()` to process a concurrent
+   * `delivered` callback. Re-checks under the same row lock `ingest()`
+   * takes for exactly this class of race, so a parcel that was delivered
+   * while the cancellation was in flight is refused rather than silently
+   * overwritten back to `cancelled` — the same "claim, don't assume"
+   * discipline as `book()`'s optimistic claim, just as a re-check instead
+   * of a version token because this write follows the network call rather
+   * than needing to avoid holding a lock across it.
+   */
+  private async finalizeCancel(id: string, extra: Prisma.ConsignmentUpdateInput) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Consignment" WHERE id = ${id} FOR UPDATE`;
+      const current = await tx.consignment.findUniqueOrThrow({ where: { id } });
+      if (statusRank(current.status) >= TERMINAL_RANK) {
+        throw new ConflictException(
+          current.status === ConsignmentStatus.delivered
+            ? 'This parcel was delivered while the cancellation was in flight.'
+            : `This parcel already reached a final state ("${current.status}") while the cancellation was in flight.`,
+        );
+      }
+      return tx.consignment.update({
+        where: { id },
+        data: { status: ConsignmentStatus.cancelled, cancelledAt: new Date(), ...extra },
+      });
     });
   }
 }

@@ -203,6 +203,11 @@ export class TaxonomySuggestionsService {
         ? await this.prisma.category.findUnique({ where: { id: parentId } })
         : null;
       if (parentId && !parent) throw new NotFoundException('That parent category does not exist.');
+      if (parent?.archivedAt || parent?.mergedIntoId) {
+        throw new BadRequestException(
+          `“${parent.name}” is retired and cannot take a new subcategory.`,
+        );
+      }
       if (parent?.parentId) {
         throw new BadRequestException(
           `“${parent.name}” is already a subcategory. Categories go one level deep.`,

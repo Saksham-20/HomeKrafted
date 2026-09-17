@@ -53,6 +53,23 @@ const PASSWORD_RESET_TTL_MINUTES = 60;
 const REFERRAL_CODE_ATTEMPTS = NAMED_ATTEMPTS + 5;
 
 /**
+ * How long after a refresh token is rotated away from that presenting it
+ * again still reads as a benign race rather than reuse of a stolen token.
+ *
+ * The client's refresh token is not synchronized across tabs (see
+ * `client/lib/auth/session.ts`), so two tabs of the same account that are
+ * both idle past the access-token TTL can each independently call
+ * `/auth/refresh` with the identical still-valid token — the loser's
+ * request lands after the winner has already rotated it and, without this
+ * window, would be read as reuse and mass-revoke the winner's brand-new
+ * session too. A same-tab-race duplicate arrives within a second or two of
+ * the winning rotation; a token an attacker actually stole and replayed
+ * typically shows up long after it was rotated away from. Ten seconds is
+ * generous for the former and far too short to shelter the latter.
+ */
+const REFRESH_REUSE_GRACE_MS = 10_000;
+
+/**
  * A unique violation specifically on `User.referralCode`.
  *
  * Narrowed to that one field on purpose: `User` is also unique on `email`
@@ -64,6 +81,25 @@ function isReferralCodeCollision(err: unknown): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return false;
   const target = err.meta?.target;
   return Array.isArray(target) ? target.includes('referralCode') : target === 'referralCode';
+}
+
+/**
+ * A unique violation specifically on `User.email`.
+ *
+ * `register()` checks for an existing row before it inserts one, but that
+ * check-then-create is a TOCTOU race: two submissions of the same address
+ * (now guaranteed to normalize onto the same row — see
+ * `NormalizedEmail`) can both pass the `findUnique` and both reach
+ * `tx.user.create`, and the loser hits the database's own unique
+ * constraint instead of the friendly pre-check. Catching that P2002 here
+ * and turning it into the same `ConflictException` the pre-check throws
+ * is what keeps the loser's response a clean 409 instead of an unhandled
+ * 500.
+ */
+function isUniqueEmailCollision(err: unknown): boolean {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2002') return false;
+  const target = err.meta?.target;
+  return Array.isArray(target) ? target.includes('email') : target === 'email';
 }
 
 /**
@@ -171,14 +207,24 @@ export class AuthService {
 
     const passwordHash = await argon2.hash(dto.password, PASSWORD_HASH_OPTIONS);
 
-    const user = await this.createUserWithAccounts(dto.name, (referralCode) => ({
-      name: dto.name,
-      email: dto.email,
-      passwordHash,
-      authProviders: ['email'],
-      referralCode,
-      referredByCode: dto.referredByCode,
-    }));
+    let user: User;
+    try {
+      user = await this.createUserWithAccounts(dto.name, (referralCode) => ({
+        name: dto.name,
+        email: dto.email,
+        passwordHash,
+        authProviders: ['email'],
+        referralCode,
+        referredByCode: dto.referredByCode,
+      }));
+    } catch (err) {
+      // The `findUnique` above already refused a known duplicate; this is
+      // the race it cannot close — see `isUniqueEmailCollision`.
+      if (isUniqueEmailCollision(err)) {
+        throw new ConflictException('An account with this email already exists');
+      }
+      throw err;
+    }
 
     // An account created a line ago has no seller row — `null`, not
     // `undefined`, so `signTokenPair` doesn't go and look for one.
@@ -766,9 +812,22 @@ export class AuthService {
   /**
    * Rotating refresh: the presented token is verified + looked up by hash,
    * must be un-revoked and unexpired, then is revoked and replaced by a
-   * brand-new row in the same operation. A refresh token that's already
-   * been used (revoked) fails outright — that's the reuse-detection signal
-   * a stolen-and-replayed token would trip.
+   * brand-new row in the same operation.
+   *
+   * A refresh token that's already been used (revoked) is the
+   * reuse-detection signal a stolen-and-replayed token would trip — and,
+   * outside `REFRESH_REUSE_GRACE_MS` of the rotation it lost, it is acted
+   * on, not just rejected: presenting a token this service rotated away
+   * from that long ago means *some* party holds a stale copy of a session
+   * that has since moved on, so every currently-active refresh token for
+   * that user is revoked (same "burn every session" shape as
+   * `changePassword`/`resetPassword`), forcing a fresh sign-in on every
+   * device — including the legitimate one — rather than leaving a thief
+   * who rotated first with an indefinitely working token. Within the grace
+   * window it is rejected alone: that shape is what an untabbed refresh
+   * token racing itself across two browser tabs looks like, and mass
+   * revocation would punish the tab that won the race, not the one that
+   * lost it.
    */
   async refresh(refreshToken: string): Promise<TokenPair> {
     let payload: JwtPayload;
@@ -782,7 +841,37 @@ export class AuthService {
 
     const tokenHash = this.hashToken(refreshToken);
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash } });
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+
+    if (stored?.revokedAt) {
+      const revokedMsAgo = Date.now() - stored.revokedAt.getTime();
+      if (revokedMsAgo <= REFRESH_REUSE_GRACE_MS) {
+        // Almost certainly two tabs of the same account racing the same
+        // pre-rotation token, not a stolen one being replayed — see
+        // `REFRESH_REUSE_GRACE_MS`. Reject only this request; the other
+        // tab's brand-new session must survive it.
+        this.logger.log(
+          `Refresh token for user ${stored.userId} reused ${revokedMsAgo}ms after rotation — treating as a same-tab race, not revoking other sessions.`,
+        );
+        throw new UnauthorizedException('Refresh token is no longer valid — please sign in again');
+      }
+
+      // Reuse well outside the grace window: revoke the lot so a thief who
+      // won the race to rotate first doesn't keep a working token
+      // indefinitely, and so the legitimate holder is forced back through
+      // sign-in rather than trusting a session that may be compromised.
+      const { count } = await this.prisma.refreshToken.updateMany({
+        where: { userId: stored.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      if (count > 0) {
+        this.logger.warn(
+          `Refresh token reuse detected for user ${stored.userId}: revoked ${count} active session(s).`,
+        );
+      }
+      throw new UnauthorizedException('Refresh token is no longer valid — please sign in again');
+    }
+
+    if (!stored || stored.expiresAt < new Date()) {
       throw new UnauthorizedException('Refresh token is no longer valid — please sign in again');
     }
 

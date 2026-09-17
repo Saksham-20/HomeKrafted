@@ -1,4 +1,4 @@
-import { IsEmail } from 'class-validator';
+import { NormalizedEmail } from '../../common/decorators/normalized-email.decorator';
 
 /**
  * `POST /auth/password/forgot`.
@@ -8,6 +8,6 @@ import { IsEmail } from 'class-validator';
  * how a reset flow turns into an account-takeover flow.
  */
 export class ForgotPasswordDto {
-  @IsEmail()
+  @NormalizedEmail()
   email!: string;
 }

@@ -38,7 +38,11 @@ export class MealBlackoutCascadeService {
       where: {
         status: 'scheduled',
         scheduledFor: date,
-        subscription: { status: 'active', plan: { vendorId } },
+        // A paused subscriber's locked delivery stays `scheduled` on
+        // purpose (pause() — "a locked date's meal is already being
+        // planned"), so it still occupies this exact date and must be
+        // cascaded identically to an active subscriber's.
+        subscription: { status: { in: ['active', 'paused'] }, plan: { vendorId } },
       },
       include: {
         subscription: {
@@ -58,7 +62,29 @@ export class MealBlackoutCascadeService {
 
       // The replacement goes after everything currently scheduled, on the
       // buyer's own day selection — identical to skip()'s reasoning.
-      const dayAfterEnd = new Date(subscription.endDate);
+      //
+      // `subscription.endDate` is that basis for an active subscriber
+      // (skip() and resume() both keep it in step with the latest
+      // scheduled row), but pause() never lowers it when it cancels the
+      // rest of a cycle's schedule — so for a paused subscriber it can
+      // still be the *original*, now-mostly-cancelled cycle's end date,
+      // long after the one locked row still standing. Trusting it there
+      // pushes the makeup meal out to a stale, often much-later date
+      // instead of landing right after the blackout. Read the actual
+      // latest surviving `scheduled` row instead, the same "after
+      // everything currently actually scheduled" principle resume()
+      // applies in `meal-subscriptions.service.ts`.
+      let basisDate = subscription.endDate;
+      if (subscription.status === 'paused') {
+        const latestScheduled = await this.prisma.mealDelivery.findFirst({
+          where: { subscriptionId: subscription.id, status: 'scheduled' },
+          orderBy: { scheduledFor: 'desc' },
+          select: { scheduledFor: true },
+        });
+        basisDate = latestScheduled && latestScheduled.scheduledFor > date ? latestScheduled.scheduledFor : date;
+      }
+
+      const dayAfterEnd = new Date(basisDate);
       dayAfterEnd.setUTCDate(dayAfterEnd.getUTCDate() + 1);
       const [replacement] = scheduleDates(dayAfterEnd, subscription.daysOfWeek, 1, {
         workingDays: profile?.workingDays ?? [],

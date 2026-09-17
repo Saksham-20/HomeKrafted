@@ -2658,6 +2658,12 @@ model LaundryBooking {
   // from /account/addresses. Same pass M37 ran over `OrderItem`.
   @@index([deliverySlotId])
   @@index([pickupSlotId])
+  // Admin unified-orders read (`AdminOrdersService.listLaundry`) filters
+  // on `status` (the `live=true` tab) and always sorts `createdAt desc`,
+  // same shape as `Order`'s own pair below — separate single-column
+  // indexes rather than one composite, matching that precedent.
+  @@index([status])
+  @@index([createdAt])
 }
 
 model LaundryBookingLine {
@@ -2790,6 +2796,11 @@ model SnackOrder {
   items SnackOrderItem[]
 
   @@index([sellerId])
+  // Admin unified-orders read (`AdminOrdersService.listSnack`) filters on
+  // `status` (the `live=true` tab) and always sorts `createdAt desc`, same
+  // shape as `LaundryBooking`'s pair above and `Order`'s own.
+  @@index([status])
+  @@index([createdAt])
 }
 
 model SnackOrderItem {

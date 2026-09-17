@@ -1,8 +1,16 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { mapQuote, mapPublicQuote, QUOTE_INCLUDE } from './corporate.mapper';
+
+/**
+ * Same cap as `CorporateService.notifyAdmins`, and for the same reason —
+ * bounds the fan-out so a deal closing doesn't become an unbounded mail
+ * blast the moment an admin turns on email for `account`.
+ */
+const MAX_ADMINS_NOTIFIED = 10;
 
 /**
  * Corporate quotes — what is being offered, at what price, until when.
@@ -29,7 +37,12 @@ import { mapQuote, mapPublicQuote, QUOTE_INCLUDE } from './corporate.mapper';
  */
 @Injectable()
 export class CorporateQuotesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CorporateQuotesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsDeliveryService,
+  ) {}
 
   /**
    * SHA-256, not argon2 — this is an exact-equality index lookup, not
@@ -305,10 +318,26 @@ export class CorporateQuotesService {
       throw new ConflictException('This quote is not open for acceptance.');
     }
 
+    const justAccepted = claimed.count === 1;
+    if (justAccepted) {
+      // A closed five-figure deal has to reach somebody who can place the
+      // order — `void`, outside the write: a real acceptance must not
+      // fail because a message did, same reasoning as
+      // `CorporateService.create`'s own notify call.
+      void this
+        .notifyAdmins(
+          quote.inquiryId,
+          `Quote accepted — ${quote.inquiry.companyName}`,
+          `${acceptedName} accepted the ₹${Number(quote.total)} quote for ${quote.inquiry.companyName}. ` +
+            `Place the order once an address and payment terms are settled.`,
+        )
+        .catch((err) => this.logger.error(`Failed to notify admins that quote ${quote.id} was accepted`, err));
+    }
+
     return {
       quote: mapPublicQuote(quote, this.publicStatus(quote)),
       /** True only for the request that actually made the claim — the caller uses it to decide whether to notify. */
-      justAccepted: claimed.count === 1,
+      justAccepted,
     };
   }
 
@@ -332,10 +361,43 @@ export class CorporateQuotesService {
       where: { tokenHash },
       include: { ...QUOTE_INCLUDE, inquiry: true },
     });
+
+    const justDeclined = claimed.count === 1;
+    if (justDeclined) {
+      void this
+        .notifyAdmins(
+          quote.inquiryId,
+          `Quote declined — ${quote.inquiry.companyName}`,
+          `${quote.inquiry.contactName} declined the ₹${Number(quote.total)} quote for ${quote.inquiry.companyName}.`,
+        )
+        .catch((err) => this.logger.error(`Failed to notify admins that quote ${quote.id} was declined`, err));
+    }
+
     return {
       quote: mapPublicQuote(quote, this.publicStatus(quote)),
-      justDeclined: claimed.count === 1,
+      justDeclined,
     };
+  }
+
+  /** Same shape as `CorporateService.notifyAdmins` — one notification per active admin, bounded and in-app-by-default via `deliver`. */
+  private async notifyAdmins(inquiryId: string, title: string, body: string): Promise<void> {
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'admin', suspended: false },
+      select: { id: true },
+      take: MAX_ADMINS_NOTIFIED,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    for (const admin of admins) {
+      await this.notifications.deliver({
+        userId: admin.id,
+        category: 'account',
+        title,
+        body,
+        refType: 'corporateInquiry',
+        refId: inquiryId,
+      });
+    }
   }
 
   /**

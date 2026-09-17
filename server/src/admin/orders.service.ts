@@ -439,9 +439,14 @@ export class AdminOrdersService {
    * - **Money-moving statuses are refused** (`OVERRIDE_FORBIDDEN`). This
    *   endpoint writes a status; it does not refund, restock or reverse
    *   cashback.
-   * - **`expectedStatus` makes it a compare-and-set.** Two admins on the
-   *   same order with stale option lists would otherwise both write and
-   *   both notify the buyer, last one winning silently.
+   * - **The write is a compare-and-set against the status just read**,
+   *   an `updateMany({ where: { id, status } })` checked for `count === 1`
+   *   (the `AdminRidersService` shape) — not only the optional
+   *   `expectedStatus` pre-check, which closes the gap between reading a
+   *   stale option list and clicking, but leaves open the shorter gap
+   *   between this handler's own read and its own write. Two admins
+   *   racing the same order would otherwise both pass the read and both
+   *   write and notify the buyer, last one winning silently.
    * - **Re-selecting the current status is a no-op**, not a second
    *   notification. `cancelOrder` has always had this guard; this did not,
    *   so a double-click told the buyer twice.
@@ -467,8 +472,13 @@ export class AdminOrdersService {
       this.assertExpectedStatus(existing.status, expectedStatus, ORDER_STATUS_MAP);
       if (existing.status === dbStatus) return mapOrder(await this.reloadOrder(id));
 
-      const updated = await this.prisma.order.update({
-        where: { id },
+      // The write itself is the compare-and-set, the same shape
+      // `AdminRidersService`'s status transitions use: `where` re-checks
+      // `status` at write time, not only in the `findUnique` above, so two
+      // admins racing the same order cannot both succeed and both notify
+      // the buyer — the second one's `count` comes back 0.
+      const result = await this.prisma.order.updateMany({
+        where: { id, status: existing.status },
         data: {
           status: dbStatus,
           // An admin override is the other way an order reaches
@@ -478,8 +488,11 @@ export class AdminOrdersService {
           // the buyer a fresh seven days.
           ...(dbStatus === 'delivered' && !existing.deliveredAt ? { deliveredAt: new Date() } : {}),
         },
-        include: ORDER_INCLUDE,
       });
+      if (result.count !== 1) {
+        throw new ConflictException('This order changed while you were looking at it. Reload and try again.');
+      }
+      const updated = await this.reloadOrder(id);
       await this.logStatusOverride(adminUserId, 'Order', id, status, existing.status);
 
       // An admin override is a real status change, so it owes the buyer
@@ -505,7 +518,14 @@ export class AdminOrdersService {
           }),
         );
       }
-      const updated = await this.prisma.laundryBooking.update({ where: { id }, data: { status: dbStatus }, include: BOOKING_INCLUDE });
+      const result = await this.prisma.laundryBooking.updateMany({
+        where: { id, status: existing.status },
+        data: { status: dbStatus },
+      });
+      if (result.count !== 1) {
+        throw new ConflictException('This booking changed while you were looking at it. Reload and try again.');
+      }
+      const updated = await this.prisma.laundryBooking.findUniqueOrThrow({ where: { id }, include: BOOKING_INCLUDE });
       await this.logStatusOverride(adminUserId, 'LaundryBooking', id, status, existing.status);
       return mapLaundryBooking(updated);
     }
@@ -523,7 +543,14 @@ export class AdminOrdersService {
         }),
       );
     }
-    const updated = await this.prisma.snackOrder.update({ where: { id }, data: { status: dbStatus }, include: SNACK_ORDER_INCLUDE });
+    const result = await this.prisma.snackOrder.updateMany({
+      where: { id, status: existing.status },
+      data: { status: dbStatus },
+    });
+    if (result.count !== 1) {
+      throw new ConflictException('This order changed while you were looking at it. Reload and try again.');
+    }
+    const updated = await this.prisma.snackOrder.findUniqueOrThrow({ where: { id }, include: SNACK_ORDER_INCLUDE });
     await this.logStatusOverride(adminUserId, 'SnackOrder', id, status, existing.status);
     return mapSnackOrder(updated);
   }

@@ -242,6 +242,11 @@ export class AdminCategoriesService {
     ]);
     if (!source) throw new NotFoundException('The category being merged was not found.');
     if (!target) throw new NotFoundException('The category to merge into was not found.');
+    if (target.archivedAt || target.mergedIntoId) {
+      throw new BadRequestException(
+        `"${target.name}" is retired and cannot receive a merge. Pick a live shelf instead.`,
+      );
+    }
     if (source.group !== target.group) {
       throw new BadRequestException(
         'Those two shelves are on different sides of the catalogue. Merging them would file food under gifts.',
@@ -296,6 +301,11 @@ export class AdminCategoriesService {
     if (!parentId) return null;
     const parent = await this.prisma.category.findUnique({ where: { id: parentId } });
     if (!parent) throw new NotFoundException('That parent category does not exist.');
+    if (parent.archivedAt || parent.mergedIntoId) {
+      throw new BadRequestException(
+        `"${parent.name}" is retired and cannot take a new or moved subcategory.`,
+      );
+    }
     if (parent.parentId) {
       throw new BadRequestException(
         `"${parent.name}" is already a subcategory. Categories go one level deep, so it cannot hold subcategories of its own.`,

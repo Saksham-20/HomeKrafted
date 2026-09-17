@@ -1,11 +1,12 @@
-import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { NormalizedEmail } from '../../common/decorators/normalized-email.decorator';
 import { TrimmedString } from '../../common/decorators/trimmed-string.decorator';
 
 export class RegisterDto {
   @TrimmedString(1, 120)
   name!: string;
 
-  @IsEmail()
+  @NormalizedEmail()
   email!: string;
 
   @IsString()

@@ -51,24 +51,40 @@ export class SupportService {
    * M8.3b/M11, not needed for this milestone's consumer-facing flow.
    */
   async addMessage(userId: string, role: UserRole, id: string, dto: AddSupportMessageDto) {
-    const ticket = await this.getOwned(userId, id);
+    await this.getOwned(userId, id); // ownership check only — `status` is read fresh below, never from this snapshot
     const sender = role === 'admin' ? 'agent' : 'user';
 
     await this.prisma.supportMessage.create({
       data: { ticketId: id, sender, body: dto.body },
     });
-    // Re-writes `status` purely to bump `updatedAt` (`@updatedAt` only
-    // fires on a real `.update()` call, not a no-op) — a new message
-    // should always move a ticket to the top of a "most recently active"
-    // list.
-    //
+
     // A customer writing back on a ticket we called `resolved` reopens it
     // (M15). Otherwise the answer to "did that actually fix it?" lands in
     // a bucket the admin queue treats as done, and disagreeing with a
     // resolution would be the one message nobody reads.
-    const nextStatus =
-      sender === 'user' && ticket.status === 'resolved' ? 'in_progress' : ticket.status;
-    await this.prisma.supportTicket.update({ where: { id }, data: { status: nextStatus } });
+    //
+    // This is a conditional `updateMany` against the freshest committed
+    // `status`, never the `ticket.status` snapshot read at the top of this
+    // method — a concurrent status change (an admin resolving it, or a
+    // second concurrent message) racing this one must not be silently
+    // overwritten by a write built from stale data.
+    const reopened =
+      sender === 'user'
+        ? await this.prisma.supportTicket.updateMany({
+            where: { id, status: 'resolved' },
+            data: { status: 'in_progress' },
+          })
+        : { count: 0 };
+
+    if (reopened.count === 0) {
+      // Re-writes nothing but still triggers a real `.update()` call,
+      // purely to bump `updatedAt` (`@updatedAt` only fires on that, not
+      // a no-op) — a new message should always move a ticket to the top
+      // of a "most recently active" list. Deliberately not re-writing
+      // `status` here: doing so from the stale snapshot is the exact race
+      // this fix removes.
+      await this.prisma.supportTicket.update({ where: { id }, data: {} });
+    }
 
     return this.getById(userId, id);
   }

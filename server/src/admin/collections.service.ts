@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { findSameName } from '../common/fold-name';
 import { PrismaService } from '../prisma/prisma.service';
 import { mapCollection, mapOccasion } from '../catalog/mappers/vendor.mapper';
@@ -6,6 +7,10 @@ import { AdminAuditLogService } from './audit-log.service';
 import { UpsertCollectionDto } from './dto/upsert-collection.dto';
 import { CreateOccasionDto } from './dto/create-occasion.dto';
 import { UpdateOccasionDto } from './dto/update-occasion.dto';
+
+function isUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+}
 
 function slugify(value: string): string {
   return value
@@ -64,22 +69,41 @@ export class AdminCollectionsService {
 
     const slug = dto.slug ? slugify(dto.slug) : await this.uniqueSlug(dto.title);
     const existingBySlug = await this.prisma.collection.findUnique({ where: { slug } });
+    // Named, never silently redirected into an edit of the existing row
+    // (the M43 rule): a create that quietly becomes an update of whatever
+    // else happens to hold that slug would let one admin's typo overwrite
+    // an unrelated collection's title, products and art.
     if (existingBySlug) {
-      return this.update(adminUserId, existingBySlug.id, dto);
+      throw new ConflictException(
+        `"${existingBySlug.title}" already uses the slug "${slug}" — edit that collection instead, or pick a different slug.`,
+      );
     }
 
     const collection = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.collection.create({
-        data: {
-          slug,
-          title: dto.title,
-          description: dto.description,
-          occasionId: dto.occasionId,
-          imageSrc: dto.imageSrc,
-          featured: dto.featured ?? false,
-          sortOrder: dto.sortOrder ?? 0,
-        },
-      });
+      let created;
+      try {
+        created = await tx.collection.create({
+          data: {
+            slug,
+            title: dto.title,
+            description: dto.description,
+            occasionId: dto.occasionId,
+            imageSrc: dto.imageSrc,
+            featured: dto.featured ?? false,
+            sortOrder: dto.sortOrder ?? 0,
+          },
+        });
+      } catch (err) {
+        // `Collection.slug` is `@unique` at the DB level, so a second create
+        // racing this one between the pre-check above and this write — two
+        // admins, or a double-submit — would otherwise surface as a raw
+        // P2002 (500) instead of the same actionable 409 the pre-check gives
+        // the common case. Same shape as `AdminAttributesService#create`.
+        if (isUniqueConstraintError(err)) {
+          throw new ConflictException(`Another collection was just created with the slug "${slug}".`);
+        }
+        throw err;
+      }
       await tx.collectionProduct.createMany({
         data: dto.productIds.map((productId, sortOrder) => ({ collectionId: created.id, productId, sortOrder })),
       });
@@ -175,19 +199,32 @@ export class AdminCollectionsService {
       );
     }
 
-    const created = await this.prisma.occasion.create({
-      data: {
-        slug: await this.uniqueOccasionSlug(name),
-        name,
-        // The ring on every occasion tile. Derived rather than asked for:
-        // it is always the first letter, and a field for it is a field
-        // somebody gets to fill in wrong.
-        initial: initialOf(name),
-        celebratedOn: dto.celebratedOn ? new Date(dto.celebratedOn) : null,
-        tagline: dto.tagline?.trim() || null,
-        imageSrc: dto.imageSrc?.trim() || null,
-      },
-    });
+    let created;
+    try {
+      created = await this.prisma.occasion.create({
+        data: {
+          slug: await this.uniqueOccasionSlug(name),
+          name,
+          // The ring on every occasion tile. Derived rather than asked for:
+          // it is always the first letter, and a field for it is a field
+          // somebody gets to fill in wrong.
+          initial: initialOf(name),
+          celebratedOn: dto.celebratedOn ? new Date(dto.celebratedOn) : null,
+          tagline: dto.tagline?.trim() || null,
+          imageSrc: dto.imageSrc?.trim() || null,
+        },
+      });
+    } catch (err) {
+      // `Occasion.slug` (and `name`) are `@unique` at the DB level, so a
+      // second create racing this one between the clash check above and
+      // this write — two admins, or a double-submit — would otherwise
+      // surface as a raw P2002 (500) instead of the same actionable 409
+      // the pre-check gives the common case. Same shape as `create()`.
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException(`Another occasion was just created with the name "${name}".`);
+      }
+      throw err;
+    }
 
     await this.auditLog.log({
       actorId: adminUserId,

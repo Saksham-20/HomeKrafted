@@ -137,6 +137,27 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** India Standard Time, minutes east of UTC. No DST — a constant is exact. Same constant as `meals/menu-lock.ts`. */
+const IST_OFFSET_MINUTES = 330;
+
+/**
+ * The UTC instant of today's IST midnight, as of `now`.
+ *
+ * `new Date(); .setHours(0, 0, 0, 0)` mutates in the *process's local*
+ * timezone — on the production VPS (Etc/UTC) that is UTC midnight, which
+ * is 5:30am IST, so "orders today" silently missed every order placed in
+ * the first 5½ hours of the actual IST day (the same class of bug
+ * `computeGmvSeries`'s doc comment documents fixing for the GMV chart).
+ * Shifting `now` into IST wall-clock terms, truncating to that calendar
+ * day, then shifting back recovers real IST midnight regardless of what
+ * zone the Node process happens to run in.
+ */
+export function istDayStart(now: Date): Date {
+  const istWallClock = new Date(now.getTime() + IST_OFFSET_MINUTES * 60_000);
+  const istMidnightAsUtc = Date.UTC(istWallClock.getUTCFullYear(), istWallClock.getUTCMonth(), istWallClock.getUTCDate());
+  return new Date(istMidnightAsUtc - IST_OFFSET_MINUTES * 60_000);
+}
+
 @Injectable()
 export class AdminDashboardService {
   constructor(
@@ -146,8 +167,7 @@ export class AdminDashboardService {
   ) {}
 
   async getDashboard(): Promise<AdminDashboardSnapshot> {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = istDayStart(new Date());
 
     // Every figure on this screen is a SUM or a COUNT, and all of them
     // used to be computed by loading every order, booking and snack order
@@ -545,29 +565,53 @@ export class AdminDashboardService {
     return Array.from(byProduct.values()).sort((a, b) => b.revenue - a.revenue);
   }
 
+  /**
+   * New signups per month, grouped by date in SQL.
+   *
+   * Was `prisma.user.findMany({ select: { createdAt: true } })` — every
+   * user row ever created, every `/admin/analytics` load, hydrated into
+   * Node only to be bucketed by month string. The same OOM risk
+   * `computeSellerLeaderboard`'s doc comment describes, one table over:
+   * this one only grows. `GROUP BY` returns one row per month instead.
+   */
   private async computeNewUsersByMonth(): Promise<AnalyticsMonthPoint[]> {
-    const users = await this.prisma.user.findMany({ select: { createdAt: true } });
-    const byMonth = new Map<string, number>();
-    for (const u of users) {
-      const month = u.createdAt.toISOString().slice(0, 7);
-      byMonth.set(month, (byMonth.get(month) ?? 0) + 1);
-    }
-    return Array.from(byMonth.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, count]) => ({ month, count }));
+    const rows = await this.prisma.$queryRaw<{ month: string; count: bigint }[]>`
+      SELECT to_char(date_trunc('month', "createdAt"), 'YYYY-MM') AS month, COUNT(*) AS count
+      FROM "User"
+      GROUP BY 1
+      ORDER BY 1
+    `;
+    return rows.map((row) => ({ month: row.month, count: Number(row.count) }));
   }
 
+  /**
+   * Wallet credit/debit totals and the per-category breakdown, grouped by
+   * `(direction, category)` in SQL.
+   *
+   * Was `prisma.walletTransaction.findMany({ select: {...} })` — every
+   * wallet transaction ever recorded, every load, summed in a JS loop.
+   * The `GROUP BY` result is bounded by the number of
+   * direction/category combinations (a handful), so the merge into
+   * `creditsTotal`/`debitsTotal`/`byCategory` stays cheap in Node.
+   * `byCategory` sums both directions into one figure per category,
+   * exactly as the old loop did.
+   */
   private async computeWalletFlow(): Promise<AnalyticsWalletFlow> {
-    const txns = await this.prisma.walletTransaction.findMany({ select: { direction: true, category: true, amount: true } });
+    const rows = await this.prisma.$queryRaw<{ direction: string; category: string; total: number }[]>`
+      SELECT direction::text AS direction, category::text AS category, SUM(amount)::float8 AS total
+      FROM "WalletTransaction"
+      GROUP BY direction, category
+    `;
+
     let creditsTotal = 0;
     let debitsTotal = 0;
     const byCategory: Record<string, number> = {};
 
-    for (const t of txns) {
-      const amount = Number(t.amount);
-      if (t.direction === 'credit') creditsTotal += amount;
+    for (const row of rows) {
+      const amount = Number(row.total);
+      if (row.direction === 'credit') creditsTotal += amount;
       else debitsTotal += amount;
-      byCategory[t.category] = (byCategory[t.category] ?? 0) + amount;
+      byCategory[row.category] = (byCategory[row.category] ?? 0) + amount;
     }
 
     return { creditsTotal, debitsTotal, netFlow: creditsTotal - debitsTotal, byCategory };

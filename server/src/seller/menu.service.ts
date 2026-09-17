@@ -58,7 +58,7 @@ export class SellerMenuService {
       existing.moderationStatus,
       (dto.name !== undefined && dto.name !== existing.name) ||
         (dto.description !== undefined && dto.description !== existing.description) ||
-        dto.imagePath !== undefined,
+        (dto.imagePath !== undefined && dto.imagePath !== (existing.imageSrc ?? undefined)),
     );
     const updated = await this.prisma.snack.update({
       where: { id: snackId },

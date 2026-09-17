@@ -11,7 +11,15 @@ export class TaxonomyService {
     // what drives the home page's tile order, and ordering by name alone
     // silently ignored it — ties still fall back to name, so an unset
     // value stays stable rather than random.
+    //
+    // Archived and merged shelves are excluded, the same way
+    // `AttributesService.departments()` already does (G1: "An archived
+    // category leaves the pickers and the browse page while every link,
+    // breadcrumb and order already pointing at it keeps resolving") — this
+    // is the picker/browse half of that contract. `getCategory(slug)` below
+    // stays unfiltered on purpose, so an old shared link still resolves.
     const categories = await this.prisma.category.findMany({
+      where: { archivedAt: null, mergedIntoId: null },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return categories.map(mapCategory);
@@ -19,6 +27,20 @@ export class TaxonomyService {
 
   async getCategory(slug: string) {
     const category = await this.prisma.category.findUnique({ where: { slug } });
+    if (!category) throw new NotFoundException('Category not found');
+    return mapCategory(category);
+  }
+
+  /**
+   * Unfiltered by id, on purpose — the same reason `getCategory(slug)`
+   * above is unfiltered: a product's `categoryId` (the breadcrumb) has to
+   * keep resolving after the category is archived or merged away, even
+   * though `listCategories()` above has already dropped it from every
+   * picker and browse page. Archiving must never silently blank a
+   * breadcrumb on a listing still filed under the shelf.
+   */
+  async getCategoryById(id: string) {
+    const category = await this.prisma.category.findUnique({ where: { id } });
     if (!category) throw new NotFoundException('Category not found');
     return mapCategory(category);
   }

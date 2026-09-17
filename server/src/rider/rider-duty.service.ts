@@ -100,8 +100,16 @@ export class RiderDutyService {
     const newest = usable.reduce((latest, ping) =>
       new Date(ping.recordedAt).getTime() > new Date(latest.recordedAt).getTime() ? ping : latest,
     );
-    await this.prisma.rider.update({
-      where: { id: rider.id },
+    // Guarded on the stored fix, not just the newest ping in this batch —
+    // an out-of-order or delayed batch (a slow/retried request carrying an
+    // older buffered run that lands after a newer batch already updated
+    // the row) must not regress `Rider.lastLat/lastLng`, which dispatch
+    // and geofencing both trust as "where the rider is right now".
+    await this.prisma.rider.updateMany({
+      where: {
+        id: rider.id,
+        OR: [{ lastLocationAt: null }, { lastLocationAt: { lt: new Date(newest.recordedAt) } }],
+      },
       data: { lastLat: newest.lat, lastLng: newest.lng, lastLocationAt: new Date(newest.recordedAt) },
     });
 

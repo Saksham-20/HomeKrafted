@@ -1,4 +1,5 @@
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { ReviewAggregatesService } from './review-aggregates.service';
@@ -6,6 +7,11 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { mapReview } from './reviews.mapper';
 
 type ReviewTarget = 'product' | 'vendor' | 'service';
+
+/** Same helper shape as `payments.service.ts`'s `isUniqueConstraintError`. */
+function isUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+}
 
 @Injectable()
 export class ReviewsService {
@@ -134,22 +140,36 @@ export class ReviewsService {
 
     // Write and re-aggregate together: a rating that lands without moving
     // the card it appears on is the same bug as not saving it at all.
-    const review = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.review.create({
-        data: {
-          targetType: dto.targetType,
-          targetId: dto.targetId,
-          userId,
-          userName: user.name,
-          rating: dto.rating,
-          title: dto.title,
-          body: dto.body,
-          verifiedPurchase,
-        },
+    let review;
+    try {
+      review = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.review.create({
+          data: {
+            targetType: dto.targetType,
+            targetId: dto.targetId,
+            userId,
+            userName: user.name,
+            rating: dto.rating,
+            title: dto.title,
+            body: dto.body,
+            verifiedPurchase,
+          },
+        });
+        await this.aggregates.recompute(dto.targetType, dto.targetId, tx);
+        return created;
       });
-      await this.aggregates.recompute(dto.targetType, dto.targetId, tx);
-      return created;
-    });
+    } catch (err) {
+      // The `findUnique` above is a fast path, not the guarantee: two
+      // concurrent submissions for the same user/target both pass it, and
+      // the loser hits `@@unique([userId, targetType, targetId])` here
+      // instead. Caught and turned into the same 409 the pre-check
+      // throws, rather than surfacing as `AllExceptionsFilter`'s generic
+      // 500.
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException('You have already reviewed this');
+      }
+      throw err;
+    }
 
     // The kitchen hears about it (2026-09-04). A review moves the rating
     // on every card they own and is the main thing a buyer reads before

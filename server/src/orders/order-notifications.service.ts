@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppConfig } from '../config/configuration';
 import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
@@ -31,6 +31,35 @@ import { buyerOrderMessage } from './order-status-copy';
  */
 /** What a buyer is told the courier is called. The enum value is ours; the name is theirs. */
 const CARRIER_LABEL: Record<string, string> = { shadowfax: 'Shadowfax' };
+
+/**
+ * Resolves the HomeKrafter behind one `OrderItem`, product line or hamper
+ * line alike.
+ *
+ * A hamper line carries `hamperId` and a NULL `productId` (the same
+ * product-or-hamper XOR `resolve-cart-line.ts` resolves for pricing), so
+ * `item.product` is always null for one. Reading only `item.product?.
+ * vendor?.seller` skipped every hamper line's maker silently — the
+ * seller-grouping loops below just saw `undefined` and moved on, so a
+ * HomeKrafter whose order came in through a hamper was never told it had
+ * arrived or that it was cancelled. A hamper is forced single-maker
+ * before it can ever reach a cart (`CartService.addHamperItem`), so its
+ * first item's maker is every item's maker.
+ */
+const ORDER_ITEM_MAKER_INCLUDE = {
+  product: { include: { vendor: { include: { seller: true } } } },
+  hamper: {
+    include: {
+      items: { take: 1, include: { product: { include: { vendor: { include: { seller: true } } } } } },
+    },
+  },
+} satisfies Prisma.OrderItemInclude;
+
+type OrderItemWithMaker = Prisma.OrderItemGetPayload<{ include: typeof ORDER_ITEM_MAKER_INCLUDE }>;
+
+function makerSellerFor(item: OrderItemWithMaker) {
+  return item.product?.vendor?.seller ?? item.hamper?.items[0]?.product?.vendor?.seller;
+}
 
 @Injectable()
 export class OrderNotificationsService {
@@ -185,15 +214,13 @@ export class OrderNotificationsService {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
-        include: {
-          items: { include: { product: { include: { vendor: { include: { seller: true } } } } } },
-        },
+        include: { items: { include: ORDER_ITEM_MAKER_INCLUDE } },
       });
       if (!order) return;
 
       const byUser = new Map<string, { lines: string[]; count: number }>();
       for (const item of order.items) {
-        const seller = item.product?.vendor?.seller;
+        const seller = makerSellerFor(item);
         if (!seller) continue;
         const entry = byUser.get(seller.userId) ?? { lines: [], count: 0 };
         entry.lines.push(`${item.name} ×${item.quantity}`);
@@ -232,15 +259,13 @@ export class OrderNotificationsService {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
-        include: {
-          items: { include: { product: { include: { vendor: { include: { seller: true } } } } } },
-        },
+        include: { items: { include: ORDER_ITEM_MAKER_INCLUDE } },
       });
       if (!order) return;
 
       const userIds = new Set<string>();
       for (const item of order.items) {
-        const seller = item.product?.vendor?.seller;
+        const seller = makerSellerFor(item);
         if (seller) userIds.add(seller.userId);
       }
 

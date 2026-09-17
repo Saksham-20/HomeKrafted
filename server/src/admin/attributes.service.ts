@@ -4,6 +4,10 @@ import { findSameName } from '../common/fold-name';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminAuditLogService } from './audit-log.service';
 
+function isUniqueConstraintError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+}
+
 /**
  * G1 — the attribute templates screen (docs/GIFTING-REWORK.md §4).
  *
@@ -89,18 +93,31 @@ export class AdminAttributesService {
     // were saved onto it.
     if (clash) throw new ConflictException(`"${clash.label}" already uses the key "${key}".`);
 
-    const definition = await this.prisma.attributeDefinition.create({
-      data: {
-        key,
-        label: input.label.trim(),
-        helpText: input.helpText?.trim() || null,
-        kind: input.kind,
-        unit: input.unit?.trim() || null,
-        filterable: input.filterable ?? false,
-        trustSensitive: input.trustSensitive ?? false,
-        material: input.material ?? false,
-      },
-    });
+    let definition;
+    try {
+      definition = await this.prisma.attributeDefinition.create({
+        data: {
+          key,
+          label: input.label.trim(),
+          helpText: input.helpText?.trim() || null,
+          kind: input.kind,
+          unit: input.unit?.trim() || null,
+          filterable: input.filterable ?? false,
+          trustSensitive: input.trustSensitive ?? false,
+          material: input.material ?? false,
+        },
+      });
+    } catch (err) {
+      // `AttributeDefinition.key` is `@unique` at the DB level, so a second
+      // create racing this one between the pre-check above and this write
+      // — two admins, or a double-submit — would otherwise surface as a
+      // raw P2002 (500) instead of the same actionable 409 the pre-check
+      // gives the common case.
+      if (isUniqueConstraintError(err)) {
+        throw new ConflictException(`Another question was just created with the key "${key}".`);
+      }
+      throw err;
+    }
     await this.auditLog.log({
       actorId,
       action: 'attribute.create',

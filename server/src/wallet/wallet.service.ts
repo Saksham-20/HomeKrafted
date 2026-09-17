@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, Wallet, WalletTransactionCategory, WalletTransactionDirection, WalletTransactionRefType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -240,7 +241,41 @@ export class WalletService {
   async getOrCreateWalletTx(tx: Prisma.TransactionClient, userId: string): Promise<Wallet> {
     const existing = await tx.wallet.findUnique({ where: { userId } });
     if (existing) return existing;
-    return tx.wallet.create({ data: { userId } });
+    // `Wallet.userId` is `@unique` — two concurrent first-time callers for
+    // the same brand-new user can both miss the `findUnique` above and both
+    // attempt to create.
+    //
+    // A `tx.wallet.create()` + catch-P2002-then-`findUniqueOrThrow` (the
+    // shape this method and `getOrCreateWallet` below both used to have)
+    // does NOT work on this side, the `*Tx` one: under Postgres, once a
+    // statement inside a transaction errors — here, `create()`'s unique-
+    // constraint violation — the ENTIRE transaction is marked aborted, and
+    // every later statement on the *same* `tx`, including a fallback
+    // `findUniqueOrThrow`, fails immediately with 25P02 "current
+    // transaction is aborted, commands ignored until end of transaction
+    // block". The loser would not "fall back to the winner's row" at all —
+    // it would take the whole caller's transaction down with it (an order
+    // placement, a meal-subscription debit, an admin adjustment, ...),
+    // just via a more confusing error than before the fallback existed.
+    //
+    // `INSERT ... ON CONFLICT ("userId") DO NOTHING` is a single statement
+    // that cannot itself raise on a conflicting row — Postgres silently
+    // skips the insert instead of erroring, so there is nothing here that
+    // can mark the transaction aborted. The follow-up read always succeeds
+    // afterwards, whether this call's own insert won the race or an
+    // already-committed row was there first. `id`/`updatedAt` are supplied
+    // explicitly because a raw INSERT bypasses Prisma's `@default(cuid())`
+    // and `@updatedAt` — neither has a database-level default (see
+    // `Wallet` in `prisma/schema.prisma`); `balance`/`pendingCashback`/
+    // `lifetimeSaved`/`payWithWalletDefault` are left out so the column
+    // defaults (`0`/`0`/`0`/`true`) apply, same as `tx.wallet.create({
+    // data: { userId } })` would have produced.
+    await tx.$executeRaw`
+      INSERT INTO "Wallet" ("id", "userId", "updatedAt")
+      VALUES (${randomUUID()}, ${userId}, NOW())
+      ON CONFLICT ("userId") DO NOTHING
+    `;
+    return tx.wallet.findUniqueOrThrow({ where: { userId } });
   }
 
   /**
@@ -389,10 +424,28 @@ export class WalletService {
     }
   }
 
-  /** Non-tx variant of `getOrCreateWalletTx` — for callers (e.g. `PaymentsService.createOrder`) that just need the wallet row's id and aren't already inside an open transaction. */
+  /**
+   * Non-tx variant of `getOrCreateWalletTx` — for callers (e.g.
+   * `PaymentsService.createOrder`) that just need the wallet row's id and
+   * aren't already inside an open transaction.
+   *
+   * A bare `create()` + catch-P2002-then-`findUniqueOrThrow` was never
+   * actually broken *here* — this call isn't nested inside anyone else's
+   * transaction, so a P2002 thrown by `this.prisma.wallet.create()` has
+   * nothing to abort, and the fallback read runs as an ordinary,
+   * unaborted statement. Kept on the same `INSERT ... ON CONFLICT DO
+   * NOTHING` shape as `getOrCreateWalletTx` anyway, for consistency and so
+   * the two don't drift into looking like they disagree on how the race is
+   * handled.
+   */
   async getOrCreateWallet(userId: string): Promise<Wallet> {
     const existing = await this.prisma.wallet.findUnique({ where: { userId } });
     if (existing) return existing;
-    return this.prisma.wallet.create({ data: { userId } });
+    await this.prisma.$executeRaw`
+      INSERT INTO "Wallet" ("id", "userId", "updatedAt")
+      VALUES (${randomUUID()}, ${userId}, NOW())
+      ON CONFLICT ("userId") DO NOTHING
+    `;
+    return this.prisma.wallet.findUniqueOrThrow({ where: { userId } });
   }
 }

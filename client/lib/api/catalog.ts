@@ -27,11 +27,18 @@ export async function getCategory(slug: string): Promise<Category | undefined> {
   }
 }
 
-/** No by-id endpoint — resolves from the full category list. */
+/**
+ * Unfiltered by id — resolves an archived or merged category too (the
+ * product-page breadcrumb reads a listing's `categoryId` this way), unlike
+ * `getCategories()`, which is the browse/picker list and drops both.
+ */
 export async function getCategoryById(id: string): Promise<Category | undefined> {
   if (isMockMode()) return getCategoryByIdData(id);
-  const all = await getCategories();
-  return all.find((c) => c.id === id);
+  try {
+    return await http.get<Category>(`/categories/id/${encodeURIComponent(id)}`, { auth: false });
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getOccasions(): Promise<Occasion[]> {

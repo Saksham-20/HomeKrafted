@@ -78,18 +78,27 @@ export class NotificationsDeliveryService {
       const sent = await this.sendOnChannel(channel.key, user, input);
       if (!sent) continue;
 
-      const row = await this.prisma.notification.create({
-        data: {
-          userId: input.userId,
-          channel: channel.key,
-          category: input.category,
-          title: input.title,
-          body: input.body,
-          refType: input.refType,
-          refId: input.refId,
-        },
-      });
-      created.push(mapNotification(row));
+      // Persisting the inbox row is not exempt from the class doc's "never
+      // throws back to the caller" — a transient DB error here must not
+      // abort the loop and silently drop every channel after this one.
+      try {
+        const row = await this.prisma.notification.create({
+          data: {
+            userId: input.userId,
+            channel: channel.key,
+            category: input.category,
+            title: input.title,
+            body: input.body,
+            refType: input.refType,
+            refId: input.refId,
+          },
+        });
+        created.push(mapNotification(row));
+      } catch (err) {
+        this.logger.error(
+          `Failed to record ${channel.key} notification for user ${input.userId}: ${(err as Error).message}`,
+        );
+      }
     }
 
     return created;
@@ -204,18 +213,32 @@ export class NotificationsDeliveryService {
   private async getOrCreatePreference(userId: string, category: NotificationCategory) {
     const where = { userId_category: { userId, category } };
 
-    const existing = await this.prisma.notificationPreference.findUnique({ where });
-    if (existing) return existing;
-
     try {
-      return await this.prisma.notificationPreference.create({
-        data: { userId, category, ...defaultChannelsFor(category) },
-      });
-    } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return this.prisma.notificationPreference.findUniqueOrThrow({ where });
+      const existing = await this.prisma.notificationPreference.findUnique({ where });
+      if (existing) return existing;
+
+      try {
+        return await this.prisma.notificationPreference.create({
+          data: { userId, category, ...defaultChannelsFor(category) },
+        });
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          return await this.prisma.notificationPreference.findUniqueOrThrow({ where });
+        }
+        throw err;
       }
-      throw err;
+    } catch (err) {
+      // A genuine DB error here — not the ordinary create-race P2002
+      // handled above — must not bubble out of `deliver()`: the class doc
+      // promises the caller never has to guard against this. Fall back to
+      // the category's documented defaults instead of rethrowing, so a
+      // transient failure to read/persist a preference row degrades to
+      // "deliver on the defaults" rather than aborting the whole
+      // notification (and every channel after it).
+      this.logger.error(
+        `Failed to load or create notification preference for user ${userId}/${category}: ${(err as Error).message}`,
+      );
+      return { ...defaultChannelsFor(category) };
     }
   }
 }

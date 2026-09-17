@@ -265,16 +265,50 @@ export class SellerPayoutsService {
     // `$queryRaw` runs on the transaction client, so a payout request
     // still reads inside its own transaction.
     const [marketplaceRows, bookings, orders] = await Promise.all([
+      // Two line shapes, one vendor's earnings. An ordinary line's product
+      // carries `vendorId` directly; a hamper line's `productId` is NULL
+      // (it points at a `Hamper` instead — `hamperId`), so the plain join
+      // below always missed it, and a HomeKrafter's hamper sales could
+      // never be requested or paid out even once delivered. `POST
+      // /cart/hamper-items` still gates a hamper to one maker across all
+      // its `HamperItem` rows (CLAUDE.md's "the hamper path is gated too"
+      // — every `HamperItem` shares one vendor by construction), so any
+      // one of them naming this vendor is enough to claim the line —
+      // there is no "first item" ambiguity to resolve.
       tx.$queryRaw<{ gross: number | null; net: number | null; commission: number | null; gst: number | null }[]>`
         SELECT
-          SUM(oi."price" * oi."quantity")::float8 AS gross,
-          SUM(COALESCE(oi."sellerAmount", oi."price") * oi."quantity")::float8 AS net,
-          SUM(COALESCE(oi."commissionAmount", 0) * oi."quantity")::float8 AS commission,
-          SUM(COALESCE(oi."gstAmount", 0) * oi."quantity")::float8 AS gst
-        FROM "OrderItem" oi
-        JOIN "Product" p ON p.id = oi."productId"
-        JOIN "Order" o ON o.id = oi."orderId"
-        WHERE p."vendorId" = ${seller.vendorId} AND o."status" = 'delivered'::"OrderStatus"
+          SUM(gross)::float8 AS gross,
+          SUM(net)::float8 AS net,
+          SUM(commission)::float8 AS commission,
+          SUM(gst)::float8 AS gst
+        FROM (
+          SELECT
+            oi."price" * oi."quantity" AS gross,
+            COALESCE(oi."sellerAmount", oi."price") * oi."quantity" AS net,
+            COALESCE(oi."commissionAmount", 0) * oi."quantity" AS commission,
+            COALESCE(oi."gstAmount", 0) * oi."quantity" AS gst
+          FROM "OrderItem" oi
+          JOIN "Product" p ON p.id = oi."productId"
+          JOIN "Order" o ON o.id = oi."orderId"
+          WHERE p."vendorId" = ${seller.vendorId} AND o."status" = 'delivered'::"OrderStatus"
+
+          UNION ALL
+
+          SELECT
+            oi."price" * oi."quantity" AS gross,
+            COALESCE(oi."sellerAmount", oi."price") * oi."quantity" AS net,
+            COALESCE(oi."commissionAmount", 0) * oi."quantity" AS commission,
+            COALESCE(oi."gstAmount", 0) * oi."quantity" AS gst
+          FROM "OrderItem" oi
+          JOIN "Order" o ON o.id = oi."orderId"
+          WHERE oi."hamperId" IS NOT NULL
+            AND o."status" = 'delivered'::"OrderStatus"
+            AND EXISTS (
+              SELECT 1 FROM "HamperItem" hi
+              JOIN "Product" hp ON hp.id = hi."productId"
+              WHERE hi."hamperId" = oi."hamperId" AND hp."vendorId" = ${seller.vendorId}
+            )
+        ) AS lines
       `,
       tx.laundryBooking.aggregate({
         where: { partnerId: seller.id, status: 'delivered' },

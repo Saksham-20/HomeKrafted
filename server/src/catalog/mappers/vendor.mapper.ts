@@ -111,6 +111,8 @@ export function mapCategory(category: {
   parentId?: string | null;
   icon?: string | null;
   description?: string | null;
+  archivedAt?: Date | null;
+  mergedIntoId?: string | null;
 }) {
   return {
     id: category.id,
@@ -149,6 +151,16 @@ export function mapCategory(category: {
      * subcategory ends up caching two disagreeing answers.
      */
     parentId: category.parentId ?? null,
+    /**
+     * G1. `null` unless this shelf is retired (`archivedAt`) or folded into
+     * another (`mergedIntoId`) — both columns existed and neither was ever
+     * returned, so "browse resolves a merged slug to its target and the
+     * page 301s" (the doc comment on `Category.mergedIntoId`) had no field
+     * to read that off. `client/lib/types/marketplace.ts` already declares
+     * both on `Category`; this is what makes them arrive.
+     */
+    archivedAt: category.archivedAt?.toISOString() ?? null,
+    mergedIntoId: category.mergedIntoId ?? null,
   };
 }
 

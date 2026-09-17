@@ -195,8 +195,12 @@ export interface ApproveSellerApplicationResult {
    * This response is the only place the plaintext ever exists (M37 —
    * nothing stores it). Lost means re-issued, via
    * `POST /admin/sellers/:id/temp-password`.
+   *
+   * **Absent when the application reused an account that already had a
+   * working credential** — that account's password is not touched, so
+   * there is nothing new to read out.
    */
-  signIn: TemporarySignInDetails;
+  signIn?: TemporarySignInDetails;
 }
 
 /** What an admin needs in order to get a new HomeKrafter signed in (M32). */
@@ -450,6 +454,10 @@ export class AdminSellersService {
     if (!seller) throw new NotFoundException('Seller not found');
 
     const vendorId = seller.vendorId;
+    // Narrowed to a local so it stays a `string` inside the `.then()`
+    // below — `seller.user.email` itself is a property access TypeScript
+    // won't keep narrowed across a closure.
+    const applicantEmail = seller.user.email;
     const [
       listingsTotal,
       listingsAvailable,
@@ -517,11 +525,30 @@ export class AdminSellersService {
       // by hand, or one whose applicant later changed their address,
       // simply has none, which is why this is nullable rather than an
       // empty object.
-      seller.user.email
-        ? this.prisma.sellerApplication.findFirst({
-            where: { email: seller.user.email },
-            orderBy: { createdAt: 'desc' },
-          })
+      //
+      // **The approved row, not merely the newest one.** An applicant can
+      // re-apply after being approved — the duplicate guard on approval
+      // refuses the *second* application, so it survives in the queue at
+      // `status: 'new'` with a later `createdAt` than the row that was
+      // actually decided. A plain "most recent" lookup surfaced that
+      // undecided re-application here, under a comment that promises
+      // "what they were approved on" — a fresher lie is still a lie. Falls
+      // back to the newest row of any status only when none was ever
+      // approved (a hand-created kitchen, or a legacy row).
+      applicantEmail
+        ? this.prisma.sellerApplication
+            .findFirst({
+              where: { email: applicantEmail, status: 'approved' },
+              orderBy: { createdAt: 'desc' },
+            })
+            .then(
+              (approved) =>
+                approved ??
+                this.prisma.sellerApplication.findFirst({
+                  where: { email: applicantEmail },
+                  orderBy: { createdAt: 'desc' },
+                }),
+            )
         : Promise.resolve(null),
     ]);
 
@@ -934,11 +961,52 @@ export class AdminSellersService {
       // path for an admin-provisioned account (mirrors `AuthService.verifyOtp`'s
       // first-time-phone account creation: wallet + loyalty account together).
       let user = await tx.user.findUnique({ where: { email: application.email } });
+      // Captured before any reuse touches the row: whether *this* account
+      // already had a working credential of its own. Decides below whether
+      // `issueTemporaryPassword` may run at all — an account that can
+      // already sign in must never have its password silently rotated out
+      // from under it and its sessions killed.
+      const reusedAccountHadCredentials = Boolean(user?.passwordHash);
       if (user) {
         if (user.role === 'consumer') {
           user = await tx.user.update({ where: { id: user.id }, data: { role: 'seller' } });
+        } else if (user.role !== 'seller') {
+          // Any other existing role (`admin`, `rider`) cannot be silently
+          // promoted: `@Roles('seller')` on every `/seller/*` route checks
+          // for an exact match, so leaving it untouched would mint an
+          // approved `Seller` row pointing at an account that 403s on
+          // every route it needs. Promoting an `admin` account instead
+          // would be the opposite mistake — quietly handing a privileged
+          // account storefront access nobody asked for. Refuse and let a
+          // person sort out which account this is meant to be.
+          throw new ConflictException(
+            `${application.email} already has a ${user.role} account and cannot also become a ` +
+              `HomeKrafter. Resolve that account first, or have them apply with a different email.`,
+          );
         }
       } else {
+        // A phone collision with a *different* account crashes
+        // `tx.user.create` below with a raw `P2002` unique violation —
+        // `User.phone` is `@unique` — which `AllExceptionsFilter` turns
+        // into a bare 500 with nothing an admin can act on. Checked only
+        // here, on the branch that is actually about to write
+        // `User.phone`: the reuse branch above never touches this column
+        // (it only flips `role`), so a reused account's own phone must
+        // never be compared against this application's — that would
+        // refuse a legitimate reuse-by-email approval over a phone that
+        // branch was never going to write.
+        const phoneOwner = await tx.user.findUnique({
+          where: { phone: application.phone },
+          select: { id: true, email: true },
+        });
+        if (phoneOwner) {
+          throw new ConflictException(
+            `${application.phone} is already registered to a different account` +
+              (phoneOwner.email ? ` (${phoneOwner.email})` : '') +
+              `. Resolve that conflict before approving.`,
+          );
+        }
+
         const referralCode = await this.uniqueReferralCode(tx, application.contactName);
         user = await tx.user.create({
           data: {
@@ -1030,7 +1098,7 @@ export class AdminSellersService {
         data: { status: 'approved' },
       });
 
-      return { application: decidedApplication, seller, vendor };
+      return { application: decidedApplication, seller, vendor, reusedAccountHadCredentials };
     });
 
     // Get them a way in, **out of band**, before anything else.
@@ -1048,7 +1116,8 @@ export class AdminSellersService {
       phone: application.phone,
     });
 
-    // And a password, issued in the same breath (M32).
+    // And a password, issued in the same breath (M32) — **unless** the
+    // account this application reused already had one of its own.
     //
     // This reverses the M21 rule that approval mints an account with no
     // credential at all. That rule was right when the invite link was
@@ -1058,14 +1127,22 @@ export class AdminSellersService {
     // short enough to read down a phone, on the row, from the moment
     // approval happens.
     //
-    // The safety properties are the ones documented on
+    // But `issueTemporaryPassword` overwrites `passwordHash` and revokes
+    // every open session unconditionally — right for a phone-only account
+    // with nothing to lose, and a real account takeover for somebody who
+    // already had a working email+password sign-in (e.g. an existing
+    // consumer account promoted to `seller` above). That person's
+    // credential is not ours to rotate, and their sessions are not ours
+    // to kill.
+    //
+    // The safety properties otherwise are the ones documented on
     // `issueTemporaryPassword`: never stored (only the hash is), forced
     // rotation at first sign-in, never in an audit row or a public
     // payload. Revisit once SendGrid/Twilio exist — with real delivery,
     // the link is better and this should go back to being nothing.
-    const signIn = await this.issueTemporaryPassword(adminUserId, result.seller.id, {
-      audit: false,
-    });
+    const signIn = result.reusedAccountHadCredentials
+      ? undefined
+      : await this.issueTemporaryPassword(adminUserId, result.seller.id, { audit: false });
 
     // Kept, but it is now the second copy rather than the only one. It is
     // what they find waiting once the invite has got them inside.
@@ -1073,7 +1150,9 @@ export class AdminSellersService {
       userId: result.seller.userId,
       category: 'account',
       title: 'You are a HomeKrafter',
-      body: `${result.seller.displayName} is approved and live. Add your first items from the Listings or Menu tab, then switch them on when you are ready to take orders.`,
+      body: result.reusedAccountHadCredentials
+        ? `${result.seller.displayName} is approved and live. Sign in the way you already do — your password has not changed. Add your first items from the Listings or Menu tab, then switch them on when you are ready to take orders.`
+        : `${result.seller.displayName} is approved and live. Add your first items from the Listings or Menu tab, then switch them on when you are ready to take orders.`,
       refType: 'seller',
       refId: result.seller.id,
     });

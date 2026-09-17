@@ -9,6 +9,15 @@ import { FOOD_COMING_SOON } from '../../src/common/food-orders';
  */
 function cartServiceWith(kind: 'food' | 'craft', foodOrdersOpen: boolean) {
   const created = jest.fn().mockResolvedValue({});
+  // `addItem`'s maker check and its write now happen inside one locked
+  // transaction (finding [11]) — `tx` stands in for that transaction
+  // client, and `assertSameMaker` (imported, not a private method any
+  // more) reads straight off `tx.cartItem.findFirst`, mocked here to
+  // always come back empty (no conflict).
+  const tx = {
+    $queryRaw: jest.fn().mockResolvedValue(undefined),
+    cartItem: { findFirst: jest.fn().mockResolvedValue(null), create: created },
+  };
   const prisma = {
     cart: { findUnique: jest.fn().mockResolvedValue({ id: 'c1', userId: 'u1' }), update: jest.fn() },
     product: {
@@ -20,14 +29,12 @@ function cartServiceWith(kind: 'food' | 'craft', foodOrdersOpen: boolean) {
         weightOptions: [{ sku: 's1', stock: 10 }],
       }),
     },
-    cartItem: { findFirst: jest.fn().mockResolvedValue(null), create: created, findMany: jest.fn().mockResolvedValue([]) },
-    hamper: { findFirst: jest.fn().mockResolvedValue(null) },
+    $transaction: jest.fn().mockImplementation((fn: (t: unknown) => unknown) => fn(tx)),
   };
   const settings = { get: jest.fn().mockResolvedValue({ foodOrdersOpen }) };
   const service = new CartService(prisma as never, settings as never);
   // The basket read after a successful add is not what these tests are about.
   jest.spyOn(service, 'getCart').mockResolvedValue({} as never);
-  jest.spyOn(service as unknown as { assertSameMaker: () => Promise<void> }, 'assertSameMaker').mockResolvedValue();
   return { service, created };
 }
 

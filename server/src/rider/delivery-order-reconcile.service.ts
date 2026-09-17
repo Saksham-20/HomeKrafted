@@ -58,10 +58,18 @@ export class DeliveryOrderReconcileService {
     if (!next) return;
     if (ORDER_RANK[next] <= ORDER_RANK[order.status]) return;
 
-    await this.prisma.order.update({
-      where: { id: orderId },
+    // Guarded compare-and-set on the status this read saw — the same
+    // shape every transition in `RiderJobsService`/`DispatchService` uses.
+    // Two jobs on the same multi-vendor order finishing within the same
+    // window (two riders completing their own drop at nearly the same
+    // moment) would otherwise both pass the rank check above against the
+    // same stale `order.status` and both apply the update, double-firing
+    // the buyer notification.
+    const result = await this.prisma.order.updateMany({
+      where: { id: orderId, status: order.status },
       data: { status: next, ...(next === 'delivered' ? { deliveredAt: new Date() } : {}) },
     });
+    if (result.count !== 1) return;
     void this.orderNotifications.notifyBuyerOfStatus(orderId, next);
   }
 

@@ -11,7 +11,7 @@ import { resolveCartLines } from '../common/pricing/resolve-cart-line';
 import { isPurchasable } from '../catalog/moderation';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { AddHamperItemDto } from './dto/add-hamper-item.dto';
-import { otherMakerConflict } from './one-maker-cart';
+import { assertSameMaker, otherMakerConflict } from './one-maker-cart';
 import { AdminSettingsService } from '../admin/settings.service';
 import { foodComingSoon } from '../common/food-orders';
 
@@ -64,59 +64,6 @@ export class CartService {
     };
   }
 
-  /**
-   * Refuse a product from a maker other than the one already in the cart.
-   *
-   * Reads the vendor off the products the cart holds rather than caching
-   * it on `Cart`: a denormalised column would be one more thing to keep in
-   * step on every remove, and the cart is small enough that the join
-   * costs nothing. The name comes back with the refusal because the
-   * shopper has to be told whose basket they already have.
-   *
-   * An empty cart accepts anything, which is what makes "empty it and
-   * start again" the way out.
-   */
-  private async assertSameMaker(cartId: string, vendorId: string) {
-    const held = await this.prisma.cartItem.findFirst({
-      where: { cartId, product: { vendorId: { not: vendorId } } },
-      select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
-    });
-    if (held?.product) {
-      throw new ConflictException(
-        otherMakerConflict(held.product.vendorId, held.product.vendor.name),
-      );
-    }
-
-    /*
-     * A hamper line carries `hamperId` and a NULL `productId`, so the
-     * query above cannot see it — leaving "add a hamper, then add
-     * anything" as the way round the rule the retired builder was already
-     * warned about in `addHamperItem`. Its maker is the maker of the
-     * products inside it, which `addHamperItem` now forces to be one.
-     */
-    const heldHamper = await this.prisma.cartItem.findFirst({
-      where: {
-        cartId,
-        hamper: { items: { some: { product: { vendorId: { not: vendorId } } } } },
-      },
-      select: {
-        hamper: {
-          select: {
-            items: {
-              where: { product: { vendorId: { not: vendorId } } },
-              take: 1,
-              select: { product: { select: { vendorId: true, vendor: { select: { name: true } } } } },
-            },
-          },
-        },
-      },
-    });
-    const other = heldHamper?.hamper?.items[0]?.product;
-    if (other) {
-      throw new ConflictException(otherMakerConflict(other.vendorId, other.vendor.name));
-    }
-  }
-
   async addItem(userId: string, dto: AddCartItemDto) {
     const cart = await this.getOrCreateCart(userId);
     const product = await this.prisma.product.findUnique({
@@ -141,28 +88,43 @@ export class CartService {
     const weight = product.weightOptions.find((w) => w.sku === dto.sku);
     if (!weight) throw new NotFoundException('Weight option not found for this product');
 
-    // One basket, one maker (`one-maker-cart.ts`). Checked before the
-    // stock arithmetic so somebody adding another kitchen's dish is told
-    // about the basket, not about a stock level that is not their problem.
-    await this.assertSameMaker(cart.id, product.vendorId);
-
     const quantityToAdd = dto.quantity ?? 1;
-    const existing = await this.prisma.cartItem.findFirst({
-      where: { cartId: cart.id, productId: dto.productId, sku: dto.sku },
-    });
 
-    const newQuantity = (existing?.quantity ?? 0) + quantityToAdd;
-    if (newQuantity > weight.stock) {
-      throw new BadRequestException(`Only ${weight.stock} in stock for ${dto.sku}`);
-    }
+    /**
+     * The maker check and the write happen inside one transaction, locked
+     * on the `Cart` row.
+     *
+     * `assertSameMaker` alone is a plain read: on an empty cart it always
+     * comes back clean, so two near-simultaneous `addItem` calls for two
+     * different vendors can both pass it before either has inserted its
+     * `CartItem`, leaving the basket — and the order later built from it
+     * — silently spanning two makers. Locking `Cart` first means the
+     * loser blocks until the winner's row is committed and then re-reads
+     * a cart that already has something in it, the same
+     * lock-then-read-fresh shape `PaymentsService.createOrder` uses for
+     * its own check-then-act race.
+     */
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${cart.id} FOR UPDATE`;
+      await assertSameMaker(tx, cart.id, product.vendorId);
 
-    if (existing) {
-      await this.prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: newQuantity } });
-    } else {
-      await this.prisma.cartItem.create({
-        data: { cartId: cart.id, productId: dto.productId, sku: dto.sku, quantity: quantityToAdd },
+      const existing = await tx.cartItem.findFirst({
+        where: { cartId: cart.id, productId: dto.productId, sku: dto.sku },
       });
-    }
+
+      const newQuantity = (existing?.quantity ?? 0) + quantityToAdd;
+      if (newQuantity > weight.stock) {
+        throw new BadRequestException(`Only ${weight.stock} in stock for ${dto.sku}`);
+      }
+
+      if (existing) {
+        await tx.cartItem.update({ where: { id: existing.id }, data: { quantity: newQuantity } });
+      } else {
+        await tx.cartItem.create({
+          data: { cartId: cart.id, productId: dto.productId, sku: dto.sku, quantity: quantityToAdd },
+        });
+      }
+    });
 
     await this.touch(cart.id);
     return this.getCart(userId);
@@ -178,15 +140,33 @@ export class CartService {
     }
     // Same gates as `addItem` — the retired hamper builder is still a way
     // to put a product id into a cart, so it needs every check `addItem`
-    // has or it is the way round them.
+    // has or it is the way round them. Read once, not per line: two lines
+    // must not straddle the switch flipping mid-request.
+    const foodOrdersOpen = (await this.settings.get()).foodOrdersOpen;
     const makers = new Map<string, string>();
     for (const line of dto.items) {
       const product = await this.prisma.product.findUnique({
         where: { id: line.productId },
-        select: { moderationStatus: true, vendorId: true, vendor: { select: { name: true } } },
+        select: {
+          name: true,
+          moderationStatus: true,
+          vendorId: true,
+          kind: true,
+          defaultWeightSku: true,
+          weightOptions: true,
+          vendor: { select: { name: true } },
+        },
       });
       if (!product || !isPurchasable(product.moderationStatus)) {
         throw new NotFoundException(`Product ${line.productId} not found`);
+      }
+      if (product.kind === 'food' && !foodOrdersOpen) {
+        throw foodComingSoon();
+      }
+      const weight =
+        product.weightOptions.find((w) => w.sku === product.defaultWeightSku) ?? product.weightOptions[0];
+      if (weight && line.quantity > weight.stock) {
+        throw new BadRequestException(`Only ${weight.stock} in stock for ${product.name}`);
       }
       makers.set(product.vendorId, product.vendor.name);
     }
@@ -209,21 +189,27 @@ export class CartService {
 
     const cart = await this.getOrCreateCart(userId);
     const [hamperVendorId] = [...makers.keys()];
-    if (hamperVendorId) await this.assertSameMaker(cart.id, hamperVendorId);
-    const hamper = await this.prisma.hamper.create({
-      data: {
-        userId,
-        boxId: dto.boxId,
-        giftNote: dto.giftNote,
-        wrap: dto.wrap,
-        ribbon: dto.ribbon,
-        nameCard: dto.nameCard,
-        recipientAddressId: dto.recipientAddressId,
-        hidePrice: dto.hidePrice ?? false,
-        items: { create: dto.items.map((i) => ({ productId: i.productId, quantity: i.quantity })) },
-      },
+
+    // Same lock as `addItem`, above.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Cart" WHERE id = ${cart.id} FOR UPDATE`;
+      if (hamperVendorId) await assertSameMaker(tx, cart.id, hamperVendorId);
+
+      const hamper = await tx.hamper.create({
+        data: {
+          userId,
+          boxId: dto.boxId,
+          giftNote: dto.giftNote,
+          wrap: dto.wrap,
+          ribbon: dto.ribbon,
+          nameCard: dto.nameCard,
+          recipientAddressId: dto.recipientAddressId,
+          hidePrice: dto.hidePrice ?? false,
+          items: { create: dto.items.map((i) => ({ productId: i.productId, quantity: i.quantity })) },
+        },
+      });
+      await tx.cartItem.create({ data: { cartId: cart.id, hamperId: hamper.id, quantity: 1 } });
     });
-    await this.prisma.cartItem.create({ data: { cartId: cart.id, hamperId: hamper.id, quantity: 1 } });
 
     await this.touch(cart.id);
     return this.getCart(userId);

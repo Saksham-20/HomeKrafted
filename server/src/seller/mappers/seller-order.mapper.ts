@@ -1,8 +1,23 @@
 import { Order, OrderItem, OrderShipment } from '@prisma/client';
 import { orderStatusToFrontend } from '../../orders/order.mapper';
 
-/** An order item carrying the one fact ownership checks need: whose product it is. */
-export type SellerOrderItem = OrderItem & { product: { vendorId: string } | null };
+/**
+ * An order item carrying the one fact ownership checks need: whose
+ * product it is. A hamper line's own `productId` is NULL — it points at
+ * a `Hamper` instead — so its maker has to be read off the hamper's
+ * `HamperItem`s. `POST /cart/hamper-items` gates a hamper to one maker
+ * across every `HamperItem` it holds, so any one of them is enough to
+ * resolve it; there is no "first item" ambiguity.
+ */
+export type SellerOrderItem = OrderItem & {
+  product: { vendorId: string } | null;
+  hamper: { items: { product: { vendorId: string } }[] } | null;
+};
+
+/** The vendor a line belongs to, whether it names a product directly or through a hamper. */
+export function itemVendorId(item: SellerOrderItem): string | undefined {
+  return item.product?.vendorId ?? item.hamper?.items[0]?.product.vendorId;
+}
 
 export type SellerOrderWithRelations = Order & {
   items: SellerOrderItem[];
@@ -25,7 +40,7 @@ export type SellerOrderWithRelations = Order & {
  * never their number.
  */
 export function mapOrderForSeller(order: SellerOrderWithRelations, vendorId: string) {
-  const own = order.items.filter((i) => i.product?.vendorId === vendorId);
+  const own = order.items.filter((i) => itemVendorId(i) === vendorId);
   const ownAddressIds = new Set(own.map((i) => i.addressId));
   const itemsSubtotal =
     Math.round(own.reduce((sum, i) => sum + Number(i.price) * i.quantity, 0) * 100) / 100;
@@ -68,6 +83,6 @@ export function mapOrderForSeller(order: SellerOrderWithRelations, vendorId: str
     // True when another kitchen's items share this order. Drives the
     // client-side explainer for why shipped/delivered are admin-only
     // moves on a shared order — see `SellerOrdersService.advance`.
-    multiVendor: order.items.some((i) => i.product?.vendorId !== vendorId),
+    multiVendor: order.items.some((i) => itemVendorId(i) !== vendorId),
   };
 }

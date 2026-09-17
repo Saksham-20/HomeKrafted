@@ -126,10 +126,49 @@ export class AttributesService {
 
     const live: Prisma.ProductWhereInput = { ...PUBLICLY_LISTED, isAvailable: true };
 
+    // Every category id across every shelf's own row and its children.
+    // A category id belongs to exactly one department (M58: one level,
+    // enforced from both ends), so the two queries below can run **once**
+    // for the whole tree instead of once per shelf — the fix for a query
+    // count that used to scale as 3× the number of top-level departments,
+    // unboundedly, since an admin can add a department with no deploy.
+    const allCategoryIds = shelves.flatMap((shelf) => [shelf.id, ...shelf.children.map((child) => child.id)]);
+
+    const [categoryCounts, taggedProducts] = await Promise.all([
+      // Per-category row counts — was a `groupBy` re-run per shelf; a
+      // single `in` over every id produces the identical per-id rows,
+      // batched.
+      this.prisma.productCategory.groupBy({
+        by: ['categoryId'],
+        where: { categoryId: { in: allCategoryIds }, product: { is: live } },
+        _count: { _all: true },
+      }),
+      // The rows a department's own `product.count` was derived from — a
+      // listing counts for the department it is filed under *or* one of
+      // its children (the M58 "a parent matches its children" rule), and a
+      // listing can carry more than one shelf under the same department,
+      // so the department total is a **distinct-product** count over this
+      // set, not a sum of `categoryCounts`.
+      this.prisma.productCategory.findMany({
+        where: { categoryId: { in: allCategoryIds }, product: { is: live } },
+        select: { categoryId: true, productId: true },
+      }),
+    ]);
+
+    const countFor = (id: string) =>
+      categoryCounts.find((row) => row.categoryId === id)?._count._all ?? 0;
+
     return (
       await Promise.all(
         shelves.map(async (shelf) => {
           const shelfIds = [shelf.id, ...shelf.children.map((child) => child.id)];
+          const shelfIdSet = new Set(shelfIds);
+          const count = new Set(
+            taggedProducts
+              .filter((row) => shelfIdSet.has(row.categoryId))
+              .map((row) => row.productId),
+          ).size;
+
           // A listing counts for the department it is filed under *or* one
           // of its children — the M58 rule that a parent matches its
           // children, which the browse page had never actually done.
@@ -138,22 +177,17 @@ export class AttributesService {
             categories: { some: { categoryId: { in: shelfIds } } },
           };
 
-          const [count, faceProduct, childCounts] = await Promise.all([
-            this.prisma.product.count({ where: scope }),
-            this.prisma.product.findFirst({
-              where: { ...scope, images: { some: { src: { not: null } } } },
-              orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { createdAt: 'desc' }],
-              select: { images: { where: { src: { not: null } }, take: 1, orderBy: { sortOrder: 'asc' } } },
-            }),
-            this.prisma.productCategory.groupBy({
-              by: ['categoryId'],
-              where: { categoryId: { in: shelfIds }, product: { is: live } },
-              _count: { _all: true },
-            }),
-          ]);
-
-          const countFor = (id: string) =>
-            childCounts.find((row) => row.categoryId === id)?._count._all ?? 0;
+          // The tile's face image has no `GROUP BY`/`DISTINCT ON` batching
+          // here — it is "the top-ranked listing's photo per department",
+          // and getting that wrong silently swaps which listing's photo a
+          // department shows, against the moderation gate every other
+          // buyer query relies on. Left as one query per department; still
+          // a 3×→1× cut on the two queries above.
+          const faceProduct = await this.prisma.product.findFirst({
+            where: { ...scope, images: { some: { src: { not: null } } } },
+            orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { createdAt: 'desc' }],
+            select: { images: { where: { src: { not: null } }, take: 1, orderBy: { sortOrder: 'asc' } } },
+          });
 
           return {
             id: shelf.id,
