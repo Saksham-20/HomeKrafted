@@ -64,5 +64,9 @@ export function mapOrder(order: OrderWithRelations) {
     // row; `isb-campus` is the hand-delivery the buyer chose, and the
     // order screens read it to say so rather than promising a courier.
     deliveryMode: order.deliveryMode === 'isb_campus' ? ('isb-campus' as const) : ('standard' as const),
+    // Where to collect a campus order, once an operator has named one
+    // (2026-09-17). NULL until then — the screens say "we'll message you"
+    // rather than inventing a spot.
+    pickupSpot: order.pickupSpot ?? undefined,
   };
 }

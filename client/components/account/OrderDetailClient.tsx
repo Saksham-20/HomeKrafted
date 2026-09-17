@@ -300,10 +300,23 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
                 before the option existed, which is why it is a check on
                 the value and not on the field. */}
             {order.deliveryMode === "isb-campus" && (
-              <div className={styles.itemRow}>
-                <span>Delivery</span>
-                <span>Hand-delivered on the ISB campus by Homekrafted</span>
-              </div>
+              <>
+                <div className={styles.itemRow}>
+                  <span>Delivery</span>
+                  <span>Hand-delivered on the ISB campus by Homekrafted</span>
+                </div>
+                {/* The spot, once a person has named one, in their own
+                    words — or the promise checkout made, which is the
+                    honest thing to show until then. Never a guessed spot
+                    (2026-09-17). */}
+                <div className={styles.itemRow}>
+                  <span>Pickup spot</span>
+                  <span>
+                    {order.pickupSpot ??
+                      "We’ll message you once it’s packed — the spot depends on who is carrying it."}
+                  </span>
+                </div>
+              </>
             )}
           </div>
         </Card>

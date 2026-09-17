@@ -170,7 +170,6 @@ export function CheckoutClient() {
   const [shipTo, setShipTo] = useState<"me" | "gift" | "isb">("me");
   const isGift = shipTo === "gift";
   const isCampus = shipTo === "isb";
-  const [campusDrop, setCampusDrop] = useState("");
   const [campusPhone, setCampusPhone] = useState("");
   const [recipient, setRecipient] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
   const [hidePrice, setHidePrice] = useState(false);
@@ -421,15 +420,6 @@ export function CheckoutClient() {
 
     if (items.length === 0) return;
 
-    if (isCampus && !campusDrop.trim()) {
-      // Named and focused, like every other refusal on this screen — the
-      // server refuses this too, but a round trip to be told about a box
-      // two inches away is not an answer.
-      setFormError("Tell us where on campus to hand it over — a building, block or room.");
-      focusFirstError("campus-drop");
-      return;
-    }
-
     if (isGift) {
       // Same treatment as "Save address" above: name the empty boxes and
       // jump to the first, rather than "fill in the full address" over a
@@ -514,7 +504,9 @@ export function CheckoutClient() {
         walletApplied,
         idempotencyKey: idempotencyKeyRef.current,
         deliveryMode: isCampus ? "isb-campus" : undefined,
-        campusDrop: isCampus ? campusDrop.trim() : undefined,
+        // No `campusDrop`: the buyer is not asked where on campus any more
+        // (2026-09-17). An operator names the spot once the parcel is
+        // packed and the buyer is emailed it.
         campusPhone: isCampus ? campusPhone.trim() || undefined : undefined,
       });
     } catch (err) {
@@ -890,25 +882,12 @@ export function CheckoutClient() {
       <p className={styles.campusNote}>
         <Building2 size={15} strokeWidth={1.9} aria-hidden="true" />
         <span>
-          <strong>We bring it onto campus ourselves.</strong> No delivery charge, and it starts
-          moving as soon as the maker has packed it — no courier in between.
+          <strong>We bring it onto campus ourselves.</strong> No delivery charge, and no courier
+          in between. We’ll message you the exact pickup spot once the maker has packed it — the
+          spot depends on who is carrying it that day, so we tell you then rather than guessing
+          now.
         </span>
       </p>
-      <label className={styles.campusField}>
-        <span className={styles.campusLabel}>Where on campus?</span>
-        <input
-          id="campus-drop"
-          className={styles.campusInput}
-          value={campusDrop}
-          onChange={(event) => setCampusDrop(event.target.value)}
-          maxLength={120}
-          placeholder="e.g. AC4, room 212 — or Exec housing block B"
-        />
-        <span className={styles.campusHint}>
-          A building, block or room. It goes on the parcel, so write what you would tell a
-          friend meeting you there.
-        </span>
-      </label>
       <label className={styles.campusField}>
         <span className={styles.campusLabel}>Phone for the handover (optional)</span>
         <input

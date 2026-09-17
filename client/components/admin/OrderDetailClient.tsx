@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { NotFoundCard } from "@/components/feedback/NotFoundCard";
-import { Field, Select } from "@/components/portal/Field";
+import { Field, Input, Select } from "@/components/portal/Field";
 import { FormSection } from "@/components/portal/FormSection";
 import { LoadingRows } from "@/components/portal/LoadingRows";
 import { Notice } from "@/components/portal/Notice";
@@ -19,6 +19,7 @@ import {
   getAdminSnackOrder,
   overrideAdminOrderStatus,
   refundAdminOrder,
+  setAdminOrderPickupSpot,
   type AdminOrderSummary,
   type AdminOrderType,
 } from "@/lib/api";
@@ -83,6 +84,13 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
   const [refundResult, setRefundResult] = useState<{ amount: number } | undefined>(undefined);
   const [refundError, setRefundError] = useState<string | undefined>(undefined);
   const [refunding, setRefunding] = useState(false);
+  // The ISB pickup spot an operator sends the buyer (2026-09-17). Its own
+  // state, not folded into the status control: it is a message, and
+  // sending it is not a status change.
+  const [pickupSpot, setPickupSpot] = useState("");
+  const [savingPickupSpot, setSavingPickupSpot] = useState(false);
+  const [pickupSpotError, setPickupSpotError] = useState<string | undefined>(undefined);
+  const [pickupSpotSent, setPickupSpotSent] = useState(false);
   const [confirmingRefund, setConfirmingRefund] = useState(false);
   const [pendingStatus, setPendingStatus] = useState("");
   const [confirmingStatus, setConfirmingStatus] = useState(false);
@@ -159,6 +167,33 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
       setConfirmingStatus(false);
     } finally {
       setSavingStatus(false);
+    }
+  }
+
+  /**
+   * Send the buyer the pickup spot for an ISB campus order.
+   *
+   * Checkout promised them this message, so the button says what it
+   * does: pressing it emails the words in the box. No inline two-step —
+   * the portal rule reserves that for decisions that move money or are
+   * hard to undo, and a second message correcting the first is the
+   * normal way this gets fixed.
+   */
+  async function handleSendPickupSpot() {
+    if (!marketplaceOrder || savingPickupSpot || pickupSpot.trim().length < 3) return;
+    setPickupSpotError(undefined);
+    setPickupSpotSent(false);
+    setSavingPickupSpot(true);
+    try {
+      const updated = await setAdminOrderPickupSpot(id, pickupSpot.trim());
+      if (updated) setMarketplaceOrder(updated);
+      setPickupSpotSent(true);
+    } catch (error) {
+      // The server's own sentence — it refuses a non-campus order with
+      // the reason, and that is the only thing explaining why (M36).
+      setPickupSpotError(apiErrorMessage(error, "Couldn't send that. Nothing was saved — try again."));
+    } finally {
+      setSavingPickupSpot(false);
     }
   }
 
@@ -308,6 +343,43 @@ export function OrderDetailClient({ type, id }: OrderDetailClientProps) {
           <div className={styles.grid}>
             <Fact label="Channel" value={snackOrder.channel} />
           </div>
+        </FormSection>
+      )}
+
+      {/* ISB campus orders only — every other order has a street address
+          and nothing to collect from (2026-09-17, owner). */}
+      {marketplaceOrder?.deliveryMode === "isb-campus" && (
+        <FormSection
+          id="order-pickup-spot"
+          title="Pickup spot on campus"
+          description="Checkout told this buyer we would message them the spot once their order was packed. Sending it here emails them these exact words."
+        >
+          {marketplaceOrder.pickupSpot && (
+            <Notice tone="info">
+              Currently sent: <strong>{marketplaceOrder.pickupSpot}</strong>. Sending again replaces
+              it and messages them the newer one.
+            </Notice>
+          )}
+          <div className={styles.statusRow}>
+            <Field label="Where to collect it" className={styles.statusField}>
+              <Input
+                value={pickupSpot}
+                onChange={(event) => setPickupSpot(event.target.value)}
+                maxLength={300}
+                placeholder="e.g. Gate 1 reception, ask for Homekrafted"
+              />
+            </Field>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSendPickupSpot}
+              disabled={savingPickupSpot || pickupSpot.trim().length < 3}
+            >
+              {savingPickupSpot ? "Sending…" : "Send to buyer"}
+            </Button>
+          </div>
+          {pickupSpotSent && <Notice tone="success" live>Sent — it is on their order and in their inbox.</Notice>}
+          {pickupSpotError && <Notice tone="danger">{pickupSpotError}</Notice>}
         </FormSection>
       )}
 

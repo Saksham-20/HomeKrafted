@@ -1,4 +1,5 @@
 import { OrderStatus } from '@prisma/client';
+import { CAMPUS_PICKUP_FOLLOWUP } from '../common/delivery/isb-campus';
 
 export interface OrderMessage {
   title: string;
@@ -30,7 +31,36 @@ export interface OrderMessage {
  * pair of earrings, and "your order is with the kitchen" is wrong for
  * half the catalogue. The wording is deliberately plain.
  */
-export function buyerOrderMessage(status: OrderStatus, orderNumber: string): OrderMessage | null {
+export interface BuyerMessageContext {
+  /** Hand-delivery onto the ISB campus — we carry it, no courier. */
+  campus?: boolean;
+  /** Where to collect it, once an operator has named one (`Order.pickupSpot`). */
+  pickupSpot?: string | null;
+}
+
+export function buyerOrderMessage(
+  status: OrderStatus,
+  orderNumber: string,
+  context: BuyerMessageContext = {},
+): OrderMessage | null {
+  /**
+   * A campus order's "packed" is a different fact (2026-09-17, owner).
+   *
+   * The standard line is "it goes out for delivery next", which is a
+   * courier promise — and for these there is no courier: we walk it onto
+   * campus. Checkout promised a pickup spot at exactly this moment, so
+   * this message either names it or says it is coming. It never invents
+   * one: `pickupSpot` is NULL until a person types it.
+   */
+  if (context.campus && status === 'packed') {
+    return {
+      title: `Order ${orderNumber} is packed`,
+      body: context.pickupSpot
+        ? `Made and boxed up. We’re bringing it onto the ISB campus — collect it from ${context.pickupSpot}`
+        : `Made and boxed up. We’re bringing it onto the ISB campus. ${CAMPUS_PICKUP_FOLLOWUP}`,
+    };
+  }
+
   switch (status) {
     // A COD order sits here, and so does a card order while the payment
     // sheet is open. What the buyer needs to hear is that the order

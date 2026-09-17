@@ -2495,6 +2495,30 @@ export async function overrideAdminOrderStatus(
   );
 }
 
+/**
+ * `PATCH /admin/orders/marketplace/:id/pickup-spot` — name where to
+ * collect an ISB campus order, and send it to the buyer (2026-09-17).
+ *
+ * Checkout stopped asking the buyer where on campus to hand over: the
+ * spot depends on who is carrying the parcel that day. It promises a
+ * message instead, and this is what keeps the promise — the server
+ * notifies the buyer on the `order` category, where email is on by
+ * default.
+ *
+ * Returns the updated order rather than void, so the screen can render
+ * the spot it just saved without a refetch. It does **not** swallow a
+ * refusal: a campus-only route refuses a standard order with a sentence,
+ * and that sentence is the only thing telling the operator why
+ * (`lib/silent-failure.spec.ts`).
+ */
+export async function setAdminOrderPickupSpot(id: string, message: string): Promise<Order | undefined> {
+  if (isMockMode()) return undefined;
+  return http.patch<Order>(
+    `/admin/orders/marketplace/${encodeURIComponent(id)}/pickup-spot`,
+    { message },
+  );
+}
+
 /** One row of the admin audit trail. */
 export interface AdminAuditEntry {
   id: string;

@@ -84,6 +84,10 @@ export function mapOrderForSeller(order: SellerOrderWithRelations, vendorId: str
     // by us rather than by a courier, because "packed" is where their
     // part ends either way but the screen otherwise promises a rider.
     deliveryMode: order.deliveryMode === 'isb_campus' ? ('isb-campus' as const) : ('standard' as const),
+    // The kitchen sees it too: they are asked where the parcel went more
+    // often than anybody, and "we collect this one" reads better with the
+    // spot beside it (2026-09-17).
+    pickupSpot: order.pickupSpot ?? undefined,
     // True when another kitchen's items share this order. Drives the
     // client-side explainer for why shipped/delivered are admin-only
     // moves on a shared order — see `SellerOrdersService.advance`.

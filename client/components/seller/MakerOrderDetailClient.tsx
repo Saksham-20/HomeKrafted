@@ -224,7 +224,11 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
             {order.deliveryMode === "isb-campus" && (
               <div className={styles.metaRow}>
                 <span className={styles.metaLabel}>Collection</span>
-                <span>We collect this one — ISB campus hand-delivery</span>
+                <span>
+                  {order.pickupSpot
+                    ? `We collect this one — ISB campus, ${order.pickupSpot}`
+                    : "We collect this one — ISB campus hand-delivery"}
+                </span>
               </div>
             )}
             <p className={styles.itemMeta}>

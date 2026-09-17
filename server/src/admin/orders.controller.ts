@@ -7,6 +7,7 @@ import { RequestUser } from '../common/types/jwt-payload.type';
 import { AdminOrdersService, AdminOrderType } from './orders.service';
 import { OrderStatusOverrideDto } from './dto/order-status-override.dto';
 import { ListAdminOrdersQueryDto } from './dto/list-admin-orders.query.dto';
+import { OrderPickupSpotDto } from './dto/order-pickup-spot.dto';
 
 const VALID_TYPES: AdminOrderType[] = ['marketplace', 'laundry', 'snack'];
 
@@ -38,6 +39,24 @@ export class AdminOrdersController {
   @Get(':type/:id/summary')
   getSummary(@Param('type') type: string, @Param('id') id: string) {
     return this.ordersService.getSummary(parseType(type), id);
+  }
+
+  /**
+   * Where to collect an ISB campus order — set by an operator on a live
+   * order, and **the buyer is told**, email included (2026-09-17, owner).
+   *
+   * Marketplace only: `deliveryMode` lives on `Order`, and a laundry
+   * booking or a WhatsApp snack order has no campus delivery to describe.
+   * Refused on an order that is not a campus one, rather than storing a
+   * pickup spot nobody will ever be sent.
+   */
+  @Patch('marketplace/:id/pickup-spot')
+  setPickupSpot(
+    @CurrentUser() admin: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: OrderPickupSpotDto,
+  ) {
+    return this.ordersService.setPickupSpot(admin.userId, id, dto.message);
   }
 
   /** Refunds the order/booking owner's wallet via `WalletService`'s ledger (idempotent) — `400` for a snack order (no linked wallet). */

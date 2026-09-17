@@ -398,12 +398,11 @@ export class OrdersService {
    * conditional rule spelled out in two places drifts.
    */
   private async resolveCampusAddress(userId: string, dto: CreateOrderDto): Promise<string> {
+    // The buyer is no longer asked where on campus (2026-09-17, owner) —
+    // an admin writes `Order.pickupSpot` once the parcel is packed and the
+    // buyer is emailed it. A client that still sends one is honoured
+    // rather than refused.
     const drop = dto.campusDrop?.trim();
-    if (!drop) {
-      throw new BadRequestException(
-        'Tell us where on campus to hand it over — a building, block or room.',
-      );
-    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -423,7 +422,7 @@ export class OrdersService {
       recipientName: user?.name?.trim() || 'ISB campus delivery',
       phone,
       line1: ISB_CAMPUS_ADDRESS.line1,
-      line2: drop.slice(0, CAMPUS_DROP_MAX_LENGTH),
+      line2: drop ? drop.slice(0, CAMPUS_DROP_MAX_LENGTH) : null,
       city: ISB_CAMPUS_ADDRESS.city,
       state: ISB_CAMPUS_ADDRESS.state,
       pincode: ISB_CAMPUS_ADDRESS.pincode,

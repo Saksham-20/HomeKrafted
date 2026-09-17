@@ -908,6 +908,15 @@ export interface Order {
    * as `"standard"`, which is what it was.
    */
   deliveryMode?: OrderDeliveryMode;
+  /**
+   * Where to collect an ISB campus order, in the operator's own words
+   * (2026-09-17) — "Gate 1 reception, ask for Homekrafted".
+   *
+   * Absent until a person has named one. Checkout promises a message at
+   * packing time rather than asking the buyer, so absence here means
+   * "nobody has said yet", and no screen may invent a spot.
+   */
+  pickupSpot?: string;
 }
 
 /**
@@ -945,6 +954,15 @@ export interface SellerOrder {
    * as `"standard"`, which is what it was.
    */
   deliveryMode?: OrderDeliveryMode;
+  /**
+   * Where to collect an ISB campus order, in the operator's own words
+   * (2026-09-17) — "Gate 1 reception, ask for Homekrafted".
+   *
+   * Absent until a person has named one. Checkout promises a message at
+   * packing time rather than asking the buyer, so absence here means
+   * "nobody has said yet", and no screen may invent a spot.
+   */
+  pickupSpot?: string;
   /**
    * Another kitchen's items share this order. When true, `shipped` and
    * `delivered` are recorded by the Homekrafted team (admin override),

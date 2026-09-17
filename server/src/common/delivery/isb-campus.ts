@@ -50,8 +50,41 @@ export const ISB_CAMPUS_ADDRESS = {
   country: 'India',
 } as const;
 
-/** What a buyer types: "AC4, room 212", "Exec housing block B". */
+/**
+ * A campus drop label, if a client still sends one.
+ *
+ * **The buyer is no longer asked** (2026-09-17, owner): the handover spot
+ * depends on who is carrying the parcel and what is open on campus, and
+ * neither is knowable while somebody is paying. Checkout now promises
+ * that we will message the spot once the maker has packed it, and an
+ * admin writes it on the order (`Order.pickupSpot`). The field stays
+ * accepted so a client already in somebody's hands is not refused.
+ */
 export const CAMPUS_DROP_MAX_LENGTH = 120;
+
+/** An operator's own words: "Gate 1 reception, ask for Homekrafted". */
+export const PICKUP_SPOT_MAX_LENGTH = 300;
+export const PICKUP_SPOT_MIN_LENGTH = 3;
+
+/**
+ * What checkout promises, and what the packed message has to keep.
+ *
+ * One string, so the promise and the follow-up cannot drift into saying
+ * different things — the failure mode being a buyer told to expect a
+ * message that never names a spot.
+ */
+export const CAMPUS_PICKUP_PROMISE =
+  'We’ll message you the exact pickup spot on campus once the maker has packed it.';
+
+/**
+ * The same promise, said *at* packing time.
+ *
+ * `CAMPUS_PICKUP_PROMISE` is written in the future ("once the maker has
+ * packed it"), which is right at checkout and reads as a mistake in the
+ * message announcing that it has just been packed.
+ */
+export const CAMPUS_PICKUP_FOLLOWUP =
+  'We’ll message you the exact pickup spot shortly.';
 
 export function isCampusDelivery(mode: OrderDeliveryMode | null | undefined): boolean {
   return mode === OrderDeliveryMode.isb_campus;

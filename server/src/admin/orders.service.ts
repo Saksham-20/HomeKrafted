@@ -14,6 +14,7 @@ import { BOOKING_INCLUDE, mapLaundryBooking } from '../laundry/laundry.mapper';
 import { mapSnackOrder } from '../seller/mappers/snack-order.mapper';
 import { AdminAuditLogService } from './audit-log.service';
 import { OrderNotificationsService } from '../orders/order-notifications.service';
+import { isCampusDelivery } from '../common/delivery/isb-campus';
 import { ListAdminOrdersQueryDto } from './dto/list-admin-orders.query.dto';
 
 export type AdminOrderType = 'marketplace' | 'laundry' | 'snack';
@@ -581,6 +582,62 @@ export class AdminOrdersService {
         'This order changed while you were looking at it. Reload and try again.',
       );
     }
+  }
+
+  /**
+   * Name the pickup spot on a campus order, and tell the buyer
+   * (2026-09-17, owner).
+   *
+   * Checkout stopped asking the buyer where on campus to hand it over —
+   * the spot depends on who is carrying the parcel and what is open, and
+   * neither is knowable while they are paying. It promises a message
+   * instead, and this route is what keeps the promise: it writes
+   * `Order.pickupSpot` and notifies the buyer through the ordinary
+   * `order` category, where **email is on by default**
+   * (`defaultChannelsFor`).
+   *
+   * Three rules:
+   *
+   * - **Campus orders only.** A standard order has a street address and
+   *   nothing to collect from, so storing a pickup spot on one would be a
+   *   message nobody is ever sent. Refused, naming why.
+   * - **Re-sending is allowed on purpose.** A spot changes — a gate
+   *   closes, a rider is rerouted — and the buyer needs the newer one.
+   *   Each write notifies, because a silent correction is worse than a
+   *   second message.
+   * - **Audited**, like every other admin write on this screen: this one
+   *   sends mail to a customer in Homekrafted's voice.
+   */
+  async setPickupSpot(adminUserId: string, id: string, message: string) {
+    const existing = await this.prisma.order.findUnique({
+      where: { id },
+      select: { id: true, deliveryMode: true, pickupSpot: true },
+    });
+    if (!existing) throw new NotFoundException('Order not found');
+    if (!isCampusDelivery(existing.deliveryMode)) {
+      throw new BadRequestException(
+        'This order is not an ISB campus delivery — there is no pickup spot to send.',
+      );
+    }
+
+    await this.prisma.order.update({ where: { id }, data: { pickupSpot: message } });
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'order.set_pickup_spot',
+      targetType: 'Order',
+      targetId: id,
+      // Both sides, the same way a status override records them: "what
+      // did they change it from" is the question a dispute asks.
+      metadata: { before: existing.pickupSpot ?? null, after: message },
+    });
+
+    // `void`, like every other notification on this service: a message
+    // that fails to send must not roll back the spot an operator just
+    // recorded (M18's rule).
+    void this.orderNotifications.notifyBuyerOfPickupSpot(id);
+
+    return mapOrder(await this.reloadOrder(id));
   }
 
   private async logStatusOverride(

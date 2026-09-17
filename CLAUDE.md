@@ -2410,9 +2410,29 @@ that works end to end today without a carrier account.
 - **Both order screens say it** — "Hand-delivered on the ISB campus" for
   the buyer, "We collect this one" for the kitchen, whose part still ends
   at packed but whose screen otherwise implies a rider is coming.
-- The buyer supplies only what we cannot know: **where on campus**
-  (required, refused with the sentence naming the box) and a phone, which
-  falls back to the account's and is refused if there is neither.
+- **The buyer is not asked where on campus** (owner, 2026-09-17, reverses
+  the first version of this). The spot depends on who is carrying the
+  parcel and what is open, neither of which is knowable while somebody is
+  paying. Checkout promises a message instead
+  (`CAMPUS_PICKUP_PROMISE`), an operator names it on the live order —
+  `Order.pickupSpot`, via `PATCH /admin/orders/marketplace/:id/pickup-spot`
+  (scope `orders`, audited, campus orders only) — and **writing it emails
+  the buyer**, through the ordinary `order` category where email is on by
+  default. `campusDrop` is still accepted so a client already shipped is
+  not refused; the only thing still asked for is a phone, which falls
+  back to the account's and is refused if there is neither.
+- **Nothing invents a spot.** NULL means nobody has said yet, and every
+  surface says exactly that. The packed message names the spot if one is
+  set and otherwise repeats the promise — in `CAMPUS_PICKUP_FOLLOWUP`,
+  not `CAMPUS_PICKUP_PROMISE`, because "once the maker has packed it" is
+  right at checkout and reads as a mistake in the message announcing that
+  it has just been packed.
+- **The spot reaches the buyer verbatim**, the way a moderation reason
+  does (M22): those words are the only thing telling somebody where to
+  walk, and a notification layer paraphrasing them sends them to the
+  wrong gate. Re-sending is allowed and notifies again — a gate closes, a
+  rider is rerouted, and a silent correction is worse than a second
+  message.
 
 ## A listing's photos are a list (2026-09-17)
 

@@ -2503,6 +2503,15 @@ model Order {
   /// How it gets there (2026-09-17). `standard` on every pre-existing row,
   /// which is what they were. See `OrderDeliveryMode`.
   deliveryMode           OrderDeliveryMode @default(standard)
+  /// Where to collect an ISB campus order, in an operator's own words —
+  /// "Gate 1 reception, ask for Homekrafted" (2026-09-17, owner).
+  ///
+  /// Set by an admin on a live order, never by the buyer: the spot depends
+  /// on who is carrying it and what is open, which is not knowable at
+  /// checkout. Writing it **notifies the buyer**, email included, because
+  /// checkout promises exactly that message. NULL means nobody has said
+  /// yet, which is the honest state and what the order screens show.
+  pickupSpot             String?
 
   items          OrderItem[]
   shipments      OrderShipment[]

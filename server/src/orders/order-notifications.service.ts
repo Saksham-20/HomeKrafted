@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppConfig } from '../config/configuration';
 import { NotificationsDeliveryService } from '../notifications/notifications-delivery.service';
 import { buyerOrderMessage } from './order-status-copy';
+import { isCampusDelivery } from '../common/delivery/isb-campus';
 
 /**
  * Everything the platform says to a human about an order (M18).
@@ -140,11 +141,23 @@ export class OrderNotificationsService {
     try {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
-        select: { id: true, userId: true, orderNumber: true },
+        select: {
+          id: true,
+          userId: true,
+          orderNumber: true,
+          // A campus order's "packed" says something different: nobody is
+          // coming with a van, we are walking it over, and the pickup spot
+          // follows (2026-09-17).
+          deliveryMode: true,
+          pickupSpot: true,
+        },
       });
       if (!order) return;
 
-      const message = buyerOrderMessage(status, order.orderNumber);
+      const message = buyerOrderMessage(status, order.orderNumber, {
+        campus: isCampusDelivery(order.deliveryMode),
+        pickupSpot: order.pickupSpot,
+      });
       if (!message) return;
 
       await this.delivery.deliver({
@@ -179,6 +192,43 @@ export class OrderNotificationsService {
    * Craft-safe, per the `lib/kitchen-copy.ts` rule — one pipeline
    * carries pickles and candles, so nothing here refers to cooking.
    */
+  /**
+   * "Collect it from Gate 1 reception" — the message checkout promised
+   * (2026-09-17, owner).
+   *
+   * Checkout tells an ISB buyer we will message the pickup spot once the
+   * maker has packed their order, and an admin names it on the order
+   * (`AdminOrdersService.setPickupSpot`). This is the half that reaches
+   * the person: the ordinary `order` category, where **email is on by
+   * default** (`defaultChannelsFor`), so it arrives as mail as well as in
+   * the app.
+   *
+   * It carries the spot **verbatim**, the way a moderation reason does
+   * (M22): those words are the only thing telling somebody where to
+   * walk, and a notification layer paraphrasing them is how a buyer ends
+   * up at the wrong gate.
+   */
+  async notifyBuyerOfPickupSpot(orderId: string): Promise<void> {
+    try {
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, userId: true, orderNumber: true, pickupSpot: true },
+      });
+      if (!order?.pickupSpot) return;
+
+      await this.delivery.deliver({
+        userId: order.userId,
+        category: 'order',
+        title: `Where to collect order ${order.orderNumber}`,
+        body: `${order.pickupSpot} ${this.trackLink()}`,
+        refType: 'order',
+        refId: order.id,
+      });
+    } catch (err) {
+      this.logger.warn(`Could not send the pickup spot for order ${orderId}: ${String(err)}`);
+    }
+  }
+
   async notifyBuyerOfRefund(orderId: string, amount: number): Promise<void> {
     try {
       const order = await this.prisma.order.findUnique({

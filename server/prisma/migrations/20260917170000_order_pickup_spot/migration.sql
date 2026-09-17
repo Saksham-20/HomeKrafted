@@ -1,0 +1,12 @@
+-- Where to collect an ISB campus order (2026-09-17, owner).
+--
+-- Set by an admin on a live order — the spot depends on who is carrying
+-- the parcel and what is open on campus, neither of which is knowable at
+-- checkout, which is why the buyer is no longer asked for it. Writing it
+-- notifies the buyer (email included), because checkout promises that
+-- message.
+--
+-- Nullable with no default and nothing backfilled: NULL means nobody has
+-- named a spot yet, which is the honest state for every order that
+-- existed before this column.
+ALTER TABLE "Order" ADD COLUMN "pickupSpot" TEXT;

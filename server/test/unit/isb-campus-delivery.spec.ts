@@ -1,6 +1,10 @@
 import { OrderDeliveryMode } from '@prisma/client';
+import { buyerOrderMessage } from '../../src/orders/order-status-copy';
 import {
   CAMPUS_DROP_MAX_LENGTH,
+  CAMPUS_PICKUP_FOLLOWUP,
+  CAMPUS_PICKUP_PROMISE,
+  PICKUP_SPOT_MIN_LENGTH,
   ISB_ADDRESS_LABEL,
   ISB_CAMPUS_ADDRESS,
   campusAwareShippingFee,
@@ -130,5 +134,65 @@ describe('ShippingService.bookForOrder and a campus order', () => {
     jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
     await expect(service.bookForOrder('order-2')).resolves.toBeUndefined();
     expect(service['logger'].error).toHaveBeenCalled();
+  });
+});
+
+/**
+ * The pickup spot (2026-09-17, owner).
+ *
+ * Checkout stopped asking the buyer where on campus to hand over — the
+ * spot depends on who is carrying the parcel and what is open, neither
+ * knowable while somebody is paying. It promises a message instead, and
+ * an admin writes `Order.pickupSpot`, which emails them.
+ */
+describe('the campus packed message', () => {
+  it('names the spot once an operator has set one', () => {
+    const message = buyerOrderMessage('packed', 'HK2128', {
+      campus: true,
+      pickupSpot: 'Gate 1 reception',
+    });
+    expect(message?.body).toContain('Gate 1 reception');
+    // Never the courier line: nobody is coming with a van for these.
+    expect(message?.body).not.toContain('out for delivery');
+  });
+
+  it('promises the message rather than inventing a spot when none is set', () => {
+    for (const pickupSpot of [null, undefined, '']) {
+      const message = buyerOrderMessage('packed', 'HK2128', { campus: true, pickupSpot });
+      expect(message?.body).toContain(CAMPUS_PICKUP_FOLLOWUP);
+      expect(message?.body).toContain('ISB campus');
+    }
+  });
+
+  /**
+   * The follow-up is a different sentence from the checkout promise on
+   * purpose: "once the maker has packed it" is right while they are
+   * paying and reads as a mistake in the message announcing that it has
+   * just been packed.
+   */
+  it('does not reuse the future-tense checkout promise at packing time', () => {
+    const message = buyerOrderMessage('packed', 'HK2128', { campus: true });
+    expect(message?.body).not.toContain(CAMPUS_PICKUP_PROMISE);
+    expect(CAMPUS_PICKUP_FOLLOWUP).not.toEqual(CAMPUS_PICKUP_PROMISE);
+  });
+
+  it('leaves a standard order on the ordinary courier copy', () => {
+    const message = buyerOrderMessage('packed', 'HK2124');
+    expect(message?.body).toContain('out for delivery');
+    expect(message?.body).not.toContain('campus');
+  });
+
+  it('only changes the packed message, not every other status', () => {
+    // A campus order's "delivered" or "placed" is the same fact as any
+    // other order's; only the handover differs.
+    for (const status of ['placed', 'confirmed', 'shipped', 'delivered'] as const) {
+      expect(buyerOrderMessage(status, 'HK1', { campus: true })).toEqual(
+        buyerOrderMessage(status, 'HK1'),
+      );
+    }
+  });
+
+  it('keeps a floor on the spot, so "ok" is not a pickup spot', () => {
+    expect(PICKUP_SPOT_MIN_LENGTH).toBeGreaterThan(2);
   });
 });

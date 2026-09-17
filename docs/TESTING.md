@@ -1703,9 +1703,10 @@ packed it — no courier is involved at all.
 
 What to test:
 
-- The panel asks **where on campus** ("AC4, room 212") and, optionally, a
-  phone for the handover. Leaving the campus box empty and pressing Place
-  order must **name that box and jump to it**, never fail silently.
+- The panel asks for **nothing but an optional phone** (2026-09-17). It
+  says we will message the pickup spot once the maker has packed the
+  order — there is no "where on campus" box any more, because the spot
+  depends on who is carrying it that day.
 - **Delivery reads Free** in both bill summaries the moment you pick the
   option, even before the delivery rule has loaded — there is no fee left
   to work out.
@@ -1715,8 +1716,19 @@ What to test:
   building in it.
 - The HomeKrafter's own order screen says **"We collect this one"**. Their
   job still ends at "packed" — they should not be waiting for a rider.
-- Order to campus twice with different buildings: your address book keeps
-  **one** "ISB campus" entry, carrying the newer building.
+- Order to campus twice: your address book keeps **one** "ISB campus"
+  entry.
+- **The pickup spot, and the mail.** On `/admin/orders/marketplace/<id>`
+  for a campus order there is a "Pickup spot on campus" box. Type where
+  to collect it ("Gate 1 reception, ask for Homekrafted") and press **Send
+  to buyer**: it should appear on the buyer's own order page, and they
+  should get it by **email** as well as in their notifications. Sending a
+  second, different spot must replace the first and message them again.
+- Mark a campus order **packed** before any spot is set: the buyer's
+  message should say we are bringing it onto campus and will message the
+  spot shortly — never "it goes out for delivery next", and never a spot
+  nobody typed.
+- The same box must **not** appear on a normal (non-campus) order.
 - The "ISB campus" address must **not** appear in the ordinary address
   list under "Deliver to me", or in the per-line address dropdown. It is
   written by us, not chosen.

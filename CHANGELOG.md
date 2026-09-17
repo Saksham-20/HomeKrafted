@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-17 (later) — the ISB pickup spot is ours to send, not theirs to type
+
+Owner, revising the option shipped hours earlier: stop asking the buyer
+where on campus to hand over, say we will message them the spot once the
+order is packed, and make sure that message is emailed.
+
+- Checkout's campus panel loses the "Where on campus?" box and states the
+  promise instead. The spot depends on who is carrying the parcel and
+  what is open, neither knowable while somebody is paying.
+- `Order.pickupSpot` + `PATCH /admin/orders/marketplace/:id/pickup-spot`
+  (scope `orders`, audited, campus orders only, 3–300 chars) — an
+  operator types the spot on the live order and **the buyer is emailed
+  it** through the ordinary `order` category, where email is on by
+  default. Verbatim, the way a moderation reason is: those words are the
+  only thing telling somebody where to walk. Re-sending replaces and
+  notifies again.
+- The packed message is campus-aware: it names the spot if one is set,
+  otherwise repeats the promise — and never the courier line "it goes out
+  for delivery next", because nobody is coming with a van for these.
+- Both order screens show the spot, or say plainly that nobody has named
+  one yet. Nothing invents a spot.
+- `campusDrop` stays accepted on `POST /orders` so a client already in
+  somebody's hands is not refused.
+
 ## 2026-09-17 (later) — Deliver to ISB
 
 Owner: a third delivery option at checkout — hand-delivery onto the ISB
