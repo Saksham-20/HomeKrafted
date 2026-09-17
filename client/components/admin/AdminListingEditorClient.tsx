@@ -14,6 +14,7 @@ import {
   LISTING_FORM_SECTIONS,
   ListingForm,
   hasListingFormErrors,
+  prepTimeMinsToFormValue,
   toSellerListingInput,
   validateListingForm,
   countListingFormErrors,
@@ -47,7 +48,8 @@ function productToFormValues(product: Product): ListingFormValues {
     occasionIds: product.occasionIds,
     dietary: product.dietary,
     // Blank when the listing has never been asked — see `parsePrepTime`.
-    prepTimeMins: product.prepTimeMins === undefined ? "" : String(product.prepTimeMins),
+    // Days for a craft listing, minutes for food — see `prepTimeMinsToFormValue`.
+    prepTimeMins: prepTimeMinsToFormValue(product.prepTimeMins, product.kind ?? "food"),
     description: product.description,
     isPackaged: product.isPackaged,
     isHamper: product.isHamper ?? false,
@@ -75,6 +77,9 @@ function productToFormValues(product: Product): ListingFormValues {
     allergens: product.allergens ?? [],
     servingGuidance: product.servingGuidance ?? "",
     fulfillmentType: product.fulfillmentType ?? "fresh_nearby",
+    fulfilment: product.fulfilment ?? "",
+    isPersonalisable: product.isPersonalisable ?? false,
+    personalisationPrompt: product.personalisationPrompt ?? "",
   };
 }
 

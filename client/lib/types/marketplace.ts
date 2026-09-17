@@ -569,6 +569,8 @@ export interface Product {
   fulfilment?: "ready_to_ship" | "made_to_order";
   /** Whether the maker takes a name, date or message on this gift (G1/D11). */
   isPersonalisable?: boolean;
+  /** What the maker asks the buyer for, e.g. "Name to engrave" (G1/D11). Present only while `isPersonalisable`. */
+  personalisationPrompt?: string;
   /**
    * On the WhatsApp snacks menu (M20). Absent reads as `false`.
    *

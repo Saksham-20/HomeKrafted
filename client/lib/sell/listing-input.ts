@@ -34,16 +34,6 @@ export interface ListingFormValues {
   categoryIds: string[];
   occasionIds: string[];
   dietary: DietaryTag[];
-  /**
-   * How much notice this listing needs, as typed — a string like every
-   * other numeric field in this form, so an empty box stays empty rather
-   * than becoming a 0 the moment it is focused. `toSellerListingInput`
-   * turns blank into `undefined`, never 0: 0 would be a claim that no
-   * notice is needed, and the whole point of the column is that "not
-   * stated" is a real answer. Same lesson as `parseStock` below, where a
-   * blank turning into 0 took sixteen live listings off sale.
-   */
-  prepTimeMins: string;
   description: string;
   isPackaged: boolean;
   isHamper: boolean;
@@ -68,6 +58,32 @@ export interface ListingFormValues {
   allergens: string[];
   servingGuidance: string;
   fulfillmentType: "fresh_nearby" | "nationwide" | "gift_bulk";
+  /**
+   * G1 — does this exist already, or is it made once somebody orders it?
+   * `""` is "not answered", never a default toward `ready_to_ship`: the
+   * server reads absence the same way (`Fulfilment?`, NULL means nobody
+   * was asked), and guessing ready-to-ship on a maker's behalf is a
+   * delivery promise the platform has no basis for.
+   */
+  fulfilment: "" | "ready_to_ship" | "made_to_order";
+  /**
+   * How much notice this listing needs when it's made to order — typed in
+   * **days** for a craft listing and **minutes** for food, because "3" and
+   * "3 minutes" mean different things to a jeweller and a cook. Both units
+   * write the same `prepTimeMins` column; see `toSellerListingInput`.
+   *
+   * A string like every other numeric field in this form, so an empty box
+   * stays empty rather than becoming a 0 the moment it is focused —
+   * `toSellerListingInput` turns blank into `undefined`, never 0: 0 would
+   * be a claim that no notice is needed. Same lesson as `parseStock`
+   * below, where a blank turning into 0 took sixteen live listings off
+   * sale.
+   */
+  prepTimeMins: string;
+  /** Whether the buyer may ask for a personal touch (G1/D11) — a name, a colour, a message. */
+  isPersonalisable: boolean;
+  /** What to ask the buyer for, in the maker's own words — "Name to engrave", "Colour you'd like". */
+  personalisationPrompt: string;
 }
 
 export const EMPTY_LISTING_FORM: ListingFormValues = {
@@ -97,6 +113,9 @@ export const EMPTY_LISTING_FORM: ListingFormValues = {
   allergens: [],
   servingGuidance: "",
   fulfillmentType: "fresh_nearby",
+  fulfilment: "",
+  isPersonalisable: false,
+  personalisationPrompt: "",
 };
 
 export function slugify(value: string): string {
@@ -134,6 +153,22 @@ export function parsePrepTime(raw: string): number | undefined {
   const n = Number(trimmed);
   if (!Number.isFinite(n) || n <= 0) return undefined;
   return Math.floor(n);
+}
+
+/**
+ * The inverse of the day-scaling in `toSellerListingInput` — turns a
+ * stored `prepTimeMins` (always minutes) back into whatever the form
+ * shows for this kind, so an editor opening an existing craft listing
+ * sees "3" (days), not "4320". Both editor clients call this rather than
+ * `String(product.prepTimeMins)` directly, so the two forms cannot
+ * disagree about which unit a saved value means.
+ */
+export function prepTimeMinsToFormValue(
+  prepTimeMins: number | undefined,
+  kind: ProductKind,
+): string {
+  if (prepTimeMins === undefined) return "";
+  return String(kind === "craft" ? Math.round(prepTimeMins / 1440) : prepTimeMins);
 }
 
 /**
@@ -271,7 +306,22 @@ export function toSellerListingInput(values: ListingFormValues): SellerListingIn
     // before the kind was switched. Sending stale food fields on a candle
     // would put it on the snacks menu and label it vegan.
     dietary: values.kind === "craft" ? [] : values.dietary,
-    prepTimeMins: parsePrepTime(values.prepTimeMins),
+    // Typed in days for a craft listing, minutes for food (see the field's
+    // doc comment) — both write the same column, so this is the one place
+    // that converts. `parsePrepTime` already turns blank/zero/negative
+    // into `undefined`, so a craft day-count gets the same "not stated"
+    // treatment before it is scaled up.
+    prepTimeMins: (() => {
+      const parsed = parsePrepTime(values.prepTimeMins);
+      return parsed === undefined ? undefined : values.kind === "craft" ? parsed * 1440 : parsed;
+    })(),
+    fulfilment: values.fulfilment || undefined,
+    isPersonalisable: values.isPersonalisable,
+    // A prompt nobody will read while personalisation is off — sending it
+    // anyway would let a maker toggle personalisation off and still have
+    // an old question show up if the flag is ever turned back on by a
+    // stale payload.
+    personalisationPrompt: values.isPersonalisable ? values.personalisationPrompt.trim() || undefined : undefined,
     description: values.description,
     isPackaged: values.isPackaged,
     isHamper: values.isHamper,
@@ -317,6 +367,7 @@ export interface ListingFormErrors {
   storageInstructions?: string;
   servingGuidance?: string;
   prepTimeMins?: string;
+  personalisationPrompt?: string;
   /** Index → message, for a tier the server would refuse. */
   weightRows?: Record<number, string>;
 }
@@ -359,6 +410,9 @@ export const LISTING_LIMITS = {
 /** Minutes of notice the server accepts — `@Max(43200)`, i.e. 30 days. */
 export const PREP_TIME_MAX_MINS = 43200;
 
+/** Days of notice the server accepts for a craft listing's day-typed input — `PREP_TIME_MAX_MINS / 1440`. */
+export const PREP_TIME_MAX_DAYS = 30;
+
 /**
  * The order the form asks these questions in, which is the order the first
  * error is looked for. It is a list rather than `Object.keys`, because key
@@ -371,6 +425,7 @@ export const LISTING_FIELD_ORDER = [
   "description",
   "weightRows",
   "prepTimeMins",
+  "personalisationPrompt",
   "dimensions",
   "material",
   "careInstructions",
@@ -455,15 +510,38 @@ export function validateListingForm(
 
   // Notice: `@Max(43200)` on the server. A typo of 1200000 came back as
   // "prepTimeMins must not be greater than 43200", which is a number
-  // nobody has been shown and a field name nobody can see.
+  // nobody has been shown and a field name nobody can see. The unit and
+  // ceiling both flip for a craft listing, which types the same field in
+  // days (`toSellerListingInput` scales it back to minutes).
+  const isCraftKind = values.kind === "craft";
+  const prepUnit = isCraftKind ? "day" : "minute";
+  const prepMax = isCraftKind ? PREP_TIME_MAX_DAYS : PREP_TIME_MAX_MINS;
   const prep = values.prepTimeMins.trim();
-  if (prep !== "") {
-    const minutes = Number(prep);
-    if (!Number.isFinite(minutes) || minutes < 0) {
-      errors.prepTimeMins = "Give the notice in whole minutes, or leave it blank.";
-    } else if (minutes > PREP_TIME_MAX_MINS) {
-      errors.prepTimeMins = `That is more than 30 days of notice. The most we can hold is ${PREP_TIME_MAX_MINS} minutes.`;
+  if (values.fulfilment === "made_to_order" && prep === "") {
+    // Only the choice itself is required (G1) — a listing that has never
+    // been asked "ready or made to order" is a listing nobody has gotten
+    // to yet, and forcing an answer on every existing food row's next
+    // save would block a seller who opened the form to fix a typo. Once
+    // "made to order" is the answer, though, giving no timeframe is the
+    // one gap the plan calls out by name (schema comment on `Fulfilment`).
+    errors.prepTimeMins = `Say how many ${prepUnit}s you need to make and send it once it's ordered.`;
+  } else if (prep !== "") {
+    const n = Number(prep);
+    if (!Number.isFinite(n) || n <= 0) {
+      errors.prepTimeMins = `Give the notice in whole ${prepUnit}s, or leave it blank.`;
+    } else if (n > prepMax) {
+      errors.prepTimeMins = `That is more than 30 days of notice. The most we can hold is ${prepMax} ${prepUnit}s.`;
     }
+  }
+
+  if (values.isPersonalisable && !values.personalisationPrompt.trim()) {
+    errors.personalisationPrompt = "Say what you want the buyer to tell you — a name, a date, a colour.";
+  } else {
+    errors.personalisationPrompt = tooLong(
+      "The question",
+      values.personalisationPrompt,
+      LISTING_LIMITS.personalisationPrompt,
+    );
   }
 
   errors.dimensions = tooLong("The size", values.dimensions, LISTING_LIMITS.dimensions);

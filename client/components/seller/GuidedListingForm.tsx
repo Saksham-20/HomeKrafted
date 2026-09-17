@@ -26,7 +26,7 @@ import { markupBreakdown, type CommissionRate } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
-import { VARIANT_LABEL_MAX, mergeVariantLabel, variantLabelError } from "@/lib/sell/listing-input";
+import { LISTING_LIMITS, VARIANT_LABEL_MAX, mergeVariantLabel, variantLabelError } from "@/lib/sell/listing-input";
 import { ColourSwatches } from "./ColourSwatches";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import { buildShelfPicks } from "@/lib/sell/shelf-picks";
@@ -324,8 +324,18 @@ export function GuidedListingForm({
         }
       }
     }
-    if (index === 3 && !values.description.trim()) {
-      return "Write a line or two about it — this is what a buyer reads before deciding.";
+    if (index === 3) {
+      if (!values.description.trim()) {
+        return "Write a line or two about it — this is what a buyer reads before deciding.";
+      }
+      if (values.fulfilment === "made_to_order" && !values.prepTimeMins.trim()) {
+        return isCraft
+          ? "Say how many days you need to make and send it."
+          : "Say how much notice you need, in minutes.";
+      }
+      if (values.isPersonalisable && !values.personalisationPrompt.trim()) {
+        return "Say what you want to ask the buyer for.";
+      }
     }
     return undefined;
   }
@@ -958,6 +968,78 @@ export function GuidedListingForm({
                 </button>
               </div>
             </fieldset>
+            )}
+
+            {/*
+              Ready to ship, or made to order (G1, 2026-09-16) — asked of
+              food and craft alike, same question the long form asks. Left
+              unanswered by default rather than defaulted to "ready to
+              ship": a listing nobody has told us about gets no delivery
+              promise, not a guessed one.
+            */}
+            <fieldset className={styles.choiceSet}>
+              <legend className={styles.question}>Ready to ship, or made to order?</legend>
+              <div className={styles.choices}>
+                <button
+                  type="button"
+                  className={clsx(styles.choice, values.fulfilment === "ready_to_ship" && styles.choiceOn)}
+                  onClick={() => set("fulfilment", "ready_to_ship")}
+                  aria-pressed={values.fulfilment === "ready_to_ship"}
+                >
+                  <span className={styles.choiceTitle}>Ready to ship</span>
+                  <span className={styles.choiceHint}>You already have it, no special notice needed</span>
+                </button>
+                <button
+                  type="button"
+                  className={clsx(styles.choice, values.fulfilment === "made_to_order" && styles.choiceOn)}
+                  onClick={() => set("fulfilment", "made_to_order")}
+                  aria-pressed={values.fulfilment === "made_to_order"}
+                >
+                  <span className={styles.choiceTitle}>Made to order</span>
+                  <span className={styles.choiceHint}>
+                    {isCraft ? "You make each one once it's bought" : "You need advance notice to cook it"}
+                  </span>
+                </button>
+              </div>
+            </fieldset>
+
+            {values.fulfilment === "made_to_order" && (
+              <label className={styles.field}>
+                <span className={styles.question}>
+                  {isCraft ? "How many days to make and send it?" : "How much notice do you need, in minutes?"}
+                </span>
+                <input
+                  className={styles.bigInput}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  value={values.prepTimeMins}
+                  onChange={(event) => set("prepTimeMins", event.target.value)}
+                  placeholder={isCraft ? "e.g. 3" : "e.g. 120"}
+                />
+              </label>
+            )}
+
+            <label className={styles.checkRow}>
+              <input
+                type="checkbox"
+                checked={values.isPersonalisable}
+                onChange={(event) => set("isPersonalisable", event.target.checked)}
+              />
+              <span>Can the buyer ask for a personal touch? (name, colour, message)</span>
+            </label>
+
+            {values.isPersonalisable && (
+              <label className={styles.field}>
+                <span className={styles.question}>What should we ask them for?</span>
+                <input
+                  className={styles.bigInput}
+                  value={values.personalisationPrompt}
+                  onChange={(event) => set("personalisationPrompt", event.target.value)}
+                  placeholder='e.g. "Which colour would you like?"'
+                  maxLength={LISTING_LIMITS.personalisationPrompt}
+                />
+              </label>
             )}
 
             <Combobox

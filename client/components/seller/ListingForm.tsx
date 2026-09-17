@@ -33,6 +33,7 @@ import {
   type ListingFormErrors,
   listingFieldId,
   DEFAULT_STOCK,
+  LISTING_LIMITS,
 } from "@/lib/sell/listing-input";
 export * from "@/lib/sell/listing-input";
 
@@ -850,37 +851,98 @@ export function ListingForm({
         )}
 
         {/*
-          How much notice *this* listing needs (2026-09-05).
+          Ready to ship, or made to order (G1, 2026-09-16) — replaces the
+          old `isPackaged` checkbox here, which was labelled "Ready to
+          ship" but wrote a field nothing downstream ever reads. This
+          writes the real `Fulfilment` column the Pre-order badge and the
+          Dispatch filter both read.
 
-          Asked on the listing rather than only on the kitchen because
-          they are different questions: a kitchen answering "90 minutes"
-          on its profile is describing a thali, and the same kitchen's
-          celebration cake needs two days. The kitchen's own figure stays
-          the scheduler's input and is untouched by this.
-
-          Asked of the families whose notice is a COOKING question. A craft
-          listing's lead time is a shipping question, which `shippingScope`
-          already asks — except for a made-to-order piece, which is the gap
-          this form still does not cover (there is nowhere to say what the
-          buyer must supply, or how many days personalising adds).
+          Asked of every listing, food and craft alike — a thali and a
+          candle are both either in hand or made once somebody orders it.
+          Left unanswered (`""`) rather than defaulted to "ready to ship":
+          guessing that on a maker's behalf is a delivery promise the
+          platform has no basis for, same reasoning as `workingDays` and
+          `dietary`. How much notice a made-to-order piece needs is *not*
+          a new column — it's the existing `prepTimeMins`, asked in days
+          here for a craft listing and minutes for food (the unit a
+          jeweller and a cook would each actually reach for).
         */}
-        {asks("prepTimeMins") && (
-        <Field
-          label="Preparation notice needed"
-          optional
-          error={errors?.prepTimeMins}
-          id={listingFieldId("prepTimeMins")}
-          hint={`Minutes notice needed before this order can be ready (e.g. 120 for 2 hours, 2880 for two days). Over ${PRE_ORDER_THRESHOLD_MINS} mins shows a "Pre-order" badge. Leave blank if ready immediately.`}
+        <Fieldset
+          legend="Ready to ship, or made to order?"
+          hint="Changes what buyers are promised, and whether a “Pre-order” badge shows on the card."
         >
-          <Input
-            type="number"
-            min={0}
-            inputMode="numeric"
-            value={values.prepTimeMins}
-            onChange={(event) => set("prepTimeMins", event.target.value)}
-            placeholder="e.g. 120 for 2 hours, 2880 for two days"
+          <ChoiceCards
+            label="Ready to ship, or made to order?"
+            value={values.fulfilment}
+            onChange={(next) => set("fulfilment", next)}
+            options={[
+              {
+                value: "ready_to_ship",
+                title: "Ready to ship",
+                hint: "You already have it, or it's cooked when ordered with no special notice.",
+              },
+              {
+                value: "made_to_order",
+                title: "Made to order",
+                hint: isCraft
+                  ? "You make each one once it's bought."
+                  : "You need advance notice before you can cook it.",
+              },
+            ]}
           />
-        </Field>
+        </Fieldset>
+
+        {values.fulfilment === "made_to_order" && (
+          <Field
+            label={isCraft ? "How many days to make and send it?" : "How much notice do you need?"}
+            error={errors?.prepTimeMins}
+            id={listingFieldId("prepTimeMins")}
+            hint={
+              isCraft
+                ? "Whole days, from the order landing to it leaving for dispatch."
+                : `In minutes (e.g. 120 for 2 hours, 2880 for two days). Over ${PRE_ORDER_THRESHOLD_MINS} mins shows a "Pre-order" badge.`
+            }
+          >
+            <Input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={values.prepTimeMins}
+              onChange={(event) => set("prepTimeMins", event.target.value)}
+              placeholder={isCraft ? "e.g. 3" : "e.g. 120 for 2 hours, 2880 for two days"}
+            />
+          </Field>
+        )}
+
+        {/*
+          Personalisation (G1/D11) — a first-class listing fact rather
+          than something only mentioned in the description. The buyer's
+          own entry point for it (typing the actual name/date/message) is
+          a separate feature (G4) and is not built by this.
+        */}
+        <div className={styles.options}>
+          <CheckRow
+            label="Can the buyer ask for a personal touch?"
+            help="A name, date, colour or short message they'd tell you before checkout — a candle's scent choice, a cushion's monogram."
+            checked={values.isPersonalisable}
+            onChange={(event) => set("isPersonalisable", event.target.checked)}
+          />
+        </div>
+
+        {values.isPersonalisable && (
+          <Field
+            label="What should we ask them for?"
+            error={errors?.personalisationPrompt}
+            id={listingFieldId("personalisationPrompt")}
+            hint="Shown to the buyer as the question they answer — in your own words."
+          >
+            <Input
+              value={values.personalisationPrompt}
+              onChange={(event) => set("personalisationPrompt", event.target.value)}
+              placeholder='e.g. "Which colour would you like?"'
+              maxLength={LISTING_LIMITS.personalisationPrompt}
+            />
+          </Field>
         )}
 
         <Fieldset legend="Tags" optional>
@@ -892,16 +954,6 @@ export function ListingForm({
         </Fieldset>
 
         <div className={styles.options}>
-          <CheckRow
-            label={isCraft ? "Ready to ship" : "Ready-to-ship, packaged"}
-            help={
-              isCraft
-                ? "Untick if each piece is made to order after somebody buys it."
-                : "Untick if you cook it to order — buyers are then offered your preparation time."
-            }
-            checked={values.isPackaged}
-            onChange={(event) => set("isPackaged", event.target.checked)}
-          />
           {!isCraft && (
             <CheckRow
               label="Also list it on my snacks menu"

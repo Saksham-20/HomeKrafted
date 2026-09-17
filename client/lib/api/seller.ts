@@ -201,6 +201,12 @@ export interface SellerListingInput {
   allergens?: string[];
   servingGuidance?: string;
   fulfillmentType?: "fresh_nearby" | "nationwide" | "gift_bulk";
+  /** G1 — ready to ship, or made once ordered. Absent means nobody was asked. */
+  fulfilment?: "ready_to_ship" | "made_to_order";
+  /** G1/D11 — whether the buyer may ask for a name, date or message. */
+  isPersonalisable?: boolean;
+  /** What to ask the buyer for, e.g. "Name to engrave". Sent only while `isPersonalisable` is true. */
+  personalisationPrompt?: string;
 }
 
 export async function createSellerListing(
@@ -250,6 +256,9 @@ export async function createSellerListing(
       allergens: input.allergens,
       servingGuidance: input.servingGuidance,
       fulfillmentType: input.fulfillmentType,
+      fulfilment: input.fulfilment,
+      isPersonalisable: input.isPersonalisable,
+      personalisationPrompt: input.personalisationPrompt,
     };
     listings.push(product);
     return product;
@@ -291,6 +300,9 @@ export async function updateSellerListing(
     product.allergens = input.allergens;
     product.servingGuidance = input.servingGuidance;
     product.fulfillmentType = input.fulfillmentType;
+    product.fulfilment = input.fulfilment;
+    product.isPersonalisable = input.isPersonalisable;
+    product.personalisationPrompt = input.personalisationPrompt;
     if (product.moderationStatus === "rejected") {
       product.moderationStatus = "pending";
       product.submittedAt = new Date().toISOString();
