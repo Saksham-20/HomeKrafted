@@ -1,9 +1,14 @@
 .ticker {
   flex-shrink: 0;
   overflow: hidden;
-  background: linear-gradient(90deg, #fff5cc 0%, #fde88c 50%, #fff5cc 100%);
-  border-block: 1px solid rgba(20, 83, 45, 0.18);
-  box-shadow: 0 3px 12px rgba(217, 160, 30, 0.12);
+  /* Was a gold gradient with dark-green text — low contrast, and gold
+     carrying words is the one thing CLAUDE.md's contrast rule rules out
+     outright. Terracotta tint + `--hk-terracotta-text`, the token this
+     project already keeps for exactly "terracotta on the terracotta
+     tint" (owner, 2026-09-17). */
+  background: var(--hk-terracotta-tint);
+  border-block: 1px solid rgba(182, 93, 60, 0.22);
+  box-shadow: 0 3px 12px rgba(182, 93, 60, 0.1);
   padding-block: clamp(8px, 0.9vw, 11px);
   margin: 0;
   cursor: default;
@@ -36,13 +41,13 @@
   letter-spacing: 0.15em;
   font-variant-caps: all-small-caps;
   white-space: nowrap;
-  color: #14532d;
+  color: var(--hk-terracotta-text);
 }
 
 .sparkle {
   width: 15px;
   height: 15px;
-  color: #14532d;
+  color: var(--hk-terracotta-text);
   flex: none;
   opacity: 0.95;
 }

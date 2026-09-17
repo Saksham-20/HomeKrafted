@@ -18,7 +18,6 @@ export function AppInstallPanel({ className }: AppInstallPanelProps) {
       </div>
 
       <div className={styles.copy}>
-        <span className={styles.eyebrow}>Mobile Experience</span>
         <h3 className={styles.title}>Order homemade food on the go</h3>
         <p className={styles.subtitle}>
           Fully responsive mobile web experience with fast checkout, live order tracking, and chef stories.

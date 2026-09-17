@@ -57,13 +57,16 @@
 }
 
 .sectionTitle {
-  font-family: var(--hk-font-display);
-  font-size: clamp(28px, 3.2vw, 42px);
-  font-weight: 700;
+  /* Instrument Serif, matching every other home-page section heading
+     (2026-09-17, owner) — see app/page.module.css's `.sectionTitle` for
+     the full note. */
+  font-family: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 400;
   color: var(--hk-ink-high, #1a140e);
   margin: 0;
   line-height: 1.1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 /* Fixed absolute horizontal center: completely immune to link width changes */

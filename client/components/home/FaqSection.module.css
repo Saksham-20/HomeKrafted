@@ -12,22 +12,15 @@
   margin-bottom: clamp(18px, 2.4vw, 28px);
 }
 
-.eyebrow {
-  display: inline-block;
-  font-family: var(--hk-font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm, #886815);
-  margin-bottom: 8px;
-}
-
 .title {
-  font-family: var(--hk-font-display);
-  font-size: clamp(26px, 3.2vw, 40px);
-  font-weight: 700;
+  /* Instrument Serif, matching every other home-page section heading
+     (2026-09-17, owner) — see app/page.module.css's `.sectionTitle` for
+     the full note. */
+  font-family: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  font-size: clamp(30px, 3.6vw, 46px);
+  font-weight: 400;
   color: var(--hk-ink, #2b241c);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   line-height: 1.1;
   margin: 0 0 10px;
 }

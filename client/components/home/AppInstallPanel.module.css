@@ -38,22 +38,17 @@
   min-width: 0;
 }
 
-.eyebrow {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm, #886815);
-}
-
 .title {
-  font-family: var(--hk-font-display);
-  font-size: clamp(20px, 2.2vw, 26px);
-  font-weight: 700;
+  /* Instrument Serif, matching every other home-page section heading
+     (2026-09-17, owner) — see app/page.module.css's `.sectionTitle` for
+     the full note. */
+  font-family: var(--font-instrument-serif), "Instrument Serif", Georgia, serif;
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 400;
   color: var(--hk-pine, #234233);
   margin: 0;
   line-height: 1.15;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {

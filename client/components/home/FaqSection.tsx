@@ -62,7 +62,6 @@ export function FaqSection() {
   return (
     <section className={styles.faqSection} aria-labelledby="faq-heading">
       <div className={styles.faqHead}>
-        <span className={styles.eyebrow}>Got Questions?</span>
         <h2 id="faq-heading" className={styles.title}>
           Frequently Asked Questions
         </h2>

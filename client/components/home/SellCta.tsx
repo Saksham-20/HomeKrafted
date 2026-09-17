@@ -7,7 +7,6 @@ export function SellCta() {
     <section className={styles.band} aria-labelledby="sell-heading">
       <div className={styles.glowAura} aria-hidden="true" />
       <div className={styles.body}>
-        <span className={styles.eyebrow}>Cook, bake, or make things</span>
         <h2 id="sell-heading" className={styles.title}>
           Your kitchen is already a business. Give it a storefront.
         </h2>

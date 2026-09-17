@@ -325,7 +325,6 @@ export default async function Home() {
       <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <div className={styles.sectionHead}>
           <div>
-            <span className={styles.eyebrow}>From real orders</span>
             <h2 className={styles.sectionTitle}>See what arrives</h2>
           </div>
           <Link href="/shop" className={styles.viewAll}>
@@ -340,7 +339,6 @@ export default async function Home() {
       <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <div className={styles.sectionHead}>
           <div>
-            <span className={styles.eyebrow}>Homemade food</span>
             <h2 className={styles.sectionTitle}>What are you in the mood for</h2>
           </div>
           <Link href="/shop" className={styles.viewAll}>
@@ -358,12 +356,45 @@ export default async function Home() {
         </ScrollRail>
       </section>
 
-      {/* ── 10. Occasions ("Someone you owe a present" - Magazine Grid) ── */}
+      {/* ── 10. Explainer Timeline ("How this works") ── */}
+      <div className={clsx(styles.explainerBand, styles.reveal)}>
+        <section className={clsx("container", "container-prose", styles.section, styles.explainer)}>
+          <div className={styles.sectionHead}>
+            <div>
+              <h2 className={styles.sectionTitle}>How this works</h2>
+            </div>
+          </div>
+          <HowItWorks />
+        </section>
+      </div>
+
+      {/* ── 11. Asymmetric Promo Bands ── */}
+      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
+        <div className={styles.bandsGrid}>
+          {promoBands.map((band) => (
+            <PromoBand
+              key={band.id}
+              variant={band.variant}
+              eyebrow={band.eyebrow}
+              title={renderPromoTitle(band.title)}
+              description={band.description}
+              ctaLabel={band.ctaLabel}
+              ctaHref={band.ctaHref}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* ── 12. Occasions ("Someone you owe a present" - Magazine Grid).
+          Moved down from directly under Categories (9) — stacking two
+          tile-grid sections back to back read as one long list; the
+          Explainer band and Promo bands between them now give this one
+          its own approach instead of a second helping of the same
+          layout. */}
       <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
         <div className={styles.containerSage}>
           <div className={styles.sectionHead}>
             <div>
-              <span className={styles.eyebrow}>Handcrafted gifts</span>
               <h2 className={styles.sectionTitle}>Someone you owe a present</h2>
             </div>
             <Link href="/collections" className={styles.viewAll}>
@@ -379,36 +410,6 @@ export default async function Home() {
               />
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* ── 11. Explainer Timeline ("How this works") ── */}
-      <div className={clsx(styles.explainerBand, styles.reveal)}>
-        <section className={clsx("container", "container-prose", styles.section, styles.explainer)}>
-          <div className={styles.sectionHead}>
-            <div>
-              <span className={styles.eyebrow}>Ordering from a home kitchen</span>
-              <h2 className={styles.sectionTitle}>How this works</h2>
-            </div>
-          </div>
-          <HowItWorks />
-        </section>
-      </div>
-
-      {/* ── 12. Asymmetric Promo Bands ── */}
-      <section className={clsx("container", "container-wide", styles.section, styles.reveal)}>
-        <div className={styles.bandsGrid}>
-          {promoBands.map((band) => (
-            <PromoBand
-              key={band.id}
-              variant={band.variant}
-              eyebrow={band.eyebrow}
-              title={renderPromoTitle(band.title)}
-              description={band.description}
-              ctaLabel={band.ctaLabel}
-              ctaHref={band.ctaHref}
-            />
-          ))}
         </div>
       </section>
 

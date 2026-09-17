@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Hanken_Grotesk, IBM_Plex_Mono, Kalam, Kaushan_Script } from "next/font/google";
+import { Fraunces, Hanken_Grotesk, IBM_Plex_Mono, Instrument_Serif, Kalam, Kaushan_Script } from "next/font/google";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
 import "@/styles/tokens.extend.css";
@@ -64,6 +64,19 @@ const kalam = Kalam({
   display: "swap",
 });
 
+// Instrument Serif — the home page's section headings only ("Bestsellers",
+// "Someone you owe a present", ...), owner-requested as a deliberate
+// departure from Fraunces there (2026-09-17). Not part of the shared type
+// ramp: every other h1/h2 on the site stays on `--hk-font-display`. Single
+// weight, has an italic if a section ever wants emphasis.
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
+  display: "swap",
+});
+
 // Kaushan Script — the hero's "to the world" brush line ONLY (owner-supplied
 // hero design, 2026-08-13). Not part of the handoff type ramp; don't reach
 // for it anywhere else without a design decision. Single weight.
@@ -123,7 +136,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${hanken.variable} ${plexMono.variable} ${kalam.variable} ${kaushan.variable}`}
+      className={`${fraunces.variable} ${hanken.variable} ${plexMono.variable} ${instrumentSerif.variable} ${kalam.variable} ${kaushan.variable}`}
     >
       <body>
         <AuthProvider>
