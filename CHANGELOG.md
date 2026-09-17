@@ -18,6 +18,17 @@ and fixed, plus one feature that did not exist.
   (35%). `server/src/common/orders/order-money.ts` now owns both
   definitions (counted vs revenue-bearing) for Prisma and raw SQL.
   See CLAUDE.md's own section.
+- **Checkout's "Save address" refused silently.** The handler opened with
+  a bare `return` when a required box was empty: no message, no mark on
+  the field, the button not even disabled, on the screen where somebody
+  is trying to pay. It also checked only four of the six fields
+  `CreateAddressDto` requires, so a blank phone or state cost a round
+  trip and a 400. `client/lib/checkout/address-required.ts` (pure,
+  presence only — format stays the server's call) now names the empty
+  boxes and `focusFirstError` puts the cursor in the first, the same
+  treatment the listing form got in M45. The gift recipient's address
+  gets the same sentence instead of "fill in the recipient's full
+  address".
 
 
 ## 2026-09-17 — UI/UX refinement, all seven phases (`docs/UI-REFINEMENT.md`)

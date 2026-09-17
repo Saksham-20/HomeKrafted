@@ -47,6 +47,13 @@ import type { Address, Order, OrderGift, OrderShipment, PaymentMethod } from "@/
 import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
 import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
 import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
+import {
+  addressMissingMessage,
+  firstMissingAddressFieldId,
+  missingAddressFields,
+  recipientMissingMessage,
+} from "@/lib/checkout/address-required";
+import { focusFirstError } from "@/components/portal/focus-first-error";
 import styles from "./CheckoutClient.module.css";
 
 /** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
@@ -296,7 +303,14 @@ export function CheckoutClient() {
   const walletApplied = paymentMethod === "wallet" ? total : 0;
 
   async function addAddress() {
-    if (!newAddress.recipientName || !newAddress.line1 || !newAddress.city || !newAddress.pincode) {
+    // A bare `return` here meant pressing Save with one empty box did
+    // nothing at all — no message, no mark, the button not disabled — on
+    // the screen where somebody is trying to pay. Name the boxes and put
+    // the cursor in the first one (2026-09-17).
+    const missing = missingAddressFields(newAddress);
+    if (missing.length > 0) {
+      setAddressError(addressMissingMessage(missing));
+      focusFirstError(firstMissingAddressFieldId(newAddress, "new-addr"));
       return;
     }
     setSavingAddress(true);
@@ -376,9 +390,13 @@ export function CheckoutClient() {
     if (items.length === 0) return;
 
     if (isGift) {
-      const { recipientName, phone, line1, city, state, pincode } = recipient;
-      if (!recipientName || !phone || !line1 || !city || !state || !pincode) {
-        setFormError("Fill in the recipient's full address before placing the order.");
+      // Same treatment as "Save address" above: name the empty boxes and
+      // jump to the first, rather than "fill in the full address" over a
+      // form the buyer believes they have already filled in.
+      const missingRecipient = missingAddressFields(recipient);
+      if (missingRecipient.length > 0) {
+        setFormError(recipientMissingMessage(missingRecipient));
+        focusFirstError(firstMissingAddressFieldId(recipient, "recipient"));
         return;
       }
     }
