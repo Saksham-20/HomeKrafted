@@ -141,22 +141,18 @@ export const aboutContent: AboutContent = {
   teamIntro:
     "A small team in Mohali building for the home kitchens around us.",
   /*
-   * Titles are the rank stripped off, not duties invented.
-   *
-   * These read "Chief Research Analyst" and "Innovation & Strategy
-   * Manager" on a team of eight supporting home kitchens, which is the
-   * org chart of a company that does not exist. The fix the brand review
-   * asked for is a plain description of what each person actually does
-   * ("Runs the kitchens", "Photographs the food") — and nobody here knows
-   * that, so writing it would be inventing facts about named real people
-   * to hit a tone. Instead: same domain, no rank. Replace these with the
-   * real one-liners when someone who knows can supply them.
+   * Titles are the ones each person gave us (owner, 2026-09-19), not ones
+   * we made up — the earlier brand review pulled "Chief Research Analyst"
+   * and "Innovation & Strategy Manager" off a team this size because they
+   * read as the org chart of a company that does not exist, and writing
+   * duties nobody confirmed would be inventing facts about named real
+   * people. Change a title only on the person's or the owner's word.
    */
   founder: { name: "Harkanwar Singh", role: "Founder & CEO" },
   team: [
     { name: "Amarjot Singh", role: "Director & Co-founder" },
-    { name: "Manav Ahuja", role: "Marketing Head" },
-    { name: "Abhinav Sharma", role: "Marketing Analyst" },
+    { name: "Manav Ahuja", role: "Co-founder" },
+    { name: "Abhinav Sharma", role: "Brand Manager" },
     { name: "Priyanshi", role: "Operations Executive" },
     { name: "Kritika", role: "Operations Intern" },
     { name: "Kitty Chawla", role: "Graphics Designer" },
