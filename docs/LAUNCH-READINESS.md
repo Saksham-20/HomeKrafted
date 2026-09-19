@@ -311,16 +311,14 @@ means.
 
 ---
 
-### 3a. Local changes waiting on a production go-ahead (2026-09-19)
+### 3a. Deployed 2026-09-19, and what is still waiting on a go-ahead
 
 Not code work — decisions and a backup, in the turn they happen.
 
 - **Migration `20260919120000_product_featured_rank`** (an admin-ranked
-  featured list; `docs/DEPLOY.md`). Additive: one nullable
-  `Product.featuredRank` column and one index, nothing backfilled, no env
-  vars. `deploy.sh` applies it, so this code must not be deployed without the
-  owner's go-ahead and a fresh backup. The index build takes a brief lock on
-  `Product`; the table is small.
+  featured list; `docs/DEPLOY.md`) — **done**, applied 2026-09-19 after a
+  backup. Still open: an admin should rank the six featured crochet listings
+  and decide the 20 badges makers set before tags became admin-only.
 - **Optional data pass, order cashback removal:** `UPDATE "Order" SET
   "cashbackEarned" = 0 WHERE status = 'pending-payment'`. Not required for
   correctness — an order pending at the deploy is credited if paid and

@@ -5,8 +5,8 @@
 Five owner-driven changes, one milestone: admin-only badges and a ranked
 featured list, the buyer surfaces that honour it, categories as a one-shelf
 scope, order cashback removed, and a session that survives a failed refresh.
-**Not deployed, and the first carries a production migration that needs a
-go-ahead and a backup** (the migration bullet under it). Every claim here was
+**Deployed 2026-09-19 (`9cfc50c`)**, with the production migration applied
+after a fresh backup (the migration bullet under it). Every claim here was
 checked against the code; the docs
 that stated the old behaviour are corrected in the same change (`CLAUDE.md`,
 `docs/API.md`, `DATA-MODEL.md`, `TESTING.md`, `TESTS.md`, `DEPLOY.md`,
@@ -53,9 +53,9 @@ that stated the old behaviour are corrected in the same change (`CLAUDE.md`,
 - **Migration `20260919120000_product_featured_rank`** — additive: one nullable
   `featuredRank` column and `Product_default_browse_featured_idx` (kept beside
   the M23 index; explicit `map:` because Prisma's generated name would be 84
-  characters, past Postgres's 63). Nothing backfilled, no env vars. **Not
-  applied to production**; it needs the owner's go-ahead and a backup in the
-  turn it happens.
+  characters, past Postgres's 63). Nothing backfilled, no env vars. **Applied to
+  production 2026-09-19** after a backup and an `information_schema` lineage
+  check; the six already-featured listings now lead the default browse, unranked.
 
 ### Every buyer surface leads with featured, under the default sort
 

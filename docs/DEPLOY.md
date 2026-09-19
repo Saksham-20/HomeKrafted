@@ -476,18 +476,24 @@ Skipping step 2, or running it twice, are both real-money mistakes in
 opposite directions — read the script's own header comment before running
 it on production.
 
-### Migration waiting on the box: featured ranking (2026-09-19)
+### Featured ranking migration (applied 2026-09-19)
 
-**Not applied to production yet — it needs the owner's go-ahead and a
-backup in the turn it happens**, the same rule as every production
-migration (back up, check the lineage, run, verify). `deploy.sh` will apply
-it, so do not run a deploy of this code without that go-ahead.
+**Applied to production on 2026-09-19** (`9cfc50c`): backup first
+(`homekrafted-20260919-054129.dump`), lineage checked against
+`information_schema`, then `deploy.sh`; afterwards the column and the index
+were confirmed in the database and `GET /products` returned `featuredRank`.
+Kept as the shape to copy for the next additive migration.
 
 `20260919120000_product_featured_rank` is **additive**: one nullable column
 (`Product.featuredRank`) and one index
 (`Product_default_browse_featured_idx`). Nothing is backfilled — every
-existing featured listing is simply unranked, and no buyer-facing order
-changes for a listing until an admin ranks it on `/admin/catalog/featured`.
+existing featured listing is simply unranked. **That is not the same as no
+buyer-facing change:** the default browse now leads with `featured DESC`, and
+nothing read `featured` before, so every listing already featured moves ahead
+of every unfeatured one the moment this ships (production had six, all crochet).
+Before shipping a migration like this, `SELECT id, name FROM "Product" WHERE
+featured` and decide what should lead; an admin then orders them on
+`/admin/catalog/featured`.
 The index build takes a brief lock on `Product`; the table is small, so it
 is a moment rather than an outage. **No env vars.** The name is set
 explicitly because Prisma's generated one would be 84 characters and

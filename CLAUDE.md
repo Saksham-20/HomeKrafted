@@ -88,14 +88,16 @@ server's key wins and a live switch needs **no client rebuild** — set the
 two server vars plus `RAZORPAY_WEBHOOK_SECRET`, subscribe
 `payment.captured` in the dashboard, restart. See `docs/DEPLOY.md`.
 
-**A production migration is waiting on the owner (2026-09-19):
-`20260919120000_product_featured_rank`.** Additive — one nullable
-`Product.featuredRank` and one index, nothing backfilled, no env vars —
-but **not applied to production**: it needs a go-ahead and a backup in the
-turn it happens (the existing production-migration rule; `deploy.sh`
-applies it, so never deploy this code without that go-ahead), and the API
-fails every product read against the old schema. `docs/DEPLOY.md` has the
-runbook.
+**Featured ranking is live on production (deployed 2026-09-19, `9cfc50c`).**
+Migration `20260919120000_product_featured_rank` — one nullable
+`Product.featuredRank` and one index, nothing backfilled — was applied by
+`deploy.sh` after a fresh backup and a lineage check. The six listings that
+were already `featured` (all crochet, rating 0) now lead the default browse
+in unranked order until an admin ranks them on `/admin/catalog/featured`;
+that is the rule working, not a bug. Twenty listings still carry badges their
+makers set before tags became admin-only (10 Bestseller, 8 New, 2 Festive, 1
+Curated) — an admin clears or keeps them in the Merchandising section, and
+nothing deletes them for you. `docs/DEPLOY.md` has the runbook.
 
 **These are not code.** The build is feature-complete against
 every approved plan and deployed; these are what still stand between it
