@@ -19,13 +19,6 @@
   */
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: var(--hk-s4);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.tiles > li {
-  display: flex;
 }
 
 .tile {
@@ -37,6 +30,7 @@
   /* Every tile in a row is the same height, so a department whose name
      wraps to two lines does not make its neighbours look clipped. */
   height: 100%;
+  min-width: 0;
   padding: var(--hk-s3);
   background: var(--hk-surface);
   border: 1px solid var(--hk-border);
@@ -64,21 +58,79 @@
   transition-duration: 100ms;
 }
 
-.tileOpen {
+/*
+  Selected — the department (or All) that is the scope. Solid pine, the same
+  treatment the category rail on `/shop` gives its chosen tile, so the two
+  browse pages answer "which one" the same way. It is meant to be loud
+  (owner: "highlight the selected category better"): the old state was a
+  pale tint with a 1px inset ring, and it meant *open*, not *chosen*.
+
+  `:hover` is restated because `.tile:hover` (specificity 0,2,0) swaps the
+  background to `--hk-surface-2` — a cream-on-cream tile with `--hk-on-pine`
+  text the moment the pointer rests on the thing you just pressed.
+  `--hk-on-pine` on `--hk-pine` is ~8.4:1, so the name and the mono count
+  both clear AA.
+*/
+.tileSelected,
+.tileSelected:hover {
+  background: var(--hk-pine);
   border-color: var(--hk-pine);
-  box-shadow: inset 0 0 0 1px var(--hk-pine);
+  color: var(--hk-on-pine);
+}
+
+.tileSelected .name {
+  font-weight: 700;
+}
+
+.tileSelected .count {
+  color: var(--hk-on-pine);
 }
 
 /*
-  A department that *is* the filter — one with no subcategories, which
-  selects on press rather than disclosing a chip row. It reads heavier
-  than `.tileOpen` because open is a disclosure and this is a choice
-  that has narrowed the grid underneath.
+  Ancestor — the department the chosen subcategory chip sits under. Lighter
+  than selected on purpose: the shelf actually being browsed is the chip
+  underneath, and the tile only says "you are inside this one". Pine edge and
+  tint, bold name, plus `.insideDot` so it is not colour alone.
 */
-.tileSelected {
+.tileAncestor,
+.tileAncestor:hover {
   border-color: var(--hk-pine);
   background: var(--hk-pine-tint);
   box-shadow: inset 0 0 0 1px var(--hk-pine);
+}
+
+.tileAncestor .name {
+  font-weight: 600;
+}
+
+/* The state that is not colour: a check on a chosen tile's mark, a dot on
+   the one that only contains the choice. Both sit on the face's corner,
+   ringed in the tile's own ground so they read as cut out of it rather than
+   stuck on. Decorative and inside an `aria-hidden` face — `aria-checked` and
+   `aria-current` say it. */
+.check {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-pine);
+  box-shadow: 0 0 0 2px var(--hk-pine);
+}
+
+.insideDot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  box-shadow: 0 0 0 2px var(--hk-pine-tint);
 }
 
 /*
@@ -90,6 +142,7 @@
   missing.
 */
 .face {
+  position: relative;
   display: grid;
   place-items: center;
   width: 46px;
@@ -101,11 +154,17 @@
   transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease);
 }
 
-/* Open or selected answers "which one", not "what colour" — pine takes
-   over from the tile's own tint so the state reads the same on every
-   department regardless of its resting hue. */
-.tileOpen .face,
+/* Chosen answers "which one", not "what colour" — the tile's own tint gives
+   way so the state reads the same on every department regardless of its
+   resting hue. Selected: a deeper pine plate under a cream mark (the tile
+   itself is pine, so a pine-tint face would be a pale hole in it).
+   Ancestor: the plain pine-tint face it always had. */
 .tileSelected .face {
+  background: var(--hk-pine-deep);
+  color: var(--hk-on-pine);
+}
+
+.tileAncestor .face {
   background: var(--hk-pine-tint);
   color: var(--hk-pine);
 }
@@ -143,9 +202,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--hk-s2);
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 .chip {
@@ -172,12 +228,22 @@
   transition-duration: 100ms;
 }
 
+/*
+  The chosen chip: pine fill and a leading check (the component swaps the
+  mark for it). No `--hk-focus-ring` override here any more — it set
+  `--hk-gold-bright`, and `outline-offset` draws the ring on the *page*
+  behind the chip, not on the fill: gold-bright on white is ~1.6:1, under
+  the 3:1 a focus indicator needs (M34's own rule — "a dark button on a
+  light page needs none of this"). The default pine ring is 11:1.
+*/
 .chipOn {
   background: var(--hk-pine);
   border-color: var(--hk-pine);
   color: var(--hk-on-pine);
-  /* The ring has to be visible on the filled chip too (M34). */
-  --hk-focus-ring: var(--hk-gold-bright);
+}
+
+.chipOn .chipCount {
+  opacity: 0.85;
 }
 
 .chipIcon {
@@ -239,8 +305,9 @@
   /* 76px (was 104) — Flipkart's own category row is the density
      reference (owner, 2026-09-17): a department shortcut should read as
      small and numerous, not as a product card in its own right. */
-  .tiles > li {
+  .tiles > .tile {
     flex: 0 0 76px;
+    width: 76px;
   }
 
   .tile {
@@ -254,6 +321,11 @@
   .face {
     width: 32px;
     height: 32px;
+  }
+
+  .check {
+    width: 14px;
+    height: 14px;
   }
 
   .label {

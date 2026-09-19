@@ -24,6 +24,7 @@ import {
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
 import { AdminPageHeader } from "./AdminPageHeader";
+import { MERCHANDISING_SECTION, MerchandisingSection } from "./MerchandisingSection";
 import { adminTaxonomyActions } from "@/lib/taxonomy-actions";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
@@ -53,6 +54,7 @@ const PLATFORM_OPTION: ComboboxOption = {
 const CREATE_SECTIONS = [
   { id: "listing-vendor", label: "Whose storefront" },
   ...LISTING_FORM_SECTIONS,
+  MERCHANDISING_SECTION,
 ];
 
 /**
@@ -258,6 +260,13 @@ export function AdminListingCreateClient() {
           occasions={occasions}
           taxonomy={adminTaxonomyActions}
           errors={fieldErrors}
+        />
+
+        {/* Admin-only badges. No featured line: a listing that does not
+            exist yet cannot be in the featured list. */}
+        <MerchandisingSection
+          tags={values.tags}
+          onChange={(tags) => setValues((current) => ({ ...current, tags }))}
         />
 
         <SaveBar

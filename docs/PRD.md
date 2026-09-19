@@ -48,7 +48,7 @@ references; this file explains where each surface came from.
 | Feature | Web surface |
 |---|---|
 | Add money / auto top-up | `/wallet` — amount picker. Auto-top-up is **paused** (M19): the credit had no captured payment behind it, so the editor is replaced by a status card until it sits behind a real payment mandate. |
-| Cashback & loyalty credits | Ledger entries; cashback line on product/checkout |
+| Loyalty & referral credits | Ledger entries (`referral`, `loyalty`). **Order cashback was removed 2026-09-19** — there is no cashback line on the product page or checkout, and no promise of one anywhere; the 3% top-up bonus above ₹2,000 is a separate feature and stays. |
 | One balance (Marketplace+Laundry+Snacks) | Header wallet chip + pay-with-wallet |
 | Instant refunds to wallet | Ledger `refund` entries; order refund state |
 | Balance & transaction history | `/wallet` balance card + full transactions |
@@ -131,7 +131,7 @@ Wallet spans Marketplace + Laundry + Snacks. Enforced in code via
 ## Primary user flows (stub — detailed flows land per-module milestone)
 
 **Marketplace (M2–M3).** Home/Shop browse → filter by category, dietary,
-occasion, price → Product detail (weight, cashback line, gift options) →
+occasion, price → Product detail (weight, gift options) →
 Add to cart *or* Add to hamper → Cart (multi-line, multi-address) →
 Checkout (per-address delivery date, gift-to-recipient with hide-price,
 wallet/Razorpay/COD not applicable here — Marketplace is wallet/Razorpay
@@ -151,12 +151,11 @@ confirmation, cart cleared). Order history / detail is still
 `/account/orders` in M7.
 
 *M2 status (browse surfaces, shipped):* `/` (Home — hero, shop by
-occasion/category, featured rail, hamper + wallet promo bands, "one home
+occasion/category, featured rail, hamper + wallet promo bands (the wallet band no longer promises cashback), "one home
 three crafts" services band, app-install panel), `/shop` (filter sidebar —
 category/dietary/occasion + price range, sort, removable active-filter
 chips, pagination; `?category=`/`?occasion=` seed the initial filter from
-a Home tile click), `/product/[slug]` (gallery, weight selector, wallet
-cashback, quantity + add-to-cart as a local no-op pending M3, add-to-
+a Home tile click), `/product/[slug]` (gallery, weight selector, quantity + add-to-cart as a local no-op pending M3, add-to-
 hamper, gift block, description/spec tabs, Reviews), `/storefront/[vendor]`
 (banner/avatar/rating/follow header, that maker's product grid, their
 reviews) and `/collections/[occasion]` (occasion hero, curated collection
@@ -199,25 +198,25 @@ headline, `StoreBadges`), a "why the app" value-prop grid, and a "get the
 app" panel (`QRTile` + `StoreBadges`). No menu, no cart, no checkout —
 ordering and live tracking happen entirely inside the Homekrafted app.
 
-**Wallet (M6, shipped).** `/wallet` → balance card (pending cashback,
-lifetime saved) → add money (fixed amount tiles or custom, +3% bonus
+**Wallet (M6, shipped).** `/wallet` → balance card (the balance and nothing else — it carried
+"pending cashback" and "lifetime saved" rows until order cashback was removed on
+2026-09-19) → add money (fixed amount tiles or custom, +3% bonus
 above ₹2,000) → auto-top-up rule (below-threshold, enable + threshold +
 amount) → pay-with-wallet info card (on by default at Marketplace/Laundry
 checkout) → transaction history (credit: topup/cashback/refund/referral/
-loyalty; debit: payment) with a "view full history" month-grouped expand.
+loyalty — `cashback` now means only legacy rows and the top-up bonus; debit: payment) with a "view full history" month-grouped expand.
 
 *M6 status (wallet, shipped):* `lib/wallet/WalletContext.tsx` — the
 second real cross-page client store after `CartContext`, `localStorage`-
-persisted, exposing `useWallet()` (`topUp`/`pay`/`earnCashback`/`refund`/
-`setAutoTopup`). Every op appends a `WalletTransaction` with the correct
+persisted, exposing `useWallet()` (`topUp`/`pay`/`refund`/
+`setAutoTopup`; `earnCashback` went with order cashback on 2026-09-19). Every op appends a `WalletTransaction` with the correct
 `direction`/`category`/`balanceAfter`/`refType`/`refId`; `pay` returns
 `{ ok: false }` without mutating state when the balance can't cover the
 amount, and auto-fires the configured `below-threshold` top-up rule when
 a successful debit drops the balance under it. Back-wired into M3
-Checkout and M4 Laundry (both previously display-only stubs — `pay` +
-`earnCashback` now run on order/booking placement; Checkout earns
-cashback on every order regardless of payment method, Laundry only on
-wallet-paid bookings, matching each milestone's original cashback rule)
+Checkout and M4 Laundry (both previously display-only stubs — `pay` now
+runs on order/booking placement; they also earned cashback then, which
+no longer exists — removed 2026-09-19, and Laundry itself is withdrawn)
 and the header wallet chip (`HeaderClient`/`MobileDrawer` now read
 `useWallet().balance` instead of a static server-fetched prop).
 

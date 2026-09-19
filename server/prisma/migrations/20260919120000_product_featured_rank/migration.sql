@@ -1,0 +1,34 @@
+-- Admin-chosen order for featured listings (owner, 2026-09-19).
+--
+-- `featuredRank` is where a featured listing sits among the others:
+-- lower is earlier, NULL means "featured but nobody ranked it" and sorts
+-- after every ranked one. Only meaningful while `featured` is true. It is
+-- additive, nullable and nothing is backfilled — every existing featured
+-- listing is simply unranked, which is the honest state.
+--
+-- THIS IS NOT A NO-OP FOR BUYERS. The column is inert on its own, but the
+-- default browse now orders `featured DESC` first (see the index below), and
+-- `featured` moved no buyer-facing order before this: the Products tab's
+-- Feature button has existed since M11b with nothing reading it. So every
+-- listing that is ALREADY featured moves ahead of every unfeatured one, in
+-- rating order among themselves, the moment this ships, whether or not an
+-- admin ever meant it for that. Before deploying, look at what will lead:
+--   SELECT id, name FROM "Product" WHERE featured ORDER BY rating DESC;
+-- and unfeature (or rank, on /admin/catalog/featured) whatever was only ever
+-- a demo toggle.
+ALTER TABLE "Product" ADD COLUMN "featuredRank" INTEGER;
+
+-- The default browse with the featured order in front:
+--   ORDER BY featured DESC, "featuredRank" ASC NULLS LAST,
+--            rating DESC, "reviewCount" DESC, id
+-- The M23 index (moderationStatus, isAvailable, rating DESC,
+-- reviewCount DESC, id) cannot serve it — leading with `featured` would put
+-- back the sequential scan and top-N sort that took the default browse to a
+-- p95 of 2.06 s under k6. `featuredRank` is ASC, which is NULLS LAST in
+-- Postgres by default, exactly what the query asks for. The M23 index stays:
+-- price and distance browses and the portal lists still use it, and dropping
+-- an index under load is not something to do in the same change.
+--
+-- Named explicitly (matching `map:` in schema.prisma) because the
+-- generated name would run past Postgres's 63-character identifier limit.
+CREATE INDEX "Product_default_browse_featured_idx" ON "Product"("moderationStatus", "isAvailable", "featured" DESC, "featuredRank", "rating" DESC, "reviewCount" DESC, "id");

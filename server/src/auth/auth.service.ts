@@ -56,18 +56,53 @@ const REFERRAL_CODE_ATTEMPTS = NAMED_ATTEMPTS + 5;
  * How long after a refresh token is rotated away from that presenting it
  * again still reads as a benign race rather than reuse of a stolen token.
  *
- * The client's refresh token is not synchronized across tabs (see
- * `client/lib/auth/session.ts`), so two tabs of the same account that are
- * both idle past the access-token TTL can each independently call
- * `/auth/refresh` with the identical still-valid token — the loser's
- * request lands after the winner has already rotated it and, without this
- * window, would be read as reuse and mass-revoke the winner's brand-new
- * session too. A same-tab-race duplicate arrives within a second or two of
- * the winning rotation; a token an attacker actually stole and replayed
- * typically shows up long after it was rotated away from. Ten seconds is
- * generous for the former and far too short to shelter the latter.
+ * Two tabs of the same account that are both idle past the access-token TTL
+ * can each independently call `/auth/refresh` with the identical
+ * still-valid token — the loser's request lands after the winner has
+ * already rotated it and, without this window, would be read as reuse and
+ * revoke the winner's brand-new session too. The web client has locked and
+ * re-read storage before refreshing since 2026-09-19
+ * (`client/lib/auth/session.ts`), but a tab still running the bundle from
+ * before that, or a browser without Web Locks, races exactly like this. A
+ * same-tab-race duplicate arrives within a second or two of the winning
+ * rotation; a token an attacker actually stole and replayed typically shows
+ * up long after it was rotated away from. Ten seconds is generous for the
+ * former and far too short to shelter the latter.
  */
 const REFRESH_REUSE_GRACE_MS = 10_000;
+
+/**
+ * The refusal for a refresh token that another request rotated **moments
+ * ago** — inside `REFRESH_REUSE_GRACE_MS`, or a concurrent request that lost
+ * the rotation itself. It carries its own code, and the client keys on it:
+ * `REFRESH_TOKEN_ROTATED` means "a sibling holds the successor, and its
+ * response is on the way", which is not the same answer as the plain 401 for
+ * a token that is dead. A tab that loses such a race and cannot yet see the
+ * winner's result in storage waits for it instead of ending the session
+ * (`client/lib/api/http.ts`, `doRefresh`). Status stays 401 and the message
+ * is unchanged, so a client that has never heard of the code reads it as it
+ * always has.
+ */
+export const REFRESH_ROTATED_CODE = 'REFRESH_TOKEN_ROTATED';
+const REFRESH_ROTATED_REFUSAL = {
+  code: REFRESH_ROTATED_CODE,
+  message: 'Refresh token is no longer valid — please sign in again',
+};
+
+/**
+ * How far forward `revokeRefreshChain` follows `replacedByTokenId`.
+ *
+ * A session that is used all day rotates about four times an hour, so a
+ * token replayed after a week idle-then-active sits behind a few hundred
+ * links, and 1,000 covers that with room. It is a bound rather than a
+ * "walk until done" because the column is a plain string with no foreign
+ * key: a cycle or a runaway is not something the database can rule out, and
+ * this runs inside a request that is being refused anyway. Reaching the
+ * bound leaves the live end of a very long chain unrevoked, which fails
+ * toward keeping somebody signed in — the direction the whole reuse rule
+ * now leans.
+ */
+const REFRESH_CHAIN_MAX_HOPS = 1_000;
 
 /**
  * A unique violation specifically on `User.referralCode`.
@@ -819,15 +854,25 @@ export class AuthService {
    * outside `REFRESH_REUSE_GRACE_MS` of the rotation it lost, it is acted
    * on, not just rejected: presenting a token this service rotated away
    * from that long ago means *some* party holds a stale copy of a session
-   * that has since moved on, so every currently-active refresh token for
-   * that user is revoked (same "burn every session" shape as
-   * `changePassword`/`resetPassword`), forcing a fresh sign-in on every
-   * device — including the legitimate one — rather than leaving a thief
-   * who rotated first with an indefinitely working token. Within the grace
-   * window it is rejected alone: that shape is what an untabbed refresh
-   * token racing itself across two browser tabs looks like, and mass
-   * revocation would punish the tab that won the race, not the one that
-   * lost it.
+   * that has since moved on. The response is scoped to **that token's own
+   * chain** — every descendant it was rotated into, followed through
+   * `replacedByTokenId` (`revokeRefreshChain`) — so a thief who rotated
+   * first does not keep a working token, and the legitimate holder of that
+   * line is forced back through sign-in.
+   *
+   * It used to revoke **every** session the user had (the "burn every
+   * session" shape `changePassword`/`resetPassword` use, and right for
+   * them: those are the user asking). Here it was the wrong blast radius. A
+   * stale replay is far more often somebody's own second tab than a
+   * thief, and it took the admin's phone, their other browser and every
+   * other session down with it — the 2026-09-19 "admin keeps getting logged
+   * out" report. Other devices' chains are untouched now; a stolen token's
+   * chain is the only thing that dies.
+   *
+   * Within the grace window it is rejected alone: that shape is what an
+   * untabbed refresh token racing itself across two browser tabs looks
+   * like, and revoking anything would punish the tab that won the race, not
+   * the one that lost it.
    */
   async refresh(refreshToken: string): Promise<TokenPair> {
     let payload: JwtPayload;
@@ -852,22 +897,18 @@ export class AuthService {
         this.logger.log(
           `Refresh token for user ${stored.userId} reused ${revokedMsAgo}ms after rotation — treating as a same-tab race, not revoking other sessions.`,
         );
-        throw new UnauthorizedException('Refresh token is no longer valid — please sign in again');
+        throw new UnauthorizedException(REFRESH_ROTATED_REFUSAL);
       }
 
-      // Reuse well outside the grace window: revoke the lot so a thief who
-      // won the race to rotate first doesn't keep a working token
-      // indefinitely, and so the legitimate holder is forced back through
-      // sign-in rather than trusting a session that may be compromised.
-      const { count } = await this.prisma.refreshToken.updateMany({
-        where: { userId: stored.userId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      if (count > 0) {
-        this.logger.warn(
-          `Refresh token reuse detected for user ${stored.userId}: revoked ${count} active session(s).`,
-        );
-      }
+      // Reuse well outside the grace window. Revoke this token's own chain
+      // so a thief who won the race to rotate first does not keep a working
+      // token, and the holder of that line is forced back through sign-in
+      // rather than trusting a session that may be compromised. Every
+      // other session this user has is a different chain and is left alone.
+      const revoked = await this.revokeRefreshChain(stored.replacedByTokenId);
+      this.logger.warn(
+        `Refresh token reuse detected for user ${stored.userId}: revoked ${revoked} descendant token(s) in its chain; the user's other sessions were left alone.`,
+      );
       throw new UnauthorizedException('Refresh token is no longer valid — please sign in again');
     }
 
@@ -892,21 +933,91 @@ export class AuthService {
     const newHash = this.hashToken(pair.refreshToken);
     const refreshTtlMs = parseDurationToMs(this.configService.get('jwt.refreshTtl', { infer: true }));
 
-    await this.prisma.$transaction([
-      this.prisma.refreshToken.update({
-        where: { id: stored.id },
-        data: { revokedAt: new Date() },
-      }),
-      this.prisma.refreshToken.create({
+    // The successor is created first so the old row can point at it in the
+    // same transaction: `replacedByTokenId` is the link `revokeRefreshChain`
+    // walks, and a row rotated without it is a chain that ends there.
+    await this.prisma.$transaction(async (tx) => {
+      const successor = await tx.refreshToken.create({
         data: {
           userId: user.id,
           tokenHash: newHash,
           expiresAt: new Date(Date.now() + refreshTtlMs),
         },
-      }),
-    ]);
+      });
+      // **Claiming the old row is what makes a rotation happen once.**
+      // `stored` was read above, outside this transaction, so two requests
+      // presenting the same live token both get here holding
+      // `revokedAt == null`. An unguarded `update` let both succeed: two live
+      // successors, and the second write overwrote `replacedByTokenId`, so
+      // the first successor hung off no chain `revokeRefreshChain` walks — a
+      // later replay would revoke one line and leave the other working.
+      // With `revokedAt: null` in the filter the database decides: the loser
+      // waits on the row lock, re-reads it revoked, matches nothing, and
+      // throws — which rolls back the successor it just created, so the one
+      // token it minted never existed.
+      const { count } = await tx.refreshToken.updateMany({
+        where: { id: stored.id, revokedAt: null },
+        data: { revokedAt: new Date(), replacedByTokenId: successor.id },
+      });
+      if (count === 0) {
+        this.logger.log(
+          `Refresh token for user ${stored.userId} was rotated by a concurrent request while this one was in flight — refusing the loser, same as a near-concurrent replay.`,
+        );
+        throw new UnauthorizedException(REFRESH_ROTATED_REFUSAL);
+      }
+    });
 
     return pair;
+  }
+
+  /**
+   * Revokes every still-live refresh token descended from a replayed one,
+   * and returns how many it revoked.
+   *
+   * `startId` is the replayed row's `replacedByTokenId`. Each hop reads one
+   * row by primary key and follows its own `replacedByTokenId` forward; a
+   * rotated-away row is already revoked and is only passed through, so what
+   * this actually revokes is the chain's live end (normally one row).
+   *
+   * **A chain that is not recorded is not revoked.** Rows rotated before
+   * `replacedByTokenId` was written have `null` there, so a replay of one
+   * revokes nothing beyond itself. That is deliberate — the alternative is
+   * to guess a chain from `userId` and `createdAt`, which cannot tell the
+   * replayed session from the user's other devices and is exactly the
+   * user-wide revoke this replaced. It stops mattering as those rows age
+   * out (7 days).
+   *
+   * Bounded by `REFRESH_CHAIN_MAX_HOPS`, and by a visited set so a
+   * malformed cycle ends rather than spins.
+   */
+  private async revokeRefreshChain(startId: string | null): Promise<number> {
+    let revoked = 0;
+    const seen = new Set<string>();
+    let nextId = startId;
+
+    for (let hop = 0; nextId && hop < REFRESH_CHAIN_MAX_HOPS; hop += 1) {
+      if (seen.has(nextId)) break;
+      seen.add(nextId);
+
+      const row = await this.prisma.refreshToken.findUnique({
+        where: { id: nextId },
+        select: { id: true, revokedAt: true, replacedByTokenId: true },
+      });
+      if (!row) break;
+
+      if (!row.revokedAt) {
+        // `revokedAt: null` in the filter so a rotation that lands between
+        // the read and this write is left alone rather than overwritten.
+        const { count } = await this.prisma.refreshToken.updateMany({
+          where: { id: row.id, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        revoked += count;
+      }
+      nextId = row.replacedByTokenId;
+    }
+
+    return revoked;
   }
 
   async logout(refreshToken: string): Promise<void> {

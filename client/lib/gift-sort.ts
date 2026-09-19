@@ -1,5 +1,6 @@
 import { DEFAULT_BROWSE_SORT, type BrowseSortKey } from "@/lib/browse-params";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
+import { compareFeatured, splitFeatured } from "@/lib/featured-order";
 import type { Product } from "@/lib/types";
 
 /**
@@ -39,13 +40,22 @@ function arrivedAt(product: Product): number {
 }
 
 /**
- * "Recommended", the default: a gift for an occasion coming up first, then
+ * "Recommended", the default: **listings an admin featured first, in the
+ * order the admin chose** (2026-09-19, the same leading keys the API's
+ * default sort carries), then a gift for an occasion coming up, then
  * reviewed listings by rating, then **newest first**. The API breaks ties by
  * id, which is creation order, so without the last step a catalogue with no
  * reviews always led with its oldest listings. The sold-out split happens
  * outside this, for every sort.
+ *
+ * Featured leads the occasion key on purpose: an admin placing a listing is
+ * a deliberate choice, and "coming up soon" is an inference the page makes.
+ * Two featured listings the admin never ranked tie on `compareFeatured` and
+ * fall straight through to the occasion and rating keys below.
  */
 export function compareRecommended(a: Product, b: Product, soon: ReadonlySet<string>): number {
+  const featuredOrder = compareFeatured(a, b);
+  if (featuredOrder !== 0) return featuredOrder;
   const aSoon = a.occasionIds.some((id) => soon.has(id)) ? 1 : 0;
   const bSoon = b.occasionIds.some((id) => soon.has(id)) ? 1 : 0;
   if (aSoon !== bSoon) return bSoon - aSoon;
@@ -132,7 +142,18 @@ export function sortGifts(products: readonly Product[], sort: BrowseSortKey, ctx
     ascend — and re-ordering it to vary the storefronts would be the page
     ignoring what it was asked. Sold-out listings keep their ranked order
     too; nobody is scrolling that far for variety.
+
+    **Featured listings are pinned before the spread, not spread with the
+    rest.** `spreadByMaker` is a round-robin over makers: handed a list
+    that already leads with the featured ones it would deal them out one
+    per maker among everything else, and an admin's running order — "this
+    one first, then that one" — would land scattered down the page. So the
+    featured half keeps the order `compareFeatured` gave it, and only the
+    ordinary listings are spread. Featured sold-out listings are still in
+    the sold-out half: an admin cannot feature something to the top of a
+    grid it cannot be bought from.
   */
-  const lead = sort === DEFAULT_BROWSE_SORT ? spreadByMaker(inStock) : inStock;
-  return [...lead, ...soldOut];
+  if (sort !== DEFAULT_BROWSE_SORT) return [...inStock, ...soldOut];
+  const { featured, rest } = splitFeatured(inStock);
+  return [...featured, ...spreadByMaker(rest), ...soldOut];
 }

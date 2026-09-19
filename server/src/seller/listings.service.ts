@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductTag } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProductForMaker } from '../catalog/mappers/product.mapper';
 import { AdminSettingsService } from '../admin/settings.service';
@@ -19,6 +19,7 @@ import {
   photosChangedMaterially,
   resolveListingPhotos,
 } from './listing-photos';
+import { tagsForCreate, tagsForUpdate } from './listing-tags';
 
 function slugify(name: string): string {
   return name
@@ -238,7 +239,12 @@ export class SellerListingsService {
           // answer of "no notice needed" (see the column's own comment).
           prepTimeMins: dto.prepTimeMins ?? null,
           defaultWeightSku: dto.defaultWeightSku,
-          tags: (dto.tags ?? []) as ProductTag[],
+          // Bestseller / New / Festive / Curated are merchandising, an
+          // admin's call (owner, 2026-09-19): a maker who could set them
+          // would be putting their own badge on their own work, which is
+          // what stops a badge meaning anything. Ignored, not refused —
+          // see `listing-tags.ts`.
+          tags: tagsForCreate(dto.tags, options),
           isPackaged: dto.isPackaged,
           isHamper: dto.isHamper ?? false,
           // M20 section flags. All three default the way a pre-M20 listing
@@ -444,7 +450,10 @@ export class SellerListingsService {
           dietary: dto.dietary ? dietaryTagsFromFrontend(dto.dietary) : undefined,
           prepTimeMins: dto.prepTimeMins,
           defaultWeightSku: dto.defaultWeightSku,
-          tags: dto.tags as ProductTag[] | undefined,
+          // `undefined` for a seller leaves what an admin set exactly as it
+          // was — every seller save posts the form's `tags` back, so
+          // writing them would wipe the badge on the next price edit.
+          tags: tagsForUpdate(dto.tags, options),
           isPackaged: dto.isPackaged,
           isHamper: dto.isHamper,
           kind: dto.kind,

@@ -114,7 +114,19 @@ export function ProductModerationRow({ product, onAction }: ProductModerationRow
           <span className={styles.name}>
             {product.name}
             {product.featured && (
-              <Star size={13} strokeWidth={1.8} className={styles.featuredStar} aria-label="Featured on home" />
+              <>
+                {/* "Featured", not "Featured on home": the flag leads the
+                    shop and gifts browse and the home shelves' uncurated
+                    fallback (`lib/home-rails.ts`), so no single place is
+                    the honest label. The position, when an admin gave it
+                    one, is on the Featured screen and here. */}
+                <Star size={13} strokeWidth={1.8} className={styles.featuredStar} aria-label="Featured" />
+                {product.featuredRank != null && (
+                  <span className={styles.featuredRank} title={`Featured, position ${product.featuredRank}`}>
+                    #{product.featuredRank}
+                  </span>
+                )}
+              </>
             )}
           </span>
           <span className={styles.meta}>
@@ -185,6 +197,9 @@ export function ProductModerationRow({ product, onAction }: ProductModerationRow
               Flag
             </Button>
           )}
+          {/* Feature adds it unranked, after any listing an admin has
+              placed; Unfeature also clears its place. Ordering is done on
+              the Featured screen, not here. */}
           <Button
             variant={product.featured ? "secondary" : "ghost-gold"}
             size="sm"

@@ -89,6 +89,7 @@ export interface LaundryBooking {
   paymentMethod: PaymentMethod;
   status: LaundryBookingStatus;
   estimatedTotal: number;
+  /** Legacy — laundry is withdrawn and nothing writes this; not shown to shoppers. */
   walletCashback?: number;
   createdAt: ISODateString;
   /**

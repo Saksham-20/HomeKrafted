@@ -258,7 +258,13 @@ decision, not drift:
   against a documented, owner-reasoned interaction, not a fix. Both
   already draw from the same token vocabulary (no raw hex, no off-scale
   spacing) and both got real icons in R1; that is the level they should
-  match at.
+  match at. **Still true on 2026-09-19, with one addition:** they now
+  share one *contract* — both are single-select `radiogroup`s over a
+  category that is a scope rather than a filter, with an "All" tile
+  first, the same solid-pine selected treatment with a check, and the same
+  arrow-key layer (`components/browse/radio-group-keys.ts`). They are still
+  two components because the tree is still `/gifts`-only; what stopped
+  being a difference is how a shelf is chosen.
 - **`/gifts`'s hero carries no photograph on purpose.** B15 read this as
   a gap; `app/gifts/page.tsx`'s own comment says otherwise: "the photo
   wash is gone... on a page whose whole job is to show handmade objects,

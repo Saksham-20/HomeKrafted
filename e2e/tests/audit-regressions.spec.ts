@@ -202,30 +202,48 @@ test.describe('an unknown slug is a real 404', () => {
   });
 });
 
+type Page = import('@playwright/test').Page;
+
 /**
- * The filter sidebar is collapsed behind a "Filters" toggle below the
- * layout breakpoint, so on the mobile project every checkbox is out of the
- * accessibility tree until it is opened. Without this the mobile runs pass
- * vacuously or fail on a locator that was never going to resolve.
+ * The category rail — one shelf at a time (2026-09-19).
+ *
+ * A category is a scope, not a filter: the rail is a `radiogroup`, so a
+ * shelf is `getByRole('radio')`, and it is on screen at every width — no
+ * sheet to open first. (This block used to open the "All filters" sheet
+ * and tick a checkbox, which was the multi-select model; the sheet has no
+ * Category group any more.)
+ *
+ * `exact` because two shelves can share a prefix ("Snacks", "Snacks &
+ * Namkeen") and a strict-mode locator that matches both fails on the
+ * click, pointing at the rail instead of at the name.
  */
-async function openFilters(page: import('@playwright/test').Page) {
-  const toggle = page.getByRole('button', { name: /^Filters/ });
-  const anyFilter = page.getByRole('checkbox').first();
+const categoryRail = (page: Page) => page.getByRole('radiogroup', { name: 'Category' });
+const shelf = (page: Page, name: string) =>
+  categoryRail(page).getByRole('radio', { name, exact: true });
 
-  // Wait for whichever shape this viewport renders before deciding, rather
-  // than probing with `isVisible()`. That is an *instant* check: on a page
-  // still hydrating it answers false, the click never happens, and the
-  // failure surfaces 30 seconds later at whichever checkbox the test wanted
-  // — pointing at the filter panel instead of at this line. It is the same
-  // trap `e2e/README.md` names, and it bit only the mobile project, because
-  // above the sidebar breakpoint the filters are always rendered and there
-  // is no toggle to miss.
-  await expect(toggle.or(anyFilter).first()).toBeVisible({ timeout: 15_000 });
+/**
+ * Every `category=` in the address bar, not just the first — "exactly one"
+ * is the assertion, and `toHaveURL(/category=snacks/)` is also satisfied by
+ * `category=pickles,snacks`. Poll it: the URL is written by a debounced
+ * `router.replace`, so it trails the click by ~250ms.
+ */
+const categoryParams = (page: Page) => new URL(page.url()).searchParams.getAll('category');
 
-  if (await toggle.isVisible()) {
-    await toggle.click();
-    await expect(anyFilter).toBeVisible();
-  }
+/**
+ * The "All filters" sheet's opener. The button is named "All filters" —
+ * this and `focus-traps.spec.ts` both looked for `/^Filters/`, which
+ * matches no button anywhere in the app (the sheet is a dialog *labelled*
+ * "Filters", its heading a span), so the wait timed out here and the
+ * focus-trap test skipped itself on `count() === 0`.
+ */
+async function openAllFilters(page: Page) {
+  const opener = page.getByRole('button', { name: /^All filters/ });
+  // Waited for, not probed with `isVisible()` — that is an *instant* check,
+  // and on a page still hydrating it answers false. It is the same trap
+  // `e2e/README.md` names.
+  await expect(opener).toBeVisible({ timeout: 15_000 });
+  await opener.click();
+  await expect(page.getByRole('dialog', { name: 'Filters' })).toBeVisible();
 }
 
 test.describe('browsing survives the Back button', () => {
@@ -234,7 +252,6 @@ test.describe('browsing survives the Back button', () => {
   test('a filtered, sorted page comes back the way it was left', async ({ page }) => {
     await skipLocationPrompt(page);
     await page.goto('/shop');
-    await openFilters(page);
 
     // Until 2026-08-08 every filter, the sort and the page number lived
     // only in component state. Narrow the catalogue, open a listing, press
@@ -243,7 +260,7 @@ test.describe('browsing survives the Back button', () => {
     // at the point it matters.
     const sort = page.getByRole('combobox', { name: 'Sort' });
     await sort.selectOption('price-asc');
-    await page.getByRole('checkbox', { name: /^Snacks/ }).check();
+    await shelf(page, 'Snacks').click();
 
     // The URL is the fix and the assertion: state that is not in it cannot
     // survive a navigation, and a filtered view that cannot be sent to
@@ -256,9 +273,8 @@ test.describe('browsing survives the Back button', () => {
 
     await page.goBack();
     await expect(page).toHaveURL(/category=snacks/);
-    await openFilters(page);
     await expect(sort).toHaveValue('price-asc');
-    await expect(page.getByRole('checkbox', { name: /^Snacks/ })).toBeChecked();
+    await expect(shelf(page, 'Snacks')).toBeChecked();
   });
 
   test('a filtered URL opens filtered for somebody else', async ({ page }) => {
@@ -267,9 +283,9 @@ test.describe('browsing survives the Back button', () => {
     // built up, so this is the only thing proving the URL is read and not
     // merely written.
     await page.goto('/shop?category=snacks&sort=price-desc');
-    await openFilters(page);
 
-    await expect(page.getByRole('checkbox', { name: /^Snacks/ })).toBeChecked();
+    await expect(shelf(page, 'Snacks')).toBeChecked();
+    await expect(shelf(page, 'All')).not.toBeChecked();
     await expect(page.getByRole('combobox', { name: 'Sort' })).toHaveValue('price-desc');
   });
 
@@ -283,34 +299,183 @@ test.describe('browsing survives the Back button', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Sort' })).toHaveValue('most-loved');
     await expect(page.locator('a[href^="/product/"]').first()).toBeVisible();
+    // An unknown shelf is All — and the rail says so, rather than lighting
+    // nothing.
+    await expect(shelf(page, 'All')).toBeChecked();
   });
 
-  test('un-ticking a filter clears it from the URL', async ({ page }) => {
+  test('choosing All clears the category from the URL', async ({ page }) => {
     await skipLocationPrompt(page);
     // `?category=` used to seed the sidebar once and never be rewritten,
     // so un-ticking left the URL still claiming it — and a refresh put the
     // filter back with nothing on screen explaining why.
     await page.goto('/shop?category=snacks');
-    await openFilters(page);
-    await page.getByRole('checkbox', { name: /^Snacks/ }).uncheck();
+    await expect(shelf(page, 'Snacks')).toBeChecked();
+    await shelf(page, 'All').click();
 
+    await expect(shelf(page, 'All')).toBeChecked();
     await expect(page).not.toHaveURL(/category=/);
     await page.reload();
-    await openFilters(page);
-    await expect(page.getByRole('checkbox', { name: /^Snacks/ })).not.toBeChecked();
+    await expect(shelf(page, 'All')).toBeChecked();
+    await expect(shelf(page, 'Snacks')).not.toBeChecked();
   });
 
-  test('a tracking parameter on a shared link survives a filter click', async ({ page }) => {
+  test('a tracking parameter on a shared link survives a category click', async ({ page }) => {
     await skipLocationPrompt(page);
-    // The rewrite owns six keys and must leave everything else alone —
+    // The rewrite owns eleven keys and must leave everything else alone —
     // otherwise the first click on a filter deletes the attribution on
     // every link the business shares.
     await page.goto('/shop?utm_source=whatsapp');
-    await openFilters(page);
-    await page.getByRole('checkbox', { name: /^Pickles/ }).check();
+    await shelf(page, 'Pickles').click();
 
     await expect(page).toHaveURL(/utm_source=whatsapp/);
     await expect(page).toHaveURL(/category=pickles/);
+  });
+});
+
+test.describe('a category is one shelf, not a filter (2026-09-19)', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test('a second category replaces the first — the URL carries exactly one', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/shop');
+
+    await shelf(page, 'Pickles').click();
+    await expect.poll(() => categoryParams(page)).toEqual(['pickles']);
+
+    // The old rail was `aria-pressed` toggles over one Set: this produced
+    // `category=pickles,snacks` and both shelves stayed lit.
+    await shelf(page, 'Snacks').click();
+    await expect.poll(() => categoryParams(page)).toEqual(['snacks']);
+    await expect(shelf(page, 'Snacks')).toBeChecked();
+    await expect(shelf(page, 'Pickles')).not.toBeChecked();
+    await expect(page).not.toHaveURL(/pickles/);
+  });
+
+  test('a legacy multi-select link opens on its first category and is rewritten', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // What the old rail wrote, and so what is in every link somebody sent
+    // before the change.
+    await page.goto('/shop?category=pickles,snacks&utm_source=whatsapp');
+
+    await expect(shelf(page, 'Pickles')).toBeChecked();
+    await expect(shelf(page, 'Snacks')).not.toBeChecked();
+    // The first-run guard rewrites the address bar so it stops claiming a
+    // state the page is not in, and leaves what it does not own alone.
+    await expect.poll(() => categoryParams(page)).toEqual(['pickles']);
+    await expect(page).toHaveURL(/utm_source=whatsapp/);
+  });
+
+  test('a diet filter and the sort survive a category change, and the page resets to 1', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // Page 2 is a URL the codec accepts whatever the catalogue holds; the
+    // state keeps it until something resets it, which is what is under
+    // test. Nothing is ticked by hand — the filters arrive in the link.
+    await page.goto('/shop?view=dishes&diet=vegetarian&sort=price-asc&page=2');
+    await expect(shelf(page, 'All')).toBeChecked();
+
+    await shelf(page, 'Pickles').click();
+    await expect(page).toHaveURL(/category=pickles/);
+    await expect(page).toHaveURL(/diet=vegetarian/);
+    await expect(page).toHaveURL(/sort=price-asc/);
+    await expect(page).toHaveURL(/view=dishes/);
+    await expect(page).not.toHaveURL(/page=/);
+  });
+
+  test('a quick filter is a refinement: it does not touch the shelf, and the shelf does not clear it', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/shop?category=snacks');
+
+    const pureVeg = page
+      .getByRole('group', { name: 'Quick filters' })
+      .getByRole('button', { name: 'Pure veg' });
+    await pureVeg.click();
+    await expect(pureVeg).toHaveAttribute('aria-pressed', 'true');
+    await expect(page).toHaveURL(/diet=vegetarian/);
+    await expect(page).toHaveURL(/category=snacks/);
+
+    await shelf(page, 'Pickles').click();
+    await expect(page).toHaveURL(/category=pickles/);
+    await expect(pureVeg).toHaveAttribute('aria-pressed', 'true');
+    await expect(page).toHaveURL(/diet=vegetarian/);
+  });
+
+  test('Clear all clears the refinements and leaves the shelf', async ({ page }) => {
+    await skipLocationPrompt(page);
+    // Two dietary tags = two chips, which is what makes "Clear all" appear
+    // (a single chip's own × is the same tap). It used to wipe the category
+    // too, because the category was one of the chips.
+    await page.goto('/shop?category=snacks&diet=vegetarian,vegan');
+
+    await page.getByRole('button', { name: 'Clear all' }).click();
+
+    await expect(page).not.toHaveURL(/diet=/);
+    await expect(page).toHaveURL(/category=snacks/);
+    await expect(shelf(page, 'Snacks')).toBeChecked();
+  });
+
+  test('the "All filters" sheet no longer offers a Category group', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/shop');
+    await openAllFilters(page);
+
+    // Two controls for one choice was the defect: the sheet's checkboxes
+    // and the rail edited the same state. The rail is the one place.
+    const sheet = page.getByRole('dialog', { name: 'Filters' });
+    await expect(sheet.getByRole('button', { name: /^Category/ })).toHaveCount(0);
+    await expect(sheet.getByRole('checkbox', { name: /^Snacks/ })).toHaveCount(0);
+  });
+
+  test('the gifts departments are one shelf at a time, and a subcategory replaces its department', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/gifts');
+
+    // "All gifts" then one tile per live department.
+    const tiles = categoryRail(page).getByRole('radio');
+    await expect(tiles.first()).toBeVisible({ timeout: 15_000 });
+    test.skip((await tiles.count()) < 3, 'fewer than two live departments — nothing to replace');
+
+    await tiles.nth(1).click();
+    await expect(tiles.nth(1)).toBeChecked();
+    await tiles.nth(2).click();
+    await expect(tiles.nth(2)).toBeChecked();
+    await expect(tiles.nth(1)).not.toBeChecked();
+    await expect.poll(() => categoryParams(page)).toHaveLength(1);
+
+    // Find a department that has subcategories. Choosing it renders its
+    // chip row in the same commit as `toBeChecked` passing, so the
+    // `count()` after it is not the instant-probe race.
+    const inside = page.getByRole('radiogroup', { name: /^Inside / });
+    let withChildren = -1;
+    for (let i = 1; i < (await tiles.count()); i += 1) {
+      await tiles.nth(i).click();
+      await expect(tiles.nth(i)).toBeChecked();
+      if (await inside.count()) {
+        withChildren = i;
+        break;
+      }
+    }
+    test.skip(withChildren === -1, 'no live department has subcategories');
+
+    // A subcategory REPLACES the department selection: the tile steps back
+    // to "you are inside this one" (`aria-current`, never `checked`) and
+    // the URL still carries a single slug.
+    const chips = inside.getByRole('radio');
+    await chips.nth(1).click();
+    await expect(chips.nth(1)).toBeChecked();
+    await expect(tiles.nth(withChildren)).not.toBeChecked();
+    await expect(tiles.nth(withChildren)).toHaveAttribute('aria-current', 'true');
+    await expect.poll(() => categoryParams(page)).toHaveLength(1);
+
+    // And "All {department}" is the department selection again.
+    await chips.first().click();
+    await expect(tiles.nth(withChildren)).toBeChecked();
+    await expect(chips.nth(1)).not.toBeChecked();
+
+    // "All gifts" leaves the shelf.
+    await tiles.first().click();
+    await expect(tiles.first()).toBeChecked();
+    await expect.poll(() => categoryParams(page)).toEqual([]);
   });
 });
 

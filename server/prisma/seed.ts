@@ -344,7 +344,9 @@ async function main(): Promise<void> {
       id: 'wallet-demo',
       userId: consumer.id,
       balance: 1250,
-      pendingCashback: 85,
+      // Nothing writes this column (order cashback ended 2026-09-19); the
+      // old seeded 85 rendered a "Pending cashback" chip for a feature that is gone.
+      pendingCashback: 0,
       lifetimeSaved: 1940,
       payWithWalletDefault: true,
     },

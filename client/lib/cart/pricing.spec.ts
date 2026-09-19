@@ -1,3 +1,4 @@
+import * as pricingModule from "./pricing";
 import { computeShipping, DEFAULT_DELIVERY_RULE, freeDeliveryHint } from "./pricing";
 
 describe("computeShipping (delivery fee from settings, 2026-09-15)", () => {
@@ -24,5 +25,17 @@ describe("freeDeliveryHint", () => {
     expect(freeDeliveryHint({ deliveryFee: 49, freeDeliveryThreshold: 999 }, 0)).toBeUndefined();
     expect(freeDeliveryHint({ deliveryFee: 49, freeDeliveryThreshold: 0 }, 49)).toBeUndefined();
     expect(freeDeliveryHint(undefined, 49)).toBeUndefined();
+  });
+});
+
+describe("order cashback is not a client figure (removed 2026-09-19)", () => {
+  it("exports no cashback rate or computation", () => {
+    // The web checkout, the product page and the native checkout each
+    // recomputed the flat 5% locally to print "earn ₹X cashback". The server
+    // rate is 0 now (`server/src/common/pricing/pricing.util.ts`), so a
+    // client that still computed one would promise a credit nobody pays.
+    // Deleted rather than zeroed: a zeroed constant is one edit from being a
+    // promise again, and an import that no longer resolves is a build error.
+    expect(Object.keys(pricingModule).filter((name) => /cashback/i.test(name))).toEqual([]);
   });
 });

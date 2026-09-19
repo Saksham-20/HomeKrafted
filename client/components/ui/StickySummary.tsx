@@ -18,8 +18,6 @@ export interface StickySummaryProps {
    */
   beforeLines?: ReactNode;
   lines: StickySummaryLine[];
-  /** e.g. "Pay with wallet · earn ₹18 cashback" — renders with a wallet glyph. */
-  cashbackLabel?: string;
   /** Primary CTA slot — typically a full-width <Button>. */
   children?: ReactNode;
   footnote?: string;
@@ -38,13 +36,13 @@ export interface StickySummaryProps {
 /**
  * Sticky summary aside — ported from the Hamper basket / Laundry booking
  * summary / Snacks list panels: white, bordered, dashed line-item rows, a
- * bold Fraunces total, an optional wallet-cashback line, and a CTA slot.
+ * bold Fraunces total, and a CTA slot. (It had an optional wallet-cashback
+ * line until order cashback was removed, 2026-09-19.)
  */
 export function StickySummary({
   title,
   beforeLines,
   lines,
-  cashbackLabel,
   children,
   footnote,
   className,
@@ -65,22 +63,6 @@ export function StickySummary({
           </div>
         ))}
       </div>
-      {cashbackLabel && (
-        <div className={styles.cashback}>
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            aria-hidden="true"
-          >
-            <rect x="3" y="6" width="18" height="13" rx="3" />
-          </svg>
-          {cashbackLabel}
-        </div>
-      )}
       {children && <div className={styles.cta}>{children}</div>}
       {footnote && <p className={styles.footnote}>{footnote}</p>}
     </div>

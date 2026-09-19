@@ -1,4 +1,5 @@
 import type { BrowseSortKey } from "@/lib/browse-params";
+import { bestFeatured, compareFeatured, pinFeaturedFirst } from "@/lib/featured-order";
 import type { Category, Product, Vendor } from "@/lib/types";
 
 /**
@@ -26,7 +27,14 @@ import type { Category, Product, Vendor } from "@/lib/types";
  */
 export interface Kitchen {
   vendor: Vendor;
-  /** This kitchen's listings out of the set handed in, best-rated first. */
+  /**
+   * This kitchen's listings out of the set handed in: the ones an admin
+   * featured first, in the admin's order (2026-09-19), then best-rated
+   * first. The first four are the card's preview, so a featured dish is on
+   * the card whenever the kitchen has one. The order does not depend on
+   * the grid's sort — a preview is "what this kitchen is known for", and
+   * a price sort reorders kitchens, never the dishes inside one.
+   */
   dishes: Product[];
   /**
    * Distance to the kitchen. Present only when the buyer's coordinates
@@ -115,7 +123,10 @@ export function buildKitchens(
 
     kitchens.push({
       vendor,
-      dishes: sorted,
+      // `sorted` stays the rating order — `makes` breaks ties on it — and
+      // only what the card shows is pinned. Stable, so within each half the
+      // best-rated dish still leads.
+      dishes: pinFeaturedFirst(sorted),
       distanceKm: withDistance?.distanceKm,
       distanceLabel: withDistance?.distanceLabel,
       fromPrice: prices.length ? Math.min(...prices) : undefined,
@@ -148,8 +159,16 @@ export function buildKitchens(
  * A price sort reads the kitchen's cheapest dish; `nearest` puts unknown
  * distances last, because "we were not told where you are" is not the
  * same as "far away" and must not be sorted as if it were.
- */
-/**
+ *
+ * **The default sort leads with featured kitchens** (2026-09-19): one with
+ * a featured dish among the dishes handed in sorts ahead of one without,
+ * and two of them are ordered by their best featured dish's rank — so the
+ * listing an admin ranked first brings its kitchen to the top. Unranked
+ * featured dishes tie there and fall to the vendor's rating, as does
+ * everything else. Only the default sort: "cheapest first" and "nearest"
+ * are the buyer's own question, and a featured kitchen does not get to
+ * answer them differently.
+ *
  * Kitchens that can reach the buyer come first, whatever the sort.
  *
  * They are not hidden: a buyer who shares their location should still see
@@ -169,7 +188,19 @@ export function sortKitchens(kitchens: Kitchen[], sort: BrowseSortKey): Kitchen[
   } else if (sort === "nearest") {
     list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
   } else {
+    // Each kitchen's best featured dish, found once rather than on every
+    // comparison. `dishes` is the filtered set the grid was built from, so a
+    // kitchen is "featured" only by a dish that matches what is on screen.
+    const lead = new Map(list.map((kitchen) => [kitchen, bestFeatured(kitchen.dishes)]));
     list.sort((a, b) => {
+      const aLead = lead.get(a);
+      const bLead = lead.get(b);
+      if (aLead && bLead) {
+        const featuredOrder = compareFeatured(aLead, bLead);
+        if (featuredOrder !== 0) return featuredOrder;
+      } else if (aLead || bLead) {
+        return aLead ? -1 : 1;
+      }
       if (b.vendor.rating !== a.vendor.rating) return b.vendor.rating - a.vendor.rating;
       return b.vendor.reviewCount - a.vendor.reviewCount;
     });

@@ -1,6 +1,6 @@
 import { StickySummary, Button } from "homekrafted-web";
 
-/** The checkout summary: item lines, an emphasised total, cashback, CTA, footnote. */
+/** The checkout summary: item lines, an emphasised total, CTA, footnote. */
 export const Checkout = () => (
   <div style={{ width: 340 }}>
     <StickySummary
@@ -11,7 +11,6 @@ export const Checkout = () => (
         { label: "Gift wrap", value: "₹30" },
         { label: "Total", value: "₹728", emphasis: true },
       ]}
-      cashbackLabel="Pay with wallet · earn ₹18 cashback"
       footnote="Cancel any time before the kitchen packs your order."
     >
       <Button variant="primary" style={{ width: "100%" }}>Place order</Button>
@@ -19,7 +18,7 @@ export const Checkout = () => (
   </div>
 );
 
-/** A shorter one — the cart's running total, no cashback line. */
+/** A shorter one — the cart's running total, no footnote. */
 export const CartTotals = () => (
   <div style={{ width: 340 }}>
     <StickySummary

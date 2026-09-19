@@ -1,5 +1,6 @@
 /* Category tiles in a horizontal rail (M59; icon marks since G3; tinted
-   2026-09-17 UI refinement — see the component's own doc comment). */
+   2026-09-17 UI refinement; single-select with a solid selected face
+   2026-09-19 — see the component's own doc comment). */
 
 .rail {
   display: flex;
@@ -31,15 +32,15 @@
 
 /* Press feedback lives on the whole tile, not just the face, so the
    label moves with it — one object, not two. */
-.tile:active:not(:disabled) {
+.tile:active {
   transform: scale(0.96);
   transition-duration: 80ms;
 }
 
 /* The tinted mark. One border declares the edge — no outline layered
-   under it — transparent at rest, pine when selected; that is the only
-   state this needs to carry. `--tile-ground`/`--tile-ink` come from
-   `lib/category-tint.ts`, set per-instance in the component. */
+   under it — transparent at rest, pine when selected.
+   `--tile-ground`/`--tile-ink` come from `lib/category-tint.ts`, set
+   per-instance in the component. */
 .face {
   position: relative;
   display: block;
@@ -50,11 +51,14 @@
   border: 2px solid transparent;
   background: var(--tile-ground, var(--hk-surface-2));
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
-  transition: border-color var(--hk-dur) var(--hk-ease), transform var(--hk-dur) var(--hk-ease);
+  transition:
+    background var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease),
+    transform var(--hk-dur) var(--hk-ease);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .tile:hover:not(:disabled) .face {
+  .tile:hover .face {
     transform: translateY(-2px);
   }
 }
@@ -65,7 +69,12 @@
   border-radius: var(--hk-r-md);
 }
 
+/* Selected: the face FILLS. It answers "which one", not "what colour", so
+   pine replaces the tile's own tint and the state reads the same on every
+   shelf. (The 2px border is transparent at rest, so the box never changes
+   size between states.) */
 .tileSelected .face {
+  background: var(--hk-pine);
   border-color: var(--hk-pine);
 }
 
@@ -94,9 +103,32 @@
   color: var(--hk-ink-2);
 }
 
+/* Inverted on the fill: the selected seal used to be a pine plate, which
+   vanishes outright on a pine face. A cream plate with a pine numeral reads
+   at ~8.4:1 (`--hk-on-pine` on `--hk-pine`), the mark takes the cream too. */
+.tileSelected .faceIcon {
+  color: var(--hk-on-pine);
+}
+
 .tileSelected .faceCount {
-  background: var(--hk-pine);
-  color: #fff;
+  background: var(--hk-on-pine);
+  color: var(--hk-pine);
+}
+
+/* The state that is not colour: a check on the mark's opposite corner from
+   the count. White plate, pine tick (11:1), sitting inside the face's own
+   clipping box. Decorative — the radio's `aria-checked` says it. */
+.faceCheck {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  color: var(--hk-pine);
 }
 
 .tileLabel {
@@ -112,22 +144,25 @@
   overflow: hidden;
 }
 
+/* Bold and underlined: the label sits outside the face on the white card,
+   so it carries the state a second time. Weight alone is barely a change
+   at 12px; the 2px rule is what the eye finds along a row of labels.
+
+   **The offset is 1px because the label clips its own overflow.** The
+   two-line clamp above needs `overflow: hidden`, and that box ends only
+   ~3px under the baseline at 12px (~2px at the phone's 10px / 1.15), so the
+   4px offset this had put the whole stroke outside it: a one-line label
+   showed no underline at all and a two-line one lost the last line's.
+   Rendered against Hanken Grotesk in Chromium, 1px keeps the full 2px
+   stroke inside at both sizes. Padding the label to make room is the
+   obvious alternative and is worse — the clamp's hidden third line then
+   shows through the padding as a sliver of glyph tops. */
 .tileSelected .tileLabel {
   color: var(--hk-pine);
-  font-weight: 600;
-}
-
-/* Zero-count: dimmed and disabled, never hidden (the M56 facet rule on
-   the rail too — owner, 2026-09-02). Kept in the row, after the
-   populated tiles, so the shelf list is learnable. */
-.tileEmpty {
-  cursor: default;
-  color: var(--hk-muted);
-}
-
-.tileEmpty .face {
-  opacity: 0.5;
-  filter: grayscale(1);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 1px;
 }
 
 /* Phone: a shortcut row over the catalogue reads as the catalogue
@@ -149,6 +184,13 @@
     right: 3px;
     font-size: 9px;
     padding: 2px 4px;
+  }
+
+  .faceCheck {
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
   }
 
   .tileLabel {

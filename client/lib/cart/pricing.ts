@@ -1,9 +1,16 @@
 /**
  * Shared cart/checkout money math (M3 mock business rules — real shipping
- * rate cards and cashback ledgering move server-side in M8; this is the
- * one place both `/cart` and `/checkout` (and the mock `createOrder`)
- * compute the same numbers from, so the preview a shopper sees in the
- * cart never drifts from what actually gets charged at checkout).
+ * rate cards move server-side in M8; this is the one place both `/cart`
+ * and `/checkout` (and the mock `createOrder`) compute the same numbers
+ * from, so the preview a shopper sees in the cart never drifts from what
+ * actually gets charged at checkout).
+ *
+ * There is no cashback figure here any more. The flat 5% order cashback was
+ * removed on 2026-09-19 (owner: "remove cashback from wallet"), and the
+ * server's rate is 0 — see `server/src/common/pricing/pricing.util.ts`. A
+ * screen must not compute or promise one; an order's `cashbackEarned` still
+ * arrives (as 0, or a legacy figure) but nothing on a shopper surface prints
+ * it.
  */
 
 /**
@@ -22,15 +29,6 @@ export interface DeliveryRule {
 /** What mock mode and an older server that doesn't send the rule use — the server's own defaults. */
 export const DEFAULT_DELIVERY_RULE: DeliveryRule = { deliveryFee: 0, freeDeliveryThreshold: 999 };
 
-/**
- * Platform-wide flat cashback rate (matches `lib/data/products.ts`'s
- * documented 5% flat rate, and the Home page's "Earn 5% cashback on
- * every order" wallet promo copy). Hampers don't carry their own
- * `cashbackPct`, so this flat rate is what lets hamper lines earn
- * cashback too.
- */
-export const CASHBACK_RATE = 0.05;
-
 export function computeShipping(subtotal: number, rule: DeliveryRule): number {
   if (subtotal <= 0 || rule.deliveryFee <= 0) return 0;
   if (rule.freeDeliveryThreshold > 0 && subtotal >= rule.freeDeliveryThreshold) return 0;
@@ -41,8 +39,4 @@ export function computeShipping(subtotal: number, rule: DeliveryRule): number {
 export function freeDeliveryHint(rule: DeliveryRule | undefined, shipping: number): number | undefined {
   if (!rule || shipping <= 0 || rule.freeDeliveryThreshold <= 0) return undefined;
   return rule.freeDeliveryThreshold;
-}
-
-export function computeCashback(subtotal: number): number {
-  return Math.round(subtotal * CASHBACK_RATE);
 }

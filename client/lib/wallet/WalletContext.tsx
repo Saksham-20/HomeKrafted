@@ -12,14 +12,16 @@
  *  - `pay` → `POST /orders/:id/pay` (marketplace wallet-pay; laundry's
  *    wallet-pay is atomic with booking creation server-side, so
  *    `LaundryBookingClient` no longer calls this at all — see that file).
- *  - `earnCashback`/`refund`/`earnReferralCredit` no longer compute
- *    anything client-side (the server is the only ledger writer now) —
- *    they just trigger a refetch of the balance/transactions the caller's
- *    own server-side mutation (order pay, laundry booking, referral
- *    apply-credit, admin refund) already applied. Kept as named,
- *    void-returning methods so every existing call site
- *    (`CheckoutClient`, `LaundryBookingClient`, `ReferralsClient`) keeps
+ *  - `refund`/`earnReferralCredit` no longer compute anything client-side
+ *    (the server is the only ledger writer now) — they just trigger a
+ *    refetch of the balance/transactions the caller's own server-side
+ *    mutation (laundry booking, referral apply-credit, admin refund)
+ *    already applied. Kept as named, void-returning methods so every
+ *    existing call site (`LaundryBookingClient`, `ReferralsClient`) keeps
  *    working unchanged.
+ *  - There is no `earnCashback` (2026-09-19). Order cashback was removed;
+ *    a legacy credit that lands server-side shows on the next read, and
+ *    `pay` already refetches after a wallet payment.
  *
  * `NEXT_PUBLIC_USE_MOCK=true` keeps the exact pre-M8.4a behavior: a
  * `localStorage`-persisted local ledger with client-computed
@@ -67,8 +69,6 @@ export { TOPUP_BONUS_RATE, TOPUP_BONUS_THRESHOLD } from "./topup";
 
 interface WalletState {
   balance: number;
-  pendingCashback: number;
-  lifetimeSaved: number;
   transactions: WalletTransaction[];
   /**
    * The cursor for the next ledger page, or `null` when the loaded rows
@@ -95,8 +95,6 @@ export interface PayResult {
 
 export interface WalletContextValue {
   balance: number;
-  pendingCashback: number;
-  lifetimeSaved: number;
   transactions: WalletTransaction[];
   /** True when the server holds ledger rows older than the ones loaded — i.e. `loadMoreTransactions` has something to fetch. Always `false` in mock mode, which has one page by construction. */
   hasMoreTransactions: boolean;
@@ -122,8 +120,6 @@ export interface WalletContextValue {
   topUp: (amount: number) => Promise<void>;
   /** Debits the wallet for a purchase. Real mode: `ref.refType` must be `"order"` with `ref.refId` set to the real `Order.id` — pays via `POST /orders/:id/pay`. Returns `{ ok: false }` without mutating anything when the balance can't cover `amount` (mock) or the server rejects with `INSUFFICIENT_BALANCE` (real). */
   pay: (amount: number, ref: WalletTxnRef) => Promise<PayResult>;
-  /** Refreshes the wallet after cashback was credited server-side elsewhere (or, in mock mode, credits it locally). */
-  earnCashback: (amount: number, ref: WalletTxnRef) => void;
   /** Refreshes the wallet after a refund was credited server-side elsewhere (or, in mock mode, credits it locally). */
   refund: (amount: number, ref: WalletTxnRef) => void;
   /** Refreshes the wallet after `lib/api/referrals.ts#applyReferralCredit` credited a referral reward server-side (or, in mock mode, credits it locally). */
@@ -151,8 +147,6 @@ function readStorage(): WalletState | null {
     }
     return {
       balance: parsed.balance,
-      pendingCashback: parsed.pendingCashback ?? 0,
-      lifetimeSaved: parsed.lifetimeSaved ?? 0,
       transactions: parsed.transactions,
       // Mock mode only ever holds one page, and a cursor read back from
       // storage would point into a server ledger this state never came
@@ -167,8 +161,6 @@ function readStorage(): WalletState | null {
 
 const EMPTY_STATE: WalletState = {
   balance: 0,
-  pendingCashback: 0,
-  lifetimeSaved: 0,
   transactions: [],
   transactionsCursor: null,
   autoTopup: {
@@ -194,8 +186,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setState((current) => ({
       ...current,
       balance: w.balance,
-      pendingCashback: w.pendingCashback,
-      lifetimeSaved: w.lifetimeSaved,
       // Back to page one deliberately. A refresh follows something that
       // just wrote a row, so the newest page is the one that changed;
       // stitching it onto pages fetched before the write would show the
@@ -242,8 +232,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         setState(
           stored ?? {
             balance: w.balance,
-            pendingCashback: w.pendingCashback,
-            lifetimeSaved: w.lifetimeSaved,
             transactions: page.items,
             transactionsCursor: page.nextCursor,
             autoTopup,
@@ -286,8 +274,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setState({
           balance: w.balance,
-          pendingCashback: w.pendingCashback,
-          lifetimeSaved: w.lifetimeSaved,
           transactions: page.items,
           transactionsCursor: page.nextCursor,
           autoTopup,
@@ -349,6 +335,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           ];
 
           if (amount > TOPUP_BONUS_THRESHOLD) {
+            // The top-up bonus is not order cashback. The server files it
+            // under the `cashback` ledger category (a legacy enum value it
+            // shares with the removed order cashback), and this mock mirrors
+            // that so the two ledgers agree.
             const bonus = Math.round(amount * TOPUP_BONUS_RATE);
             nextBalance += bonus;
             transactions.unshift({
@@ -454,40 +444,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [mock, state.balance, refreshFromServer],
   );
 
-  const earnCashback = useCallback(
-    (amount: number, ref: WalletTxnRef) => {
-      if (amount <= 0) return;
-      if (!mock) {
-        void refreshFromServer();
-        return;
-      }
-      setState((current) => {
-        const nextBalance = current.balance + amount;
-        return {
-          ...current,
-          balance: nextBalance,
-          lifetimeSaved: current.lifetimeSaved + amount,
-          transactions: [
-            {
-              id: genId("wt"),
-              walletId: current.autoTopup.walletId,
-              direction: "credit",
-              category: "cashback",
-              amount,
-              balanceAfter: nextBalance,
-              title: ref.title,
-              refType: ref.refType,
-              refId: ref.refId,
-              createdAt: new Date().toISOString(),
-            },
-            ...current.transactions,
-          ],
-        };
-      });
-    },
-    [mock, refreshFromServer],
-  );
-
   const refund = useCallback(
     (amount: number, ref: WalletTxnRef) => {
       if (amount <= 0) return;
@@ -590,8 +546,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const value: WalletContextValue = {
     balance: state.balance,
-    pendingCashback: state.pendingCashback,
-    lifetimeSaved: state.lifetimeSaved,
     transactions: state.transactions,
     hasMoreTransactions: state.transactionsCursor !== null,
     loadMoreTransactions,
@@ -601,7 +555,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     retryLoad,
     topUp,
     pay,
-    earnCashback,
     refund,
     earnReferralCredit,
     setAutoTopup,

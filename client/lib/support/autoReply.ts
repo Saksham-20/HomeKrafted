@@ -31,9 +31,9 @@ const RULES: AutoReplyRule[] = [
       "Refunds are credited straight to your Homekrafted wallet, usually within a few hours of approval. Want me to raise a ticket for this below?",
   },
   {
-    keywords: ["wallet", "cashback", "balance", "top up", "topup"],
+    keywords: ["wallet", "balance", "top up", "topup"],
     reply:
-      "Your wallet balance and full transaction history live under Wallet in the header — cashback and refunds show up there as credit lines.",
+      "Your wallet balance and full transaction history live under Wallet in the header — refunds and top-ups show up there as credit lines.",
   },
   {
     keywords: ["referral", "invite", "loyalty", "points", "tier"],

@@ -121,6 +121,56 @@ it made every 500 report identical and unsearchable. A 400 already says
 what to fix and a 404 is not an incident; a code shown on ordinary
 validation messages is one nobody quotes when it finally matters.
 
+## §6 A failed refresh is not a sign-out (2026-09-19)
+
+The trigger was a report that an admin "keeps getting logged out". Two
+defects fed it, and both were the same mistake as §2 — treating "I did not
+get a usable answer" as "the answer was no" — made where the cost is
+somebody's session rather than a misleading sentence.
+
+- **A refresh has three outcomes, and only one ends the session.**
+  `client/lib/api/http.ts`'s refresh resolves `ok | rejected | unavailable`.
+  Only the server saying 401/403 to the refresh token, **with no newer token
+  already in storage**, is `rejected` (`clearSession()` and a redirect to
+  sign-in). A 429 from the throttler, a 5xx while pm2 restarts the API, a
+  dropped connection, a timeout and a body that is not our JSON are
+  `unavailable`: the session stays, and the one request fails with the same
+  **status-0 `SERVER_UNREACHABLE` / `NETWORK_ERROR` `ApiError`** an
+  unreachable API produces (§2), never a sign-out. The rule that a credential
+  is deleted only on a real answer lives in `lib/auth/session-answer.ts`;
+  the refresh had never asked it.
+- **Several tabs share one refresh token, and the server rotates on first
+  use.** The token is re-read from `localStorage` under a Web Lock
+  (`navigator.locks`, `hk-auth-refresh`) before it is posted, and a tab
+  that finds a sibling has already rotated it adopts that result instead of
+  replaying the spent one. `session.ts`'s in-memory copy is a **cache** of
+  `localStorage` that follows the `storage` event, not a second source of
+  truth. A sign-out in one tab signs the others out
+  (`lib/auth/cross-tab.ts`). Where `navigator.locks` is missing the work runs
+  unguarded and the re-read is the fallback.
+- **Nothing but `http.ts` spends a refresh token.** Session restore in
+  `AuthContext` and the upload XHR go through `refreshSessionNow()`;
+  `lib/api/auth.ts#refreshSession` is the raw endpoint, with no lock and no
+  re-read, and is not a way to keep a session alive. An upload's failures
+  use two codes: **`SESSION_UNVERIFIED`** (status 0 — the refresh was
+  `unavailable`, so the photo was not sent) and **`UNAUTHORIZED`** (401 —
+  the refresh was `rejected`; it deliberately does **not** redirect, so a
+  form with a photo half-attached is not thrown away).
+- **The server no longer punishes every session for one stale tab.** A
+  replayed refresh token inside 10 s of its rotation is refused alone; beyond
+  that only **its own chain** is revoked (`docs/API.md`, `POST
+  /auth/refresh`). Before this it revoked all of the user's sessions.
+- **The sidebar's badge poll was a request that could trip over an expired
+  token on every alt-tab** and is now genuinely throttled
+  (`lib/portal/queue-poll.ts`).
+
+**Still open (the residual):** a refresh the server *accepted* whose response
+never reached the browser. The server has rotated; the client is `unavailable`
+and keeps the now-spent token, so its next attempt reads as a replay and is a
+real 401 — the session ends, and the client cannot tell that from a genuine
+refusal. This change does not address it; it is the known way a session can
+still end without anybody having refused it.
+
 ---
 
 ## Checklist for any new surface

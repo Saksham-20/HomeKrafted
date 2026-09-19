@@ -27,7 +27,7 @@
 
   /* ---- Small gold-family text ----
      Gold-family text/icons at small sizes on white or gold-tint surfaces
-     (wallet chip amount, cashback lines, ghost-gold button label). Base
+     (wallet chip amount, ghost-gold button label). Base
      --hk-gold (#B98724) is only ~3.6:1 on white — fine for >=16px bold or
      pure decoration (eyebrows) per design-system.md, but not AA-safe for
      13px chip/label text. This darkened shade restores contrast at those

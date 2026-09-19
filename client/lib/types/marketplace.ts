@@ -579,7 +579,13 @@ export interface Product {
    * this merged with the seeded `Snack` rows.
    */
   isSnack?: boolean;
-  /** Wallet cashback percentage earned on this product. */
+  /**
+   * **Not money, and not shown.** It was quoted as wallet cashback on the
+   * product page while checkout credited a flat platform rate, and order
+   * cashback has been removed altogether (2026-09-19). The column and this
+   * field stay so existing values round-trip through the listing forms and
+   * the API; nothing computes or renders a cashback from it.
+   */
   cashbackPct: number;
   description: string;
   ingredients?: string;
@@ -653,8 +659,27 @@ export interface Product {
    * explanation for why it is short.
    */
   deliverable?: false;
-  /** Admin-curated home "This week's small batches" flag (M11b) — `getFeatured()` (`lib/api/products.ts`) filters on this directly instead of a hardcoded id list. `/admin/catalog`'s feature toggle mutates it client-side; since Home is a Server Component, the effect lands on that page's next server-side fetch (a real backend request in M8), not this same browser tab — see `lib/api/admin.ts`'s "Catalog & review moderation" section header. */
+  /**
+   * Admin-curated "lead with this" flag. What it does today (2026-09-19):
+   * the default browse orders `featured DESC, featuredRank ASC NULLS LAST`
+   * first (`server/src/catalog/browse-order.ts`, mirrored client-side by
+   * `lib/featured-order.ts`), and the home shelves' uncurated fallback leads
+   * with these listings (`lib/home-rails.ts`). It was the M11b "This week's
+   * small batches" flag — `getFeatured()` (`lib/api/products.ts`) still
+   * filters on it, but no screen calls that any more, so the flag moved no
+   * buyer-facing order until the browse began reading it. `/admin/catalog`'s
+   * feature toggle mutates it; Home is a Server Component, so the effect lands
+   * on that page's next server-side fetch, not this same browser tab — see
+   * `lib/api/admin.ts`'s "Catalog & review moderation" section header.
+   */
   featured?: boolean;
+  /**
+   * Where an admin placed this listing among the featured ones — lower is
+   * earlier. `null` = featured but unranked (sorts after every ranked
+   * one), absent = a server that predates the column. Only meaningful
+   * while `featured` is true.
+   */
+  featuredRank?: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -743,7 +768,7 @@ export interface CartLineMaker {
   location?: string;
 }
 
-/** M8.4a — the real `GET /cart` response envelope; `count`/`subtotal`/`shippingFee`/`total`/`cashbackEstimate` are server-computed, same rules as `lib/cart/pricing.ts`. */
+/** M8.4a — the real `GET /cart` response envelope; `count`/`subtotal`/`shippingFee`/`total` are server-computed, same rules as `lib/cart/pricing.ts`. `cashbackEstimate` is always 0 since order cashback was removed (2026-09-19); it stays because an installed native build reads it. */
 export interface ServerCart {
   id: ID;
   userId: ID;
@@ -809,7 +834,7 @@ export interface Hamper {
 /**
  * `"pending-payment"` (M8.4a) — a real order's starting status
  * (`server/src/orders/orders.service.ts#create`, every `paymentMethod`,
- * see `docs/API.md`'s M8.2 seam notes): the wallet-debit/cashback-credit
+ * see `docs/API.md`'s M8.2 seam notes): the wallet debit
  * (`POST /orders/:id/pay`) or Razorpay capture webhook transitions a
  * `"wallet"`/`"razorpay"` order on to `"placed"`. `"cod"` has no follow-up
  * transition endpoint yet (a flagged server-side gap, not client-fixable)
@@ -886,6 +911,7 @@ export interface Order {
   shippingFee: number;
   total: number;
   walletApplied: number;
+  /** 0 for every order placed since 2026-09-19; a legacy figure on an older one. Not rendered on a shopper surface. */
   cashbackEarned: number;
   refundStatus: RefundStatus;
   /**

@@ -163,7 +163,7 @@ export function ReferralsClient({ tiers, howItWorks, rewardAmount }: ReferralsCl
         <span className={styles.eyebrow}>Account</span>
         <h1 className={styles.title}>Referrals &amp; loyalty</h1>
         <p className={styles.subtitle}>
-          Invite friends, earn wallet credit, and climb loyalty tiers for better cashback.
+          Invite friends, earn wallet credit, and climb the loyalty tiers.
         </p>
       </div>
 

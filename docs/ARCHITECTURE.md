@@ -173,10 +173,18 @@ helpers M8.1–M8.3's seller/admin endpoints must route every query through.
 3. **Access token expires** (short-lived by design) → the client calls
    `POST /auth/refresh` with its refresh token. `AuthService` verifies it,
    checks the stored hash is unrevoked and unexpired, then **rotates** it:
-   the old row is marked revoked and a brand-new refresh token (+ row) is
-   issued in the same operation. Presenting an already-rotated (revoked)
-   refresh token is rejected outright — the reuse-detection signal a
-   stolen/replayed token trips.
+   the old row is marked revoked — and, since 2026-09-19, records its
+   successor in `replacedByTokenId` — and a brand-new refresh token (+ row)
+   is issued in the same operation. Presenting an already-rotated (revoked)
+   refresh token is rejected, and its own descendant chain is revoked when
+   the replay is outside the 10-second grace window (inside it, it is a
+   same-tab race and only the replay is refused) — the reuse-detection
+   signal a stolen/replayed token trips. Only that chain: the user's other
+   sessions are left alone, which they were not before (a stale second tab
+   used to sign an admin out of every device). On the browser the client
+   also re-reads the stored refresh token under a Web Lock before posting
+   it, so two tabs do not race the rotation in the first place — see
+   `docs/ERROR-HANDLING.md`.
 4. **Sign out** (`POST /auth/logout`) revokes the presented refresh token.
    The still-valid access token that was already issued keeps working
    until it naturally expires (by design — access tokens are stateless
@@ -191,8 +199,10 @@ money or lets one fabricate it. The design leans on three primitives
 stacked together, not any single trick:
 
 **1. One write primitive, always.** Every balance mutation anywhere in
-the app — a top-up credit, a wallet-pay debit, a cashback credit, a
-refund credit, an admin adjustment — funnels through
+the app — a top-up credit, a wallet-pay debit, a refund credit, an
+admin adjustment, and (for an order placed before 2026-09-19) its stored
+cashback credit and reversal; order cashback itself was removed then —
+funnels through
 `WalletService.postLedgerEntryTx`, the only code that ever writes
 `Wallet.balance`/`WalletTransaction.balanceAfter`. It:
 - Locks the wallet row with `SELECT ... FOR UPDATE` (raw SQL inside the
@@ -268,8 +278,9 @@ anything until the next step). `POST /payments/razorpay/webhook`:
    no-ops anyway.
 4. Credits the wallet (`purpose: "topup"`, + the 3% bonus above ₹2,000,
    mirroring the mock's `TOPUP_BONUS_THRESHOLD`/`RATE`) or transitions the
-   linked `Order` `pending-payment -> placed` + credits cashback
-   (`purpose: "order"`) — both go through the same `postLedgerEntryTx`
+   linked `Order` `pending-payment -> placed` (`purpose: "order"`; a legacy
+   order's stored cashback is credited too — `0` for every order created since
+   2026-09-19) — both go through the same `postLedgerEntryTx`
    primitive as every other credit in the app.
 
 **Test-mode note:** `RAZORPAY_KEY_ID`/`_SECRET` ship as `.env.example`

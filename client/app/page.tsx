@@ -30,6 +30,7 @@ import {
 } from "@/lib/api";
 import { currentSeasonalOccasion } from "@/lib/occasions";
 import { isPurchasable } from "@/lib/catalog-availability";
+import { compareTopRated, uncuratedRail } from "@/lib/home-rails";
 import { absoluteUrl, jsonLdProps, SITE_NAME, SITE_URL } from "@/lib/seo";
 import styles from "./page.module.css";
 
@@ -141,13 +142,14 @@ export default async function Home() {
         .slice(0, limit);
       if (resolved.length > 0) return resolved;
     }
-    // Fallback: top-rated products of this kind that are live and in stock
-    const matching = allProducts.filter((p) => p.kind === kind && isLiveAndInStock(p));
-    const withReviews = matching.filter((p) => p.reviewCount > 0);
-    const fallbackSource = withReviews.length > 0 ? withReviews : matching;
-    return fallbackSource
-      .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
-      .slice(0, limit);
+    // Fallback: the listings an admin featured, in the admin's order, then
+    // top-rated products of this kind — all live and in stock.
+    // See `lib/home-rails.ts` for why a featured listing skips the
+    // reviewed-only pool.
+    return uncuratedRail(
+      allProducts.filter((p) => p.kind === kind && isLiveAndInStock(p)),
+      limit,
+    );
   }
 
   const bestsellerFoodProducts = resolveCollection(bestsellerFoodCollection, "food");
@@ -162,7 +164,8 @@ export default async function Home() {
   );
   const inHouseProducts = allProducts
     .filter((p) => hkVendor && p.vendorId === hkVendor.id && isLiveAndInStock(p))
-    .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
+    // Featured first, in the admin's order, then the ordinary rating rank.
+    .sort(compareTopRated);
 
   // The seasonal hook (M16). Read once, on the server, and shipped as
   // text — nothing recomputes "today" during hydration, which is the

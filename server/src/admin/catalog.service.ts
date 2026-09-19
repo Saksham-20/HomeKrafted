@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductModerationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PRODUCT_INCLUDE, mapProduct, mapProductForMaker } from '../catalog/mappers/product.mapper';
+import { DEFAULT_BROWSE_ORDER } from '../catalog/browse-order';
 import { AdminSettingsService } from './settings.service';
 import { mapReview } from '../reviews/reviews.mapper';
 import { mapSnackForOwner } from '../snacks/snacks.mapper';
@@ -435,6 +436,169 @@ export class AdminCatalogService {
     return product;
   }
 
+  /**
+   * The featured set, in the order buyers see it (2026-09-19).
+   *
+   * Every listing with `featured = true` is returned whatever its review
+   * state: a featured listing an admin later hid still occupies a place in
+   * the set, and the screen has to be able to show it in order to let the
+   * admin take it out. `moderationStatus` and `isAvailable` ride on each
+   * row for exactly that.
+   */
+  async listFeatured() {
+    const [rows, rate] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { featured: true },
+        include: PRODUCT_INCLUDE,
+        // **The buyer's own order, from the same constant** —
+        // `DEFAULT_BROWSE_ORDER` (`catalog/browse-order.ts`): rank ascending
+        // NULLS LAST, then rating, review count, id. Its leading
+        // `featured DESC` is constant here (every row is featured). This
+        // used to order the unranked by name, so two featured listings
+        // nobody had ranked read "1, 2" on this screen in an order buyers
+        // did not get — the position badges claimed a placement that was
+        // not in effect. Sharing the constant is what keeps the two from
+        // being edited apart.
+        orderBy: DEFAULT_BROWSE_ORDER,
+      }),
+      this.settings.getCommissionRate(),
+    ]);
+
+    const vendorIds = [...new Set(rows.map((p) => p.vendorId))];
+    const categoryIds = [...new Set(rows.map((p) => p.categoryId))];
+    const [vendors, categories] = await Promise.all([
+      vendorIds.length
+        ? this.prisma.vendor.findMany({ where: { id: { in: vendorIds } }, select: { id: true, name: true } })
+        : Promise.resolve([]),
+      categoryIds.length
+        ? this.prisma.category.findMany({ where: { id: { in: categoryIds } }, select: { id: true, name: true } })
+        : Promise.resolve([]),
+    ]);
+    const vendorNameById = new Map(vendors.map((v) => [v.id, v.name]));
+    const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+
+    return {
+      items: rows.map((p) => ({
+        ...mapProduct(p, rate),
+        vendorName: vendorNameById.get(p.vendorId) ?? 'Unknown vendor',
+        categoryName: categoryNameById.get(p.categoryId) ?? 'Uncategorised',
+      })),
+      total: rows.length,
+    };
+  }
+
+  /**
+   * Replace the featured set with `productIds`, in order.
+   *
+   * **A full replacement, in one transaction.** Array position is the
+   * rank — index 0 becomes `featuredRank` 1 — and any listing that was
+   * featured and is not in the list is unfeatured and loses its rank. A
+   * set that can only grow is one nobody can curate, and two writes
+   * (unfeature, then rank) that could half-apply would leave a listing
+   * featured with a rank from a list that no longer exists.
+   *
+   * **Merchandising, not moderation**: only `featured` and `featuredRank`
+   * are written, never `moderationStatus`, `moderationNote` or
+   * `moderatedAt` — putting a flagged listing in the featured set must
+   * not erase the reason it was flagged (M22, the rule `feature` already
+   * keeps). Featuring does not require the listing to be live; a buyer
+   * only ever sees it once it also passes `PUBLICLY_LISTED`.
+   *
+   * Duplicates collapse to their first position. An id that does not
+   * exist is a 400 naming it, before anything is written — the same
+   * refusal shape as a duplicate occasion (M43): the admin is told which
+   * row was wrong rather than having it silently dropped.
+   *
+   * **A stale list cannot silently unfeature somebody else's listing.**
+   * `basedOn` is the featured ids the admin's screen loaded. Because this
+   * is a full replacement, a save from a list opened before another admin
+   * featured something (the Products tab's Feature button adds a listing
+   * unranked, at any time) would drop that listing without either admin
+   * being told. When `basedOn` is sent, a listing that is featured now,
+   * was not in it, and is missing from `productIds` is a 409 naming it
+   * before anything is written. Only that direction is guarded: reordering
+   * over another admin's order is a last-write-wins the screen showed, and
+   * a listing the admin kept in the list is theirs to keep. Omitting
+   * `basedOn` keeps the old unconditional replacement, so a client that
+   * predates the field is not refused.
+   */
+  async setFeatured(adminUserId: string, productIds: string[], basedOn?: string[]) {
+    const ids = [...new Set(productIds)];
+
+    const before = await this.prisma.$transaction(
+      async (tx) => {
+        // Checked inside the transaction, so a listing deleted between the
+        // check and the write cannot turn a refusal into a 500 halfway
+        // through. Nothing has been written when this throws.
+        if (ids.length > 0) {
+          const found = await tx.product.findMany({
+            where: { id: { in: ids } },
+            select: { id: true },
+          });
+          const known = new Set(found.map((p) => p.id));
+          const missing = ids.filter((id) => !known.has(id));
+          if (missing.length > 0) {
+            const named = missing.slice(0, 10).join(', ');
+            const more = missing.length > 10 ? ` and ${missing.length - 10} more` : '';
+            throw new BadRequestException(
+              `No listing exists with the id ${named}${more}. It may have been deleted — reload the featured list and try again.`,
+            );
+          }
+        }
+
+        const previous = await tx.product.findMany({
+          where: { featured: true },
+          orderBy: DEFAULT_BROWSE_ORDER,
+          select: { id: true, name: true },
+        });
+
+        if (basedOn) {
+          const seen = new Set(basedOn);
+          const keeping = new Set(ids);
+          const unseen = previous.filter((p) => !seen.has(p.id) && !keeping.has(p.id));
+          if (unseen.length > 0) {
+            const named = unseen
+              .slice(0, 3)
+              .map((p) => `“${p.name}”`)
+              .join(', ');
+            const more = unseen.length > 3 ? ` and ${unseen.length - 3} more` : '';
+            throw new ConflictException(
+              `${named}${more} ${unseen.length === 1 ? 'was' : 'were'} featured after you opened this list, and saving now would unfeature ${unseen.length === 1 ? 'it' : 'them'}. Reload the list to see what changed, then save again.`,
+            );
+          }
+        }
+
+        // Everything featured and not listed goes back to unfeatured, rank
+        // cleared. `notIn: []` matches every row, which is exactly
+        // "feature nothing".
+        await tx.product.updateMany({
+          where: { featured: true, id: { notIn: ids } },
+          data: { featured: false, featuredRank: null },
+        });
+        for (const [index, id] of ids.entries()) {
+          await tx.product.update({
+            where: { id },
+            data: { featured: true, featuredRank: index + 1 },
+            select: { id: true },
+          });
+        }
+        return previous.map((p) => p.id);
+      },
+      // Up to `MAX_FEATURED` sequential updates on one connection; the 5 s
+      // default is generous for that on a warm box and not on a cold one.
+      { timeout: 15_000 },
+    );
+
+    await this.auditLog.log({
+      actorId: adminUserId,
+      action: 'catalog.featured_set',
+      targetType: 'Product',
+      metadata: { before, after: ids },
+    });
+
+    return this.listFeatured();
+  }
+
   async getProduct(id: string) {
     const product = await this.prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
     if (!product) throw new NotFoundException('Product not found');
@@ -634,6 +798,7 @@ export class AdminCatalogService {
       throw new BadRequestException('Featuring is not available for menu items');
     }
     delete data.featured;
+    delete data.featuredRank;
 
     const updated = await this.prisma.snack.update({ where: { id }, data });
     await this.recordDecision('snack', 'Snack', id, adminUserId, dto, existing.moderationStatus, updated.moderationStatus, {
@@ -657,6 +822,7 @@ export class AdminCatalogService {
       throw new BadRequestException('Featuring is not available for meal plans');
     }
     delete data.featured;
+    delete data.featuredRank;
 
     const updated = await this.prisma.mealPlan.update({ where: { id }, data });
     await this.recordDecision(

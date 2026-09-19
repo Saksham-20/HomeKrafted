@@ -523,8 +523,8 @@ export function GalleryClient({
             <PromoBand
               variant="tint"
               eyebrow="Homekrafted Wallet"
-              title="Earn 5% cashback on every order"
-              description="Top up once, pay in a tap, and watch rewards add up across the store."
+              title="Pay from your balance"
+              description="Top up once and every order settles from it, in a tap."
               ctaLabel="Open wallet →"
             />
           </div>
@@ -532,15 +532,11 @@ export function GalleryClient({
 
         <Group title="WalletBalanceCard">
           <div className={styles.cardSlotWide}>
-            <WalletBalanceCard
-              balance={wallet.balance}
-              pendingCashback={wallet.pendingCashback}
-              lifetimeSaved={wallet.lifetimeSaved}
-            />
+            <WalletBalanceCard balance={wallet.balance} />
           </div>
         </Group>
 
-        <Group title="StickySummary — line items, emphasis total, cashback line, CTA slot">
+        <Group title="StickySummary — line items, emphasis total, CTA slot">
           <div className={styles.cardSlotWide}>
             <StickySummary
               title="Booking summary"
@@ -550,7 +546,6 @@ export function GalleryClient({
                 { label: "Delivery", value: "Free" },
                 { label: "Estimated total", value: formatCurrency(316), emphasis: true },
               ]}
-              cashbackLabel="Pay with wallet · earn ₹18 cashback"
               footnote="Final price weighed at pickup"
             >
               <Button>Confirm pickup →</Button>

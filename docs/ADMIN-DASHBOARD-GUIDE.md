@@ -82,6 +82,18 @@ Use for listing moderation:
 - Approve/hide/flag as required.
 - Keep moderation notes explicit and actionable.
 
+### Featured listings (/admin/catalog/featured)
+
+Use to choose which listings lead the shop and gifts pages, and in what order:
+
+- Add live listings from the search box; order them with the up/down buttons; Save
+  replaces the whole list (anything you leave out is un-featured).
+- A featured listing that is no longer live stays in the list with its reason so you
+  can remove it; buyers only see a featured listing that also passes review.
+- Badges (Bestseller, New, Festive, Curated) are set only by an admin, in the
+  Merchandising section at the bottom of a listing's edit page. HomeKrafters cannot
+  set them.
+
 ### Wallet (/admin/wallet)
 
 Use for platform liability and account-level ledger review:

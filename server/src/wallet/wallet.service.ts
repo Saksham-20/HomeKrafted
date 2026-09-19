@@ -37,7 +37,7 @@ export interface PostLedgerEntryOptions extends LedgerRef {
   direction: WalletTransactionDirection;
   category: WalletTransactionCategory;
   amount: number;
-  /** Added to `Wallet.lifetimeSaved` alongside the balance write — only `earnCashback`/order-cashback credits use this; a top-up bonus or a refund does not count as a "saving" (mirrors the mock's `earnCashback` vs `topUp`/`refund`). */
+  /** Added to `Wallet.lifetimeSaved` alongside the balance write — only the (legacy) order-cashback credit and its reversal use this; a top-up bonus or a refund does not count as a "saving". Order cashback stopped being credited on 2026-09-19, so today only a reversal on a pre-removal order moves it. */
   lifetimeSavedDelta?: number;
   /** Internal — set when appending the auto-top-up credit itself, so it can't recursively re-trigger (it's a credit, so this is defense-in-depth, not a real recursion risk). */
   skipAutoTopupCheck?: boolean;
@@ -49,7 +49,7 @@ function round2(n: number): number {
 
 /**
  * Server-authoritative wallet ledger — every balance mutation in this
- * codebase (top-up credit, wallet-pay debit, cashback credit, refund
+ * codebase (top-up credit, wallet-pay debit, legacy cashback credit, refund
  * credit, admin adjustment) funnels through `postLedgerEntryTx`, the one
  * place that locks the `Wallet` row, computes `balanceAfter` server-side,
  * and appends the `WalletTransaction` — atomically, inside a caller-

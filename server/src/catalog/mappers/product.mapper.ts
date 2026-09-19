@@ -214,6 +214,13 @@ export function mapProduct(product: ProductWithRelations, rate: CommissionRate) 
     moderatedAt: product.moderatedAt?.toISOString(),
     submittedAt: product.submittedAt?.toISOString(),
     featured: product.featured,
+    /**
+     * An admin's place for this listing among the featured ones — lower
+     * is earlier. `null` while nobody has ranked it (or it is not
+     * featured), kept as `null` rather than dropped so a client can tell
+     * "unranked" from "an older server that never sent one".
+     */
+    featuredRank: product.featuredRank,
   };
 }
 

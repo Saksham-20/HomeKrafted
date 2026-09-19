@@ -59,7 +59,7 @@
  * administrative access to anyone who found the URL. Admin stays
  * internal-only — not part of the public role chooser. Session restore on reload (`hydrate`
  * below) no longer special-cases `role === "admin"` — a persisted admin
- * session restores through the exact same `loadStoredSession`/`getMe()`
+ * session restores through the exact same `syncFromStorage`/`getMe()`
  * path a consumer/seller session already does.
  *
  * **`NEXT_PUBLIC_USE_MOCK=true`** short-circuits every method below back
@@ -87,7 +87,6 @@ import {
   getMe,
   loginWithEmail,
   logoutSession,
-  refreshSession,
   registerWithEmail,
   continueWithPassword as apiContinueWithPassword,
   changePassword as apiChangePassword,
@@ -96,20 +95,21 @@ import {
   verifyOtpCode,
   type AuthResultDto,
 } from "@/lib/api/auth";
-import { isMockMode } from "@/lib/api/http";
+import { ApiError, isMockMode, refreshSessionNow } from "@/lib/api/http";
 // The rule about when a credential may be deleted lives in one pure
 // module, so the native app's auth fork cannot answer it differently.
+import { crossTabAction } from "@/lib/auth/cross-tab";
 import { isSessionAnswer } from "@/lib/auth/session-answer";
 import {
   clearSession,
   getRefreshToken,
   getSession,
   isAccessTokenStale,
-  loadStoredSession,
+  onSessionChangedElsewhere,
   setSession,
+  syncFromStorage,
   toAppUser,
   updateSessionUser,
-  updateTokens,
   type SessionUser,
 } from "@/lib/auth/session";
 import type { Seller, User, UserRole } from "@/lib/types";
@@ -418,12 +418,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // still-valid access token is trusted as-is; `getMe()` (a plain
       // `GET`, not subject to that bug) still runs either way to catch a
       // `suspended` flip.
-      const persisted = loadStoredSession();
+      //
+      // **Read from storage, and refresh through `http.ts`'s one function
+      // (2026-09-19).** This used to post `persisted.refreshToken` itself:
+      // straight from this tab's memory, with no lock, and clearing the
+      // session on any 401. A browser restoring five admin tabs after a
+      // restart has all five hydrate at once with the same spent-by-the-
+      // first-one token, and four of them read the refusal as "the session
+      // is over" and deleted the storage the fifth was about to use. The
+      // shared refresh re-reads storage under a lock, adopts a sibling's
+      // result, and only calls a 401 with nothing newer waiting `rejected`.
+      const persisted = syncFromStorage();
       if (persisted) {
         try {
           if (isAccessTokenStale(persisted.accessToken)) {
-            const tokens = await refreshSession(persisted.refreshToken);
-            updateTokens(tokens.accessToken, tokens.refreshToken);
+            const outcome = await refreshSessionNow();
+            // Fed to the `catch` below as the status it already reads: that
+            // is the one place that decides which failures may delete a
+            // credential, and a second copy of the rule is how it drifts.
+            if (outcome === "rejected") {
+              throw new ApiError(401, "SESSION_ENDED", "Your session has ended — please sign in again.");
+            }
+            if (outcome === "unavailable") {
+              throw new ApiError(0, "SESSION_UNVERIFIED", "We could not check your sign-in just now.");
+            }
           }
           // M48 — `GET /users/me` and `GET /seller/me` in parallel.
           //
@@ -556,6 +574,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionUnverified(false);
     setSessionRetryToken((token) => token + 1);
   }, []);
+
+  /**
+   * The local half of signing out: forget who this tab thinks is signed
+   * in. It touches neither storage nor the server — `signOut()` does both,
+   * and when the sign-out happened in another tab that tab already has.
+   */
+  const forgetIdentity = useCallback(() => {
+    setSignedIn(false);
+    setRole(undefined);
+    setDemoHomeKrafter(undefined);
+    setSellerModeState(undefined);
+    setSessionUserState(undefined);
+    // M48 — so signing back in as the same HomeKrafter re-fetches rather
+    // than trusting a key from the session that just ended.
+    sellerFetchKey.current = undefined;
+    setRealSeller(undefined);
+  }, []);
+
+  // **Another tab changing the session is news this tab has to act on
+  // (2026-09-19).** `localStorage` is shared and the state above is not: an
+  // admin who signed out in one tab, or whose session ended there, left
+  // every other tab rendering the panel over a session that no longer
+  // existed, until a request in it 401'd. `session.ts` already keeps the
+  // token cache honest; this keeps the *interface* honest.
+  //
+  // Two cases only. The session ended: forget the identity, and the shells'
+  // own gates say so. A different account signed in: this tab is showing
+  // one person's data over another person's tokens, so re-restore rather
+  // than guess. A token rotation for the same account is not a change of
+  // anything this tab displays.
+  const knownUserId = sessionUser?.id;
+  useEffect(() => {
+    if (mock) return;
+    return onSessionChangedElsewhere((session) => {
+      // Mid-restore the hydrate effect is reading storage itself.
+      if (!hydrated.current) return;
+      const action = crossTabAction(session, knownUserId);
+      if (action === "sign-out") {
+        setSessionUnverified(false);
+        forgetIdentity();
+      } else if (action === "re-restore") {
+        retrySession();
+      }
+    });
+  }, [mock, knownUserId, forgetIdentity, retrySession]);
 
   // Persist role/signedIn/sellerMode (mock bookkeeping + the `hk_role`
   // cookie middleware reads) on every change, once initial hydration has
@@ -794,15 +857,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       clearSession();
     }
-    setSignedIn(false);
-    setRole(undefined);
-    setDemoHomeKrafter(undefined);
-    setSellerModeState(undefined);
-    setSessionUserState(undefined);
-    // M48 — so signing back in as the same HomeKrafter re-fetches rather
-    // than trusting a key from the session that just ended.
-    sellerFetchKey.current = undefined;
-    setRealSeller(undefined);
+    forgetIdentity();
   }
 
   // Real sessions (consumer, seller, or admin) resolve their `User` snapshot

@@ -27,8 +27,8 @@ place the Prisma model deviates from the literal TS shape). All ids are
 
 | Entity | Key fields | Relationships |
 |---|---|---|
-| `Wallet` | balance, pendingCashback, lifetimeSaved, payWithWalletDefault | belongs to `User` |
-| `WalletTransaction` | direction (`credit`\|`debit`), category (`topup`\|`cashback`\|`refund`\|`payment`\|`referral`\|`loyalty`\|`adjustment` (M11b)), amount, **balanceAfter** (server-authoritative running total), refType/refId | belongs to `Wallet` |
+| `Wallet` | balance, pendingCashback, lifetimeSaved, payWithWalletDefault | belongs to `User`. **`pendingCashback` and `lifetimeSaved` are legacy columns since 2026-09-19** (order cashback was removed): `pendingCashback` was never written by anything, and `lifetimeSaved` is a frozen running total of cashback already credited that only a legacy reversal can still lower. Nothing new writes either, no web screen renders them, and they stay because the API still returns them to installed native builds. They never drove a loyalty tier — no server code writes `LoyaltyAccount` from them. `LaundryBooking.walletCashback` (withdrawn module) is legacy in the same way. |
+| `WalletTransaction` | direction (`credit`\|`debit`), category (`topup`\|`cashback` (**legacy since 2026-09-19** — kept because rows already carry it: the old "Cashback — Order #…" credits, their reversals, and the 3% top-up bonus, which is filed under it too; no new order-cashback row is written)\|`refund`\|`payment`\|`referral`\|`loyalty`\|`adjustment` (M11b)), amount, **balanceAfter** (server-authoritative running total), refType/refId | belongs to `Wallet` |
 | `AutoTopupRule` | enabled, trigger (`below-threshold`\|`scheduled`), thresholdAmount?, topupAmount | belongs to `Wallet` |
 
 ## Marketplace (`lib/types/marketplace.ts`)
@@ -42,12 +42,12 @@ place the Prisma model deviates from the literal TS shape). All ids are
 | `Category` | name, productCount | referenced by `Product.categoryId` |
 | `Occasion` | name, initial, **celebratedOn? / tagline? / imageSrc? (M16)** | referenced by `Product.occasionIds[]`, `Collection.occasionId` |
 | `Collection` | title, productIds[], **imageSrc? / featured / sortOrder (M16)** | many-to-many with `Product` (by id list, not a join table yet) |
-| `Product` | vendorId, categoryId, occasionIds[], dietary[], prepTimeMins? (2026-09-05 — minutes of notice **this listing** needs; NULL is "not stated", never zero, and drives the buyer-facing "Pre-order" badge and nothing else. Deliberately not resolved against `VendorProfile.prepTimeMins`, which is the kitchen default and falls back to 90 minutes when unstated — reading the badge through it would stamp it on nearly every food listing), images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[], isPackaged, cashbackPct, moderationStatus? (`pending`\|`active`\|`rejected`\|`hidden`\|`flagged` — **defaults to `pending` since M22**), moderationNote?/moderatedAt?/submittedAt? (M22), featured? (M11b) | belongs to `Vendor` |
+| `Product` | vendorId, categoryId, occasionIds[], dietary[], prepTimeMins? (2026-09-05 — minutes of notice **this listing** needs; NULL is "not stated", never zero, and drives the buyer-facing "Pre-order" badge and nothing else. Deliberately not resolved against `VendorProfile.prepTimeMins`, which is the kitchen default and falls back to 90 minutes when unstated — reading the badge through it would stamp it on nearly every food listing), images[], weightOptions[{sku,price,mrp,stock}], defaultWeightSku, tags[] (**written only by an admin since 2026-09-19** — `POST`/`PATCH /admin/catalog/products`; the seller routes ignore the field, `server/src/seller/listing-tags.ts`), isPackaged, cashbackPct (**inert since 2026-09-19** — order cashback was removed; kept so existing values round-trip, nothing computes or renders from it), moderationStatus? (`pending`\|`active`\|`rejected`\|`hidden`\|`flagged` — **defaults to `pending` since M22**), moderationNote?/moderatedAt?/submittedAt? (M22), featured? (M11b — admin merchandising: leads the default browse), **featuredRank Int? (2026-09-19)** — where a featured listing sits among the others: **lower is earlier, NULL = featured but unranked and sorts after every ranked one**, only meaningful while `featured = true`; every writer keeps "not featured ⇒ no rank" (`unfeature` and `PUT /admin/catalog/featured` both clear it). Written by an admin and nobody else, and never by a seller DTO. Read by the default browse order `featured DESC, featuredRank ASC NULLS LAST, rating DESC, reviewCount DESC, id` (`server/src/catalog/browse-order.ts`), which is why there is a new index `Product_default_browse_featured_idx` on `(moderationStatus, isAvailable, featured DESC, featuredRank ASC, rating DESC, reviewCount DESC, id)`, kept **beside** the M23 index (price/distance browses and the portal lists still use that one). Its name is set explicitly with `map:` because Prisma's generated one would be 84 characters and Postgres truncates identifiers past 63. Migration `20260919120000_product_featured_rank` is additive (one nullable column, one index, nothing backfilled) | belongs to `Vendor` |
 | `Cart` (+`CartItem`) | items[{productId?, sku?, hamperId?, quantity, giftWrap?, addressId?}] | belongs to `User`; a line is *either* a product (`productId`+`sku`) *or* an assembled hamper (`hamperId`), never both — see "Polymorphic cart/order lines" below; `CartItem.addressId` enables multi-address checkout |
 | `Wishlist` | items[{productId, addedAt}] | belongs to `User` |
 | `HamperBox` | name, maxItems, price | referenced by `Hamper.boxId` |
 | `Hamper` | boxId, items[{productId,quantity}], giftNote?, wrap?, ribbon?, nameCard?, recipientAddressId?, hidePrice | belongs to `User`; optional `Address` (recipient) — **M3 note:** the recipient/hide-price fields exist on this type but aren't set by the Hamper builder UI; gift-to-recipient is Checkout's order-wide `Order.gift`, not per-hamper (see CHANGELOG M3) |
-| `Order` (+`OrderItem`, +`OrderShipment`) | status (7-state), shippingAddressIds[], shipments[{addressId, deliveryDate?}], gift? {isGift, recipientAddressId?, hidePrice, message?}, walletApplied, cashbackEarned, refundStatus, **refundReason?/refundRequestedAt?/cancelledAt?/deliveredAt? (M15)**, paymentMethod (`wallet`\|`razorpay`\|`cod`) | belongs to `User`; `OrderItem` is the same product-or-hamper polymorphism as `CartItem`; `OrderItem.addressId` ties each line to one of `shippingAddressIds`; `shipments` carries that address's own delivery date (M3 — replaces a single order-wide `deliveryDate`). **The markup commission model (2026-09-16):** `OrderItem.price` is the buyer-charged figure (the maker's base plus Homekrafted's fee plus GST on the fee); `sellerAmount?/commissionAmount?/gstAmount?/commissionPct?/gstPct?` snapshot the split at checkout, NULL on pre-2026-09-16 rows where `price` never carried a fee. A payout sums `COALESCE(sellerAmount, price)` — a marketplace line is never deducted a second time at payout, whichever era it was placed in. |
+| `Order` (+`OrderItem`, +`OrderShipment`) | status (7-state), shippingAddressIds[], shipments[{addressId, deliveryDate?}], gift? {isGift, recipientAddressId?, hidePrice, message?}, walletApplied, cashbackEarned (**legacy since 2026-09-19: `0` on every new order**, a legacy figure on older ones — it is a checkout *snapshot*, so the credit and reversal paths still read it and an order quoted a cashback before the removal is credited if paid and reversed if cancelled), refundStatus, **refundReason?/refundRequestedAt?/cancelledAt?/deliveredAt? (M15)**, paymentMethod (`wallet`\|`razorpay`\|`cod`) | belongs to `User`; `OrderItem` is the same product-or-hamper polymorphism as `CartItem`; `OrderItem.addressId` ties each line to one of `shippingAddressIds`; `shipments` carries that address's own delivery date (M3 — replaces a single order-wide `deliveryDate`). **The markup commission model (2026-09-16):** `OrderItem.price` is the buyer-charged figure (the maker's base plus Homekrafted's fee plus GST on the fee); `sellerAmount?/commissionAmount?/gstAmount?/commissionPct?/gstPct?` snapshot the split at checkout, NULL on pre-2026-09-16 rows where `price` never carried a fee. A payout sums `COALESCE(sellerAmount, price)` — a marketplace line is never deducted a second time at payout, whichever era it was placed in. |
 
 ## Laundry (`lib/types/laundry.ts`)
 
@@ -123,7 +123,7 @@ place the Prisma model deviates from the literal TS shape). All ids are
   first real read/write implementation of the `WalletTransaction` ledger
   described above — client-side and `localStorage`-persisted only (no
   backend yet, same caveat as `CartContext`), but every op
-  (`topUp`/`pay`/`earnCashback`/`refund`) appends a row shaped exactly
+  (`topUp`/`pay`/`refund`; it also had `earnCashback` until order cashback was removed on 2026-09-19) appends a row shaped exactly
   like the `WalletTransaction` interface, computing `balanceAfter`
   client-side for now. **This is the one thing that must change at M8:**
   the note two bullets up ("`balanceAfter` must only ever be written
@@ -276,7 +276,9 @@ place the Prisma model deviates from the literal TS shape). All ids are
   `lib/api/products.ts`'s browse/listing getters (`getProducts`,
   `getProductsByCategory/Occasion/Vendor`, `getFeatured`) filter out
   `"hidden"` products and `getFeatured` now derives from `.featured`
-  instead of a hardcoded id list. (2) `Review.flagged?`/`Review.hidden?`
+  instead of a hardcoded id list (**no page calls `getFeatured` today** —
+  `featured` leads the default browse and is ranked by `featuredRank`, see
+  the `Product` row above). (2) `Review.flagged?`/`Review.hidden?`
   — `/admin/catalog/reviews`' moderation queue
   (`lib/api/admin.ts#moderateReview`); `lib/api/reviews.ts#getProductReviews`/
   `getVendorReviews` filter out `hidden` reviews. (3)
@@ -455,7 +457,7 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   the same column shape rather than one polymorphic-parent table.
 - **Money fields are `Decimal`** (`@db.Decimal(12,2)` for wallet/order
   totals, `@db.Decimal(10,2)` for line-item prices, `@db.Decimal(4,2)`
-  for `cashbackPct`), not `Float` — avoids floating-point rounding on
+  for `cashbackPct`, an inert column since 2026-09-19), not `Float` — avoids floating-point rounding on
   currency, standard practice `lib/types`' plain `number` didn't need to
   specify but a real column does.
 - **Auth infrastructure (`RefreshToken`, `PhoneOtp`, `SocialAccount`) has
@@ -463,7 +465,12 @@ be a valid symbol (underscored, e.g. `per_kg @map("per-kg")`).
   detail behind the auth flows the M8.0 milestone brief specified (JWT
   access+refresh, phone OTP, stub social), not part of the frontend's
   schema contract. `RefreshToken.tokenHash`/`PhoneOtp.codeHash` store only
-  hashes, never raw tokens/codes.
+  hashes, never raw tokens/codes. **`RefreshToken.replacedByTokenId` is written on
+  every rotation (2026-09-19)** — the old row's successor, a plain string with no
+  foreign key, set in the same transaction as the new row — and is what reuse
+  detection walks (bounded to 1,000 hops) to revoke a replayed token's own
+  chain without touching the user's other sessions. It is `NULL` on rows rotated
+  before that date, and replaying one of those revokes nothing beyond itself.
 
 ### Notes for M8.1–M8.3
 

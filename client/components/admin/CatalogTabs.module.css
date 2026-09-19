@@ -1,5 +1,8 @@
 .tabs {
   display: flex;
+  /* Seven links no longer fit one 360px row; wrap rather than scroll the
+     page sideways. */
+  flex-wrap: wrap;
   gap: var(--hk-s2);
   margin-bottom: var(--hk-s5);
 }

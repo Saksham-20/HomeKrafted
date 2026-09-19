@@ -1303,9 +1303,126 @@ export async function moderateProduct(
     product.moderationNote = reason || undefined;
   }
   if (action === "feature") product.featured = true;
-  if (action === "unfeature") product.featured = false;
+  // Clearing the rank too — the server does, so a re-feature starts
+  // unranked instead of resurrecting a place in a list an admin has since
+  // reshuffled (`moderationDecision`).
+  if (action === "unfeature") {
+    product.featured = false;
+    product.featuredRank = null;
+  }
 
   return product;
+}
+
+// ---------------------------------------------------------------------------
+// Featured listings (`/admin/catalog/featured`, 2026-09-19) — which
+// products lead the default browse, and in what order.
+//
+// Real mode: `GET`/`PUT /admin/catalog/featured`. The list is a **full
+// replacement in array order** (index 0 becomes rank 1); anything featured
+// and not in it is unfeatured. The mock branch behaves identically, so
+// local dev with `NEXT_PUBLIC_USE_MOCK=true` can exercise the screen.
+// ---------------------------------------------------------------------------
+
+export interface AdminFeaturedList {
+  /** Ranked first (rank ascending), then the unranked by rating — the order buyers see. */
+  items: AdminProductSummary[];
+  total: number;
+}
+
+/**
+ * Mirrors `MAX_FEATURED` in `server/src/admin/dto/set-featured.dto.ts`.
+ * The server refuses a longer list rather than truncating it, so the
+ * screen stops offering "Add" at this count instead of finding out at save.
+ */
+export const MAX_FEATURED_PRODUCTS = 100;
+
+/**
+ * The mock's twin of the server's `listFeatured` ordering — the default browse
+ * order (`server/src/catalog/browse-order.ts`): rank ascending NULLS LAST,
+ * then rating, review count and id. Not by name: buyers do not get the
+ * unranked by name, and the screen's position badges must say what they get.
+ */
+function mockFeaturedItems(): AdminProductSummary[] {
+  return products
+    .filter((p) => p.featured)
+    .map((product) => ({
+      ...product,
+      vendorName: getVendorById(product.vendorId)?.name ?? "Unknown vendor",
+      categoryName: getCategoryById(product.categoryId)?.name ?? "Uncategorised",
+    }))
+    .sort((a, b) => {
+      const rankA = a.featuredRank ?? null;
+      const rankB = b.featuredRank ?? null;
+      if (rankA !== rankB) {
+        if (rankA === null) return 1;
+        if (rankB === null) return -1;
+        return rankA - rankB;
+      }
+      return (
+        b.rating - a.rating ||
+        b.reviewCount - a.reviewCount ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      );
+    });
+}
+
+/** Every featured listing, in the order buyers see it — including one that is no longer live, so it can be taken out. */
+export async function getFeaturedProducts(): Promise<AdminFeaturedList> {
+  if (!isMockMode()) return http.get<AdminFeaturedList>("/admin/catalog/featured");
+  const items = mockFeaturedItems();
+  return { items, total: items.length };
+}
+
+/**
+ * Replace the featured set with exactly these listings, in this order.
+ *
+ * **Not wrapped in a `catch`** (the M36 rule): the server refuses an
+ * unknown id, an over-long list and a stale one with a sentence, and the
+ * screen shows it. A wrapper that swallowed it would make Save look like a
+ * dead button.
+ *
+ * `basedOn` is the ids the screen loaded. Sent, the server refuses (409) a
+ * save that would unfeature a listing another admin featured since — a full
+ * replacement from a stale list would drop it without telling either admin.
+ * The mock has one user and nothing to conflict with, so it ignores it.
+ */
+export async function setFeaturedProducts(
+  productIds: string[],
+  basedOn?: string[],
+): Promise<AdminFeaturedList> {
+  if (!isMockMode()) {
+    return http.put<AdminFeaturedList>("/admin/catalog/featured", {
+      productIds,
+      ...(basedOn ? { basedOn } : {}),
+    });
+  }
+
+  const ids = [...new Set(productIds)];
+  if (ids.length > MAX_FEATURED_PRODUCTS) {
+    throw new Error(
+      `Feature at most ${MAX_FEATURED_PRODUCTS} listings — beyond that nothing is being singled out`,
+    );
+  }
+  const known = new Set(products.map((p) => p.id));
+  const missing = ids.filter((id) => !known.has(id));
+  if (missing.length > 0) {
+    throw new Error(
+      `No listing exists with the id ${missing.slice(0, 10).join(", ")}. It may have been deleted — reload the featured list and try again.`,
+    );
+  }
+  for (const product of products) {
+    const index = ids.indexOf(product.id);
+    if (index >= 0) {
+      product.featured = true;
+      product.featuredRank = index + 1;
+    } else if (product.featured) {
+      product.featured = false;
+      product.featuredRank = null;
+    }
+  }
+  const items = mockFeaturedItems();
+  return { items, total: items.length };
 }
 
 /**

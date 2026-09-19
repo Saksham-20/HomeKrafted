@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 /**
  * Product detail — ported from the prototype's gallery + info layout.
  * Gallery, maker eyebrow (links to storefront), title, rating, price/MRP/
- * discount, wallet-cashback line, weight selector + quantity + add-to-cart
+ * discount, weight selector + quantity + add-to-cart
  * (no-op, M3 owns cart), add-to-hamper, gift block, description/spec tabs
  * and Reviews.
  */

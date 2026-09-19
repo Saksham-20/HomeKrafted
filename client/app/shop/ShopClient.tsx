@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
-import { Sparkles, Leaf, Wheat, Zap } from "lucide-react";
+import { Check, Sparkles, Leaf, Wheat, Zap, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PriceRange } from "@/components/ui/PriceRange";
 import { ProductGridCard } from "@/components/product/ProductGridCard";
@@ -13,12 +13,19 @@ import { FilterGroup, FilterOptionList } from "@/components/browse/FilterGroup";
 import { FilterPillBar } from "@/components/browse/FilterPillBar";
 import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
 import { QuickFilterChips } from "@/components/browse/QuickFilterChips";
-import { splitCategorySections } from "@/lib/category-sections";
+import {
+  categoryAncestry,
+  expandShelfSelection,
+  shelfCounts,
+  splitCategorySections,
+} from "@/lib/category-sections";
+import { describeEmptyBrowse } from "@/lib/browse-empty";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
 import { PRODUCT_TAG_VALUES, type BrowseView } from "@/lib/browse-params";
+import { compareFeatured } from "@/lib/featured-order";
 import { buildKitchens, listingPrice, sortKitchens } from "@/lib/kitchens";
-import { DIETARY_LABELS, DIETARY_OPTIONS, isOnSale, productMatchesFacets, productShelves, SHIPPING_LABELS } from "@/lib/browse-facets";
+import { DIETARY_LABELS, DIETARY_OPTIONS, isOnSale, productMatchesFacets, SHIPPING_LABELS } from "@/lib/browse-facets";
 import type { Category, Occasion, Product, Vendor } from "@/lib/types";
 import styles from "./ShopClient.module.css";
 
@@ -108,8 +115,8 @@ export function ShopClient({
 
   const browse = useBrowseFilters({ categories, occasions, priceBounds, initialQuery });
   const {
-    selectedCategories,
-    setSelectedCategories,
+    category,
+    selectCategory,
     selectedDietary,
     setSelectedDietary,
     selectedOccasions,
@@ -131,25 +138,18 @@ export function ShopClient({
     setPage,
     toggle,
     clearFilters,
+    showAll,
   } = browse;
 
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const counts = useMemo(() => {
-    const category = new Map<string, number>();
     const occasion = new Map<string, number>();
     const dietary = new Map<string, number>();
     const tag = new Map<string, number>();
     const shipping = new Map<string, number>();
     let sale = 0;
     for (const product of products) {
-      // Every shelf, not the primary alone (M58) — a chip counting only
-      // `categoryId` reads a smaller number than the catalogue holds, and
-      // a zero-count chip is dimmed AND disabled, so a shelf carrying only
-      // secondary listings rendered as an unpressable "0".
-      for (const shelf of productShelves(product)) {
-        category.set(shelf, (category.get(shelf) ?? 0) + 1);
-      }
       for (const id of product.occasionIds) occasion.set(id, (occasion.get(id) ?? 0) + 1);
       for (const t of product.dietary) dietary.set(t, (dietary.get(t) ?? 0) + 1);
       for (const t of product.tags) tag.set(t, (tag.get(t) ?? 0) + 1);
@@ -157,15 +157,30 @@ export function ShopClient({
       shipping.set(scope, (shipping.get(scope) ?? 0) + 1);
       if (isOnSale(product)) sale += 1;
     }
-    return { category, occasion, dietary, tag, shipping, sale };
-  }, [products]);
+    // Every shelf a listing is filed under, not the primary alone (M58), and
+    // a parent counts its whole family — see `shelfCounts`. A chip counting
+    // only `categoryId` reads a smaller number than the catalogue holds.
+    return { category: shelfCounts(products, categories), occasion, dietary, tag, shipping, sale };
+  }, [products, categories]);
+
+  /*
+    The category is a scope, and a scope on a parent covers its children
+    (D3, `expandShelfSelection`) — `/gifts` has done this since G3, and
+    `/shop` did not: a parent slug from the header dropdown or a
+    hand-written link matched only the listings filed directly on the
+    parent, which is none of them, and read as an empty shelf.
+  */
+  const categoryScope = useMemo(
+    () => expandShelfSelection(category ? [category] : [], categories),
+    [category, categories],
+  );
 
   const filtered = useMemo(
     () =>
       products.filter(
         (product) =>
           productMatchesFacets(product, {
-            categories: selectedCategories,
+            categories: categoryScope,
             occasions: selectedOccasions,
             dietary: selectedDietary,
             tags: selectedTags,
@@ -177,7 +192,7 @@ export function ShopClient({
       ),
     [
       products,
-      selectedCategories,
+      categoryScope,
       selectedDietary,
       selectedOccasions,
       selectedTags,
@@ -198,7 +213,14 @@ export function ShopClient({
     else if (sort === "nearest")
       list.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     else
+      // The default: dishes an admin featured first, in the admin's order
+      // (`compareFeatured` returns 0 on a tie), then the ordinary rating
+      // ranking. Only here — an explicit price or "nearest" sort above is
+      // the buyer's own question. The kitchens view gets the same lead
+      // from `sortKitchens`.
       list.sort((a, b) => {
+        const featuredOrder = compareFeatured(a, b);
+        if (featuredOrder !== 0) return featuredOrder;
         if (b.rating !== a.rating) return b.rating - a.rating;
         return b.reviewCount - a.reviewCount;
       });
@@ -270,12 +292,13 @@ export function ShopClient({
     setPage(1);
   }
 
+  /*
+    Filters only — the category is deliberately not a chip. It is the scope
+    the chips refine (the rail above shows and changes it), so counting it
+    here made "All filters 3" and "Clear all" mean "two refinements and a
+    shelf", and made Clear all throw away the shelf as well.
+  */
   const activeChips: ActiveFilterChip[] = [
-    ...[...selectedCategories].map((id) => ({
-      key: `cat-${id}`,
-      label: categories.find((c) => c.id === id)?.name ?? id,
-      onRemove: () => toggle(selectedCategories, setSelectedCategories, id),
-    })),
     ...[...selectedDietary].map((tag) => ({
       key: `diet-${tag}`,
       label: DIETARY_LABELS[tag],
@@ -312,19 +335,16 @@ export function ShopClient({
 
   const activeCount = activeChips.length;
 
-  /**
-   * Rendered twice — the desktop `<aside>` and the mobile sheet show the
-   * same controls, and only one of the two is ever visible (the aside is
-   * `display: none` below 900px; the closed sheet is `visibility:
-   * hidden`), so the duplicate never doubles the tab order.
-   */
   const categorySplit = useMemo(() => splitCategorySections(categories), [categories]);
-  const facetOf = (category: (typeof categories)[number]) => ({
-    id: category.id,
-    label: category.name,
-    count: counts.category.get(category.id) ?? 0,
-    checked: selectedCategories.has(category.id),
-  });
+
+  /** The active category for the empty state's sentence, with its parent when it has one. */
+  const categoryLabel = useMemo(() => {
+    if (!category) return null;
+    const chain = categoryAncestry(category, categories);
+    const self = chain[chain.length - 1];
+    if (!self) return null;
+    return { name: self.name, parentName: chain.length > 1 ? chain[chain.length - 2].name : null };
+  }, [category, categories]);
 
   // One set of option arrays feeds the pill popovers AND the sheet's
   // groups, so the two controls cannot drift apart.
@@ -384,17 +404,14 @@ export function ShopClient({
     </div>
   );
 
+  /*
+    The "All filters" sheet — refinements only. It used to open with a
+    Category group of checkboxes over the same state as the rail, which was
+    two controls for one choice and, worse, a checkbox list for what is now
+    a single-select scope. The rail is the one place a shelf is chosen.
+  */
   const filterControls = (
     <>
-      <FilterGroup
-        title="Category"
-        options={categorySplit.flat.map(facetOf)}
-        sections={categorySplit.sections.map(({ parent, children }) => ({
-          label: parent.name,
-          options: children.map(facetOf),
-        }))}
-        onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
-      />
       {/*
         The owner's framing (M56): some food is a craft in shipping terms.
         A jar of pickle or a tin of cookies survives a courier anywhere in
@@ -427,19 +444,35 @@ export function ShopClient({
     </>
   );
 
+  /*
+    The rail's shelves. A parent ("Shop by cuisine") is a heading and has no
+    chip of its own — except when it *is* the selection (a header-dropdown
+    or hand-written `?category=` link names one), where leaving it off would
+    draw a rail with nothing chosen and not even "All" lit. It leads, so the
+    highlight is where the eye lands.
+  */
+  const selectedParent = categorySplit.sections.find((section) => section.parent.id === category)?.parent;
   const categoryChips = [
+    ...(selectedParent ? [selectedParent] : []),
     ...categorySplit.flat,
     ...categorySplit.sections.flatMap((section) => section.children),
   ]
-    .map((category) => ({
-      id: category.id,
-      label: category.name,
-      count: counts.category.get(category.id) ?? 0,
-      selected: selectedCategories.has(category.id),
-      icon: category.icon,
-      imageSrc: category.imageSrc,
+    .map((shelf) => ({
+      id: shelf.id,
+      label: shelf.name,
+      count: counts.category.get(shelf.id) ?? 0,
+      icon: shelf.icon,
     }))
-    .filter((chip) => chip.count > 0 || chip.selected);
+    // An empty shelf is not offered (a dead control), but the chosen one
+    // stays so a link to it still shows where you are.
+    .filter((chip) => chip.count > 0 || chip.id === category);
+
+  const emptyCopy = describeEmptyBrowse({
+    noun: isKitchens ? "kitchens" : "dishes",
+    category: categoryLabel,
+    filterLabels: activeChips.map((chip) => chip.label),
+    priceNarrowed,
+  });
 
   return (
     <section className={clsx("container", "container-wide", styles.layout)}>
@@ -458,69 +491,78 @@ export function ShopClient({
             whole filter surface in one place, catalogue full-width
             under it. The old 256px checkbox sidebar is gone. */}
         <div className={styles.controlCard}>
+          {/*
+            One shelf at a time (2026-09-19): a category is the scope, the
+            chips and pills below are what refine it. "All" is the way out.
+          */}
           <QuickFilterChips
-            label="Filter by category"
+            label="Category"
             chips={categoryChips}
-            onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
+            selectedId={category}
+            onSelect={selectCategory}
+            allCount={products.length}
           />
-          <div className={styles.taskChipsRail} role="group" aria-label="Task shortcuts">
-            <button
-              type="button"
-              className={clsx(styles.taskChip, selectedShipping.has("local") && styles.taskChipActive)}
-              aria-pressed={selectedShipping.has("local")}
-              onClick={() => toggle(selectedShipping, setSelectedShipping, "local")}
-            >
-              <Zap size={13} aria-hidden="true" />
-              Delivered nearby
-            </button>
-            <button
-              type="button"
-              className={clsx(styles.taskChip, selectedDietary.has("vegetarian") && styles.taskChipActive)}
-              aria-pressed={selectedDietary.has("vegetarian")}
-              onClick={() => toggle(selectedDietary, setSelectedDietary, "vegetarian")}
-            >
-              <Leaf size={13} aria-hidden="true" />
-              Pure veg
-            </button>
-            <button
-              type="button"
-              className={clsx(
-                styles.taskChip,
-                (selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free")) && styles.taskChipActive,
-              )}
-              aria-pressed={selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free")}
-              onClick={() => {
-                const hasEither = selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free");
-                const next = new Set(selectedDietary);
-                if (hasEither) {
-                  next.delete("gluten-free");
-                  next.delete("sugar-free");
-                } else {
-                  next.add("gluten-free");
-                  next.add("sugar-free");
-                }
-                setSelectedDietary(next);
-                setPage(1);
-              }}
-            >
-              <Wheat size={13} aria-hidden="true" />
-              Sugar-free / gluten-free
-            </button>
-            {/*
-              B4 (docs/UI-REFINEMENT.md): this used to say "Gift-Ready"
-              over a gift emoji while filtering the `Curated` tag — a
-              chip labelled as a property the data does not hold. Renamed
-              to what it actually filters.
-            */}
-            <button
-              type="button"
-              className={clsx(styles.taskChip, selectedTags.has("Curated") && styles.taskChipActive)}
-              aria-pressed={selectedTags.has("Curated")}
-              onClick={() => toggle(selectedTags, setSelectedTags, "Curated")}
-            >
-              <Sparkles size={13} aria-hidden="true" />
-              Curated picks
-            </button>
+          {/*
+            Refinements, not shelves — and drawn differently on purpose.
+            This row sat directly under the category rail in the same pill
+            language and the same solid selected state, so it read as a
+            second row of categories (owner: "categories and filters are
+            different"). It now has a hairline above it, a label, and its
+            own selected grammar — a tinted pill with a check, the
+            multi-select look — against the rail's solid tile.
+          */}
+          <div className={styles.quickFilters} role="group" aria-label="Quick filters">
+            <span className={styles.quickFiltersLabel} aria-hidden="true">
+              Quick filters
+            </span>
+            <div className={styles.taskChipsRail}>
+              <TaskChip
+                icon={Zap}
+                active={selectedShipping.has("local")}
+                onClick={() => toggle(selectedShipping, setSelectedShipping, "local")}
+              >
+                Delivered nearby
+              </TaskChip>
+              <TaskChip
+                icon={Leaf}
+                active={selectedDietary.has("vegetarian")}
+                onClick={() => toggle(selectedDietary, setSelectedDietary, "vegetarian")}
+              >
+                Pure veg
+              </TaskChip>
+              <TaskChip
+                icon={Wheat}
+                active={selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free")}
+                onClick={() => {
+                  const hasEither = selectedDietary.has("gluten-free") || selectedDietary.has("sugar-free");
+                  const next = new Set(selectedDietary);
+                  if (hasEither) {
+                    next.delete("gluten-free");
+                    next.delete("sugar-free");
+                  } else {
+                    next.add("gluten-free");
+                    next.add("sugar-free");
+                  }
+                  setSelectedDietary(next);
+                  setPage(1);
+                }}
+              >
+                Sugar-free / gluten-free
+              </TaskChip>
+              {/*
+                B4 (docs/UI-REFINEMENT.md): this used to say "Gift-Ready"
+                over a gift emoji while filtering the `Curated` tag — a
+                chip labelled as a property the data does not hold. Renamed
+                to what it actually filters.
+              */}
+              <TaskChip
+                icon={Sparkles}
+                active={selectedTags.has("Curated")}
+                onClick={() => toggle(selectedTags, setSelectedTags, "Curated")}
+              >
+                Curated picks
+              </TaskChip>
+            </div>
           </div>
           <div className={styles.controlRow}>
             {/*
@@ -594,21 +636,27 @@ export function ShopClient({
 
         {resultCount === 0 ? (
           /* The three-part empty state (M37): what happened, which
-             filters caused it, and the way out. A bare "no products"
-             over an active filter set reads as an empty catalogue. */
+             shelf and filters caused it, and the way out. A bare "no
+             products" over an active filter set reads as an empty
+             catalogue — and since the category left the chips it has to
+             be named here, or the sentence blames the wrong thing. Two
+             exits: Clear filters keeps the shelf, Show all leaves it. */
           <div className={styles.empty}>
-            <p>
-              {activeCount > 0
-                ? `Nothing matches ${activeChips.map((chip) => chip.label).join(" + ")}${
-                    priceNarrowed ? " in this price range" : ""
-                  }.`
-                : "Nothing matches this view."}
-            </p>
-            <p>Every filter narrows the same catalogue — loosen one and the kitchens come back.</p>
-            {(activeCount > 0 || priceNarrowed) && (
-              <Button variant="secondary" size="sm" onClick={clearFilters}>
-                Clear filters
-              </Button>
+            <p>{emptyCopy.headline}</p>
+            {emptyCopy.hint && <p>{emptyCopy.hint}</p>}
+            {(emptyCopy.canClearFilters || emptyCopy.canShowAll) && (
+              <div className={styles.emptyActions}>
+                {emptyCopy.canClearFilters && (
+                  <Button variant="secondary" size="sm" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                )}
+                {emptyCopy.canShowAll && (
+                  <Button variant="secondary" size="sm" onClick={showAll}>
+                    Show all {isKitchens ? "kitchens" : "dishes"}
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         ) : isKitchens ? (
@@ -634,5 +682,38 @@ export function ShopClient({
         <BrowsePagination totalPages={totalPages} currentPage={currentPage} onPageChange={setPage} />
       </div>
     </section>
+  );
+}
+
+/**
+ * One of the "Quick filters" pills — a multi-select refinement, so it is an
+ * `aria-pressed` toggle (unlike the category rail's radios) and its active
+ * look swaps the mark for a check instead of filling solid.
+ */
+function TaskChip({
+  icon: Mark,
+  active,
+  onClick,
+  children,
+}: {
+  icon: LucideIcon;
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      className={clsx(styles.taskChip, active && styles.taskChipActive)}
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      {active ? (
+        <Check size={13} strokeWidth={3} aria-hidden="true" />
+      ) : (
+        <Mark size={13} aria-hidden="true" />
+      )}
+      {children}
+    </button>
   );
 }

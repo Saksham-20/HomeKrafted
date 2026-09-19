@@ -66,7 +66,7 @@ list and per-var rationale; the short version:
 | Var | Hex | Use |
 |---|---|---|
 | `--hk-on-pine` | `#EADFC9` | copy on solid `--hk-pine` (tag chips, dark badges, PromoBand dark, WalletBalanceCard) |
-| `--hk-gold-text-sm` | `#8A6A16` | gold-family text at small sizes on white/gold-tint (wallet chip, cashback lines, `ghost-gold` button label) |
+| `--hk-gold-text-sm` | `#8A6A16` | gold-family text at small sizes on white/gold-tint (wallet chip, `ghost-gold` button label) |
 | `--hk-footer-ink` | `#C7D3C5` | body copy on solid `--hk-pine-deep` (footer + any dark-pine surface) |
 | `--hk-footer-ink-2` | `#A9BCAE` | link list on the same surfaces |
 | `--hk-footer-muted` | `#9FB3A5` | brand blurb |
@@ -174,8 +174,8 @@ exports, `Thing.tsx` + `Thing.module.css` co-located. Each maps to a
 | `SnackCard` | Cards (snack card) | Snacks menu grid |
 | `ServiceCard` | Cards (service card) | Laundry service picker |
 | `PromoBand` | Panels (promo band) | Home hamper band (dark) + wallet band (tint) |
-| `WalletBalanceCard` | Panels (wallet balance card) | Wallet screen |
-| `StickySummary` | Panels (sticky summary aside) | Hamper basket, Laundry booking summary, Cart, Snacks list |
+| `WalletBalanceCard` | Panels (wallet balance card) — **the balance only since 2026-09-19**: it carried a "Pending cashback" / "Lifetime saved" row until order cashback was removed, and the `pendingCashback`/`lifetimeSaved` props are gone | Wallet screen |
+| `StickySummary` | Panels (sticky summary aside) — no wallet-cashback line since 2026-09-19 (the `cashbackLabel` prop was removed with order cashback) | Hamper basket, Laundry booking summary, Cart, Snacks list |
 | `SearchField` | Forms & pickers | Header search pill, Shop search |
 | `SlotPicker` | Forms & pickers (day/slot picker) | Laundry pickup + delivery day/slot grids |
 | `AmountPicker` | Forms & pickers (top-up amount picker) | Wallet top-up |
@@ -398,8 +398,9 @@ deviates from the prototype:
   render never clobbers existing storage), seeded on first-ever load from
   `lib/api/wallet` (`getWallet`/`getTransactions`/`getAutoTopupRule`)
   rather than an empty default — the wallet has real starting data,
-  unlike a cart. Exposes `topUp`/`pay`/`earnCashback`/`refund`/
-  `setAutoTopup`; every op appends a `WalletTransaction` with the correct
+  unlike a cart. Exposes `topUp`/`pay`/`refund`/
+  `setAutoTopup` (and `earnCashback`, until order cashback was removed on
+  2026-09-19); every op appends a `WalletTransaction` with the correct
   `direction`/`category`/`balanceAfter`/`refType`/`refId`. `pay` returns
   `{ ok: false }` without mutating state when the live balance can't
   cover the amount — callers (`CheckoutClient`, `LaundryBookingClient`)
@@ -429,16 +430,15 @@ deviates from the prototype:
   at all (static demo chrome).
 - **Checkout/Laundry back-wiring:** both `CheckoutClient` and
   `LaundryBookingClient` previously computed `walletSufficient`/the
-  cashback preview against the server-fetched `wallet` prop's *static*
+  cashback preview (since removed, with order cashback) against the server-fetched `wallet` prop's *static*
   balance (a snapshot from page load); both now read `useWallet().balance`
   live for sufficiency checks and displayed balance, while still seeding
   the initial payment-method *preference* from the static prop (avoids a
   hydration-race default to Razorpay on a hard reload — see the inline
   comment in each file). `handlePlaceOrder`/`handleConfirm` call `pay()`
-  (wallet only) then `earnCashback()` (Checkout: every order, matching its
-  pre-existing unconditional `cashbackEarned`; Laundry: wallet-paid
-  bookings only, matching M4's pre-existing `walletCashback` scoping) once
-  the mock `createOrder`/`createBooking` call returns.
+  (wallet only) once the mock `createOrder`/`createBooking` call returns.
+  They then called `earnCashback()` too (Checkout: every order; Laundry:
+  wallet-paid bookings only) — removed 2026-09-19 along with order cashback.
 - **Header wallet chip is live client state**, same pattern M3 already
   established for the cart badge — `HeaderClient` reads
   `useWallet().balance` instead of a `walletBalance` prop the server
@@ -539,7 +539,8 @@ the established system (`Card`, `Button`, `Chip`, `Textarea`,
 Notes on how these compose the M1 primitives, and where M7b deviates:
 
 - **`WalletContext` gained `earnReferralCredit`** (`lib/wallet/WalletContext.tsx`)
-  — same shape as `earnCashback` but appends `category: "referral"`
+  — modelled on what was then `earnCashback` (since removed with order
+  cashback, 2026-09-19) but appends `category: "referral"`
   (matching `WalletTransactionCategory`) instead of `"cashback"`, and
   does not add to `lifetimeSaved` (a referral bonus isn't a shopping
   saving). `ReferralsClient`'s demo "Apply referral credit" button calls
@@ -547,7 +548,7 @@ Notes on how these compose the M1 primitives, and where M7b deviates:
   non-`rewarded` `Referral` to `rewarded`, session-scoped mock mutation)
   then `earnReferralCredit()` — the same two-step "mock mutation records
   the domain event, `WalletContext` owns the ledger write" split M6
-  established between `createOrder`/`createBooking` and `pay`/`earnCashback`.
+  established between `createOrder`/`createBooking` and `pay`.
 - **Loyalty tier ladder is `lifetimePoints`-threshold-driven**, not a
   hardcoded per-tier flag — `LOYALTY_TIERS` (`lib/data/referrals.ts`)
   holds one `{ tier, label, threshold, perk }` row per `LoyaltyTier`;

@@ -15,6 +15,7 @@ import { SetDayMenuDto } from '../meals/dto/set-day-menu.dto';
 import { ProductKind } from '@prisma/client';
 import { AdminRecategoriseService } from './recategorise.service';
 import { ApplyRecategorisationDto } from './dto/recategorise.dto';
+import { SetFeaturedDto } from './dto/set-featured.dto';
 
 /** Unscoped catalog + review moderation — any vendor's products, any target's reviews. */
 @Controller('admin/catalog')
@@ -53,6 +54,30 @@ export class AdminCatalogController {
     @Body() dto: ApplyRecategorisationDto,
   ) {
     return this.recategorise.apply(admin.userId, dto.productId, dto.categoryId);
+  }
+
+  /**
+   * The featured set, in the order buyers see it: rank ascending, the
+   * unranked after the ranked, then rating — `DEFAULT_BROWSE_ORDER`, the
+   * same constant the default browse sorts by (2026-09-19). Includes a
+   * listing that is featured but not live — the admin needs to see it to
+   * take it out.
+   */
+  @Get('featured')
+  listFeatured() {
+    return this.catalogService.listFeatured();
+  }
+
+  /**
+   * Replace the featured set with exactly these listings, in this order.
+   * Merchandising, not moderation: it never touches a listing's review
+   * state or note. `basedOn` (optional) is what the screen loaded; a save
+   * that would unfeature a listing featured since is a 409. See
+   * `AdminCatalogService.setFeatured`.
+   */
+  @Put('featured')
+  setFeatured(@CurrentUser() admin: RequestUser, @Body() dto: SetFeaturedDto) {
+    return this.catalogService.setFeatured(admin.userId, dto.productIds, dto.basedOn);
   }
 
   @Get('products')

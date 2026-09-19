@@ -6,6 +6,16 @@
  * the current access token without importing a `"use client"` React
  * context module.
  *
+ * **Several tabs share one session (2026-09-19).** `localStorage` is shared
+ * by every tab of the origin, and the in-memory copy below is not — so a
+ * tab whose memory said `R0` after another tab had rotated to `R1` posted
+ * the dead `R0` to `/auth/refresh`, was refused, and wiped the storage the
+ * healthy tab was still using. That was the admin "keeps getting logged
+ * out". Three pieces keep the copies honest: a `storage` listener so memory
+ * follows the store, `syncFromStorage()` for the moment a caller is about to
+ * act on the refresh token and must not trust memory, and
+ * `withRefreshLock()` so two tabs do not rotate the same token at once.
+ *
  * **Token storage model**: the server (`server/src/auth/`) returns both
  * tokens in the JSON body — it never sets a cookie itself (confirmed:
  * `AuthController`'s `register`/`login`/`otp/verify`/`social/:provider`/
@@ -86,6 +96,7 @@ export interface StoredSession {
 
 const STORAGE_KEY = "hk_session_v1";
 const ACCESS_COOKIE = "hk_access";
+const REFRESH_LOCK_NAME = "hk-auth-refresh";
 /** Slightly under the server's 15m default access-token TTL — see `.env.example`'s `JWT_ACCESS_TTL`. */
 const ACCESS_COOKIE_MAX_AGE_S = 60 * 14;
 
@@ -98,21 +109,110 @@ function isBrowser(): boolean {
 // one tab = one user. A Server Component render never calls these setters,
 // only `getServerAccessToken()` below (request-scoped, reads the incoming
 // cookie fresh every time — never this module-level variable).
+//
+// It is a per-tab **cache of `localStorage`, not a second source of truth**:
+// the `storage` listener below keeps it following the store, and anything
+// about to spend the refresh token calls `syncFromStorage()` first.
 let memory: StoredSession | null = null;
+
+/** What `localStorage` holds, or `null` for nothing usable. Never touches `memory`. */
+function parseStored(raw: string | null): StoredSession | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as StoredSession;
+    if (!parsed?.accessToken || !parsed?.refreshToken || !parsed?.user) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export function loadStoredSession(): StoredSession | null {
   if (!isBrowser()) return null;
   if (memory) return memory;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredSession;
-    if (!parsed?.accessToken || !parsed?.refreshToken || !parsed?.user) return null;
+    const parsed = parseStored(window.localStorage.getItem(STORAGE_KEY));
+    if (!parsed) return null;
     memory = parsed;
     return parsed;
   } catch {
     return null;
   }
+}
+
+/**
+ * Re-read `localStorage` and make this tab's memory match it.
+ *
+ * `loadStoredSession()` answers from `memory` once it is set, which is
+ * right for a render and wrong for the one decision that is expensive to
+ * get wrong: which refresh token to present. The `storage` event below is
+ * the ordinary way memory catches up, but it is a queued task and a
+ * request can start before it runs, so this is the on-demand read.
+ *
+ * **Storage that cannot be read is not an empty session.** A blocked or
+ * throwing `localStorage` (a locked-down profile) leaves memory as the only
+ * copy there is; discarding it would sign somebody out because the *cache*
+ * misbehaved.
+ */
+export function syncFromStorage(): StoredSession | null {
+  if (!isBrowser()) return null;
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return memory;
+  }
+  memory = parseStored(raw);
+  return memory;
+}
+
+type SessionChangeListener = (session: StoredSession | null) => void;
+const sessionChangeListeners = new Set<SessionChangeListener>();
+
+/**
+ * Told when **another tab** changed the stored session — a sign-out, a
+ * sign-in, a token rotation. `null` is the session having ended. Never
+ * fired for this tab's own writes (the browser does not deliver a
+ * `storage` event to the tab that caused it), which is what lets a
+ * subscriber treat every call as news from elsewhere.
+ */
+export function onSessionChangedElsewhere(listener: SessionChangeListener): () => void {
+  sessionChangeListeners.add(listener);
+  return () => {
+    sessionChangeListeners.delete(listener);
+  };
+}
+
+function handleStorageEvent(event: StorageEvent): void {
+  // `key === null` is `localStorage.clear()` — the session went with it.
+  if (event.key !== null && event.key !== STORAGE_KEY) return;
+  memory = event.key === null ? null : parseStored(event.newValue);
+  for (const listener of [...sessionChangeListeners]) listener(memory);
+}
+
+// Registered once at module load, browser only. HMR re-evaluating this file
+// stacks a duplicate; the handler is idempotent, so that is harmless.
+if (isBrowser()) {
+  window.addEventListener("storage", handleStorageEvent);
+}
+
+/**
+ * Run `work` while no other tab is refreshing the same session.
+ *
+ * Without it every tab whose access token expired in the same minute
+ * posted its own copy of the refresh token; the server rotates on first
+ * use, so all but one of them was presenting a token that had just been
+ * spent. Web Locks are origin-wide, so the second tab simply waits, then
+ * re-reads storage and finds the first tab's result there.
+ *
+ * Feature-detected: where `navigator.locks` is missing the work runs
+ * unguarded, and the caller's re-read of storage is the fallback.
+ */
+export async function withRefreshLock<T>(work: () => Promise<T>): Promise<T> {
+  if (isBrowser() && typeof navigator !== "undefined" && navigator.locks?.request) {
+    return await navigator.locks.request(REFRESH_LOCK_NAME, work);
+  }
+  return work();
 }
 
 export function getSession(): StoredSession | null {

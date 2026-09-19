@@ -57,14 +57,36 @@
   padding-top: var(--hk-s3);
 }
 
+/* "Quick filters" — refinements, drawn apart from the category rail above
+   (see the JSX note). A hairline above and a label leading the row say "a
+   different kind of control"; the phone drops the label (a 100px eyebrow is
+   a third of a 390px row) and keeps the hairline and the pill grammar. */
+.quickFilters {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  margin-top: var(--hk-s2);
+  padding-top: var(--hk-s2h);
+  border-top: 1px solid var(--hk-border);
+}
+
+.quickFiltersLabel {
+  flex: none;
+  font-family: var(--hk-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
 .taskChipsRail {
   display: flex;
   align-items: center;
   gap: var(--hk-s2);
   overflow-x: auto;
-  margin-top: var(--hk-s2);
+  flex: 1;
+  min-width: 0;
   padding-bottom: 4px;
-  width: 100%;
 }
 
 .taskChip {
@@ -86,7 +108,10 @@
 }
 
 .taskChip:hover {
-  background: var(--hk-surface-hover);
+  /* Was `--hk-surface-hover`, which no stylesheet defines — the hover fill
+     silently resolved to nothing. The canvas tone is the visible step up
+     from `--hk-surface-2`. */
+  background: var(--hk-bg);
   border-color: var(--hk-pine-deep);
 }
 
@@ -96,10 +121,15 @@
   transition-duration: 80ms;
 }
 
-.taskChipActive {
-  background: var(--hk-pine-deep);
-  color: #ffffff;
-  border-color: var(--hk-pine-deep);
+/* On: a pine-tint pill with a pine edge, a bold label and a check in place
+   of the mark. It used to be a solid `--hk-pine-deep` fill, which is now the
+   category rail's language ("this is the shelf") — a refinement must not
+   look like one. Pine on `--hk-pine-tint` is ~10:1. */
+.taskChipActive,
+.taskChipActive:hover {
+  background: var(--hk-pine-tint);
+  color: var(--hk-pine);
+  border-color: var(--hk-pine);
   font-weight: 600;
 }
 
@@ -257,10 +287,21 @@
   margin: 0;
 }
 
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--hk-s2);
+}
+
 @media (max-width: 640px) {
   .controlCard {
     margin-top: calc(-1 * var(--hk-s4));
     padding: var(--hk-s3) var(--hk-s3);
+  }
+
+  .quickFiltersLabel {
+    display: none;
   }
 
   /* Two products per row on a phone, not one — the M26 H13 rule. */

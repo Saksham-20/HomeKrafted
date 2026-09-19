@@ -9,7 +9,7 @@ import { PhotoUpload } from "@/components/ui/PhotoUpload";
 import { ChoiceCards } from "@/components/portal/ChoiceCards";
 import { CheckRow, ChipRow, Field, FieldGrid, Fieldset, Input, TextArea } from "@/components/portal/Field";
 import { FormSection } from "@/components/portal/FormSection";
-import type { DietaryTag, ProductKind, ProductTag, SellerCommission } from "@/lib/types";
+import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { markupBreakdown, type CommissionRate } from "@/lib/commission";
 import {
   ALLERGEN_NONE,
@@ -54,8 +54,6 @@ const DIETARY_OPTIONS: { value: DietaryTag; label: string }[] = [
   { value: "contains-nuts", label: "Contains nuts" },
 ];
 
-const TAG_OPTIONS: ProductTag[] = ["Bestseller", "New", "Festive", "Curated"];
-
 /**
  * The long form's sections, for a page's jump-nav. Exported so the
  * editor screens (seller and admin) list the same anchors this form
@@ -65,7 +63,7 @@ export const LISTING_FORM_SECTIONS = [
   { id: "listing-photo", label: "Photos" },
   { id: "listing-basics", label: "Name & description" },
   { id: "listing-prices", label: "Sizes & prices" },
-  { id: "listing-details", label: "Details & tags" },
+  { id: "listing-details", label: "Details" },
 ] as const;
 
 export interface ListingFormProps {
@@ -164,10 +162,6 @@ export function ListingForm({
       (d) => d !== "vegetarian" && d !== "non-vegetarian",
     );
     set("dietary", values.dietary.includes(mark) ? withoutMarks : [...withoutMarks, mark]);
-  }
-
-  function toggleTag(tag: ProductTag) {
-    set("tags", values.tags.includes(tag) ? values.tags.filter((t) => t !== tag) : [...values.tags, tag]);
   }
 
   function updateRow(index: number, patch: Partial<ListingFormWeightRow>) {
@@ -583,7 +577,7 @@ export function ListingForm({
 
       <FormSection
         id="listing-details"
-        title="Details and tags"
+        title="Details"
         description="Everything here is optional. It helps the right buyer find the listing and tells them what to expect."
       >
         {/*
@@ -946,13 +940,14 @@ export function ListingForm({
           </Field>
         )}
 
-        <Fieldset legend="Tags" optional>
-          <ChipRow>
-            {TAG_OPTIONS.map((tag) => (
-              <Chip key={tag} label={tag} selected={values.tags.includes(tag)} onClick={() => toggleTag(tag)} />
-            ))}
-          </ChipRow>
-        </Fieldset>
+        {/*
+          No "Tags" here any more (owner, 2026-09-19). Bestseller / New /
+          Festive / Curated are merchandising — a badge is the platform
+          vouching for a listing, and a maker ticking one on their own work
+          made it say nothing. An admin sets them in the Merchandising
+          section of the admin listing editor, and the server ignores
+          `tags` from a HomeKrafter whatever a client sends.
+        */}
 
         <div className={styles.options}>
           {!isCraft && (

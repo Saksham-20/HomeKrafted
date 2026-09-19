@@ -1,5 +1,211 @@
 # Changelog
 
+## 2026-09-19 — Featured listings an admin ranks, categories as one-shelf scopes, order cashback removed, and a session that survives a failed refresh
+
+Five owner-driven changes, one milestone: admin-only badges and a ranked
+featured list, the buyer surfaces that honour it, categories as a one-shelf
+scope, order cashback removed, and a session that survives a failed refresh.
+**Not deployed, and the first carries a production migration that needs a
+go-ahead and a backup** (the migration bullet under it). Every claim here was
+checked against the code; the docs
+that stated the old behaviour are corrected in the same change (`CLAUDE.md`,
+`docs/API.md`, `DATA-MODEL.md`, `TESTING.md`, `TESTS.md`, `DEPLOY.md`,
+`ERROR-HANDLING.md`, `ARCHITECTURE.md`, `PRD.md`, `DESIGN-SYSTEM.md`,
+`GIFTING-REWORK.md`, `UI-REFINEMENT.md`, `APP.md`, `LAUNCH-READINESS.md`).
+
+### Merchandising is an admin's call — badges, and a ranked featured list
+
+- **Badges (`Product.tags`: Bestseller/New/Festive/Curated) are admin-only.**
+  A badge is the platform vouching for a listing, and a maker ticking one on
+  their own work made it say nothing. The write is decided by
+  `server/src/seller/listing-tags.ts`: a HomeKrafter's `tags` is **ignored,
+  not refused** (the DTO keeps the field — `forbidNonWhitelisted` would 400
+  every web bundle and native build already shipped — a create stores `[]`, an
+  update leaves an admin's badge alone so a price edit cannot wipe it). The
+  HomeKrafter's long form loses its Tags row; the admin create and edit screens
+  gain an admin-only **Merchandising** section (`MerchandisingSection`, four
+  badge chips, beside the shared `ListingForm` rather than behind a prop on it).
+  Pinned by `test/unit/product-tags-admin-only.spec.ts` and
+  `featured-merchandising.e2e-spec.ts`, which also asserts nothing under
+  `src/seller/` names `featured` or `featuredRank`.
+- **`Product.featuredRank`** (nullable; lower is earlier; NULL = featured but
+  unranked, after every ranked one) and an admin screen to set it:
+  **`/admin/catalog/featured`** (a new **Featured** tab under Catalog —
+  search live listings to add, up/down buttons to order, no drag, focus
+  follows the moved row, a live region says where it went, capped at 100),
+  backed by `GET`/`PUT /admin/catalog/featured`. `PUT` is a **full
+  replacement in one transaction** (array index + 1 is the rank, anything
+  unlisted is unfeatured with its rank cleared, an unknown id is a 400 naming up
+  to ten and writing nothing, audited `catalog.featured_set`) and is
+  merchandising, not moderation — it never touches `moderationNote`. `unfeature`
+  now clears the rank; `feature` leaves it. The list includes featured
+  listings that are not live, so they can be taken out. Every product payload
+  carries `featuredRank`.
+- **The default browse order leads with it**: `featured DESC, featuredRank ASC
+  NULLS LAST, rating DESC, reviewCount DESC, id ASC`, written once in
+  `server/src/catalog/browse-order.ts` and shared by the SQL fast path, the
+  phase-one candidate read and the in-memory comparator (a page boundary can no
+  longer shift depending on which served it). Price and nearest-with-coordinates
+  sorts are unchanged. **It has to change together with the new index
+  `Product_default_browse_featured_idx`** — an index scanned by rating cannot
+  serve an order that leads with `featured`, and losing it puts the default
+  browse back on the sequential scan k6 measured at p95 2.06 s.
+- **Migration `20260919120000_product_featured_rank`** — additive: one nullable
+  `featuredRank` column and `Product_default_browse_featured_idx` (kept beside
+  the M23 index; explicit `map:` because Prisma's generated name would be 84
+  characters, past Postgres's 63). Nothing backfilled, no env vars. **Not
+  applied to production**; it needs the owner's go-ahead and a backup in the
+  turn it happens.
+
+### Every buyer surface leads with featured, under the default sort
+
+- `/gifts` pins the featured half **before** `spreadByMaker` (which is never
+  handed it — a round-robin would scatter the admin's running order), `/shop`
+  dishes use `compareFeatured` as their first key, `/shop` kitchens sort a
+  kitchen with a featured dish among the filtered dishes first by its best
+  featured rank and pin featured dishes first in the card's four-dish preview,
+  and the home page's uncurated Bestsellers/Trending rails and the "By
+  HomeKrafted" shelf lead with featured listings (a featured listing is in the
+  pool even with zero reviews — a scoped exception to "ordered again and
+  again"). The card badge chain moved to `lib/product/merchandising-badge.ts`
+  and gained one honest last fallback, **"Featured"**, read from the real
+  column, lowest priority, never on a sold-out card. Explicit price and nearest
+  sorts ignore featured. New pure modules `lib/featured-order.ts`,
+  `lib/home-rails.ts`, `lib/portal/reorder.ts`. **Mobile dish sorts and the
+  mobile home rail are not converted yet.**
+
+### Categories are a single-select scope on `/shop` and `/gifts`
+
+Owner: "pressing on a category should change the category, not add them."
+
+- The category rail is a **single-select `radiogroup`** with an **All** tile
+  first; selected is a solid pine face with a `Check` badge (the state is not
+  carried by colour alone). `QuickFilterChips` no longer dims or disables
+  zero-count tiles — an empty shelf is not rendered, and a selected empty one
+  stays so a shared link still shows where you are. `DepartmentTiles` (`/gifts`)
+  is the same contract over the tree: pressing a department selects it and
+  reveals its subcategory row, **derived from the selection** (the
+  `openDepartment` state is gone, so `/gifts?category=earrings` reopens the
+  right row); a child replaces the department; "All {Dept}" is the parent
+  selection and "All gifts" leaves the shelf. Arrow keys move focus and select,
+  the group is one tab stop (`components/browse/radio-group-keys.ts`).
+- **A category is a scope, not a filter.** It is not an `ActiveFilterBar` chip
+  and not in the All-filters sheet, which lost its Category group; the "All
+  filters" badge and "Clear all" count refinements only and `clearFilters`
+  leaves the shelf (`clearCategory`/`showAll` are the ways out). Empty states
+  name the shelf (`lib/browse-empty.ts`) and offer **Clear filters** and **Show
+  all** separately. **`/shop` parent shelves now match their children**, as
+  `/gifts` already did. `/shop`'s shortcut row is **Quick filters** (hairline,
+  label hidden under 640px) with a tinted-pill-and-check selected state,
+  deliberately unlike the rail's solid pine.
+- **URL:** the codec keeps `categories: string[]` because `mobile/` still writes
+  `?category=a,b`; the web reads the first slug that resolves and writes at
+  most one. A legacy `a,b` link opens on `a` and is rewritten; an unknown slug
+  is All. `/shop` and `/gifts` fetch **500** listings (`CLAUDE.md` still said
+  100).
+- **Incidental fixes:** `/gifts` "Clear all" now also resets Dispatch and
+  Personalisable, which it left on; `.taskChip:hover` used `--hk-surface-hover`,
+  a token no stylesheet defines; the gold-bright focus ring on the child chips
+  was removed (it drew on the white page behind the chip at ~1.6:1, under 3:1).
+- **Tests:** the e2e category cases in `audit-regressions.spec.ts` now drive
+  `getByRole('radio')` in the radiogroup named "Category". Their `/^Filters/`
+  locator — and the one in `focus-traps.spec.ts` — matched no button (the opener
+  is "All filters"), so **`focus-traps` had been silently skipping its
+  filter-sheet test**; it now runs.
+- `mobile/` still has a multi-select category rail and now differs from the web
+  on purpose until a follow-up moves it.
+
+### Order cashback removed
+
+Owner: "remove cashback from wallet."
+
+- **`CASHBACK_RATE` is `0`** in `server/src/common/pricing/pricing.util.ts` —
+  kept rather than deleted because `Order.cashbackEarned` is a checkout
+  snapshot and both the credit (`payWithWallet`, `markPaidByRazorpayTx`) and
+  the reversal (`cancelOrder`, `refundOrder`) read it. An order quoted a
+  cashback before the removal is credited if paid and reversed if cancelled,
+  symmetrically; every new order snapshots 0 and writes no `cashback` ledger
+  row. API fields `cashbackEstimate`, `cashbackEarned`, `pendingCashback`,
+  `lifetimeSaved`, `walletCashback` still return (0 or legacy) for installed
+  native builds; the enum value `WalletTransactionCategory.cashback` stays
+  (legacy rows, and the 3% top-up bonus is filed under it).
+- **UI removed on web and mobile:** the product-page, cart, checkout and order
+  cashback lines, `StickySummary`'s `cashbackLabel`, `WalletBalanceCard`'s
+  pending/lifetime row, `WalletContext.earnCashback`, the wallet and app-promo
+  copy. The client and mobile shared pricing no longer export
+  `CASHBACK_RATE`/`computeCashback` (a spec fails if one returns). **Loyalty
+  perks reworded** — they promised "+0.5% extra cashback" and so on, a rate no
+  server code ever honoured; `lifetimeSaved` is a frozen total that never
+  drove a tier (no server code writes `LoyaltyAccount` from it), and the
+  sentence in `CLAUDE.md` claiming otherwise is gone. `Product.cashbackPct` is
+  inert, kept so values round-trip.
+- **Tests added:** `server/test/unit/pricing-cashback-off.spec.ts`,
+  `server/test/e2e/order-cashback-removed.e2e-spec.ts` (a new order writes no
+  cashback row on either payment path; a legacy order is still credited on
+  both), and specs for the client pricing exports and loyalty copy.
+- **Optional, not required for correctness:** `UPDATE "Order" SET
+  "cashbackEarned"=0 WHERE status='pending-payment'` — needs the owner's
+  go-ahead and a backup; see `docs/DEPLOY.md`.
+
+### A session survives a failed refresh, and one stale tab no longer signs out every device
+
+The "admin keeps getting logged out" report had two roots, both fixed.
+
+- **Client (`http.ts`).** The refresh returned a boolean, so a 429 from the
+  throttler, a 502 while pm2 restarts the API, or a dropped connection was read
+  as "the session is over" and deleted the credential. It now resolves `ok |
+  rejected | unavailable`: only a 401/403 with **no newer token in storage**
+  ends the session; everything else keeps it and throws the status-0 `ApiError`
+  an unreachable API produces. The refresh token is re-read from
+  `localStorage` under a Web Lock (`navigator.locks`, `hk-auth-refresh`) before
+  it is posted, and a tab adopts a sibling's rotation instead of replaying a
+  spent token; `session.ts`'s memory is now a cache that follows the `storage`
+  event. A sign-out in one tab signs the others out; a different account
+  signing in makes them re-restore. `AuthContext` restore and the upload XHR go
+  through `refreshSessionNow()`; an upload refreshes up front when the access
+  token is about to expire (codes `SESSION_UNVERIFIED`, status 0, and
+  `UNAUTHORIZED`, 401, no redirect) — it used to fail with the server's bare
+  "Invalid or expired access token" after fifteen minutes on a listing form.
+- **The admin sidebar's badge poll** kept its last-fetched time in `useState`
+  read from a handler registered once, so it saw `0` for the life of the page
+  and every window focus fetched `/admin/dashboard` — the documented 60-second
+  throttle did not exist, and the poll tripped over an expired token on every
+  alt-tab. It is a ref now, with `lib/portal/queue-poll.ts#shouldRefetchQueues`.
+- **Server.** Rotation now records `RefreshToken.replacedByTokenId` (a column
+  that already existed and was never written) in the same transaction. A
+  revoked token replayed within 10 s is rejected alone; beyond that only **its
+  own descendant chain** is revoked (bounded to 1,000 hops) — it used to revoke
+  every active session the user had (commit `3f1fc45`). Rows rotated before the
+  deploy have no link, so replaying one revokes nothing beyond itself.
+- **The two `http.ts` forks share more:** `refreshOnce`, `doRefresh`
+  (`RefreshOutcome`) and `unreachableError` are identical, both import
+  `syncFromStorage`, `withRefreshLock` and `isAccessTokenStale` from their
+  session module (app: a passthrough over memory), and `http-parity.spec.ts`
+  pins them. Its `extractBlock` compares `request` only up to the `= {}` default
+  parameter, so that body is not really compared (they differ only by `&&
+  isBrowser()`, checked by hand).
+- **Tests:** `client/lib/auth/refresh-outcome.spec.ts` (31, over a fake browser
+  with a serialising `navigator.locks` and a rotating fake API, two isolated
+  module copies as two tabs), `cross-tab.spec.ts`, `portal/queue-poll.spec.ts`,
+  `server/test/unit/refresh-token-reuse.spec.ts` (rewritten, 19),
+  `server/test/e2e/refresh-chain.e2e-spec.ts`.
+- **Still open:** a refresh the server accepted whose response never arrived —
+  the client keeps a spent token and its next attempt is a real 401.
+- **Diagnosing on the box:** `pm2 logs homekrafted-api | grep -E "reuse
+  detected|same-tab race"`; the line changed from `revoked N active
+  session(s)` to `revoked N descendant token(s) in its chain; the user's other
+  sessions were left alone`. See `docs/DEPLOY.md`.
+
+### Also
+
+- The About page's team titles are the ones each person gave us (owner): Manav
+  Ahuja is "Co-founder" (was "Marketing Head") and Abhinav Sharma "Brand
+  Manager" (was "Marketing Analyst"); no doc stated the old ones.
+- Stale claims corrected in `CLAUDE.md` while here: the browse fetch is 500 not
+  100, `QuickFilterChips` no longer uses `lib/category-emoji.ts` (deleted), the
+  `AdminShell` "60 s" refresh is now real, and the loyalty-tier/`lifetimeSaved`
+  sentence is gone.
+
 ## 2026-09-17 (later) — the ISB pickup spot is ours to send, not theirs to type
 
 Owner, revising the option shipped hours earlier: stop asking the buyer

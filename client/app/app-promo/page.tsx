@@ -31,7 +31,7 @@ const VALUE_PROPS = [
   {
     icon: Percent,
     title: "App-only offers",
-    description: "Occasional app-exclusive discounts and extra wallet cashback.",
+    description: "Occasional app-exclusive discounts.",
   },
 ] as const;
 

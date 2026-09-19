@@ -2153,6 +2153,19 @@ model Product {
   /// out of search.
   isAvailable         Boolean                 @default(true)
   featured            Boolean                 @default(false)
+  /// Where a featured listing sits among the other featured ones (owner,
+  /// 2026-09-19): **lower is earlier**, and NULL means "featured but nobody
+  /// ranked it", which sorts after every ranked one.
+  ///
+  /// Only meaningful while `featured` is true — `unfeature` and the
+  /// `PUT /admin/catalog/featured` list both clear it, so a listing that
+  /// leaves the featured set does not carry a stale place back in if it is
+  /// featured again. Written by an admin and nobody else; merchandising,
+  /// not moderation, so it never touches `moderationNote`/`moderatedAt`.
+  /// Read by the default browse order (`featured DESC, featuredRank ASC
+  /// NULLS LAST, rating DESC, ...`), which is why the browse index below
+  /// carries it.
+  featuredRank        Int?
   /// M18 — "this listing is a ready-made gift hamper", set by the
   /// HomeKrafter who lists it.
   ///
@@ -2282,6 +2295,20 @@ model Product {
   /// ascending on `rating` cannot serve a descending scan without a sort
   /// step, which is the cost being removed.
   @@index([moderationStatus, isAvailable, rating(sort: Desc), reviewCount(sort: Desc), id])
+  /// The same default browse, with the admin's featured order in front
+  /// (2026-09-19): `ORDER BY featured DESC, featuredRank ASC NULLS LAST,
+  /// rating DESC, reviewCount DESC, id`. The index above cannot serve that
+  /// order — its scan is by rating, and leading with `featured` turns a
+  /// twenty-row index walk back into the sequential scan and top-N sort the
+  /// k6 note above measured at p95 2.06 s. The column list matches the
+  /// query's sort keys exactly, directions included; `featuredRank`'s NULLS
+  /// LAST is Postgres's own default for ASC, which is why it needs no
+  /// marker here. Kept beside the old index rather than replacing it: a
+  /// `price`/`nearest` browse and the seller and admin lists still lean on
+  /// the shorter one, and dropping an index is not reversible on a table
+  /// that is under load. The name is explicit because Prisma's generated
+  /// one would be 84 characters and Postgres truncates past 63.
+  @@index([moderationStatus, isAvailable, featured(sort: Desc), featuredRank(sort: Asc), rating(sort: Desc), reviewCount(sort: Desc), id], map: "Product_default_browse_featured_idx")
   // 2026-09-06 FK index pass. Postgres indexes a primary key, not the
   // columns that reference one, so an unindexed foreign key means every
   // DELETE of the parent row sequentially scans this whole table to prove

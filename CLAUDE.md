@@ -88,6 +88,15 @@ server's key wins and a live switch needs **no client rebuild** — set the
 two server vars plus `RAZORPAY_WEBHOOK_SECRET`, subscribe
 `payment.captured` in the dashboard, restart. See `docs/DEPLOY.md`.
 
+**A production migration is waiting on the owner (2026-09-19):
+`20260919120000_product_featured_rank`.** Additive — one nullable
+`Product.featuredRank` and one index, nothing backfilled, no env vars —
+but **not applied to production**: it needs a go-ahead and a backup in the
+turn it happens (the existing production-migration rule; `deploy.sh`
+applies it, so never deploy this code without that go-ahead), and the API
+fails every product read against the old schema. `docs/DEPLOY.md` has the
+runbook.
+
 **These are not code.** The build is feature-complete against
 every approved plan and deployed; these are what still stand between it
 and real customers, and each is the kind of thing a session will otherwise
@@ -389,6 +398,9 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
       geo.ts                  haversine + TRICITY_AREAS — mirror of server/src/common/geo.ts,
                               KEEP THE TWO IN STEP or buyer/kitchen resolve to different points
       schedule.ts             rolling delivery days + windows; suppresses today's expired slots
+      featured-order.ts       featured-first ordering (compareFeatured, pinFeaturedFirst, …) — pure
+      home-rails.ts           how the home page's uncurated rails are ordered — pure
+      product/merchandising-badge.ts   the product-card badge chain — pure
       location/               LocationContext (localStorage + `hk_loc` cookie mirror)
                               + server.ts#getBuyerCoords for Server Components
     styles/
@@ -572,7 +584,18 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   with the path map in place a wrong import resolves rather than failing —
   so `client/lib/api/http.ts`, `auth/session.ts` and `api/unreachable.ts`
   are the three files a `client/` change must never assume the app is
-  running. **The DOM-global half of the ban is only scanned since
+  running. **The two `http.ts` forks share more since 2026-09-19:**
+  `refreshOnce`, `doRefresh` (`RefreshOutcome`) and `unreachableError` are
+  identical, and both import `syncFromStorage`, `withRefreshLock` and
+  `isAccessTokenStale` from their session module (web: a real `localStorage`
+  re-read and a Web Lock; app: a passthrough over memory).
+  `mobile/test/http-parity.spec.ts` pins them — but its `extractBlock` stops
+  `request` at the first `{`, the `= {}` default parameter, so that body is
+  **not really compared** (the two differ only by `&& isBrowser()`, checked
+  by hand). `lib/featured-order.ts`, `lib/home-rails.ts` and
+  `lib/product/merchandising-badge.ts` are pure, clock-free and verified
+  under `shared-boundary.spec`; `featured-order` is compilable by the app as
+  `@shared/featured-order` (nothing there imports it yet). **The DOM-global half of the ban is only scanned since
   2026-09-06, and it took a year** — the rule was written here from the
   start and nothing checked it, so `lib/gift/gift-intent.ts` shipped
   reading `window.sessionStorage` and **catching its own TypeError**. On
@@ -1038,6 +1061,14 @@ would disagree between the server render and the browser (React #418),
 repeat a listing across pages, and show a shared link something else.
 Ranking still decides which of a maker's gifts leads.
 
+**Featured leads, and is never spread (2026-09-19).** The default `/gifts`
+order is the admin's featured listings first (`featuredRank` ascending,
+unranked last — `lib/featured-order.ts`), **pinned before `spreadByMaker`**,
+then the maker-spread remainder, then sold-out. **`spreadByMaker` must never
+be handed the featured half**: a round-robin deals them out one per maker and
+scatters the running order an admin chose. Explicit price/nearest sorts
+ignore featured — that is the buyer's question, not the page's.
+
 ## Diet marks and the pre-order badge (2026-09-05)
 
 Two owner asks, and both turned on the same rule: **absence is not an
@@ -1357,6 +1388,30 @@ would delist a live catalogue and take every kitchen's income with it.
 - **`feature`/`unfeature` are merchandising, not moderation** — they must
   not touch `moderationNote`/`moderatedAt`, or the reason a listing was
   flagged is erased by putting it on the home page.
+- **Merchandising is an admin's call (2026-09-19)** — the badges and the
+  featured order, and both are easy to hand back to a maker by accident.
+  **Badges (`Product.tags`)** are written only when `actor === 'admin'`
+  (`server/src/seller/listing-tags.ts`); a HomeKrafter's `tags` is **ignored,
+  not refused** — the DTO keeps the field (`forbidNonWhitelisted` would 400
+  every shipped client), a create stores `[]`, and an update leaves an
+  admin's badge untouched so a price edit cannot wipe it. Pinned by
+  `test/unit/product-tags-admin-only.spec.ts` and
+  `featured-merchandising.e2e-spec.ts`. **`featured` + `featuredRank`** are
+  admin merchandising and **never a seller DTO field** (that spec asserts
+  nothing under `src/seller/` names either). `PUT /admin/catalog/featured` is
+  a **full replacement** — array order is the rank, anything unlisted is
+  unfeatured with its rank cleared, audited `catalog.featured_set`;
+  `unfeature` clears the rank and `feature` leaves it (NULL = featured but
+  unranked, after every ranked one).
+- **Whoever touches browse ordering:** the default order lives in
+  `server/src/catalog/browse-order.ts` (`DEFAULT_BROWSE_ORDER` +
+  `compareDefaultBrowse`) — `featured DESC, featuredRank ASC NULLS LAST,
+  rating DESC, reviewCount DESC, id` — and **must change together with
+  `Product_default_browse_featured_idx` and `products-browse.e2e-spec.ts`**.
+  The SQL fast path, the phase-one candidate read and the in-memory
+  comparator are that one constant; an index whose scan is by rating cannot
+  serve an order that leads with `featured`, and losing it puts the default
+  browse back on the sequential scan the k6 run measured at p95 2.06 s.
 - **Seeds must set `moderationStatus: 'active'` explicitly.** They relied
   on the old default; without it the whole demo catalogue seeds invisible
   and every browse page, screenshot and fixture comes up empty with nothing
@@ -1430,9 +1485,20 @@ critical: a tablist may only contain tabs), and forty-one places said
   despatch call-off, category rename, quote-link withdrawal, order
   refund, status override are the shape to copy.
 - **The admin sidebar's queue badges** (`AdminShell#queueCounts`) read the
-  dashboard snapshot once and refresh on window focus after 60 s. They
-  are a courtesy, not the gate (M47), and they require `analytics` scope
-  or no scopes; a sub-admin without it sees the groups and no numbers.
+  dashboard snapshot once and refresh on window focus **at most once a
+  minute — true since 2026-09-19**; before it every focus fetched, because
+  the last-poll time was `useState` read from a handler registered once and
+  closed over `0`. It is now a **ref stamped when the poll starts** (a
+  failing poll is not retried on every focus), the rule is
+  `lib/portal/queue-poll.ts#shouldRefetchQueues`, and a hidden tab skips it.
+  They are a courtesy, not the gate (M47), and they require `analytics`
+  scope or no scopes; a sub-admin without it sees the groups and no numbers.
+- **An ordered-list screen composes `lib/portal/reorder.ts`** (pure
+  `moveItem`/`removeItem`/`appendItem`/`canAppend`, never mutating).
+  `FeaturedClient` (`/admin/catalog/featured`) is the reference: buttons,
+  not drag (operable from a keyboard and a screen reader as they stand),
+  focus follows the row that moved, a polite live region says where it
+  went, Save is `isDirty`-enabled and the baseline reset from the response.
 - **Nav `aria-label`s stay `"HomeKrafter"` and `"Admin"`** —
   `e2e/tests/portal-nav.spec.ts` finds the strips by them.
 - **User-facing labels changed with it:** Listings → **Products**, Menu →
@@ -1559,7 +1625,12 @@ critical: a tablist may only contain tabs), and forty-one places said
   `window.history.replaceState` does not survive Back (the App Router
   restores its own `renderedSearch` and the query is gone before
   `popstate` fires). Parse defensively: it is a URL, so it comes from
-  anybody.
+  anybody. **Category is the one single-select scope; every other facet
+  stays multi.** The codec keeps `BrowseParams.categories: string[]` because
+  `mobile/` still writes `?category=a,b`; the web reads the first slug that
+  resolves (`category-sections.ts#resolveCategorySelection`) and writes at
+  most one (`categorySlugsForUrl`). A legacy `a,b` link opens on `a` and the
+  first-run guard rewrites the URL; an unknown slug means All.
 - **Browse machinery is shared (M56, rebuilt M59/M59b): `components/browse/`**
   — the two listing pages are **sidebarless**: a hero band (tinted
   full-bleed, italic terracotta accent word — gold never carries text;
@@ -1577,31 +1648,60 @@ critical: a tablist may only contain tabs), and forty-one places said
   is a nav tab; Snacks stays in the footer and the home strip); it
   remains on `/snacks` and `/meal-plans`. Don't put a "featured" strip
   back on a page whose grid already shows the same objects.),
-  then one floating control card holding `QuickFilterChips` (every
-  shelf as an emoji pill — `lib/category-emoji.ts`, decoration only,
-  `aria-hidden`; zero-count dimmed+disabled after the populated ones,
-  never hidden — **except on `/gifts` since 2026-09-16**, where an empty
-  shelf is not rendered and a parent shelf is its own selectable chip
-  matching its children, `lib/category-sections.ts#expandShelfSelection`;
-  owner decisions D2/D3 in `docs/GIFTING-REWORK.md`) over `FilterPillBar` (Airbnb-shaped dropdown pills for
+  then one floating control card holding `QuickFilterChips` (the category
+  rail: a **single-select `radiogroup`** of icon tiles — `<Icon>` from
+  `Category.icon`, never an emoji; `lib/category-emoji.ts` is deleted — with
+  an **All** tile first. Selected is a **solid pine face with a `Check`
+  badge**. There is **no dimmed+disabled zero-count tile**: an empty shelf is
+  simply not rendered, and a selected empty one stays, so a shared link still
+  shows where you are. **`/gifts` is the same contract over a two-level
+  tree** (`DepartmentTiles`, single-select too): pressing a department
+  *selects* it and reveals its subcategory row, and that row is **derived
+  from the selection** — no `openDepartment` state — so a shared
+  `/gifts?category=earrings` link reopens the right row; pressing a child
+  *replaces* the department; the row's first chip "All {Dept}" is the parent
+  selection and "All gifts" leaves the shelf. **A parent shelf matches its
+  children** (`lib/category-sections.ts#expandShelfSelection`; D2/D3 in
+  `docs/GIFTING-REWORK.md`), on `/shop` as well since 2026-09-19.
+  `components/browse/radio-group-keys.ts` is the shared arrow-key layer:
+  arrows move focus *and* select, and the group is one tab stop) over
+  `FilterPillBar` (Airbnb-shaped dropdown pills for
   the 2–3 most-used facets + an "All filters" button; popovers, not
   dialogs — Esc/outside-press close, no trap owed). The full checkbox
   set lives in `MobileFilterSheet` at **every** width (real dialog:
-  shared focus trap, Esc, scroll lock, live "Show N results").
+  shared focus trap, Esc, scroll lock, live "Show N results") — **with no
+  Category group**, since the shelf is chosen in exactly one place.
   `FilterGroup` (collapsible; zero-count dimmed and partitioned after
   usable rows; M58 parent trees as labelled sections via
   `lib/category-sections.ts`) + `FilterOptionList` feed both sheet and
   popovers from **one** set of option arrays, so the two cannot drift.
-  `ActiveFilterBar` (removable chips + Clear all at ≥2), `SortSelect`
+  `ActiveFilterBar` (removable chips + Clear all at ≥2 — filters only, never
+  the category), `SortSelect`
   (pill around a native select — don't swap in a custom listbox),
   `BrowsePagination`, and the `useBrowseFilters` hook holding the URL
   machinery. Both listing pages
   compose these; a new listing page should too, not re-derive them. The
   facet predicates are pure in `lib/browse-facets.ts` (`isOnSale` is
   presence of the server-computed discount, never arithmetic — M46).
-  Filtering stays a client-side `useMemo` over the pageSize-100 fetch
-  (M49: instant, no spinners); revisit only when the catalogue outgrows
-  one page.
+  Filtering stays a client-side `useMemo` over a **500-listing** fetch
+  (`getFoodProducts`/`getCraftProducts`; 500 is the server's own `@Max`, and
+  it was 100 until the catalogue outgrew it — M49: instant, no spinners);
+  revisit only when the catalogue outgrows one page.
+- **A category is a scope, not a filter (2026-09-19, owner: "pressing on a
+  category should change the category, not add them").** It is not an
+  `ActiveFilterBar` chip and not in the All-filters sheet; the "All filters"
+  badge and "Clear all" count refinements only, and `clearFilters` **leaves
+  the shelf** — `clearCategory` and `showAll` are the ways out. Empty states
+  name the shelf (`lib/browse-empty.ts`) and offer **Clear filters** (keeps
+  it; only when there are some) and **Show all** (leaves it) separately,
+  because a sentence built from chips alone blamed "Pure veg" for an empty
+  shelf. `resetCategoryScopedFacets()` in `useBrowseFilters` is the one place
+  facets that belong to one shelf (the G1 attributes) will reset when the
+  shelf changes; there are none yet. `/shop`'s shortcut row is labelled
+  **Quick filters** (hairline above, label hidden under 640px) and its
+  selected state is a **tinted pill with a check** — deliberately unlike the
+  rail's solid pine, so a refinement never reads as a shelf; don't give a
+  second control the solid-pine state.
 - **`shippingScope` is the fresh-vs-shippable split, and it is a
   filter now (M56).** The owner's framing: some food *is* a craft in
   shipping terms — a jar of pickle or a tin of cookies posts anywhere
@@ -1719,12 +1819,15 @@ location and artwork; this changes the price of every listing at once).
 - **No client computes a discounted price.** `resolveCartLine` for the
   cart, `mapProduct` for the card — one sum, server-side, so a card and a
   checkout cannot disagree.
-- **`Product.cashbackPct` is not money.** It was quoted on the product page
-  as wallet cashback while checkout credited a flat platform rate on the
-  subtotal, so a 20% listing advertised four times what was paid. The
-  page reads the platform rate now and the input is gone from the form;
-  the column stays so existing values round-trip. Don't re-add the field
-  without wiring it to the actual credit.
+- **`Product.cashbackPct` is not money, and now not anything.** It was
+  quoted on the product page as wallet cashback while checkout credited a
+  flat platform rate on the subtotal, so a 20% listing advertised four
+  times what was paid; then order cashback itself was removed
+  (2026-09-19, rate 0 — see "Order cashback is off"). **The flat 5% credit
+  no longer exists.** The column and the DTO/type field are **inert**, kept
+  only so existing values round-trip through the forms and the API; nothing
+  computes or renders from it and the form has no input. Don't re-add one
+  without wiring it to a real credit.
 
 ## Listing a product (M45) — two forms, one set of values
 
@@ -1762,6 +1865,13 @@ link away from every step, and an **edit** opens it by default.
   binary at both ends: a thali was asked for a shelf life it does not have,
   and a bar of soap — filed as `craft` — was asked for no ingredients at
   all. No schema change; it decides which existing columns are asked for.
+- **The long form no longer asks for Tags (2026-09-19).** Bestseller / New /
+  Festive / Curated are merchandising, so the admin editors carry an
+  admin-only **Merchandising** section (`components/admin/MerchandisingSection.tsx`,
+  four badge chips; the edit screen also shows the listing's featured place,
+  read-only) **beside** the shared `ListingForm`, not behind a prop on it — a
+  flag on a form both portals compose is one wrong call site from showing a
+  HomeKrafter a control that does nothing.
 - **`validateListingForm(values, family)` takes the family as a required
   argument**, deliberately not defaulted: all three editors pass it, and a
   caller that had not been updated would otherwise validate a jar of pickle
@@ -1817,7 +1927,7 @@ else adds.
   WalletBalanceCard).
 - `--hk-gold-text-sm: #886815` — **all** gold-family text, not only small
   text: `--hk-gold` fails AA everywhere it carries words (wallet chip,
-  cashback lines, `ghost-gold` label, and since the 2026-08-08 audit the
+  `ghost-gold` label, and since the 2026-08-08 audit the
   section eyebrows, "view all" links, shop filter headings and every
   product card's maker line). Darkened from the prototype's `#8a6a16`,
   which measured 4.49:1 on the gold tint — one hundredth short.
@@ -2019,9 +2129,15 @@ thing making the food half honest.
     cooked — a six-month pickle wore it), `kind === "craft"` →
     "Handcrafted", and `kind === "food"` → **"Verified Kitchen"**, which
     claimed the M16 badge for every food listing without reading
-    `fssaiVerified` at all. There is **no fallback** now, most cards carry
-    no badge, and that is right — a badge every card carries is
+    `fssaiVerified` at all. There is **no derived fallback** now, most cards
+    carry no badge, and that is right — a badge every card carries is
     decoration, the same argument that keeps Pre-order off every listing.
+    The chain lives in `lib/product/merchandising-badge.ts` (pure, tested)
+    and ends in **one honest fallback, "Featured"**, read from the real
+    admin-set `Product.featured` column: lowest priority after
+    Bestseller/Festive/Curated/fresh-New, never shown on a sold-out card,
+    never derived from `kind` or `shippingScope`. The rule against derived
+    badges stands.
   - The product page asserted "FSSAI registered home kitchen" and "100%
     handmade by verified artisan" from `kind`, in a component that never
     fetches `VendorProfile` and so **cannot** see either flag — plus
@@ -2042,6 +2158,15 @@ thing making the food half honest.
   and **a filter chip labelled as a property** — "⚡ Fresh Today" filtered
   `local`, and "🌱 Pure Veg / Jain" filtered `vegetarian`, which would
   hand somebody keeping Jain a dish with onion and garlic in it.
+- **The default sort leads with featured (2026-09-19).** The dishes view uses
+  `compareFeatured` as its first key; in the kitchens view a kitchen with a
+  featured dish among the **filtered** dishes sorts first, by its best
+  featured dish's rank, and `buildKitchens` pins featured dishes first in
+  `Kitchen.dishes` (the card's four-dish preview). `Kitchen.makes` is
+  deliberately still derived from the rating order — a featured dish must
+  not change what a kitchen is said to make. The deliverable-first partition
+  is still applied last, explicit price/nearest sorts are unaffected, and
+  the "derives, does not fetch" rule above still holds.
 - **`MakerPortrait`, never `avatarSrc`** (M38b) — this is a grid, and the
   pre-M28 rows would render several kitchens under one stock face.
 - No stretched link on the card: the dish thumbnails are links, and an
@@ -2210,7 +2335,13 @@ with us → app. Three things in it are new and easy to get wrong:
 - **"Ordered again and again" filters on `reviewCount > 0`.** An
   unreviewed listing carries `rating: 0`, so sorting the raw catalogue by
   rating ranks new listings last and a tie of zeros first. A rail called
-  "most loved" has to be listings somebody loved.
+  "most loved" has to be listings somebody loved. **One scoped exception
+  (2026-09-19):** when the curated collection is missing or empty, the four
+  Bestsellers/Trending rails and the "By HomeKrafted" shelf lead with the
+  listings an admin **featured**, in rank order (`lib/home-rails.ts#uncuratedRail`,
+  `compareTopRated`); a featured listing is in the pool even with zero
+  reviews, while every other listing still needs a review once any listing
+  has one.
 - **`HowItWorks` copy is written from the rules** — the fail-open
   delivery filter, cooked-after-you-order plus pre-order, and the two
   buyer windows (cancel until packed, seven days from delivery). If a
@@ -2530,12 +2661,32 @@ accident:
 - **A return request moves no money.** An admin resolves it. Auto-refund
   would make the most abusable path the most frictionless, and the loss
   lands on a home cook.
-- **A cancellation *does* refund — and must reverse the cashback with
-  it.** Cashback lands at `placed`; refunding the total while leaving it
-  meant place-then-cancel paid the buyer, repeatably (M22). Any new path
-  that gives money back owes the same question: what else did placement
-  hand over? `lifetimeSaved` unwinds too, or the loop buys loyalty tier
-  for free.
+- **Order cashback is off (2026-09-19, owner: "remove cashback from
+  wallet").** `CASHBACK_RATE = 0` in `server/src/common/pricing/pricing.util.ts`
+  is the switch, **kept at 0 rather than deleted**: `Order.cashbackEarned` is
+  a checkout *snapshot*, and both the credit (`payWithWallet`,
+  `markPaidByRazorpayTx`) and the reversal (`cancelOrder`, `refundOrder`)
+  read the snapshot, never the constant. Deleting one half while a
+  non-zero-snapshot `pending_payment` order exists pays or claws back money
+  the other half never moved — so an order quoted a cashback before the
+  removal is credited if paid and reversed if cancelled, symmetrically. The
+  client and mobile shared pricing no longer export
+  `CASHBACK_RATE`/`computeCashback` (pinned by a spec); no screen computes
+  or promises a figure and the loyalty perks promise none. The enum value
+  `WalletTransactionCategory.cashback` stays (legacy rows, and the 3%
+  top-up bonus is filed under it). `cashbackEstimate`, `cashbackEarned`,
+  `pendingCashback`, `lifetimeSaved` and `walletCashback` still return
+  (0 or legacy) because installed native builds read them. **`lifetimeSaved`
+  is a frozen running total of cashback** — no server code writes
+  `LoyaltyAccount` from it, so it never drove a loyalty tier.
+  `WalletBalanceCard` is the balance and nothing else.
+- **A cancellation *does* refund — and must reverse any cashback the order
+  was promised (legacy-only since 2026-09-19).** Cashback landed at
+  `placed`; refunding the total while leaving it meant place-then-cancel
+  paid the buyer, repeatably (M22). New orders snapshot `0`, so the reversal
+  only fires for an order placed before 2026-09-19 or one pending payment at
+  the deploy — keep it. Any new path that gives money back owes the same
+  question: what else did placement hand over?
 - **An order is refunded through the order's own endpoint, never by
   crediting the wallet (M26).** `POST /admin/orders/:type/:id/refund`
   flips `Order.refundStatus`, takes an `Idempotency-Key`, refuses an
@@ -2678,7 +2829,10 @@ silently override another — the same reason `Product.isAvailable` and
   never the bare token, so a component that later lands on a dark surface
   stays visible — all 42 that hardcoded it were converted — and **a dark
   button on a light page needs none of this**, because `outline-offset`
-  puts its ring on the page behind it.
+  puts its ring on the page behind it. (`DepartmentTiles`' `.chipOn`
+  gold-bright override was removed on 2026-09-19 for exactly that reason: it
+  set the ring on a chip whose ring is drawn on the white page, ~1.6:1, under
+  the 3:1 a focus indicator needs.)
 - **`prefers-reduced-motion` is honoured globally (M34), so a component
   writes its own rule only to do something other than stop.** Six modules
   had opted in individually and about seventy had not, including the
@@ -2769,6 +2923,24 @@ had a test, and none was visible from reading the happy path.
   must never be emailed**. That credential would sit readable in an inbox
   forever, could not be rotated, and on this platform is the one that can
   change payout details.
+- **A failed refresh is never an answer, and a session ends only on one
+  (2026-09-19).** `http.ts`'s refresh resolves `ok | rejected | unavailable`:
+  only a 401/403 with **no newer token in storage** ends the session
+  (`clearSession()` + redirect); a 429, 5xx, network failure, timeout or
+  non-JSON body keeps it and throws the status-0 `ApiError` — the
+  `session-answer.ts` rule applied to the refresh, which had never asked it
+  (a 429 from the throttler was signing admins out). The refresh token is
+  **re-read from `localStorage` under a Web Lock** (`navigator.locks`,
+  `hk-auth-refresh`) before it is posted, and a tab adopts a sibling's
+  rotation instead of replaying a spent token; `session.ts`'s memory is a
+  **cache** of `localStorage` that follows the `storage` event, **not a
+  second source of truth**. **`AuthContext` restore and uploads go through
+  `refreshSessionNow()` from `http.ts` — never post a token themselves.**
+  `lib/api/auth.ts#refreshSession` is the raw endpoint (no lock, no
+  re-read) and is documented as such. Server side, a replay beyond the 10 s
+  grace revokes **its own chain** (`RefreshToken.replacedByTokenId`), never
+  the user's other sessions — the old revoke-everything blast radius was the
+  "admin keeps getting logged out" report. `docs/ERROR-HANDLING.md` §6.
 - **A failed request is never an answer, and `/seller/me` is where that
   bit (M39).** `getMySeller`/`getSellerVendor` ended `catch { return
   undefined }`. `/seller/me` is **not** in `PASSWORD_CHANGE_EXEMPT`, so

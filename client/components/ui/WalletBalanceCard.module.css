@@ -41,17 +41,3 @@
   margin: 6px 0 4px;
   line-height: 1;
 }
-
-.row {
-  position: relative;
-  display: flex;
-  gap: 20px;
-  font-size: 13px;
-  color: var(--hk-footer-ink);
-  flex-wrap: wrap;
-}
-
-.figure {
-  color: var(--hk-gold-bright);
-  font-weight: 600;
-}

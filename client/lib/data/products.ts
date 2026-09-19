@@ -3,9 +3,9 @@ import type { Product } from "@/lib/types";
 /**
  * The 8 seed products, ported from the prototype's `<script type="text/x-dc">`
  * sample data (maker / price / mrp / weight / rating / reviews / tag).
- * Cashback is a flat 5% platform-wide rate, matching the home page's
- * "Earn 5% cashback on every order" wallet promo copy (checks out against
- * the prototype's product-detail cashback of ₹12 on a ₹249 item).
+ * `cashbackPct: 5` on each row is prototype-era data and is inert: order
+ * cashback was removed (2026-09-19), nothing computes or renders money from
+ * this field, and it stays only because the `Product` type still carries it.
  *
  * Only "Mango Thokku Pickle" carries the full product-detail fields
  * (multi-weight pricing, gallery thumbs, ingredients/shelf-life/storage) —

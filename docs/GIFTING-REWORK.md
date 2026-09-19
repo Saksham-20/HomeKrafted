@@ -36,6 +36,13 @@ those is called out.
 
 D3, D4, D6, D8, D9 were not contested and stand as written below.
 
+**D3 note (2026-09-19):** a parent selection still matches its children and
+itself — `expandShelfSelection` (`client/lib/category-sections.ts`) — and that
+now holds on `/shop` as well as `/gifts`: a parent slug from the header
+dropdown or a shared link used to filter on the parent alone and read as an
+empty shelf on the food side. What changed is that the selection is a single
+shelf, not a set (§5.1 item 9).
+
 ### Original proposals
 
 | # | Proposed decision | Why | Reverses |
@@ -479,10 +486,23 @@ Rules that ride on this model:
    "Personalisable". No "Authentic", no "One". Sold out sorts last and says
    so.
 9. **All filters.** Right-side drawer, 420px, from 900px up; bottom sheet
-   under 900. Sections: Department (tree, parent selectable), Occasion,
+   under 900. Sections: ~~Department (tree, parent selectable)~~
+   **(superseded 2026-09-19 — see below)**, Occasion,
    Recipient, Price (band chips + custom range), Delivery & dispatch,
    Personalisable, department attributes, Rating (only once reviews exist).
    Live "Show N gifts" button.
+
+   **Superseded 2026-09-19 (owner: "pressing on a category should change
+   the category, not add them").** The department is a **single-select
+   scope in the department row**, not a checkbox group in this sheet: the
+   sheet no longer has a Category group at all, and there is exactly one
+   place a shelf is chosen. Pressing a department selects it and reveals its
+   subcategory row (derived from the selection, so a shared
+   `/gifts?category=earrings` link reopens the right row); pressing a
+   subcategory replaces the department selection; the first chip in that row,
+   "All {department}", is the parent selection and **All gifts** leaves the
+   shelf. The category is not a removable chip either, and "Clear all" counts
+   and clears refinements only.
 
 ### 5.2 What is removed
 

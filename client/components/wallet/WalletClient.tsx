@@ -49,8 +49,6 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
   const { isSignedIn, ready: authReady } = useAuth();
   const {
     balance,
-    pendingCashback,
-    lifetimeSaved,
     transactions,
     hasMoreTransactions,
     loadMoreTransactions,
@@ -197,7 +195,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
         </span>
         <h1 className={styles.title}>Homekrafted Wallet</h1>
         <p className={styles.subtitle}>
-          One balance across everything you order. Pay in a tap, earn cashback on every order.
+          One balance across everything you order. Top up once, pay in a tap.
         </p>
       </div>
 
@@ -216,8 +214,8 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
         <Card className={styles.loadFailedCard} role="alert">
           <span className={styles.sectionLabel}>We couldn&rsquo;t open your wallet</span>
           <p className={styles.autoTopupHint}>
-            That&rsquo;s on us, not your connection. Nothing has moved — your balance,
-            your cashback and every refund are exactly where they were.
+            That&rsquo;s on us, not your connection. Nothing has moved — your balance
+            and every refund are exactly where they were.
           </p>
           <Button variant="secondary" onClick={retryLoad}>
             Try again
@@ -226,11 +224,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
       ) : (
         <div className={styles.layout}>
           <div className={styles.main}>
-            <WalletBalanceCard
-              balance={balance}
-              pendingCashback={pendingCashback}
-              lifetimeSaved={lifetimeSaved}
-            />
+            <WalletBalanceCard balance={balance} />
 
             {/*
               Add money is only offered where money can actually move. With
@@ -248,8 +242,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
                 </div>
                 <p className={styles.autoTopupHint}>
                   We&apos;re still setting up online payments, so the wallet can&apos;t be
-                  topped up from here yet. Your balance, cashback and refunds all work as
-                  normal.
+                  topped up from here yet. Your balance and refunds all work as normal.
                 </p>
               </Card>
             ) : (
@@ -347,7 +340,7 @@ export function WalletClient({ topupOptions }: WalletClientProps) {
               <div>
                 <div className={styles.payInfoTitle}>Pay with wallet at checkout</div>
                 <div className={styles.payInfoHint}>
-                  On by default · earns 5% back on every store order
+                  On by default · pre-selected at checkout when you have a balance
                 </div>
               </div>
             </Card>

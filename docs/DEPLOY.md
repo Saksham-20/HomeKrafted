@@ -476,6 +476,75 @@ Skipping step 2, or running it twice, are both real-money mistakes in
 opposite directions — read the script's own header comment before running
 it on production.
 
+### Migration waiting on the box: featured ranking (2026-09-19)
+
+**Not applied to production yet — it needs the owner's go-ahead and a
+backup in the turn it happens**, the same rule as every production
+migration (back up, check the lineage, run, verify). `deploy.sh` will apply
+it, so do not run a deploy of this code without that go-ahead.
+
+`20260919120000_product_featured_rank` is **additive**: one nullable column
+(`Product.featuredRank`) and one index
+(`Product_default_browse_featured_idx`). Nothing is backfilled — every
+existing featured listing is simply unranked, and no buyer-facing order
+changes for a listing until an admin ranks it on `/admin/catalog/featured`.
+The index build takes a brief lock on `Product`; the table is small, so it
+is a moment rather than an outage. **No env vars.** The name is set
+explicitly because Prisma's generated one would be 84 characters and
+Postgres truncates identifiers past 63.
+
+Prisma selects `featuredRank` on every product read, so this code running
+against the old schema fails those reads (the column does not exist) — it
+ships with the migration or not at all.
+
+### Order cashback was switched off (2026-09-19)
+
+There is nothing to configure: `CASHBACK_RATE = 0` in
+`server/src/common/pricing/pricing.util.ts` is the switch, and it ships
+with the code. An order created after the deploy snapshots
+`cashbackEarned = 0` and writes no `cashback` ledger row.
+
+**An order that was already `pending-payment` at the deploy still carries
+the non-zero figure it was quoted, and is honoured:** credited if it is
+paid, reversed if it is cancelled or refunded, symmetrically — so it needs
+no action. There is an *optional*, one-off tidy-up if you would rather it
+not be:
+
+```sql
+UPDATE "Order" SET "cashbackEarned" = 0 WHERE status = 'pending-payment';
+```
+
+It needs the owner's go-ahead and a backup like any production data write,
+and it is **not required for correctness** — do not run it in passing.
+Don't delete the credit or reversal code either: both read the stored
+snapshot, and removing one half while a non-zero-snapshot order exists pays
+or claws back money the other half never moved.
+
+### An admin says they keep getting signed out (2026-09-19)
+
+Two defects fed this report and both are fixed in code
+(`docs/ERROR-HANDLING.md`, `docs/API.md`'s `POST /auth/refresh`): a refresh
+that merely *failed* (a 429, a 502 while pm2 restarts the API, a dropped
+connection) was read as "the session is over", and a stale second tab
+replaying a spent refresh token used to revoke **every** session the user had.
+To confirm which one hit a given person, on the box:
+
+```bash
+pm2 logs homekrafted-api --lines 2000 --nostream | grep -E "reuse detected|same-tab race"
+grep -E 'JWT_.*_TTL|THROTTLE' /var/www/homekrafted/HomeKrafted/server/.env
+```
+
+A line reading `Refresh token reuse detected for user X: revoked N …` at the
+time of the logout is the smoking gun. **Before this deploy** it read
+`revoked N active session(s)`; **after** it reads `revoked N descendant
+token(s) in its chain; the user's other sessions were left alone`. The
+`.env` values to expect are `JWT_ACCESS_TTL=15m`, `JWT_REFRESH_TTL=7d`,
+`THROTTLE_LIMIT=120` and `THROTTLE_AUTH_LIMIT=20` — a `THROTTLE_AUTH_LIMIT`
+set much lower makes refreshes 429, which the client now survives but which
+is still worth knowing. Rows rotated before the deploy carry no
+`replacedByTokenId`, so a replay of one of those revokes nothing beyond
+itself; that stops mattering as they age out (seven days).
+
 ### Shadowfax courier despatch (M57)
 
 **Off by default (`SHADOWFAX_ENABLED=false`).** Booking a real rider costs
@@ -778,6 +847,7 @@ them to logrotate if they ever get large (they are a few lines a day).
 | Client build fails on prerender | The API wasn't up — see the gotcha above |
 | Changes not showing | `NEXT_PUBLIC_*` changes need a rebuild, not a restart |
 | "Too many requests" banners, or blank sections on an older build | Rate limiting. See below. |
+| An admin "keeps getting signed out" | Reuse-detection log lines and the `.env` TTLs — see "An admin says they keep getting signed out" above. |
 
 ## Rate limits
 
@@ -813,7 +883,12 @@ names it: `client/lib/api/http.ts` maps a 429 to a wait-and-retry message,
 using `Retry-After` when the server sends one. Before that it surfaced as
 blank modules or a "Missing bearer token" error, which looked like a
 broken page. If a tester still reports empty sections, check
-`pm2 logs homekrafted-api` for 429s before chasing a UI bug.
+`pm2 logs homekrafted-api` for 429s before chasing a UI bug. **A 429 (or a
+5xx, or a timeout) on `POST /auth/refresh` no longer signs anybody out**
+(2026-09-19): the client keeps the session and fails that one request with
+the same "we couldn't reach the server" error an unreachable API gives, and
+tries the refresh again on the next one. Only a 401/403 on the refresh token
+— with no newer token in storage — ends a session.
 
 The **API being unreachable** is the neighbouring case and was fixed the
 same way. A rejected `fetch` — the API stopped, nginx down, a tester on a

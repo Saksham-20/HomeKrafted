@@ -237,6 +237,8 @@ export class OrdersService {
       deliveryMode,
       computeShipping(subtotal, await this.settings.get()),
     );
+    // 0 since 2026-09-19 (`CASHBACK_RATE`). Still snapshotted onto the order
+    // so the credit and reversal paths keep reading one stored figure.
     const cashbackEarned = computeCashback(subtotal);
     const total = subtotal + shippingFee;
     const walletApplied = dto.paymentMethod === 'wallet' ? total : 0;
@@ -655,16 +657,24 @@ export class OrdersService {
         });
 
         /**
-         * Take the cashback back too.
+         * Take the cashback back too — **legacy orders only.**
          *
-         * **Without this, cancelling an order pays you.** Cashback is
-         * credited the moment an order reaches `placed`, and cancelling
+         * Order cashback stopped being credited on 2026-09-19
+         * (`CASHBACK_RATE` is 0, so a new order snapshots
+         * `cashbackEarned = 0` and this block is skipped). It stays because
+         * an order placed before then, or one sitting in `pending_payment`
+         * with a non-zero snapshot when that shipped, still holds the
+         * credit it was promised — and unwinding it here is what keeps the
+         * credit and the reversal symmetric.
+         *
+         * **Without this, cancelling such an order pays you.** Cashback was
+         * credited the moment an order reached `placed`, and cancelling
          * refunded the full total while leaving that credit alone — so
          * place, cancel, keep the cashback, repeat. Measured in a browser:
          * a ₹1,029 order left the wallet ₹51 *up* on a completed
          * place-then-cancel cycle, and nothing bounds how many times that
-         * runs. It also inflated `lifetimeSaved`, which drives loyalty
-         * tier, so the same loop bought tier progression for free.
+         * runs. It also inflated `Wallet.lifetimeSaved`, a running total of
+         * cashback earned — so the loop padded that figure too.
          *
          * Affordable by construction: this runs immediately after
          * crediting the full order total back, and cashback is a small
@@ -681,8 +691,10 @@ export class OrdersService {
             title: `Cashback reversed — cancelled order #${order.orderNumber}`,
             refType: 'order',
             refId: order.id,
-            // Negative, so the loyalty account unwinds by exactly what the
-            // placement added rather than double-counting the reversal.
+            // Negative, so `Wallet.lifetimeSaved` unwinds by exactly what
+            // the placement added rather than double-counting the reversal.
+            // (Not the loyalty tier: nothing writes `LoyaltyAccount`, and
+            // this column is a running total of cashback earned, no more.)
             lifetimeSavedDelta: -cashback,
             // An accounting correction, not spending. Without this the
             // reversal counts as a debit and can trip an auto-top-up —
@@ -804,9 +816,11 @@ export class OrdersService {
 
   /**
    * Debits the wallet for `order.total` (read fresh from the DB, never
-   * from the client), credits `order.cashbackEarned` (already computed
-   * server-side at `create()` time), and transitions the order
-   * `pending_payment -> placed` — all inside one transaction via
+   * from the client), credits `order.cashbackEarned` (the snapshot taken at
+   * `create()` time — 0 for every order since 2026-09-19, so the credit
+   * below only ever fires for a legacy order that was quoted one), and
+   * transitions the order `pending_payment -> placed` — all inside one
+   * transaction via
    * `IdempotencyService.run`, so a retry with the same `Idempotency-Key`
    * can never double-debit. Insufficient balance throws `402` (via
    * `WalletService.postLedgerEntryTx`) and the whole transaction —
@@ -839,6 +853,9 @@ export class OrdersService {
         refId: order.id,
       });
 
+      // Legacy orders only: new orders snapshot `cashbackEarned = 0`
+      // (`CASHBACK_RATE`, pricing.util.ts), so this is skipped for them. It
+      // stays for an order that was quoted a cashback before it was removed.
       const cashback = Number(order.cashbackEarned);
       if (cashback > 0) {
         await this.walletService.postLedgerEntryTx(tx, {
@@ -919,13 +936,14 @@ export class OrdersService {
 
       /**
        * Take the cashback back too — `cancelOrder`'s exact reasoning,
-       * one path over. Cashback is credited at `placed`, so refunding the
-       * full total while leaving that credit alone pays out on an order
-       * that is being taken back: request a return, get the refund *and*
-       * keep the cashback, repeatably. This is the path every post-
-       * delivery return actually resolves through
-       * (`POST /admin/orders/order/:id/refund`), so it is the common
-       * case, not an edge one.
+       * one path over, and **legacy orders only** for the same reason
+       * (new orders snapshot `cashbackEarned = 0`). Cashback was credited
+       * at `placed`, so refunding the full total while leaving that credit
+       * alone pays out on an order that is being taken back: request a
+       * return, get the refund *and* keep the cashback, repeatably. This
+       * is the path every post-delivery return actually resolves through
+       * (`POST /admin/orders/order/:id/refund`), so it stays live for
+       * every order placed before the removal.
        */
       const cashback = Number(order.cashbackEarned);
       if (cashback > 0) {
@@ -987,9 +1005,11 @@ export class OrdersService {
    * Tx-scoped — called only from `PaymentsService.handleWebhook` (inside
    * its own transaction, after HMAC verification + webhook-event dedup),
    * never from a controller directly. Transitions `pending_payment ->
-   * placed` and credits cashback; a no-op if the order was already
-   * transitioned (defensive idempotency for a redelivered/duplicate
-   * webhook that somehow got past the `WebhookEvent` dedup check).
+   * placed` and credits the order's cashback snapshot (0 for every order
+   * created since 2026-09-19, so only a legacy order still gets a credit);
+   * a no-op if the order was already transitioned (defensive idempotency
+   * for a redelivered/duplicate webhook that somehow got past the
+   * `WebhookEvent` dedup check).
    */
   async markPaidByRazorpayTx(tx: Prisma.TransactionClient, orderId: string): Promise<void> {
     const order = await tx.order.findUnique({ where: { id: orderId } });
@@ -1001,6 +1021,7 @@ export class OrdersService {
     // becomes confirmed, so it is where the buyer hears so.
     void this.orderNotifications.notifyBuyerOfStatus(orderId, 'placed');
 
+    // Legacy orders only, as in `payWithWallet`: a new order's snapshot is 0.
     const cashback = Number(order.cashbackEarned);
     if (cashback > 0) {
       const wallet = await this.walletService.getOrCreateWalletTx(tx, order.userId);

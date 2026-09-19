@@ -443,6 +443,63 @@ Open the site in a **fresh browser window** (or clear site data).
 ### 1. Shopper — browse
 Sign in as **Ananya**.
 
+**New on 2026-09-19 — a category is one shelf, not a filter (`/shop` and
+`/gifts`):**
+
+- **Pick a shelf and it replaces the last one.** On `/shop` the category rail
+  is a single choice with an **All** tile first; on `/gifts` the department
+  row works the same way with **All gifts** first. Press a second category
+  and the first lets go — the address bar should carry exactly one
+  `?category=…`. Pressing the shelf you are already on does nothing.
+- **The chosen shelf is loud.** A solid dark-green tile with a small tick on
+  its corner, its label bold and underlined. Check it is legible without
+  colour (the tick is the point) and that it keeps a visible outline when
+  you Tab to it.
+- **Arrow keys work.** Tab into the rail — it is one tab stop — then
+  ←/→ (or ↑/↓) move *and* choose; Home/End jump to the ends.
+- **On `/gifts`, pressing a department selects it and opens its
+  subcategory chips.** Pressing a chip replaces the department; **All
+  {department}** steps back up to the whole department; **All gifts** leaves
+  the shelf. Open `/gifts?category=earrings` cold — Jewellery should be
+  highlighted and its chips already showing (they used to appear only after
+  you pressed the department).
+- **The shelf is not a filter chip.** It never appears in the removable
+  chips under the controls, and **All filters** has no Category group. The
+  count on the **All filters** button and **Clear all** are about the other
+  filters only — **Clear all leaves your shelf alone**. To leave the shelf,
+  press **All**.
+- **Empty views say which half is to blame.** Pick a shelf, then filters
+  that match nothing: the message names the shelf ("Nothing in Pickles
+  matches …") and offers **Clear filters** (keeps the shelf) and **Show all**
+  (leaves it and drops the filters). With no filters on, an empty shelf
+  offers only **Show all**. On `/gifts`, **Clear all** also resets Dispatch
+  and Personalisable, which it used to leave on.
+- **Old and odd links.** `/gifts?category=a,b` (what the old multi-select
+  wrote) opens on `a` and the address bar rewrites itself to `?category=a`;
+  a slug that does not exist opens on **All**, never an empty grid.
+- **`/shop` parent shelves match their children now**, as `/gifts` already
+  did — "Shop by cuisine" from the header menu should list everything under
+  its cuisines instead of an empty shelf.
+- **`/shop` "Quick filters".** The row of shortcut pills under the category
+  rail is now labelled **Quick filters** (label hidden on a phone, hairline
+  kept). A pill you switch on is a **pale green pill with a tick** — a
+  different look from the category tile on purpose, so a refinement never
+  reads as a shelf.
+- **Pages fetch 500 listings**, not 100 — a shelf near the end of a large
+  catalogue should not be missing listings that exist.
+- **Featured first.** In **Admin → Catalog → Featured** pick and order a few
+  listings (see the admin section). Then `/gifts` (default **Recommended**
+  sort), `/shop` **Dishes** and `/shop` **Kitchens** should lead with them,
+  **in the order you set**; a kitchen with a featured dish sorts first, by
+  its best-placed dish. The card shows a **Featured** pill unless an admin
+  badge (Bestseller, Festive, Curated, a fresh New) takes precedence, and
+  never on a sold-out card. **Price** and **Nearest** sorts ignore it. On
+  the home page, a Bestsellers/Trending rail that has no curated collection
+  behind it, and the "By HomeKrafted" shelf, lead with featured listings
+  too — even one nobody has reviewed yet.
+- **No cashback anywhere.** Product page, cart, checkout, order screens, the
+  wallet card and the app-promo/referral copy promise none (2026-09-19).
+
 **New on 2026-09-16 — the body typeface changed, site-wide:**
 
 - Everything that is not a heading, a price or a small-caps meta line is
@@ -461,10 +518,15 @@ Sign in as **Ananya**.
   the food shop). Gifts post anywhere, so it had nothing to ask.
 - **Parent shelves are clickable.** In the category row, "Handmade
   Jewellery" and "Candles & Home" are tiles of their own; tapping one shows
-  everything on it, including its subcategories. In **All filters**, each
-  group now starts with an "All …" row you can tick.
+  everything on it, including its subcategories, and opens its subcategory
+  chips underneath, led by an "All Handmade Jewellery" chip. **Superseded
+  2026-09-19:** a shelf is chosen from the rail or the department row, **one
+  at a time** (see the 2026-09-19 block below) — **All filters** has no
+  Category group any more, so there is no "All …" row to tick there.
 - **No greyed-out tiles.** A category with nothing on it is not shown at all
-  on `/gifts`. (The food shop still greys them out, unchanged.)
+  on `/gifts`. (This line used to add "the food shop still greys them out" —
+  it no longer does: `/shop`'s rail does not draw a shelf with nothing on
+  it either, unless it is the one you were sent to by a link.)
 - **Sold out goes last.** In every sort, sold-out gifts sit at the end of
   the grid. The default sort is now called **Recommended**.
 - **Cards say less.** The grey line under a gift's name no longer says
@@ -530,12 +592,15 @@ Sign in as **Ananya**.
   of them you can open directly. "See their full menu" goes to their
   storefront. Switch to **Dishes** with the toggle above the grid for the
   old flat product grid — the sort, the filters and the URL should follow
-  you across, and Back should return you to the view you left. Filter by
-  a category and check the kitchen cards show *that* category's dishes.
-- **Handcrafted Gifts (`/gifts`) has real filters now (M56)** — category,
-  Delivery (Ships pan-India / Fresh, delivered nearby), occasion, Picks
+  you across, and Back should return you to the view you left. Pick
+  a shelf on the category rail and check the kitchen cards show *that*
+  category's dishes.
+- **Handcrafted Gifts (`/gifts`) has real filters now (M56)** — Delivery
+  (Ships pan-India / Fresh, delivered nearby), occasion, Picks
   (Bestseller/New/Festive + On sale), price and sort, same as the food
-  shop but with no kitchens toggle (that asymmetry is deliberate). Every
+  shop but with no kitchens toggle (that asymmetry is deliberate). The
+  category is **not** one of the filters (2026-09-19): it is the shelf you
+  are in, chosen from the department row, and the filters refine it. Every
   craft listing should show a real photograph, not the hatch placeholder.
   Narrow something, copy the URL into a fresh tab — the same narrowed
   view should load.
@@ -635,7 +700,14 @@ Sign in as **Ananya**.
 ### 3. Shopper — wallet
 - **Wallet** page — balance, transaction history
 - Pay for an order using wallet balance, then confirm the balance dropped
-- Check cashback lands after payment
+  (there is **no cashback** any more — order cashback was removed 2026-09-19;
+  the wallet card shows the balance and nothing else, and no screen should
+  promise an "earn ₹N back"). One deliberate exception: an order that was
+  already awaiting payment when cashback was removed still carries the
+  amount it was quoted, so paying it credits that amount and cancelling it
+  takes it back — every newer order shows and credits nothing. (An optional
+  one-off data pass can zero those; see `docs/DEPLOY.md`. It is not needed
+  for the wallet to be right.)
 - Try to overspend (pay for something costlier than your balance) — it should
   refuse cleanly, not crash
 
@@ -1207,7 +1279,9 @@ optionally, a last day. Worth trying:
 Also: the product page's "earn ₹N wallet cashback" line used to be
 computed from a per-listing percentage that the checkout never honoured —
 a listing set to 20% advertised four times the cashback actually credited.
-It now shows the platform rate, which is what you will actually receive.
+The line is gone altogether now: order cashback was removed on 2026-09-19,
+so the product page, cart, checkout and order screens print no cashback
+figure at all. Report any that does.
 
 ### Adding a product is four questions now (M45)
 
@@ -1252,6 +1326,65 @@ sold.
 The **/sell** application also got shorter: Instagram, website, years
 making and daily capacity are folded behind one optional trigger. The
 FSSAI question still shows for anyone who says they make food.
+
+### Featured listings and badges (2026-09-19)
+
+**Admin → Catalog → Featured** (a new tab beside Products, at
+`/admin/catalog/featured`) is where you choose which listings lead the shop
+and the gifts page, and in what order. Worth trying:
+
+- **Add a listing** from the search box (it offers live listings only), then
+  use the **up / down buttons** on each row to order them — there is no
+  dragging. After you press one, keyboard focus should stay on the listing
+  that moved so a run of presses keeps moving the same one, and the screen
+  reader announces where it ended up.
+- **Save replaces the whole list.** The save bar says how many listings are
+  in it. Anything featured that is not in the list becomes un-featured —
+  removing a row is a real decision, not a tidy-up.
+- A listing that is featured but no longer live (hidden, flagged, paused by
+  its maker) **stays in the list with its reason shown**, so you can take it
+  out. Buyers only ever see a featured listing that also passes review.
+- **The list is capped at 100.** Add stops being offered at the cap.
+- Featuring a listing must **not** change its review status or erase the
+  reason it was flagged.
+- On **Products**, a featured listing shows a star and its position (`#3`);
+  **Feature** adds it *unranked* (after every listing you have placed) and
+  **Unfeature** also clears its place. Ordering is done on the Featured tab,
+  not on Products.
+- **Then check the buyer side** — `/gifts` (Recommended sort), `/shop`
+  Dishes and Kitchens, and the home page rails (see the browse section above).
+
+**Badges are an admin's to give.** **Admin → Catalog → open a listing** (and
+**Add listing**) now ends with a **Merchandising** section holding four chips
+— Bestseller, New, Festive, Curated. The edit page also shows whether the
+listing is featured and its place. A **HomeKrafter's** listing form no longer
+has a Tags row at all, and if a HomeKrafter's app sends a tag anyway, the
+server **silently ignores it** — check that editing a price as a HomeKrafter
+does not wipe a badge an admin set.
+
+### Staying signed in (2026-09-19)
+
+An admin with several tabs open used to be signed out "for no reason". It
+should no longer happen:
+
+- **Leave two or three admin tabs open for more than fifteen minutes** (the
+  sign-in lifetime), then click around in each. Nobody should be sent to the
+  sign-in page.
+- **Sign out in one tab** — the others should sign out too, without you
+  touching them. (Signing out is per browser, not per device: another device
+  stays signed in.)
+- **Sign in as a different account in one tab** — the other signed-in tabs
+  should re-check who is signed in and show that account, rather than one
+  person's data over another person's sign-in.
+- **Upload a photo after being on a listing form for 15+ minutes** — it
+  should succeed. It used to fail with "Invalid or expired access token",
+  which looked exactly like being signed out.
+- **A blip is not a sign-out.** Stop the API (or go offline) mid-session and
+  click around: you should see the usual "we couldn't reach the server"
+  message, and once it is back you are still signed in.
+- **Switching back to the admin tab** should not hit the dashboard more than
+  once a minute (the sidebar count badges refresh on focus, at most that
+  often, and never from a hidden tab).
 
 ### An admin can list a product now (M44)
 
@@ -1468,7 +1601,11 @@ any of them come back, it is a bug:
   anything verified — "Verified Kitchen" in particular appeared on every
   food listing regardless of whether an admin had checked anything. Most
   cards now carry no badge; only Bestseller, Festive, Curated and New
-  (while it is actually new) remain, and those are set by a person.
+  (while it is actually new) remain, and **since 2026-09-19 those are set
+  by an admin only** (a HomeKrafter's form no longer shows Tags, and a tag a
+  HomeKrafter sends is silently ignored), plus a last-resort **Featured**
+  pill that reads the real admin-set flag and is never shown on a sold-out
+  card.
 - On the **product page**, "FSSAI registered home kitchen", "100% handmade
   by verified artisan", "hygienic", "premium materials" and "no commercial
   preservatives". The real verification is on the **kitchen's own page**,

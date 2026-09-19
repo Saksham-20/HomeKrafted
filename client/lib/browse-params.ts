@@ -77,7 +77,19 @@ export const DEFAULT_BROWSE_VIEW: BrowseView = "kitchens";
 
 export interface BrowseParams {
   view: BrowseView;
-  /** Category slugs, in the order given. Empty means every category. */
+  /**
+   * Category slugs, in the order given. Empty means every category.
+   *
+   * **The codec is a list; the web's policy is one (2026-09-19).** A
+   * category is a single-select scope on `/shop` and `/gifts`, so the web
+   * reads this list through `category-sections.ts#resolveCategorySelection`
+   * (the first slug that resolves wins — a pre-change `?category=a,b` link
+   * opens on `a`) and writes at most one slug back
+   * (`categorySlugsForUrl`). The shape stays an array because the native
+   * app compiles this file and still holds a multi-select category rail of
+   * its own; narrowing the type here would break it until it moves. Do not
+   * add a second reader that treats this as a set on the web.
+   */
   categories: string[];
   /** Occasion slugs. Empty means every occasion. */
   occasions: string[];

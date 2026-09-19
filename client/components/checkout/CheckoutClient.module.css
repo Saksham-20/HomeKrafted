@@ -336,12 +336,6 @@
   color: var(--hk-ink);
 }
 
-.cashbackNote {
-  margin: var(--hk-s2) 0 0;
-  font-size: 12.5px;
-  color: var(--hk-gold-text-sm);
-}
-
 .terms {
   margin: 0;
   font-size: 12px;

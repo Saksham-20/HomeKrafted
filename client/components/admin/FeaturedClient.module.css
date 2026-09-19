@@ -1,0 +1,170 @@
+/* /admin/catalog/featured — the ordered featured list and the picker
+   that feeds it. Tokens only; the portal kit supplies the save bar, the
+   notices and the loading rows. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s4);
+}
+
+/* Two panels side by side; one column under the 900px rail, where the
+   picker drops below the list it feeds. `minmax(0, …)` so a long listing
+   name truncates instead of stretching its column. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--hk-s4);
+  align-items: start;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+  min-width: 0;
+}
+
+.panelHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+}
+
+.panelTitle {
+  margin: 0;
+  font-family: var(--hk-font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+/* A count is receipt type, not prose. */
+.count {
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--hk-muted);
+}
+
+.list,
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s2);
+}
+
+.row,
+.resultRow {
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s3);
+  padding: var(--hk-s2) var(--hk-s3);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border);
+  border-radius: var(--hk-r-md);
+}
+
+/* The rank is the whole point of the list, so it reads as a number and
+   not as a bullet. Pine fill under white type: the fills-and-borders use
+   of the brand colour, no gold text. */
+.rank {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: var(--hk-r-pill);
+  background: var(--hk-pine);
+  color: #ffffff;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 52px;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.name {
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--hk-ink);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  font-size: 12.5px;
+  color: var(--hk-muted);
+}
+
+/* Why a featured row will not actually be seen. Terracotta-text is the
+   AA-safe ink for a warning on white. */
+.notLive {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--hk-s2);
+  font-size: 12.5px;
+  color: var(--hk-terracotta-text);
+}
+
+.controls {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--hk-s1);
+}
+
+.inList {
+  flex-shrink: 0;
+  font-family: var(--hk-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--hk-pine);
+}
+
+.empty,
+.hint {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-muted);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* On a phone the controls drop under the name instead of squeezing it to
+   a sliver — three 36px buttons are most of a 360px row. */
+@media (max-width: 560px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .info {
+    flex-basis: calc(100% - 28px - 52px - 2 * var(--hk-s3));
+  }
+
+  .controls {
+    margin-left: auto;
+  }
+}

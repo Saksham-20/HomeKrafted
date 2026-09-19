@@ -10,7 +10,7 @@ import { StickySummary } from "@/components/ui/StickySummary";
 import { CartLineRow } from "@/components/cart/CartLineRow";
 import { CartSuggestions } from "@/components/cart/CartSuggestions";
 import { useCart } from "@/lib/cart/CartContext";
-import { computeCashback, computeShipping, freeDeliveryHint } from "@/lib/cart/pricing";
+import { computeShipping, freeDeliveryHint } from "@/lib/cart/pricing";
 import { usePublicSettings } from "@/components/settings/usePublicSettings";
 import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
 import { formatCurrency } from "@/lib/format";
@@ -44,7 +44,6 @@ export function CartPageClient() {
   const deliveryRule = usePublicSettings();
   const shipping = deliveryRule ? computeShipping(subtotal, deliveryRule) : 0;
   const freeOver = freeDeliveryHint(deliveryRule, shipping);
-  const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
 
   return (
@@ -140,7 +139,6 @@ export function CartPageClient() {
                 },
                 { label: "Total", value: formatCurrency(total), emphasis: true },
               ]}
-              cashbackLabel={`Earn ${formatCurrency(cashback)} wallet cashback on this order`}
               footnote={
                 freeOver !== undefined
                   ? `Free shipping on orders over ${formatCurrency(freeOver)}`

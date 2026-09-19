@@ -207,9 +207,14 @@ export function moderationDecision(
   moderatedById?: string;
   moderatedAt?: Date;
   featured?: boolean;
+  featuredRank?: number | null;
 } {
+  // `feature` leaves the rank alone — NULL is "featured, not yet placed",
+  // which sorts after every ranked listing. `unfeature` clears it, so a
+  // listing that leaves the set does not carry a stale place back in the
+  // next time somebody features it.
   if (action === 'feature') return { featured: true };
-  if (action === 'unfeature') return { featured: false };
+  if (action === 'unfeature') return { featured: false, featuredRank: null };
 
   const moderationStatus: ProductModerationStatus =
     action === 'reject'

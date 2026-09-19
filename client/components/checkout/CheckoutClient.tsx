@@ -19,7 +19,7 @@ import { checkoutModeOf } from "@/lib/cart/checkout-mode";
 import { dietOf } from "@/lib/diet";
 import { cartUpdateErrorMessage } from "@/lib/cart/add-error";
 import { useWallet } from "@/lib/wallet/WalletContext";
-import { computeCashback, computeShipping, freeDeliveryHint } from "@/lib/cart/pricing";
+import { computeShipping, freeDeliveryHint } from "@/lib/cart/pricing";
 import { usePublicSettings } from "@/components/settings/usePublicSettings";
 import {
   createAddress,
@@ -130,7 +130,6 @@ export function CheckoutClient() {
     ready: walletReady,
     loadFailed: walletFailed,
     pay,
-    earnCashback,
   } = useWallet();
   /**
    * We actually know the balance. A failed read leaves the store at its
@@ -308,7 +307,6 @@ export function CheckoutClient() {
   const shippingKnown = isCampus || publicSettings !== undefined;
   const shipping = isCampus ? 0 : publicSettings ? computeShipping(subtotal, publicSettings) : 0;
   const freeOver = freeDeliveryHint(publicSettings, shipping);
-  const cashback = computeCashback(subtotal);
   const total = subtotal + shipping;
   // Unknown counts as not sufficient — the safe direction, since the
   // server is the authority and would refuse anyway. What changes is what
@@ -563,18 +561,12 @@ export function CheckoutClient() {
     }
 
     // Re-read the order once — a wallet pay/Razorpay webhook may have
-    // already flipped `pending-payment -> placed` and credited cashback
-    // server-side by now; fall back to the just-created snapshot if the
-    // refetch fails for any reason (still a perfectly valid confirmation).
+    // already flipped `pending-payment -> placed` server-side by now; fall
+    // back to the just-created snapshot if the refetch fails for any reason
+    // (still a perfectly valid confirmation). There is no cashback to hand
+    // to the wallet store here any more (order cashback was removed
+    // 2026-09-19) — `pay` already refetched the balance after a wallet debit.
     const finalOrder = mock ? created : ((await getOrder(created.id).catch(() => undefined)) ?? created);
-
-    if (finalOrder.cashbackEarned > 0) {
-      earnCashback(finalOrder.cashbackEarned, {
-        title: `Cashback — Order #${finalOrder.orderNumber}`,
-        refType: "order",
-        refId: finalOrder.id,
-      });
-    }
 
     setOrder(finalOrder);
     // The order exists and is paid; a failed cart clear must not take the
@@ -800,7 +792,7 @@ export function CheckoutClient() {
             {!walletKnown
               ? "We couldn't read your balance just now"
               : walletSufficient
-                ? `Balance ${formatCurrency(walletBalance)} · earn ${formatCurrency(cashback)} cashback`
+                ? `Balance ${formatCurrency(walletBalance)}`
                 : `Balance ${formatCurrency(walletBalance)} — not enough for this order`}
           </span>
         </span>
@@ -1096,7 +1088,6 @@ export function CheckoutClient() {
                 <dd>{formatCurrency(total)}</dd>
               </div>
             </dl>
-            <p className={styles.cashbackNote}>Earn {formatCurrency(cashback)} wallet cashback on this order</p>
           </div>
 
           <div className={styles.card}>
@@ -1146,11 +1137,6 @@ export function CheckoutClient() {
           <dd className={styles.orderTotal}>{formatCurrency(total)}</dd>
         </div>
       </dl>
-      <p className={styles.cashbackNote}>
-        {paymentMethod === "wallet" && !cannotPay
-          ? `Paying with wallet · earn ${formatCurrency(cashback)} cashback`
-          : `Earn ${formatCurrency(cashback)} wallet cashback on this order`}
-      </p>
       {freeOver !== undefined && (
         <p className={styles.summaryFootnote}>Free delivery on orders over {formatCurrency(freeOver)}</p>
       )}

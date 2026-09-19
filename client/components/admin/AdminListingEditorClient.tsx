@@ -24,6 +24,7 @@ import {
   type ListingFormValues,
 } from "@/components/seller/ListingForm";
 import { AdminPageHeader } from "./AdminPageHeader";
+import { MERCHANDISING_SECTION, MerchandisingSection } from "./MerchandisingSection";
 import { adminTaxonomyActions } from "@/lib/taxonomy-actions";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
@@ -113,6 +114,13 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
   const [commission, setCommission] = useState<SellerCommission | undefined>();
   const [values, setValues] = useState<ListingFormValues>(EMPTY_LISTING_FORM);
   const [initialValues, setInitialValues] = useState<ListingFormValues | undefined>();
+  /**
+   * Where the listing sits in the featured list — read-only here, and
+   * loaded with the listing. It is not part of the form values: putting a
+   * listing in the list and ordering it is one decision about the whole
+   * list, made on `/admin/catalog/featured`.
+   */
+  const [featured, setFeatured] = useState<{ featured: boolean; rank?: number | null } | undefined>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -145,6 +153,7 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
           const loaded = productToFormValues(product);
           setValues(loaded);
           setInitialValues(loaded);
+          setFeatured({ featured: product.featured === true, rank: product.featuredRank });
         } else {
           setNotFound(true);
         }
@@ -257,7 +266,10 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
         title="Edit listing"
         subtitle={values.name}
       />
-      <FormPage sections={LISTING_FORM_SECTIONS.map((s) => ({ ...s }))} navLabel="Sections">
+      <FormPage
+        sections={[...LISTING_FORM_SECTIONS, MERCHANDISING_SECTION].map((s) => ({ ...s }))}
+        navLabel="Sections"
+      >
         <ListingForm
           values={values}
           onChange={(next) => {
@@ -269,6 +281,14 @@ export function AdminListingEditorClient({ productId }: AdminListingEditorClient
           taxonomy={adminTaxonomyActions}
           errors={fieldErrors}
           commission={commission}
+        />
+        {/* Admin-only, and after the form rather than inside it: the shared
+            `ListingForm` is also the HomeKrafter's, and a badge is the
+            platform's to give. */}
+        <MerchandisingSection
+          tags={values.tags}
+          onChange={(tags) => setValues((current) => ({ ...current, tags }))}
+          featured={featured}
         />
         <SaveBar
           dirty={isDirty(initialValues, values)}

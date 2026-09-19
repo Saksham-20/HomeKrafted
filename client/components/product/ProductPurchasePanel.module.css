@@ -50,15 +50,6 @@
   margin-bottom: var(--hk-s5);
 }
 
-.cashback {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--hk-gold-text-sm);
-  margin-bottom: var(--hk-s5);
-}
-
 .buyRow {
   display: flex;
   gap: var(--hk-s3);

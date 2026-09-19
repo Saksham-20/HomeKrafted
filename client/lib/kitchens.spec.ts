@@ -76,6 +76,46 @@ describe("grouping listings into kitchens", () => {
     expect(v1.dishes.map((d) => d.id)).toEqual(["b", "a"]);
   });
 
+  it("puts an admin-featured dish first in a kitchen's preview, in the admin's order, then best-rated", () => {
+    // Best-rated is b (4.9), but a and c are featured: c is rank 1, a is
+    // rank 2. Preview = c, a, then the rest by rating (b 4.9, d 4.0).
+    const kitchens = buildKitchens(
+      [
+        product("a", "v1", { rating: 3.0, featured: true, featuredRank: 2 }),
+        product("b", "v1", { rating: 4.9 }),
+        product("c", "v1", { rating: 2.0, featured: true, featuredRank: 1 }),
+        product("d", "v1", { rating: 4.0 }),
+      ],
+      [vendor("v1")],
+      categories,
+    );
+    expect(kitchens[0].dishes.map((d) => d.id)).toEqual(["c", "a", "b", "d"]);
+  });
+
+  it("leaves the preview as it was when nothing in the kitchen is featured", () => {
+    const kitchens = buildKitchens(
+      [product("a", "v1", { rating: 4.2 }), product("b", "v1", { rating: 4.9 })],
+      [vendor("v1")],
+      categories,
+    );
+    expect(kitchens[0].dishes.map((d) => d.id)).toEqual(["b", "a"]);
+  });
+
+  it("does not let a featured dish change what a kitchen is said to make", () => {
+    // Two categories tie at one dish each. The tie is broken by the
+    // best-RATED dish's category (sweets, 4.9), not by the featured one's
+    // (pickles) — featuring is placement, not a statement about the kitchen.
+    const kitchens = buildKitchens(
+      [
+        product("a", "v1", { rating: 4.9, categoryId: "ct2" }),
+        product("b", "v1", { rating: 3.0, categoryId: "ct1", featured: true, featuredRank: 1 }),
+      ],
+      [vendor("v1")],
+      categories,
+    );
+    expect(kitchens[0].makes).toEqual(["Sweets", "Pickles"]);
+  });
+
   it("drops a listing whose kitchen is missing rather than rendering a nameless card", () => {
     const kitchens = buildKitchens([product("a", "ghost")], [vendor("v1")], categories);
     expect(kitchens).toEqual([]);
@@ -194,6 +234,102 @@ describe("ordering kitchens", () => {
     const before = ids(kitchens);
     sortKitchens(kitchens, "price-asc");
     expect(ids(kitchens)).toEqual(before);
+  });
+});
+
+describe("ordering kitchens — featured first under the default sort", () => {
+  const ids = (kitchens: Kitchen[]) => kitchens.map((k) => k.vendor.id);
+  const price = (id: string, amount: number) => ({
+    weightOptions: [{ sku: id, label: id, price: amount, mrp: amount, stock: 1 }],
+    defaultWeightSku: id,
+  });
+
+  // v1 rates highest, then v2, v3, v4. Featured dishes: v3 rank 1, v4 rank 2,
+  // v2 unranked. v1 has none.
+  const build = () =>
+    buildKitchens(
+      [
+        product("a", "v1", { ...price("a", 300), distanceKm: 1 }),
+        product("b", "v2", { ...price("b", 200), featured: true, featuredRank: null, distanceKm: 5 }),
+        product("c", "v3", { ...price("c", 500), featured: true, featuredRank: 1, distanceKm: 9 }),
+        product("d", "v4", { ...price("d", 100), featured: true, featuredRank: 2 }),
+      ],
+      [
+        vendor("v1", { rating: 4.9, reviewCount: 50 }),
+        vendor("v2", { rating: 4.5, reviewCount: 50 }),
+        vendor("v3", { rating: 4.0, reviewCount: 50 }),
+        vendor("v4", { rating: 3.0, reviewCount: 50 }),
+      ],
+      categories,
+    );
+
+  it("puts kitchens with a featured dish first, by their best featured rank, unranked last of those", () => {
+    // Featured: v3 (rank 1), v4 (rank 2), v2 (unranked). Then v1, the only
+    // kitchen with nothing featured, despite the best rating.
+    expect(ids(sortKitchens(build(), "most-loved"))).toEqual(["v3", "v4", "v2", "v1"]);
+  });
+
+  it("orders two kitchens whose featured dishes are both unranked by the usual rating", () => {
+    const built = buildKitchens(
+      [
+        product("a", "low", { featured: true }),
+        product("b", "high", { featured: true, featuredRank: null }),
+        product("c", "plain"),
+      ],
+      [
+        vendor("low", { rating: 3.5, reviewCount: 9 }),
+        vendor("high", { rating: 4.8, reviewCount: 2 }),
+        vendor("plain", { rating: 5, reviewCount: 99 }),
+      ],
+      categories,
+    );
+    expect(ids(sortKitchens(built, "most-loved"))).toEqual(["high", "low", "plain"]);
+  });
+
+  it("places a kitchen by its BEST featured dish, not its first", () => {
+    const built = buildKitchens(
+      [
+        product("late", "v1", { rating: 5, featured: true, featuredRank: 9 }),
+        product("early", "v1", { rating: 1, featured: true, featuredRank: 1 }),
+        product("solo", "v2", { featured: true, featuredRank: 4 }),
+      ],
+      [vendor("v1", { rating: 3, reviewCount: 1 }), vendor("v2", { rating: 5, reviewCount: 99 })],
+      categories,
+    );
+    // v1's best is rank 1, ahead of v2's rank 4, though v2 is rated higher.
+    expect(ids(sortKitchens(built, "most-loved"))).toEqual(["v1", "v2"]);
+  });
+
+  it("keeps an explicit sort the buyer's own — featured does not reorder price or nearest", () => {
+    expect(ids(sortKitchens(build(), "price-asc"))).toEqual(["v4", "v2", "v1", "v3"]);
+    expect(ids(sortKitchens(build(), "price-desc"))).toEqual(["v3", "v1", "v2", "v4"]);
+    // v1 1 km, v2 5 km, v3 9 km, v4 unknown (last).
+    expect(ids(sortKitchens(build(), "nearest"))).toEqual(["v1", "v2", "v3", "v4"]);
+  });
+
+  it("still puts a kitchen that cannot reach the buyer after every one that can", () => {
+    const built = buildKitchens(
+      [
+        product("far", "v1", { featured: true, featuredRank: 1, deliverable: false }),
+        product("near", "v2"),
+      ],
+      [vendor("v1", { rating: 5 }), vendor("v2", { rating: 3 })],
+      categories,
+    );
+    expect(ids(sortKitchens(built, "most-loved"))).toEqual(["v2", "v1"]);
+  });
+
+  it("is unchanged when nothing is featured", () => {
+    const built = buildKitchens(
+      [product("a", "v1"), product("b", "v2"), product("c", "v3")],
+      [
+        vendor("v1", { rating: 4.9, reviewCount: 3 }),
+        vendor("v2", { rating: 4.1, reviewCount: 90 }),
+        vendor("v3", { rating: 4.9, reviewCount: 40 }),
+      ],
+      categories,
+    );
+    expect(ids(sortKitchens(built, "most-loved"))).toEqual(["v3", "v1", "v2"]);
   });
 });
 

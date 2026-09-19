@@ -212,10 +212,22 @@ describe('meal plan day menus', () => {
     expect(JSON.stringify(audit!.metadata)).toContain('Rajma chawal');
     expect(JSON.stringify(audit!.metadata)).toContain('Khichdi');
 
-    // The change reached the subscriber on the meals category.
-    const rows = await h.prisma.notification.findMany({
+    // The change reached the subscriber on the meals category. The service
+    // sends it fire-and-forget (`void notifyScheduledSubscribers`) and the
+    // delivery service fans out to each channel in turn, so the row lands
+    // *after* the response — asserted straight away this read a real
+    // delivery as "nobody was told" on a warm box. Polled with a deadline,
+    // as `order-notifications.e2e-spec.ts` does; a fast run pays nothing.
+    const deadline = Date.now() + 20000;
+    let rows = await h.prisma.notification.findMany({
       where: { userId: buyer.userId, category: 'meals', title: { contains: 'Menu changed' } },
     });
+    while (rows.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      rows = await h.prisma.notification.findMany({
+        where: { userId: buyer.userId, category: 'meals', title: { contains: 'Menu changed' } },
+      });
+    }
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].body).toContain('Khichdi');
   });

@@ -16,10 +16,11 @@ import { WalletService } from './wallet.service';
  * `POST /wallet/topup`, `/pay`, `/earn-cashback`, or generic `/refund`
  * endpoint here — those would mean trusting a client-submitted amount for
  * an actual money movement. Real credits/debits only ever happen through:
- * `POST /payments/razorpay/order` + the verified webhook (top-up, order
- * cashback), `POST /orders/:id/pay` (wallet-pay an order — amount read
- * from the DB order), `POST /orders/:id/refund` (admin-gated, amount read
- * from the DB order). `adjust` below is the one intentional exception,
+ * `POST /payments/razorpay/order` + the verified webhook (top-up, and the
+ * legacy order cashback a pre-2026-09-19 order still carries),
+ * `POST /orders/:id/pay` (wallet-pay an order — amount read from the DB
+ * order), `POST /orders/:id/refund` (admin-gated, amount read from the DB
+ * order). `adjust` below is the one intentional exception,
  * gated `@Roles('admin')`.
  *
  * **This comment used to be wrong, and the wrongness is why a bug lived

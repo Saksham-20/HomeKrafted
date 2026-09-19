@@ -194,7 +194,17 @@ export async function socialLogin(
   return http.post<AuthResultDto>(`/auth/social/${provider}`, input, { auth: false });
 }
 
-/** `POST /auth/refresh` — rotating refresh; the presented token is revoked and replaced in the same call. */
+/**
+ * `POST /auth/refresh` — rotating refresh; the presented token is revoked and replaced in the same call.
+ *
+ * **The raw endpoint, not a way to keep a session alive.** It posts exactly
+ * the token it is handed: no lock, no re-read of what other tabs have stored,
+ * and a refusal comes back as an ordinary `ApiError` for the caller to
+ * misread. Web session restore and the upload XHR use `refreshSessionNow()`
+ * from `http.ts` instead (2026-09-19) — that is the one that cannot spend a
+ * token a sibling tab already rotated, and cannot end a session on a request
+ * that merely failed to complete.
+ */
 export async function refreshSession(refreshToken: string): Promise<AuthTokens> {
   return http.post<AuthTokens>("/auth/refresh", { refreshToken }, { auth: false });
 }

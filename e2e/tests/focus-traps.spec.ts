@@ -244,8 +244,12 @@ test.describe('the mobile filter sheet (M56)', () => {
     await page.goto('/gifts');
     await dismissLocationPrompt(page);
 
-    const opener = page.getByRole('button', { name: /^Filters/ }).first();
-    test.skip(!(await opener.count()), 'no filter toggle — catalogue empty');
+    // "All filters" — there is no button named plain "Filters" (the sheet
+    // is a dialog *labelled* that). This looked for `/^Filters/`, matched
+    // nothing, and `count() === 0` then skipped the whole test, so the
+    // sheet's focus contract was unchecked while the suite stayed green.
+    const opener = page.getByRole('button', { name: /^All filters/ }).first();
+    await expect(opener).toBeVisible({ timeout: 15_000 });
 
     await opener.click();
     await expect(page.locator(FILTER_SHEET)).toBeVisible();

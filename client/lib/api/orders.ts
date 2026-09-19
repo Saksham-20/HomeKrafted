@@ -8,7 +8,7 @@ import type {
 } from "@/lib/types";
 import { nextOrderNumber } from "@/lib/data/orders";
 import { currentUser } from "@/lib/data/user";
-import { computeCashback, computeShipping, DEFAULT_DELIVERY_RULE } from "@/lib/cart/pricing";
+import { computeShipping, DEFAULT_DELIVERY_RULE } from "@/lib/cart/pricing";
 import { deliveryDateOptions } from "@/lib/schedule";
 import { http, isMockMode } from "./http";
 
@@ -91,7 +91,7 @@ const orders: Order[] = [];
  * server-side gap flagged in `docs/API.md`, not fixable from the client).
  *
  * Mock mode keeps the pre-M8.4a in-memory placement (computes
- * subtotal/shipping/cashback from `input.lines`, starts `status: "placed"`
+ * subtotal/shipping from `input.lines`, starts `status: "placed"`
  * directly — no pending-payment staging in the mock).
  */
 export async function createOrder(input: CreateOrderInput): Promise<Order> {
@@ -102,7 +102,6 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     // a rule the only people who can test it never see.
     const shippingFee =
       input.deliveryMode === "isb-campus" ? 0 : computeShipping(subtotal, DEFAULT_DELIVERY_RULE);
-    const cashbackEarned = computeCashback(subtotal);
     const total = subtotal + shippingFee;
 
     const items: OrderItem[] = input.lines.map((line, index) => ({
@@ -133,7 +132,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       shippingFee,
       total,
       walletApplied: Math.min(input.walletApplied, total),
-      cashbackEarned,
+      // Order cashback was removed (2026-09-19); the server snapshots 0.
+      cashbackEarned: 0,
       refundStatus: "none",
       paymentMethod: input.paymentMethod,
     };
@@ -169,8 +169,8 @@ export async function getOrder(id: string): Promise<Order | undefined> {
 
 /**
  * `POST /orders/:id/pay` — completes the `pending-payment -> placed` seam
- * for a `paymentMethod: "wallet"` order: debits the wallet, credits
- * cashback, atomically (`docs/API.md` "Orders (owner-scoped)"). Called by
+ * for a `paymentMethod: "wallet"` order: debits the wallet
+ * atomically (`docs/API.md` "Orders (owner-scoped)"). Called by
  * `CheckoutClient` right after `createOrder()` when the shopper paid by
  * wallet — `402 INSUFFICIENT_BALANCE` if the live balance can't cover it
  * (a narrow race — the UI already gates the wallet option on a sufficient

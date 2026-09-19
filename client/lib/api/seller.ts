@@ -205,6 +205,12 @@ export interface SellerListingInput {
   /** Puts it on the WhatsApp snacks menu (M20). */
   isSnack: boolean;
   cashbackPct: number;
+  /**
+   * Merchandising badges. **Only an admin's request is honoured** (owner,
+   * 2026-09-19): the server ignores this from a HomeKrafter rather than
+   * refusing it, because a removed field would 400 every client already
+   * shipped. The HomeKrafter's forms no longer show it.
+   */
   tags: ProductTag[];
   /**
    * One photo — the original single field. Still sent by anything that
@@ -263,7 +269,9 @@ export async function createSellerListing(
       defaultWeightSku: input.defaultWeightSku || input.weightOptions[0]?.sku || "",
       rating: 0,
       reviewCount: 0,
-      tags: input.tags,
+      // Badges are an admin's call — the server ignores `tags` from a
+      // HomeKrafter (`listing-tags.ts`), so the mock stores none either.
+      tags: [],
       isPackaged: input.isPackaged,
       isHamper: input.isHamper,
       kind: input.kind,
@@ -315,7 +323,8 @@ export async function updateSellerListing(
     product.kind = input.kind;
     product.shippingScope = input.shippingScope;
     product.cashbackPct = input.cashbackPct;
-    product.tags = input.tags;
+    // `tags` deliberately not written: like the server, a HomeKrafter's
+    // save leaves an admin-set badge alone (`listing-tags.ts`).
     product.weightOptions = input.weightOptions;
     product.defaultWeightSku = input.defaultWeightSku || input.weightOptions[0]?.sku || "";
     product.ingredients = input.ingredients;

@@ -8,6 +8,7 @@ import { AdminSettingsService } from '../admin/settings.service';
 import { dietaryTagsFromFrontend } from './dietary-tag.util';
 import { splitCsv } from './split-csv.util';
 import { PUBLICLY_LISTED, isDirectlyResolvable } from './moderation';
+import { DEFAULT_BROWSE_ORDER, compareDefaultBrowse } from './browse-order';
 
 export interface PaginatedResult<T> {
   items: T[];
@@ -184,9 +185,11 @@ export class ProductsService {
      * The two phases below exist because price and distance are derived,
      * so they cannot be filtered or sorted in the database. But the
      * *default browse* — no search term, no price range, no coordinates,
-     * `most-loved` ordering — uses none of that. It is `ORDER BY rating
-     * DESC, reviewCount DESC, id ASC` with a `LIMIT`, which Postgres does
-     * over an index without reading the catalogue.
+     * `most-loved` ordering — uses none of that. It is `ORDER BY featured
+     * DESC, featuredRank ASC NULLS LAST, rating DESC, reviewCount DESC, id
+     * ASC` with a `LIMIT`, which Postgres does over an index
+     * (`Product_default_browse_featured_idx`) without reading the
+     * catalogue.
      *
      * Measured, because the phased version looked fast enough on seeded
      * data and was not: against 16 products a k6 ramp to 1000 VUs held
@@ -217,8 +220,9 @@ export class ProductsService {
           // Identical to the JavaScript comparator's `most-loved` branch,
           // final `id` key included — the two paths must not disagree
           // about ordering, or a page boundary shifts depending on which
-          // one served it.
-          orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { id: 'asc' }],
+          // one served it. One constant, `browse-order.ts`, is what stops
+          // them drifting; it leads with the admin's featured order.
+          orderBy: DEFAULT_BROWSE_ORDER,
           skip: (page - 1) * pageSize,
           take: pageSize,
         }),
@@ -250,6 +254,11 @@ export class ProductsService {
         name: true,
         rating: true,
         reviewCount: true,
+        // The comparator's leading keys (`browse-order.ts`) — without them
+        // a located or searching buyer would get the ranking a fast-path
+        // buyer does not.
+        featured: true,
+        featuredRank: true,
         shippingScope: true,
         defaultWeightSku: true,
         weightOptions: { select: { sku: true, price: true } },
@@ -268,7 +277,8 @@ export class ProductsService {
       // Ordering by the same keys as the fast path, final `id` included,
       // for the reason stated there: the two paths must not disagree about
       // ordering, or a page boundary shifts depending on which one served
-      // it.
+      // it. Featured first, so the cap keeps an admin's choices before it
+      // starts dropping the tail.
       //
       // The honest tradeoff: the cap now keeps the 500 best-rated rather
       // than an arbitrary 500, so a `price-asc` browse of a catalogue past
@@ -276,7 +286,7 @@ export class ProductsService {
       // ones. That is a defensible 500 instead of an arbitrary one — and
       // the arbitrary version had the same bias problem plus irreproducible
       // results. Revisit with denormalised geo or PostGIS.
-      orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }, { id: 'asc' }],
+      orderBy: DEFAULT_BROWSE_ORDER,
       // Candidate cap (M37): the in-memory distance/sort pass below needs
       // the whole matching set, and without PostGIS that read is unbounded
       // on a table that only grows. 500 slim rows is ~25 pages of the
@@ -360,18 +370,12 @@ export class ProductsService {
       if (sort === 'nearest' && buyer) {
         return (distanceByProduct.get(a.product.id) ?? 0) - (distanceByProduct.get(b.product.id) ?? 0);
       }
-      const ratingDelta = Number(b.product.rating) - Number(a.product.rating);
-      if (ratingDelta !== 0) return ratingDelta;
-      const reviewDelta = b.product.reviewCount - a.product.reviewCount;
-      if (reviewDelta !== 0) return reviewDelta;
-      // Every comparator above can tie, and until this line the order
-      // within a tie was whatever `findMany` happened to return — which
-      // Postgres does not promise to be the same twice. Paging through a
-      // catalogue where a hundred new listings all sit at rating 0,
-      // reviewCount 0 could therefore show a product on page 2 and again
-      // on page 3, and skip another entirely. A unique final key is what
-      // makes pagination stable at all.
-      return a.product.id < b.product.id ? -1 : a.product.id > b.product.id ? 1 : 0;
+      // The default order — and the tail of every other one: `nearest`
+      // with no coordinates falls through to it, as it always did. Featured
+      // and its rank lead, then rating, review count and the unique final
+      // key that makes pagination stable; all of it lives in
+      // `browse-order.ts` so this and the two `orderBy`s cannot disagree.
+      return compareDefaultBrowse(a.product, b.product);
     });
 
     const total = withPrice.length;

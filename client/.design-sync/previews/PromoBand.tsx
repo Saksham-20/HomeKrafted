@@ -21,7 +21,7 @@ export const Tint = () => (
       variant="tint"
       eyebrow="Wallet"
       title="Pay from your balance"
-      description="Top up once and every order settles from it, cashback included."
+      description="Top up once and every order settles from it."
       ctaLabel="Open wallet"
       ctaHref="#"
     />

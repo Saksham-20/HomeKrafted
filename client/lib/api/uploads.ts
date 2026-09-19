@@ -1,5 +1,5 @@
-import { API_BASE_URL, ApiError } from "./http";
-import { getAccessToken } from "@/lib/auth/session";
+import { API_BASE_URL, ApiError, refreshSessionNow } from "./http";
+import { getAccessToken, isAccessTokenStale } from "@/lib/auth/session";
 
 /**
  * Where the image is filed — must match `UploadPurpose` in
@@ -59,6 +59,36 @@ export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "i
 export const MAX_UPLOAD_MB = 12;
 
 /**
+ * A token that is safe to put on the upload, or a reason it cannot be.
+ *
+ * Goes through `http.ts`'s one refresh — the same lock, the same re-read of
+ * storage, the same three-way answer — so an upload cannot spend a refresh
+ * token another tab already rotated, and cannot end a session on a request
+ * that merely failed to complete.
+ *
+ * **It never clears the session, whatever the outcome.** `unavailable` is
+ * not an answer. `rejected` is one, but this is the wrong place to act on
+ * it: the person is on a form with a photo half-attached, and a redirect
+ * from here would throw the form away. The next ordinary request runs the
+ * same refresh, gets the same refusal, and sends them to sign in.
+ */
+async function tokenAfterRefresh(): Promise<string> {
+  const outcome = await refreshSessionNow();
+  if (outcome === "ok") {
+    const token = getAccessToken();
+    if (token) return token;
+  }
+  if (outcome === "unavailable") {
+    throw new ApiError(
+      0,
+      "SESSION_UNVERIFIED",
+      "We couldn't check your sign-in just now, so the photo wasn't sent. Try again in a moment.",
+    );
+  }
+  throw new ApiError(401, "UNAUTHORIZED", "Your session expired — sign in again.");
+}
+
+/**
  * Upload one image.
  *
  * **Not on `http.ts`.** That helper JSON-encodes bodies and sets
@@ -68,15 +98,39 @@ export const MAX_UPLOAD_MB = 12;
  * "is this doing anything?" is the whole question a photo upload has to
  * answer. Hence `XMLHttpRequest`, which still exposes `upload.onprogress`.
  *
- * A 401 is not retried here. `http.ts`'s refresh dance exists for reads
- * that fire on mount; an upload is a deliberate action a signed-out user
- * shouldn't have reached, so it surfaces as an error rather than silently
- * re-authenticating mid-file.
+ * **It refreshes the access token, which it did not until 2026-09-19.** The
+ * old note here said a 401 was "not retried" because an upload is a
+ * deliberate action a signed-out user shouldn't have reached. That reads
+ * fine and is wrong for the people who actually hit it: an admin who spends
+ * more than the 15-minute access-token lifetime on a listing form is
+ * perfectly signed in, and their first photo upload got the server's bare
+ * "Invalid or expired access token" — which looks exactly like being logged
+ * out. So the token is refreshed up front when it is about to expire, and
+ * once more on a 401 (a token revoked or rotated since, another tab having
+ * refreshed). Not a loop: one retry, and only when a token was sent.
  */
-export function uploadImage(
+export async function uploadImage(
   file: File,
   purpose: UploadPurpose,
   options: { onProgress?: (percent: number) => void; signal?: AbortSignal } = {},
+): Promise<UploadedImage> {
+  let token = getAccessToken();
+  if (token && isAccessTokenStale(token)) token = await tokenAfterRefresh();
+
+  try {
+    return await sendUpload(file, purpose, token, options);
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401 || !token) throw error;
+    return sendUpload(file, purpose, await tokenAfterRefresh(), options);
+  }
+}
+
+/** One XHR round trip with the given token. Multipart, so not `http.ts` — see `uploadImage`. */
+function sendUpload(
+  file: File,
+  purpose: UploadPurpose,
+  token: string | null,
+  options: { onProgress?: (percent: number) => void; signal?: AbortSignal },
 ): Promise<UploadedImage> {
   const { onProgress, signal } = options;
 
@@ -87,7 +141,6 @@ export function uploadImage(
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_BASE_URL}/uploads?purpose=${encodeURIComponent(purpose)}`);
 
-    const token = getAccessToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 
     if (onProgress) {

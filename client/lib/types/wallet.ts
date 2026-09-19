@@ -11,6 +11,13 @@ export type WalletTransactionDirection = "credit" | "debit";
 
 export type WalletTransactionCategory =
   | "topup"
+  /**
+   * **Legacy value, deliberately kept.** Order cashback was removed on
+   * 2026-09-19, but ledger rows already in the database carry this category
+   * — the old "Cashback — Order #…" credits, their reversals, and the 3%
+   * top-up bonus, which is filed under it too — and `TransactionRow` renders
+   * them by title. Nothing new writes an order-cashback row.
+   */
   | "cashback"
   | "refund"
   | "payment"
@@ -46,7 +53,16 @@ export interface Wallet {
   id: ID;
   userId: ID;
   balance: number;
+  /**
+   * Kept because the server still returns it (an installed native build
+   * reads it), and always 0 in practice — nothing has ever written it. No
+   * web screen renders it since order cashback was removed (2026-09-19).
+   */
   pendingCashback: number;
+  /**
+   * A running total of order cashback earned. Frozen: it no longer grows, a
+   * legacy reversal can still lower it, and no web screen renders it.
+   */
   lifetimeSaved: number;
   /** "Pay with wallet" toggle at checkout — on by default per spec. */
   payWithWalletDefault: boolean;

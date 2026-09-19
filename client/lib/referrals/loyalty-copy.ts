@@ -15,6 +15,10 @@
  * `lib/data/referrals.ts` re-exports these names, so nothing that
  * imported them from there has to change.
  *
+ * Order cashback is gone from every tier (2026-09-19): the perks used to
+ * open with "+0.5% extra cashback" and so on, promising a rate no server code
+ * ever honoured and a base cashback that has since been removed outright.
+ *
  * Two rules if you edit this:
  *
  * - **`REFERRAL_REWARD_AMOUNT` is the current rate, never a historical
@@ -40,10 +44,10 @@ export interface LoyaltyTierInfo {
 }
 
 export const LOYALTY_TIERS: LoyaltyTierInfo[] = [
-  { tier: "bronze", label: "Bronze", threshold: 0, perk: "Base cashback on every order" },
-  { tier: "silver", label: "Silver", threshold: 1000, perk: "+0.5% extra cashback · priority support" },
-  { tier: "gold", label: "Gold", threshold: 2500, perk: "+1% extra cashback · early sale access" },
-  { tier: "platinum", label: "Platinum", threshold: 5000, perk: "+1.5% extra cashback · free gift wrap, always" },
+  { tier: "bronze", label: "Bronze", threshold: 0, perk: "Where every account starts" },
+  { tier: "silver", label: "Silver", threshold: 1000, perk: "Priority support" },
+  { tier: "gold", label: "Gold", threshold: 2500, perk: "Early sale access" },
+  { tier: "platinum", label: "Platinum", threshold: 5000, perk: "Free gift wrap, always" },
 ];
 
 export interface HowItWorksStep {
@@ -66,6 +70,6 @@ export const referralHowItWorks: HowItWorksStep[] = [
   },
   {
     title: "Earn loyalty points too",
-    description: "Every order earns points toward Silver, Gold and Platinum tiers — better cashback at each step.",
+    description: "Every order earns points toward the Silver, Gold and Platinum tiers.",
   },
 ];

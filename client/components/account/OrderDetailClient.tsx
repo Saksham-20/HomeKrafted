@@ -259,13 +259,6 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
               <span>{formatCurrency(order.total)}</span>
             </div>
           </div>
-          {order.cashbackEarned > 0 && (
-            <p className={styles.cashback}>
-              {order.status === "delivered"
-                ? `Earned ${formatCurrency(order.cashbackEarned)} wallet cashback`
-                : `Earn ${formatCurrency(order.cashbackEarned)} wallet cashback on this order`}
-            </p>
-          )}
         </Card>
       )}
 
@@ -367,13 +360,6 @@ export function OrderDetailClient({ id }: OrderDetailClientProps) {
             <span>Estimated total</span>
             <span>{formatCurrency(booking.estimatedTotal)}</span>
           </div>
-          {booking.walletCashback !== undefined && (
-            <p className={styles.cashback}>
-              {booking.status === "delivered"
-                ? `Earned ${formatCurrency(booking.walletCashback)} wallet cashback`
-                : `Earn ${formatCurrency(booking.walletCashback)} wallet cashback on this booking`}
-            </p>
-          )}
         </Card>
       )}
 

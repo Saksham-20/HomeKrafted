@@ -105,7 +105,7 @@ export function WalletOverviewClient() {
 
       <h2 className={styles.sectionTitle}>Balances</h2>
       {overview.balances.length === 0 ? (
-        <EmptyState title="No wallets yet." body="A wallet is created the first time an account earns cashback or tops up." />
+        <EmptyState title="No wallets yet." body="A wallet is created the first time an account tops up or is credited." />
       ) : (
         <div className={styles.list}>
           {overview.balances.map((b) => (

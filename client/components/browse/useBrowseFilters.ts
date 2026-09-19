@@ -10,6 +10,7 @@ import {
   type BrowseView,
   type ShippingScopeFilter,
 } from "@/lib/browse-params";
+import { categorySlugsForUrl, resolveCategorySelection } from "@/lib/category-sections";
 import type { Category, DietaryTag, Occasion, ProductTag } from "@/lib/types";
 
 export interface UseBrowseFiltersArgs {
@@ -31,6 +32,15 @@ export interface UseBrowseFiltersArgs {
  * same machinery: the `lib/browse-params.ts` codec, the popstate
  * adopter, and the debounced `router.replace` writer with its
  * documented reasons for not being `push` or `history.replaceState`).
+ *
+ * **The category is the odd one out, on purpose (2026-09-19).** Every other
+ * facet here is a `Set` — tick as many as you like, OR within the facet,
+ * AND across them. The category is a single id (`null` is All): it is the
+ * scope the rest of the filters refine, the way Amazon's department and
+ * Flipkart's category are. Pressing a second one *replaces* the first
+ * (`selectCategory`), and "Clear all" clears refinements while the shelf
+ * stays put (`clearFilters`) — `clearCategory` / `showAll` are the ways
+ * back out of it.
  */
 export function useBrowseFilters({
   categories,
@@ -42,16 +52,16 @@ export function useBrowseFilters({
    * Slugs are what the URL carries and ids are what the filters hold, so
    * every read and write crosses this. Slugs, not ids: `?category=pickles`
    * is legible, it is what the home page's tiles have always linked to,
-   * and `ct3` would tie a shareable URL to a primary key.
+   * and `ct3` would tie a shareable URL to a primary key. (Occasions only —
+   * the category crosses the same boundary through
+   * `lib/category-sections.ts`, where the one-slug rule is testable.)
    */
   const bySlug = useMemo(
     () => ({
-      categoryId: new Map(categories.map((c) => [c.slug, c.id])),
-      categorySlug: new Map(categories.map((c) => [c.id, c.slug])),
       occasionId: new Map(occasions.map((o) => [o.slug, o.id])),
       occasionSlug: new Map(occasions.map((o) => [o.id, o.slug])),
     }),
-    [categories, occasions],
+    [occasions],
   );
 
   const decode = useCallback(
@@ -63,7 +73,12 @@ export function useBrowseFilters({
       const ids = (slugs: string[], lookup: Map<string, string>) =>
         new Set(slugs.map((slug) => lookup.get(slug)).filter((id): id is string => Boolean(id)));
       return {
-        categories: ids(params.categories, bySlug.categoryId),
+        // The FIRST slug that resolves, not the set: the codec still reads
+        // `?category=a,b` (the native app's multi-select writes it), and a
+        // link sent before the rail became single-select opens on `a`. The
+        // writer below then emits `category=a`, and the first-run guard
+        // rewrites the address bar to match.
+        category: resolveCategorySelection(params.categories, categories),
         occasions: ids(params.occasions, bySlug.occasionId),
         dietary: new Set(params.dietary),
         tags: new Set(params.tags),
@@ -83,12 +98,12 @@ export function useBrowseFilters({
         page: params.page,
       };
     },
-    [bySlug, priceBounds],
+    [bySlug, categories, priceBounds],
   );
 
   const initial = useMemo(() => decode(initialQuery), [decode, initialQuery]);
 
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(initial.categories);
+  const [category, setCategory] = useState<string | null>(initial.category);
   const [selectedDietary, setSelectedDietary] = useState<Set<DietaryTag>>(initial.dietary);
   const [selectedOccasions, setSelectedOccasions] = useState<Set<string>>(initial.occasions);
   const [selectedTags, setSelectedTags] = useState<Set<ProductTag>>(initial.tags);
@@ -104,7 +119,7 @@ export function useBrowseFilters({
   const adopt = useCallback(
     (query: string) => {
       const next = decode(query);
-      setSelectedCategories(next.categories);
+      setCategory(next.category);
       setSelectedDietary(next.dietary);
       setSelectedOccasions(next.occasions);
       setSelectedTags(next.tags);
@@ -155,9 +170,8 @@ export function useBrowseFilters({
    */
   useEffect(() => {
     const query = browseParamsToQuery({
-      categories: [...selectedCategories]
-        .map((id) => bySlug.categorySlug.get(id))
-        .filter((slug): slug is string => Boolean(slug)),
+      // At most one — see `categorySlugsForUrl`. `[]` is All.
+      categories: categorySlugsForUrl(category, categories),
       occasions: [...selectedOccasions]
         .map((id) => bySlug.occasionSlug.get(id))
         .filter((slug): slug is string => Boolean(slug)),
@@ -201,9 +215,18 @@ export function useBrowseFilters({
       if (lastWritten.current === search) return;
     }
     if (lastWritten.current === search) return;
-    lastWritten.current = search;
 
     const timer = window.setTimeout(() => {
+      // Recorded when the write is made, **not when it is scheduled**. The
+      // effect's cleanup cancels a pending timer, and React's Strict Mode
+      // (on by default under `next dev`) runs cleanup and then the effect a
+      // second time on mount: a ref set at schedule time would then read
+      // "already written" on that second run, return early, and leave a
+      // legacy `?category=a,b` link or an unknown slug in the address bar
+      // for good — the rewrite this guard exists to make. Set here, a
+      // cancelled timer leaves the ref where it was and the re-run
+      // schedules again.
+      lastWritten.current = search;
       // `scroll: false` — a filter change is not a navigation, and being
       // thrown to the top of the page on every checkbox loses your place
       // in the sidebar.
@@ -214,12 +237,13 @@ export function useBrowseFilters({
     return () => window.clearTimeout(timer);
   }, [
     bySlug,
+    categories,
+    category,
     router,
     page,
     priceBounds,
     priceRange,
     saleOnly,
-    selectedCategories,
     selectedDietary,
     selectedOccasions,
     selectedShipping,
@@ -242,13 +266,43 @@ export function useBrowseFilters({
     setPage(1);
   }
 
+  /**
+   * Facets whose *options* belong to one shelf — "burn time" means nothing
+   * under Jewellery — and so must not survive a change of shelf. **There
+   * are none yet**: every facet the pages offer is global, so all of them
+   * persist across a category change, which is what Amazon and Flipkart do
+   * with price, diet and sort. The G1 attribute facets (metal, scent) are
+   * the first that will belong here; they reset in this one place rather
+   * than in whichever screen happens to call `selectCategory`.
+   */
+  function resetCategoryScopedFacets() {
+    // Intentionally empty until a category-scoped facet exists.
+  }
+
+  /**
+   * Choose the shelf. Replaces whatever was chosen — it never adds — and
+   * pressing the shelf already chosen is a no-op, so it neither loses the
+   * page number nor queues a URL rewrite for nothing. Only `null` (the
+   * "All" tile) leaves a shelf.
+   */
+  function selectCategory(next: string | null) {
+    if (next === category) return;
+    setCategory(next);
+    setPage(1);
+    resetCategoryScopedFacets();
+  }
+
   const priceNarrowed = priceRange[0] !== priceBounds[0] || priceRange[1] !== priceBounds[1];
 
   // One tap out of a filtered dead end (M37). State-setter resets — the
   // debounced `router.replace` sync writes the cleared URL, same as any
   // other filter change.
+  //
+  // **Refinements only — the shelf stays.** "Clear all" over the filter
+  // chips used to wipe the category too because the category *was* one of
+  // the chips. It is the scope now, and Amazon's clear-all likewise leaves
+  // the department alone; leaving the shelf is `clearCategory` / `showAll`.
   function clearFilters() {
-    setSelectedCategories(new Set());
     setSelectedDietary(new Set());
     setSelectedOccasions(new Set());
     setSelectedTags(new Set());
@@ -258,9 +312,21 @@ export function useBrowseFilters({
     setPage(1);
   }
 
+  /** Back to All. The same move as pressing the "All" tile. */
+  function clearCategory() {
+    selectCategory(null);
+  }
+
+  /** Everything off — the shelf and the refinements. The empty state's "Show all". */
+  function showAll() {
+    clearFilters();
+    clearCategory();
+  }
+
   return {
-    selectedCategories,
-    setSelectedCategories,
+    category,
+    selectCategory,
+    clearCategory,
     selectedDietary,
     setSelectedDietary,
     selectedOccasions,
@@ -282,5 +348,6 @@ export function useBrowseFilters({
     setPage,
     toggle,
     clearFilters,
+    showAll,
   };
 }

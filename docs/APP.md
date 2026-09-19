@@ -86,6 +86,39 @@ reloading changes nothing; restart with `--clear`.
 | **Divergence goes in** | `mobile/src/platform/` — env, session, http, reachability, upload. Nowhere else. |
 | **Enforced by** | `client/lib/shared-boundary.spec.ts` (the import bans) and `mobile/test/http-parity.spec.ts` (the fork stays in step) |
 
+**The `http.ts` fork shares its refresh now (2026-09-19).** The web
+`client/lib/api/http.ts` and `mobile/src/platform/http.ts` used to differ in
+how a refresh could fail; they are now the same code for it. Both carry an
+identical **`refreshOnce`**, **`doRefresh`** (which resolves a
+`RefreshOutcome` — `ok | rejected | unavailable`; only a real 401/403 with
+nothing newer in storage ends a session, everything else keeps it) and
+**`unreachableError`** (the status-0 error an unusable refresh reads as), and
+both import **`syncFromStorage`**, **`withRefreshLock`** and
+**`isAccessTokenStale`** from their own session module — on the web a real
+`localStorage` re-read and a Web Lock across tabs, on the app a passthrough
+over memory (`src/platform/session.ts`), because one process owns the
+keychain and there is no other tab to race. The rule and its reasons live in
+`docs/ERROR-HANDLING.md` §6. `test/http-parity.spec.ts` pins the shared
+blocks, `unreachableError` included.
+
+**One limit of that spec, so nobody trusts it further than it goes:**
+`extractBlock` finds the block's body from the header's first `{`, and
+`async function request<T>(…, options: RequestOptions = {})` has an
+`= {}` default parameter — so for `request` it compares only the signature
+up to that brace, **not the body**. The two `request` bodies differ only by
+`&& isBrowser()` on the 401 branch, checked by hand on 2026-09-19; a
+future divergence inside `request` would not fail the spec.
+
+**Known, deliberate drift from the web (until a follow-up moves it).**
+`mobile/` still holds a **multi-select category rail** over the shared
+`browse-params` codec (which is why that codec still reads and writes
+`?category=a,b`), while the web's `/shop` and `/gifts` are single-select
+scopes with an "All" tile. Its dish sorts and home rail also do **not** lead
+with featured listings yet — `client/lib/featured-order.ts` is a pure
+`client/lib` module the app *can* compile (`@shared/featured-order`), and
+nothing there imports it. Order cashback is gone from the app's checkout and
+wallet screens, matching the web.
+
 **Never import the barrel.** `client/lib/api/index.ts` re-exports
 `./admin` (92 KB), and Metro does not tree-shake, so one
 `import { getProducts } from "@shared/api"` puts the entire admin client

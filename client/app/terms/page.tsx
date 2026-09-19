@@ -88,9 +88,10 @@ export default function TermsPage() {
       <h2>5. Payments and the wallet</h2>
       <p>
         Payments are handled by our payment provider; we never see or store
-        your card details. The Homekrafted wallet holds refunds, cashback and
-        top-ups. Wallet balance can be spent anywhere on the platform, does
-        not expire, and is <strong>not transferable and not withdrawable as
+        your card details. The Homekrafted wallet holds refunds and top-ups,
+        plus any cashback credited to it before we stopped offering it.
+        Wallet balance can be spent anywhere on the platform, does not
+        expire, and is <strong>not transferable and not withdrawable as
         cash</strong> except where we owe you a refund and you ask for it to
         go back to your card.
       </p>

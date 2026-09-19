@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getAdminDashboard, type AdminDashboardSnapshot } from "@/lib/api";
 import type { AdminScope } from "@/lib/types";
+import { shouldRefetchQueues } from "@/lib/portal/queue-poll";
 import { useScrollActiveIntoView } from "@/lib/useScrollActiveIntoView";
 import styles from "./AdminShell.module.css";
 
@@ -99,9 +100,6 @@ const NAV: AdminNavItem[] = [
   { label: "Settings", href: "/admin/settings", icon: SlidersHorizontal, group: "System", scope: "settings" },
 ];
 
-/** How long a fetched set of queue counts is trusted before a focus refreshes it. */
-const QUEUE_STALE_MS = 60_000;
-
 function queueCounts(snapshot: AdminDashboardSnapshot | undefined): Record<QueueKey, number> {
   const a = snapshot?.attention;
   return {
@@ -151,7 +149,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { ready, isSignedIn, role, user, signOut } = useAuth();
   const [snapshot, setSnapshot] = useState<AdminDashboardSnapshot | undefined>(undefined);
-  const [fetchedAt, setFetchedAt] = useState(0);
+  /**
+   * When the badge poll last **started**, in a ref because the focus handler
+   * below is registered once and must read the live value.
+   *
+   * It was `useState` read from that handler's closure, so the handler
+   * always saw the `0` it was created with — `Date.now() - 0` is never under
+   * a minute, and *every* window focus fired `GET /admin/dashboard`. The
+   * documented 60-second throttle did not exist, and worse, a cosmetic badge
+   * poll became the request that tripped over a stale token on every alt-tab
+   * (the admin "keeps getting logged out" report). Stamped at the start
+   * rather than on success, so a poll that fails is not retried on every
+   * focus either.
+   */
+  const lastPollAt = useRef(0);
 
   /**
    * M47. `undefined` means an account that predates the field on a client
@@ -168,11 +179,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
     if (!ready || !isSignedIn || role !== "admin" || !canReadQueues) return;
     let cancelled = false;
     const load = () => {
+      lastPollAt.current = Date.now();
       getAdminDashboard()
         .then((next) => {
           if (cancelled) return;
           setSnapshot(next);
-          setFetchedAt(Date.now());
         })
         .catch(() => {
           // A missing badge is not an error state worth a banner: the
@@ -181,16 +192,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
     };
     load();
     const onFocus = () => {
-      if (Date.now() - fetchedAt > QUEUE_STALE_MS) load();
+      const visible = document.visibilityState === "visible";
+      if (shouldRefetchQueues({ now: Date.now(), lastPollAt: lastPollAt.current, visible })) load();
     };
     window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
       window.removeEventListener("focus", onFocus);
     };
-    // `fetchedAt` is read inside the focus handler on purpose and must
-    // not re-run the effect — that would refetch on every fetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, isSignedIn, role, canReadQueues]);
 
   /**

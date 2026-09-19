@@ -30,10 +30,10 @@ const MAX_ADMINS_NOTIFIED = 10;
  * `CorporateInquiry` has no user and no address — the schema cannot
  * express a corporate order today. Writing one anyway would push an
  * uncollected five-figure amount into GMV, into the payouts queue as a
- * real debt to a home cook, and through `computeCashback` as ~5% credited
- * to an account auto-created for a stranger. Acceptance records the
- * agreement and notifies; an admin places the orders once an address and
- * payment terms exist.
+ * real debt to a home cook, and (while the flat order cashback existed)
+ * through `computeCashback` as ~5% credited to an account auto-created for a
+ * stranger. Acceptance records the agreement and notifies; an admin places
+ * the orders once an address and payment terms exist.
  */
 @Injectable()
 export class CorporateQuotesService {

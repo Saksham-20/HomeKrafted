@@ -3,14 +3,21 @@ import clsx from "clsx";
 import styles from "./CatalogTabs.module.css";
 
 export interface CatalogTabsProps {
-  active: "products" | "categories" | "attributes" | "recategorise" | "reviews" | "suggestions";
+  active:
+    | "products"
+    | "featured"
+    | "categories"
+    | "attributes"
+    | "recategorise"
+    | "reviews"
+    | "suggestions";
   /** Shelves and occasions waiting on a decision. Omitted (or 0) draws no badge. */
   pendingSuggestions?: number;
 }
 
 /**
- * Shared sub-nav for `/admin/catalog` (products), `/admin/catalog/reviews`
- * and `/admin/catalog/suggestions` — real routes (not client-state tabs
+ * Shared sub-nav for `/admin/catalog` (products), `/admin/catalog/featured`,
+ * `/admin/catalog/reviews` and `/admin/catalog/suggestions` — real routes (not client-state tabs
  * like `SellersClient`'s), so this is `Link`-based rather than `Chip`
  * `onClick` state.
  *
@@ -32,6 +39,13 @@ export function CatalogTabs({ active, pendingSuggestions = 0 }: CatalogTabsProps
         aria-current={active === "products" ? "page" : undefined}
       >
         Products
+      </Link>
+      <Link
+        href="/admin/catalog/featured"
+        className={clsx(styles.tab, active === "featured" && styles.tabActive)}
+        aria-current={active === "featured" ? "page" : undefined}
+      >
+        Featured
       </Link>
       <Link
         href="/admin/catalog/categories"

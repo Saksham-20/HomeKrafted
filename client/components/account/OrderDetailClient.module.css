@@ -117,11 +117,6 @@
   border-top: 1px solid var(--hk-divider);
 }
 
-.cashback {
-  font-size: 13px;
-  color: var(--hk-gold-text-sm);
-}
-
 .refundNote {
   font-size: 13px;
   color: var(--hk-terracotta);

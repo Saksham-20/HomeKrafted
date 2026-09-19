@@ -15,11 +15,17 @@ import { MobileFilterSheet } from "@/components/browse/MobileFilterSheet";
 import { DepartmentTiles } from "@/components/gifts/DepartmentTiles";
 import { GiftFinder, type FinderOption } from "@/components/gifts/GiftFinder";
 import { giftFactLine } from "@/lib/gift/fact-line";
-import { expandShelfSelection, shelfFamily, splitCategorySections } from "@/lib/category-sections";
+import {
+  categoryAncestry,
+  expandShelfSelection,
+  shelfCounts,
+  withSelectedShelf,
+} from "@/lib/category-sections";
+import { describeEmptyBrowse } from "@/lib/browse-empty";
 import { sortGifts } from "@/lib/gift-sort";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
-import { isOnSale, productMatchesFacets, productShelves, SHIPPING_LABELS } from "@/lib/browse-facets";
+import { isOnSale, productMatchesFacets, SHIPPING_LABELS } from "@/lib/browse-facets";
 import { listingPrice } from "@/lib/kitchens";
 import type { Department } from "@/lib/api/catalog";
 import type { Category, Occasion, Product } from "@/lib/types";
@@ -101,8 +107,8 @@ export function GiftsClient({
 
   const browse = useBrowseFilters({ categories, occasions, priceBounds, initialQuery });
   const {
-    selectedCategories,
-    setSelectedCategories,
+    category,
+    selectCategory,
     selectedOccasions,
     setSelectedOccasions,
     selectedTags,
@@ -120,6 +126,7 @@ export function GiftsClient({
     setPage,
     toggle,
     clearFilters,
+    showAll,
   } = browse;
 
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -136,7 +143,6 @@ export function GiftsClient({
   const [personalisableOnly, setPersonalisableOnly] = useState(false);
 
   const counts = useMemo(() => {
-    const category = new Map<string, number>();
     const occasion = new Map<string, number>();
     const tag = new Map<string, number>();
     const shipping = new Map<string, number>();
@@ -151,35 +157,45 @@ export function GiftsClient({
         fulfilment.set(product.fulfilment, (fulfilment.get(product.fulfilment) ?? 0) + 1);
       }
       if (product.isPersonalisable) personalisable += 1;
-      // Every shelf, not the primary alone (M58) — a chip counting only
-      // `categoryId` reads a smaller number than the catalogue holds, and
-      // a zero-count chip is dimmed AND disabled, so a shelf carrying only
-      // secondary listings rendered as an unpressable "0".
-      for (const shelf of productShelves(product)) {
-        category.set(shelf, (category.get(shelf) ?? 0) + 1);
-      }
       for (const id of product.occasionIds) occasion.set(id, (occasion.get(id) ?? 0) + 1);
       for (const t of product.tags) tag.set(t, (tag.get(t) ?? 0) + 1);
       const scope = product.shippingScope ?? "local";
       shipping.set(scope, (shipping.get(scope) ?? 0) + 1);
       if (isOnSale(product)) sale += 1;
     }
-    // A parent counts every listing on itself or any child (D3), once each —
-    // a listing on two children of one parent is one listing under it.
-    for (const parent of categories.filter((c) => categories.some((child) => child.parentId === c.id))) {
-      const family = new Set(shelfFamily(parent.id, categories));
-      category.set(parent.id, products.filter((p) => productShelves(p).some((id) => family.has(id))).length);
-    }
-    return { category, occasion, tag, shipping, sale, fulfilment, personalisable };
+    // Every shelf, and a parent counts its family once per listing (M58,
+    // D3) — see `shelfCounts`.
+    return {
+      category: shelfCounts(products, categories),
+      occasion,
+      tag,
+      shipping,
+      sale,
+      fulfilment,
+      personalisable,
+    };
   }, [products, categories]);
+
+  // The server's departments are only the shelves with something live, but a
+  // shared link can choose an empty one; keep it on the strip so the row
+  // still says what is chosen (the way /shop keeps its chosen chip).
+  const tileDepartments = useMemo(
+    () => withSelectedShelf(departments, category, categories),
+    [departments, category, categories],
+  );
+
+  // The category is a scope, and a selected parent covers its children (D3).
+  const categoryScope = useMemo(
+    () => expandShelfSelection(category ? [category] : [], categories),
+    [category, categories],
+  );
 
   const filtered = useMemo(
     () =>
       products.filter(
         (product) =>
           productMatchesFacets(product, {
-            // A selected parent matches its children too (D3).
-            categories: expandShelfSelection(selectedCategories, categories),
+            categories: categoryScope,
             occasions: selectedOccasions,
             dietary: new Set(),
             tags: selectedTags,
@@ -192,7 +208,7 @@ export function GiftsClient({
             (product.fulfilment !== undefined && selectedFulfilment.has(product.fulfilment))) &&
           (!personalisableOnly || product.isPersonalisable === true),
       ),
-    [products, categories, selectedCategories, selectedOccasions, selectedTags, saleOnly, selectedShipping, priceRange, selectedFulfilment, personalisableOnly],
+    [products, categoryScope, selectedOccasions, selectedTags, saleOnly, selectedShipping, priceRange, selectedFulfilment, personalisableOnly],
   );
 
   const soon = useMemo(() => new Set(soonOccasionIds), [soonOccasionIds]);
@@ -212,12 +228,12 @@ export function GiftsClient({
   const currentPage = Math.min(page, totalPages);
   const pageItems = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  /*
+    Filters only — the category is the scope they refine, shown and changed
+    by the department row, and is not a chip (so "All filters 2" and "Clear
+    all" mean refinements, and Clear all leaves the shelf alone).
+  */
   const activeChips: ActiveFilterChip[] = [
-    ...[...selectedCategories].map((id) => ({
-      key: `cat-${id}`,
-      label: categories.find((c) => c.id === id)?.name ?? id,
-      onRemove: () => toggle(selectedCategories, setSelectedCategories, id),
-    })),
     ...[...selectedOccasions].map((id) => ({
       key: `occ-${id}`,
       label: occasions.find((o) => o.id === id)?.name ?? id,
@@ -266,14 +282,14 @@ export function GiftsClient({
 
   const activeCount = activeChips.length;
 
-  const categorySplit = useMemo(() => splitCategorySections(categories), [categories]);
-  const hasItems = (option: { count: number; checked: boolean }) => option.count > 0 || option.checked;
-  const facetOf = (category: (typeof categories)[number]) => ({
-    id: category.id,
-    label: category.name,
-    count: counts.category.get(category.id) ?? 0,
-    checked: selectedCategories.has(category.id),
-  });
+  /** The active category for the empty state's sentence, with its parent when it has one. */
+  const categoryLabel = useMemo(() => {
+    if (!category) return null;
+    const chain = categoryAncestry(category, categories);
+    const self = chain[chain.length - 1];
+    if (!self) return null;
+    return { name: self.name, parentName: chain.length > 1 ? chain[chain.length - 2].name : null };
+  }, [category, categories]);
 
   // One set of option arrays feeds the pill popovers AND the sheet.
   const shippingFacets = (["national", "local"] as const).map((scope) => ({
@@ -321,20 +337,16 @@ export function GiftsClient({
     setPage(1);
   };
 
-  /** The "All filters" sheet's contents. */
+  /*
+    The "All filters" sheet's contents — refinements only. It opened with a
+    Category group of checkboxes over the same state as the department row:
+    two controls for one choice, and a multi-select list for what is now a
+    single-select scope. The department row is the one place a shelf is
+    chosen (and it already had "All {department}" as its own first chip, so
+    listings filed on a parent stay reachable).
+  */
   const filterControls = (
     <>
-      <FilterGroup
-        title="Category"
-        options={categorySplit.flat.map(facetOf).filter(hasItems)}
-        sections={categorySplit.sections.map(({ parent, children }) => ({
-          label: parent.name,
-          // The parent is its own first row, so a listing filed on it
-          // directly is reachable (D3).
-          options: [{ ...facetOf(parent), label: `All ${parent.name}` }, ...children.map(facetOf)].filter(hasItems),
-        }))}
-        onToggle={(id) => toggle(selectedCategories, setSelectedCategories, id)}
-      />
       <FilterGroup title="Delivery" options={shippingFacets} onToggle={onShipping} />
       <FilterGroup
         title="Occasion"
@@ -366,22 +378,17 @@ export function GiftsClient({
   );
 
   /*
-    The department a buyer has opened, and the subcategory chips under it.
+    Hooks stay **above** the "nothing listed yet" early return below, with
+    every other one. Declared after it they were called only on the renders
+    that got past it, so the first render with a catalogue called more hooks
+    than the empty one before it — "rendered more hooks than during the
+    previous render", which is a crash, not a warning.
 
-    Progressive disclosure, the buyer's side of the same rule the listing
-    form follows (§5.1.3): nobody is shown eleven subcategory chips until
-    they have said which department they are in. `openDepartment` is view
-    state and stays out of the URL — what a shared link has to carry is
-    which shelves are *selected*, which it already does.
-
-    These three sit **above** the "nothing listed yet" early return below,
-    with every other hook. Declared after it they were called only on the
-    renders that got past it, so the first render with a catalogue called
-    three more hooks than the empty one before it — "rendered more hooks
-    than during the previous render", which is a crash, not a warning.
+    (The department a buyer has "opened" used to be state here. It is
+    derived from the selected category now — `DepartmentTiles` — so a shared
+    link reopens the right subcategory row.)
   */
   const router = useRouter();
-  const [openDepartment, setOpenDepartment] = useState<string | null>(null);
 
   /*
     Dated occasions first, each carrying its date, then the evergreen ones.
@@ -427,6 +434,32 @@ export function GiftsClient({
   const budgetValue =
     BUDGETS.find((band) => priceRange[1] === band.max && priceRange[0] === priceBounds[0])?.value ?? "";
 
+  /*
+    Every refinement off, the shelf kept. `clearFilters` from the hook knows
+    only the filters it holds; Dispatch and Personalisable are this page's
+    own state (above), and "Clear all" that left them on left a dead end
+    with no way out of it.
+  */
+  function clearAllFilters() {
+    clearFilters();
+    setSelectedFulfilment(new Set());
+    setPersonalisableOnly(false);
+  }
+
+  /** The empty state's "Show all gifts": leave the shelf and drop every refinement. */
+  function showEverything() {
+    showAll();
+    setSelectedFulfilment(new Set());
+    setPersonalisableOnly(false);
+  }
+
+  const emptyCopy = describeEmptyBrowse({
+    noun: "gifts",
+    category: categoryLabel,
+    filterLabels: activeChips.map((chip) => chip.label),
+    priceNarrowed,
+  });
+
   function onFinderOccasion(value: string) {
     setSelectedOccasions(value ? new Set([value]) : new Set());
     setPage(1);
@@ -463,7 +496,7 @@ export function GiftsClient({
         open={sheetOpen}
         onClose={() => setSheetOpen(false)}
         resultCount={sorted.length}
-        onClearAll={activeCount > 0 || priceNarrowed ? clearFilters : undefined}
+        onClearAll={activeCount > 0 || priceNarrowed ? clearAllFilters : undefined}
       >
         {filterControls}
       </MobileFilterSheet>
@@ -486,14 +519,16 @@ export function GiftsClient({
           onBudget={onFinderBudget}
         />
 
+        {/* One shelf at a time (2026-09-19): pressing a department chooses it
+            and opens its subcategories; "All gifts" is the way out. */}
         <DepartmentTiles
-          departments={departments}
-          openId={openDepartment}
-          onOpen={setOpenDepartment}
-          selectedIds={selectedCategories}
-          onToggle={(id) => {
-            toggle(selectedCategories, setSelectedCategories, id);
-          }}
+          departments={tileDepartments}
+          selectedId={category}
+          onSelect={selectCategory}
+          // Only while the list is the whole catalogue: a recipient narrows
+          // it server-side, and every department count is an unfiltered
+          // total (see `DepartmentTiles`).
+          allCount={recipient ? undefined : products.length}
         />
 
         {/*
@@ -554,21 +589,32 @@ export function GiftsClient({
 
         {activeChips.length > 0 && (
           <div className={styles.chipsRow}>
-            <ActiveFilterBar chips={activeChips} onClearAll={clearFilters} />
+            <ActiveFilterBar chips={activeChips} onClearAll={clearAllFilters} />
           </div>
         )}
 
         {sorted.length === 0 ? (
+          /* Names the shelf as well as the filters — the category is no
+             longer a chip, so a sentence built from chips alone would blame
+             a filter for an empty shelf. Clear filters keeps the shelf; Show
+             all leaves it. */
           <div className={styles.noMatch}>
-            <p>
-              {`Nothing matches ${activeChips.map((chip) => chip.label).join(" + ")}${
-                priceNarrowed ? " in this price range" : ""
-              }.`}
-            </p>
-            <p>Every filter narrows the same catalogue — loosen one and the gifts come back.</p>
-            <Button variant="secondary" size="sm" onClick={clearFilters}>
-              Clear filters
-            </Button>
+            <p>{emptyCopy.headline}</p>
+            {emptyCopy.hint && <p>{emptyCopy.hint}</p>}
+            {(emptyCopy.canClearFilters || emptyCopy.canShowAll) && (
+              <div className={styles.noMatchActions}>
+                {emptyCopy.canClearFilters && (
+                  <Button variant="secondary" size="sm" onClick={clearAllFilters}>
+                    Clear filters
+                  </Button>
+                )}
+                {emptyCopy.canShowAll && (
+                  <Button variant="secondary" size="sm" onClick={showEverything}>
+                    Show all gifts
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <div className={styles.grid}>

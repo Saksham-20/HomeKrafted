@@ -142,6 +142,8 @@ const ROUTES = [
   ['/admin/catalog', 'admin'],
   [`/admin/catalog/${F.ownListing}`, 'admin'],
   ['/admin/catalog/reviews', 'admin'],
+  // 2026-09-19 — which listings lead the default browse, and in what order.
+  ['/admin/catalog/featured', 'admin'],
   // G1 — the gift taxonomy screens.
   ['/admin/catalog/categories', 'admin'],
   ['/admin/catalog/attributes', 'admin'],

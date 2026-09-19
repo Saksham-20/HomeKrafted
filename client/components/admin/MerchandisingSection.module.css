@@ -1,0 +1,27 @@
+/* The read-only featured line under the badge chips. */
+.featured {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--hk-ink-3);
+}
+
+/* A fact's name, in receipt type — the same treatment a stat label gets
+   elsewhere in the panel. */
+.featuredLabel {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hk-muted);
+}
+
+.link {
+  color: var(--hk-pine);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--hk-pine-deep);
+}

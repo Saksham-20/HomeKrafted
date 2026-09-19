@@ -311,6 +311,26 @@ means.
 
 ---
 
+### 3a. Local changes waiting on a production go-ahead (2026-09-19)
+
+Not code work — decisions and a backup, in the turn they happen.
+
+- **Migration `20260919120000_product_featured_rank`** (an admin-ranked
+  featured list; `docs/DEPLOY.md`). Additive: one nullable
+  `Product.featuredRank` column and one index, nothing backfilled, no env
+  vars. `deploy.sh` applies it, so this code must not be deployed without the
+  owner's go-ahead and a fresh backup. The index build takes a brief lock on
+  `Product`; the table is small.
+- **Optional data pass, order cashback removal:** `UPDATE "Order" SET
+  "cashbackEarned" = 0 WHERE status = 'pending-payment'`. Not required for
+  correctness — an order pending at the deploy is credited if paid and
+  reversed if cancelled, symmetrically — so it waits for a go-ahead and a
+  backup like any production data write, and is fine never run.
+- **After deploy, a check rather than a task:** an admin who used to be
+  signed out unexpectedly should no longer be, and the reuse-detection log line
+  now reads "revoked N descendant token(s) in its chain" (`docs/DEPLOY.md`,
+  "An admin says they keep getting signed out").
+
 ## 3b. Take rate — collecting is one audited toggle, not a build ⚠️
 
 **Production has `commissionEnabled` on** — 20%, 18% GST, live since
@@ -344,9 +364,11 @@ factor first, so a buyer sees the identical number immediately after the
 switch. Read its own header before running it; it refuses to run twice.
 
 The commercial decision the take rate represents is unchanged by any of
-this: with the flag off, 5% cashback on every order leaves the unit
-economics on a low-value item thin, and a daily subscription multiplies
-that per cycle. (The ₹49 flat shipping subsidy below ₹999 this section
+this: with the flag off, the platform earns nothing on an order and
+the unit economics on a low-value item are thin, and a daily subscription
+multiplies that per cycle. (The 5% order cashback this sentence used to
+count against the take was removed on 2026-09-19, which took that cost
+away — it did not make the take rate any less of a decision.) (The ₹49 flat shipping subsidy below ₹999 this section
 used to cite is itself gone — `deliveryFee`/`freeDeliveryThreshold` are
 now `/admin/settings` fields, defaulting to ₹0/₹999 while live payments
 are being tested; see `docs/API.md`'s `GET /admin/settings`.)

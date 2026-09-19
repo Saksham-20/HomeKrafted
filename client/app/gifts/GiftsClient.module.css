@@ -156,6 +156,13 @@
   margin: 0;
 }
 
+.noMatchActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--hk-s2);
+}
+
 /* The vertical-still-filling state — a card with somewhere to go next
    rather than a one-line apology. */
 .empty {

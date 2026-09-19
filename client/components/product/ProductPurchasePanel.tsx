@@ -10,7 +10,6 @@ import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
 import { formatCurrency } from "@/lib/format";
-import { CASHBACK_RATE } from "@/lib/cart/pricing";
 import { useCart } from "@/lib/cart/CartContext";
 import { addToCartErrorMessage, isOtherMakerError, SOLD_OUT_COPY } from "@/lib/cart/add-error";
 import { purchasableSku } from "@/lib/cart/purchasable-sku";
@@ -357,23 +356,6 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
       ? Math.round(((weight.mrp - weight.price) / weight.mrp) * 100)
       : 0);
 
-  /**
-   * **The cashback shown here used to be a promise nothing kept.** It was
-   * `weight.price × product.cashbackPct`, a per-listing percentage the
-   * HomeKrafter typed into the listing form — and the checkout has always
-   * credited a flat platform rate on the whole subtotal
-   * (`server/src/common/pricing/pricing.util.ts#CASHBACK_RATE`, mirrored
-   * in `lib/cart/pricing.ts`). A listing set to 20% therefore advertised
-   * four times the cashback the buyer received, on the screen where they
-   * decide to buy.
-   *
-   * `cashbackPct` still exists on the column and still round-trips
-   * through the seller form's payload, so no data changes. It just stops
-   * being quoted as money. A HomeKrafter who wants to give buyers
-   * something has a real lever now — their own storefront sale (M46).
-   */
-  const cashback = Math.round(payable * CASHBACK_RATE);
-
   return (
     <div className={styles.panel}>
       {weight && (
@@ -402,10 +384,6 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
             onClick={() => selectSize(option.sku, option.stock)}
           />
         ))}
-      </div>
-
-      <div className={styles.cashback}>
-        Earn {formatCurrency(cashback)} wallet cashback on this order
       </div>
 
       {foodClosed && <FoodComingSoonBanner />}

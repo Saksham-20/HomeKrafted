@@ -80,9 +80,6 @@ export function OrderConfirmation({ order, onContinueShopping }: OrderConfirmati
             <span>{formatCurrency(order.total)}</span>
           </div>
         </div>
-        <p className={styles.cashback}>
-          Earn {formatCurrency(order.cashbackEarned)} wallet cashback on this order
-        </p>
         {order.gift?.isGift && (
           <p className={styles.giftNote}>
             <Gift size={14} className={styles.giftIcon} aria-hidden="true" />

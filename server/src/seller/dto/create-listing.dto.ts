@@ -239,6 +239,15 @@ export class CreateListingDto {
   @Max(100)
   cashbackPct!: number;
 
+  /**
+   * Merchandising badges — **written only when an admin is the author**
+   * (owner, 2026-09-19). A HomeKrafter's request may still carry this
+   * field and it is **ignored, not refused**: `forbidNonWhitelisted`
+   * would turn a removed field into a 400 for every web bundle and
+   * native build already shipped, and `toSellerListingInput` posts it on
+   * every save. The rule lives in `listing-tags.ts`, which
+   * `SellerListingsService` asks on both create and update.
+   */
   @IsOptional()
   @IsArray()
   @IsIn(['Bestseller', 'New', 'Festive', 'Curated'], { each: true })

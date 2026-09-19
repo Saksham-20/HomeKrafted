@@ -1,15 +1,15 @@
 import { WalletBalanceCard } from "homekrafted-web";
 
-/** A wallet with money in it, cashback pending and a lifetime saved figure. */
+/** A wallet with money in it. */
 export const Funded = () => (
   <div style={{ width: 360 }}>
-    <WalletBalanceCard balance={1840} pendingCashback={62} lifetimeSaved={1275} />
+    <WalletBalanceCard balance={1840} />
   </div>
 );
 
-/** A wallet on day one — zeroes are a real state, not an empty card. */
+/** A wallet on day one — zero is a real balance, not an empty card. */
 export const Empty = () => (
   <div style={{ width: 360 }}>
-    <WalletBalanceCard balance={0} pendingCashback={0} lifetimeSaved={0} />
+    <WalletBalanceCard balance={0} />
   </div>
 );
