@@ -2572,6 +2572,21 @@ that works end to end today without a carrier account.
   wrong gate. Re-sending is allowed and notifies again — a gate closes, a
   rider is rerouted, and a silent correction is worse than a second
   message.
+- **ISB is the only destination checkout offers (2026-09-20, owner).**
+  `client/lib/checkout/destinations.ts` holds `DESTINATION_OPEN`: "Deliver
+  to me" and "Send as a gift" render **disabled with a "Coming soon"
+  pill**, and ISB is what a buyer arrives on. `resolveDestination` reads
+  the stored pick through the layout and the flags, so a stale `me`/`gift`
+  (the initial state, or the product page's gift intent) lands on ISB, and
+  the **food layout, which has no campus control, reads `isb` as `me`** — a
+  food basket must never be placed as a free campus order the screen never
+  offered. Reopening one is a flip in that map; all open is the old
+  screen. **It is the web's gate only:** `POST /orders` still takes a
+  standard order and the native app has no ISB option, so refuse it
+  server-side (the `foodOrdersOpen` shape) only once both offer ISB.
+  **Known gap:** step 3's gift wrap and message card travel only with
+  "Send as a gift" (`giftWrap: isGift ? …` and `gift` in
+  `handlePlaceOrder`), so on an ISB order they are shown and not saved.
 
 ## A listing's photos are a list (2026-09-17)
 

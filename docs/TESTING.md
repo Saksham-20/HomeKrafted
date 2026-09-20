@@ -656,10 +656,11 @@ Sign in as **Ananya**.
   gets the kitchen layout: one column, "Your order from {kitchen}", veg
   marks, one delivery address, "When should it arrive?", a bill, and a pay
   bar pinned to the bottom. A basket of gifts only gets the step layout:
-  1 Delivery address (Deliver to me / Send as a gift), 2 Gift options,
-  3 Payment method, 4 Review items and delivery, with Place order at the
-  top of the summary box. Report a food basket that shows the steps, or a
-  gift basket that shows the bill column.
+  1 Your items, 2 Delivery address, 3 Gift options, 4 Payment method,
+  5 Delivery date, with Place order at the top of the summary box. In
+  step 2 only **Deliver to ISB** is open for now — see "Deliver to ISB"
+  below. Report a food basket that shows the steps, or a gift basket that
+  shows the bill column.
 - Gift wrap is **free** — if any screen quotes a price for it, that's a bug.
 - **Delivery fee is set in `/admin/settings → Delivery`** and is ₹0 for now.
   Cart and checkout should show "Free" delivery. Set a fee (say ₹49 with
@@ -1838,7 +1839,26 @@ Checkout's delivery step has a third option beside "Deliver to me" and
 hand-delivered onto the ISB campus by us, free, as soon as the maker has
 packed it — no courier is involved at all.
 
+**Since 2026-09-20 it is the only option that works.** "Deliver to me" and
+"Send as a gift" are still on screen, greyed out, each with a gold
+**Coming soon** pill, and Deliver to ISB is already selected when you
+arrive. Nothing is hidden and nothing else can be chosen.
+
 What to test:
+
+- The two closed options **cannot be clicked or tabbed to**, and only
+  Deliver to ISB shows as selected (never "Deliver to me" beside it). Phone
+  width: the three stack, and the pills stay on the same line as the label.
+- **Step 5 (Delivery date) says "Delivering to the ISB campus"** and never
+  the name of one of your saved addresses. Try it as a buyer with **no
+  saved address** too: it must not tell you to add one in step 2, and the
+  order summary must not ask "Which area are we delivering to?".
+- Arrive from a product's **Make it a gift** block: checkout lands on
+  Deliver to ISB, not on a recipient form.
+- **Known gap, do not report:** the two ticks in step 3 (Gift wrap, message
+  card) are only carried by "Send as a gift", so on an ISB order they are
+  shown and **not saved**. The web is also the only gate — the server and
+  the native app still accept a standard order.
 
 - The panel asks for **nothing but an optional phone** (2026-09-17). It
   says we will message the pickup spot once the maker has packed the

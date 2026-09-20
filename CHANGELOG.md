@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-09-20 — Checkout offers Deliver to ISB only; the other two say Coming soon
+
+Owner: "only enable deliver to ISB, disable the rest, and add a coming soon
+label." **Client only — no migration, no env, nothing to run before it
+ships.** In the gift checkout's "Who is it for?" control, *Deliver to me* and
+*Send as a gift* now render disabled with a gold **Coming soon** pill, and
+*Deliver to ISB* is what a buyer arrives on. The switch is
+`DESTINATION_OPEN` in `client/lib/checkout/destinations.ts`; flip a value and
+that choice is back, and with all three open the screen is what it was.
+
+Making ISB the only door exposed three screens that had only ever been
+reached by choosing it, and they are fixed with it: step 5 said "Delivering to
+Home · Chandigarh" (a saved address) over a campus order, and with no saved
+address told the buyer to add one in step 2 where there is nothing to add; the
+order summary asked "Which area are we delivering to?" of an order that already
+has a destination; and **"Deliver to me" lit up beside "Deliver to ISB"**
+because its selected state read `!isGift`. `resolveDestination` reads the
+stored pick through the layout and the flags, so a stale `me`/`gift` (the
+initial state, the product page's gift intent) lands on ISB — and the food
+layout, which has no campus control, reads `isb` as `me`, so a food basket is
+never placed as a free campus order the screen never offered.
+
+**Not done, and worth a decision:**
+
+- **This is the web's gate only.** `POST /orders` still takes a standard order
+  and the native app has no ISB option at all, so closing it server-side would
+  leave the app unable to check out. Do that when both offer ISB.
+- **Gift wrap and the message card do nothing on an ISB order.** Step 3 has
+  shown them for every destination since the 2026-09-15 checkout rewrite
+  (`99771e8`), but `handlePlaceOrder` only sends them with "Send as a gift"
+  (`164f929`, 2026-09-12). That was already true for "Deliver to me"; it is now
+  true of the only path. The server already accepts a message card on an order
+  the buyer keeps (M50), so either the payload or step 3 has to change.
+- The food layout is unchanged: no ISB control, food orders still gated by
+  `foodOrdersOpen`.
+
 ## 2026-09-19 — Featured listings an admin ranks, categories as one-shelf scopes, order cashback removed, and a session that survives a failed refresh
 
 Five owner-driven changes, one milestone: admin-only badges and a ranked

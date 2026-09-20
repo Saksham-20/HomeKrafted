@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import clsx from "clsx";
-import { Wallet as WalletIcon, Building2, CreditCard, Gift, ShieldAlert } from "lucide-react";
+import { Wallet as WalletIcon, Building2, CreditCard, Gift, ShieldAlert, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { DietDot } from "@/components/ui/DietDot";
@@ -55,6 +55,7 @@ import {
 } from "@/lib/checkout/address-required";
 import { focusFirstError } from "@/components/portal/focus-first-error";
 import { withoutCampusAddress } from "@/lib/checkout/campus-delivery";
+import { isDestinationOpen, resolveDestination, type Destination } from "@/lib/checkout/destinations";
 import styles from "./CheckoutClient.module.css";
 
 /** Mock mode only — synthetic address id for a gift-to-recipient order. Real mode saves the recipient as a real `Address` first (see `handlePlaceOrder`) since `docs/API.md` requires `gift.recipientAddressId` to be one of the caller's own saved addresses. */
@@ -73,6 +74,28 @@ const MOCK_GIFT_ADDRESS_ID = "gift-recipient";
  */
 const CRAFT_PENDING_MESSAGE =
   "This is made to order — please allow 2–3 days while it's prepared. We'll show a delivery date here once it's packed and on its way.";
+
+/**
+ * The same stand-in for a campus order (2026-09-20). It is not a shipment to
+ * one of the buyer's addresses and never gets a date — the destination is
+ * ours to write and the handover spot is named once it is packed — so
+ * "we'll show a delivery date here" would be a promise nothing keeps.
+ */
+const CAMPUS_PENDING_MESSAGE =
+  "This is made to order — please allow 2–3 days while it's prepared. Once the maker has packed it, we'll message you where to collect it on campus.";
+
+/**
+ * The "Who is it for?" choices, left to right (`lib/checkout/destinations.ts`
+ * says which are open). ISB is a destination of its own rather than a
+ * tick-box on the buyer's address, because it is not an address the buyer
+ * types — the server writes it — and the delivery it buys is a different
+ * one (2026-09-17, owner).
+ */
+const DESTINATION_CHOICES: ReadonlyArray<{ id: Destination; label: string; icon?: LucideIcon }> = [
+  { id: "me", label: "Deliver to me" },
+  { id: "gift", label: "Send as a gift", icon: Gift },
+  { id: "isb", label: "Deliver to ISB", icon: Building2 },
+];
 const RAZORPAY_KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? "rzp_test_placeholder";
 
 /**
@@ -161,14 +184,21 @@ export function CheckoutClient() {
    * the buyer's own address, somebody else's as a gift, or hand-delivery
    * onto the ISB campus.
    *
+   * `shipTo` is what was last picked, not what is in force: `destination`
+   * is that pick read through the layout and through which destinations
+   * are open (`lib/checkout/destinations.ts`, 2026-09-20 — ISB only, for
+   * now). Nothing below reads `shipTo` except to change it.
+   *
    * `isGift` stays derived rather than becoming a third piece of state —
    * it is read in a dozen places (gift wrap, the message card, the
    * recipient fields, the delivery-date panel) and every one of them
    * still means exactly "is this going to somebody else".
    */
-  const [shipTo, setShipTo] = useState<"me" | "gift" | "isb">("me");
-  const isGift = shipTo === "gift";
-  const isCampus = shipTo === "isb";
+  const [shipTo, setShipTo] = useState<Destination>("me");
+  const mode = checkoutModeOf(items.map((item) => lineInfo(item)));
+  const destination = resolveDestination(shipTo, mode);
+  const isGift = destination === "gift";
+  const isCampus = destination === "isb";
   const [campusPhone, setCampusPhone] = useState("");
   const [recipient, setRecipient] = useState<AddressFormValues>(EMPTY_ADDRESS_FORM);
   const [hidePrice, setHidePrice] = useState(false);
@@ -681,7 +711,6 @@ export function CheckoutClient() {
       ) : null}
     </div>
   );
-  const mode = checkoutModeOf(lineInfos.map(({ info }) => info));
   const maker = lineInfos.map(({ info }) => info.maker).find(Boolean);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   const selectedAddressId = items[0]?.addressId ?? defaultAddress?.id ?? "";
@@ -1140,7 +1169,9 @@ export function CheckoutClient() {
       {freeOver !== undefined && (
         <p className={styles.summaryFootnote}>Free delivery on orders over {formatCurrency(freeOver)}</p>
       )}
-      <DeliveryLocationConfirm hasSelectedAddress={addressList.length > 0 || isGift} />
+      {/* A campus order has a destination already; "Which area are we
+          delivering to?" would be a question with no answer to give. */}
+      <DeliveryLocationConfirm hasSelectedAddress={addressList.length > 0 || isGift || isCampus} />
       {errors}
     </div>
   );
@@ -1168,44 +1199,37 @@ export function CheckoutClient() {
               <span className={styles.stepNumber}>2</span> Delivery address
             </h2>
             <div className={styles.stepBody}>
+              {/* A closed choice is disabled, not hidden, and says why: the
+                  tag is inside the label, so it is part of the radio's
+                  accessible name. Selected reads `destination` — what is in
+                  force — and never `!isGift`, which lit "Deliver to me"
+                  beside "Deliver to ISB" whenever the campus was chosen. */}
               <div className={styles.segmented} role="radiogroup" aria-label="Who is it for?">
-                <label className={clsx(styles.segment, !isGift && styles.segmentSelected)}>
-                  <input
-                    type="radio"
-                    name="ship-to"
-                    className="hk-sr-only"
-                    checked={!isGift}
-                    onChange={() => toggleGift(false)}
-                  />
-                  Deliver to me
-                </label>
-                <label className={clsx(styles.segment, isGift && styles.segmentSelected)}>
-                  <input
-                    type="radio"
-                    name="ship-to"
-                    className="hk-sr-only"
-                    checked={isGift}
-                    onChange={() => chooseDestination("gift")}
-                  />
-                  <Gift size={14} aria-hidden="true" />
-                  Send as a gift
-                </label>
-                {/* Hand-delivery onto the ISB campus (2026-09-17, owner).
-                    A third destination rather than a tick-box on the
-                    buyer's own address, because it is not an address the
-                    buyer types — the server writes it — and the delivery
-                    it buys is a different one. */}
-                <label className={clsx(styles.segment, isCampus && styles.segmentSelected)}>
-                  <input
-                    type="radio"
-                    name="ship-to"
-                    className="hk-sr-only"
-                    checked={isCampus}
-                    onChange={() => chooseDestination("isb")}
-                  />
-                  <Building2 size={14} aria-hidden="true" />
-                  Deliver to ISB
-                </label>
+                {DESTINATION_CHOICES.map(({ id, label, icon: Icon }) => {
+                  const open = isDestinationOpen(id);
+                  return (
+                    <label
+                      key={id}
+                      className={clsx(
+                        styles.segment,
+                        destination === id && styles.segmentSelected,
+                        !open && styles.segmentClosed,
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="ship-to"
+                        className="hk-sr-only"
+                        checked={destination === id}
+                        disabled={!open}
+                        onChange={() => chooseDestination(id)}
+                      />
+                      {Icon && <Icon size={14} aria-hidden="true" />}
+                      {label}
+                      {!open && <span className={styles.soonTag}>Coming soon</span>}
+                    </label>
+                  );
+                })}
               </div>
               {isCampus ? campusFields : isGift ? recipientFields : addressPicker}
             </div>
@@ -1234,7 +1258,20 @@ export function CheckoutClient() {
               <span className={styles.stepNumber}>5</span> Delivery date
             </h2>
             <div className={styles.stepBody}>
-              {isGift ? (
+              {isCampus ? (
+                /*
+                  Nothing here is about the buyer's own addresses: a campus
+                  order goes to the campus whatever the basket says, so
+                  "Delivering to Home · Chandigarh" was a false line and,
+                  with no saved address, the empty-state below told a buyer
+                  to add one in step 2 where there is nothing to add.
+                */
+                <div className={styles.shipment}>
+                  <span className={styles.shipmentHead}>Delivering to the ISB campus</span>
+                  <p className={styles.craftNotice}>{CAMPUS_PENDING_MESSAGE}</p>
+                  {itemList}
+                </div>
+              ) : isGift ? (
                 <div className={styles.shipment}>
                   <span className={styles.shipmentHead}>
                     Delivering to {recipient.recipientName || "your recipient"}
