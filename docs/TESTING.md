@@ -1717,6 +1717,7 @@ and @eatwith_aditi's biryani clip (credited to her handle, not ours).
 | Product photos show a **hatched placeholder** in some slots | Nobody has uploaded a photo for that item yet — add one and it replaces the placeholder. |
 | The **video reel rail** always shows the same clips | Reels aren't wired to the backend yet — they come from fixed sample data. |
 | Web addresses containing **`/seller`** | Internal naming; the visible wording is HomeKrafter. |
+| **No Seller Guidelines, Seller Support, Offers or Events** in the footer or sitemap | The client listed them and supplied no content. They are left out rather than shown as dead links. |
 | The home page has **no seasonal band** | Nothing dated is within six weeks. The band is not permanent furniture. |
 | An occasion with **no countdown** on the hub | It has no date set — birthdays and thank-yous have no season. |
 | A kitchen with **no story or photos** on its storefront | Nobody has filled that profile in yet. Sections with no content are hidden rather than shown empty. |
@@ -1908,6 +1909,30 @@ What to test:
 - Adding, removing or replacing the **first** photo sends the listing back
   to the review queue (admin has to approve it again). Re-saving the same
   photos, or reordering the ones after the first, must **not**.
+
+## The policy pages and the footer (2026-09-21)
+
+The footer is now four columns — **Consumer Policy, Homekrafted, Sellers,
+Compliance** — and every link in it opens a real page. Sixteen documents came
+from the client: the wording is theirs, so report layout problems, not
+sentences.
+
+What to test:
+
+- Click every footer link on the home page and on one inner page. None
+  should 404, and each page should have the **header and the footer** (a
+  policy page with no header is a bug).
+- `/terms`, `/privacy` and `/refunds` still work from any old link. The
+  cancellation policy is now its own page, `/cancellation-returns`.
+- `/sitemap` lists the same pages as the footer, grouped; it is not the
+  crawlers' `/sitemap.xml`.
+- `/grievance-redressal` and `/contact` show the grievance officer, the phone
+  and the address as **"not published yet"** with a notice above them — that
+  is deliberate until the business supplies them. No page anywhere should
+  show the text `[INSERT …]`.
+- Email addresses in the documents are links that open a mail draft.
+- At phone width the footer is two columns, brand line above; nothing
+  scrolls sideways.
 
 ## The gift taxonomy screens (G1)
 

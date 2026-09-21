@@ -28,7 +28,10 @@ const SOCIAL_LINKS = [
   },
 ];
 
-/** Pine-deep footer: brand blurb + 3 mock link columns + mono legal row. */
+/**
+ * Pine-deep footer: brand blurb + the client's four policy/company columns
+ * (`lib/policies`) + the mono legal row.
+ */
 export async function Footer() {
   const [brandBlurb, footerColumns] = await Promise.all([
     getBrandBlurb(),
@@ -73,10 +76,11 @@ export async function Footer() {
         ))}
       </div>
 
-      {/* The policy row. These are the links a customer looks for when
-          something has gone wrong, and the ones Razorpay requires to be
-          published before a live account is activated — so they live in
-          the footer of every page rather than behind Support. */}
+      {/* The legal row. The policy links themselves moved into the four
+          columns above (2026-09-21) — they are the links a customer looks
+          for when something has gone wrong, and the ones Razorpay requires
+          to be published before a live account is activated, so they stay
+          in the footer of every page rather than behind Support. */}
       <div className={clsx("container", "container-wide", styles.legal)}>
         <span>
           © {year} Homekrafted · Made with love in real homes ·{" "}
@@ -93,10 +97,6 @@ export async function Footer() {
           </a>
         </span>
         <span className={styles.legalLinks}>
-          <Link href="/terms">Terms</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/refunds">Cancellation &amp; refunds</Link>
-          <Link href="/contact">Contact</Link>
           {/*
             **A licence condition, not a credit we chose to give.** The
             pincode table behind the location fields is GeoNames data

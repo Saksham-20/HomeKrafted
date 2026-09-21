@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-09-21 — The client's policy documents go live; the footer is their four columns
+
+The client sent sixteen reviewed documents plus a sitemap and a footer
+structure. **Client only — no migration, no env, nothing to run first.**
+
+- **Content** is data under `client/lib/policies/` (`consumer.ts`,
+  `sellers.ts`, `compliance.ts`), verbatim, rendered by
+  `components/legal/PolicyDocument` inside the existing `LegalPage`.
+  `/terms` (now "Terms of Use"), `/privacy` and `/refunds` (now "Refund
+  Policy") keep their URLs and their new text; new pages are
+  `/cancellation-returns`, `/shipping-delivery`, `/security`,
+  `/payment-policy`, `/cookies`, `/entrepreneur-terms`, `/content-ip-policy`,
+  `/grievance-redressal`, `/food-safety`, `/epr-compliance`,
+  `/website-disclaimer`, `/promotional-offers`, `/customer-reviews` and the
+  human-readable `/sitemap`. All are in `/sitemap.xml`.
+- **Footer** is the client's four columns — Consumer Policy · Homekrafted ·
+  Sellers · Compliance — built from the same list. The old Services / Help /
+  Account columns and the Terms/Privacy/Refunds/Contact row are gone; the
+  catalogue's doors are the header, the drawer and `/sitemap`. The GeoNames
+  attribution (a licence condition) stays.
+- **`lib/legal.ts`:** legal name is now Tics Foodworks Pvt. Ltd. and the
+  contact address `info@homekrafted.in`, both from the client's text;
+  `POLICY_LAST_UPDATED` is 20 September 2026; a `grievanceOfficer` field
+  replaces `/contact` printing the company name as the officer. The
+  incomplete-details banner now names what is missing and shows only on
+  `/contact` and the grievance page.
+- **Caught before shipping:** the first paths for the two seller documents
+  began `/seller`, which the app treats as the portal — no header, no footer,
+  and robots-disallowed. Renamed; `policies.spec.ts` now refuses the prefix.
+
+**Not done, and worth a decision:**
+
+- **Still `TO BE FILLED`:** the grievance officer's name, the registered
+  office address and the phone number. The pages say "not published yet"
+  rather than print the client's `[INSERT …]`; the Consumer Protection
+  (E-Commerce) Rules expect a *named* officer, so this is a launch blocker.
+  Also confirm `grievance@homekrafted.in` is a real mailbox (it predates
+  this work) and that `info@` is monitored alongside `support@`, which
+  About and the support screen still show.
+- **Not in the footer or sitemap because no content was supplied:** Seller
+  Guidelines, Seller Support, Offers, Events, a "Consumer Policy" page.
+  "FAQs" points at `/support`.
+- **The text and the product disagree in places** and the text was not
+  touched: returns are a seven-day window in the server, the text says
+  "preferably 48 hours" for non-perishables and gives no window; cancellation
+  is open until `packed`, the text says "before accepted"; Seller Terms §10
+  says commissions may be deducted, and since 2026-09-16 a marketplace line is
+  paid in full (the buyer pays the fee).
+- Legal wording lives in `lib/policies/`; the banner, tokens and paths are
+  the frame. See `CLAUDE.md`, "Policy pages are the client's wording".
+
 ## 2026-09-20 — Checkout offers Deliver to ISB only; the other two say Coming soon
 
 Owner: "only enable deliver to ISB, disable the rest, and add a coming soon

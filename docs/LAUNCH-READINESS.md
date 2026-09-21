@@ -384,21 +384,24 @@ Not code, and genuinely blocking for a marketplace handling food and
 money in India.
 
 - ~~**Terms of service, privacy policy, refund/cancellation policy**~~
-  ✅ **Drafted M18** and live at `/terms`, `/privacy`, `/refunds`,
-  `/contact`, linked from every page's footer and in the sitemap. They
-  are written from what the code actually enforces rather than from a
-  template — the cancellation cut-off, the seven-day return window and
-  the wallet-first refund on those pages are the rules the server really
-  applies.
+  ✅ **Replaced 2026-09-21 by the client's own reviewed documents** — sixteen
+  of them (terms, privacy, cancellation & returns, refunds, shipping,
+  security, payment, cookies, seller terms, seller content, grievance, food
+  safety, EPR, website disclaimer, promotional offers, customer reviews),
+  live from the footer of every page and in `/sitemap.xml`. The M18 pages
+  they replaced were written from what the code enforces; these are not, so
+  **the text and the product disagree in places** (return window, the
+  cancellation cut-off, Seller Terms §10 on commissions) — see the
+  2026-09-21 `CHANGELOG.md` entry, and decide which side moves.
 
-  **Two things still block using them.** (1) `client/lib/legal.ts` holds
-  placeholders for the registered legal name, address and phone; until
-  those are filled in, every policy page shows a banner saying it is
-  incomplete, which is deliberate — a policy carrying an invented address
-  looks compliant while being false. (2) **Nobody qualified has reviewed
-  them.** They are an accurate description of the product written by its
-  builders, not legal advice, and they should be read by someone who
-  does this for a living before real money moves.
+  **Still blocking.** `client/lib/legal.ts` holds `TO BE FILLED` for the
+  **grievance officer's name, the registered office address and the phone
+  number**. The pages say "not published yet" rather than invent them, with
+  a notice on `/contact` and `/grievance-redressal`. A *named* grievance
+  officer is a requirement of the Consumer Protection (E-Commerce) Rules,
+  and Razorpay's KYC reads the address; fill all three. The legal name
+  (Tics Foodworks Pvt. Ltd.) came from the client's text — check it matches
+  the registration exactly.
 - **FSSAI**: the platform verifies HomeKrafters' licences, and the
   platform's own obligations as an aggregator need checking.
 - **GST**: registration, invoicing, and whether the platform collects TCS

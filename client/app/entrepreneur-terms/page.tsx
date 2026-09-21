@@ -2,7 +2,7 @@ import { pageMetadata } from "@/lib/seo";
 import { PolicyDocument } from "@/components/legal/PolicyDocument";
 import { policyBySlug } from "@/lib/policies";
 
-const doc = policyBySlug("privacy");
+const doc = policyBySlug("entrepreneur-terms");
 
 export const metadata = pageMetadata({
   title: doc.title,
@@ -10,7 +10,7 @@ export const metadata = pageMetadata({
   path: doc.path,
 });
 
-/** privacy — the client's reviewed wording, `lib/policies/`. */
+/** entrepreneur-terms — the client's reviewed wording, `lib/policies/`. */
 export default function Page() {
   return <PolicyDocument doc={doc} />;
 }

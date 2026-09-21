@@ -267,7 +267,8 @@ primitives rather than only composing them:
 | ~~`HamperBuilderClient`~~ | *removed M18* | — | `/hamper` is now a `ProductGridCard` grid of `isHamper` listings; the wizard and `HamperFillTile`/`HamperBasket` went with it |
 | ~~`HamperFillTile`~~ | *removed M18* | — | went with the builder |
 | ~~`HamperBasket`~~ | *removed M18* | — | went with the builder |
-| `LegalPage` | `components/legal/` | — | `/terms`, `/privacy`, `/refunds`, `/contact` — shared shell for the policy pages, incl. the "details not filled in yet" banner |
+| `LegalPage` | `components/legal/` | `LegalDetail` | `/contact` and every policy page — shared shell, incl. the "details not published yet" banner (only where `showsBusinessDetails`) |
+| `PolicyDocument` | `components/legal/` | `LegalPage`, `LegalDetail` | the sixteen client documents under `lib/policies/`, one route each (2026-09-21) |
 | `CartLineRow` | `components/cart/` | `ImageSlot`, `QuantityStepper` | `/cart` line items |
 | `CheckoutClient` | `components/checkout/` | `StickySummary`, `SlotPicker`, `Textarea`, `AddressForm`, `OrderConfirmation` | `/checkout` |
 | `AddressForm` | `components/checkout/` | — (plain labeled inputs, no shared Input primitive exists yet) | Checkout's inline "add address" and gift-recipient forms |

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getCategories, getCollections, getOccasions, getProducts, getVendors } from "@/lib/api";
 import { absoluteUrl } from "@/lib/seo";
+import { POLICY_DOCS } from "@/lib/policies";
 
 /**
  * `/sitemap.xml` (M15) — there wasn't one, so every product and every
@@ -37,12 +38,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/corporate"), lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: absoluteUrl("/app-promo"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: absoluteUrl("/support"), lastModified: now, changeFrequency: "monthly", priority: 0.4 },
-    // Policy pages (M18). Indexable on purpose: "homekrafted refund
-    // policy" is a real query from somebody with a problem, and a payment
-    // provider checks these are publicly reachable.
-    { url: absoluteUrl("/terms"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-    { url: absoluteUrl("/privacy"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
-    { url: absoluteUrl("/refunds"), lastModified: now, changeFrequency: "yearly", priority: 0.4 },
+    // Policy pages (M18; the client's sixteen documents since 2026-09-21,
+    // read from `lib/policies` so a new one is listed the day it exists).
+    // Indexable on purpose: "homekrafted refund policy" is a real query
+    // from somebody with a problem, and a payment provider checks these
+    // are publicly reachable.
+    ...POLICY_DOCS.map((doc) => ({
+      url: absoluteUrl(doc.path),
+      lastModified: now,
+      changeFrequency: "yearly" as const,
+      priority: doc.path === "/refunds" || doc.path === "/cancellation-returns" ? 0.4 : 0.3,
+    })),
+    // The human-readable sitemap page — not this file's `/sitemap.xml`.
+    { url: absoluteUrl("/sitemap"), lastModified: now, changeFrequency: "yearly", priority: 0.2 },
     { url: absoluteUrl("/contact"), lastModified: now, changeFrequency: "monthly", priority: 0.5 },
   ];
 

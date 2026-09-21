@@ -36,4 +36,9 @@ export const PUBLIC_ROUTES = [
   '/collections',
   '/about',
   '/meal-plans',
+  // One long-form policy (every policy shares `LegalPage`) and the
+  // sitemap page — the footer, which every route renders, is covered by
+  // all of them.
+  '/terms',
+  '/sitemap',
 ] as const;

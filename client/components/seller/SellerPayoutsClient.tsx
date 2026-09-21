@@ -93,8 +93,8 @@ export function SellerPayoutsClient() {
         The M37 transparency card: what a payout of today's unclaimed
         earnings works out to, at the platform rate. While the commission
         switch is off nothing is deducted and these are estimates — the
-        card says so out loud, because /terms promises the split is shown
-        before it is ever taken.
+        card says so out loud, because a maker should see the split before
+        it is ever taken.
       */}
       {commission.grossPending > 0 && (
         <Card className={styles.requestCard}>

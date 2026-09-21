@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 import { LegalPage } from "@/components/legal/LegalPage";
+import { LegalDetail as Detail } from "@/components/legal/LegalDetail";
 import { LEGAL_ENTITY, isPlaceholder } from "@/lib/legal";
 import styles from "@/components/legal/LegalPage.module.css";
 
@@ -10,22 +11,6 @@ export const metadata = pageMetadata({
     "How to reach Homekrafted — support, order problems, HomeKrafter enquiries and our registered business address.",
   path: "/contact",
 });
-
-/** A row that shows a real value, or says plainly that it isn't filled in yet. */
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className={styles.detail}>
-      <span className={styles.detailLabel}>{label}</span>
-      <span className={styles.detailValue}>
-        {isPlaceholder(value) ? (
-          <span className={styles.pending}>not published yet</span>
-        ) : (
-          value
-        )}
-      </span>
-    </div>
-  );
-}
 
 /**
  * Contact (M18).
@@ -41,6 +26,7 @@ export default function ContactPage() {
     <LegalPage
       title="Contact us"
       intro="A real person reads everything below. If it's about an order, the support desk is the fastest route — it arrives with your order already attached."
+      showsBusinessDetails
     >
       <h2>A problem with an order</h2>
       <p>
@@ -51,11 +37,16 @@ export default function ContactPage() {
       </p>
       <p>
         For what can be cancelled, returned or refunded, see the{" "}
-        <Link href="/refunds">cancellation &amp; refund policy</Link>.
+        <Link href="/cancellation-returns">cancellation &amp; returns policy</Link>{" "}
+        and the <Link href="/refunds">refund policy</Link>.
       </p>
 
       <h2>Everything else</h2>
-      <Detail label="Support email" value={LEGAL_ENTITY.supportEmail} />
+      <Detail
+        label="Support email"
+        value={LEGAL_ENTITY.supportEmail}
+        href={`mailto:${LEGAL_ENTITY.supportEmail}`}
+      />
       <Detail label="Phone" value={LEGAL_ENTITY.supportPhone} />
       <Detail label="Hours" value={LEGAL_ENTITY.supportHours} />
 
@@ -74,8 +65,16 @@ export default function ContactPage() {
         hasn&rsquo;t resolved can be escalated to our grievance officer. We
         acknowledge within 48 hours and aim to resolve within one month.
       </p>
-      <Detail label="Grievance email" value={LEGAL_ENTITY.grievanceEmail} />
-      <Detail label="Grievance officer" value={LEGAL_ENTITY.legalName} />
+      <Detail
+        label="Grievance email"
+        value={LEGAL_ENTITY.grievanceEmail}
+        href={`mailto:${LEGAL_ENTITY.grievanceEmail}`}
+      />
+      <Detail label="Grievance officer" value={LEGAL_ENTITY.grievanceOfficer} />
+      <p>
+        How a complaint is handled is set out in the{" "}
+        <Link href="/grievance-redressal">grievance redressal policy</Link>.
+      </p>
 
       <h2>Registered business details</h2>
       <Detail label="Legal name" value={LEGAL_ENTITY.legalName} />

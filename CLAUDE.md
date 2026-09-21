@@ -550,8 +550,8 @@ Monorepo. **All the web paths named elsewhere in this file (`app/`, `lib/`,
   against the 210px floor.
 
   Four rules. **The drawer keeps both groups** — dropping the secondary
-  one there would leave the footer as the only route to `/corporate` on a
-  phone — but it now **drops entries `primaryNav` already carries**,
+  one there would leave the home strip and `/sitemap` as the only routes
+  to `/corporate` on a phone — but it now **drops entries `primaryNav` already carries**,
   compared on `href` (the two lists word the same destination
   differently, and on the home page a tab and an explaining tile are two
   offers; in one vertical list they are the same link twice). **The tabs
@@ -1647,7 +1647,7 @@ critical: a tablist may only contain tabs), and forty-one places said
   one baseline, one mono line of counts and the location control — and
   the copy column caps at 780px so the photograph is seen, not just
   present. The `KitchenCrossLinks` rail also left `/shop` (Meal plans
-  is a nav tab; Snacks stays in the footer and the home strip); it
+  is a nav tab; Snacks stays in the home strip and the drawer); it
   remains on `/snacks` and `/meal-plans`. Don't put a "featured" strip
   back on a page whose grid already shows the same objects.),
   then one floating control card holding `QuickFilterChips` (the category
@@ -3127,6 +3127,42 @@ component** (every `/seller/*` and `/admin/*` page is): the RSC payload
 is static, so the boundary covers nothing but its own throttle. If you
 add a boundary anywhere, measure the navigation before and after — `node
 e2e/login-timing-dom.mjs` for the portal, and see M31 in `CHANGELOG.md`.
+
+## Policy pages are the client's wording, held as data (2026-09-21)
+
+`lib/policies/` holds the **sixteen client-reviewed documents** (consumer /
+sellers / compliance) as typed data; `components/legal/PolicyDocument`
+lays them out in `LegalPage`; each route is a five-line
+`app/<slug>/page.tsx`. They replaced M18's hand-written `/terms`,
+`/privacy` and `/refunds` (URLs kept; `/cancellation-returns` is new, so
+"Cancellation & Returns" and "Refund Policy" are two pages, as the client
+sent them). The footer's four columns and the `/sitemap` page are built
+from the same list; `/sitemap.xml` (`app/sitemap.ts`) is separate and reads
+it too.
+
+- **The sentences are the client's — never paraphrase, merge or "align"
+  one to the product.** M18's rule ("written from what the code actually
+  enforces") is superseded. Where policy and product differ (a seven-day
+  return window and cancel-until-`packed` in the server vs "preferably 48
+  hours" and "before accepted" in the text; Seller Terms §10 "may deduct
+  platform commissions" vs the markup model; cookie/analytics wording vs no
+  analytics in use) it is **raised with the owner, not edited over**.
+- **Two tokens only** — `{{supportEmail}}`, `{{grievanceEmail}}` — resolved
+  from `lib/legal.ts`. An unset detail renders "not published yet", never
+  the client's `[INSERT …]`. `legalName` is Tics Foodworks Pvt. Ltd. (from
+  the client's text); `address`, `supportPhone` and `grievanceOfficer` are
+  still `TO BE FILLED`. The "not published yet" banner is shown only where
+  `showsBusinessDetails` (grievance, `/contact`), and names what is
+  missing. `POLICY_LAST_UPDATED` is bumped by hand.
+- **A policy path may not start with `/seller`, `/admin` or anything
+  `robots.ts` disallows.** `/seller-terms` rendered with no header or footer
+  (`ConsumerChrome` and `LocationPrompt` match `startsWith("/seller")`) and
+  was unindexable (robots disallows by prefix) — hence `/entrepreneur-terms`
+  and `/content-ip-policy`. Pinned by `lib/policies/policies.spec.ts`.
+- **Not built, because no content was supplied:** Seller Guidelines, Seller
+  Support, Offers, Events, a "Consumer Policy" page. They are absent from
+  the footer and `/sitemap`, not stubbed; adding one is an entry in
+  `lib/policies/index.ts` and a page.
 
 ## `ImageSlot` — how every image renders, uploaded or not
 

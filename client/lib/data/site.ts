@@ -5,6 +5,8 @@
  * data-driven instead of hardcoding strings.
  */
 
+import { FOOTER_COLUMNS } from "@/lib/policies";
+
 export interface NavLink {
   label: string;
   href: string;
@@ -145,44 +147,18 @@ export const quickEntryDetail: Record<string, { title: string; blurb: string }> 
 export const brandBlurb =
   "Home-cooked food, fresh bakes and small-batch creations from passionate home kitchens, and handcrafted gifts made with care.";
 
-export const footerColumns: FooterColumn[] = [
-  {
-    title: "Services",
-    links: [
-      { label: "Homemade Food", href: "/shop" },
-      { label: "Handcrafted Gifts", href: "/gifts" },
-      { label: "Gift Hampers", href: "/hamper" },
-      { label: "Occasions", href: "/collections" },
-      { label: "Meal plans", href: "/meal-plans" },
-      { label: "Snacks on WhatsApp", href: "/snacks" },
-      { label: "Corporate & bulk", href: "/corporate" },
-      { label: "Sell on Homekrafted", href: "/sell" },
-    ],
-  },
-  {
-    title: "Help",
-    links: [
-      // One label per destination: this column listed "Shipping &
-      // returns", "FAQ" and "Support" as three links to the same
-      // /support page, and repeated "Cancellation & refunds" from the
-      // legal row below it (2026-08-13 review, R4).
-      { label: "About us", href: "/about" },
-      { label: "Track order", href: "/account/orders" },
-      { label: "Help & FAQ", href: "/support" },
-      { label: "Contact us", href: "/contact" },
-    ],
-  },
-  {
-    title: "Account",
-    links: [
-      { label: "Login", href: "/login" },
-      { label: "Address book", href: "/account/addresses" },
-      { label: "Wallet", href: "/wallet" },
-      { label: "Referrals & loyalty", href: "/account/referrals" },
-      { label: "Order history", href: "/account/orders" },
-    ],
-  },
-];
+/**
+ * The footer, in the client's four columns (2026-09-21): Consumer Policy ·
+ * Homekrafted · Sellers · Compliance. Built from `lib/policies`, the same
+ * list the `/sitemap` page reads, so a renamed route cannot stay stale in
+ * one of them. It replaces the earlier Services / Help / Account columns —
+ * the catalogue's doors are the header nav, the drawer and `/sitemap`, and
+ * the account's are the header's account menu.
+ */
+export const footerColumns: FooterColumn[] = FOOTER_COLUMNS.map((column) => ({
+  title: column.title,
+  links: [...column.links],
+}));
 
 /**
  * Home page's two promo bands (M11b CMS, `/admin/collections`'s "Home
