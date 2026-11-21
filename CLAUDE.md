@@ -72,12 +72,11 @@ the box is empty. Don't re-run `seed.ts`/`seed-crafts.ts`/
 `POST /auth/social/:provider` requires a real Google/Apple **id-token**,
 checked by `server/src/auth/social-token-verifier.ts` (jose + JWKS,
 issuer + audience allowlist, nonce, bounded age) — the pre-M27 "trusts a
-posted email" takeover is closed and pinned by tests. What's left is
-that **no Google OAuth client ID or Apple service ID is configured**:
-with the env unset the verifier registers no provider and the endpoint
-refuses every token, so the buttons can't work until someone creates
-those IDs (`docs/LAUNCH-READINESS.md` §0.4). Don't "fix" a failing
-social login by weakening the verifier — set the IDs.
+posted email" takeover is closed and pinned by tests. **Google is live
+since 2026-11-21** (`GOOGLE_CLIENT_IDS` set on the box, project
+`homekrafted-515407`, consent screen in production — `docs/LAUNCH-READINESS.md`
+§0.4); no Apple service ID is configured, so Apple stays off. Don't "fix" a
+failing social login by weakening the verifier — check the ID and origins.
 
 **Razorpay is on real test keys since 2026-09-01, and going live is
 config only.** Nothing branches on `rzp_test_` vs `rzp_live_`: the one

@@ -112,11 +112,22 @@ sign-in. Auto-linking now requires an already-verified account; otherwise
 the sign-in seizes it (sessions revoked, password cleared). Admin accounts
 cannot use social sign-in at all.
 
-**What remains is configuration, and it is no longer a security gate.**
-With `GOOGLE_CLIENT_IDS` unset the provider is simply off: the endpoint
-answers 503 and no button renders. Setting it turns the feature on. An
-Apple Services ID ($99/yr) is optional and only needed if that button
-should exist at launch.
+**Google is configured and live since 2026-11-21.** Google Cloud project
+`homekrafted-515407` (owned by the company's Play Console account), consent
+screen *In production*, one **Web** client "Homekrafted Web" with origins
+`https://homekrafted.in` and `http://localhost:3000`. Its id is set as
+`GOOGLE_CLIENT_IDS` in production `server/.env`; the client secret is not
+used by anything here and is not stored. The Android/iOS ids, when the apps
+need them, are created in the **same project** and appended to that list —
+the web id stays first, because `GET /auth/social/config` hands the browser
+the first entry. Unset, the provider is off: the endpoint answers 503 and no
+button renders. An Apple Services ID ($99/yr) is still optional.
+
+**Linking is by verified email only.** A Google sign-in whose verified
+address matches an existing account joins it (and *seizes* it if that
+account's email was never verified — password cleared, sessions revoked).
+A phone-only account, or one under a different address, gets a **new**
+account; there is no "connect Google" screen yet.
 
 Files: `server/src/auth/social-token-verifier.ts`,
 `server/src/auth/auth.service.ts` (`socialLogin`),
