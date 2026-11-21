@@ -114,7 +114,10 @@
 */
 .toolbar {
   position: sticky;
-  top: 72px;
+  /* The header on /gifts scrolls away (it is not sticky), so the bar pins
+     just under the viewport's top edge — at 72px it left a strip above it
+     with products sliding through. */
+  top: var(--hk-s3);
   z-index: 20;
   display: flex;
   align-items: center;
@@ -129,19 +132,18 @@
   border-radius: var(--hk-r-lg);
   background: color-mix(in srgb, var(--hk-surface) 86%, transparent);
   backdrop-filter: blur(10px) saturate(180%);
-  transition:
-    transform 260ms cubic-bezier(0.23, 1, 0.32, 1),
-    opacity 200ms ease;
+  will-change: transform;
+  /* Only the shadow animates here; the slide is driven per frame by
+     `useScrollAwayBar` (1:1 with the scroll, then a settle). */
+  transition: box-shadow 240ms ease;
 }
 
-/* Out of the grid's way while scrolling down; back on the first tick up
-   (`useHideOnScrollDown`). Its own height plus the sticky offset clears the
-   viewport. Never while focus is inside — an open filter popover or a
-   keyboard user tabbing through it must not lose the bar under them. */
-.toolbar[data-hidden="true"]:not(:focus-within) {
-  transform: translateY(calc(-100% - 80px));
-  opacity: 0;
-  pointer-events: none;
+/* Floating over the grid: a soft shadow says it is a layer above the
+   products. In its own place on the page it sits flat. */
+.toolbar[data-stuck] {
+  box-shadow:
+    0 12px 28px -14px rgb(27 51 39 / 0.28),
+    0 2px 6px rgb(27 51 39 / 0.06);
 }
 
 @media (prefers-reduced-transparency: reduce) {
