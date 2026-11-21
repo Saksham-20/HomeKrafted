@@ -42,16 +42,18 @@
    colour, border or radius rules targeting its internals: they will not
    apply, and the next person will waste an hour finding out why. */
 .googleSlot {
-  flex: 1 1 130px;
+  flex: 1 1 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
 }
 
-/* GIS renders a fixed-width button; let it fill the slot on narrow cards
-   so it doesn't sit orphaned to one side. */
+/* The button is drawn at the slot's width (up to Google's 400px cap, see
+   SocialSignIn.tsx); centre whatever is left over on a wider card. */
 .googleSlot > div {
+  display: flex;
+  justify-content: center;
   width: 100%;
 }
 

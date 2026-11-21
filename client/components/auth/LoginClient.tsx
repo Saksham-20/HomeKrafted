@@ -480,7 +480,7 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
                   type="password"
                   autoComplete="current-password"
                   className={styles.input}
-                  placeholder="••••••••"
+                  placeholder="Your password"
                   value={password}
                   onChange={(event) => {
                     setPassword(event.target.value);
@@ -512,7 +512,7 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
               {working ? "One moment…" : step === "name" ? "Create my account" : "Continue"}
             </Button>
 
-            <p className={styles.forgotRow}>
+            <div className={styles.linkRow}>
               <button
                 type="button"
                 className={styles.linkButton}
@@ -521,10 +521,10 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
               >
                 Use a code instead
               </button>
-            </p>
-            <p className={styles.forgotRow}>
-              <Link href="/forgot-password">Forgot your password?</Link>
-            </p>
+              <span className={styles.forgotRow}>
+                <Link href="/forgot-password">Forgot your password?</Link>
+              </span>
+            </div>
           </div>
         )}
       </Card>

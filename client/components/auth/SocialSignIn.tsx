@@ -5,6 +5,8 @@ import type { SocialConfig } from "@/lib/api/auth";
 import styles from "./SocialSignIn.module.css";
 
 const GIS_SRC = "https://accounts.google.com/gsi/client";
+/** Google's own ceiling for `renderButton`'s `width`. */
+const GIS_MAX_WIDTH = 400;
 
 type GoogleCredentialResponse = { credential?: string };
 
@@ -96,6 +98,7 @@ export function SocialSignIn({ config, onCredential, disabled, action, showDivid
   useEffect(() => {
     if (!googleClientId || !googleSlot.current) return;
     let cancelled = false;
+    let resizeObserver: ResizeObserver | undefined;
 
     // One nonce per mount, echoed inside the signed token and re-checked
     // by the server, so a token captured in flight cannot be replayed
@@ -123,15 +126,30 @@ export function SocialSignIn({ config, onCredential, disabled, action, showDivid
           },
         });
 
-        googleSlot.current.replaceChildren();
-        api.renderButton(googleSlot.current, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          shape: "pill",
-          text: action === "Sign up" ? "signup_with" : "continue_with",
-          logo_alignment: "center",
-        });
+        // Google draws the button in an iframe at a fixed pixel width, so
+        // CSS cannot stretch it: pass the slot's own width (Google caps it
+        // at 400) and redraw when the slot changes size. Left at the
+        // default it rendered 219px wide in a 446px card.
+        const slot = googleSlot.current;
+        let drawnWidth = 0;
+        const draw = () => {
+          const width = Math.min(GIS_MAX_WIDTH, Math.floor(slot.clientWidth));
+          if (cancelled || width <= 0 || Math.abs(width - drawnWidth) < 8) return;
+          drawnWidth = width;
+          slot.replaceChildren();
+          api.renderButton(slot, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            shape: "pill",
+            width,
+            text: action === "Sign up" ? "signup_with" : "continue_with",
+            logo_alignment: "center",
+          });
+        };
+        draw();
+        resizeObserver = new ResizeObserver(draw);
+        resizeObserver.observe(slot);
       })
       .catch(() => {
         if (!cancelled) setGoogleFailed(true);
@@ -139,6 +157,7 @@ export function SocialSignIn({ config, onCredential, disabled, action, showDivid
 
     return () => {
       cancelled = true;
+      resizeObserver?.disconnect();
     };
   }, [googleClientId, action]);
 

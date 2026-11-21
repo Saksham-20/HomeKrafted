@@ -13,7 +13,9 @@
 */
 .page {
   padding-block: var(--hk-s8) var(--hk-s8);
-  max-width: 480px;
+  /* 440, not 480: the card's inner width then lands on Google's 400px
+     button cap, so "Continue with Google" spans the card like the fields. */
+  max-width: 440px;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
@@ -183,16 +185,40 @@
   color: var(--hk-muted);
 }
 
+/* A link-shaped button. The reset matters: without it a *disabled* one
+   (no identifier typed yet) fell back to the browser's grey outset box. */
 .linkButton {
   align-self: flex-start;
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
   font-size: 13px;
   color: var(--hk-pine);
   text-decoration: underline;
   min-height: 32px;
+  cursor: pointer;
 }
 
-.linkButton:hover {
+.linkButton:hover:not(:disabled) {
   color: var(--hk-gold-text-sm);
+}
+
+.linkButton:disabled {
+  color: var(--hk-muted);
+  text-decoration-color: transparent;
+  cursor: default;
+}
+
+/* "Use a code instead" and "Forgot your password?" share one line under
+   the button; they stack on a narrow phone. */
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s1) var(--hk-s3);
 }
 
 /* `.socialButton` moved to `SocialSignIn.module.css` when social sign-in
