@@ -68,6 +68,8 @@ type Props = {
   disabled?: boolean;
   /** Verb for the accessible labels. */
   action: "Sign in" | "Sign up" | "Continue";
+  /** The "or continue with phone or email" rule under the button — off on the profile's Connect Google card. */
+  showDivider?: boolean;
 };
 
 /**
@@ -78,7 +80,7 @@ type Props = {
  * placeholder-token fallback (the server verifier refuses those). Apple is
  * not offered: it needs its own redirect flow.
  */
-export function SocialSignIn({ config, onCredential, disabled, action }: Props) {
+export function SocialSignIn({ config, onCredential, disabled, action, showDivider = true }: Props) {
   const googleSlot = useRef<HTMLDivElement | null>(null);
   const [googleFailed, setGoogleFailed] = useState(false);
 
@@ -147,9 +149,11 @@ export function SocialSignIn({ config, onCredential, disabled, action }: Props) 
       <div className={styles.buttons}>
         <div className={styles.googleSlot} ref={googleSlot} aria-busy={disabled || undefined} />
       </div>
-      <div className={styles.divider}>
-        <span className={styles.dividerLabel}>or continue with phone or email</span>
-      </div>
+      {showDivider && (
+        <div className={styles.divider}>
+          <span className={styles.dividerLabel}>or continue with phone or email</span>
+        </div>
+      )}
     </div>
   );
 }

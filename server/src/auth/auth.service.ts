@@ -174,6 +174,11 @@ export interface SocialProviderConfig {
   clientId: string | null;
 }
 
+/** The providers connected to an account — what the profile's "Connect Google" reads. */
+export interface SocialLinks {
+  providers: SocialProvider[];
+}
+
 /** Never leak `passwordHash` (or anything else internal) back to the client. */
 export type PublicUser = Pick<
   User,
@@ -822,6 +827,98 @@ export class AuthService {
     }
 
     return this.issueSession(user);
+  }
+
+  /** Which providers the signed-in account can sign in with. */
+  async socialLinks(userId: string): Promise<SocialLinks> {
+    const rows = await this.prisma.socialAccount.findMany({
+      where: { userId },
+      select: { provider: true },
+    });
+    return { providers: [...new Set(rows.map((r) => r.provider))] };
+  }
+
+  /**
+   * Connect a Google/Apple identity to the account that is already signed in.
+   *
+   * The door for somebody whose account the email match in `socialLogin`
+   * cannot find — a phone-only account, or a Google address that differs
+   * from the one on file. It needs both a live session *and* a token only
+   * the Google account's holder can mint, so neither half alone joins two
+   * identities. It never moves the account's email or merges accounts: a
+   * Google identity already attached to a different account is a 409, never
+   * a silent move, because that other account holds somebody's orders and
+   * wallet.
+   */
+  async linkSocial(userId: string, provider: SocialProvider, dto: SocialLoginDto): Promise<SocialLinks> {
+    const identity = await this.socialTokens.verify(provider, dto.idToken, dto.nonce);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Sign in again to continue.');
+    this.assertNotSuspended(user);
+    this.assertNotAdmin(user, provider);
+
+    const label = provider === SocialProvider.google ? 'Google' : 'Apple';
+    const taken = await this.prisma.socialAccount.findUnique({
+      where: { provider_providerAccountId: { provider, providerAccountId: identity.providerAccountId } },
+    });
+    if (taken) {
+      if (taken.userId === userId) return this.socialLinks(userId);
+      throw new ConflictException(
+        `That ${label} account already signs in to a different Homekrafted account. Sign out and use it there, or pick another ${label} account.`,
+      );
+    }
+    const current = await this.prisma.socialAccount.findFirst({ where: { userId, provider } });
+    if (current) {
+      throw new ConflictException(
+        `A different ${label} account is already connected. Disconnect it first.`,
+      );
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.socialAccount.create({
+          data: { userId, provider, providerAccountId: identity.providerAccountId },
+        });
+        if (!user.authProviders.includes(provider as unknown as 'google' | 'apple')) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { authProviders: { push: provider as unknown as 'google' | 'apple' } },
+          });
+        }
+      });
+    } catch (err) {
+      // Two tabs connecting the same identity at once: the unique index
+      // decides, and the loser gets the same answer as the check above.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return this.socialLinks(userId);
+      }
+      throw err;
+    }
+    return this.socialLinks(userId);
+  }
+
+  /**
+   * Disconnect a provider. Refused when it would leave no way back in: the
+   * account needs a phone or an email for a one-time code, or a password.
+   */
+  async unlinkSocial(userId: string, provider: SocialProvider): Promise<SocialLinks> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Sign in again to continue.');
+    if (!user.phone && !user.email && !user.passwordHash) {
+      throw new BadRequestException(
+        'Add a phone number or email to your profile first — otherwise you would have no way to sign in.',
+      );
+    }
+    await this.prisma.$transaction([
+      this.prisma.socialAccount.deleteMany({ where: { userId, provider } }),
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          authProviders: user.authProviders.filter((p) => p !== (provider as unknown as 'google' | 'apple')),
+        },
+      }),
+    ]);
+    return this.socialLinks(userId);
   }
 
   /**

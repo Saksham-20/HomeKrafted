@@ -13,6 +13,8 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { apiErrorMessage, updateUser } from "@/lib/api";
 import type { User } from "@/lib/types";
 import { kitchenLoading } from "@/lib/kitchen-copy";
+import type { SocialConfig } from "@/lib/api/auth";
+import { ConnectedAccounts } from "./ConnectedAccounts";
 import styles from "./ProfileClient.module.css";
 
 interface FormState {
@@ -45,7 +47,7 @@ function formFromUser(user: User): FormState {
  * synced via a `useEffect`, so there's no synchronous `setState`-in-effect
  * to avoid.
  */
-export function ProfileClient() {
+export function ProfileClient({ socialConfig }: { socialConfig: SocialConfig }) {
   const router = useRouter();
   const { user, ready, signOut, refreshUser } = useAuth();
 
@@ -77,15 +79,19 @@ export function ProfileClient() {
     );
   }
 
-  return <ProfileDetails user={user} onSignOut={handleSignOut} onSaved={refreshUser} />;
+  return (
+    <ProfileDetails user={user} onSignOut={handleSignOut} onSaved={refreshUser} socialConfig={socialConfig} />
+  );
 }
 
 function ProfileDetails({
   user,
   onSignOut,
   onSaved,
+  socialConfig,
 }: {
   user: User;
+  socialConfig: SocialConfig;
   onSignOut: () => void;
   /** Real mode: re-fetches `GET /users/me` after a save so `useAuth().user` reflects the change on the next render/remount — no-op in mock mode. */
   onSaved: () => Promise<void>;
@@ -257,6 +263,8 @@ function ProfileDetails({
           <span className={styles.mono}>{user.referralCode}</span>
         </div>
       </Card>
+
+      <ConnectedAccounts socialConfig={socialConfig} />
 
       <button type="button" className={styles.signOutButton} onClick={onSignOut}>
         <LogOut size={16} strokeWidth={1.7} /> Sign out

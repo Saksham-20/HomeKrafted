@@ -1,0 +1,69 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hk-s3);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--hk-ink);
+}
+
+.lead,
+.meta {
+  font-size: 13.5px;
+  color: var(--hk-muted);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hk-s3);
+}
+
+.provider {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hk-s2);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--hk-ink);
+}
+
+.status {
+  font-family: var(--hk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hk-success);
+}
+
+/* The two-step's sentence comes before its button and wraps under the
+   provider row on a phone rather than squeezing beside it. */
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hk-s2);
+  flex: 1 1 260px;
+  justify-content: flex-end;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--hk-terracotta);
+}
+
+.notice {
+  font-size: 13px;
+  color: var(--hk-success);
+}

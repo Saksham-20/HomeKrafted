@@ -201,6 +201,17 @@ Four sign-in flows, all converging on the same JWT session shape:
   client id is served here rather than duplicated into a `NEXT_PUBLIC_*`
   build inline, so server and browser cannot disagree. Read server-side
   by `app/login/page.tsx`.
+- **Connect a provider to the signed-in account** (2026-11-21, the
+  profile's "Sign-in methods" card). All three need a session.
+  `GET /auth/social/links` → `{ providers: ("google"|"apple")[] }`.
+  `POST /auth/social/:provider/link` takes the sign-in body (`idToken`,
+  `nonce`) and answers the same shape — idempotent for the identity
+  already linked; **409** if that identity belongs to another account
+  (nothing moves) or a different one of the same provider is already
+  connected; admins 401 as on sign-in. `DELETE /auth/social/:provider/link`
+  answers the same shape, **400** when the account has no phone, email or
+  password left to sign in with. Linking never changes `User.email` and
+  never merges accounts. Pinned in `test/e2e/social-login.e2e-spec.ts`.
 
 All three return the same shape:
 

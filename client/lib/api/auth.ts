@@ -194,6 +194,31 @@ export async function socialLogin(
   return http.post<AuthResultDto>(`/auth/social/${provider}`, input, { auth: false });
 }
 
+/** The providers connected to the signed-in account. */
+export type SocialLinks = { providers: ("google" | "apple")[] };
+
+/** `GET /auth/social/links`. A failure throws — the profile card shows Try again, never "not connected". */
+export async function getSocialLinks(): Promise<SocialLinks> {
+  return http.get<SocialLinks>("/auth/social/links");
+}
+
+/**
+ * `POST /auth/social/:provider/link` — connect a provider to the account
+ * already signed in. Needs the session and a fresh provider id-token; a
+ * Google account attached elsewhere is a 409 whose sentence says so.
+ */
+export async function linkSocial(
+  provider: "google" | "apple",
+  input: { idToken: string; nonce?: string },
+): Promise<SocialLinks> {
+  return http.post<SocialLinks>(`/auth/social/${provider}/link`, input);
+}
+
+/** `DELETE /auth/social/:provider/link` — refused (400) when it would leave no way to sign in. */
+export async function unlinkSocial(provider: "google" | "apple"): Promise<SocialLinks> {
+  return http.delete<SocialLinks>(`/auth/social/${provider}/link`);
+}
+
 /**
  * `POST /auth/refresh` — rotating refresh; the presented token is revoked and replaced in the same call.
  *

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -15,6 +16,7 @@ import {
   AuthService,
   AuthResult,
   ContinueResult,
+  SocialLinks,
   SocialProviderConfig,
   TokenPair,
 } from './auth.service';
@@ -183,6 +185,38 @@ export class AuthController {
   @Get('social/config')
   socialConfig(): Record<string, SocialProviderConfig> {
     return this.authService.socialConfig();
+  }
+
+  /** The providers connected to the signed-in account. */
+  @HttpCode(HttpStatus.OK)
+  @Get('social/links')
+  socialLinks(@CurrentUser() user: RequestUser): Promise<SocialLinks> {
+    return this.authService.socialLinks(user.userId);
+  }
+
+  /**
+   * Connect a provider to the signed-in account ("Connect Google" on the
+   * profile). Same body as sign-in; needs the session *and* the token.
+   */
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  @Post('social/:provider/link')
+  linkSocial(
+    @CurrentUser() user: RequestUser,
+    @Param('provider', new ParseEnumPipe(SocialProvider)) provider: SocialProvider,
+    @Body() dto: SocialLoginDto,
+  ): Promise<SocialLinks> {
+    return this.authService.linkSocial(user.userId, provider, dto);
+  }
+
+  @Throttle(AUTH_THROTTLE)
+  @HttpCode(HttpStatus.OK)
+  @Delete('social/:provider/link')
+  unlinkSocial(
+    @CurrentUser() user: RequestUser,
+    @Param('provider', new ParseEnumPipe(SocialProvider)) provider: SocialProvider,
+  ): Promise<SocialLinks> {
+    return this.authService.unlinkSocial(user.userId, provider);
   }
 
   @Public()

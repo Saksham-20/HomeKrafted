@@ -1,7 +1,7 @@
 import * as http from 'http';
 import * as argon2 from 'argon2';
 import { SignJWT, exportJWK, generateKeyPair, type JWK, type KeyLike } from 'jose';
-import { API_PREFIX, Harness, createHarness, errorOf, resetDatabase } from './harness';
+import { API_PREFIX, Actor, Harness, auth, createActor, createHarness, errorOf, resetDatabase } from './harness';
 import { validateEnv } from '../../src/config/env.validation';
 
 /**
@@ -401,6 +401,108 @@ describe('POST /auth/social/:provider', () => {
       await post('google', {
         idToken: await mintToken({ sub: 'google-susp', email: 'suspended@example.test' }),
       }).expect(401);
+    });
+  });
+
+  describe('connecting Google to a signed-in account', () => {
+    const link = (actor: Actor, body: Record<string, unknown>) =>
+      h.api().post(`${API_PREFIX}/auth/social/google/link`).set(auth(actor)).send(body);
+    const unlink = (actor: Actor) =>
+      h.api().delete(`${API_PREFIX}/auth/social/google/link`).set(auth(actor));
+
+    it('links a Google identity whose email differs, and that identity then signs in here', async () => {
+      const me = await createActor(h);
+      const res = await link(me, {
+        idToken: await mintToken({ sub: 'google-link-1', email: 'other-address@example.test' }),
+      }).expect(200);
+      expect(res.body.providers).toEqual(['google']);
+
+      const signIn = await post('google', {
+        idToken: await mintToken({ sub: 'google-link-1', email: 'other-address@example.test' }),
+      }).expect(200);
+      // The point of the feature: no second account was minted for that address.
+      expect(signIn.body.user.id).toBe(me.userId);
+      expect(await h.prisma.user.count({ where: { email: 'other-address@example.test' } })).toBe(0);
+
+      const links = await h.api().get(`${API_PREFIX}/auth/social/links`).set(auth(me)).expect(200);
+      expect(links.body.providers).toEqual(['google']);
+    });
+
+    it('is idempotent for the same identity', async () => {
+      const me = await createActor(h);
+      await link(me, { idToken: await mintToken({ sub: 'google-twice' }) }).expect(200);
+      await link(me, { idToken: await mintToken({ sub: 'google-twice' }) }).expect(200);
+      expect(await h.prisma.socialAccount.count({ where: { userId: me.userId } })).toBe(1);
+    });
+
+    it('refuses an identity that already belongs to another account, and moves nothing', async () => {
+      const owner = await post('google', {
+        idToken: await mintToken({ sub: 'google-owned', email: 'owner@example.test' }),
+      }).expect(200);
+      const me = await createActor(h);
+
+      const res = await link(me, {
+        idToken: await mintToken({ sub: 'google-owned', email: 'owner@example.test' }),
+      }).expect(409);
+      expect(errorOf(res).message).toMatch(/different Homekrafted account/i);
+      const row = await h.prisma.socialAccount.findFirst({ where: { providerAccountId: 'google-owned' } });
+      expect(row?.userId).toBe(owner.body.user.id);
+    });
+
+    it('refuses a second, different Google account', async () => {
+      const me = await createActor(h);
+      await link(me, { idToken: await mintToken({ sub: 'google-first' }) }).expect(200);
+      const res = await link(me, { idToken: await mintToken({ sub: 'google-second' }) }).expect(409);
+      expect(errorOf(res).message).toMatch(/disconnect it first/i);
+    });
+
+    it('needs a session — a token alone links nothing', async () => {
+      await h
+        .api()
+        .post(`${API_PREFIX}/auth/social/google/link`)
+        .send({ idToken: await mintToken({ sub: 'google-anon' }) })
+        .expect(401);
+      expect(await h.prisma.socialAccount.count()).toBe(0);
+    });
+
+    it('needs a real token — a session alone links nothing', async () => {
+      const me = await createActor(h);
+      await link(me, {
+        idToken: await mintToken({ sub: 'google-forged', signWith: { privateKey: untrusted.privateKey, kid: trusted.kid } }),
+      }).expect(401);
+      expect(await h.prisma.socialAccount.count()).toBe(0);
+    });
+
+    it('disconnects, after which that identity no longer reaches the account', async () => {
+      const me = await createActor(h);
+      await link(me, { idToken: await mintToken({ sub: 'google-gone', email: 'gone@example.test' }) }).expect(200);
+      const res = await unlink(me).expect(200);
+      expect(res.body.providers).toEqual([]);
+
+      const signIn = await post('google', {
+        idToken: await mintToken({ sub: 'google-gone', email: 'gone@example.test' }),
+      }).expect(200);
+      expect(signIn.body.user.id).not.toBe(me.userId);
+    });
+
+    it('refuses to disconnect the only way in', async () => {
+      // A Google-created account whose address Google would not vouch for
+      // has no email, no phone and no password — Google is the only door.
+      const created = await h.prisma.user.create({
+        data: { name: 'Only Google', referralCode: 'ONLYG1', authProviders: ['google'] },
+      });
+      await h.prisma.socialAccount.create({
+        data: { userId: created.id, provider: 'google', providerAccountId: 'google-only' },
+      });
+      const signIn = await post('google', { idToken: await mintToken({ sub: 'google-only', email: null, emailVerified: true }) }).expect(200);
+
+      const res = await h
+        .api()
+        .delete(`${API_PREFIX}/auth/social/google/link`)
+        .set({ Authorization: `Bearer ${signIn.body.accessToken}` })
+        .expect(400);
+      expect(errorOf(res).message).toMatch(/no way to sign in/i);
+      expect(await h.prisma.socialAccount.count({ where: { userId: created.id } })).toBe(1);
     });
   });
 

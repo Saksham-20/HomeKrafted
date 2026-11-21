@@ -127,7 +127,10 @@ button renders. An Apple Services ID ($99/yr) is still optional.
 address matches an existing account joins it (and *seizes* it if that
 account's email was never verified — password cleared, sessions revoked).
 A phone-only account, or one under a different address, gets a **new**
-account; there is no "connect Google" screen yet.
+account from a cold sign-in — so an existing customer connects Google from
+**/account/profile → Sign-in methods** first (`POST /auth/social/google/link`,
+session + Google token; a Google identity already on another account is
+refused, never moved).
 
 Files: `server/src/auth/social-token-verifier.ts`,
 `server/src/auth/auth.service.ts` (`socialLogin`),
