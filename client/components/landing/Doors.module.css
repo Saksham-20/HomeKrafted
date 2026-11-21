@@ -1,0 +1,227 @@
+@property --seam {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 58%;
+}
+
+.section {
+  padding-block: 0;
+}
+
+/* Right-aligned, where the hero's headline was left: the page swings. */
+.heading {
+  margin: 0 0 clamp(20px, 3vw, 36px);
+  font-family: var(--lp-display);
+  font-size: clamp(32px, 4.6vw, 64px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-align: start;
+}
+
+.headingTurn {
+  color: var(--lp-pine);
+}
+
+.split {
+  display: grid;
+  gap: 14px;
+}
+
+.panel {
+  position: relative;
+  display: block;
+  min-height: 520px;
+  overflow: hidden;
+  border-radius: 18px;
+  color: var(--lp-on-pine);
+  text-decoration: none;
+  isolation: isolate;
+}
+
+.panel:hover {
+  color: var(--lp-on-pine);
+}
+
+.photoBox {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+
+.photo.photo {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto !important;
+  border-radius: 0;
+}
+
+.photo img {
+  object-fit: cover;
+  transition: transform 900ms var(--lp-ease);
+}
+
+/* A scrim deep at the foot, where the words are. */
+.panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(18 35 26 / 0.05) 30%, rgb(18 35 26 / 0.82) 100%);
+}
+
+.body {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: clamp(22px, 4vw, 44px);
+}
+
+.title {
+  /* Two lines always, so a narrowing half never clips a long word. */
+  max-width: 8ch;
+  font-family: var(--lp-display);
+  font-size: clamp(34px, 4vw, 54px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+.soon {
+  justify-self: start;
+}
+
+.blurb {
+  max-width: 34ch;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-family: var(--lp-display);
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.disc {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--lp-gold-bright);
+  color: var(--lp-pine-deep);
+  transition: transform 300ms var(--lp-ease);
+}
+
+.discIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.panel:focus-visible {
+  outline: 3px solid var(--lp-gold-bright);
+  outline-offset: 4px;
+}
+
+/* ── Desktop: one stage, a diagonal seam ─────────────────────── */
+
+@media (min-width: 900px) {
+  .split {
+    --skew: 3.5%;
+    --gap: 12px;
+    position: relative;
+    display: grid;
+    grid-template-areas: "stage";
+    height: clamp(520px, 70vh, 780px);
+  }
+
+  .panel {
+    grid-area: stage;
+    min-height: 0;
+    border-radius: 22px;
+    transition: clip-path 0s;
+  }
+
+  .gifts {
+    clip-path: polygon(
+      0 0,
+      calc(var(--seam) + var(--skew)) 0,
+      calc(var(--seam) - var(--skew)) 100%,
+      0 100%
+    );
+  }
+
+  .food {
+    clip-path: polygon(
+      calc(var(--seam) + var(--skew) + var(--gap)) 0,
+      100% 0,
+      100% 100%,
+      calc(var(--seam) - var(--skew) + var(--gap)) 100%
+    );
+  }
+
+  /* Each photograph is bounded to the widest its own half can open to,
+     so neither shows a random strip of a frame laid across the screen. */
+  .gifts .photoBox {
+    inset: 0 22% 0 0;
+  }
+
+  .food .photoBox {
+    inset: 0 0 0 30%;
+  }
+
+  .body {
+    width: min(420px, 38%);
+  }
+
+  .food .body {
+    inset-inline: auto 0;
+    justify-items: end;
+    text-align: end;
+  }
+
+  .food .soon {
+    justify-self: end;
+  }
+
+  .blurb,
+  .cta {
+    transition: opacity 300ms var(--lp-ease);
+  }
+
+  .panel[data-state="shut"] .blurb,
+  .panel[data-state="shut"] .cta,
+  .panel[data-state="shut"] .soon {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 900px) and (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .split {
+    transition: --seam 700ms var(--lp-ease-io);
+  }
+
+  .split[data-active="gifts"] {
+    --seam: 72%;
+  }
+
+  .split[data-active="food"] {
+    --seam: 30%;
+  }
+
+  .panel[data-state="open"] .photo img {
+    transform: scale(1.05);
+  }
+
+  .panel[data-state="open"] .disc {
+    transform: translateX(6px);
+  }
+}

@@ -27,7 +27,7 @@ export function AppInstallPanel({ className }: AppInstallPanelProps) {
             Shop on mobile web
             <ArrowRight size={15} strokeWidth={2.2} aria-hidden="true" />
           </Link>
-          <span className={styles.comingSoonPill}>Native iOS &amp; Android apps coming soon</span>
+          <span className={styles.comingSoonPill}>Coming soon on Google Play</span>
         </div>
       </div>
 

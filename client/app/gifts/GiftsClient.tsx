@@ -25,6 +25,7 @@ import { describeEmptyBrowse } from "@/lib/browse-empty";
 import { sortGifts } from "@/lib/gift-sort";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { isOnSale, productMatchesFacets, SHIPPING_LABELS } from "@/lib/browse-facets";
 import { listingPrice } from "@/lib/kitchens";
 import type { Department } from "@/lib/api/catalog";
@@ -99,6 +100,8 @@ export function GiftsClient({
   vendorNameById,
   initialQuery,
 }: GiftsClientProps) {
+  const { ready: authReady, role } = useAuth();
+  const canCustomiseSequence = authReady && role === "admin";
   const priceBounds = useMemo(() => {
     if (products.length === 0) return [0, 0] as [number, number];
     const prices = products.map(priceOf);
@@ -585,6 +588,11 @@ export function GiftsClient({
             </span>
           </button>
           <SortSelect value={sort} onChange={setSort} hasDistance={hasDistance} defaultLabel="Recommended" />
+          {canCustomiseSequence && (
+            <Link href="/admin/catalog/featured" className={styles.customiseSequence}>
+              Customise sequence
+            </Link>
+          )}
         </div>
 
         {activeChips.length > 0 && (

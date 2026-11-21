@@ -40,10 +40,17 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* `clip`, never `hidden`. With both elements non-visible, the root's value
+   goes to the viewport and `body` keeps its own — and `hidden` makes that a
+   scroll container that never scrolls, because it grows with the page.
+   Every `position: sticky` and every `animation-timeline: view()` under it
+   then binds to `body` and never moves (measured 2026-09-23: each view
+   timeline reported "finished" at scrollY 0). `clip` contains the same
+   horizontal overflow without creating a scroll container. */
 html,
 body {
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {

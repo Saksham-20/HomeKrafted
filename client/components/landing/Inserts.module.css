@@ -1,0 +1,90 @@
+.section {
+  padding-block: clamp(32px, 4vw, 56px) clamp(56px, 7vw, 96px);
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.insert {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: clamp(24px, 3.4vw, 40px);
+  border-radius: var(--lp-r);
+  text-decoration: none;
+  transition: transform 320ms var(--lp-ease), box-shadow 320ms var(--lp-ease);
+}
+
+.first {
+  background: var(--lp-pine-deep);
+  color: #fff;
+}
+
+.second {
+  background: var(--lp-plaster);
+  color: var(--lp-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .insert:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--lp-shadow-lift);
+  }
+}
+
+.first:hover {
+  color: #fff;
+}
+
+.second:hover {
+  color: var(--lp-ink);
+}
+
+.title {
+  font-family: var(--lp-display);
+  display: block;
+  font-size: clamp(26px, 3vw, 40px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.titleLine {
+  display: block;
+}
+
+.body {
+  max-width: 44ch;
+  color: inherit;
+  opacity: 0.88;
+}
+
+.cta {
+  justify-self: start;
+  margin-top: 6px;
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-color: var(--lp-brass);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+.insert:focus-visible {
+  outline: 3px solid var(--lp-madder);
+  outline-offset: 3px;
+}
+
+@media (min-width: 780px) {
+  .stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insert {
+    transition: none;
+  }
+}

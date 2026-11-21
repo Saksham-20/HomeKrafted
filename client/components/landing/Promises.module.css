@@ -1,0 +1,161 @@
+.section {
+  padding-block: clamp(72px, 9vw, 128px);
+}
+
+.grid {
+  display: grid;
+  gap: 32px;
+}
+
+.title {
+  margin: 0 0 24px;
+  max-width: 13ch;
+  font-family: var(--lp-display);
+  font-size: clamp(30px, 3.8vw, 56px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.turn {
+  color: var(--lp-madder);
+}
+
+.note {
+  min-height: 160px;
+  padding: 24px 26px;
+  border-radius: var(--lp-r);
+  background: var(--lp-pine-deep);
+  color: var(--lp-on-pine);
+}
+
+.noteText {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+.noteLead {
+  font-family: var(--lp-display);
+  display: block;
+  margin-bottom: 8px;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.stamps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--lp-line);
+  border-left: 1px solid var(--lp-line);
+}
+
+.stamps li {
+  border-right: 1px solid var(--lp-line);
+  border-bottom: 1px solid var(--lp-line);
+}
+
+.stamp {
+  display: grid;
+  justify-items: start;
+  align-content: space-between;
+  gap: 22px;
+  width: 100%;
+  min-height: 150px;
+  padding: 18px;
+  border: 0;
+  background: transparent;
+  color: var(--lp-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color 240ms var(--lp-ease), color 240ms var(--lp-ease);
+}
+
+.ring {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--lp-oak-deep);
+  border-radius: 50%;
+  color: var(--lp-oak-deep);
+  transition: background-color 240ms var(--lp-ease), color 240ms var(--lp-ease);
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+}
+
+.label {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stamp:hover {
+  background: var(--lp-plaster);
+}
+
+.stampOn,
+.stampOn:hover {
+  --hk-focus-ring: var(--lp-turmeric);
+  background: var(--lp-pine-deep);
+  color: #fff;
+}
+
+.stampOn .ring {
+  border-color: var(--lp-brass);
+  background: var(--lp-brass);
+  color: var(--lp-pine-deep);
+}
+
+.stamp:focus-visible {
+  outline: 3px solid var(--lp-madder);
+  outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .noteText {
+    animation: noteIn 320ms var(--lp-ease) both;
+  }
+}
+
+@keyframes noteIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (min-width: 640px) {
+  .stamps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: 64px;
+    align-items: start;
+  }
+
+  .stamp {
+    min-height: 176px;
+    padding: 22px;
+  }
+
+  .label {
+    font-size: 19px;
+  }
+}

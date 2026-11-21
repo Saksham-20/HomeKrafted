@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, Hanken_Grotesk, IBM_Plex_Mono, Instrument_Serif, Kalam, Kaushan_Script } from "next/font/google";
+import { Fraunces, Hanken_Grotesk, IBM_Plex_Mono, Kalam } from "next/font/google";
 import "@/styles/tokens.css";
 import "@/styles/globals.css";
 import "@/styles/tokens.extend.css";
@@ -64,29 +64,6 @@ const kalam = Kalam({
   display: "swap",
 });
 
-// Instrument Serif — the home page's section headings only ("Bestsellers",
-// "Someone you owe a present", ...), owner-requested as a deliberate
-// departure from Fraunces there (2026-09-17). Not part of the shared type
-// ramp: every other h1/h2 on the site stays on `--hk-font-display`. Single
-// weight, has an italic if a section ever wants emphasis.
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-  variable: "--font-instrument-serif",
-  display: "swap",
-});
-
-// Kaushan Script — the hero's "to the world" brush line ONLY (owner-supplied
-// hero design, 2026-08-13). Not part of the handoff type ramp; don't reach
-// for it anywhere else without a design decision. Single weight.
-const kaushan = Kaushan_Script({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-script",
-  display: "swap",
-});
-
 /**
  * Site-wide defaults. `metadataBase` is what makes every route's
  * relative Open Graph image and canonical resolve to an absolute URL —
@@ -136,9 +113,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${hanken.variable} ${plexMono.variable} ${instrumentSerif.variable} ${kalam.variable} ${kaushan.variable}`}
+      className={`${fraunces.variable} ${hanken.variable} ${plexMono.variable} ${kalam.variable}`}
     >
       <body>
+        {/* First thing in the tab order (M16). A keyboard user landing on
+            any page otherwise has to tab through the whole header and the
+            nav before reaching the content — on every page, every time.
+            Restored 2026-09-23: commit c9a014b dropped it and left its
+            `.hk-skip-link` styles and `#main-content` target behind. */}
+        <a className="hk-skip-link" href="#main-content">
+          Skip to content
+        </a>
         <AuthProvider>
           {/* Outside the shopping providers: where the buyer is decides
             which kitchens can reach them, so cart/wishlist/wallet all

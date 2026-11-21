@@ -70,25 +70,14 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
    */
   const onLanding = pathname === "/";
   const [revealed, setRevealed] = useState(false);
-  const [heroExpanded, setHeroExpanded] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!onLanding) return;
-    const onHeroState = (e: Event) => {
-      const custom = e as CustomEvent<{ expanded: boolean }>;
-      if (custom.detail) {
-        setHeroExpanded(Boolean(custom.detail.expanded));
-      }
-    };
-    window.addEventListener("hk-hero-state", onHeroState);
-    return () => window.removeEventListener("hk-hero-state", onHeroState);
-  }, [onLanding]);
-
-  useEffect(() => {
-    if (!onLanding) return;
-    // Watch the hero section; the navbar logo appears when the user scrolls past the hero section
-    const target = document.getElementById("hk-hero-section") || document.getElementById("hk-hero-brand");
+    // Watch the hero's own wordmark (`#hk-hero-brand`, HeroTable); the bar
+    // turns solid and takes the logo over once it has scrolled past the
+    // bar's 64px band. The campaign banner is the fallback target.
+    const target = document.getElementById("hk-hero-brand") || document.getElementById("hk-hero-section");
     if (target && "IntersectionObserver" in window) {
       const observer = new IntersectionObserver(
         ([entry]) => {
@@ -103,7 +92,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     }
     // Fallback if IntersectionObserver is unavailable
     const onScroll = () => {
-      const hero = document.getElementById("hk-hero-section") || document.getElementById("hk-hero-brand");
+      const hero = document.getElementById("hk-hero-brand") || document.getElementById("hk-hero-section");
       if (!hero) {
         setRevealed(window.scrollY > 400);
         return;
@@ -228,24 +217,20 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
   );
 
   /*
-   * The M52/M56 "logo hands over" reveal (hidden until the hero's own
-   * brand lockup scrolls past, then fades in) assumed a photographic
-   * hero carrying its own wordmark moment. The ISB Mohali campaign
-   * banner (`IsbCrochetBanner`, 2026-09-16, owner) replaced that hero
-   * with a flat graphic that carries no Homekrafted mark of its own, so
-   * waiting for a "hand-over" that never visually happens just left the
-   * landing page with no logo whatsoever. Always show it while this
-   * banner stands in for the hero; restore `!onLanding || revealed ||
-   * heroExpanded` if the split hero (`SplitPanels`) comes back.
+   * The logo hands over (M56, restored 2026-09-23 as owner decision D8):
+   * on `/` the hero carries the wordmark (`#hk-hero-brand` in
+   * `components/landing/HeroTable`), so the bar's copy waits, invisible
+   * but in its slot, and fades in as the bar turns solid. Every other
+   * route shows it always. Below 900px the stylesheet shows it regardless
+   * — a phone's bar is the only brand mark the first screen can afford.
    */
-  const showLogo = true;
+  const showLogo = !onLanding || revealed;
 
   return (
     <header
       className={clsx(styles.header, onLanding && styles.landing)}
       data-revealed={onLanding ? String(revealed) : undefined}
       data-logo-visible={onLanding ? String(showLogo) : "true"}
-      data-hero-expanded={onLanding ? String(heroExpanded) : undefined}
     >
       <div className={clsx("container", "container-wide", styles.row)}>
         {onLanding ? (

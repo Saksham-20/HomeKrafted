@@ -1,0 +1,33 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-block: calc(54px + 20px) 24px;
+  background: var(--lp-paper);
+  color: var(--lp-ink);
+}
+
+.stage {
+  position: relative;
+}
+
+.brand {
+  display: none;
+}
+
+.brandMark {
+  display: block;
+  width: auto;
+  height: 52px;
+}
+
+@media (min-width: 900px) {
+  .hero {
+    padding-top: calc(72px + clamp(14px, 2vw, 28px));
+    padding-bottom: 56px;
+  }
+
+  .brand {
+    display: block;
+    margin-bottom: clamp(14px, 2vw, 24px);
+  }
+}

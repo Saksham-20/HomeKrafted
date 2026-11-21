@@ -1,0 +1,137 @@
+.section {
+  padding-block: clamp(64px, 8vw, 112px) clamp(32px, 4vw, 56px);
+}
+
+.cloud {
+  display: grid;
+  gap: clamp(28px, 4vw, 44px);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 8px 32px;
+}
+
+.title {
+  margin: 0;
+  max-width: 18ch;
+  font-size: clamp(28px, 3.2vw, 44px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--lp-ink);
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-color: var(--lp-oak);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+/* Photographed categories as framed pictures hung in a row. */
+.stickers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A phone gets one swipeable row, not seven screens of frames. */
+@media (max-width: 639px) {
+  .stickers {
+    /* the container's own side padding, so the rail bleeds to the edge */
+    --rail-pad: var(--hk-s5);
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 42%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--rail-pad);
+    margin-inline: calc(-1 * var(--rail-pad));
+    padding: 4px var(--rail-pad) 12px;
+    scrollbar-width: none;
+  }
+
+  .slot {
+    scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 420px) {
+  .stickers {
+    --rail-pad: var(--hk-s4);
+  }
+}
+
+.slot {
+  min-width: 0;
+}
+
+.sticker {
+  display: grid;
+  gap: 10px;
+  color: var(--lp-ink);
+  text-decoration: none;
+}
+
+.photo.photo {
+  width: 100%;
+  aspect-ratio: 4 / 5 !important;
+  border: 6px solid #fff;
+  border-radius: 2px !important;
+  box-shadow: var(--lp-shadow);
+  transition: transform 420ms var(--lp-ease), box-shadow 420ms var(--lp-ease);
+}
+
+.photo img {
+  object-fit: cover;
+}
+
+.name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sticker:hover .photo {
+    transform: translateY(-4px);
+    box-shadow: var(--lp-shadow-lift);
+  }
+}
+
+.sticker:focus-visible {
+  outline: 3px solid var(--lp-madder);
+  outline-offset: 4px;
+}
+
+@media (min-width: 640px) {
+  .stickers {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .stickers {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 32px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo {
+    transition: none;
+  }
+}

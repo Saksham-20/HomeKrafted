@@ -1,0 +1,169 @@
+/* The walnut room: a quiet, dark wall for the one chapter about what
+   happens between a click and a doorstep. */
+.band {
+  --hk-focus-ring: var(--lp-turmeric);
+  background: var(--lp-walnut);
+  color: #f7f2e8;
+}
+
+.inner {
+  display: grid;
+  gap: 40px;
+  padding-block: clamp(72px, 9vw, 128px);
+}
+
+.label {
+  margin: 0;
+  max-width: 12ch;
+  font-size: clamp(30px, 3.8vw, 56px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.words,
+.progress {
+  display: none;
+}
+
+/* A hallway: a line down the left with a brass nail at each stop. */
+.steps {
+  position: relative;
+  display: grid;
+  gap: 36px;
+  margin: 0;
+  padding: 0 0 0 36px;
+  list-style: none;
+}
+
+.steps::before {
+  content: "";
+  position: absolute;
+  inset: 8px auto 8px 6px;
+  width: 1px;
+  background: rgb(247 242 232 / 0.25);
+}
+
+.step {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  opacity: 0.72;
+  transition: opacity 400ms var(--lp-ease);
+}
+
+.step::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: -36px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgb(247 242 232 / 0.35);
+  transition: background-color 400ms var(--lp-ease);
+}
+
+.stepOn {
+  opacity: 1;
+}
+
+.stepOn::before {
+  background: var(--lp-brass);
+}
+
+.stepWord {
+  font-size: 15px;
+  font-weight: 600;
+  color: #b9cbc1;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: #fff;
+}
+
+.stepBody {
+  max-width: 52ch;
+  margin: 0;
+  color: #d6e0da;
+}
+
+@media (min-width: 900px) {
+  /* One authored moment: the word for the step in the middle of the
+     screen, crossfaded through a short blur so two words never overlap
+     as two distinct shapes. */
+  .words {
+    display: grid;
+    margin: 36px 0 0;
+  }
+
+  .word {
+    grid-area: 1 / 1;
+    font-family: var(--lp-display);
+    font-size: clamp(64px, 7.4vw, 116px);
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings: "SOFT" 100, "WONK" 1;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: #f7f2e8;
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+    transition:
+      opacity 520ms var(--lp-ease),
+      transform 520ms var(--lp-ease),
+      filter 520ms var(--lp-ease);
+  }
+
+  .wordOn {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  .progress {
+    display: flex;
+    gap: 8px;
+    margin-top: 32px;
+  }
+
+  .tick {
+    width: 32px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgb(247 242 232 / 0.2);
+    transition: background-color 400ms var(--lp-ease);
+  }
+
+  .tickOn {
+    background: var(--lp-brass);
+  }
+
+  .inner {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    column-gap: 64px;
+    align-items: start;
+  }
+
+  .pin {
+    position: sticky;
+    top: 120px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .step::before,
+  .word,
+  .tick {
+    transition: none;
+  }
+}

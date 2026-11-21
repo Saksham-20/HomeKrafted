@@ -518,47 +518,49 @@ test.describe('the food page opens on kitchens (M51)', () => {
   });
 });
 
-test.describe('the split landing screen (M51)', () => {
+test.describe('the landing doors (2026-09-23)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  const food = (page: import('@playwright/test').Page) =>
-    page.locator('a[href="/shop"]').filter({ hasText: 'Find a kitchen' }).first();
-  const gifts = (page: import('@playwright/test').Page) =>
-    page.locator('a[href="/gifts"]').filter({ hasText: 'Browse gifts' }).first();
+  // The two doors are clipped layers of one stage, so their boxes never
+  // change size — the opening is the stage's `--seam` (58% at rest, 72%
+  // with gifts open). Read that, and the state the stage reports, rather
+  // than a width that is the same at every moment.
+  const stage = (page: import('@playwright/test').Page) =>
+    page.locator('section[aria-labelledby="lp-doors-title"] [data-active]');
+  const seam = (page: import('@playwright/test').Page) =>
+    stage(page).evaluate((el) => getComputedStyle(el).getPropertyValue('--seam').trim());
 
   test('keyboard focus opens a half, not only the mouse', async ({ page, viewport }) => {
-    // Below 780 the halves are stacked and driven by the scroll position
-    // instead (`hover: none` — see `SplitPanels.tsx`), so there is no
-    // width to grow and the observer, not focus, owns the attribute.
-    test.skip((viewport?.width ?? 0) < 780, 'the split is scroll-driven on a phone');
+    // Below 900 the doors stack, level, with nothing to open.
+    test.skip((viewport?.width ?? 0) < 900, 'the doors stack on a phone');
     await skipLocationPrompt(page);
     await page.goto('/');
 
-    const even = await food(page).boundingBox();
-    const evenGifts = await gifts(page).boundingBox();
-    expect(Math.abs(even!.width - evenGifts!.width)).toBeLessThan(2);
+    await expect(stage(page)).toHaveAttribute('data-active', 'none');
+    expect(await seam(page)).toBe('58%');
 
     // Focus, not hover: an expansion only a pointer can trigger is
-    // decoration, and this is the page's primary navigation.
-    await gifts(page).focus();
-    await page.waitForTimeout(900);
-    const opened = await gifts(page).boundingBox();
-    expect(opened!.width).toBeGreaterThan(even!.width * 1.3);
+    // decoration, and these are the page's two catalogues.
+    await stage(page).locator('a[href="/gifts"]').focus();
+    await expect(stage(page)).toHaveAttribute('data-active', 'gifts');
+    await expect.poll(() => seam(page)).toBe('72%');
   });
 
-  test('reduced motion keeps both halves level', async ({ page }) => {
+  test('reduced motion keeps the seam where it is', async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 0) < 900, 'the doors stack on a phone');
     // The global reduced-motion floor removes the *transition*, so without
-    // the media guard in `SplitPanels.module.css` this would jump from half
-    // the screen to three quarters with no motion at all — worse than not
-    // moving.
+    // the media guard in `Doors.module.css` the seam would jump from 58%
+    // to 72% with no motion at all — worse than not moving.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await skipLocationPrompt(page);
     await page.goto('/');
 
-    await food(page).hover();
+    // Inside the food half: the doors are clipped layers of one stage, and
+    // `clip-path` clips hit-testing too, so the stage's centre is gifts.
+    const box = await stage(page).boundingBox();
+    await stage(page).hover({ position: { x: box!.width * 0.88, y: box!.height / 2 } });
+    await expect(stage(page)).toHaveAttribute('data-active', 'food');
     await page.waitForTimeout(500);
-    const foodBox = await food(page).boundingBox();
-    const giftsBox = await gifts(page).boundingBox();
-    expect(Math.abs(foodBox!.width - giftsBox!.width)).toBeLessThan(2);
+    expect(await seam(page)).toBe('58%');
   });
 });

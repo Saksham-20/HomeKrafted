@@ -1,0 +1,109 @@
+/* The closing room: a walnut wall, one sentence, one door. */
+.cover {
+  --hk-focus-ring: var(--lp-turmeric);
+  background: var(--lp-walnut);
+  /* the footer below is dark too; a hairline keeps two rooms from melting */
+  border-bottom: 1px solid rgb(247 242 232 / 0.12);
+  color: #f7f2e8;
+}
+
+.inner {
+  display: grid;
+  gap: 32px;
+  padding-block: clamp(72px, 9vw, 128px);
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(32px, 4.6vw, 68px);
+  font-weight: 600;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-wrap: balance;
+}
+
+.titleLine {
+  display: block;
+}
+
+.titleTwo {
+  color: #e8dcc2;
+  font-style: italic;
+}
+
+.side {
+  display: grid;
+  gap: 28px;
+  align-content: start;
+}
+
+.blurb {
+  max-width: 52ch;
+  margin: 0;
+  color: #d6e0da;
+  font-size: 18px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: var(--lp-r);
+  background: #f7f2e8;
+  color: var(--lp-walnut);
+  font-size: 17px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 220ms var(--lp-ease), transform 160ms var(--lp-ease);
+}
+
+.cta:hover {
+  background: #fff;
+  color: var(--lp-walnut);
+}
+
+.cta:active {
+  transform: scale(0.97);
+}
+
+.ctaIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.link {
+  color: #f7f2e8;
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-color: var(--lp-brass);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+.link:hover {
+  color: #fff;
+}
+
+.cta:focus-visible,
+.link:focus-visible {
+  outline: 3px solid var(--lp-turmeric);
+  outline-offset: 3px;
+}
+
+@media (min-width: 900px) {
+  .inner {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: 72px;
+    align-items: end;
+  }
+}

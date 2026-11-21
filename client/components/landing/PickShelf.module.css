@@ -1,0 +1,71 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 28px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.photo {
+  margin-bottom: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 300ms var(--lp-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .photo {
+    transform: translateY(-3px);
+  }
+}
+
+.name {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.maker {
+  color: var(--lp-graphite);
+  font-size: 14px;
+}
+
+.price {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.was {
+  margin-left: 8px;
+  color: var(--lp-graphite);
+  font-weight: 400;
+}
+
+@media (max-width: 780px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo {
+    transition: none;
+  }
+  .card:hover .photo {
+    transform: none;
+  }
+}

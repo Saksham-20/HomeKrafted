@@ -1,0 +1,123 @@
+.section {
+  padding-block: clamp(56px, 7vw, 96px);
+}
+
+.inner {
+  display: grid;
+  gap: 40px;
+  align-items: center;
+}
+
+.title {
+  margin: 0 0 14px;
+  max-width: 16ch;
+  font-family: var(--lp-display);
+  font-size: clamp(36px, 5.2vw, 76px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.soon {
+  display: block;
+  color: var(--lp-madder);
+  font-style: italic;
+}
+
+.lede {
+  max-width: 44ch;
+  margin: 0 0 28px;
+  color: var(--lp-graphite);
+}
+
+/* A phone, drawn in plain shapes: an outline, not a screenshot of an app
+   that does not exist yet. */
+.phone {
+  position: relative;
+  justify-self: start;
+  width: 168px;
+  aspect-ratio: 9 / 18;
+  padding: 10px;
+  border-radius: 28px;
+  background: var(--lp-walnut);
+  box-shadow: var(--lp-shadow-lift);
+}
+
+.notch {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 44px;
+  height: 6px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.14);
+  transform: translateX(-50%);
+}
+
+.screen {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  height: 100%;
+  padding: 28px 12px 12px;
+  border-radius: 20px;
+  background: var(--lp-paper);
+}
+
+.bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--lp-line);
+}
+
+.barShort {
+  width: 55%;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tiles span {
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--lp-plaster);
+}
+
+/* The screen says it plainly: nothing to download yet. */
+.stamp {
+  display: grid;
+  place-items: center;
+  margin-top: 14px;
+  padding: 14px 6px;
+  border: 1.5px dashed var(--lp-madder);
+  border-radius: 8px;
+  color: var(--lp-madder);
+  font-family: var(--lp-display);
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.1;
+  text-align: center;
+  transform: rotate(-4deg);
+}
+
+.tiles span:first-child {
+  background: var(--lp-pine);
+}
+
+@media (min-width: 780px) {
+  .inner {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 4fr);
+  }
+
+  .phone {
+    justify-self: center;
+    width: 240px;
+    transform: rotate(0deg);
+  }
+}

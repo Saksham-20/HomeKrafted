@@ -1,0 +1,132 @@
+.section {
+  padding-block: clamp(64px, 8vw, 112px);
+}
+
+.head {
+  display: grid;
+  gap: 20px;
+  margin-bottom: clamp(28px, 4vw, 48px);
+}
+
+.title {
+  margin: 0 0 16px;
+  font-family: var(--lp-display);
+  font-size: clamp(30px, 3.6vw, 52px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.switch,
+.tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--lp-line);
+  border-radius: var(--lp-r);
+  background: var(--lp-paper);
+}
+
+.switchBtn,
+.tab {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--lp-graphite);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 200ms var(--lp-ease), color 200ms var(--lp-ease), transform 160ms var(--lp-ease);
+}
+
+.switchBtn:active,
+.tab:active {
+  transform: scale(0.97);
+}
+
+.switchBtn:hover,
+.tab:hover {
+  color: var(--lp-ink);
+}
+
+.switchOn,
+.tabOn {
+  background: var(--lp-pine-deep);
+  color: #fff;
+}
+
+.switchOn:hover,
+.tabOn:hover {
+  color: #fff;
+}
+
+.switchBtn:focus-visible,
+.tab:focus-visible {
+  outline: 3px solid var(--lp-madder);
+  outline-offset: 2px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 24px;
+}
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--lp-ink);
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-color: var(--lp-oak);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+.moreIcon {
+  width: 18px;
+  height: 18px;
+  transition: transform 240ms var(--lp-ease);
+}
+
+.more:hover .moreIcon {
+  transform: translateX(4px);
+}
+
+.panel {
+  display: grid;
+  gap: clamp(28px, 4vw, 52px);
+}
+
+.empty {
+  margin: 0;
+  padding: 48px 0;
+  color: var(--lp-graphite);
+}
+
+.empty a {
+  color: var(--lp-ink);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+
+@media (min-width: 900px) {
+  .head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+
+  .controls {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+}
+

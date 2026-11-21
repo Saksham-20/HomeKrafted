@@ -39,6 +39,7 @@
   inset-inline: 0;
   top: 0;
   z-index: 50;
+  font-family: var(--hk-font-body);
   background: transparent;
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
@@ -119,8 +120,6 @@
 .landing .logoMark {
   height: clamp(28px, 3.2vw, 36px);
   width: auto;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.65));
-  transition: filter 0.3s ease;
 }
 
 .landing[data-revealed="true"] .logoMark {
@@ -136,47 +135,45 @@
   z-index: 2;
 }
 
-/* ── Transparent Header over Hero at Top ── */
+/* At rest the landing bar sits on the paper-coloured opening (the split
+   hero, 2026-11-20), so the controls are ink. Once the hero's wordmark
+   leaves, the existing white bar takes over. */
 .landing:not([data-revealed="true"]) {
-  background: linear-gradient(
-    180deg,
-    rgba(10, 20, 15, 0.6) 0%,
-    rgba(10, 20, 15, 0.25) 60%,
-    transparent 100%
-  );
+  background: transparent;
   border-bottom-color: transparent;
 }
 
-
 .landing:not([data-revealed="true"]) .navLink {
-  color: #ffffff;
+  color: #123c36;
   font-weight: 600;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
 }
 
 .landing:not([data-revealed="true"]) .navLink:hover {
-  color: var(--hk-gold-bright, #e4c874);
+  color: #a8442a;
 }
 
 .landing:not([data-revealed="true"]) .utilityIcon {
-  color: #ffffff;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
+  color: #123c36;
+  filter: none;
 }
 
 .landing:not([data-revealed="true"]) .utilityIcon:hover {
-  color: var(--hk-gold-bright, #e4c874);
+  color: #a8442a;
 }
 
 .landing:not([data-revealed="true"]) .hamburger {
-  color: #ffffff;
-  border: 1px solid rgba(228, 200, 116, 0.5);
-  background: rgba(18, 36, 26, 0.72);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  color: #123c36;
+  border: 1px solid rgb(18 60 54 / 0.4);
+  background: #fbf8ef;
 }
 
 .landing:not([data-revealed="true"]) .hamburger:hover {
-  background: rgba(18, 36, 26, 0.9);
-  border-color: var(--hk-gold-bright, #e4c874);
+  border-color: #123c36;
+}
+
+.landing:not([data-revealed="true"]) .logo {
+  padding: 4px 7px;
+  border-radius: 4px;
 }
 
 /* ── Scrolled / Solid Header Past Hero ── */

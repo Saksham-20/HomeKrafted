@@ -1,0 +1,111 @@
+/*
+ * `/` — a house, room by room (2026-11-21 pass): Fraunces headings over
+ * Hanken Grotesk, the site's own pair. Pine and brass are the anchors,
+ * terracotta the one warm accent, linen and white the walls. The two dark
+ * rooms are ink-green, not walnut — brown on beige read muddy.
+ */
+.root {
+  /* A house, room by room: linen and plaster walls, oak shelves, a dusk
+     pine room, brass as fill only (gold never carries text). */
+  --lp-paper: #f7f2e8;
+  --lp-plaster: #efe9dd;
+  --lp-ink: #1d2b27;
+  --lp-graphite: #58635d;
+  --lp-madder: #a04d2e; /* = --hk-terracotta-text: AA as text and under white */
+  --lp-madder-wash: #f1ddd0;
+  --lp-vermilion: #b96c55;
+  --lp-marigold: #dda94f;
+  --lp-turmeric: #f1d88c;
+  --lp-line: #d9ccb4;
+  --lp-pine: #315a50;
+  --lp-pine-deep: #123c36;
+  --lp-gold: var(--hk-gold);
+  --lp-gold-bright: #e5c879;
+  --lp-gold-tint: #f5e9c8;
+  --lp-pine-tint: #e1ebe5;
+  --lp-on-pine: #fcf8ed;
+  --lp-oak: #b58b5c;
+  --lp-oak-deep: #8a6540;
+  --lp-walnut: #14241f; /* the dark rooms: ink-green, kept under its old name */
+  --lp-brass: #c19a4b;
+  --lp-r: 6px;
+
+  --lp-display: var(--hk-font-display);
+  --lp-text: var(--hk-font-body);
+  --lp-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --lp-ease-io: cubic-bezier(0.77, 0, 0.175, 1);
+  --lp-shadow: 0 10px 24px -14px rgb(47 36 27 / 0.4), 0 2px 4px rgb(47 36 27 / 0.08);
+  --lp-shadow-lift: 0 24px 44px -20px rgb(47 36 27 / 0.45), 0 5px 10px rgb(47 36 27 / 0.1);
+
+
+  overflow-x: clip;
+  background: var(--lp-paper);
+  color: var(--lp-ink);
+  caret-color: var(--lp-madder);
+  font-family: var(--lp-text);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.6;
+  scrollbar-color: var(--lp-oak) var(--lp-paper);
+}
+
+/* Beats each module's `.title` (0,1,1 > 0,1,0), so every heading on the
+   page takes the display voice from one place. Fraunces reads loose and
+   heavy at display size: 600, a touch of SOFT, tighter tracking. */
+.root :is(h1, h2, h3) {
+  font-family: var(--lp-display);
+  font-weight: 600;
+  font-variation-settings: "SOFT" 40;
+  letter-spacing: -0.02em;
+}
+
+/* Hanken is loaded at 400/500/600; 700 would be synthesised. */
+.root :is(strong, b) {
+  font-weight: 600;
+}
+
+.root ::selection {
+  background: var(--lp-turmeric);
+  color: var(--lp-pine-deep);
+}
+
+/* Pine on the light walls (turmeric there was 1.26:1); each dark room
+   sets --hk-focus-ring to turmeric next to the background that needs it. */
+.root :is(a, button, summary):focus-visible {
+  outline-color: var(--hk-focus-ring, var(--lp-pine-deep));
+}
+
+/* Each chapter is a room with its own wall. */
+.shelfSheet {
+  background: var(--lp-plaster);
+}
+
+.proofSheet {
+  background: var(--lp-paper);
+}
+
+.duskSheet {
+  --hk-focus-ring: var(--lp-turmeric);
+  --lp-ink: #f7f2e8;
+  --lp-graphite: #c3d0ca;
+  --lp-line: rgb(247 242 232 / 0.22);
+  --lp-madder: #f7f2e8;
+  background: var(--lp-pine-deep);
+  color: #f7f2e8;
+}
+
+.promiseSheet {
+  background: var(--lp-paper);
+}
+
+.appSheet {
+  background: var(--lp-plaster);
+}
+
+.waysSheet {
+  background: var(--lp-paper);
+}
+
+.paperSheet {
+  background: var(--lp-paper);
+}

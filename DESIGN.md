@@ -1,134 +1,290 @@
-# Design System — Homekrafted ("The Maker's Table" refinement)
+---
+name: Homekrafted
+description: Maker-first commerce on a warm table, with a festive gift-wrap counter on the homepage.
+colors:
+  primary-pine: "#234233"
+  primary-pine-deep: "#1B3327"
+  brand-gold: "#B98724"
+  terracotta: "#B65D3C"
+  ink: "#1A140E"
+  paper-canvas: "#F7F1E6"
+  surface: "#FFFFFF"
+  warm-border: "#E5DCC9"
+  home-wrap-paper: "#FBF8EF"
+  home-counter-pine: "#123C36"
+  home-rani-pink: "#8F435D"
+  home-vermilion: "#B96C55"
+  home-marigold: "#DDA94F"
+  home-turmeric: "#F1D88C"
+  home-on-pine: "#FCF8ED"
+  home-seam: "#D9CBA7"
+typography:
+  display:
+    fontFamily: "Fraunces, Georgia, serif"
+    fontSize: "clamp(34px, 4.4vw, 58px)"
+    fontWeight: 700
+    lineHeight: 1.04
+    letterSpacing: "-0.02em"
+    fontVariation: "SOFT 75, WONK 1"
+  body:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "15px"
+    fontWeight: 400
+    lineHeight: 1.6
+  label:
+    fontFamily: "IBM Plex Mono, ui-monospace, monospace"
+    fontSize: "13px"
+    fontWeight: 500
+    lineHeight: 1.5
+    letterSpacing: "0.16em"
+  landing-display:
+    fontFamily: "Fraunces, Georgia, serif"
+    fontSize: "clamp(38px, 6vw, 96px)"
+    fontWeight: 600
+    lineHeight: 0.96
+    letterSpacing: "-0.04em"
+  landing-body:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 400
+    lineHeight: 1.6
+  landing-action:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "18px"
+    fontWeight: 700
+    lineHeight: 1.2
+  landing-control:
+    fontFamily: "Hanken Grotesk, system-ui, sans-serif"
+    fontSize: "16px"
+    fontWeight: 700
+    lineHeight: 1.2
+rounded:
+  print: "4px"
+  insert: "6px"
+  sm: "8px"
+  md: "11px"
+  lg: "16px"
+  xl: "20px"
+  door: "22px"
+  pill: "999px"
+spacing:
+  0: "2px"
+  1: "4px"
+  1h: "6px"
+  2: "8px"
+  2h: "10px"
+  3: "12px"
+  3h: "14px"
+  4: "16px"
+  5: "20px"
+  6: "26px"
+  7: "34px"
+  8: "44px"
+components:
+  landing-button-primary:
+    backgroundColor: "{colors.home-turmeric}"
+    textColor: "{colors.home-counter-pine}"
+    typography: "{typography.landing-action}"
+    rounded: "{rounded.sm}"
+    padding: "0 24px"
+    height: "54px"
+  landing-button-secondary:
+    backgroundColor: "transparent"
+    textColor: "{colors.home-on-pine}"
+    typography: "{typography.landing-control}"
+    padding: "0"
+    height: "48px"
+  landing-filter-tab:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+    typography: "{typography.landing-control}"
+    rounded: "{rounded.print}"
+    padding: "0 20px"
+    height: "44px"
+  landing-filter-tab-active:
+    backgroundColor: "{colors.home-counter-pine}"
+    textColor: "{colors.surface}"
+    typography: "{typography.landing-control}"
+    rounded: "{rounded.print}"
+    padding: "0 20px"
+    height: "44px"
+  landing-parcel-label:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.home-counter-pine}"
+    rounded: "{rounded.print}"
+    padding: "8px 8px 12px"
+---
 
-Approved 2026-09-02 via /design-consultation (owner picked the direction and
-shipped it after the rendered preview). This is a **refinement of the live
-brand, not a rebrand**: same logo, same content, same Fraunces, same
-pine/gold/terracotta family. `handoff/` stays untouched and `styles/tokens.css`
-stays law — every value here lands through `styles/tokens.extend.css` and
-`app/layout.tsx`'s font config, the sanctioned override layer, so the whole
-direction is reversible in one commit.
+# Design System: Homekrafted
 
-## Product Context
-- **What this is:** marketplace for homemade food (tricity home kitchens,
-  cooked to order) and handcrafted gifts (ships across India).
-- **Who it's for:** urban Indian buyers who want "a real person made this" —
-  the one thing a first-time visitor should remember (owner, 2026-09-02).
-- **Why this exists:** the owner's finding that the site read "empty and not
-  premium". Diagnosis (three independent voices agreed): white-first
-  minimalism designed for a catalogue we don't have yet; uniform card grids
-  with no editorial scale; the *person* missing from the pixels; an
-  institutional body font.
-- **Reference research:** iTokri (dense artisan-first bands, faces
-  everywhere), The Whole Truth (oversized type + hand annotations),
-  Goldbelly/Etsy/Swiggy/Zomato from knowledge (they block headless browsers).
+## Overview
 
-## Aesthetic Direction
-- **Direction:** Organic/editorial — "a sunlit Indian kitchen table".
-  Premium = specificity + texture, never emptier whitespace.
-- **Decoration level:** intentional — paper ground, receipt-type provenance,
-  rationed handwriting. No blobs, no icon grids, no gradients-as-decoration.
-- **Mood:** warm, tactile, honestly counted. Sell the wait, not the speed:
-  "cooked after you order · only 8 this week" is the flex Swiggy can't make.
+**Creative North Star: "The Maker's Table; a Festive Gift-Wrap Counter at `/`"**
+
+Homekrafted is a maker-first marketplace. Across the product, warm paper, pine, gold, honest provenance, real photography, and editorial scale make the named person behind an item feel more important than marketplace chrome. Premium means specificity and material presence, not sparse white space, fabricated status, or a wall of interchangeable cards.
+
+The homepage is a deliberate route-level world inside that system: a contemporary Indian festive gift-wrap counter. Deep pine behaves as counter cloth; softened marigold, turmeric, terracotta, and berry behave as stacked wrapping papers; gold appears as ribbon, tape, rules, and seals. Real gifts sit on top as rectangular photographs, parcel labels, and movable prints. The composition is lively but legible, asymmetrical but grid-aware, and persuasive without inventing claims.
+
+Since 2026-11-21 (owner) the homepage uses the site's own pair — Fraunces headings over Hanken Grotesk — replacing the 2026-10-23 Public Sans direction. Eczar, Literata and handwritten annotation are not part of the landing page's rendered identity. Off `/`, the established Maker's Table typography and warm-paper system remain authoritative.
+
+**Key Characteristics:**
+
+- Maker names, real product photography, and real order footage are proof, not decoration.
+- Warm, tactile surfaces use pine and gold as brand anchors; the homepage adds restrained festive papers around product-led neutral space.
+- Editorial scale, staggered grids, overlaps, and changing section compositions prevent catalogue monotony.
+- Controls remain plainly interactive, keyboard reachable, and large enough for touch.
+- Motion feels like handling paper, prints, doors, and parcels; every decorative effect has a static or touch-safe form.
+
+## Colors
+
+The site-wide palette is warm and grounded. The homepage keeps that calm base, then uses muted festive papers as campaign fields so product photography remains the strongest source of color.
+
+### Primary
+
+- **Primary Pine:** The enduring brand anchor for actions, headings, navigation, and trusted solid fields.
+- **Primary Pine Deep:** Footer, dark chapter breaks, and other high-contrast brand surfaces.
+- **Homepage Counter Pine:** Homepage-only counter cloth behind the hero, Diwali shelf, story band, and festive cards.
+
+### Secondary
+
+- **Brand Gold:** Fills, ribbon seams, tape, rules, and seals. It is structural or decorative, never running text.
+- **Terracotta:** Site-wide gifting prices and warm emphasis off the homepage.
+- **Homepage Marigold and Turmeric:** Muted wrapping sheets, active marks, ribbon fields, and high-contrast festive actions.
+
+### Tertiary
+
+- **Homepage Berry:** Softened full-section wrapping paper, interaction emphasis, and the closing seller cover.
+- **Homepage Terracotta:** Alternating parcel-label stock and festive emphasis.
+
+### Neutral
+
+- **Ink:** Site-wide primary text on light surfaces.
+- **Paper Canvas:** Warm site-wide ground beneath white cards.
+- **Surface:** Cards, labels, navigation panels, and photograph borders.
+- **Warm Border:** Site-wide card and divider line.
+- **Homepage Wrap Paper:** Homepage-only warm neutral stock used between festive campaign fields.
+- **Homepage On Pine:** Warm white for copy on the homepage's dark-pine surfaces.
+- **Homepage Seam:** Quiet divider and parcel-edge line on the homepage.
+
+**The Gold Is Hardware Rule.** Gold may bind, divide, underline, seal, or highlight. It does not carry body copy; small gold-family site text uses the accessible dark-gold text token instead.
+
+**The Product-Led Festival Rule.** Festive colors may occupy a few contiguous campaign fields and parcel-label strips, but neutral paper and real product imagery carry most of the page. Do not make every chapter equally saturated.
+
+**The Scope Rule.** Homepage colors live beneath the landing root. Do not leak rani pink, turmeric, or wrapping-paper surfaces into account, seller, admin, checkout, or catalogue routes without a separate design decision.
 
 ## Typography
-- **Display/Hero: Fraunces — KEPT, pushed harder.** At display sizes set the
-  variable axes `SOFT 70-80, WONK 1` (via `font-variation-settings` on the
-  display classes) — hand-lettered jam-label energy; flat Fraunces reads like
-  a bank. Body-size Fraunces (card titles) stays flat.
-- **Body: Hanken Grotesk — REPLACES IBM Plex Sans.** Same neutrality, warmer
-  counters; Plex Sans is IBM's corporate UI voice and reads institutional
-  SaaS. (Codex proposed Satoshi; rejected — not on Google Fonts, and the
-  stack loads via `next/font/google`.)
-- **UI/Labels: IBM Plex Mono — KEPT, recast as "receipt type".** Batch
-  numbers, made-on dates, counts, eyebrows. The ledger is the brand. Stop
-  using it where it reads technical-cold.
-- **Annotations: Kalam (Google Fonts, Indian Type Foundry) — NEW.** One
-  weight (400), the maker's hand: "Dadi's bestseller →". **Hard ration: max
-  two per screen**, decorative only (`aria-hidden`), never carrying
-  information that exists nowhere else.
-- **Loading:** all four via `next/font/google` in `app/layout.tsx`, exposed
-  as the existing `--font-*` variables; `--hk-font-body` re-points in
-  `globals.css` exactly as today.
-- **Scale:** unchanged from the live system; the change is *how* the display
-  face is used (bigger, wonkier), not the ramp.
 
-## Color
-- **Approach:** balanced, same family, warmer ground. All M34 contrast rules
-  survive: **gold never carries text** (`--hk-gold-text-sm` for gold-family
-  words), terracotta for prices, focus-ring rules unchanged.
-- **Canvas:** `#F7F1E6` paper (was `#F4F3F0`). This deliberately supersedes
-  the "white-first, never beige" rule — owner-approved 2026-09-02: with a
-  small catalogue, white-on-white *is* the emptiness. White cards now pop
-  like labels on kraft.
-- **Cards:** `#FFFFFF` unchanged; border warms to `#E5DCC9`
-  (was `#ECEAE4`); soft surface `#FFFCF5` for receipt-meta blocks.
-- **Pine:** `#1F3B2C` / deep `#14281E` — trust anchor, used in bigger filled
-  blocks (hero bands, editorial tiles), not only trim.
-- **Gold:** `#B98724` fills/rules/seals only; soft `#E6C97D` on dark pine.
-- **Terracotta:** `#B85F3D` prices + the italic accent word (deep `#8D3F29`
-  on tint).
-- **Dark mode:** none — the site ships one look, as today.
-- **Contrast:** every re-tinted pairing owes the M34 pass before shipping
-  (`e2e/tests/a11y.spec.ts` + `node e2e/sweep.mjs`); the paper canvas is
-  *lighter-warmer*, so current AA text colors are expected to hold, but
-  measure, don't assume.
+**Display Font:** Fraunces (with Georgia and serif fallbacks), site-wide including `/`
 
-## Density & Provenance (the anti-empty rules)
-- **Maker identity on every card:** portrait chip + name + area
-  ("Dadi's Recipe · Zirakpur"). Already true on kitchen cards; extend to
-  gift cards' maker line prominence.
-- **Receipt-meta block on kitchen/product cards:** mono, dashed border,
-  `PURE VEG · 4 DISHES · FROM ₹160 · THURSDAY'S BATCH OPEN` — only facts the
-  data already holds (the M51 honesty rules: never invent counts or dates).
-- **Editorial scale contrast:** one oversized hero card/tile per band; never
-  a uniform grid wall. Mixed scales beat more SKUs.
-- **Edge-to-edge photo rows** between card bands (real photography only —
-  the M56/M25 imagery rules are untouched).
-- **Carousels only where rotation means something:** freshness ("cooking
-  today"), makers, occasions. The M59c featured rows themselves were
-  removed on 2026-09-05 (they duplicated the grids under them); the
-  rotation rules they set still apply (pause on
-  hover/focus, reduced-motion off, no rotation when everything fits) apply
-  to any new one.
+**Body Font:** Hanken Grotesk (with system sans-serif fallbacks), site-wide including `/`
 
-## Spacing / Layout / Motion
-- **Spacing, grid, breakpoints:** unchanged (5 rails: 420·560·640·780·900;
-  1180 container; header arithmetic untouched).
-- **Layout approach:** hybrid — grid-disciplined app surfaces, editorial
-  bands on browse/landing.
-- **Motion:** intentional and tactile — cards slide like objects on a table
-  (`--hk-dur .36s` stays); badges stamp once, never loop; all under the
-  global reduced-motion floor.
+**Label/Mono Font:** IBM Plex Mono for factual receipt-style metadata off `/`
 
-## Implementation phases (each its own reviewed change)
-1. **Tokens + fonts:** `tokens.extend.css` overrides (canvas, borders,
-   surface-soft), `layout.tsx` font swap (Hanken Grotesk, Kalam), display
-   wonk classes. Run the contrast sweep.
-   - **Type half landed 2026-09-16** (not yet deployed): Hanken Grotesk is
-     the body face, Fraunces loads as the variable file so `SOFT`/`WONK`
-     exist at all, and `.hk-wonk` + `.hk-annotation` are in `globals.css`.
-     Contrast measured after the swap — `a11y.spec.ts` and the 174-visit
-     sweep are clean but for one **pre-existing** failure (`MakerPortrait`
-     initials on `/shop`, 4.23:1, identical on live production).
-   - **Colour half still to do:** paper canvas `#F7F1E6`, warm card border
-     `#E5DCC9`, `#FFFCF5` surface-soft. Deliberately a separate change —
-     it re-tints every surface and owes its own contrast pass, and the
-     font swap had to be measurable on the ground it ships on today.
-   - **`.hk-wonk` is applied to `/gifts`'s `<h1>` (2026-09-16, G3).** That
-     was the deferred decision: which headings get the wonk belonged with
-     the redesign rather than a site-wide find-and-replace. It is one
-     heading, at 40px, where the display face is doing the page's talking —
-     and the `<h1>` took `letter-spacing: -0.02em` with it, because
-     Fraunces at that size reads too loose at the default. Large type wants
-     negative tracking; the floor is -0.04em. The rest of the site's
-     headings are still flat, deliberately.
-2. **Provenance:** receipt-meta block on kitchen cards + product cards;
-   Kalam annotation slots (rationed) on featured tiles.
-3. **Editorial scale:** hero card treatment in browse grids and landing rails.
+**Character:** The wider product uses a softened editorial serif over a warm, readable grotesk. The homepage intentionally becomes cleaner and bolder: one sans family, two weights, strong size contrast, tight display tracking, and no handwriting.
 
-## Decisions Log
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-09-02 | Initial refinement direction approved (preview reviewed) | Owner: "consistent with logo and current design, just classier, content unchanged". Three-voice consultation converged on: keep Fraunces/push harder, replace Plex Sans, warm canvas, provenance density. |
-| 2026-09-16 | Body face swapped site-wide (web + both native themes) ahead of the `/gifts` redesign | `docs/GIFTING-REWORK.md` D12, owner: "ship font change first". Redesigning a page on a font that is about to change means doing the spacing twice. The app is included because one `--hk-font-body` feeds both. |
-| 2026-09-02 | Paper canvas supersedes "white-first, never beige" | White-on-white read as emptiness at current catalogue size; owner-approved reversal, one-commit reversible. |
+### Hierarchy
+
+- **Site Display** (700, responsive to 58px, 1.04): Fraunces for major headings and prices. At true display sizes, use the softened/wonk variable treatment; keep body-size titles flat.
+- **Site Body** (400, 15px, 1.6): Hanken Grotesk for copy and controls. Long reading columns stay near 65–75 characters.
+- **Site Label** (400–500, 13px, 1.5): IBM Plex Mono for provenance, batches, dates, and receipt-like facts, not generic technical decoration.
+- **Homepage Hero** (600, 38–64px in the implemented hero, 1.0): Fraunces 600, SOFT 40, tightly tracked and balanced across two decisive lines.
+- **Homepage Section Display** (600, typically 28–68px, 1.03–1.1): Fraunces 600, set once on the landing root. Individual chapters vary scale and alignment instead of repeating one title bar.
+- **Homepage Body** (400, usually 16–20px, 1.4–1.65): Hanken Grotesk. The landing root establishes 17px/1.6 as its reading default.
+- **Homepage Label/Action** (600 for emphasis, 13–21px): Hanken Grotesk 600 for buttons, maker names, tabs, small labels, and emphasized phrases.
+
+**The Landing Type Rule.** Headings on `/` are Fraunces 600; everything else is Hanken Grotesk 400/600, including the fixed header. Hanken loads no 700 — never ask for one. No handwriting, mono or ornamental display type there.
+
+**The Strong Headline Rule.** Homepage headings are bold because the selected family has a real 700 cut. Do not simulate distinction with color alone or substitute a display face that cannot supply the intended weight.
+
+## Layout
+
+The base product uses full-bleed bands around centered content. Consumer surfaces can extend to a 1440px container; prose stays capped at 1180px. Side padding is 44px on wide screens, 20px at 780px and below, and 16px at 420px and below. Existing responsive rails remain 420, 560, 640, 780, and 900px.
+
+The homepage uses 900px as its principal composition change. Above it, twelve-column grids support deliberate imbalance: copy occupies seven columns beside a five-column gift feature; editorial shelves run off the right edge; headings trade sides with content; a diagonal catalogue split opens toward the pointer; and the ordering story pins one six-column half while the other scrolls. Below it, sections stack, print labels become a horizontal snap rail, doors become separate cards, sticky/pointer-dependent effects recede, and all essential links and text remain available.
+
+Landing sections are contiguous wrapping sheets separated by purposeful 1px or 8px seams. Adjacent chapters must change composition—not just background color—so the page never collapses into repeated “container, heading, grid” bands. The hero begins on deep pine with a broad marigold ribbon behind an oversized real product and overlapping parcel labels. The fixed landing header is 72px on desktop and 54px on small screens; it is transparent over the pine hero and becomes a blurred white bar after the hero brand handoff.
+
+**The Asymmetric Counter Rule.** Offset titles, stagger cards, overlap inserts, let shelves exceed the container, and alternate the dominant edge. Preserve a coherent twelve-column skeleton underneath the apparent looseness.
+
+**The Mobile Function Rule.** A pointer flourish may disappear on touch, but its link, proof, label, and action may not. Horizontal scrolling replaces desktop dragging; stacked cards replace diagonal clipping; visible words replace pinned swaps.
+
+## Elevation & Depth
+
+The base system is mostly flat and uses tonal layers and warm borders. Its card and stage shadows are reserved for objects that genuinely sit above the table.
+
+On the homepage, depth belongs to physical metaphors: draggable product prints, the tilted festival feature, circular photo stickers, and taped promotional inserts. Colored section sheets stay flat. Avoid ambient shadows around every content block; seams, overlap, rotation, clip paths, and a change of paper stock should carry most of the depth.
+
+### Shadow Vocabulary
+
+- **Site Card:** `0 14px 30px -18px rgba(35,66,51,.40)` for ordinary raised cards off `/`.
+- **Site Stage:** `0 30px 70px -30px rgba(27,51,39,.50)` for larger off-homepage panels.
+- **Homepage Resting Print:** `0 8px 24px -12px rgb(18 60 54 / 0.34), 0 2px 4px rgb(18 60 54 / 0.10)` for paper and sticker objects at rest.
+- **Homepage Lifted Print:** `0 22px 44px -18px rgb(18 60 54 / 0.42), 0 5px 10px rgb(18 60 54 / 0.12)` while a paper object is hovered or dragged.
+
+**The Object-Only Shadow Rule.** If a surface is not behaving like a print, parcel, taped insert, or floating navigation layer, it stays flat.
+
+## Shapes
+
+Site-wide cards use gently rounded corners from 8px through 20px. Pills are reserved for genuine compact statuses, counts, or mode switches; they are not the default silhouette.
+
+The homepage is more cut-paper than soft-card. Parcel prints use 4px corners, inserts 6px, primary actions 8px, the hero gift feature 10px, and large photographic doors 18–22px. Circles are reserved for category stickers, fallback initials, progress dots, and arrow discs. Broad gold or turmeric seams, narrow tape strips, diagonal clipping, slight rotations, and overlapping rectangular photographs provide the distinctive geometry.
+
+**The Clipped-by-Overlap Rule.** Create festive character with seams, crop, rotation, and one object crossing another—not decorative blobs or a rounded container around every idea.
+
+## Components
+
+### Buttons
+
+- **Shape:** Compact rectangular parcel labels (usually 8px radius), not pills.
+- **Homepage Primary:** Turmeric fill, counter-pine text, 2px matching border, Hanken Grotesk 600, 54px desktop height and 48px mobile height.
+- **Hover / Focus:** Lift by 3px, brighten the paper, move the arrow by 4px, and keep a clearly visible focus outline. Active returns to the surface.
+- **Secondary:** Bold warm-white or ink link with a 2px marigold, rani, or gold-bright underline and generous underline offset.
+
+### Chips
+
+- **Style:** Homepage filters are four compact rectangular tabs inside one bordered 8px frame. Their moving selected marker is deep pine; inactive tabs remain transparent.
+- **State:** The active tab is white on deep pine. Focus uses a 3px rani outline. Outside `/`, existing pills remain valid only for status, count, compact choice, or mode.
+
+### Cards / Containers
+
+- **Parcel Prints:** Real square product photography above a bold product name and a regular maker line, on white stock with a dark 2px edge and a small resting shadow. Desktop labels can be dragged within the hero; mobile labels scroll and snap.
+- **Product Registers:** Reuse real product cards, but stagger alternate columns and deal them in after a filter change. Do not wrap the whole grid in another generic card.
+- **Promotional Inserts:** Dark-pine or gold-tint rectangular sheets with a narrow translucent tape strip, slight rotation, and overlap at desktop.
+- **Photographic Doors:** Large edge-to-edge gift and food photographs behind readable scrims. Desktop uses one diagonal seam; touch uses two independent stacked links.
+- **FAQ:** Native `details` rows with strong type, one top rule, quiet dividers, and a plus rotating to 45 degrees when open.
+
+### Navigation
+
+The landing header is fixed and Hanken Grotesk. Over the hero it is transparent with warm-white controls and turmeric hover states. After the hero brand leaves, it becomes a 96%-white blurred bar with warm border and a light structural shadow. Desktop navigation is visible; at 900px and below it yields to a 44px hamburger while the logo remains visible.
+
+### Signature Homepage Components
+
+- **Hero Counter:** Two-line promise, one primary action, one underlined secondary action, an oversized real festive product, a wide marigold ribbon seam, and four named product prints.
+- **Interactive Promise:** Truthful claims are underlined inline buttons that reveal their explanation in one adjacent live region. It never uses floating popovers on mobile.
+- **Occasion Ledger:** Large linked rows on rani paper. Desktop may show a real product preview near the pointer; mobile keeps a thumbnail or initial ring inside each row.
+- **Wrapping-Label Strip:** Secondary destinations form a contiguous two-column mobile or five-column desktop sheet with 3px seams and alternating marigold, vermilion, rani, turmeric, and pine-tint stock.
+- **Pinned Ordering Story:** A deep-pine chapter with three steps. Desktop swaps one oversized word as the corresponding explanation crosses the viewport; mobile prints the word above every step.
+
+Motion uses the landing ease-out curve `cubic-bezier(0.16, 1, 0.3, 1)` for most handling and `cubic-bezier(0.77, 0, 0.175, 1)` for the diagonal door seam. State changes generally take 200–520ms; large image or seam movements can take 700–900ms. Honor the global reduced-motion floor and remove nonessential transforms when reduction is requested.
+
+## Do's and Don'ts
+
+### Do:
+
+- **Do** keep the homepage festive world scoped to `/` and retain the warm Maker's Table system elsewhere.
+- **Do** use real product, maker, category, and order imagery; keep photographs rectangular, materially prominent, and linked to real content.
+- **Do** name the maker wherever a product appears and keep every commercial statement traceable to real data.
+- **Do** use Fraunces 600 for homepage headings and Hanken Grotesk for copy, actions, labels and emphasis.
+- **Do** let neutral paper and real product imagery dominate, then use muted wrapping-paper fields, gold structural seams, stagger, overlap, and intentionally changing section compositions.
+- **Do** preserve keyboard semantics, 44px touch targets, visible focus, reduced-motion alternatives, and mobile equivalents for pointer interactions.
+- **Do** keep gold structural and decorative; use warm white, pine, ink, or the established accessible dark-gold token for text.
+
+### Don't:
+
+- **Don't** bring Eczar, Literata, Public Sans, Kalam, handwritten notes, or receipt-mono typography into visible homepage copy.
+- **Don't** turn the homepage into a generic stack of gradient cards, glass panels, centered heading bars, or repeated SaaS bento grids.
+- **Don't** put every action, label, filter, and card inside a pill. Most landing controls are compact rectangular parcel labels.
+- **Don't** fabricate maker counts, review totals, delivery promises, hygiene inspections, guarantees, app availability, or any metric the catalogue does not hold.
+- **Don't** replace real photography with decorative illustration, generic icons, empty gradients, or ornamental blobs.
+- **Don't** make every section equally colorful; reserve festive papers for campaign bands, actions, and contiguous label strips.
+- **Don't** use perpetual decorative motion, bouncy spring behavior, or pointer-only meaning.

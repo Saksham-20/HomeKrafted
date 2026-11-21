@@ -293,6 +293,32 @@
   opacity: 0.75;
 }
 
+.customiseSequence {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 7px 13px;
+  border: 1px solid var(--hk-gold);
+  border-radius: 999px;
+  background: var(--hk-gold-tint);
+  color: var(--hk-pine-deep);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform var(--hk-dur) var(--hk-ease), background var(--hk-dur) var(--hk-ease);
+}
+
+.customiseSequence:hover {
+  background: color-mix(in srgb, var(--hk-gold-tint) 72%, white);
+  color: var(--hk-pine-deep);
+}
+
+.customiseSequence:active {
+  transform: scale(0.97);
+}
+
 /* Shares the toolbar row with `.allBtn` and the sort `<select>` on a
    phone (owner, 2026-09-17: keep it to one line) — placed after the
    base rule above on purpose, since a `@media` block earlier in the

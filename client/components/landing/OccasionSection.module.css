@@ -1,0 +1,39 @@
+.section {
+  padding-block: clamp(72px, 9vw, 128px);
+}
+
+.inner {
+  display: grid;
+  gap: clamp(32px, 5vw, 56px);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px 32px;
+}
+
+.title {
+  margin: 0;
+  max-width: 16ch;
+  font-family: var(--lp-display);
+  font-size: clamp(30px, 3.8vw, 56px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.all {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--lp-ink);
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-color: var(--lp-brass);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}

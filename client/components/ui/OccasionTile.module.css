@@ -114,3 +114,70 @@
   text-overflow: ellipsis;
 }
 
+/*
+ * The one oversized tile in the band (2026-09-22) — DESIGN.md's editorial
+ * scale contrast rule. Solid pine fill is the same "this one is chosen"
+ * language `CategoryTile`'s selected state already uses, not an invented
+ * fourth treatment. The caller spans it across more grid cells; this is
+ * only the surface.
+ */
+.featured {
+  background: var(--hk-pine, #234233);
+  border-color: var(--hk-pine, #234233);
+  padding: 26px 24px;
+  justify-content: flex-end;
+  gap: 20px;
+  --hk-focus-ring: var(--hk-gold-bright, #e4c874);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .featured:hover {
+    background: var(--hk-pine, #234233);
+    border-color: var(--hk-pine, #234233);
+    box-shadow: 0 16px 36px rgba(27, 51, 39, 0.24);
+  }
+}
+
+.featured .icon {
+  color: var(--hk-gold-bright, #e4c874);
+}
+
+.featured .arrow {
+  color: var(--hk-on-pine, #eadfc9);
+  opacity: 0.7;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .featured:hover .arrow {
+    color: var(--hk-gold-bright, #e4c874);
+  }
+}
+
+.ringFeatured {
+  width: 52px;
+  height: 52px;
+  border-color: rgba(228, 200, 116, 0.5);
+  color: var(--hk-gold-bright, #e4c874);
+  font-size: 22px;
+}
+
+.featured .label {
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.015em;
+}
+
+.featured .tagline {
+  font-size: 14px;
+  color: var(--hk-footer-ink, #c7d3c5);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.featured .meta {
+  min-height: 0;
+  gap: 6px;
+}
+

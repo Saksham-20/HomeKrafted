@@ -11,6 +11,13 @@ export interface OccasionTileProps {
   onClick?: () => void;
   className?: string;
   showTagline?: boolean;
+  /**
+   * The one oversized tile in a band — DESIGN.md's "editorial scale
+   * contrast" rule ("one oversized hero card/tile per band; never a
+   * uniform grid wall"), applied to the occasion grid (2026-09-22). Bigger
+   * mark, bigger label; the caller also spans it across more grid cells.
+   */
+  featured?: boolean;
 }
 
 export function OccasionTile({
@@ -19,6 +26,7 @@ export function OccasionTile({
   onClick,
   className,
   showTagline = false,
+  featured = false,
 }: OccasionTileProps) {
   const art = occasionArt(occasion.slug);
 
@@ -26,14 +34,14 @@ export function OccasionTile({
     <>
       <div className={styles.topRow}>
         {art ? (
-          <CraftIcon art={art} size={36} className={styles.icon} />
+          <CraftIcon art={art} size={featured ? 60 : 36} className={styles.icon} />
         ) : (
-          <span className={styles.ring} aria-hidden="true">
+          <span className={clsx(styles.ring, featured && styles.ringFeatured)} aria-hidden="true">
             {occasion.initial}
           </span>
         )}
         <span className={styles.arrow} aria-hidden="true">
-          <ArrowUpRight size={13} />
+          <ArrowUpRight size={featured ? 16 : 13} />
         </span>
       </div>
       <div className={styles.meta}>
@@ -45,16 +53,18 @@ export function OccasionTile({
     </>
   );
 
+  const tileClassName = clsx(styles.tile, featured && styles.featured, className);
+
   if (href) {
     return (
-      <Link href={href} className={clsx(styles.tile, className)}>
+      <Link href={href} className={tileClassName}>
         {inner}
       </Link>
     );
   }
 
   return (
-    <button type="button" className={clsx(styles.tile, className)} onClick={onClick}>
+    <button type="button" className={tileClassName} onClick={onClick}>
       {inner}
     </button>
   );

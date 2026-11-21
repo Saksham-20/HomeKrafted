@@ -1,0 +1,174 @@
+.wall {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wall li {
+  min-width: 0;
+}
+
+/* One calendar page: cream paper, a brick header, brass rings. */
+.page {
+  position: relative;
+  display: grid;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: var(--lp-pine-deep);
+  text-decoration: none;
+  box-shadow: 0 16px 26px -16px rgb(0 0 0 / 0.65);
+  transition: transform 380ms var(--lp-ease), box-shadow 380ms var(--lp-ease);
+}
+
+.page:hover {
+  color: var(--lp-pine-deep);
+}
+
+.head {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 42px;
+  background: var(--hk-terracotta-text); /* not --lp-madder: the dusk wall repoints it to cream */
+  color: #fff;
+}
+
+.month {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* The binding: two brass rings through the header. */
+.ring {
+  position: absolute;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--lp-brass);
+  box-shadow: inset 0 -2px 2px rgb(47 36 27 / 0.45);
+}
+
+.ring:nth-child(1) {
+  left: 9%;
+}
+
+.ring:nth-child(2) {
+  right: 9%;
+}
+
+.body {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 16px 14px 22px;
+  text-align: center;
+}
+
+.day {
+  font-family: var(--lp-display);
+  font-size: clamp(54px, 6.4vw, 84px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.evergreen {
+  width: clamp(48px, 5vw, 64px);
+  height: clamp(54px, 6.4vw, 84px);
+  stroke-width: 1.25;
+  color: var(--lp-pine);
+}
+
+.name {
+  font-family: var(--lp-display);
+  margin-top: 6px;
+  font-size: clamp(18px, 1.8vw, 22px);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.when {
+  min-height: 1.5em;
+  color: #52655e;
+  font-size: 14.5px;
+}
+
+/* The one coming up: a brass fill, never brass type. */
+.whenSoon {
+  color: var(--lp-pine-deep);
+  font-weight: 600;
+}
+
+.whenSoon::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-inline-end: 8px;
+  border-radius: 50%;
+  background: var(--lp-brass);
+}
+
+.tag {
+  max-width: 24ch;
+  margin-top: 4px;
+  color: #52655e;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* The corner of the page that curls up. */
+.page::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  background: linear-gradient(135deg, #d9d0bd 0%, #f3ecdc 55%, rgb(0 0 0 / 0.14) 100%);
+  border-top-left-radius: 8px;
+  box-shadow: -4px -4px 8px -4px rgb(0 0 0 / 0.4);
+  transition: width 380ms var(--lp-ease), height 380ms var(--lp-ease);
+}
+
+.page:focus-visible {
+  outline: 3px solid var(--lp-brass);
+  outline-offset: 5px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .page:hover,
+  .page:focus-visible {
+    transform: translateY(-8px);
+    box-shadow: 0 26px 34px -18px rgb(0 0 0 / 0.75);
+  }
+
+  .page:hover::after,
+  .page:focus-visible::after {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+@media (min-width: 640px) {
+  .wall {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 28px 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page,
+  .page::after {
+    transition: none;
+  }
+}

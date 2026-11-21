@@ -22,7 +22,9 @@
 }
 
 .tint {
-  background: linear-gradient(135deg, #fdf8ee 0%, #f7ecd5 100%);
+  /* Was a hardcoded 135deg near-white gradient; `--hk-gold-tint` is the
+     real named token for exactly this surface. */
+  background: var(--hk-gold-tint, #fbf1d6);
   border: 1px solid var(--hk-gold-border, #e5dcc9);
   color: var(--hk-ink-3, #5b5344);
 }

@@ -1,5 +1,78 @@
 # Changelog
 
+## 2026-11-21 — Landing page: type, colour and polish pass
+
+Owner-approved: the landing page now speaks in the site's own pair —
+Fraunces headings over Hanken Grotesk — instead of Public Sans, and the
+Public Sans and Literata loads are gone from every page. Palette tightened:
+the two walnut-brown bands are ink-green, the calendar headers and accent
+are terracotta, the plaster wall is lighter. Undated occasions show a drawn
+calendar mark instead of a big initial; "How this works" finally shows its
+crossfading step word on desktop; categories are capped at two full rows
+and become a swipe rail on phones; the Instagram band uses the width; press
+feedback on buttons and pointer-only hover lifts. Dead `fonts.ts` (Eczar)
+and `MagneticLink` deleted. Axe AA clean at 1440/390/360, no overflow,
+production build passes.
+
+## 2026-10-23 — Festive landing and gift-order controls
+
+Refreshed the existing interactive landing page for Diwali without replacing
+its real maker/product content: Public Sans Regular/Bold now owns `/`, the ISB
+campaign banner has been replaced by a Diwali feature, and the festive edit
+deliberately leads with live hampers, candles and crochet before filling from
+the craft catalogue. “By Homekrafted” is now “Diwali hampers”, the homepage
+states that the app is coming soon on Google Play, and warm marigold/madder
+details make the page more festive while keeping pine and gold as the brand
+anchors. Administrators now get a “Customise sequence” route from `/gifts` to
+the existing persisted featured-order editor. Added focused festive-selection
+tests; client typecheck, lint, targeted Jest tests and production build pass.
+
+## 2026-09-23 — The landing page, rebuilt: "On the table"
+
+A complete redesign of `/`, approved by the owner. **Client only — no
+migration, no env, nothing to run first.** Plan and history:
+`docs/LANDING-REDESIGN.md` (v2; the first direction, "The Maker's
+Notebook", was rejected at its specimen as "too symmetrical and repetitive"
+and deleted).
+
+- **New:** `client/components/landing/` — thirteen sections, no two
+  neighbours sharing a composition, each with its own interaction: a hero
+  with the ISB banner taped down and four real listings as prints you can
+  drag; the gifts/food doors that open toward the pointer (focus counts,
+  reduced motion does not move them); the reels, moved up to third; a
+  bestsellers/trending register whose heading word is the switch; the old
+  ticker as a sentence whose underlined phrases each open the rule behind
+  them; occasions with a picture that follows the pointer; a pinned "How
+  this works" story; and the rest. Pure helpers in `client/lib/landing/`
+  (`register.ts` with a spec, `faq.ts` shared by the accordion and the
+  FAQPage JSON-LD). Eczar is loaded for this page only.
+- **Owner's copy decisions applied (§12 of the plan):** "reviewed for
+  hygiene" → "checked by a person"; no "clean home kitchen" or "our
+  guarantee"; no fake QR code and "order status updates" instead of "live
+  tracking"; "cooked after you order" instead of "cooked this morning"; the
+  reels link says "See real orders"; the hero's second line is "Every
+  listing here carries its maker's name."
+- **Header on `/`:** transparent over paper with ink controls (it was
+  styled for a dark banner), and the logo handover is back — hidden until
+  the hero's own wordmark (`#hk-hero-brand`) scrolls under the bar.
+- **Removed:** `app/page.module.css` and eleven `components/home/*`
+  components (`IsbCrochetBanner`, `SplitPanels`, `Ticker`, `HowItWorks`,
+  `SellCta`, `SeasonalBand`, `QuickEntryRow`, `FaqSection`,
+  `BestsellersTabsSection`, and the orphaned `CraftCard`/`MakerCard`).
+  The reels components and `AppInstallPanel` (`/app-promo`) stay.
+- **Fixed on the way, site-wide:** `html, body { overflow-x: hidden }` made
+  `body` a scroll container that never scrolls, so every `position: sticky`
+  and every CSS scroll-driven animation was dead — now `overflow-x: clip`.
+  Sticky elements elsewhere (checkout summary, portal save bar, shells) now
+  actually stick. The skip link, dropped by commit `c9a014b`, is restored.
+- **Tests:** the split-hero e2e test now reads the doors' `--seam` rather
+  than box widths (clipped layers never change size). Landing a11y
+  (contrast + structure), one-h1, skip link, logo handover, doors and the
+  landing focus traps pass on desktop and phone against the dev server.
+- **Known, not fixed here:** dialog scroll locks (`body.style.overflow =
+  "hidden"`) do not lock — measured under both the old and new rules;
+  logged as item 11 in the plan's defects list.
+
 ## 2026-09-21 — The client's policy documents go live; the footer is their four columns
 
 The client sent sixteen reviewed documents plus a sitemap and a footer

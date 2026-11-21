@@ -1,7 +1,9 @@
-import Link from "next/link";
-import { Plus, Minus } from "lucide-react";
-import styles from "./FaqSection.module.css";
-
+/**
+ * The landing page's questions — the visible accordion
+ * (`components/landing/Questions.tsx`) and the FAQPage structured data in
+ * `app/page.tsx` read this one list, so the two cannot disagree.
+ * Pure data: shared-boundary safe.
+ */
 export interface FaqItem {
   question: string;
   answer: string;
@@ -22,7 +24,7 @@ export interface FaqItem {
  * cook); pickles and snacks going out by "tracked express courier" (the
  * courier carries gifts and never food, M57, and it is switched off); and
  * seller onboarding taking "under 5 minutes" before you "start receiving
- * orders" (a person works the M22 queue, and SellCta is already forbidden
+ * orders" (a person works the M22 queue, and the sell section is forbidden
  * from promising an approval time).
  */
 export const FAQ_ITEMS: FaqItem[] = [
@@ -57,42 +59,3 @@ export const FAQ_ITEMS: FaqItem[] = [
       "Start on the Sell on HomeKrafted page: tell us what you make, where you cook or work from, and how to reach you. Someone here reads every application, so it is not instant — we will come back to you either way. Once you are approved you set your own prices and decide what is available each day.",
   },
 ];
-
-export function FaqSection() {
-  return (
-    <section className={styles.faqSection} aria-labelledby="faq-heading">
-      <div className={styles.faqHead}>
-        <h2 id="faq-heading" className={styles.title}>
-          Frequently Asked Questions
-        </h2>
-        <p className={styles.subtitle}>
-          Everything you need to know about ordering authentic homemade food and handcrafted gifts.
-        </p>
-      </div>
-
-      <div className={styles.faqList}>
-        {FAQ_ITEMS.map((item, index) => (
-          <details key={index} className={styles.faqItem} open={index === 0}>
-            <summary className={styles.faqSummary}>
-              <span>{item.question}</span>
-              <span className={styles.iconIndicator} aria-hidden="true">
-                <Plus className={styles.plusIcon} />
-                <Minus className={styles.minusIcon} />
-              </span>
-            </summary>
-            <p className={styles.faqAnswer}>{item.answer}</p>
-          </details>
-        ))}
-      </div>
-
-      <p className={styles.moreHelp}>
-        Still have questions? Reach out to our team at{" "}
-        <Link href="/contact" className={styles.helpLink}>
-          our help desk
-        </Link>
-        .
-      </p>
-    </section>
-  );
-}
-
