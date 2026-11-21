@@ -2,32 +2,34 @@
 
 import { useEffect, type RefObject } from "react";
 
-/** iOS's drawer curve: quick to answer, long soft settle. */
-const SETTLE = "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)";
-/** Kept on every write: an inline `transition` replaces the stylesheet's. */
-const SHADOW = "box-shadow 240ms ease";
+/** Downward scroll, once pinned, during which the bar simply rides along. */
+const HOLD_PX = 240;
+/** Downward scroll over which it then fades out, tied to the scroll. */
+const FADE_PX = 120;
 /** How long without a scroll event counts as "the visitor stopped". */
-const IDLE_MS = 110;
+const IDLE_MS = 120;
+const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
 /**
- * A sticky bar that gets out of the way of the content and comes back the
- * moment the visitor scrolls up — the way Safari's toolbar does it.
+ * A sticky bar that keeps out of the content's way without ever leaving
+ * its place:
  *
- * - **Scroll-linked, not timed.** While the page moves, the bar's offset
- *   moves with it 1:1 (clamped to its own height), so it is pushed off by
- *   the content rather than flying away on a timer, and a small scroll up
- *   brings back exactly that much of it.
- * - **Settles by direction.** When scrolling stops with the bar part-way
- *   out, it finishes the way the visitor was last going (the velocity's
- *   sign, not the nearest end), on a short spring-like ease.
- * - **Never moves away from someone using it:** focus inside (an open
- *   filter popover, a keyboard user) holds it in place.
- * - **Reduced motion:** no travel at all — it is either there or not,
- *   decided at the same settle points, with no slide.
+ * 1. **It rides down with the page.** Once pinned it stays fully there for
+ *    the first `HOLD_PX` of scrolling — nothing vanishes the instant the
+ *    visitor moves.
+ * 2. **Then it fades, in step with the scroll** (`FADE_PX`), lifting a few
+ *    pixels and softening as it goes — a fade, not a slide off the top.
+ * 3. **Any scroll up brings it straight back,** fading in where it is
+ *    pinned (220ms ease-out).
+ * 4. **Back at the top it is put down in its original place:** the sticky
+ *    pin lets go and it sits in the page again, flat, as it started.
  *
- * Writes `transform` straight onto the element (no React state per
- * scroll frame) and sets `data-stuck` while it floats over content, which
- * the stylesheet uses for its shadow.
+ * Stopping half-faded finishes the way the visitor was going. Never fades
+ * while focus is inside (an open filter popover, a keyboard user), and
+ * focus coming in brings it back. Under reduced motion it is the same
+ * opacity change with no movement. Writes styles straight onto the element
+ * (no React state per scroll frame); `data-stuck` marks it floating, for
+ * the stylesheet's shadow.
  */
 export function useScrollAwayBar(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -36,38 +38,36 @@ export function useScrollAwayBar(ref: RefObject<HTMLElement | null>) {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     let lastY = window.scrollY;
-    let offset = 0; // px the bar is pushed up, 0..travel
-    let direction = 0; // +1 down, -1 up
+    let run = 0; // downward scroll since it was last fully shown
+    let direction = 0;
     let frame = 0;
     let idle = 0;
 
-    // Its own height plus the gap above it and room for the shadow.
-    const travel = () => el.offsetHeight + parseFloat(getComputedStyle(el).top || "0") + 16;
-    // The offset actually on screen right now — mid-settle it is neither
-    // end, and that is where a new scroll must pick up from, not the target.
-    const liveOffset = () => {
-      const m = getComputedStyle(el).transform;
-      return m && m !== "none" ? -new DOMMatrixReadOnly(m).m42 : 0;
-    };
-    // Stuck = the sticky offset is in force, i.e. it is floating over content.
-    const isStuck = () => {
-      const top = parseFloat(getComputedStyle(el).top || "0");
-      return Math.round(el.getBoundingClientRect().top + liveOffset()) <= Math.round(top);
-    };
+    const pinnedTop = () => parseFloat(getComputedStyle(el).top || "0");
+    // The sticky pin is in force: it is floating over the content rather
+    // than sitting in its own place in the page.
+    const isStuck = () => Math.round(el.getBoundingClientRect().top) <= Math.round(pinnedTop());
+
+    /** 0 = fully shown, 1 = fully faded. */
+    const progress = () => Math.min(1, Math.max(0, (run - HOLD_PX) / FADE_PX));
 
     const paint = (animate: boolean) => {
-      el.style.transition = animate && !reduced.matches ? `${SETTLE}, ${SHADOW}` : SHADOW;
-      el.style.transform = offset ? `translate3d(0, ${-offset}px, 0)` : "";
+      const p = progress();
+      el.style.transition = animate
+        ? `opacity 220ms ${EASE_OUT}, transform 220ms ${EASE_OUT}, box-shadow 240ms ease`
+        : "box-shadow 240ms ease";
+      el.style.opacity = p ? String(1 - p) : "";
+      el.style.transform = p && !reduced.matches ? `translate3d(0, ${-8 * p}px, 0) scale(${1 - 0.02 * p})` : "";
+      el.style.pointerEvents = p > 0.5 ? "none" : "";
       el.toggleAttribute("data-stuck", isStuck());
     };
 
     const settle = () => {
       idle = 0;
-      const max = travel();
-      if (offset === 0 || offset === max) return;
-      offset = direction > 0 ? max : 0;
+      const p = progress();
+      if (p === 0 || p === 1) return;
+      run = direction > 0 ? HOLD_PX + FADE_PX : 0;
       paint(true);
-      el.addEventListener("transitionend", () => el.toggleAttribute("data-stuck", isStuck()), { once: true });
     };
 
     const update = () => {
@@ -77,18 +77,16 @@ export function useScrollAwayBar(ref: RefObject<HTMLElement | null>) {
       lastY = y;
       if (delta) direction = Math.sign(delta);
 
-      const max = travel();
-      offset = Math.min(max, Math.max(0, liveOffset())); // interrupt from the presentation value
+      const wasHidden = progress() > 0;
       if (el.matches(":focus-within") || !isStuck()) {
-        offset = 0; // in its own place on the page, or in use: never pushed away
-      } else if (reduced.matches) {
-        // No travel: jump between the ends, only once the run is deliberate.
-        if (delta > 0 && y > max) offset = max;
-        else if (delta < 0) offset = 0;
+        run = 0; // in its own place, or in use: always shown
+      } else if (delta < 0) {
+        run = 0; // any tick up: back
       } else {
-        offset = Math.min(max, Math.max(0, offset + delta));
+        run += delta;
       }
-      paint(false);
+      // Coming back is a short fade-in; going away follows the scroll.
+      paint(wasHidden && progress() === 0);
       window.clearTimeout(idle);
       idle = window.setTimeout(settle, IDLE_MS);
     };
@@ -97,8 +95,8 @@ export function useScrollAwayBar(ref: RefObject<HTMLElement | null>) {
       if (!frame) frame = requestAnimationFrame(update);
     };
     const onFocusIn = () => {
-      if (!offset) return;
-      offset = 0;
+      if (!progress()) return;
+      run = 0;
       paint(true);
     };
 
@@ -110,7 +108,7 @@ export function useScrollAwayBar(ref: RefObject<HTMLElement | null>) {
       el.removeEventListener("focusin", onFocusIn);
       if (frame) cancelAnimationFrame(frame);
       window.clearTimeout(idle);
-      el.style.transform = el.style.transition = "";
+      el.style.opacity = el.style.transform = el.style.transition = el.style.pointerEvents = "";
       el.removeAttribute("data-stuck");
     };
   }, [ref]);

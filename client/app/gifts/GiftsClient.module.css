@@ -132,9 +132,9 @@
   border-radius: var(--hk-r-lg);
   background: color-mix(in srgb, var(--hk-surface) 86%, transparent);
   backdrop-filter: blur(10px) saturate(180%);
-  will-change: transform;
-  /* Only the shadow animates here; the slide is driven per frame by
-     `useScrollAwayBar` (1:1 with the scroll, then a settle). */
+  will-change: opacity, transform;
+  /* Only the shadow animates here; the ride-along-then-fade is driven per
+     frame by `useScrollAwayBar`. */
   transition: box-shadow 240ms ease;
 }
 

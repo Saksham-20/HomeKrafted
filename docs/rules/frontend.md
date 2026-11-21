@@ -124,12 +124,15 @@ reels (`ReelsRailClient`/`ReelCard`/`ReelViewer`) and `AppInstallPanel`
   doors' height is `100svh` minus the bar and heading (`Doors.module.css`),
   so the first view ends on the doors at 1366×657 and 1536×730 (Windows
   laptops) as well as on a Mac.
-- **`/gifts`'s sticky toolbar scrolls away with the page and comes back on
-  the way up** (`components/browse/useScrollAwayBar`, 2026-11-21): its
-  offset tracks the scroll 1:1, settles by the last direction on the iOS
-  drawer curve when scrolling stops, writes `transform` directly (no React
-  state per frame), never moves while focus is inside it, and only toggles
-  under reduced motion. It pins at `top: var(--hk-s3)` because the header
+- **`/gifts`'s sticky toolbar rides down with the page, then fades, and
+  comes back on the way up** (`components/browse/useScrollAwayBar`,
+  owner 2026-11-21): once pinned it stays fully visible for 240px of
+  downward scroll, then fades over the next 120px in step with the scroll
+  (a fade with a slight lift, never a slide off the top); any tick up fades
+  it back in place (220ms ease-out); back at the top the sticky pin lets go
+  and it sits in its original place. Writes styles directly (no React state
+  per frame), never fades while focus is inside it, opacity-only under
+  reduced motion. It pins at `top: var(--hk-s3)` because the header
   on `/gifts` is not sticky.
 - **The ISB banner left the landing page on 2026-10-23.** The primary action
   is now the Diwali edit (`/gifts?occasion=diwali`), illustrated by a real
