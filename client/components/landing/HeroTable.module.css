@@ -10,24 +10,17 @@
   position: relative;
 }
 
-.brand {
-  display: none;
-}
-
-.brandMark {
-  display: block;
-  width: auto;
-  height: 52px;
+.marker {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 1px;
 }
 
 @media (min-width: 900px) {
   .hero {
-    padding-top: calc(72px + clamp(14px, 2vw, 28px));
+    padding-top: calc(72px + clamp(12px, 2svh, 24px));
     padding-bottom: 56px;
   }
 
-  .brand {
-    display: block;
-    margin-bottom: clamp(14px, 2vw, 24px);
-  }
 }

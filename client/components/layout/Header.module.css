@@ -102,19 +102,7 @@
   display: inline-flex;
   align-items: center;
   position: static;
-  transform: translateX(-4px);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
   z-index: 2;
-  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s ease, transform 0.3s ease;
-}
-
-.landing[data-logo-visible="true"] .logo {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translateX(0);
 }
 
 .landing .logoMark {
@@ -217,13 +205,6 @@
   .landing .brandCluster {
     display: flex;
     align-items: center;
-  }
-
-  .landing .logo {
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    transform: none !important;
   }
 
   .landing .actions {

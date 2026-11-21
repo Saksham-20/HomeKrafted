@@ -59,11 +59,9 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
    * M52): no search field, no wallet chip — only the profile icons,
    * floating over the hero — and the tabs are centred. It is
    * `position: fixed` and transparent at the top, so the hero can be one
-   * full screen with nothing above it. The logo is in the row from first
-   * paint but invisible until the hero lockup (the page's `<h1>`) has
-   * scrolled past — then it fades in as the bar turns solid, so the
-   * wordmark reads as moving into the bar (owner, 2026-08-31, M56). The
-   * same `data-revealed` drives both; see Header.module.css. Every other
+   * full screen with nothing above it. The logo shows from first paint
+   * (owner, 2026-11-21); `data-revealed` turns the bar solid once the
+   * hero's marker has scrolled under it; see Header.module.css. Every other
    * route keeps the ordinary row: logo, tabs, search, wallet, icons,
    * static. `usePathname` is known on the server, so the two renders
    * agree.
@@ -216,21 +214,13 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
     </nav>
   );
 
-  /*
-   * The logo hands over (M56, restored 2026-09-23 as owner decision D8):
-   * on `/` the hero carries the wordmark (`#hk-hero-brand` in
-   * `components/landing/HeroTable`), so the bar's copy waits, invisible
-   * but in its slot, and fades in as the bar turns solid. Every other
-   * route shows it always. Below 900px the stylesheet shows it regardless
-   * — a phone's bar is the only brand mark the first screen can afford.
-   */
-  const showLogo = !onLanding || revealed;
+  // The logo is in the bar from first paint on every route, `/` included
+  // (owner, 2026-11-21 — this retires the M56/D8 hero-to-bar handover).
 
   return (
     <header
       className={clsx(styles.header, onLanding && styles.landing)}
       data-revealed={onLanding ? String(revealed) : undefined}
-      data-logo-visible={onLanding ? String(showLogo) : "true"}
     >
       <div className={clsx("container", "container-wide", styles.row)}>
         {onLanding ? (

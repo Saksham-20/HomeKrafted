@@ -25,6 +25,7 @@ import { describeEmptyBrowse } from "@/lib/browse-empty";
 import { sortGifts } from "@/lib/gift-sort";
 import { SortSelect } from "@/components/browse/SortSelect";
 import { useBrowseFilters } from "@/components/browse/useBrowseFilters";
+import { useHideOnScrollDown } from "@/components/browse/useHideOnScrollDown";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { isOnSale, productMatchesFacets, SHIPPING_LABELS } from "@/lib/browse-facets";
 import { listingPrice } from "@/lib/kitchens";
@@ -102,6 +103,7 @@ export function GiftsClient({
 }: GiftsClientProps) {
   const { ready: authReady, role } = useAuth();
   const canCustomiseSequence = authReady && role === "admin";
+  const toolbarHidden = useHideOnScrollDown();
   const priceBounds = useMemo(() => {
     if (products.length === 0) return [0, 0] as [number, number];
     const prices = products.map(priceOf);
@@ -541,7 +543,7 @@ export function GiftsClient({
           finder sentence above and two controls for one filter is how a
           page ends up disagreeing with itself.
         */}
-        <div className={styles.toolbar}>
+        <div className={styles.toolbar} data-hidden={toolbarHidden}>
           <span className={styles.resultCount}>
             {sorted.length} {sorted.length === 1 ? "gift" : "gifts"}
           </span>

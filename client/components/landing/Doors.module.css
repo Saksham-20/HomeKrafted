@@ -10,9 +10,10 @@
 
 /* Right-aligned, where the hero's headline was left: the page swings. */
 .heading {
-  margin: 0 0 clamp(20px, 3vw, 36px);
+  margin: 0 0 clamp(16px, min(3vw, 3.4svh), 36px);
   font-family: var(--lp-display);
-  font-size: clamp(32px, 4.6vw, 64px);
+  /* Scales with height too: a 1536×730 Windows viewport is wide but short. */
+  font-size: clamp(32px, min(4.6vw, 7.4svh), 64px);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -84,7 +85,7 @@
   /* Two lines always, so a narrowing half never clips a long word. */
   max-width: 8ch;
   font-family: var(--lp-display);
-  font-size: clamp(34px, 4vw, 54px);
+  font-size: clamp(34px, min(4vw, 6.4svh), 54px);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.025em;
@@ -140,7 +141,9 @@
     position: relative;
     display: grid;
     grid-template-areas: "stage";
-    height: clamp(520px, 70vh, 780px);
+    /* Whatever the viewport has left under the bar and the heading, so
+       the first screen ends on the doors' bottom edge at any aspect. */
+    height: clamp(400px, calc(100svh - 72px - min(4.6vw, 7.4svh) - min(3vw, 3.4svh) - 64px), 780px);
   }
 
   .panel {
