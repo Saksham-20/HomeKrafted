@@ -187,9 +187,18 @@ export async function getSocialConfig(): Promise<SocialConfig> {
  * display fallback for Apple's first authorization, which returns a name
  * outside the token.
  */
+/**
+ * 409 codes `POST /auth/social/:provider` answers when the Google email
+ * matches an existing account that has not proved it yet (2026-11-21):
+ * resend the same token with that account's `password`, or sign in to it
+ * first and connect Google from the profile.
+ */
+export const SOCIAL_LINK_NEEDS_PASSWORD = "SOCIAL_LINK_NEEDS_PASSWORD";
+export const SOCIAL_LINK_SIGN_IN_FIRST = "SOCIAL_LINK_SIGN_IN_FIRST";
+
 export async function socialLogin(
   provider: "google" | "apple",
-  input: { idToken: string; nonce?: string; name?: string },
+  input: { idToken: string; nonce?: string; name?: string; password?: string },
 ): Promise<AuthResultDto> {
   return http.post<AuthResultDto>(`/auth/social/${provider}`, input, { auth: false });
 }

@@ -108,9 +108,9 @@ Verified against a running server on 2026-08-09.
 **A second takeover was found in review and closed with it.** `register`
 never sets `emailVerified`, so an attacker could pre-register a victim's
 address with their own password and inherit the victim's first real Google
-sign-in. Auto-linking now requires an already-verified account; otherwise
-the sign-in seizes it (sessions revoked, password cleared). Admin accounts
-cannot use social sign-in at all.
+sign-in. Joining an unproven self-signup now needs that account's password
+once (until 2026-11-21 the sign-in seized it instead — password cleared,
+sessions revoked). Admin accounts cannot use social sign-in at all.
 
 **Google is configured and live since 2026-11-21.** Google Cloud project
 `homekrafted-515407` (owned by the company's Play Console account), consent
@@ -123,9 +123,13 @@ the web id stays first, because `GET /auth/social/config` hands the browser
 the first entry. Unset, the provider is off: the endpoint answers 503 and no
 button renders. An Apple Services ID ($99/yr) is still optional.
 
-**Linking is by verified email only.** A Google sign-in whose verified
-address matches an existing account joins it (and *seizes* it if that
-account's email was never verified — password cleared, sessions revoked).
+**Same email, same account — never a clash (2026-11-21).** A Google
+sign-in whose verified address matches an existing account joins it and
+keeps its password and sessions: straight away when the account's email is
+verified or it is an approved HomeKrafter (78 production sellers have an
+unverified email, typed on an application an admin approved); after typing
+that account's password once when it is a self-signup that never proved
+its email (4 on production) — the pre-registration takeover stays closed.
 A phone-only account, or one under a different address, gets a **new**
 account from a cold sign-in — so an existing customer connects Google from
 **/account/profile → Sign-in methods** first (`POST /auth/social/google/link`,

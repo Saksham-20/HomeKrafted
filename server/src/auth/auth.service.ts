@@ -174,6 +174,15 @@ export interface SocialProviderConfig {
   clientId: string | null;
 }
 
+/** 409 codes the sign-in screen branches on (2026-11-21) — see `assertMayJoin`. */
+export const SOCIAL_LINK_NEEDS_PASSWORD = 'SOCIAL_LINK_NEEDS_PASSWORD';
+export const SOCIAL_LINK_SIGN_IN_FIRST = 'SOCIAL_LINK_SIGN_IN_FIRST';
+
+/** The unique index answered — the shape a double click produces. */
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
+}
+
 /** The providers connected to an account — what the profile's "Connect Google" reads. */
 export interface SocialLinks {
   providers: SocialProvider[];
@@ -730,17 +739,24 @@ export class AuthService {
    * now checks the signature against the provider's published keys before
    * anything is looked up.
    *
-   * **2. An unverified local account is taken over, not inherited.**
-   * Verifying the token alone does *not* close the hole, and this is the
-   * subtle half. `register` never sets `emailVerified` — only the OTP path
-   * does — so an attacker can register `victim@gmail.com` with a password
-   * of their choosing and wait. When the real owner later clicks
-   * "Continue with Google" with a genuinely valid token, a naive
-   * link-by-email hands them a session *inside the attacker's account*,
-   * which still has the attacker's password on it. So: auto-link only to
-   * an already-verified account; otherwise seize it — revoke every
-   * session, drop the password, and stamp the address verified, because
-   * the provider has just proved who owns it.
+   * **2. An existing account with the same email is joined, never taken
+   * over — and an unproven one is joined only with proof (2026-11-21).**
+   * `register` never sets `emailVerified` (only an email code does), so an
+   * attacker can register `victim@gmail.com` with a password of their own
+   * and wait; a naive link-by-email would then put the real owner inside
+   * the attacker's account, password and all. Until 2026-11-21 that case
+   * was "seized" (password wiped, sessions revoked), which on production
+   * would have wiped the password of nearly every HomeKrafter the first
+   * time they pressed Google. `assertMayJoin` now decides:
+   * - email verified, or an admin-approved HomeKrafter → link, keep
+   *   everything (the address was on an application a person approved);
+   * - a self-signup with a password → 409 `SOCIAL_LINK_NEEDS_PASSWORD`;
+   *   the client asks for that password once and resends the same token
+   *   with it. Right password → link, keep it; wrong → 401;
+   * - an unverified email and no password (a phone account whose profile
+   *   email was typed, never proved) → 409 `SOCIAL_LINK_SIGN_IN_FIRST`:
+   *   sign in with the phone, then Connect Google from the profile.
+   * Nothing is wiped and no session is revoked on any path.
    *
    * Admins are refused outright, matching `verifyOtp`'s refusal of the
    * test-code bypass: it keeps "someone reached the founder's inbox" out
@@ -773,57 +789,64 @@ export class AuthService {
       this.assertNotSuspended(user);
       this.assertNotAdmin(user, provider);
 
-      const seizing = !user.emailVerified;
-      user = await this.prisma.$transaction(async (tx) => {
-        if (seizing) {
-          // The pre-registration case. Whoever set this password never
-          // proved they hold the address; the person in front of us just
-          // did. Every existing session dies with the password.
-          await tx.refreshToken.deleteMany({ where: { userId: user!.id } });
-        }
-        await tx.socialAccount.create({
-          data: { userId: user!.id, provider, providerAccountId: identity.providerAccountId },
+      await this.assertMayJoin(user, provider, dto.password);
+      const joining = user;
+      try {
+        user = await this.prisma.$transaction(async (tx) => {
+          await tx.socialAccount.create({
+            data: { userId: joining.id, provider, providerAccountId: identity.providerAccountId },
+          });
+          return tx.user.update({
+            where: { id: joining.id },
+            data: {
+              // The provider has just proved who holds this address.
+              emailVerified: true,
+              ...(joining.authProviders.includes(provider as unknown as 'google' | 'apple')
+                ? {}
+                : { authProviders: { push: provider as unknown as 'google' | 'apple' } }),
+            },
+          });
         });
-        return tx.user.update({
-          where: { id: user!.id },
-          data: {
-            emailVerified: true,
-            ...(seizing ? { passwordHash: null } : {}),
-            ...(user!.authProviders.includes(provider as unknown as 'google' | 'apple')
-              ? {}
-              : { authProviders: { push: provider as unknown as 'google' | 'apple' } }),
-          },
-        });
-      });
-
-      if (seizing) {
-        this.logger.warn(
-          `Social sign-in seized unverified account ${user.id}: sessions revoked and password cleared after a verified ${provider} token proved ownership of the address.`,
-        );
+      } catch (err) {
+        // A double click: the other request linked it first. Same account.
+        if (isUniqueViolation(err)) return this.issueSession(joining);
+        throw err;
       }
     } else {
       const displayName = identity.name ?? dto.name ?? 'Homekrafted user';
       const referralCode = await this.uniqueReferralCode(displayName);
-      user = await this.prisma.$transaction(async (tx) => {
-        const created = await tx.user.create({
-          data: {
-            name: displayName,
-            // An unverified provider email is not stored as this account's
-            // email: `User.email` is unique and doubles as a login handle,
-            // so squatting one here would block the real owner later.
-            email: matchableEmail,
-            emailVerified: Boolean(matchableEmail),
-            authProviders: [provider as unknown as 'google' | 'apple'],
-            referralCode,
-          },
+      try {
+        user = await this.prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: {
+              name: displayName,
+              // An unverified provider email is not stored as this account's
+              // email: `User.email` is unique and doubles as a login handle,
+              // so squatting one here would block the real owner later.
+              email: matchableEmail,
+              emailVerified: Boolean(matchableEmail),
+              authProviders: [provider as unknown as 'google' | 'apple'],
+              referralCode,
+            },
+          });
+          await tx.socialAccount.create({
+            data: { userId: created.id, provider, providerAccountId: identity.providerAccountId },
+          });
+          await tx.wallet.create({ data: { userId: created.id } });
+          await tx.loyaltyAccount.create({ data: { userId: created.id } });
+          return created;
         });
-        await tx.socialAccount.create({
-          data: { userId: created.id, provider, providerAccountId: identity.providerAccountId },
+      } catch (err) {
+        // A double click on a first sign-in: the other request created the
+        // account first. Answer with that account rather than a 500.
+        if (!isUniqueViolation(err)) throw err;
+        const won = await this.prisma.socialAccount.findUnique({
+          where: { provider_providerAccountId: { provider, providerAccountId: identity.providerAccountId } },
+          include: { user: true },
         });
-        await tx.wallet.create({ data: { userId: created.id } });
-        await tx.loyaltyAccount.create({ data: { userId: created.id } });
-        return created;
-      });
+        if (!won) throw new ConflictException('That sign-in clashed with another. Try again.');
+        return this.issueSession(won.user);
+      }
     }
 
     return this.issueSession(user);
@@ -889,9 +912,7 @@ export class AuthService {
     } catch (err) {
       // Two tabs connecting the same identity at once: the unique index
       // decides, and the loser gets the same answer as the check above.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return this.socialLinks(userId);
-      }
+      if (isUniqueViolation(err)) return this.socialLinks(userId);
       throw err;
     }
     return this.socialLinks(userId);
@@ -919,6 +940,34 @@ export class AuthService {
       }),
     ]);
     return this.socialLinks(userId);
+  }
+
+  /**
+   * May a Google/Apple identity carrying this account's email join it?
+   * See `socialLogin`'s doc comment for the three cases. Throws when the
+   * person has to prove more first; returns when the join may go ahead.
+   */
+  private async assertMayJoin(user: User, provider: SocialProvider, password?: string): Promise<void> {
+    if (user.emailVerified || user.role === 'seller') return;
+    const label = provider === SocialProvider.google ? 'Google' : 'Apple';
+
+    if (!user.passwordHash) {
+      throw new ConflictException({
+        code: SOCIAL_LINK_SIGN_IN_FIRST,
+        message: `An account already uses this email. Sign in to it with your phone number, then connect ${label} from your profile.`,
+      });
+    }
+    if (!password) {
+      throw new ConflictException({
+        code: SOCIAL_LINK_NEEDS_PASSWORD,
+        message: `You already have a Homekrafted account with this email. Enter its password once to connect ${label}.`,
+      });
+    }
+    if (!(await argon2.verify(user.passwordHash, password))) {
+      throw new UnauthorizedException(
+        "That password doesn't match this account. Try again, or use \"Forgot your password?\".",
+      );
+    }
   }
 
   /**

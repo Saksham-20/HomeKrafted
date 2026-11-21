@@ -295,40 +295,88 @@ describe('POST /auth/social/:provider', () => {
      * Google", and a link-by-email implementation signs them into the
      * account you control — password still yours.
      */
-    it('seizes an unverified account instead of joining it', async () => {
-      const victimEmail = 'victim@example.test';
-      const attackerPassword = await argon2.hash('attacker-password-123');
-      const squatted = await h.prisma.user.create({
+    const squat = async (overrides: Record<string, unknown> = {}) =>
+      h.prisma.user.create({
         data: {
           name: 'Squatted',
-          email: victimEmail,
-          passwordHash: attackerPassword,
+          email: 'victim@example.test',
+          passwordHash: await argon2.hash('attacker-password-123'),
           // Never proved — `register` does not set this, which is the
           // whole basis of the attack.
           emailVerified: false,
-          referralCode: 'SQUAT1',
-        },
-      });
-      const attackerSession = await h.prisma.refreshToken.create({
-        data: {
-          userId: squatted.id,
-          tokenHash: 'attacker-session-hash',
-          expiresAt: new Date(Date.now() + 7 * 24 * 3600 * 1000),
+          referralCode: `SQ${Math.random().toString(36).slice(2, 8)}`,
+          ...overrides,
         },
       });
 
+    it('does not join an unproven self-signup — it asks for that account\'s password', async () => {
+      const squatted = await squat();
+      const res = await post('google', {
+        idToken: await mintToken({ sub: 'google-victim', email: 'victim@example.test' }),
+      }).expect(409);
+      expect(errorOf(res).code).toBe('SOCIAL_LINK_NEEDS_PASSWORD');
+      // Nothing linked, nothing wiped, no second account for the address.
+      expect(await h.prisma.socialAccount.count()).toBe(0);
+      const after = await h.prisma.user.findUnique({ where: { id: squatted.id } });
+      expect(after?.passwordHash).toBe(squatted.passwordHash);
+      expect(await h.prisma.user.count({ where: { email: 'victim@example.test' } })).toBe(1);
+    });
+
+    it('refuses the wrong password — the takeover stays closed', async () => {
+      await squat();
       await post('google', {
-        idToken: await mintToken({ sub: 'google-victim', email: victimEmail }),
+        idToken: await mintToken({ sub: 'google-victim', email: 'victim@example.test' }),
+        password: 'a-guess-123',
+      }).expect(401);
+      expect(await h.prisma.socialAccount.count()).toBe(0);
+    });
+
+    it('joins with the right password, keeping it and every session', async () => {
+      const mine = await squat();
+      const session = await h.prisma.refreshToken.create({
+        data: { userId: mine.id, tokenHash: 'own-session-hash', expiresAt: new Date(Date.now() + 86_400_000) },
+      });
+      const res = await post('google', {
+        idToken: await mintToken({ sub: 'google-mine', email: 'victim@example.test' }),
+        password: 'attacker-password-123',
       }).expect(200);
 
-      const after = await h.prisma.user.findUnique({ where: { id: squatted.id } });
-      // The attacker's password is gone, so they cannot sign back in.
-      expect(after?.passwordHash).toBeNull();
+      expect(res.body.user.id).toBe(mine.id);
+      const after = await h.prisma.user.findUnique({ where: { id: mine.id } });
+      expect(after?.passwordHash).toBe(mine.passwordHash);
       expect(after?.emailVerified).toBe(true);
-      // And their existing session is revoked rather than left live.
-      expect(
-        await h.prisma.refreshToken.findUnique({ where: { id: attackerSession.id } }),
-      ).toBeNull();
+      expect(after?.authProviders).toContain('google');
+      expect(await h.prisma.refreshToken.findUnique({ where: { id: session.id } })).not.toBeNull();
+
+      // And from now on Google alone is enough: no password asked again.
+      const again = await post('google', {
+        idToken: await mintToken({ sub: 'google-mine', email: 'victim@example.test' }),
+      }).expect(200);
+      expect(again.body.user.id).toBe(mine.id);
+    });
+
+    it('joins an approved HomeKrafter straight away, password kept', async () => {
+      // 78 of production's sellers carry an unverified email: it was typed
+      // on an application a person approved, and the old "seize" rule
+      // would have wiped every one of their passwords on first Google use.
+      const seller = await squat({ role: 'seller', email: 'kitchen@example.test' });
+      const res = await post('google', {
+        idToken: await mintToken({ sub: 'google-kitchen', email: 'kitchen@example.test' }),
+      }).expect(200);
+      expect(res.body.user.id).toBe(seller.id);
+      const after = await h.prisma.user.findUnique({ where: { id: seller.id } });
+      expect(after?.passwordHash).toBe(seller.passwordHash);
+      expect(after?.role).toBe('seller');
+    });
+
+    it('sends a passwordless, unproven account to its own sign-in first', async () => {
+      // A phone account whose profile email was typed, never proved.
+      await squat({ passwordHash: null, phone: '+919876500001', email: 'typed@example.test' });
+      const res = await post('google', {
+        idToken: await mintToken({ sub: 'google-typed', email: 'typed@example.test' }),
+      }).expect(409);
+      expect(errorOf(res).code).toBe('SOCIAL_LINK_SIGN_IN_FIRST');
+      expect(await h.prisma.socialAccount.count()).toBe(0);
     });
 
     it('joins a verified account without disturbing its password', async () => {

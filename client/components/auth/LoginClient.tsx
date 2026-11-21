@@ -12,7 +12,7 @@ import { RETURN_TO_PARAM, returnToForRole, safeReturnTo } from "@/lib/auth/retur
 import { SET_PASSWORD_PATH, sessionMustChangePassword } from "@/lib/auth/must-change-password";
 import { guessIdentifierKind, type IdentifierKind } from "@/lib/auth/identifier";
 import { SocialSignIn } from "./SocialSignIn";
-import type { SocialConfig } from "@/lib/api/auth";
+import { SOCIAL_LINK_NEEDS_PASSWORD, type SocialConfig } from "@/lib/api/auth";
 import type { UserRole } from "@/lib/types";
 import styles from "./LoginClient.module.css";
 
@@ -88,6 +88,16 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
   const [notice, setNotice] = useState<string | null>(null);
   /** Set once a sign-up has landed, so the code step reads as "confirm" rather than "sign in". */
   const [justCreated, setJustCreated] = useState(false);
+  /**
+   * A Google sign-in whose email matches an account that never proved it
+   * (2026-11-21): the server wants that account's password once before it
+   * joins them. The token is kept and resent with it — no second popup.
+   */
+  const [pendingLink, setPendingLink] = useState<{
+    provider: "google" | "apple";
+    credential: { idToken: string; nonce?: string };
+  } | null>(null);
+  const [linkPassword, setLinkPassword] = useState("");
 
   // `?role=seller` is a copy hint only now. It used to select a whole tab;
   // keeping it as a subtitle means an old "HomeKrafter sign in" link still
@@ -272,8 +282,33 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
     try {
       redirectForRole(await signInSocial(provider, credential));
     } catch (err) {
+      if (err instanceof ApiError && err.code === SOCIAL_LINK_NEEDS_PASSWORD) {
+        setPendingLink({ provider, credential });
+        setLinkPassword("");
+        setNotice(err.message);
+        return;
+      }
       setError(friendlyError(err));
     }
+  }
+
+  async function handleLinkWithPassword() {
+    if (!pendingLink || !linkPassword) return;
+    setError(null);
+    try {
+      redirectForRole(
+        await signInSocial(pendingLink.provider, { ...pendingLink.credential, password: linkPassword }),
+      );
+    } catch (err) {
+      setError(friendlyError(err));
+    }
+  }
+
+  function cancelLink() {
+    setPendingLink(null);
+    setLinkPassword("");
+    setNotice(null);
+    setError(null);
   }
 
   function backToPassword() {
@@ -392,7 +427,43 @@ export function LoginClient({ socialConfig }: LoginClientProps) {
       </div>
 
       <Card className={styles.card}>
-        {step === "code" ? (
+        {pendingLink ? (
+          <form
+            className={styles.form}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleLinkWithPassword();
+            }}
+          >
+            {notice && <p className={styles.hint}>{notice}</p>}
+            <label className={styles.field}>
+              <span className={styles.label}>Your Homekrafted password</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                className={styles.input}
+                placeholder="Your password"
+                value={linkPassword}
+                autoFocus
+                onChange={(event) => {
+                  setLinkPassword(event.target.value);
+                  setError(null);
+                }}
+              />
+            </label>
+            <Button variant="primary" type="submit" disabled={!linkPassword || working}>
+              {working ? "One moment…" : "Connect Google and sign in"}
+            </Button>
+            <div className={styles.linkRow}>
+              <button type="button" className={styles.linkButton} onClick={cancelLink} disabled={working}>
+                Back
+              </button>
+              <span className={styles.forgotRow}>
+                <Link href="/forgot-password">Forgot your password?</Link>
+              </span>
+            </div>
+          </form>
+        ) : step === "code" ? (
           <div className={styles.form}>
             {notice && <p className={styles.hint}>{notice}</p>}
             <label className={styles.field}>

@@ -256,7 +256,7 @@ export interface AuthContextValue {
    */
   signInSocial: (
     provider: "google" | "apple",
-    credential: { idToken: string; nonce?: string; name?: string },
+    credential: { idToken: string; nonce?: string; name?: string; password?: string },
   ) => Promise<UserRole>;
 
 
@@ -790,7 +790,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInSocial(
     provider: "google" | "apple",
-    credential: { idToken: string; nonce?: string; name?: string },
+    credential: { idToken: string; nonce?: string; name?: string; password?: string },
   ): Promise<UserRole> {
     if (mock) {
       setSignedIn(true);

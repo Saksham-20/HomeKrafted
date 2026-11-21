@@ -187,12 +187,17 @@ Four sign-in flows, all converging on the same JWT session shape:
   look identical, and the tie goes to the real user. Pinned by
   `test/e2e/social-login.e2e-spec.ts`.
 
-  Linking rule: a provider-verified email links to an existing account
-  **only if that account is already `emailVerified`**. Otherwise the
-  sign-in *seizes* it — every refresh token revoked and `passwordHash`
-  cleared — because `register` never sets `emailVerified`, so an
-  unverified match may be somebody who pre-registered the victim's
-  address and is waiting for exactly this.
+  Linking rule (2026-11-21): a provider-verified email that matches an
+  existing account **joins it — nothing is wiped and no session revoked**
+  — when that account is `emailVerified` or is an approved HomeKrafter
+  (`role: seller`). A self-signup whose email was never verified answers
+  **409 `SOCIAL_LINK_NEEDS_PASSWORD`**: resend the same body plus
+  `password` (that account's) — right joins and keeps it, wrong is 401 —
+  because `register` never sets `emailVerified`, so the match may be
+  somebody who pre-registered the victim's address. An unverified email
+  with no password answers **409 `SOCIAL_LINK_SIGN_IN_FIRST`** (sign in by
+  phone, then link from the profile). Replaced the old "seize" rule,
+  which would have wiped the passwords of 78 production HomeKrafters.
 - **`GET /auth/social/config`** — `{ google: { enabled, clientId },
   apple: { … } }`. Public, and deliberately *not* under the tighter auth
   throttle: the sign-in page reads it on every render and that budget is

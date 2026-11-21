@@ -41,4 +41,15 @@ export class SocialLoginDto {
   @IsString()
   @MaxLength(120)
   name?: string;
+
+  /**
+   * The existing account's password, sent only on the second try after a
+   * 409 `SOCIAL_LINK_NEEDS_PASSWORD`: a self-signup account whose email
+   * was never verified joins a Google identity only once the person proves
+   * they also hold that account (2026-11-21). It is checked, never stored.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  password?: string;
 }
