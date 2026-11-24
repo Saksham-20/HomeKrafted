@@ -86,6 +86,10 @@
   border-color: var(--hk-footer-ink-2);
 }
 
+.apps {
+  margin-top: 6px;
+}
+
 .col {
   display: flex;
   flex-direction: column;

@@ -20,7 +20,10 @@ q50, which it fades into the paper at anyway. **More winter:** the Winter
 Edit band is now the page's window onto the night — deep pine, a cool
 light from one corner, snow lying along its top edge and falling past four
 photographs that glow warm — and the meal-plans card wears the same snow
-cap as the footer (one shared `SnowCap` drawing).
+cap as the footer (one shared `SnowCap` drawing). Then the footer gained
+App Store and Google Play badges reading "Coming soon on …" (`StoreBadges`
+with no store links, so labels rather than links to nowhere; their
+accessible name now has the space between its two lines).
 
 ## 2026-11-24 — The seasonal home page, and the site in winter dress
 

@@ -1715,7 +1715,9 @@ The client's "Winter Edit" design. Check it at desktop width and on a phone.
   the home). The dark card opens meal plans.
 - **Footer (every page):** a snow cap along its top edge with a little
   snow falling behind it, then
-  Explore / Customer Care / About Homekrafted / Stay in the loop, then a
+  Explore / Customer Care / About Homekrafted / Stay in the loop (under
+  the social icons: App Store and Google Play badges saying "Coming soon
+  on …" — they are not links and do nothing when pressed), then a
   row with every policy page, then the copyright line. "Follow
   @_homekrafted" opens Instagram in a new tab — there is no email signup.
 

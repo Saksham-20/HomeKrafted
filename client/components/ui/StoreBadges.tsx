@@ -115,7 +115,9 @@ function StoreBadge({
     <>
       {children}
       <span className={styles.lines}>
-        <span className={styles.lead}>{href ? lead : "Coming soon on"}</span>
+        <span className={styles.lead}>{href ? lead : "Coming soon on"}</span>{" "}
+        {/* The space is for the accessible name ("Coming soon on App Store");
+            between flex items it is never drawn. */}
         <span className={styles.store}>{label}</span>
       </span>
     </>
