@@ -25,11 +25,14 @@ const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/ap
 
 const nextConfig: NextConfig = {
   images: {
-    // AVIF first, WebP as the fallback. A product photo straight off a
-    // HomeKrafter's phone is the heaviest thing this site ships, and the
-    // point of M16's H7 is that a 4 MB kitchen photo stops being sent
-    // whole to a 360px screen.
-    formats: ["image/avif", "image/webp"],
+    // WebP only (2026-11-24; AVIF first before that). The point of M16's
+    // H7 stands — a 4 MB kitchen photo is never sent whole to a 360px
+    // screen — but the optimiser encodes on the first request for each
+    // size, on this 1-vCPU box, beside the page renders. AVIF took 1.5–3.4 s
+    // for the new home hero at 1200–1920px; WebP encodes ~5x faster for ~40%
+    // more bytes (123 vs 75 KB at 1920px). The first visitor's wait is the
+    // one people noticed, and a warm cache answers in ~0.2 s either way.
+    formats: ["image/webp"],
     // Uploads and bundled assets are both same-origin paths, so nothing
     // needs allowlisting. Adding an entry here later means deciding which
     // hosts we trust to serve images into our own pages — don't widen it

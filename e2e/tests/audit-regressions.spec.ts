@@ -531,6 +531,31 @@ test.describe('the seasonal home page (2026-11-24)', () => {
     await expect(page.locator('#winter-edit')).toBeInViewport();
   });
 
+  // The card's photo lifts on hover with a transform; a transform makes a
+  // stacking context, and once it painted under the card's stretched link
+  // every arrow and heart click opened the product instead (2026-11-24).
+  // `click()` checks the arrow itself receives the pointer — the regression.
+  test('a card\'s photo arrow changes the photo and stays on the page', async ({ page }) => {
+    await skipLocationPrompt(page);
+    await page.goto('/search?q=a');
+    const card = page.locator('[data-testid="product-card"]:has(button[aria-label^="Next photo"])').first();
+    test.skip((await card.count()) === 0, 'no listing with more than one photo in this catalogue');
+    await card.hover();
+    const url = page.url();
+    // Which dot is lit — the photo's src can repeat (a gallery may point
+    // several slots at one file), the position cannot.
+    const lit = () =>
+      card.evaluate((node) =>
+        [...node.querySelectorAll('[class*="dot"]:not([class*="dots"])')].findIndex((dot) =>
+          /dotOn/.test(dot.className),
+        ),
+      );
+    expect(await lit()).toBe(0);
+    await card.getByRole('button', { name: /^Next photo/ }).click();
+    await expect(page).toHaveURL(url);
+    await expect.poll(lit).toBe(1);
+  });
+
   // WCAG 2.2.2: the snow starts on its own, so one control must stop it
   // everywhere, and the choice must hold on the next page.
   test('pausing the snow holds across pages', async ({ page }) => {

@@ -6,6 +6,7 @@ import { SnowToggle } from "@/components/season/SnowToggle";
 import { getFooterColumns, getFooterNav } from "@/lib/api";
 import { SEASON } from "@/lib/season";
 import styles from "./Footer.module.css";
+import snowCap from "@/components/season/SnowCap.module.css";
 
 /**
  * Social profiles (M56, owner request). Brand marks are inline SVG per
@@ -63,7 +64,7 @@ export async function Footer() {
   const policies = policyColumns.flatMap((column) => column.links).filter((link) => !inColumns.has(link.href));
 
   return (
-    <footer className={clsx(styles.footer, SEASON.theme && styles.seasonal)}>
+    <footer className={clsx(styles.footer, SEASON.theme && [styles.seasonal, snowCap.cap])}>
       {SEASON.theme === "winter" && <Snowfall variant="footer" count={26} seed={1124} />}
 
       <div className={clsx("container", "container-wide", styles.top)}>

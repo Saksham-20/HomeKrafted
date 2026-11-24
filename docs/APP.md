@@ -360,13 +360,13 @@ stale and every thumbnail a 400.
 
 Snapping also caps what this costs the box: one vCPU running Next, the
 API and Postgres at a measured p95 of 2.06s, with each new width an
-inline AVIF encode. Restricting the app to widths the web already
+inline encode (AVIF until 2026-11-24, WebP since — about 5x cheaper). Restricting the app to widths the web already
 requests means the first release warms a cache that mostly exists.
 
 **Capacity, measured (E3, moved from A7 to A3).** The box runs Next, the
 API and Postgres on one vCPU at a measured p95 of 2.06s, and every width
-the app asks for that the web has never requested is an inline AVIF
-encode. Measured against production on 2026-09-06, one product photo,
+the app asks for that the web has never requested is an inline
+encode (AVIF when this was measured; WebP since 2026-11-24). Measured against production on 2026-09-06, one product photo,
 first request versus second:
 
 | `w` | cold | warm | bytes |

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-24 — After the first look: card arrows, the photo viewer, food out of Bestsellers, faster photos, more winter
+
+The owner's review of the live page. **Card photo arrows opened the
+product** instead of changing the photo, and the heart did the same: the
+card's 3px hover lift is a transform, which made the photo a stacking
+context painted under the card's stretched link. The photo is now its own
+layer above the link with `pointer-events: none` (its buttons take clicks
+back), and an e2e spec presses the arrow for real. **The product page's
+photo viewer** sat under the "Pairs well" cards — the gallery is
+`position: sticky`, which traps a fixed dialog — and is now portalled to
+`<body>`. **Bestsellers carry no food while food orders are closed**
+(gifts fill the row). **The phone menu says "Coming soon" beside Food.**
+Product-card type is larger site-wide (name 19, maker 15, size 14, price
+19px; phone steps too). **Photos load faster for a first visitor:** the
+image optimiser serves WebP only (AVIF took 1.5–3.4 s per size to encode on
+the 1-vCPU box; WebP ~5x faster for ~40% more bytes) and the hero goes at
+q50, which it fades into the paper at anyway. **More winter:** the Winter
+Edit band is now the page's window onto the night — deep pine, a cool
+light from one corner, snow lying along its top edge and falling past four
+photographs that glow warm — and the meal-plans card wears the same snow
+cap as the footer (one shared `SnowCap` drawing).
+
 ## 2026-11-24 — The seasonal home page, and the site in winter dress
 
 The client's "Winter Edit" mockup, built from the catalogue rather than

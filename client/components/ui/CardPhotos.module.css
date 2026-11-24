@@ -19,8 +19,8 @@
 }
 
 /*
-  Above the card's stretched link (which is z-index 0 on `::after`), the
-  same lift the wishlist and add buttons take.
+  Inside the card's photo layer, which sits above the stretched link and
+  hands clicks back to its buttons (`ProductCard.module.css`, .imageWrap).
 */
 .arrow {
   position: absolute;

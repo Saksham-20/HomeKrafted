@@ -1,4 +1,4 @@
-import { getCategories, getCollections, getProducts, getVendors } from "@/lib/api";
+import { getCategories, getCollections, getProducts, getPublicSettings, getVendors } from "@/lib/api";
 import { isPurchasable } from "@/lib/catalog-availability";
 import { uncuratedRail } from "@/lib/home-rails";
 import { interleave } from "@/lib/landing/register";
@@ -18,17 +18,23 @@ import styles from "./HomePage.module.css";
  *
  * Words and pictures come from `lib/season.ts`. Products come
  * from the live catalogue: the admin's "bestsellers" collections when
- * they exist and have live listings, otherwise featured-then-top-rated
+ * they exist and have live listings (food only while food orders are
+ * open), otherwise featured-then-top-rated
  * (`home-rails`), the same fallback the page before this one used. A
  * catalogue with nothing live shows no bestseller row at all rather than
  * an empty frame.
  */
 export async function HomePage() {
-  const [categories, allProducts, vendors, collections] = await Promise.all([
+  const [categories, allProducts, vendors, collections, foodOpen] = await Promise.all([
     getCategories(),
     getProducts(),
     getVendors(),
     getCollections(),
+    // Unknown counts as closed: the rail can do without food for a request.
+    getPublicSettings().then(
+      (settings) => settings.foodOrdersOpen,
+      () => false,
+    ),
   ]);
 
   const liveShelves = new Set(categories.filter((category) => !category.archivedAt).map((category) => category.slug));
@@ -49,9 +55,15 @@ export async function HomePage() {
     );
   }
 
-  const bestsellers = interleave(
-    resolveCollection("bestsellers-craft", "craft", 6),
-    resolveCollection("bestsellers-food", "food", 6),
+  // Food only while food can be bought (owner, 2026-11-24): a bestseller
+  // row of "Coming soon" buttons sells nothing. Gifts fill the row instead.
+  const bestsellers = (
+    foodOpen
+      ? interleave(
+          resolveCollection("bestsellers-craft", "craft", 6),
+          resolveCollection("bestsellers-food", "food", 6),
+        )
+      : resolveCollection("bestsellers-craft", "craft", 10)
   ).map((product) => ({ product, makerName: vendorNames.get(product.vendorId) ?? "" }));
 
   const withHref = (door: SeasonDoor) => ({ ...door, href: seasonDoorHref(door, liveShelves) });

@@ -51,9 +51,21 @@
    global reduced-motion floor strips the transition. */
 .imageWrap {
   position: relative;
+  /* Its own layer above the title link's stretched `::after`, always — the
+     hover lift is a transform, and a transform makes a stacking context
+     that, at the default level, painted the photo *under* the overlay: the
+     arrows and the heart went dead and a click on them opened the product
+     (2026-11-24). Clicks on the photo itself fall through to the link
+     (`pointer-events: none`); its controls take them back. */
+  z-index: 1;
+  pointer-events: none;
   overflow: hidden;
   border-radius: 8px;
   transition: transform 300ms var(--hk-ease);
+}
+
+.imageWrap button {
+  pointer-events: auto;
 }
 
 .tag {
@@ -102,7 +114,7 @@
   padding: 12px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   flex: 1;
   /* The meta line is optional since 2026-09-16, so the price row anchors
      itself to the bottom rather than space-between spreading whatever is
@@ -116,7 +128,7 @@
 /* "by The Slow Studio" — the landing's maker line, plain words in the
    reading face rather than a 10px mono caption. */
 .maker {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--hk-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -124,7 +136,9 @@
 }
 
 .name {
-  font-size: 17px;
+  /* 19 / 15 / 14 / 19 since 2026-11-24 (owner: "increase the size of
+     fonts under the products"); the phone steps are below. */
+  font-size: 19px;
   font-weight: 600;
   color: var(--hk-ink);
   line-height: 1.25;
@@ -176,7 +190,7 @@
 }
 
 .meta {
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--hk-muted);
 }
 
@@ -195,13 +209,13 @@
 }
 
 .price {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   color: var(--hk-ink);
 }
 
 .mrp {
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--hk-muted);
   text-decoration: line-through;
 }
@@ -250,7 +264,7 @@
   position: relative;
   z-index: 1;
   flex-shrink: 0;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--hk-muted);
   border: 1px solid var(--hk-border);
@@ -279,7 +293,7 @@
   border-radius: var(--hk-r-pill);
   background: var(--hk-terracotta-tint);
   color: var(--hk-terracotta-text);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -338,16 +352,16 @@
   }
 
   .name {
-    font-size: 15px;
+    font-size: 16.5px;
     line-height: 1.25;
   }
 
   .maker {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .meta {
-    font-size: 11.5px;
+    font-size: 13px;
   }
 
   .priceRow {
@@ -355,11 +369,11 @@
   }
 
   .price {
-    font-size: 16px;
+    font-size: 17.5px;
   }
 
   .mrp {
-    font-size: 11px;
+    font-size: 12.5px;
   }
 
   .add {
@@ -369,7 +383,7 @@
   }
 
   .soldOut {
-    font-size: 10.5px;
+    font-size: 11.5px;
     padding: 4px 8px;
   }
 
@@ -390,7 +404,7 @@
 */
 .factLine {
   font-family: var(--hk-font-mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   color: var(--hk-muted);
 }

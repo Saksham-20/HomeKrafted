@@ -118,6 +118,11 @@
   transition: transform 260ms var(--hp-ease);
 }
 
+/* Room under the snow cap the card wears in winter. */
+.mealCapped {
+  padding-top: 36px;
+}
+
 .mealTitle {
   position: relative;
   z-index: 1;

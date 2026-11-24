@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useWishlist } from "@/lib/wishlist/WishlistContext";
 import { SearchForm } from "@/components/search/SearchForm";
+import { FoodComingSoonTag } from "@/components/food/FoodComingSoonBanner";
 import { FOCUSABLE, trapTab } from "@/lib/focus-trap";
 import styles from "./MobileDrawer.module.css";
 
@@ -147,6 +148,9 @@ export function MobileDrawer({
               onClick={onClose}
             >
               {item.label}
+              {/* The phone's half of the header's "Coming soon" (2026-11-24):
+                  the tab row that carries it on a desktop is this list here. */}
+              {item.href === "/shop" && <FoodComingSoonTag className={styles.navSoonTag} />}
             </Link>
           ))}
         </nav>

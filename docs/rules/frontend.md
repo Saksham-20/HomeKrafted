@@ -131,6 +131,15 @@ the old page's visible questions). Words, pictures and doors live in
   `SnowToggle` reachable on the same page (WCAG 2.2.2), stay off text, and
   disappear under `prefers-reduced-motion`. Flake positions come from
   `lib/snow.ts` (seeded, so server and client render the same markup).
+  A dark surface that wears snow takes `SnowCap.module.css`'s `.cap`
+  (footer, Winter Edit band, meal-plans card) — never a copy of the SVG.
+- **Bestsellers on `/` carry food only while `foodOrdersOpen`** (owner,
+  2026-11-24): a row of "Coming soon" buttons sells nothing; gifts fill it.
+- **A fixed dialog inside a sticky or transformed ancestor is trapped in
+  that stacking context** — portal it to `<body>` (`ProductGallery`,
+  `MobileDrawer`). `next/image` serves **WebP only** since 2026-11-24:
+  the 1-vCPU box encodes each size on first request, and AVIF took
+  1.5–3.4 s for the home hero (`next.config.ts`).
 - **The home header is sticky, not fixed** — a translucent paper bar with
   logo, five tabs, search and icons, and `DeliveryLine` under it; its edge
   shadow appears once `#hk-hero-section` has scrolled under it.
@@ -473,7 +482,7 @@ photo to production; M25 answered with `unoptimized`, honest because
 open cost that one stored size served every slot. Now the `/uploads/`
 rewrite in `next.config.ts` applies in **production too**, pointed at
 the public origin: the optimiser's in-process fetch is answered by nginx
-from disk, and a 260px card gets a 260px AVIF. Three things to know
+from disk, and a 260px card gets a 260px WebP (AVIF until 2026-11-24). Three things to know
 before touching it:
 
 - **A `public/uploads` symlink does not fix it** — tried on the box; Next

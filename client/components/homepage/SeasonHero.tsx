@@ -25,6 +25,9 @@ export function SeasonHero() {
           label="Winter table"
           alt=""
           priority
+          // The photo fades into the paper on two sides; q50 reads the same
+          // there for about half the bytes (the old landing heroes did too).
+          quality={50}
           sizes="(max-width: 900px) 100vw, 62vw"
           className={styles.photoSlot}
         />

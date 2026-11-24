@@ -20,25 +20,6 @@
   z-index: 1;
 }
 
-/* ---- Winter: a snow cap on the footer's top edge ----
-   Soft mounds hanging over the edge, tiled so they keep their size at
-   any width (a stretched path would flatten on a wide screen). Snow
-   white, a shade brighter than the paper above, so it reads as lying on
-   the green rather than as the page's edge. */
-.seasonal::before {
-  content: "";
-  position: absolute;
-  /* The tile keeps a clear row top and bottom (viewBox from y=-1): at a
-     fractional y a repeating tile's edge rows sample each other and drew
-     a seam above the cap and a hairline under it. Starts 1px over the
-     paper so the snow meets it without a gap. */
-  inset: -2px 0 auto;
-  height: 20px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='20' viewBox='0 -1 160 20'%3E%3Cpath fill='%23fbf9f4' d='M0 0h160v7c-9 0-12 9-22 9s-12-7-21-7-11 5-20 5-11-8-21-8-12 10-24 10S39 8 29 8 17 13 9 12 2 7 0 7z'/%3E%3C/svg%3E")
-    repeat-x top left / 160px 20px;
-  z-index: 1;
-}
-
 /* Brand, three link columns, "Stay in the loop". `minmax(0, 1fr)` so a
    long label wraps inside its column instead of widening it. */
 .top {

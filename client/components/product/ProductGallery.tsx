@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
@@ -172,72 +173,79 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
         </div>
       )}
 
-      {viewerOpen && (
-        <div
-          className={styles.scrim}
-          ref={scrimRef}
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${productName} photos`}
-        >
-          {/* Click-to-close behind everything, and out of the tab order so
-              the trap's first stop is the close button (the `FOCUSABLE`
-              contract — `[tabindex="-1"]` never matches). */}
-          <button
-            type="button"
-            className={styles.scrimHit}
-            tabIndex={-1}
-            aria-hidden="true"
-            onClick={() => setViewerOpen(false)}
-          />
-          <button
-            type="button"
-            className={styles.close}
-            onClick={() => setViewerOpen(false)}
-            aria-label="Close photo viewer"
+      {/* Portalled to <body>: the gallery is `position: sticky`, which makes
+          a stacking context, and a fixed dialog inside one is only as high
+          as its column — the "Pairs well" cards beside it painted over the
+          viewer (2026-11-24). `viewerOpen` is only ever set by a click, so
+          `document` exists whenever this renders. */}
+      {viewerOpen &&
+        createPortal(
+          <div
+            className={styles.scrim}
+            ref={scrimRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${productName} photos`}
           >
-            <X size={20} strokeWidth={1.9} aria-hidden="true" />
-          </button>
-
-          <figure className={styles.viewerFigure}>
-            <ImageSlot
-              ratio={current.ratio}
-              label={current.placeholder}
-              alt={
-                hasMany ? `${productName} — photo ${index + 1} of ${shots.length}` : productName
-              }
-              src={current.src}
-              sizes="(max-width: 900px) 100vw, 900px"
+            {/* Click-to-close behind everything, and out of the tab order so
+                the trap's first stop is the close button (the `FOCUSABLE`
+                contract — `[tabindex="-1"]` never matches). */}
+            <button
+              type="button"
+              className={styles.scrimHit}
+              tabIndex={-1}
+              aria-hidden="true"
+              onClick={() => setViewerOpen(false)}
             />
+            <button
+              type="button"
+              className={styles.close}
+              onClick={() => setViewerOpen(false)}
+              aria-label="Close photo viewer"
+            >
+              <X size={20} strokeWidth={1.9} aria-hidden="true" />
+            </button>
+  
+            <figure className={styles.viewerFigure}>
+              <ImageSlot
+                ratio={current.ratio}
+                label={current.placeholder}
+                alt={
+                  hasMany ? `${productName} — photo ${index + 1} of ${shots.length}` : productName
+                }
+                src={current.src}
+                sizes="(max-width: 900px) 100vw, 900px"
+              />
+              {hasMany && (
+                <figcaption className={styles.counter}>
+                  {index + 1} / {shots.length}
+                </figcaption>
+              )}
+            </figure>
+  
             {hasMany && (
-              <figcaption className={styles.counter}>
-                {index + 1} / {shots.length}
-              </figcaption>
+              <>
+                <button
+                  type="button"
+                  className={clsx(styles.navButton, styles.prev)}
+                  onClick={() => step(-1)}
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft size={22} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={clsx(styles.navButton, styles.next)}
+                  onClick={() => step(1)}
+                  aria-label="Next photo"
+                >
+                  <ChevronRight size={22} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+              </>
             )}
-          </figure>
-
-          {hasMany && (
-            <>
-              <button
-                type="button"
-                className={clsx(styles.navButton, styles.prev)}
-                onClick={() => step(-1)}
-                aria-label="Previous photo"
-              >
-                <ChevronLeft size={22} strokeWidth={1.9} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className={clsx(styles.navButton, styles.next)}
-                onClick={() => step(1)}
-                aria-label="Next photo"
-              >
-                <ChevronRight size={22} strokeWidth={1.9} aria-hidden="true" />
-              </button>
-            </>
-          )}
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

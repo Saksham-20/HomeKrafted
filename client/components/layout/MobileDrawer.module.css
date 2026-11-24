@@ -109,6 +109,10 @@
   min-height: 44px;
 }
 
+.navSoonTag {
+  margin-left: 8px;
+}
+
 .navItem:hover {
   color: var(--hk-gold-text-sm);
   background: var(--hk-surface-3);

@@ -4,8 +4,12 @@ import { snowflakes } from "@/lib/snow";
 import styles from "./Snowfall.module.css";
 
 export interface SnowfallProps {
-  /** `hero` sits inside the hero photograph and takes its fades; `footer` is a band that thins out before the links. */
-  variant: "hero" | "footer";
+  /**
+   * `hero` sits inside the hero photograph and takes its fades; `footer` is
+   * a band that thins out before the links; `band` falls past the Winter
+   * Edit photographs and clear of its headline.
+   */
+  variant: "hero" | "footer" | "band";
   count: number;
   seed: number;
 }

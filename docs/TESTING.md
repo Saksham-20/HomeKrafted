@@ -1695,11 +1695,20 @@ The client's "Winter Edit" design. Check it at desktop width and on a phone.
 - **What are you in the mood for?** — six photo tiles. Each one opens a
   real page (meal plans, sweets, bakes, snacks on WhatsApp, hampers,
   gifts). On a phone they are a row you swipe.
-- **The Winter Edit** — four photo tiles with their names over the
-  picture, and "Explore collections".
-- **Bestsellers this week** — real listings, not the design's examples.
-  The round arrow on the right pages along; it disappears at the end. On a
-  phone, swipe. With food orders closed, food items say "Coming soon".
+- **The Winter Edit** — a dark green band with snow lying along its top
+  edge and a little snow falling past four photo tiles (never across the
+  headline on the left, or above it on a phone). The tiles have their names
+  over the picture; "Explore collections" sits under the headline.
+- **Bestsellers this week** — real listings, not the design's examples,
+  and **no food while food orders are closed** (gifts only). The round
+  arrow on the right pages along; it disappears at the end. On a phone,
+  swipe. On a card with more than one photo, the small arrows on the
+  photo change the picture and stay on the page; the heart saves it
+  without opening the product; a click anywhere else opens the product.
+- **On a phone, the menu (☰) shows "Food" with a "Coming soon" tag** while
+  food orders are closed, as the desktop tab row does.
+- **A product page's photo viewer** (the expand button on the photo) covers
+  the whole page; nothing from the "Pairs well" row shows through it.
 - **Two banners** — home kitchens and the gifting edit.
 - **Shop gifts by recipient** — six tiles; each opens `/gifts` already
   filtered (For her, For him, For kids, For couples, For colleagues, For

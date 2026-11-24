@@ -1,7 +1,8 @@
 import Link from "next/link";
 import clsx from "clsx";
 import { ArrowRight, Blocks, Briefcase, CookingPot, Gift, Heart, House, Shirt, type LucideIcon } from "lucide-react";
-import type { SeasonRecipient } from "@/lib/season";
+import snowCap from "@/components/season/SnowCap.module.css";
+import { SEASON, type SeasonRecipient } from "@/lib/season";
 import styles from "./RecipientRow.module.css";
 
 const ICONS: Record<SeasonRecipient["icon"], LucideIcon> = {
@@ -53,7 +54,7 @@ export function RecipientRow({ title, recipients, mealPlans }: RecipientRowProps
         </ul>
       </div>
 
-      <Link href={mealPlans.cta.href} className={styles.meal}>
+      <Link href={mealPlans.cta.href} className={clsx(styles.meal, SEASON.theme === "winter" && [snowCap.cap, styles.mealCapped])}>
         <span className={styles.mealTitle}>{mealPlans.title}</span>
         <span className={styles.mealCta}>
           {mealPlans.cta.label}
