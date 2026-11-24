@@ -10,6 +10,7 @@ import { EditBand } from "./EditBand";
 import { BestsellerRail } from "./BestsellerRail";
 import { PromoPair } from "./PromoPair";
 import { RecipientRow } from "./RecipientRow";
+import { AppSoon } from "./AppSoon";
 import styles from "./HomePage.module.css";
 
 /**
@@ -84,6 +85,7 @@ export async function HomePage() {
       )}
       <PromoPair promos={SEASON.promos} />
       <RecipientRow title={SEASON.recipients.title} recipients={SEASON.recipients.list} mealPlans={SEASON.mealPlans} />
+      <AppSoon />
     </div>
   );
 }

@@ -1713,11 +1713,13 @@ The client's "Winter Edit" design. Check it at desktop width and on a phone.
 - **Shop gifts by recipient** — six tiles; each opens `/gifts` already
   filtered (For her, For him, For kids, For couples, For colleagues, For
   the home). The dark card opens meal plans.
+- **The Homekrafted app** — the last section before the footer: the app's
+  tile, a "Coming soon" tag, and App Store / Google Play badges saying
+  "Coming soon on …". The badges are not links and do nothing when
+  pressed; on a phone they stack under the words.
 - **Footer (every page):** a snow cap along its top edge with a little
   snow falling behind it, then
-  Explore / Customer Care / About Homekrafted / Stay in the loop (under
-  the social icons: App Store and Google Play badges saying "Coming soon
-  on …" — they are not links and do nothing when pressed), then a
+  Explore / Customer Care / About Homekrafted / Stay in the loop, then a
   row with every policy page, then the copyright line. "Follow
   @_homekrafted" opens Instagram in a new tab — there is no email signup.
 

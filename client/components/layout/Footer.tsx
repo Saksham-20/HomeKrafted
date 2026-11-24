@@ -3,7 +3,6 @@ import clsx from "clsx";
 import { ArrowUpRight, Heart } from "lucide-react";
 import { Snowfall } from "@/components/season/Snowfall";
 import { SnowToggle } from "@/components/season/SnowToggle";
-import { StoreBadges } from "@/components/ui/StoreBadges";
 import { getFooterColumns, getFooterNav } from "@/lib/api";
 import { SEASON } from "@/lib/season";
 import styles from "./Footer.module.css";
@@ -92,10 +91,6 @@ export async function Footer() {
               </a>
             ))}
           </div>
-          {/* The shopper app, coming to both stores (owner, 2026-11-24). No
-              store links until it is published, so these are badges that
-              say "Coming soon on the …", not links to nowhere. */}
-          <StoreBadges variant="outline" className={styles.apps} />
         </div>
 
         {explore.map((column) => (

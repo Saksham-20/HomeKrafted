@@ -112,7 +112,9 @@ the old page's visible questions). Words, pictures and doors live in
   photographed doors) → the Winter Edit band (`#winter-edit`, which every
   "Winter Edit" link lands on) → bestsellers (the site's `ProductGridCard`
   in a white frame on a native scroll-snap row) → two promos → "Shop gifts
-  by recipient" (`/gifts?recipient=…`) + the meal-plans card.
+  by recipient" (`/gifts?recipient=…`) + the meal-plans card → "The
+  Homekrafted app — coming soon" (`AppSoon`; store badges stay labels, not
+  links, until the apps are published — never in the footer, owner).
 - **No generated pictures.** The mockup's were; every picture here is
   logged Pexels stock or the owner's first-build catalogue photography. A
   door whose subject has no such photo gets a drawn line icon, never a
