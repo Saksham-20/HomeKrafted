@@ -2,10 +2,10 @@
   padding-block: var(--hk-s5) var(--hk-s2);
 }
 
+/* Wayfinding in the reading face (2026-11-22): mono is this system's
+   voice for recorded facts, and a breadcrumb is a place, not a fact. */
 .breadcrumb {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 13px;
   color: var(--hk-muted);
 }
 
@@ -35,12 +35,12 @@
   align-self: flex-start;
 }
 
+/* The maker's name, said plainly beside their portrait — a person, not
+   a tracked-out caption (2026-11-22, the landing's "by" line). */
 .maker {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hk-ink-2);
 }
 
 .title {
@@ -48,7 +48,8 @@
   font-weight: 600;
   font-size: var(--hk-page-title);
   line-height: 1.08;
-  color: var(--hk-pine);
+  /* Ink, like every page title since 2026-11-22 (the landing's headings). */
+  color: var(--hk-ink);
   margin: var(--hk-s3) 0 var(--hk-s3);
 }
 

@@ -195,11 +195,11 @@
 }
 
 /*
- * Each dish is its own bordered tile inside the card. The kitchen card is
- * already a white card on the canvas, so a photograph sitting loose on it
- * read as part of the card's own body rather than as a thing to press;
- * the hairline is the same one every product card uses, so the two
- * surfaces agree.
+ * Each dish is the product card in miniature (2026-11-22): a rounded
+ * photograph that lifts, the words under it, no box. It used to be a
+ * bordered tile "so the two surfaces agree" with the product cards; the
+ * product cards are frameless now, so agreeing means losing the box —
+ * and a boxed tile inside the boxed kitchen card was a card in a card.
  */
 .dishLink {
   display: flex;
@@ -207,19 +207,25 @@
   height: 100%;
   text-decoration: none;
   color: inherit;
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-md);
-  overflow: hidden;
-}
-
-.dishLink:hover {
-  border-color: var(--hk-border-2);
 }
 
 .dishThumb {
   display: block;
   overflow: hidden;
+  border-radius: 8px;
+  transition: transform 300ms var(--hk-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dishLink:hover .dishThumb {
+    transform: translateY(-3px);
+  }
+}
+
+.dishLink:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
 .dishBody {
@@ -227,7 +233,7 @@
   flex-direction: column;
   gap: 3px;
   min-width: 0;
-  padding: var(--hk-s3);
+  padding: var(--hk-s2) 0 0;
 }
 
 .dishLink:hover .dishName {
@@ -261,23 +267,17 @@
 }
 
 .dishPrice {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--hk-terracotta);
+  /* Ink, as on every product card since 2026-11-22. */
+  color: var(--hk-ink);
   margin-top: 2px;
 }
 
+/* Placement only — the look is `MoreLink`'s. */
 .cta {
   align-self: flex-start;
-  margin-top: var(--hk-s4);
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--hk-pine);
-  text-decoration: none;
-}
-
-.cta:hover {
-  text-decoration: underline;
+  margin-top: var(--hk-s3);
 }
 
 @media (max-width: 560px) {

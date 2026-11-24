@@ -1,0 +1,48 @@
+.line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--hk-r-pill);
+  background: transparent;
+  color: var(--hk-pine-deep);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    transform 120ms ease;
+}
+
+.line:hover {
+  background: rgb(27 51 39 / 0.06);
+}
+
+.line:active {
+  transform: scale(0.97);
+}
+
+.line:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+.pin {
+  color: var(--hk-pine);
+}
+
+.place {
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    transition: none;
+  }
+
+  .line:active {
+    transform: none;
+  }
+}

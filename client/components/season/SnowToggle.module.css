@@ -1,0 +1,64 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--hk-r-pill);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.toggle:active {
+  transform: scale(0.97);
+}
+
+/* Frosted glass over the photograph: a light material on a busy picture,
+   so the words keep their contrast whatever is behind them. */
+.glass {
+  background: rgb(255 255 255 / 0.78);
+  color: var(--hk-pine-deep);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  backdrop-filter: blur(10px) saturate(160%);
+  box-shadow: 0 4px 14px -6px rgb(0 0 0 / 0.35);
+}
+
+.glass:hover {
+  background: rgb(255 255 255 / 0.92);
+}
+
+.plain {
+  background: transparent;
+  color: var(--hk-footer-ink-2);
+  box-shadow: inset 0 0 0 1px var(--hk-footer-border);
+}
+
+.plain:hover {
+  color: #fff;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: #fff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* No snow falls under reduced motion, so there is nothing to pause. */
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    display: none;
+  }
+}

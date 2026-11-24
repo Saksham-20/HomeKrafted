@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Heart, Menu, ShieldCheck, ShoppingCart, Store, User, Wallet } from "lucide-react";
 import { SearchForm } from "@/components/search/SearchForm";
+import { SEASON } from "@/lib/season";
+import { DeliveryLine } from "./DeliveryLine";
 import { formatCurrency } from "@/lib/format";
 import type { NavLink } from "@/lib/data";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -51,6 +53,10 @@ export interface HeaderClientProps {
  * itself) and offers the reverse switch back to their dashboard — see
  * `SellerShell`'s matching "Switch to shopping" for the other direction.
  */
+/** The home page's tabs, as the client's mockup draws them: the two
+ *  catalogues, the season, meal plans and bulk orders. */
+const LANDING_TABS = new Set(["/shop", "/gifts", SEASON.nav.href, "/meal-plans", "/corporate"]);
+
 export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -184,7 +190,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
   const landingNav = (
     <nav className={styles.nav} aria-label="Primary">
       {navItems
-        .filter((item) => item.href === "/shop" || item.href === "/gifts" || item.href === "/about" || item.href === "/meal-plans" || item.href === "/corporate")
+        .filter((item) => LANDING_TABS.has(item.href))
         .map((item) => {
           const menu = navMenus?.[item.href];
           return (
@@ -219,7 +225,7 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
 
   return (
     <header
-      className={clsx(styles.header, onLanding && styles.landing)}
+      className={clsx(styles.header, onLanding && styles.landing, SEASON.theme && styles.seasonal)}
       data-revealed={onLanding ? String(revealed) : undefined}
     >
       <div className={clsx("container", "container-wide", styles.row)}>
@@ -249,13 +255,11 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
             every catalogue site uses and the reason it can now be wide
             enough to read a query back to you.
 
-            Not on the landing page (M52): search is a browsing tool, and
-            the drawer still carries one for a phone. */}
-        {!onLanding && (
-          <div className={styles.searchSlot}>
-            <SearchForm className={styles.searchPill} />
-          </div>
-        )}
+            On `/` too since the client's seasonal mockup (2026-11-24),
+            which draws the field in the bar beside the tabs. */}
+        <div className={styles.searchSlot}>
+          <SearchForm className={styles.searchPill} />
+        </div>
 
         <div className={styles.actions}>
           {/* Icon-only, and the label is a real accessible name rather than
@@ -352,6 +356,12 @@ export function HeaderClient({ navItems, secondaryItems, navMenus }: HeaderClien
           </button>
         </div>
       </div>
+
+      {onLanding && (
+        <div className={styles.deliveryRow}>
+          <DeliveryLine />
+        </div>
+      )}
 
       {/*
         The catalogue row (2026-09-05). Full-bleed ground, its own

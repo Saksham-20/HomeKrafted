@@ -178,7 +178,7 @@ The site-wide palette is warm and grounded. The homepage keeps that calm base, t
 
 **Body Font:** Hanken Grotesk (with system sans-serif fallbacks), site-wide including `/`
 
-**Label/Mono Font:** IBM Plex Mono for factual receipt-style metadata off `/`
+**Label/Mono Font:** IBM Plex Mono for factual receipt-style metadata off `/` — counts, dates, batches, order numbers. Since 2026-11-22 not for wayfinding or labels: breadcrumbs, form/section labels, maker names, the footer, and the portals' nav labels, status pills, stat labels and tags are Hanken 600 in sentence case
 
 **Character:** The wider product uses a softened editorial serif over a warm, readable grotesk. The homepage intentionally becomes cleaner and bolder: one sans family, two weights, strong size contrast, tight display tracking, and no handwriting.
 
@@ -239,6 +239,8 @@ The homepage is more cut-paper than soft-card. Parcel prints use 4px corners, in
 - **Homepage Primary:** Turmeric fill, counter-pine text, 2px matching border, Hanken Grotesk 600, 54px desktop height and 48px mobile height.
 - **Hover / Focus:** Lift by 3px, brighten the paper, move the arrow by 4px, and keep a clearly visible focus outline. Active returns to the surface.
 - **Secondary:** Bold warm-white or ink link with a 2px marigold, rani, or gold-bright underline and generous underline offset.
+- **Site-wide shape (2026-11-22, owner):** off `/` the same grammar holds — `Button`, search and form fields, quantity steppers, filter and sort controls use `--hk-r-control` (6px, the landing's `--lp-r`); a segment group (Kitchens/Dishes) is a bordered frame of `--hk-r-tab` (4px) tabs with a flat pine selection, like the landing's Bestsellers/Trending. Pills remain for compact chips, statuses and counts; icon buttons stay round. The consumer nav uses the landing header's voice (600, 0.04em tracking).
+- **Page titles and section links (2026-11-22, owner):** a browse page title turns like the landing hero — ink, then the turned word in `--hk-pine-turn`, upright (not italic terracotta). "Go elsewhere" text links are `MoreLink`: 600 ink words, a 2px gold underline at 0.3em, and a drawn arrow that moves 4px on hover — never a typed "→".
 
 ### Chips
 
@@ -249,13 +251,26 @@ The homepage is more cut-paper than soft-card. Parcel prints use 4px corners, in
 
 - **Parcel Prints:** Real square product photography above a bold product name and a regular maker line, on white stock with a dark 2px edge and a small resting shadow. Desktop labels can be dragged within the hero; mobile labels scroll and snap.
 - **Product Registers:** Reuse real product cards, but stagger alternate columns and deal them in after a filter change. Do not wrap the whole grid in another generic card.
+- **Product Card (site-wide, 2026-11-22):** `ProductCard` is frameless like the landing shelf — 8px photo lifting 3px on hover, Hanken 600 name, "by Maker" in muted body type, ink price. No border, box or card shadow; category shortcut tiles are white faces with pine marks, not per-category pastels.
 - **Promotional Inserts:** Dark-pine or gold-tint rectangular sheets with a narrow translucent tape strip, slight rotation, and overlap at desktop.
 - **Photographic Doors:** Large edge-to-edge gift and food photographs behind readable scrims. Desktop uses one diagonal seam; touch uses two independent stacked links.
 - **FAQ:** Native `details` rows with strong type, one top rule, quiet dividers, and a plus rotating to 45 degrees when open.
 
+### The seasonal home page and dress (client mockup, 2026-11-24)
+
+**Supersedes this section's older homepage notes for `/`, and three of the Don'ts below** — the client's mockup draws pill buttons, centred section titles between hairlines, and a cream paper page, and the client asked for it as drawn. Scope stays tight: the cream (`--hp-paper` `#f8f1e6`, `--hp-tint` `#f3e5cd`, line `#e8d8bd`) lives in `HomePage.module.css`; pills are the home page's CTAs only — the rest of the site keeps the 6px control shape.
+
+- **Type:** Fraunces 600 headings in `--hk-pine-deep` with size-specific negative tracking (−0.022em at the hero, −0.015em at section titles); Hanken body at 0.
+- **Surfaces:** white-warm cards (`--hp-card`) with a two-layer warm shadow, 14px radius; tinted bands at 18–20px. Photographs are rectangular and real; the hero's fades into the paper through an intersected left-and-top mask.
+- **Motion (apple-design):** feedback on press (`:active` scale 0.97–0.98), critically damped easing `cubic-bezier(0.2, 0.8, 0.2, 1)`, no bounce; rows scroll natively with snap points; every transform is dropped under reduced motion.
+- **Ornament, rationed:** one snowflake per section at most, drawn in `--hp-frost` (never text). Frost is an accent, not a palette: `--hp-frost` `#a9bdca` for marks, `--hp-ice` `#e6eef1` behind the recipient icons.
+- **Snow, minimal (`components/season/`):** small soft white flakes fall slowly (16–30s per fall, gentle sway) inside the hero photograph, which masks them with its own fades, and in a 220px band at the footer's top edge — never full-screen, never over a headline or links. CSS animation on transform/opacity, no canvas. One "Pause snow" control (frosted glass in the hero, an outline pill in the footer's legal line) stops every area at once and is remembered; under reduced motion there is no snow and no control. The footer wears a static snow cap along its top edge.
+- **The seasonal dress, site-wide while `SEASON.theme` is set:** the paper header on every shopper page, a "Winter Edit" tab, the footer's snow cap and snow. No announcement bar (removed at the client's request). Portals keep their own chrome.
+- **Footer (site-wide):** brand + "Made with love in real homes", Explore / Customer Care / About columns, "Stay in the loop" (an Instagram link — no newsletter list exists to subscribe to), then every policy document in one compact row and the legal line.
+
 ### Navigation
 
-The landing header is fixed and Hanken Grotesk. Over the hero it is transparent with warm-white controls and turmeric hover states. After the hero brand leaves, it becomes a 96%-white blurred bar with warm border and a light structural shadow. Desktop navigation is visible; at 900px and below it yields to a 44px hamburger while the logo remains visible.
+*(Describes the previous landing header; `/` now uses the sticky paper bar above.)* The landing header is fixed and Hanken Grotesk. Over the hero it is transparent with warm-white controls and turmeric hover states. After the hero brand leaves, it becomes a 96%-white blurred bar with warm border and a light structural shadow. Desktop navigation is visible; at 900px and below it yields to a 44px hamburger while the logo remains visible.
 
 ### Signature Homepage Components
 

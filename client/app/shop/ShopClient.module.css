@@ -72,11 +72,9 @@
 
 .quickFiltersLabel {
   flex: none;
-  font-family: var(--hk-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--hk-muted);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hk-ink-3);
 }
 
 .taskChipsRail {
@@ -185,7 +183,7 @@
   padding: 2px;
   background: var(--hk-surface-2);
   border: 1px solid var(--hk-border-2);
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
 }
 
 .viewBtn {
@@ -201,7 +199,7 @@
   padding: 0 14px;
   border: none;
   background: none;
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-tab);
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -212,7 +210,7 @@
 .viewBtnActive {
   background: var(--hk-pine);
   color: #fff;
-  box-shadow: var(--hk-shadow-card);
+  box-shadow: none;
 }
 
 .viewCount {

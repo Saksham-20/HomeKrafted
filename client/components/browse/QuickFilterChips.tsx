@@ -2,9 +2,8 @@
 
 import clsx from "clsx";
 import { Check, LayoutGrid } from "lucide-react";
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { categoryTint } from "@/lib/category-tint";
 import { radioGroupKeyDown } from "./radio-group-keys";
 import { revealChosen } from "./reveal-chosen";
 import styles from "./QuickFilterChips.module.css";
@@ -58,14 +57,16 @@ export interface QuickFilterChipsProps {
  * carried by colour alone (WCAG 1.4.1 — pine against six other tints is
  * still just colour to somebody who cannot tell them apart).
  *
+ * **Every face is the same white stock** (2026-11-22, owner: match the
+ * landing). The per-shelf pastel from `lib/category-tint.ts` made the row
+ * ten colours; one neutral ground lets the pine selection be the only
+ * colour that means anything.
+ *
  * **No dimmed or disabled empty tiles.** The M56 rule kept zero-count
  * shelves in the row, greyed; the page has filtered them out before this
  * is rendered since M59b, so the branch was dead code carrying a `:disabled`
  * state nobody could reach. A shelf that is selected but empty (a shared
  * link to it) is passed in and stays pressable.
- *
- * **The tint is `lib/category-tint.ts`'s deterministic ground/ink pair**
- * (2026-09-17 UI refinement) — one shelf reads apart from the next.
  */
 export function QuickFilterChips({
   label,
@@ -104,7 +105,6 @@ export function QuickFilterChips({
         // Exactly one tab stop: the checked tile, or the first if the
         // selection is somehow not on the rail.
         tabbable={selectedId === null || !hasChecked}
-        tint={{ ground: "var(--hk-bg)", ink: "var(--hk-ink-2)" }}
         onSelect={() => onSelect(null)}
       >
         <LayoutGrid size={24} strokeWidth={1.5} aria-hidden="true" />
@@ -116,7 +116,6 @@ export function QuickFilterChips({
           count={chip.count}
           selected={chip.id === selectedId}
           tabbable={chip.id === selectedId}
-          tint={categoryTint(chip.id)}
           onSelect={() => onSelect(chip.id)}
         >
           {/* The mark, never a listing's photograph — see `CategoryTile`. */}
@@ -132,7 +131,6 @@ function Tile({
   count,
   selected,
   tabbable,
-  tint,
   onSelect,
   children,
 }: {
@@ -140,7 +138,6 @@ function Tile({
   count?: number;
   selected: boolean;
   tabbable: boolean;
-  tint: { ground: string; ink: string };
   onSelect: () => void;
   children: ReactNode;
 }) {
@@ -153,11 +150,7 @@ function Tile({
       className={clsx(styles.tile, selected && styles.tileSelected)}
       onClick={onSelect}
     >
-      <span
-        className={styles.face}
-        aria-hidden="true"
-        style={{ "--tile-ground": tint.ground, "--tile-ink": tint.ink } as CSSProperties}
-      >
+      <span className={styles.face} aria-hidden="true">
         <span className={styles.faceIcon}>{children}</span>
         {count !== undefined && <span className={styles.faceCount}>{count}</span>}
         {selected && (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MoreLink } from "@/components/ui/MoreLink";
 import { Star } from "lucide-react";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { MakerPortrait } from "@/components/vendor/MakerPortrait";
@@ -163,11 +164,10 @@ export function KitchenCard({ kitchen, priority }: KitchenCardProps) {
         thumbnails are links of their own, and an overlay covering the card
         would swallow every one of them.
       */}
-      <Link href={`/storefront/${vendor.slug}`} className={styles.cta}>
+      <MoreLink href={`/storefront/${vendor.slug}`} className={styles.cta}>
         See their full menu
-        <span aria-hidden="true"> →</span>
         <span className="hk-sr-only"> from {vendor.name}</span>
-      </Link>
+      </MoreLink>
     </article>
   );
 }

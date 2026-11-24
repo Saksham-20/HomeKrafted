@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -110,6 +109,7 @@ export function SnackOrderDetailClient({ orderId }: SnackOrderDetailClientProps)
         title={order.customerName}
         subtitle={`Ordered ${formatDate(order.createdAt)} · via WhatsApp`}
         actions={<SnackOrderStatusPill status={order.status} />}
+        back={{ href: "/seller/orders", label: "Orders" }}
       />
 
       <div className={styles.grid}>
@@ -166,10 +166,6 @@ export function SnackOrderDetailClient({ orderId }: SnackOrderDetailClientProps)
           </Card>
         </div>
       </div>
-
-      <p className={styles.backLink}>
-        <Link href="/seller/orders">← Back to orders</Link>
-      </p>
     </div>
   );
 }

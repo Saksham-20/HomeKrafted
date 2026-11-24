@@ -79,11 +79,19 @@
 
 /* ---- mission ---- */
 
-.missionCard {
+/* A pull-quote between two rules, not a card with a coloured side stripe
+   (the stripe is a stock template tell; the landing sets statements on
+   the paper itself). `.page` raises specificity over the shared Card. */
+.page .missionCard {
   display: flex;
   flex-direction: column;
   gap: var(--hk-s2);
-  border-left: 3px solid var(--hk-gold);
+  padding: var(--hk-s6) 0;
+  background: none;
+  border: 0;
+  border-top: 2px solid var(--hk-gold);
+  border-bottom: 1px solid var(--hk-border-2);
+  border-radius: 0;
 }
 
 .missionEyebrow {
@@ -95,9 +103,13 @@
 }
 
 .missionText {
+  max-width: 62ch;
   font-family: var(--hk-font-display);
-  font-size: 20px;
-  line-height: 1.5;
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-wrap: pretty;
   color: var(--hk-ink);
 }
 
@@ -109,10 +121,17 @@
   gap: var(--hk-s4);
 }
 
-.pillar {
+/* Ruled columns, the same treatment as the offerings below — four equal
+   boxed cards read as a template grid, and the two sections disagreed. */
+.pillarGrid > .pillar {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: var(--hk-s3) 0 0;
+  background: none;
+  border: 0;
+  border-top: 2px solid var(--hk-border);
+  border-radius: 0;
 }
 
 .pillarTitle {
@@ -245,9 +264,9 @@
   align-items: center;
   min-height: 44px;
   padding: 0 18px;
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .primaryCta {

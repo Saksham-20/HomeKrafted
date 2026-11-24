@@ -11,6 +11,7 @@ import {
   type UploadedImage,
   type UploadPurpose,
 } from "@/lib/api/uploads";
+import { downscalePhoto } from "./downscale-photo";
 import styles from "./PhotoUpload.module.css";
 
 export interface PhotoUploadProps {
@@ -76,8 +77,16 @@ export function PhotoUpload({
       }
 
       setBusyCount((n) => n + files.length);
+      // Shrunk one at a time — each full-size decode is ~48 MB for a 12 MP
+      // photo, and six at once can kill a low-end phone's tab — while the
+      // uploads themselves still overlap. `downscalePhoto` never rejects.
+      let previous: Promise<unknown> = Promise.resolve();
       const results = await Promise.allSettled(
-        files.map((file) => uploadImage(file, purpose)),
+        files.map((file) => {
+          const shrunk = previous.then(() => downscalePhoto(file));
+          previous = shrunk;
+          return shrunk.then((ready) => uploadImage(ready, purpose));
+        }),
       );
       setBusyCount((n) => Math.max(0, n - files.length));
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { MoreLink } from "@/components/ui/MoreLink";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -177,9 +177,7 @@ export function MealPlansClient() {
         <div className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>Coming up</h2>
           {later > 0 && (
-            <Link href="/seller/meal-plans/deliveries" className={styles.sectionLink}>
-              All {deliveries.length} meals →
-            </Link>
+            <MoreLink href="/seller/meal-plans/deliveries">All {deliveries.length} meals</MoreLink>
           )}
         </div>
 

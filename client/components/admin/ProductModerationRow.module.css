@@ -168,12 +168,10 @@
 
 .previewLabel {
   display: block;
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted-2);
   margin-bottom: var(--hk-s3);
+  font-weight: 600;
 }
 
 /* The width the card actually gets in the shop grid, so the preview shows

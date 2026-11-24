@@ -1,6 +1,10 @@
 import Link from "next/link";
 import clsx from "clsx";
-import { getBrandBlurb, getFooterColumns } from "@/lib/api";
+import { ArrowUpRight, Heart } from "lucide-react";
+import { Snowfall } from "@/components/season/Snowfall";
+import { SnowToggle } from "@/components/season/SnowToggle";
+import { getFooterColumns, getFooterNav } from "@/lib/api";
+import { SEASON } from "@/lib/season";
 import styles from "./Footer.module.css";
 
 /**
@@ -29,23 +33,47 @@ const SOCIAL_LINKS = [
 ];
 
 /**
- * Pine-deep footer: brand blurb + the client's four policy/company columns
- * (`lib/policies`) + the mono legal row.
+ * The footer, as the client's seasonal mockup draws it (2026-11-24): the
+ * lockup and one line, three link columns (explore, help, company), and a
+ * "Stay in the loop" column. Under them, every policy document in one
+ * compact row — they must stay on every page — then the legal line.
+ *
+ * "Stay in the loop" points at Instagram, not an email box: there is no
+ * newsletter list to put an address in yet, and a form that goes nowhere
+ * is worse than no form.
+ *
+ * While the winter season is on (`SEASON.theme`) the top edge wears a
+ * snow cap with a little snow falling through it, the legal line carries
+ * the snow's pause switch (the control has to be on every page the snow
+ * is), and the Explore column carries the season's tab.
  */
 export async function Footer() {
-  const [brandBlurb, footerColumns] = await Promise.all([
-    getBrandBlurb(),
-    getFooterColumns(),
-  ]);
+  const [footerNav, policyColumns] = await Promise.all([getFooterNav(), getFooterColumns()]);
   const year = new Date().getFullYear();
+  const explore = SEASON.theme
+    ? footerNav.map((column, index) =>
+        index === 0
+          ? { ...column, links: [...column.links.slice(0, 2), { label: SEASON.nav.label, href: SEASON.nav.href }, ...column.links.slice(2)] }
+          : column,
+      )
+    : footerNav;
+  // The documents only: the company links in the policy data (About,
+  // Contact, FAQs…) are already in the columns above, once is enough.
+  const inColumns = new Set(footerNav.flatMap((column) => column.links.map((link) => link.href)));
+  const policies = policyColumns.flatMap((column) => column.links).filter((link) => !inColumns.has(link.href));
 
   return (
-    <footer className={styles.footer}>
+    <footer className={clsx(styles.footer, SEASON.theme && styles.seasonal)}>
+      {SEASON.theme === "winter" && <Snowfall variant="footer" count={26} seed={1124} />}
+
       <div className={clsx("container", "container-wide", styles.top)}>
         <div className={styles.brandCol}>
           {/* eslint-disable-next-line @next/next/no-img-element -- fixed vector lockup. */}
           <img src="/images/site/logo.svg" alt="Homekrafted" className={styles.logoMark} />
-          <p className={styles.blurb}>{brandBlurb}</p>
+          <p className={styles.tagline}>
+            Made with love in real homes
+            <Heart size={14} strokeWidth={2} aria-hidden="true" />
+          </p>
           <div className={styles.socialRow}>
             {SOCIAL_LINKS.map((social) => (
               <a
@@ -64,28 +92,48 @@ export async function Footer() {
           </div>
         </div>
 
-        {footerColumns.map((column) => (
-          <div key={column.title} className={styles.col}>
-            <div className={styles.colTitle}>{column.title}</div>
+        {explore.map((column) => (
+          <nav key={column.title} className={styles.col} aria-label={column.title}>
+            <h2 className={styles.colTitle}>{column.title}</h2>
             {column.links.map((link) => (
               <Link key={link.href + link.label} href={link.href} className={styles.link}>
                 {link.label}
               </Link>
             ))}
-          </div>
+          </nav>
         ))}
+
+        <div className={styles.col}>
+          <h2 className={styles.colTitle}>Stay in the loop</h2>
+          <p className={styles.loopText}>Seasonal edits, new kitchens and gifting ideas — first on Instagram.</p>
+          <a
+            className={styles.loopLink}
+            href={SOCIAL_LINKS[0].href}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Follow @_homekrafted
+            <ArrowUpRight size={15} strokeWidth={2} aria-hidden="true" />
+            <span className="hk-sr-only"> (opens in a new tab)</span>
+          </a>
+        </div>
       </div>
 
-      {/* The legal row. The policy links themselves moved into the four
-          columns above (2026-09-21) — they are the links a customer looks
-          for when something has gone wrong, and the ones Razorpay requires
-          to be published before a live account is activated, so they stay
-          in the footer of every page rather than behind Support. */}
+      {/* Every policy document, once, on every page (`lib/policies`): the
+          ones a customer looks for when something has gone wrong, and the
+          ones Razorpay requires published before a live account. */}
+      <nav className={clsx("container", "container-wide", styles.policies)} aria-label="Policies">
+        {policies.map((link) => (
+          <Link key={link.href} href={link.href} className={styles.policyLink}>
+            {link.label}
+          </Link>
+        ))}
+      </nav>
+
       <div className={clsx("container", "container-wide", styles.legal)}>
         <span>
-          © {year} Homekrafted · Made with love in real homes ·{" "}
-          {/* Studio credit, owner's request 2026-08-30 (linked since the
-              same day). Same 24px target box as the policy links. */}
+          © {year} Homekrafted. All rights reserved ·{" "}
+          {/* Studio credit, owner's request 2026-08-30. */}
           Developed by{" "}
           <a
             className={styles.credit}
@@ -97,6 +145,7 @@ export async function Footer() {
           </a>
         </span>
         <span className={styles.legalLinks}>
+          {SEASON.theme === "winter" && <SnowToggle tone="plain" />}
           {/*
             **A licence condition, not a credit we chose to give.** The
             pincode table behind the location fields is GeoNames data

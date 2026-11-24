@@ -38,18 +38,22 @@ import sharp from "sharp";
 const args = process.argv.slice(2);
 const inDir = args.find((a) => !a.startsWith("--"));
 const banner = args.includes("--banner");
+// `--hero` (2026-11-24): the home page's seasonal hero, which is tall —
+// the 3:1 banner strip zoomed to fill it read as squashed. Same cut
+// around `--focus`, at 3:2.
+const hero = args.includes("--hero");
 const focusArg = args.find((a) => a.startsWith("--focus="));
 const focus = focusArg ? Number(focusArg.slice("--focus=".length)) : 0.5;
 if (!inDir || !(focus >= 0 && focus <= 1)) {
   console.error(
-    "usage: node scripts/process-stock-images.mjs <input-dir> [--banner [--focus=0..1]]",
+    "usage: node scripts/process-stock-images.mjs <input-dir> [--banner|--hero [--focus=0..1]]",
   );
   process.exit(1);
 }
 
-const OUT = path.join(process.cwd(), "public", "images", banner ? "site" : "products");
+const OUT = path.join(process.cwd(), "public", "images", banner || hero ? "site" : "products");
 const BANNER_W = 2400;
-const BANNER_H = 800;
+const BANNER_H = hero ? 1600 : 800;
 
 const files = (await readdir(inDir)).filter(
   (f) => /\.(jpe?g|png|webp)$/i.test(f) && !f.startsWith("_"),
@@ -59,8 +63,8 @@ for (const file of files) {
   const name = file.replace(/\.(jpe?g|png|webp)$/i, "");
   const out = path.join(OUT, `${name}.jpg`);
   let image = sharp(path.join(inDir, file)).rotate(); // bake EXIF orientation in BEFORE the strip, or portrait shots store sideways
-  if (banner) {
-    // Cut the 3:1 strip around `focus`, then resize — sharp's cover
+  if (banner || hero) {
+    // Cut the 3:1 (or 3:2) strip around `focus`, then resize — sharp's cover
     // positions are edge/centre only, and the subject is rarely there.
     const { width = 0, height = 0 } = await image.metadata();
     const stripH = Math.min(height, Math.round((width * BANNER_H) / BANNER_W));

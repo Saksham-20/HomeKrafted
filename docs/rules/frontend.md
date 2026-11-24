@@ -100,7 +100,45 @@ since centralizing a single-use color doesn't pay for itself: ProductCard's
 TransactionRow's debit icon tint (`#f6e7e0`), StoreBadges' on-dark border
 (`#56493a`). See each component's `.module.css` for the inline rationale.
 
-## The landing page — "On the table", festive edit (2026-10-23)
+## The home page — the client's seasonal mockup (2026-11-24)
+
+`components/homepage/` is the page `/` renders; `app/page.tsx` owns its
+freshness and the Organization/WebSite JSON-LD (the FAQPage node went with
+the old page's visible questions). Words, pictures and doors live in
+`lib/season.ts`, which also switches the site-wide seasonal dress.
+
+- **Order, from the client's mockup:** hero (headline, two pill doors, a
+  photograph fading into the paper) → "What are you in the mood for?" (six
+  photographed doors) → the Winter Edit band (`#winter-edit`, which every
+  "Winter Edit" link lands on) → bestsellers (the site's `ProductGridCard`
+  in a white frame on a native scroll-snap row) → two promos → "Shop gifts
+  by recipient" (`/gifts?recipient=…`) + the meal-plans card.
+- **No generated pictures.** The mockup's were; every picture here is
+  logged Pexels stock or the owner's first-build catalogue photography. A
+  door whose subject has no such photo gets a drawn line icon, never a
+  stand-in that pretends.
+- **Data, not the mockup's listings.** Bestsellers come from the admin's
+  `bestsellers-*` collections, else featured-then-top-rated; nothing live
+  means no row. A category door narrows `/shop` only when that shelf is in
+  the live catalogue (`seasonDoorHref`).
+- **The seasonal dress (`SEASON.theme`)** is on every shopper page: the
+  paper header (`.seasonal`), the "Winter Edit" tab, the footer's snow cap
+  and snow. `theme: null` removes all of it in one edit. Portals are
+  untouched. No announcement bar above the header (client, 2026-11-24).
+- **Snow** (`components/season/Snowfall` + `SnowToggle`) runs only while
+  `<html data-snow="on">`, which `SnowToggle` sets after mount, so a
+  paused visitor never sees it flash. Every snowing area must ship with a
+  `SnowToggle` reachable on the same page (WCAG 2.2.2), stay off text, and
+  disappear under `prefers-reduced-motion`. Flake positions come from
+  `lib/snow.ts` (seeded, so server and client render the same markup).
+- **The home header is sticky, not fixed** — a translucent paper bar with
+  logo, five tabs, search and icons, and `DeliveryLine` under it; its edge
+  shadow appears once `#hk-hero-section` has scrolled under it.
+
+## The previous landing page — "On the table" (2026-10-23; not rendered since 2026-11-24)
+
+Kept in `components/landing/` (untracked) until the client signs the
+seasonal page off; delete it then. The notes below describe it, not `/`.
 
 `components/landing/` is the whole page; `app/page.tsx` owns only its
 freshness (`force-dynamic`) and the Organization/WebSite/FAQPage JSON-LD.

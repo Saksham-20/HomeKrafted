@@ -41,11 +41,9 @@
 }
 
 .statLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted-2);
+  font-weight: 600;
 }
 
 .statValue {
@@ -143,10 +141,33 @@
 }
 
 .barLabelWide {
-  grid-column: 1 / 2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A product name gets the row's full width, with its bar underneath.
+   In the weekday rows' 56px label column every name read "Mango …"
+   (2026-11-22). Two classes so the phone `.barRow` override below can't
+   undo it. */
+.barRow.barRowProduct {
+  grid-template-columns: minmax(0, 1fr) auto;
+  row-gap: 6px;
+}
+
+.barRowProduct .barLabelWide {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.barRowProduct .barTrack {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.barRowProduct .barCount {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .barTrack {

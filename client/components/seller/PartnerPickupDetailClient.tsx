@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -22,6 +21,7 @@ import {
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Address, LaundryBookingStatus, LaundryBooking } from "@/lib/types";
+import { paymentMethodLabel } from "@/lib/orders/payment-method";
 import styles from "./PartnerPickupDetailClient.module.css";
 
 const STATUS_LABEL: Record<LaundryBookingStatus, string> = {
@@ -122,6 +122,7 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
         title={`Booking #${booking.bookingNumber}`}
         subtitle={`Placed ${formatDate(booking.createdAt)}`}
         actions={<PickupStatusPill status={booking.status} />}
+        back={{ href: "/seller/pickups", label: "Pickups" }}
       />
 
       <div className={styles.grid}>
@@ -183,7 +184,7 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
             </div>
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Payment</span>
-              <span>{booking.paymentMethod}</span>
+              <span>{paymentMethodLabel(booking.paymentMethod)}</span>
             </div>
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Pickup</span>
@@ -214,10 +215,6 @@ export function PartnerPickupDetailClient({ bookingId }: PartnerPickupDetailClie
           )}
         </div>
       </div>
-
-      <p className={styles.backLink}>
-        <Link href="/seller/pickups">← Back to pickups</Link>
-      </p>
     </div>
   );
 }

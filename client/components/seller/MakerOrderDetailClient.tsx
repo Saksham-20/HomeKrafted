@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -24,6 +23,7 @@ import {
 } from "@/lib/api";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Address, OrderStatus, SellerOrder } from "@/lib/types";
+import { paymentMethodLabel } from "@/lib/orders/payment-method";
 import styles from "./MakerOrderDetailClient.module.css";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -130,6 +130,7 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
         title={`Order #${order.orderNumber}`}
         subtitle={`Placed ${formatDate(order.placedAt)}`}
         actions={<OrderStatusPill status={order.status} />}
+        back={{ href: "/seller/orders", label: "Orders" }}
       />
 
       <div className={styles.grid}>
@@ -194,7 +195,7 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
                     </p>
                   ) : (
                     <Button variant="primary" onClick={handleAdvance} disabled={advancing}>
-                      {advancing ? "Updating…" : `Mark as ${STATUS_LABEL[next]}`}
+                      {advancing ? "Updating…" : `Mark as ${STATUS_LABEL[next].toLowerCase()}`}
                     </Button>
                   ))}
                 {error && (
@@ -216,7 +217,7 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
             </div>
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Payment</span>
-              <span>{order.paymentMethod}</span>
+              <span>{paymentMethodLabel(order.paymentMethod)}</span>
             </div>
             {/* 2026-09-17 — the kitchen's part ends at "packed" either
                 way, but without this the screen implies a courier will
@@ -252,10 +253,6 @@ export function MakerOrderDetailClient({ orderId }: MakerOrderDetailClientProps)
           )}
         </div>
       </div>
-
-      <p className={styles.backLink}>
-        <Link href="/seller/orders">← Back to orders</Link>
-      </p>
     </div>
   );
 }

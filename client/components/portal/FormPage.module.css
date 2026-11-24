@@ -22,10 +22,10 @@
 }
 
 .navTitle {
-  font-family: var(--hk-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  /* Hanken, sentence case (2026-11-22): mono is for recorded facts, not
+     wayfinding — DESIGN.md. */
+  font-size: 13px;
+  font-weight: 600;
   color: var(--hk-muted);
   padding: 0 10px 6px;
 }
@@ -109,6 +109,10 @@
    rows of chrome on the screen with the least room for it. */
 @media (max-width: 999px) {
   .nav {
+    /* Positioned so the `.hk-sr-only` labels inside the strip are
+       clipped by its scroll box instead of widening the page (same fix
+       as AdminShell/SellerShell's `.sidebar`, 2026-11-22). */
+    position: relative;
     order: -1;
     flex-direction: row;
     gap: 6px;

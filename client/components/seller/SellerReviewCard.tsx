@@ -28,7 +28,11 @@ function StarRow({ rating }: { rating: number }) {
 
 export interface SellerReviewCardProps {
   review: Review;
-  onReply: (reviewId: string, body: string) => Promise<void>;
+  /** The product's name, for a product review — "Product review" alone
+   *  didn't say which of a HomeKrafter's listings it was about. */
+  productName?: string;
+  /** Resolves to the sentence to show when the reply was refused, or null once it's saved. */
+  onReply: (reviewId: string, body: string) => Promise<string | null>;
 }
 
 /**
@@ -38,16 +42,23 @@ export interface SellerReviewCardProps {
  * separate from the consumer `ReviewCard` rather than adding reply props
  * to it, since only the seller surface ever writes a reply.
  */
-export function SellerReviewCard({ review, onReply }: SellerReviewCardProps) {
+export function SellerReviewCard({ review, productName, onReply }: SellerReviewCardProps) {
   const [replying, setReplying] = useState(false);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   async function handleSubmit() {
     if (!draft.trim()) return;
     setSubmitting(true);
-    await onReply(review.id, draft.trim());
+    setRefusal(null);
+    const refused = await onReply(review.id, draft.trim());
     setSubmitting(false);
+    // Refused: the form and the draft stay, with the reason under them.
+    if (refused) {
+      setRefusal(refused);
+      return;
+    }
     setReplying(false);
     setDraft("");
   }
@@ -57,7 +68,11 @@ export function SellerReviewCard({ review, onReply }: SellerReviewCardProps) {
       <div className={styles.head}>
         <StarRow rating={review.rating} />
         <span className={styles.targetTag}>
-          {review.targetType === "vendor" ? "Storefront review" : "Product review"}
+          {review.targetType === "vendor"
+            ? "Storefront review"
+            : productName
+              ? `Review of ${productName}`
+              : "Product review"}
         </span>
       </div>
       {/* h2 — this list sits directly under the page's h1 ("Reviews") with
@@ -84,6 +99,11 @@ export function SellerReviewCard({ review, onReply }: SellerReviewCardProps) {
             placeholder="Thank the reviewer or address their feedback…"
             rows={3}
           />
+          {refusal && (
+            <p className={styles.refusal} role="alert">
+              {refusal}
+            </p>
+          )}
           <div className={styles.replyActions}>
             <Button variant="primary" size="sm" onClick={handleSubmit} disabled={submitting || !draft.trim()}>
               {submitting ? "Posting…" : "Post reply"}
@@ -94,7 +114,7 @@ export function SellerReviewCard({ review, onReply }: SellerReviewCardProps) {
           </div>
         </div>
       ) : (
-        <Button variant="ghost-gold" size="sm" onClick={() => setReplying(true)}>
+        <Button variant="ghost-gold" size="sm" className={styles.replyButton} onClick={() => setReplying(true)}>
           Reply
         </Button>
       )}

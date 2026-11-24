@@ -107,11 +107,9 @@
 }
 
 .slaLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted-2);
+  font-weight: 600;
 }
 
 .slaValue {
@@ -134,12 +132,7 @@
 }
 
 .slaLink {
-  font-size: 13px;
-  color: var(--hk-pine);
-  text-decoration: underline;
-  text-underline-offset: 2px;
   align-self: flex-start;
-  min-height: 24px;
 }
 
 /* M37 — the needs-attention list. */
@@ -163,10 +156,11 @@
 .attentionLink {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 36px;
   padding: 0 var(--hk-s3);
   border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   background: var(--hk-surface);
   font-size: 13.5px;
   font-weight: 500;

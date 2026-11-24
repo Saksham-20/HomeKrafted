@@ -42,11 +42,9 @@
 }
 
 .facts dt {
-  font-family: var(--hk-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted-2);
+  font-weight: 600;
 }
 
 .facts dd {
@@ -69,11 +67,9 @@
 }
 
 .label {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted-2);
+  font-weight: 600;
 }
 
 .hint {

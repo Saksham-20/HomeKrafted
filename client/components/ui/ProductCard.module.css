@@ -1,41 +1,34 @@
+/* Frameless, like the landing's "Best of this week" (2026-11-22, owner):
+   the photograph sits on the paper and the words sit under it. No box,
+   border or card shadow — the photo is the object that lifts. */
 .card {
   /* Anchors the stretched title link's `::after` overlay (M22). */
   position: relative;
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-lg);
-  overflow: hidden;
+  background: none;
+  border: 0;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   height: 100%;
-  transition:
-    border-color var(--hk-dur) var(--hk-ease),
-    box-shadow var(--hk-dur) var(--hk-ease),
-    transform var(--hk-dur) var(--hk-ease);
+  /* Without a box, the grid gap alone (12–20px, per page) is the only
+     thing between one row's prices and the next row's photos. This is the
+     room the frame used to give, kept in one place for every grid. */
+  padding-bottom: var(--hk-s4);
+  transition: transform var(--hk-dur) var(--hk-ease);
 }
 
 .clickable {
   cursor: pointer;
 }
 
-/* Prototype uses #C9A24a for the border here — normalized to the nearest
-   gold-border token (tokens.css has no separate value for it). */
-.clickable:focus-visible {
-  border-color: var(--hk-gold-border);
-  box-shadow: var(--hk-shadow-card);
-  transform: translateY(-2px);
-}
-
-/* The lift is hover-only; focus keeps its own rule above, because gating
-   both together would take the focus state away from every touch device
-   with a keyboard attached. A touch screen fires :hover on tap and has
-   nothing to fire it off again, so an ungated lift stays on the last card
-   tapped and reads as a selection nobody made. */
+/* The lift is hover-only; focus gets the same lift through `:has` below,
+   because gating both together would take the focus state away from every
+   touch device with a keyboard attached. A touch screen fires :hover on
+   tap and has nothing to fire it off again, so an ungated lift stays on
+   the last card tapped and reads as a selection nobody made. */
 @media (hover: hover) and (pointer: fine) {
-  .clickable:hover {
-    border-color: var(--hk-gold-border);
-    box-shadow: var(--hk-shadow-card);
-    transform: translateY(-2px);
+  .clickable:hover .imageWrap {
+    transform: translateY(-3px);
   }
 }
 
@@ -53,22 +46,14 @@
   transition-duration: 0.12s;
 }
 
+/* The landing's 8px photograph and its 3px lift (`PickShelf.module.css`).
+   No zoom inside the frame: two motions on one hover read as fuss. The
+   global reduced-motion floor strips the transition. */
 .imageWrap {
   position: relative;
   overflow: hidden;
-}
-
-/* A slow settle into the photograph on hover (M59). The card clips it;
-   the global reduced-motion floor strips the transition, leaving a
-   static state change of nothing. */
-.imageWrap img {
-  transition: transform 0.45s var(--hk-ease);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .clickable:hover .imageWrap img {
-    transform: scale(1.045);
-  }
+  border-radius: 8px;
+  transition: transform 300ms var(--hk-ease);
 }
 
 .tag {
@@ -114,7 +99,7 @@
 }
 
 .content {
-  padding: 14px 15px 16px;
+  padding: 12px 0 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -128,16 +113,17 @@
 /* `--hk-gold` is 2.9–3.2:1 here — decorative in the design system's
    sense, but these are words somebody reads. `--hk-gold-text-sm` is the
    same family at an AA-safe darkness (2026-08-08 contrast audit). */
+/* "by The Slow Studio" — the landing's maker line, plain words in the
+   reading face rather than a 10px mono caption. */
 .maker {
-  font-family: var(--hk-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--hk-gold-text-sm);
+  font-size: 14px;
+  color: var(--hk-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .name {
-  font-family: var(--hk-font-display);
   font-size: 17px;
   font-weight: 600;
   color: var(--hk-ink);
@@ -146,7 +132,9 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.5em;
+  /* No two-line reserve: the maker line follows the name now, and a
+     reserve opened a gap under every one-line title. Prices still line
+     up across a row — `.priceRow` takes `margin-top: auto`. */
 }
 
 /* ---- The stretched link (M22) ----
@@ -180,7 +168,11 @@
 
 .card:has(.nameLink:focus-visible) {
   outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
-  outline-offset: 2px;
+  outline-offset: 4px;
+}
+
+.card:has(.nameLink:focus-visible) .imageWrap {
+  transform: translateY(-3px);
 }
 
 .meta {
@@ -203,10 +195,9 @@
 }
 
 .price {
-  font-family: var(--hk-font-display);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--hk-pine);
+  color: var(--hk-ink);
 }
 
 .mrp {
@@ -337,14 +328,22 @@
 }
 
 @media (max-width: 640px) {
+  .card {
+    padding-bottom: var(--hk-s2);
+  }
+
   .content {
-    padding: 10px 10px 12px;
-    gap: 4px;
+    padding: 10px 0 0;
+    gap: 3px;
   }
 
   .name {
-    font-size: 14px;
-    line-height: 1.22;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .maker {
+    font-size: 13px;
   }
 
   .meta {

@@ -77,10 +77,10 @@
   gap: var(--hk-s2) var(--hk-s4);
 }
 
+/* Wayfinding in the reading face (2026-11-22): mono is this system's
+   voice for recorded facts, and a breadcrumb is a place, not a fact. */
 .breadcrumb {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: 13px;
   color: var(--hk-muted);
 }
 
@@ -96,15 +96,15 @@
   font-weight: 600;
   font-size: var(--hk-page-title);
   line-height: 1.05;
-  color: var(--hk-pine);
+  color: var(--hk-ink);
   margin: 0;
 }
 
-/* Fraunces italic — the accent word. Terracotta is the marketplace's
-   accent-for-words token (gold never carries text). */
 .titleAccent {
-  font-style: italic;
-  color: var(--hk-terracotta);
+  /* The landing's headline turn: upright, a lighter pine against the ink
+     title ("Send one, or order in."), not an italic terracotta word. */
+  font-style: normal;
+  color: var(--hk-pine-turn);
 }
 
 .tagline {
@@ -141,17 +141,13 @@
   flex-wrap: wrap;
   gap: 5px;
   margin: 0;
-  font-family: var(--hk-font-mono);
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  font-size: 15px;
   color: var(--hk-ink-3);
 }
 
 .stats strong {
-  font-family: var(--hk-font-display);
-  font-size: 17px;
   font-weight: 600;
-  color: var(--hk-pine);
+  color: var(--hk-ink);
 }
 
 .statsDot {

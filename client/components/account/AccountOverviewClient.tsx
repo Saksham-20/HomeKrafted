@@ -1,5 +1,6 @@
 "use client";
 
+import { MoreLink } from "@/components/ui/MoreLink";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import clsx from "clsx";
@@ -78,9 +79,9 @@ export function AccountOverviewClient() {
             </span>
           ) : null}
         </div>
-        <Link href="/wallet" className={styles.walletCta}>
-          View wallet →
-        </Link>
+        <MoreLink href="/wallet" className={styles.walletCta}>
+          View wallet
+        </MoreLink>
       </Card>
 
       <div className={styles.grid}>

@@ -8,17 +8,30 @@
   margin-bottom: var(--hk-s4);
 }
 
+/*
+  One horizontal strip at every width (owner, 2026-11-22: "act more like a
+  scroll bar"). It was a wrapping grid on desktop that ran two rows tall
+  with ten departments and pushed the gifts down. `.hk-strip-fade` is the
+  same fade-edge scroll recipe the phone strip and portal nav use.
+*/
 .tiles {
-  display: grid;
-  /*
-    `auto-fill`, never `auto-fit`. `auto-fit` collapses the empty tracks,
-    so a catalogue with two live departments stretched two tiles across the
-    whole row as a pair of wide bars — measured, not hypothetical. With
-    `auto-fill` the empty tracks stay and a tile is a tile whether there
-    are two of them or nine.
-  */
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: var(--hk-s4);
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: var(--hk-s3);
+  /* The fade reads against the page canvas: this strip sits on `.main`,
+     not inside a white card. */
+  --hk-strip-fade-bg: var(--hk-bg);
+  /* Room for the focus ring on the first/last tile, so the scroll
+     container does not clip it. */
+  padding: 2px;
+  margin: -2px;
+  scroll-snap-type: x proximity;
+}
+
+.tiles > .tile {
+  flex: 0 0 200px;
+  scroll-snap-align: start;
 }
 
 .tile {
@@ -134,12 +147,11 @@
 }
 
 /*
-  The mark on its own tinted ground. It is the tile's subject now, so it
-  gets the space the photograph had rather than sitting on it as a badge.
-  `--tile-ground`/`--tile-ink` come from `lib/category-tint.ts`, set
-  per-instance in the component; the fallback is the original flat pine
-  tint so a tile never renders unstyled if the custom property is ever
-  missing.
+  The mark on warm paper. It is the tile's subject, so it gets the space
+  the photograph had rather than sitting on it as a badge. One ground for
+  every department (2026-11-22, owner: match the landing and the shop's
+  category row) — the per-department pastels from `lib/category-tint.ts`
+  made nine shelves read as nine colours.
 */
 .face {
   position: relative;
@@ -148,9 +160,9 @@
   width: 46px;
   height: 46px;
   flex: none;
-  border-radius: var(--hk-r-md);
-  background: var(--tile-ground, var(--hk-pine-tint));
-  color: var(--tile-ink, var(--hk-pine));
+  border-radius: 8px;
+  background: var(--hk-bg);
+  color: var(--hk-pine);
   transition: background var(--hk-dur) var(--hk-ease), color var(--hk-dur) var(--hk-ease);
 }
 
@@ -279,27 +291,11 @@
 }
 
 /*
-  Phone: a 2-column grid of 8+ tiles ran four rows tall, pushing the
-  product grid a full extra screen down — measured on `/gifts` at 390px,
-  the products started below the fold entirely. One horizontal strip
-  (`.hk-strip-fade`, the same fade-edge scroll recipe the portal nav
-  strips use — see `styles/globals.css`) turns that into one row: every
-  department is still one swipe away, and the buyer sees products first.
+  Phone: the strip's tiles shrink to icon-over-name shortcuts.
 */
 @media (max-width: 640px) {
   .tiles {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
     gap: var(--hk-s2);
-    /* `.hk-strip-fade`'s fade reads against the page canvas here, not
-       `--hk-surface` (its default) — this strip sits directly on `.main`,
-       not inside a white card. */
-    --hk-strip-fade-bg: var(--hk-bg);
-    /* Room for the focus ring on the first/last tile, so it isn't clipped
-       by the scroll container. */
-    padding: 2px;
-    margin: -2px;
   }
 
   /* 76px (was 104) — Flipkart's own category row is the density

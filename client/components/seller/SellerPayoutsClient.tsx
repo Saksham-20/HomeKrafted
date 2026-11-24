@@ -78,6 +78,10 @@ export function SellerPayoutsClient() {
   const summary = page.summary;
   const commission = page.commission;
   const payable = page.pendingBalance;
+  // `POST /seller/payouts/request` refuses (409) while any request is still
+  // pending. The button used to stay live and let that refusal be the
+  // answer; it now says so before the click.
+  const waitingOn = page.items.find((payout) => payout.status === "pending");
 
   return (
     <div>
@@ -138,16 +142,18 @@ export function SellerPayoutsClient() {
           fresh delivered earnings (found in the M37 commission pass).
         */}
         <p className={styles.requestHint}>
-          {payable > 0
-            ? `Your whole unclaimed balance of ${formatCurrency(payable)} goes out in one settlement. Payouts are settled by hand, so allow a couple of working days.`
-            : "You have nothing to request right now. New earnings appear here as orders are delivered."}
+          {waitingOn
+            ? `Your request for ${formatCurrency(waitingOn.amount)} is with us. You can ask for the next payout once it's paid — payouts are settled by hand, so allow a couple of working days.`
+            : payable > 0
+              ? `Your whole unclaimed balance of ${formatCurrency(payable)} goes out in one settlement. Payouts are settled by hand, so allow a couple of working days.`
+              : "You have nothing to request right now. New earnings appear here as orders are delivered."}
         </p>
         <div className={styles.requestRow}>
           <Button
             variant="primary"
             size="sm"
             onClick={handleRequest}
-            disabled={requesting || payable <= 0}
+            disabled={requesting || payable <= 0 || !!waitingOn}
           >
             {requesting ? "Requesting…" : "Request payout"}
           </Button>

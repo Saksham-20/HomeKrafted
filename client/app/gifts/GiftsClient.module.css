@@ -208,12 +208,6 @@
   margin: 0;
 }
 
-.emptyLink {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--hk-pine);
-}
-
 @media (max-width: 640px) {
   .controlCard {
     margin-top: calc(-1 * var(--hk-s4));
@@ -271,7 +265,7 @@
   gap: var(--hk-s2);
   padding: 8px 14px;
   border: 1px solid var(--hk-border);
-  border-radius: 999px;
+  border-radius: var(--hk-r-control);
   background: var(--hk-surface);
   color: var(--hk-ink);
   font: inherit;

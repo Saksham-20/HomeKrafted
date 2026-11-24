@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { MoreLink } from "@/components/ui/MoreLink";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { LoadingRows } from "@/components/portal/LoadingRows";
@@ -192,9 +192,9 @@ export function SellerVerificationPanel({ sellerId, onChanged }: SellerVerificat
             </p>
           </div>
         )}
-        <Link className={styles.storefrontLink} href={`/storefront/${profile.vendorSlug}`} target="_blank">
-          Open their storefront →
-        </Link>
+        <MoreLink href={`/storefront/${profile.vendorSlug}`} className={styles.storefrontLink} newTab>
+          Open their storefront
+        </MoreLink>
       </div>
 
       <div className={styles.decision}>

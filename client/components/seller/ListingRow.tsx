@@ -1,6 +1,6 @@
 import Link from "next/link";
 import clsx from "clsx";
-import { Pencil, Trash2 } from "lucide-react";
+import { ArrowRight, Copy, Pencil, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { formatCurrency } from "@/lib/format";
@@ -87,7 +87,8 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
             </span>
             {review.tone === "attention" && (
               <Link href={`/seller/listings/${product.id}`} className={styles.reviewFixLink}>
-                Fix and resubmit →
+                Fix and resubmit
+                <ArrowRight size={13} strokeWidth={2} aria-hidden="true" />
               </Link>
             )}
           </div>
@@ -117,6 +118,16 @@ export function ListingRow({ product, categoryName, onDelete }: ListingRowProps)
           aria-label={`Edit ${product.name}`}
         >
           <Pencil size={15} strokeWidth={1.7} />
+        </Link>
+        {/* Repeat makers list the same thing in another colour or size; this
+            starts a new listing pre-answered from this one (GIFTING-REWORK §7.4). */}
+        <Link
+          href={`/seller/listings/new?from=${encodeURIComponent(product.id)}`}
+          className={styles.iconLink}
+          aria-label={`Duplicate ${product.name}`}
+          title="Duplicate"
+        >
+          <Copy size={15} strokeWidth={1.7} />
         </Link>
         <button
           type="button"

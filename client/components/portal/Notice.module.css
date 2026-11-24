@@ -3,8 +3,10 @@
   align-items: flex-start;
   gap: var(--hk-s3);
   padding: var(--hk-s3) var(--hk-s4);
+  /* One even border (2026-11-22): the 3px coloured left stripe was the
+     template tell the site has been removing everywhere. The tone is
+     carried by the tinted panel and the icon. */
   border: 1px solid var(--hk-border);
-  border-left-width: 3px;
   border-radius: var(--hk-r-md);
   background: var(--hk-surface);
   font-size: 14px;
@@ -78,10 +80,6 @@
 
 /* ---- Tones ---------------------------------------------------------- */
 
-.info {
-  border-left-color: var(--hk-pine);
-}
-
 .info .icon {
   color: var(--hk-pine);
 }
@@ -90,7 +88,6 @@
 .warning {
   background: var(--hk-gold-tint);
   border-color: var(--hk-gold-border);
-  border-left-color: var(--hk-gold);
   color: var(--hk-ink);
 }
 
@@ -101,7 +98,6 @@
 .success {
   background: var(--hk-pine-tint);
   border-color: #dbe4d3; /* pine-on-tint line, see VerifiedBadges */
-  border-left-color: var(--hk-pine);
   color: var(--hk-ink);
 }
 
@@ -114,7 +110,6 @@
 .danger {
   background: var(--hk-terracotta-tint);
   border-color: #ecd3c6;
-  border-left-color: var(--hk-terracotta);
   color: var(--hk-ink);
 }
 

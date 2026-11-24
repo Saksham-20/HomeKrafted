@@ -39,13 +39,11 @@
 }
 
 .key {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
   /* `--hk-gold-text-sm`, never `--hk-gold`: 11px gold text fails AA on
      this tint. See CLAUDE.md's gold rule. */
   color: var(--hk-gold-text-sm);
+  font-weight: 600;
 }
 
 .value {

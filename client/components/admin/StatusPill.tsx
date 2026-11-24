@@ -70,16 +70,16 @@ export function statusTone(status: string): StatusPillTone {
   return TONE_BY_STATUS[status] ?? "neutral";
 }
 
-function titleCase(value: string): string {
-  return value
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+/** "out-for-delivery" → "Out for delivery". Sentence case since the pill
+ *  stopped being mono caps (2026-11-22); title case read "Out For Delivery". */
+function sentenceCase(value: string): string {
+  const spaced = value.split("-").join(" ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 export interface StatusPillProps {
   status: string;
-  /** Override the auto-derived (title-cased) label — e.g. a role string that should read differently than its raw value. */
+  /** Override the auto-derived (sentence-cased) label — e.g. a role string that should read differently than its raw value. */
   label?: string;
   /**
    * Override the tone for a status whose meaning differs by domain.
@@ -96,7 +96,7 @@ export interface StatusPillProps {
 export function StatusPill({ status, label, tone, className }: StatusPillProps) {
   return (
     <span className={clsx(styles.pill, styles[tone ?? statusTone(status)], className)}>
-      {label ?? titleCase(status)}
+      {label ?? sentenceCase(status)}
     </span>
   );
 }

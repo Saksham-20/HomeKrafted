@@ -90,11 +90,9 @@
 
 .waiting {
   align-self: flex-start;
-  font-family: var(--hk-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 12px;
   color: var(--hk-terracotta);
+  font-weight: 600;
 }
 
 .thread {

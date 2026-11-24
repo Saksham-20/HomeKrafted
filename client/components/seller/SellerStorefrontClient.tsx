@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { MoreLink } from "@/components/ui/MoreLink";
 import { formatCurrency } from "@/lib/format";
-import { ImageSlot } from "@/components/placeholder/ImageSlot";
 import { CharacterPicker } from "@/components/ui/CharacterPicker";
 import { isChefCharacter } from "@/lib/avatars/chef-characters";
 import { ImageUpload } from "@/components/ui/ImageUpload";
@@ -269,9 +268,9 @@ export function SellerStorefrontClient() {
         title="Shop page"
         subtitle="What shoppers see at the top of your storefront and on every one of your product cards."
         actions={
-          <Link href={`/storefront/${vendor.slug}`} className={styles.previewLink} target="_blank">
-            View live storefront →
-          </Link>
+          <MoreLink href={`/storefront/${vendor.slug}`} newTab>
+            View live storefront
+          </MoreLink>
         }
       />
 
@@ -365,14 +364,24 @@ export function SellerStorefrontClient() {
           }
           footer={
             <>
-              <Button variant="primary" size="sm" onClick={handleDiscountSave} disabled={discountSaving}>
+              {/* At 0% with no sale running there is nothing to turn off —
+                  it used to say "Turn the sale off" over a sale that did
+                  not exist. Start stays disabled until a percentage is in. */}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleDiscountSave}
+                disabled={discountSaving || (liveDiscountPct <= 0 && !vendor.discount)}
+              >
                 {discountSaving
                   ? "Saving…"
                   : liveDiscountPct > 0
                     ? vendor.discount
                       ? "Update the sale"
                       : "Start the sale"
-                    : "Turn the sale off"}
+                    : vendor.discount
+                      ? "Turn the sale off"
+                      : "Start the sale"}
               </Button>
               <span
                 className={discountError ? styles.saveError : styles.savedNote}

@@ -66,9 +66,11 @@ export interface FooterColumn {
  * has. `MobileDrawer` drops the duplicates, because there both groups
  * are the same kind of list.
  */
+// Labels shortened to the client's seasonal mockup (2026-11-24): "Food",
+// "Gifts", "Meal Plans", "Bulk Orders". Shorter labels only free width.
 export const primaryNav: NavLink[] = [
-  { label: "Homemade Food", href: "/shop" },
-  { label: "Handcrafted Gifts", href: "/gifts" },
+  { label: "Food", href: "/shop" },
+  { label: "Gifts", href: "/gifts" },
   // M35: this slot held "Gift Hampers" while /hamper listed exactly one
   // product — a top-3 nav destination has to carry a catalogue worth the
   // slot. Occasions is one (every occasion, every guide), and the label
@@ -80,8 +82,8 @@ export const primaryNav: NavLink[] = [
   // "Bulk & Party Orders" are the owner's words for `/meal-plans` and
   // `/corporate`; `secondaryNav` keeps its own shorter labels for the
   // quick-entry tiles, which have a blurb underneath to carry the rest.
-  { label: "Subscription Plans", href: "/meal-plans" },
-  { label: "Bulk & Party Orders", href: "/corporate" },
+  { label: "Meal Plans", href: "/meal-plans" },
+  { label: "Bulk Orders", href: "/corporate" },
   { label: "About Us", href: "/about" },
 ];
 
@@ -159,6 +161,48 @@ export const footerColumns: FooterColumn[] = FOOTER_COLUMNS.map((column) => ({
   title: column.title,
   links: [...column.links],
 }));
+
+/**
+ * The footer's three link columns, as the client's seasonal mockup draws
+ * them (2026-11-24): what to explore, help, and the company. The policy
+ * documents are not here — they keep their own row under these, from
+ * `FOOTER_COLUMNS` (`lib/policies`), so every one of the sixteen stays in
+ * the footer of every page (Razorpay requires them published).
+ *
+ * Only pages that exist: the mockup's "Blog" is the occasions-and-guides
+ * hub, since `/guides` has no index of its own.
+ */
+export const footerNav: FooterColumn[] = [
+  {
+    title: "Explore",
+    links: [
+      { label: "Homemade Food", href: "/shop" },
+      { label: "Handcrafted Gifts", href: "/gifts" },
+      { label: "Gift Hampers", href: "/hamper" },
+      { label: "Meal Plans", href: "/meal-plans" },
+      { label: "Bulk Orders", href: "/corporate" },
+    ],
+  },
+  {
+    title: "Customer Care",
+    links: [
+      { label: "FAQs", href: "/support" },
+      { label: "Contact Us", href: "/contact" },
+      { label: "Delivery & Returns", href: "/shipping-delivery" },
+      { label: "Payment Policy", href: "/payment-policy" },
+      { label: "Track an Order", href: "/account/orders" },
+    ],
+  },
+  {
+    title: "About Homekrafted",
+    links: [
+      { label: "Our Story", href: "/about" },
+      { label: "Become a HomeKrafter", href: "/sell" },
+      { label: "Corporate Gifting", href: "/corporate" },
+      { label: "Occasions & Guides", href: "/collections" },
+    ],
+  },
+];
 
 /**
  * Home page's two promo bands (M11b CMS, `/admin/collections`'s "Home

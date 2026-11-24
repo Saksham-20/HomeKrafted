@@ -1,11 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Check, Gift, Heart, PenLine, Send, Sparkles, Truck, AlertCircle, Plus } from "lucide-react";
+import { Check, Gift, Heart, PenLine, Send, Sparkles, Truck, AlertCircle } from "lucide-react";
 import { Chip } from "@/components/ui/Chip";
 import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { Button } from "@/components/ui/Button";
@@ -30,6 +28,7 @@ import { useFoodOrdersOpen } from "@/components/food/useFoodOrdersOpen";
 import { FoodComingSoonBanner } from "@/components/food/FoodComingSoonBanner";
 import { FOOD_BUTTON_LABEL } from "@/lib/food-launch";
 import { usePublicSettings } from "@/components/settings/usePublicSettings";
+import { ProductGridCard } from "@/components/product/ProductGridCard";
 import styles from "./ProductPurchasePanel.module.css";
 
 export interface ProductPurchasePanelProps {
@@ -80,26 +79,6 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
   const { declared: declaredAllergens, saysNone: saysNoAllergens } = splitAllergens(
     product.allergens,
   );
-
-  const [crossSellAdded, setCrossSellAdded] = useState<Record<string, boolean>>({});
-  const [addingCrossSell, setAddingCrossSell] = useState<string | null>(null);
-
-  async function handleAddCrossSell(item: Product) {
-    const sku = purchasableSku(item);
-    if (!sku) return;
-    setAddingCrossSell(item.id);
-    try {
-      await addItem(item.id, sku, 1);
-      setCrossSellAdded((prev) => ({ ...prev, [item.id]: true }));
-      setTimeout(() => {
-        setCrossSellAdded((prev) => ({ ...prev, [item.id]: false }));
-      }, 2500);
-    } catch {
-      // Ignore
-    } finally {
-      setAddingCrossSell(null);
-    }
-  }
 
   const isMealPlan =
     product.categoryId === "meals" ||
@@ -741,57 +720,28 @@ export function ProductPurchasePanel({ product, crossSells = [] }: ProductPurcha
 
       {crossSells.length > 0 && (
         <div className={styles.crossSellSection}>
-          <div className={styles.crossSellTitle}>
-            <Sparkles size={16} aria-hidden="true" />
-            Pairs well from this kitchen
-          </div>
+          <h2 className={styles.crossSellTitle}>
+            {product.kind === "craft" ? "Pairs well from this maker" : "Pairs well from this kitchen"}
+          </h2>
           <div className={styles.crossSellSubtitle}>
-            Same kitchen &amp; delivery radius · Ships together with zero extra delivery fee
+            {/* A gift posts anywhere in India; only food has a kitchen and a radius. */}
+            {product.kind === "craft"
+              ? "Same HomeKrafter · Add it to the same order with no extra delivery fee"
+              : "Same kitchen & delivery radius · Ships together with zero extra delivery fee"}
           </div>
+          {/* The site's own card (2026-11-22): it was a hand-built copy
+              with a ₹199 fallback price, an optimised `next/image` (the
+              uploads trap) and an add that swallowed its refusal. The
+              section names the maker, so each card skips its own line. */}
           <div className={styles.crossSellGrid}>
-            {crossSells.map((item) => {
-              const sku = purchasableSku(item);
-              const opt = item.weightOptions?.find((w) => w.sku === sku) ?? item.weightOptions?.[0];
-              const isAdded = Boolean(crossSellAdded[item.id]);
-              const isAdding = addingCrossSell === item.id;
-              const img = item.images?.[0]?.src || "/images/placeholder.jpg";
-              return (
-                <div key={item.id} className={styles.crossSellCard}>
-                  <div className={styles.crossSellThumbWrap}>
-                    <Image
-                      src={img}
-                      alt={item.name}
-                      width={130}
-                      height={130}
-                      className={styles.crossSellThumb}
-                    />
-                  </div>
-                  <Link href={`/product/${item.slug}`} className={styles.crossSellName} title={item.name}>
-                    {item.name}
-                  </Link>
-                  <div className={styles.crossSellPrice}>{formatCurrency(opt?.price ?? 199)}</div>
-                  <button
-                    type="button"
-                    className={clsx(styles.crossSellAddBtn, isAdded && styles.crossSellAddBtnSuccess)}
-                    disabled={isAdding || !sku}
-                    onClick={() => handleAddCrossSell(item)}
-                    aria-label={`Add ${item.name} to cart`}
-                  >
-                    {isAdded ? (
-                      <>
-                        <Check size={12} strokeWidth={2.4} aria-hidden="true" />
-                        <span>Added</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus size={12} strokeWidth={2.4} aria-hidden="true" />
-                        <span>{isAdding ? "…" : "Add"}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
+            {crossSells.map((item) => (
+              <ProductGridCard
+                key={item.id}
+                product={item}
+                makerName=""
+                href={`/product/${item.slug}`}
+              />
+            ))}
           </div>
         </div>
       )}

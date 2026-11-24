@@ -23,9 +23,10 @@ import styles from "./CartBar.module.css";
  * - Docks above a product page's own sticky Add-to-cart bar via the
  *   `--hk-dock-h` custom property that bar publishes while it is showing
  *   (`ProductPurchasePanel`), instead of covering it.
- * - Under 640px it is a full-width bar and reserves its own height in
- *   flow (`.spacer`) so the footer's last row stays reachable; above it
- *   is a floating pill in the corner and reserves nothing.
+ * - Under 640px it is a full-width bar, above it a floating pill in the
+ *   corner. Either way it reserves its height in flow (`.spacer`, footer
+ *   pine) so the footer's legal row stays reachable: the pill used to sit
+ *   on the GeoNames credit and the snow pause (2026-11-24).
  * - One link, whole surface. Pine fill, so the focus ring is the gold
  *   one (M34).
  */

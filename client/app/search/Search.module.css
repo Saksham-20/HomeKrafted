@@ -6,25 +6,21 @@
   max-width: 640px;
 }
 
+/* Where you are, said like the browse breadcrumbs (2026-11-22). */
 .eyebrow {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: var(--hk-eyebrow-spacing);
-  text-transform: uppercase;
-  /* Gold at 11px regular is below AA on white — small-size gold ramp. */
-  color: var(--hk-gold-text-sm);
+  font-size: 13px;
+  color: var(--hk-muted);
 }
 
 .title {
   margin-top: var(--hk-s2);
   font: var(--hk-h2);
-  color: var(--hk-pine);
+  color: var(--hk-ink);
 }
 
+/* The landing's headline turn, as on /gifts and /shop. */
 .term {
-  font-style: italic;
-  color: var(--hk-terracotta);
+  color: var(--hk-pine-turn);
 }
 
 .field {
@@ -40,10 +36,8 @@
 }
 
 .suggestLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: var(--hk-eyebrow-spacing);
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--hk-muted);
   margin-right: var(--hk-s2);
 }
@@ -88,7 +82,7 @@
   margin-top: var(--hk-s5);
   background: var(--hk-pine);
   color: #ffffff;
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   padding: 13px 26px;
   font-size: 15px;
   font-weight: 600;

@@ -231,7 +231,6 @@ export function ProductCard({
         </button>
       </div>
       <div className={styles.content}>
-        <span className={styles.maker}>{makerName}</span>
         <span className={styles.name}>
           {/*
             The FSSAI-style mark, beside the name where that scheme puts
@@ -250,6 +249,9 @@ export function ProductCard({
             product.name
           )}
         </span>
+        {/* Name first, then who made it — the landing's card order
+            ("Sandalwood Soy Candle / by The Slow Studio"). */}
+        {makerName && <span className={styles.maker}>by {makerName}</span>}
         {metaParts.length > 0 && (
           <span className={styles.meta}>
             {metaParts.map((part, index) => (

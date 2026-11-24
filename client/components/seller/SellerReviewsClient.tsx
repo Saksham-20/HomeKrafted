@@ -8,7 +8,7 @@ import { SellerReviewCard } from "./SellerReviewCard";
 import { ModuleUnavailable, isForbidden } from "./ModuleUnavailable";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { isMockMode } from "@/lib/api/http";
-import { apiErrorMessage, getSellerReviews, replySellerReview } from "@/lib/api";
+import { apiErrorMessage, getSellerListings, getSellerReviews, replySellerReview } from "@/lib/api";
 import { kitchenLoading, MAKER_LOADING } from "@/lib/kitchen-copy";
 import type { Review } from "@/lib/types";
 import styles from "./SellerReviewsClient.module.css";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/Button";
 export function SellerReviewsClient() {
   const { ready, seller, sellerDataReady } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [productNames, setProductNames] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -40,8 +41,15 @@ export function SellerReviewsClient() {
     // ignores its answer, which is exactly what `sellerDataReady` exists
     // to avoid.
     if (isMockMode() && !sellerRef.current?.vendorId) return;
+    const vendorId = sellerRef.current?.vendorId ?? "";
+    // Names for the "Review of …" tag. Not part of the answer: if this
+    // read fails the tag falls back to "Product review", it never blocks
+    // or blanks the list.
+    void getSellerListings(vendorId)
+      .then((listings) => setProductNames(new Map(listings.map((p) => [p.id, p.name]))))
+      .catch(() => undefined);
     try {
-      const list = await getSellerReviews(sellerRef.current?.vendorId ?? "");
+      const list = await getSellerReviews(vendorId);
       setReviews(list);
     } catch (error) {
       if (isForbidden(error)) {
@@ -68,9 +76,14 @@ export function SellerReviewsClient() {
     })();
   }, [sellerDataReady, load]);
 
-  async function handleReply(reviewId: string, body: string) {
-    await replySellerReview(reviewId, body);
+  async function handleReply(reviewId: string, body: string): Promise<string | null> {
+    try {
+      await replySellerReview(reviewId, body);
+    } catch (error) {
+      return apiErrorMessage(error, "Couldn't post your reply. Your words are still here — try again.");
+    }
     await load();
+    return null;
   }
 
   const noStorefront = ready && !!seller && !seller.vendorId;
@@ -129,7 +142,12 @@ export function SellerReviewsClient() {
       ) : (
         <div className={styles.list}>
           {reviews.map((review) => (
-            <SellerReviewCard key={review.id} review={review} onReply={handleReply} />
+            <SellerReviewCard
+              key={review.id}
+              review={review}
+              productName={review.targetType === "product" ? productNames.get(review.targetId) : undefined}
+              onReply={handleReply}
+            />
           ))}
         </div>
       )}

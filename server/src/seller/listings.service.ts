@@ -216,7 +216,7 @@ export class SellerListingsService {
       if (found !== dto.occasionIds.length) throw new NotFoundException('One or more occasions not found');
     }
 
-    await this.assertSkusAvailable(dto.weightOptions.map((w) => w.sku));
+    await this.resolveSkuClashes(dto);
     this.assertDefaultSkuPresent(dto);
 
     const categoryIds = await this.resolveCategoryIds(dto.categoryId, dto.categoryIds);
@@ -333,12 +333,7 @@ export class SellerListingsService {
       const found = await this.prisma.occasion.count({ where: { id: { in: dto.occasionIds } } });
       if (found !== dto.occasionIds.length) throw new NotFoundException('One or more occasions not found');
     }
-    if (dto.weightOptions?.length) {
-      await this.assertSkusAvailable(
-        dto.weightOptions.map((w) => w.sku),
-        productId,
-      );
-    }
+    await this.resolveSkuClashes(dto, productId);
     if (dto.defaultWeightSku && dto.weightOptions?.length) {
       this.assertDefaultSkuPresent({ weightOptions: dto.weightOptions, defaultWeightSku: dto.defaultWeightSku });
     }
@@ -546,11 +541,45 @@ export class SellerListingsService {
     return `${base}-${Date.now()}`;
   }
 
-  private async assertSkusAvailable(skus: string[], excludeProductId?: string): Promise<void> {
-    const clashes = await this.prisma.weightOption.findMany({ where: { sku: { in: skus } } });
-    const foreignClash = clashes.find((w) => w.productId !== excludeProductId);
-    if (foreignClash) {
-      throw new ConflictException(`SKU "${foreignClash.sku}" is already in use`);
+  /**
+   * Makes every SKU in the request free to use, rewriting the ones that are not.
+   *
+   * The client derives a SKU from name + size (`deriveSku`), and `sku` is
+   * unique platform-wide, so two makers both listing "Lemon pickle · One" —
+   * or a maker's own Duplicate kept under the same name — derived the same
+   * one and the second was refused with `SKU "lemon-pickle-one" is already
+   * in use`, a code nobody on that screen has ever seen or typed. A clash is
+   * ours to resolve: suffix it, as `uniqueSlug` does, and repoint
+   * `defaultWeightSku`. Rows this listing already owns keep theirs (they are
+   * on past orders).
+   */
+  private async resolveSkuClashes(
+    dto: { weightOptions?: { sku: string }[]; defaultWeightSku?: string },
+    excludeProductId?: string,
+  ): Promise<void> {
+    const rows = dto.weightOptions;
+    if (!rows?.length) return;
+    const existing = await this.prisma.weightOption.findMany({
+      where: { sku: { in: rows.map((w) => w.sku) } },
+      select: { sku: true, productId: true },
+    });
+    const taken = new Set(existing.filter((w) => w.productId !== excludeProductId).map((w) => w.sku));
+    const used = new Set<string>();
+    for (const row of rows) {
+      const original = row.sku;
+      // A repeat inside this request is the later row; the default stays with the first.
+      const ownsDefault = dto.defaultWeightSku === original && !used.has(original);
+      let candidate = original;
+      while (taken.has(candidate) || used.has(candidate)) {
+        // 80 is `WeightOptionInputDto.sku`'s @MaxLength; 6 is "-" + 5 chars.
+        candidate = `${original.slice(0, 80 - 6)}-${Math.random().toString(36).slice(2, 7)}`;
+        if (await this.prisma.weightOption.findUnique({ where: { sku: candidate } })) taken.add(candidate);
+      }
+      used.add(candidate);
+      if (candidate !== original) {
+        if (ownsDefault) dto.defaultWeightSku = candidate;
+        row.sku = candidate;
+      }
     }
   }
 

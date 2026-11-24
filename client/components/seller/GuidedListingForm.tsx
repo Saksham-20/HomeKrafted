@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { focusFirstError } from "@/components/portal/focus-first-error";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Combobox, type ComboboxOption } from "@/components/ui/Combobox";
@@ -25,7 +26,16 @@ import { markupBreakdown, type CommissionRate } from "@/lib/commission";
 import { formatCurrency } from "@/lib/format";
 import type { DietaryTag, ProductKind, SellerCommission } from "@/lib/types";
 import { DEFAULT_STOCK, type ListingFormValues, type ListingFormWeightRow } from "./ListingForm";
-import { LISTING_LIMITS, VARIANT_LABEL_MAX, mergeVariantLabel, variantLabelError } from "@/lib/sell/listing-input";
+import {
+  LISTING_LIMITS,
+  VARIANT_LABEL_MAX,
+  mergeVariantLabel,
+  listingFieldId,
+  validateListingForm,
+  variantLabelError,
+  type ListingFormErrors,
+} from "@/lib/sell/listing-input";
+import { FAMILY_FIELDS, resolveFamily, type FamilyFieldKey } from "@/lib/sell/listing-families";
 import { ColourSwatches } from "./ColourSwatches";
 import { parentForSuggestion } from "@/lib/taxonomy-actions";
 import { buildShelfPicks } from "@/lib/sell/shelf-picks";
@@ -70,11 +80,29 @@ const STEPS = [
   { key: "words", title: "A few words about it" },
 ] as const;
 
-/** Name field placeholder examples, rotated for visual interest. */
-const FOOD_PLACEHOLDERS = ["e.g. Homemade pickle", "e.g. Freshly baked cookies", "e.g. Handcrafted sweets", "e.g. Traditional namkeen"];
-const CRAFT_PLACEHOLDERS = ["e.g. Scented soy candle", "e.g. Handcrafted earrings", "e.g. Hand-painted illustration", "e.g. Macramé wall piece"];
+/*
+  Fixed, not rotated: a 3-second timer re-rendered this whole form while
+  somebody typed, and text that changes on its own pulls the eye off the
+  field (GIFTING-REWORK §7.5 — nothing keyed on time).
+*/
+const FOOD_PLACEHOLDER = "e.g. Homemade mango pickle";
+const CRAFT_PLACEHOLDER = "e.g. Handmade brass earrings";
 
-/** How many top category quick-picks to show. */
+/**
+ * Which step owns each validator key, so a refusal opens the step that
+ * shows the field. Everything not named here is asked on the last step.
+ */
+interface Issue {
+  message: string;
+  /** The input to take somebody to; absent where there is no single one (the shelf picker). */
+  fieldId?: string;
+}
+
+const STEP_OF_ERROR: Partial<Record<keyof ListingFormErrors, number>> = {
+  name: 1,
+  categoryId: 1,
+  weightRows: 2,
+};
 
 // Colour swatches + their overflow guard: `lib/sell/listing-colours.ts`,
 // shared with the long form so the two cannot drift.
@@ -82,7 +110,7 @@ const CRAFT_PLACEHOLDERS = ["e.g. Scented soy candle", "e.g. Handcrafted earring
 export interface GuidedListingFormProps {
   values: ListingFormValues;
   onChange: (values: ListingFormValues) => void;
-  categories: { id: string; name: string; group?: ProductKind; parentId?: string | null }[];
+  categories: { id: string; name: string; slug?: string; group?: ProductKind; parentId?: string | null }[];
   occasions: { id: string; name: string }[];
   /**
    * What to do when the shelf or occasion somebody wants is not on the
@@ -179,17 +207,31 @@ export function GuidedListingForm({
    */
   const [shelfSide, setShelfSide] = useState<ProductKind>(values.kind);
 
-  // Rotating placeholder for the name field — follows the browse filter
-  // rather than `isCraft`, so it shows relevant examples before a shelf
-  // (and so `kind`) has actually been picked.
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const placeholders = shelfSide === "craft" ? CRAFT_PLACEHOLDERS : FOOD_PLACEHOLDERS;
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [placeholders.length]);
+  // Follows the browse filter rather than `isCraft`, so it shows a relevant
+  // example before a shelf (and so `kind`) has actually been picked.
+  const namePlaceholder = shelfSide === "craft" ? CRAFT_PLACEHOLDER : FOOD_PLACEHOLDER;
+
+  /*
+    What the last step asks, from the same family table the long form and
+    the validator read. This step used to branch on food/craft alone, so a
+    pair of earrings was told size and material were optional, a bar of
+    soap was never asked its ingredients, and both were then refused on
+    Submit over fields this screen did not show — with a "we have taken
+    you to it" that went nowhere.
+  */
+  const family = resolveFamily({
+    kind: values.kind,
+    categorySlug: categories.find((c) => c.id === values.categoryId)?.slug,
+  });
+  const asks = (field: FamilyFieldKey) =>
+    FAMILY_FIELDS[family].required.includes(field) || FAMILY_FIELDS[family].encouraged.includes(field);
+  const needs = (field: FamilyFieldKey) => FAMILY_FIELDS[family].required.includes(field);
+  const tag = (field: FamilyFieldKey, encouraged = "optional") =>
+    needs(field) ? (
+      <span className={styles.requiredTag}>required</span>
+    ) : (
+      <span className={styles.optional}>{encouraged}</span>
+    );
 
   function set<K extends keyof ListingFormValues>(key: K, value: ListingFormValues[K]) {
     onChange({ ...values, [key]: value });
@@ -320,39 +362,87 @@ export function GuidedListingForm({
    * camera in the other room, and the honest cost of that is a listing
    * that never gets written at all.
    */
-  function blockingIssue(index: number): string | undefined {
+  /** What the guided flow fills in for the questions it never asks. */
+  function withDefaults(v: ListingFormValues): ListingFormValues {
+    return {
+      ...v,
+      weightRows: v.weightRows.map((row, i) => ({
+        ...row,
+        label: row.label.trim() || DEFAULT_SIZE_LABEL,
+        // Not on offer means MRP *is* the price. Leaving it at 0 would
+        // render a strikethrough against nothing; inflating it would
+        // invent a discount the cook never offered.
+        mrp: offerByRow[i] ? row.mrp : row.price,
+        stock: row.stock.trim() || String(DEFAULT_STOCK),
+      })),
+    };
+  }
+
+  /** The first refusal the shared validator gives for a field on this step. */
+  function validatorIssue(index: number): Issue | undefined {
+    const errors = validateListingForm(withDefaults(values), family);
+    for (const [key, value] of Object.entries(errors)) {
+      if (!value || (STEP_OF_ERROR[key as keyof ListingFormErrors] ?? 3) !== index) continue;
+      if (typeof value === "string") return { message: value, fieldId: listingFieldId(key) };
+      const [row, message] = Object.entries(value as Record<number, string>)[0];
+      return { message, fieldId: listingFieldId("weightRows", Number(row)) };
+    }
+    return undefined;
+  }
+
+  /**
+   * What is still missing on this step, and the field that fixes it — so a
+   * blocked Next can take somebody there instead of leaving a sentence by
+   * the button a phone-length page away from the question it names.
+   */
+  function blockingIssue(index: number): Issue | undefined {
     if (index === 1) {
-      if (!values.name.trim()) return "Give it a name — whatever you call it when somebody asks.";
-      if (!values.categoryId) return "Pick the shelf it belongs on.";
+      if (!values.name.trim()) {
+        return { message: "Give it a name — whatever you call it when somebody asks.", fieldId: listingFieldId("name") };
+      }
+      if (!values.categoryId) return { message: "Pick the shelf it belongs on." };
     }
     if (index === 2) {
       // Every variant needs a price
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         if (!row.price || Number(row.price) <= 0) {
-          return rows.length > 1 ? `Size ${i + 1} needs a price.` : "Put in a price.";
+          return {
+            message: rows.length > 1 ? `Size ${i + 1} needs a price.` : "Put in a price.",
+            fieldId: listingFieldId("weightRows", i),
+          };
         }
         if (offerByRow[i] && Number(row.mrp) <= Number(row.price)) {
-          return rows.length > 1
-            ? `Size ${i + 1}: the usual price has to be higher than the offer price.`
-            : "The usual price has to be higher than the offer price.";
+          return {
+            message:
+              rows.length > 1
+                ? `Size ${i + 1}: the usual price has to be higher than the offer price.`
+                : "The usual price has to be higher than the offer price.",
+            fieldId: listingFieldId("mrp", i),
+          };
         }
       }
     }
     if (index === 3) {
       if (!values.description.trim()) {
-        return "Write a line or two about it — this is what a buyer reads before deciding.";
+        return {
+          message: "Write a line or two about it — this is what a buyer reads before deciding.",
+          fieldId: listingFieldId("description"),
+        };
       }
       if (values.fulfilment === "made_to_order" && !values.prepTimeMins.trim()) {
-        return isCraft
-          ? "Say how many days you need to make and send it."
-          : "Say how much notice you need, in minutes.";
+        return {
+          message: isCraft
+            ? "Say how many days you need to make and send it."
+            : "Say how much notice you need, in minutes.",
+          fieldId: listingFieldId("prepTimeMins"),
+        };
       }
       if (values.isPersonalisable && !values.personalisationPrompt.trim()) {
-        return "Say what you want to ask the buyer for.";
+        return { message: "Say what you want to ask the buyer for.", fieldId: listingFieldId("personalisationPrompt") };
       }
     }
-    return undefined;
+    return validatorIssue(index);
   }
 
   const issue = blockingIssue(step);
@@ -362,29 +452,28 @@ export function GuidedListingForm({
   // button that has just moved under a different question. Without this a
   // screen-reader user hears nothing change and a keyboard user's next
   // Tab starts from the bottom of the previous step.
+  // Only on a change: on arrival nothing has moved, and focusing the
+  // heading on load drew a focus ring round it and skipped the skip link.
+  // Compared with the last step shown, not a "first run" flag, so React's
+  // dev double-run of mount effects can't fire it.
+  const shownStep = useRef(step);
   useEffect(() => {
+    if (shownStep.current === step) return;
+    shownStep.current = step;
     headingRef.current?.focus();
   }, [step]);
 
   function goNext() {
     if (issue) {
       setAttempted(true);
+      focusFirstError(issue.fieldId);
       return;
     }
     setAttempted(false);
     if (isLast) {
       // Fill in what the guided flow never asked, so nothing reaches the
       // server as a silent zero.
-      const filled = values.weightRows.map((row, i) => ({
-        ...row,
-        label: row.label.trim() || DEFAULT_SIZE_LABEL,
-        // Not on offer means MRP *is* the price. Leaving it at 0 would
-        // render a strikethrough against nothing; inflating it would
-        // invent a discount the cook never offered.
-        mrp: offerByRow[i] ? row.mrp : row.price,
-        stock: row.stock.trim() || String(DEFAULT_STOCK),
-      }));
-      const finished = { ...values, weightRows: filled };
+      const finished = withDefaults(values);
       onChange(finished);
       onSubmit(finished);
       return;
@@ -467,10 +556,12 @@ export function GuidedListingForm({
             <label className={styles.field}>
               <span className={styles.question}>What do you call it?</span>
               <input
+                id={listingFieldId("name")}
                 className={styles.bigInput}
                 value={values.name}
                 onChange={(event) => set("name", event.target.value)}
-                placeholder={placeholders[placeholderIndex]}
+                placeholder={namePlaceholder}
+                enterKeyHint="next"
               />
             </label>
 
@@ -684,6 +775,7 @@ export function GuidedListingForm({
                           type="number"
                           inputMode="numeric"
                           min={0}
+                          id={listingFieldId("weightRows", index)}
                           value={row.price}
                           onChange={(event) => updateRow(index, { price: event.target.value })}
                           placeholder="100"
@@ -755,6 +847,7 @@ export function GuidedListingForm({
                           type="number"
                           inputMode="numeric"
                           min={0}
+                          id={listingFieldId("mrp", index)}
                           value={row.mrp}
                           onChange={(event) => updateRow(index, { mrp: event.target.value })}
                           placeholder="299"
@@ -782,6 +875,7 @@ export function GuidedListingForm({
         {step === 3 && (
           <div className={styles.stepBody} key="step-3">
             <Textarea
+              id={listingFieldId("description")}
               label="Tell a buyer what it is"
               value={values.description}
               onChange={(event) => set("description", event.target.value)}
@@ -795,102 +889,115 @@ export function GuidedListingForm({
               {values.description.length} / ~200 characters — two or three sentences is plenty
             </div>
 
-            {!isCraft && (
+            {(["ingredients", "shelfLife", "servingGuidance", "storageInstructions", "dimensions", "material", "careInstructions"] as const).some(asks) && (
               <div className={styles.craftSpecsGroup}>
                 <p className={styles.craftSpecsHint}>
-                  Food safety, allergens &amp; shelf life details (required for food approval).
+                  {isCraft
+                    ? "Help buyers know exactly what they\u2019re getting."
+                    : "Food safety and shelf life \u2014 what a buyer checks before ordering."}
                 </p>
-                <label className={styles.field}>
-                  <span className={styles.question}>
-                    Ingredients <span style={{ color: "var(--hk-terracotta, #b45309)", fontWeight: 600 }}>required</span>
-                  </span>
-                  <input
-                    className={styles.bigInput}
-                    value={values.ingredients ?? ""}
-                    onChange={(event) => set("ingredients", event.target.value)}
-                    placeholder="e.g. Roasted peanuts, jaggery, cardamom, ghee"
-                    required
-                  />
-                </label>
-                <div className={styles.craftSpecsGrid}>
+                {asks("ingredients") && (
                   <label className={styles.field}>
-                    <span className={styles.question}>
-                      Shelf life <span style={{ color: "var(--hk-terracotta, #b45309)", fontWeight: 600 }}>required</span>
-                    </span>
+                    <span className={styles.question}>Ingredients {tag("ingredients")}</span>
                     <input
                       className={styles.bigInput}
-                      value={values.shelfLife ?? ""}
-                      onChange={(event) => set("shelfLife", event.target.value)}
-                      placeholder="e.g. 30 days from dispatch"
-                      required
+                      id={listingFieldId("ingredients")}
+                      value={values.ingredients ?? ""}
+                      onChange={(event) => set("ingredients", event.target.value)}
+                      placeholder={
+                        family === "skin"
+                          ? "e.g. Coconut oil, shea butter, lavender essential oil"
+                          : "e.g. Roasted peanuts, jaggery, cardamom, ghee"
+                      }
                     />
                   </label>
-                  <label className={styles.field}>
-                    <span className={styles.question}>
-                      Serving guidance <span className={styles.optional}>optional</span>
-                    </span>
-                    <input
-                      className={styles.bigInput}
-                      value={values.servingGuidance ?? ""}
-                      onChange={(event) => set("servingGuidance", event.target.value)}
-                      placeholder="e.g. Serves 1–2 / Pack of 6"
-                    />
-                  </label>
-                </div>
-                <label className={styles.field}>
-                  <span className={styles.question}>
-                    Storage instructions <span className={styles.optional}>recommended</span>
-                  </span>
-                  <input
-                    className={styles.bigInput}
-                    value={values.storageInstructions ?? ""}
-                    onChange={(event) => set("storageInstructions", event.target.value)}
-                    placeholder="e.g. Store in an airtight container away from direct sunlight"
-                  />
-                </label>
-              </div>
-            )}
-
-            {isCraft && (
-              <div className={styles.craftSpecsGroup}>
-                <p className={styles.craftSpecsHint}>
-                  Help buyers know exactly what they&apos;re getting.
-                </p>
+                )}
                 <div className={styles.craftSpecsGrid}>
-                  <label className={styles.field}>
-                    <span className={styles.question}>
-                      Dimensions <span className={styles.optional}>optional</span>
-                    </span>
-                    <input
-                      className={styles.bigInput}
+                  {asks("dimensions") && (
+                    <label className={styles.field}>
+                      <span className={styles.question}>Size {tag("dimensions")}</span>
+                      <input
+                        className={styles.bigInput}
+                        id={listingFieldId("dimensions")}
                       value={values.dimensions}
-                      onChange={(event) => set("dimensions", event.target.value)}
-                      placeholder="e.g. 15 × 10 × 5 cm"
-                    />
-                  </label>
+                        onChange={(event) => set("dimensions", event.target.value)}
+                        placeholder={
+                          family === "worn"
+                            ? "e.g. 5 cm drop, adjustable"
+                            : isCraft
+                              ? "e.g. 15 × 10 × 5 cm"
+                              : "e.g. 500 ml jar, 20 × 15 cm box"
+                        }
+                      />
+                    </label>
+                  )}
+                  {asks("material") && (
+                    <label className={styles.field}>
+                      <span className={styles.question}>
+                        {family === "jarred" ? "Packaging" : "Material"} {tag("material")}
+                      </span>
+                      <input
+                        className={styles.bigInput}
+                        id={listingFieldId("material")}
+                      value={values.material}
+                        onChange={(event) => set("material", event.target.value)}
+                        placeholder={family === "jarred" ? "e.g. Glass jar, 250 g" : "e.g. Brass, glass beads"}
+                      />
+                    </label>
+                  )}
+                  {asks("shelfLife") && (
+                    <label className={styles.field}>
+                      <span className={styles.question}>
+                        {family === "skin" ? "Use within" : "Shelf life"} {tag("shelfLife")}
+                      </span>
+                      <input
+                        className={styles.bigInput}
+                        id={listingFieldId("shelfLife")}
+                      value={values.shelfLife ?? ""}
+                        onChange={(event) => set("shelfLife", event.target.value)}
+                        placeholder={family === "skin" ? "e.g. 12 months after opening" : "e.g. 30 days from dispatch"}
+                      />
+                    </label>
+                  )}
+                  {asks("servingGuidance") && (
+                    <label className={styles.field}>
+                      <span className={styles.question}>Serving guidance {tag("servingGuidance")}</span>
+                      <input
+                        className={styles.bigInput}
+                        id={listingFieldId("servingGuidance")}
+                      value={values.servingGuidance ?? ""}
+                        onChange={(event) => set("servingGuidance", event.target.value)}
+                        placeholder="e.g. Serves 1–2 / Pack of 6"
+                      />
+                    </label>
+                  )}
+                </div>
+                {asks("storageInstructions") && (
                   <label className={styles.field}>
                     <span className={styles.question}>
-                      Material <span className={styles.optional}>optional</span>
+                      Storage instructions {tag("storageInstructions", "recommended")}
                     </span>
                     <input
                       className={styles.bigInput}
-                      value={values.material}
-                      onChange={(event) => set("material", event.target.value)}
-                      placeholder="e.g. 100% Soy Wax, Cotton wick"
+                      id={listingFieldId("storageInstructions")}
+                      value={values.storageInstructions ?? ""}
+                      onChange={(event) => set("storageInstructions", event.target.value)}
+                      placeholder="e.g. Store in an airtight container away from direct sunlight"
                     />
                   </label>
-                </div>
-                <label className={styles.field}>
-                  <span className={styles.question}>
-                    Care instructions <span className={styles.optional}>optional</span>
-                  </span>
-                  <input
-                    className={styles.bigInput}
-                    value={values.careInstructions}
-                    onChange={(event) => set("careInstructions", event.target.value)}
-                    placeholder="e.g. Keep away from direct sunlight, hand wash only"
-                  />
-                </label>
+                )}
+                {asks("careInstructions") && (
+                  <label className={styles.field}>
+                    <span className={styles.question}>Care instructions {tag("careInstructions")}</span>
+                    <input
+                      className={styles.bigInput}
+                      id={listingFieldId("careInstructions")}
+                      value={values.careInstructions}
+                      onChange={(event) => set("careInstructions", event.target.value)}
+                      placeholder="e.g. Keep away from direct sunlight, hand wash only"
+                    />
+                  </label>
+                )}
               </div>
             )}
 
@@ -1004,6 +1111,7 @@ export function GuidedListingForm({
                   type="number"
                   inputMode="numeric"
                   min={1}
+                  id={listingFieldId("prepTimeMins")}
                   value={values.prepTimeMins}
                   onChange={(event) => set("prepTimeMins", event.target.value)}
                   placeholder={isCraft ? "e.g. 3" : "e.g. 120"}
@@ -1025,6 +1133,7 @@ export function GuidedListingForm({
                 <span className={styles.question}>What should we ask them for?</span>
                 <input
                   className={styles.bigInput}
+                  id={listingFieldId("personalisationPrompt")}
                   value={values.personalisationPrompt}
                   onChange={(event) => set("personalisationPrompt", event.target.value)}
                   placeholder='e.g. "Which colour would you like?"'
@@ -1098,7 +1207,7 @@ export function GuidedListingForm({
 
         {attempted && issue && (
           <p className={styles.issue} role="alert">
-            {issue}
+            {issue.message}
           </p>
         )}
         {error && (

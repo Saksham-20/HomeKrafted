@@ -2,11 +2,10 @@
 
 import clsx from "clsx";
 import { Check, LayoutGrid } from "lucide-react";
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef } from "react";
 import { radioGroupKeyDown } from "@/components/browse/radio-group-keys";
 import { revealChosen } from "@/components/browse/reveal-chosen";
 import { Icon } from "@/components/ui/Icon";
-import { categoryTint } from "@/lib/category-tint";
 import type { Department } from "@/lib/api/catalog";
 import styles from "./DepartmentTiles.module.css";
 
@@ -130,13 +129,7 @@ export function DepartmentTiles({ departments, selectedId, onSelect, allCount }:
           }
           onClick={() => onSelect(null)}
         >
-          <span
-            className={styles.face}
-            aria-hidden="true"
-            style={
-              { "--tile-ground": "var(--hk-bg)", "--tile-ink": "var(--hk-ink-2)" } as CSSProperties
-            }
-          >
+          <span className={styles.face} aria-hidden="true">
             <LayoutGrid size={24} strokeWidth={1.5} />
             {allSelected && <CheckBadge />}
           </span>
@@ -155,7 +148,6 @@ export function DepartmentTiles({ departments, selectedId, onSelect, allCount }:
           // The chosen subcategory is inside this department. Only ever
           // true for the one `open` names, and never alongside `isSelected`.
           const isAncestor = !isSelected && open?.id === department.id;
-          const tint = categoryTint(department.id);
           return (
             <button
               key={department.id}
@@ -175,20 +167,9 @@ export function DepartmentTiles({ departments, selectedId, onSelect, allCount }:
               aria-label={`${department.name}, ${department.count} ${department.count === 1 ? "gift" : "gifts"}`}
               onClick={() => onSelect(department.id)}
             >
-              {/*
-                The tint is `lib/category-tint.ts`'s deterministic
-                ground/ink pair (2026-09-17) — the same mechanism
-                `CategoryTile` and `QuickFilterChips` use, so nine
-                departments read apart from each other instead of nine
-                identical pine-tint squares. `.tileSelected` overrides it
-                with pine on purpose: a chosen department is answering
-                "which one", not "what colour".
-              */}
-              <span
-                className={styles.face}
-                aria-hidden="true"
-                style={{ "--tile-ground": tint.ground, "--tile-ink": tint.ink } as CSSProperties}
-              >
+              {/* `.tileSelected` turns the face deep pine: a chosen
+                  department answers "which one", not "what colour". */}
+              <span className={styles.face} aria-hidden="true">
                 <Icon id={department.icon} size={24} />
                 {isSelected && <CheckBadge />}
                 {isAncestor && <span className={styles.insideDot} />}

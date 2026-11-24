@@ -60,14 +60,12 @@
 }
 
 .status {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
   padding: 3px 9px;
   border-radius: var(--hk-r-pill);
   border: 1px solid transparent;
   white-space: nowrap;
+  font-weight: 600;
 }
 
 /* Gold-family text takes the darkened token (M34). */

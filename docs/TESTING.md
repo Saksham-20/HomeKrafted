@@ -198,9 +198,10 @@ Place an order with **Card / UPI** and close the Razorpay window instead
 of paying. The order exists, at "Payment pending", and your cart is empty
 — that is by design (the order holds the items).
 
-Open it from **Account → Orders**. The row says **"Finish paying"**, and
-the order itself carries a **Complete payment** panel with the total and
-a button that reopens the same Razorpay payment. Three things to check:
+**From Account → Orders.** Place an order with **Card / UPI** and close the
+Razorpay window. (With `NEXT_PUBLIC_USE_MOCK=true` there is no payment
+sheet; the mock keeps one unpaid wallet order, **HK2042 for ₹678**, for
+exactly this.) Open **Account → Orders**:
 
 - **Paying from there places the order** — status moves off "Payment
   pending" and the maker sees it.
@@ -536,15 +537,26 @@ Sign in as **Ananya**.
 **New on 2026-09-05 — check these first on a wide screen (1440px+):**
 
 - **The header has two rows.** Top: the logo, a wide search box, then
-  wallet, wishlist, account and cart. Underneath: **Homemade Food ·
-  Handcrafted Gifts · Occasions · Subscription Plans · Bulk & Party
-  Orders · About Us**. Click into the search box without clicking
-  anything else first — it must be typable where it stands and must not
-  change size when you focus it. Hovering the first three tabs still
-  opens their dropdown panels. On the **home page only** the bar is
-  different on purpose: one row, tabs centred over the hero, no search
-  and no wallet, and the logo fades in as you scroll past the big
-  lockup. Narrow the window below ~1190px and the whole tab strip should
+  wallet, wishlist, account and cart. Underneath: **Food · Gifts · Winter
+  Edit · Occasions · Meal Plans · Bulk Orders · About Us**. Click into the
+  search box without clicking anything else first — it must be typable
+  where it stands and must not change size when you focus it. Hovering
+  Food, Gifts and Occasions still opens their dropdown panels. On the
+  **home page only** the bar is one row — logo, **Food · Gifts · Winter
+  Edit · Meal Plans · Bulk Orders**, search, icons — with "Delivering to
+  your location" centred under it; it sticks to the top as you scroll and
+  gains a soft shadow once the hero has gone under it. There is no
+  announcement strip above the header. **Snow:** small flakes drift down
+  inside the home page's photograph and along the top of the footer on
+  every shopper page (the footer's top edge also has a snow cap). They
+  must never cross the headline, buttons or footer links. **Pause snow**
+  (bottom-right of the hero; also in the footer's last line) stops it
+  everywhere, turns into **Let it snow**, and should stay paused on the
+  next page and after a reload. With "Reduce motion" on in your OS there
+  is no snow and no button. With something in the cart, scroll to the
+  very bottom on a laptop: the floating cart pill must not cover the
+  footer's last line.
+  Narrow the window below ~1190px and the whole tab strip should
   disappear into the hamburger — and inside the drawer, nothing should be
   listed twice.
 - **Pages are wider.** Content should run to about 1440px instead of
@@ -577,15 +589,9 @@ Sign in as **Ananya**.
   notice time over 30 minutes for **that listing**, so most cards
   correctly have none.
 
-- Home page — the **split landing screen** first: two halves, food on the
-  left and gifts on the right. Move the pointer onto one and it should
-  open to about three quarters of the width, smoothly, and give the width
-  back when you leave. Tab to each half with the keyboard — the same
-  thing should happen, and the focus ring must be visible on the
-  photograph. On a phone, scroll: whichever half you are looking at
-  should be the taller one. If your system is set to **reduce motion**,
-  both halves should simply stay level — that is correct, not a bug.
-- Home page — banners, category tiles, the video reel rail
+- Home page — see **"The seasonal home page (2026-11-24)"** below. The
+  older notes after it, "The landing page (2026-09-23)", describe the page
+  it replaced and no longer apply.
 - **Shop (Homemade Food)** — this now opens on **kitchens**, not dishes:
   one card per home kitchen, with how far away they are, what they mostly
   make, whether it is all vegetarian, how many dishes they have and four
@@ -614,9 +620,6 @@ Sign in as **Ananya**.
 - **The nav tabs drop menus** (desktop): hover or keyboard-Tab onto
   Homemade Food / Handcrafted Gifts / Occasions and a panel of shortcuts
   should appear; every row should land on a sensibly narrowed page.
-- **The landing page's logo** starts only in the hero; scroll past the
-  first screen and it should fade into the top bar (and back out when
-  you scroll up).
 - **Demo maker faces** — each seeded kitchen/maker shows its own drawn
   character (never the same drawing twice); the Homekrafted house
   storefront shows a placeholder, which is correct.
@@ -935,8 +938,13 @@ Then exercise the rest:
 - **Products / Snacks menu** — create a new one, edit an existing one
 - **Orders** — open an order, move it through its statuses
 - **Pickups** — open a pickup, update it
-- **Earnings & payouts** — earnings and payout history
-- **Reviews** — customer reviews, and replying to one
+- **Earnings & payouts** — earnings and payout history. While a request
+  is still waiting to be settled, **Request payout** is greyed out and the
+  card says why; it comes back once that payout is paid.
+- **Reviews** — customer reviews, and replying to one. A product review's
+  tag names the product ("Review of Mango Thokku Pickle"). If a reply
+  fails to post, the box stays open with your words in it and a sentence
+  saying what went wrong.
 - **Shop page** — edit your public shop page, then view it as a shopper
 
 **Important:** a HomeKrafter must only ever see their **own** data. If you
@@ -1214,16 +1222,18 @@ which days are busy.
   [/guides/first-time-gifting](https://homekrafted.in/guides/first-time-gifting).
   Guides do not have to belong to an occasion — that one deliberately
   doesn't.
-- The **home page** shows a seasonal band above the occasion grid when
-  the nearest dated occasion is within six weeks. If nothing is close, the
-  band is absent — that is correct, not a missing element.
+- The **home page's** occasions list marks the nearest dated occasion in
+  red, with a dot and its countdown, when it is within six weeks. If
+  nothing is close, no row is red — that is correct, not a missing
+  element. Every dated row still shows its countdown; undated ones say
+  "Any day".
 
 Admin: **Collections → Occasions** is where dates get set. Worth trying:
 
 - Set a date, save, and check the hub countdown moves.
 - Clear a date and the occasion drops out of "Coming up" into "Any time of
   year".
-- Push a date more than six weeks out and the home band disappears.
+- Push a date more than six weeks out and its home-page row stops being red.
 
 > Festival dates are set by hand, on purpose. Diwali and Raksha Bandhan
 > are lunisolar — they land on a different date every year — so there is
@@ -1272,6 +1282,9 @@ optionally, a last day. Worth trying:
 - Try 80%. Refused: 50% is the ceiling.
 - Try a last day in the past. Refused, with a sentence saying what to do.
 - Set it back to 0. Everything returns to full price immediately.
+- With no sale running and the box at 0, the button reads **Start the
+  sale** and can't be pressed. **Turn the sale off** only appears while a
+  sale is live.
 
 > **The sale comes out of the HomeKrafter's earnings, not our fee**, and
 > the card says so in rupees before the field. That is the honest
@@ -1627,6 +1640,13 @@ product is theirs to make and stays.
 
 ### The listing form asks different questions (2026-09-14)
 
+**Adding a product, quick checks (2026-11-22).** Guided flow on *Handmade
+Jewellery*: the last step shows Size and Material marked *required*, and
+Submit without them stays on the step saying what to fill. Type a name,
+reload: "We kept what you had started" appears; **Start fresh** clears it.
+On **Products**, the copy icon (**Duplicate**) opens a new listing with
+everything but name and photos filled in.
+
 **HomeKrafter → Products → Add a product**, then the long form (the guided
 flow links to it from every step).
 
@@ -1664,20 +1684,67 @@ Worth trying on purpose:
   possible. Ingredients are required for food, so a listing made before we
   asked will stop you — but it will now take you straight to the field.
 
-### The landing page (M52)
+### The seasonal home page (2026-11-24)
 
-- The first screen is the whole opening set — small line, the big
-  lockup, the slogan, both photo panels, the four-point strip — with
-  **nothing above it**: on the home page the header is only the three
-  profile icons floating top-right. **Scroll down** and a white bar
-  slides in with the three tabs centred. Search and the wallet chip are
-  not on the home page at all (they are on every other page, and in the
-  phone menu).
-- **Hover a panel** (mouse/trackpad): the lockup and slogan fold away and
-  the panel grows to fill the screen; move off and they come back. Not
-  on a phone, and not with *Reduce motion* on — both are correct.
-- The pieces rise in one after another on load; with *Reduce motion* on
-  they simply appear.
+The client's "Winter Edit" design. Check it at desktop width and on a phone.
+
+- **First screen:** "Winter tastes better when it's made at home." on the
+  left, a thali photograph on the right fading into the cream page, and
+  two buttons. **Explore the Winter Edit** should scroll down to the
+  Winter Edit band; **Shop gifts** opens `/gifts`.
+- **What are you in the mood for?** — six photo tiles. Each one opens a
+  real page (meal plans, sweets, bakes, snacks on WhatsApp, hampers,
+  gifts). On a phone they are a row you swipe.
+- **The Winter Edit** — four photo tiles with their names over the
+  picture, and "Explore collections".
+- **Bestsellers this week** — real listings, not the design's examples.
+  The round arrow on the right pages along; it disappears at the end. On a
+  phone, swipe. With food orders closed, food items say "Coming soon".
+- **Two banners** — home kitchens and the gifting edit.
+- **Shop gifts by recipient** — six tiles; each opens `/gifts` already
+  filtered (For her, For him, For kids, For couples, For colleagues, For
+  the home). The dark card opens meal plans.
+- **Footer (every page):** a snow cap along its top edge with a little
+  snow falling behind it, then
+  Explore / Customer Care / About Homekrafted / Stay in the loop, then a
+  row with every policy page, then the copyright line. "Follow
+  @_homekrafted" opens Instagram in a new tab — there is no email signup.
+
+### The landing page (2026-09-23)
+
+A full redesign — every section is laid out differently and each one does
+something when you reach for it. Check it at desktop width and on a phone.
+
+- **First screen:** "Homemade, handpicked." with the Homekrafted wordmark
+  above it, the ISB crochet banner taped down at an angle, and four
+  product photos scattered round it. **Drag a photo** — it should move
+  wherever you put it inside that area and stay there; a quick click
+  (without dragging) opens the product; a drag must **not** open it. On a
+  phone the photos are a row you swipe instead, and under the banner its
+  words are repeated as readable text with a "Shop crochet" link.
+- **Send one, or order in:** two photos split by a diagonal, gifts wider.
+  Point at the far left or far right and that side opens wider; the middle
+  opens nothing. Tab onto either link — the same thing happens. With
+  *Reduce motion* on, or on a phone, nothing opens — correct.
+- **See what arrives** (the reels) is the third section — see the Reels
+  notes below.
+- **This week's bestsellers / trending:** click the small "trending" word
+  next to the heading to switch lists. The All · Gifts · Food · Combos
+  tabs move a dark marker and deal the cards back in; arrow keys move
+  between tabs. Every other column of cards sits lower — by design.
+- **The sentence:** point at (or tap) any underlined phrase — it fills in
+  red and the dark card beside it explains the rule. "Opening soon"
+  appears while food orders are closed.
+- **Someone you owe a present:** hover down the list — a picture follows
+  the pointer (a product for that occasion, or its initial in a gold ring
+  when none is tagged). On a phone each row has a small picture instead.
+- **Other ways in** (four tilted notes that straighten on hover),
+  **categories** (round photo stickers), **How this works** (on a desktop
+  the big word on the left stays put and changes — Browse. / Order. /
+  Unwrap. — as you scroll the steps past it), two promo cards, the
+  questions (first one open), and the dark "Your kitchen is already a
+  business." closing section, whose button leans slightly toward the
+  pointer.
 
 ### Reels — real clips (M52)
 
@@ -1698,8 +1765,8 @@ and @eatwith_aditi's biryani clip (credited to her handle, not ours).
   and again to resume; a thin gold line along the foot shows progress.
   ← / → and the arrows move between reels; Escape closes; Tab stays
   inside.
-- The rail is the **second thing on the page** after the split, under
-  "From real orders · See what arrives". There are exactly four cards.
+- The rail is the **third section** on the home page, straight after the
+  gifts/food doors, under "See what arrives". There are exactly four cards.
 
 ---
 
@@ -1718,7 +1785,7 @@ and @eatwith_aditi's biryani clip (credited to her handle, not ours).
 | The **video reel rail** always shows the same clips | Reels aren't wired to the backend yet — they come from fixed sample data. |
 | Web addresses containing **`/seller`** | Internal naming; the visible wording is HomeKrafter. |
 | **No Seller Guidelines, Seller Support, Offers or Events** in the footer or sitemap | The client listed them and supplied no content. They are left out rather than shown as dead links. |
-| The home page has **no seasonal band** | Nothing dated is within six weeks. The band is not permanent furniture. |
+| No occasion on the home page is **marked in red** | Only a dated occasion within six weeks gets the red dot and its countdown in red. Nothing dated is that close. |
 | An occasion with **no countdown** on the hub | It has no date set — birthdays and thank-yous have no season. |
 | A kitchen with **no story or photos** on its storefront | Nobody has filled that profile in yet. Sections with no content are hidden rather than shown empty. |
 | **"0 orders delivered"** on a well-rated kitchen | Ratings are seeded demo data; delivered-order counts are real. They will disagree on staging until orders are actually placed. |

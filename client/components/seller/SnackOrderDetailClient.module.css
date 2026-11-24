@@ -22,10 +22,6 @@
   margin-top: var(--hk-s4);
 }
 
-.backLink {
-  margin-top: var(--hk-s5);
-}
-
 .cardTitle {
   font: var(--hk-card-title);
   color: var(--hk-ink);

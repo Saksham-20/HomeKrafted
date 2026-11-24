@@ -1,0 +1,116 @@
+.stage {
+  position: relative;
+}
+
+.track {
+  --hp-cols: 4;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--hp-cols) - 1) * 16px) / var(--hp-cols));
+  gap: 16px;
+  margin: 0;
+  padding: 4px 0 14px;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.track::-webkit-scrollbar {
+  display: none;
+}
+
+.item {
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+/* The mockup frames each card; the site's card itself stays frameless
+   everywhere else, so the frame is this rail's. */
+.frame {
+  height: 100%;
+  padding: 10px 10px 4px;
+  border-radius: var(--hp-radius);
+  background: var(--hp-card);
+  box-shadow: var(--hp-shadow);
+}
+
+.arrow {
+  position: absolute;
+  top: 34%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: var(--hk-r-pill);
+  background: var(--hp-card);
+  color: var(--hp-ink);
+  box-shadow:
+    0 0 0 1px var(--hp-line),
+    0 8px 20px -10px rgb(74 52 24 / 0.5);
+  cursor: pointer;
+  transition:
+    transform 120ms var(--hp-ease),
+    background-color 200ms var(--hp-ease);
+}
+
+.arrow:hover {
+  background: #fff;
+}
+
+.arrow:active {
+  transform: scale(0.94);
+}
+
+.arrow:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 3px;
+}
+
+.arrowPrev {
+  left: -18px;
+}
+
+.arrowNext {
+  right: -18px;
+}
+
+@media (max-width: 1100px) {
+  .track {
+    --hp-cols: 3;
+  }
+}
+
+/* Phones and small tablets: swipe, with the next card peeking in, and no
+   arrows — a thumb is already the right tool. */
+@media (max-width: 780px) {
+  .track {
+    grid-auto-columns: 62%;
+    margin-inline: calc(var(--hp-gutter) * -1);
+    padding-inline: var(--hp-gutter);
+    scroll-padding-inline: var(--hp-gutter);
+  }
+
+  .arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .track {
+    grid-auto-columns: 72%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrow {
+    transition: none;
+  }
+
+  .arrow:active {
+    transform: none;
+  }
+}

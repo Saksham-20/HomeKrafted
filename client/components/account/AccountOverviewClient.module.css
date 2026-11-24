@@ -73,18 +73,9 @@
   color: var(--hk-muted);
 }
 
+/* Placement only — the look is `MoreLink`'s. */
 .walletCta {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--hk-pine);
   white-space: nowrap;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-}
-
-.walletCta:hover {
-  color: var(--hk-gold-text-sm);
 }
 
 .grid {

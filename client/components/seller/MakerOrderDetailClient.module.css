@@ -22,10 +22,6 @@
   margin-top: var(--hk-s4);
 }
 
-.backLink {
-  margin-top: var(--hk-s5);
-}
-
 .cardTitle {
   font: var(--hk-card-title);
   color: var(--hk-ink);
@@ -100,12 +96,10 @@
 
 .giftMessageLabel {
   display: block;
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted-2);
   margin-bottom: var(--hk-s2);
+  font-weight: 600;
 }
 
 .giftMessageText {

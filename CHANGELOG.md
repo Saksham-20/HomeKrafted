@@ -1,5 +1,185 @@
 # Changelog
 
+## 2026-11-24 — The seasonal home page, and the site in winter dress
+
+The client's "Winter Edit" mockup, built from the catalogue rather than
+from the mockup's own pictures and listings (`components/homepage/`,
+words and doors in `lib/season.ts`). `/` now opens on "Winter tastes
+better when it's made at home." over a thali photograph that fades into
+cream paper, then six "What are you in the mood for?" doors, the Winter
+Edit band (`#winter-edit`), "Bestsellers this week" (the site's product
+card, framed, on a native scroll-snap row with paging arrows), two promo
+banners, and "Shop gifts by recipient" — six doors into `/gifts?recipient=`
+(her, him, kids, couple, colleague, host) beside a dark meal-plans card.
+The mockup's images were generated, so none are used: every picture is
+logged Pexels stock or the owner's first-build catalogue photography, and
+where neither fits (the recipient objects, the tiffin) a drawn line icon
+stands in. The hero's photograph is a new 2400×1600 cut of the licensed
+`hero-food` frame (`process-stock-images.mjs --hero`; logged) — the 3:1
+banner strip looked squashed at the hero's height. Bestsellers are the
+admin's `bestsellers-*` collections, else featured-then-top-rated; with
+nothing live the row is absent. A category door narrows `/shop` only when
+that shelf is live. The page's FAQPage JSON-LD went with its old visible
+questions. Motion follows apple-design: press feedback, critically damped
+easing, native momentum on the rows, nothing moving under reduced motion.
+The hero's "The Winter Edit · 2026" pill was removed at the client's
+request.
+
+**Site-wide seasonal dress (`SEASON.theme`, one switch):** the home page's
+paper on every header, a "Winter Edit" tab after Gifts, and snow (below).
+The pine "The Winter Edit is here." bar that briefly sat above the header
+was removed at the client's request. Nav labels are the mockup's:
+Food, Gifts, Meal Plans, Bulk Orders. The home header is now a sticky,
+translucent paper bar — logo, five tabs, search, icons — with a
+"Delivering to …" line under it that reopens the location prompt. The
+footer follows the mockup on every page: brand and "Made with love in real
+homes", Explore / Customer Care / About Homekrafted, "Stay in the loop"
+(an Instagram link — there is no newsletter list to put an email in), then
+every policy document in one compact row and the legal line (GeoNames and
+studio credits kept); its links are 26–30px targets. The old "On the
+table" page stays in `components/landing/` (untracked) until the client
+signs this off. e2e: the doors and logo-handover specs (old page) are
+replaced by the Winter Edit anchor spec and a snow-pause spec.
+
+**Snow, kept minimal (client: "snowy effects… professional and minimal"):**
+small soft flakes fall slowly inside the hero photograph (44; 22 on a
+phone) and in a band at the footer's top edge (26), which also wears a
+static snow cap. CSS animation on transform and opacity only (`Snowfall`,
+positions from a seeded generator in `lib/snow.ts` so server and client
+agree), never over the headline or links. One "Pause snow" control, in the
+hero and in every footer's legal line, stops it everywhere and is
+remembered (WCAG 2.2.2); under reduced motion there is no snow and no
+control. A light frost accent (`--hp-frost`, `--hp-ice` behind the
+recipient icons). The desktop cart pill now reserves its height at the end
+of the page, footer-pine, so it no longer covers the GeoNames credit or
+the pause control.
+
+## 2026-11-22 — Shopper pages and both portals take the landing page's shape
+
+Owner asked for the rest of the site to match the landing page. Carried
+over its shared grammar, not its festive colours (DESIGN.md keeps those on
+`/`): buttons, search, quantity steppers, filter/sort controls and the size
+choice are 6px rectangles instead of pills (`--hk-r-control`); the shop's
+Kitchens/Dishes switch is the landing's framed tab group (`--hk-r-tab`);
+the consumer nav uses the landing header's 600-weight tracked labels.
+`<strong>`/`<b>` render at Hanken's real 600 instead of a synthesised
+700. `/about`: the mission is a ruled pull-quote instead of a card with a
+gold side stripe, and the four "what makes us different" boxes became the
+same ruled columns as the section below. Sweep: 0 axe violations and no
+horizontal scroll on the shopper routes at desktop and mobile.
+Then the product card and the shop's category row: `ProductCard` (every
+grid — gifts, shop, search, storefronts, collections, hampers, guides) is
+now the landing's frameless card — an 8px photo that lifts 3px, the name,
+"by {maker}" in plain type, an ink price — instead of a bordered white box
+with a mono maker caption and a Fraunces price; wishlist, tags, pre-order,
+quick add and sold-out are unchanged. The shop's category tiles dropped
+their per-category pastels for one white face with pine marks, so the pine
+selection is the only colour that means anything.
+Then four follow-ups: the gifts department tiles lost their pastels too
+(one paper ground, pine marks); `/gifts` and `/shop` titles take the
+landing hero's turn — ink, then the second word in an upright lighter pine
+(`--hk-pine-turn`) instead of italic terracotta — and their counts line
+is in the reading face instead of mono; the product page's "Pairs well
+from this maker" uses the real `ProductGridCard` (the hand-built copy had
+a ₹199 fallback price, an optimised `next/image` on uploads, and an add
+that swallowed its refusal); and a shared `MoreLink` (ink words, gold
+underline, drawn arrow) replaces the typed "→" links on the shop's kitchen
+cards, the gifts empty state and the account wallet card.
+A third pass: mono is kept for recorded facts only — breadcrumbs (gifts,
+shop, product), the product page's maker line and its "Size / Option",
+"Make it a gift" and card-preview labels, the shop's "Quick filters"
+label, `/search`'s kicker and the footer's column headings and legal row
+are in Hanken now (the footer also renders on `/`, where DESIGN.md allows
+no mono). `/search` and the product title take the ink title + pine turn.
+The shop's kitchen cards hold frameless dishes (no card in a card), with
+ink prices. And a phone bug: every admin page and `/seller/profile` was
+~1106px wide at 390 — the `.hk-sr-only` labels inside the portals' nav
+strips escaped the strip's scroll box because the strip was `position:
+static`; `AdminShell`, `SellerShell` and `FormPage` strips are
+`position: relative` now and every page sampled measures 390.
+A fourth pass, into the HomeKrafter and admin portals: the shared portal
+`Notice` drops its 3px coloured left stripe (one even border; the tinted
+panel and icon carry the tone); `SegmentedFilter` takes the control
+shape, with the selected option solid pine; the seller dashboard loses
+its duplicate quick-links row and its typed arrows ("Finish today's
+pickups", "Adjust capacity & hours" are `MoreLink`s); "View live
+storefront" on `/seller/storefront` and `/seller/profile` is a `MoreLink`
+with a new `newTab` option (up-right arrow, the new tab announced to
+screen readers). The shop page's sale button no longer reads "Turn the
+sale off" at 0% with no sale running: it reads "Start the sale" and stays
+disabled until a percentage is in. Portal wayfinding is Hanken, sentence
+case: sidebar group labels, the "Sections" nav title, the
+"HomeKrafter"/"Admin" header tag, the sign-in gate's kicker and the
+"Soon" tag (the admin nav count badge and the form step dots stay mono).
+Fixes: the phone nav strip from the third pass inherited the desktop
+sticky `top: 20px` and sat 20px down over the page title (`top: auto`
+now); and the product gallery keyed thumbnails by photo URL, so a product
+with the same photo uploaded twice threw a duplicate-key error (keyed by
+position now). Full route sweep (230 page visits, mock): no horizontal
+scroll, no axe violations, no dead links or broken images.
+A fifth pass through the rest of both portals. Every remaining
+mono-uppercase label in `components/seller`, `components/admin` and
+`components/portal` (44 rules: status pills, stat labels, field and
+section labels, kickers, tags) is Hanken 600 in sentence case, with
+counts, step numbers and admin's system-vocabulary tags left in mono;
+the admin `StatusPill` builds its words in sentence case ("Out for
+delivery", was "Out For Delivery" under the caps). `SearchField` is 44px,
+level with the filter and buttons beside it in every portal toolbar.
+Typed "→" links are gone from the portals: section, card and notice links
+are `MoreLink`s, the dashboard's "Open" pills and "Fix and resubmit" carry
+a drawn arrow, and the curations filter button reads "Show outperforming
+items" (it filters, it doesn't go anywhere). HomeKrafter order, snack-order
+and pickup detail pages put "← Orders"/"← Pickups" in the page header like
+the other portal detail screens, read the payment as "Card / UPI" /
+"Paid from wallet" / "Cash on delivery" (was the raw `razorpay`; the map
+moved from the shopper's order page to `lib/orders/payment-method.ts`;
+admin keeps the raw value to search the provider by), and the advance
+button reads "Mark as confirmed". On Sales & trends, "What sells" gives
+each product name the full row width — every name read "Mango …".
+Two HomeKrafter bugs from the same pass. **A refused review reply vanished:**
+`replySellerReview` caught every error and resolved `undefined`, so the
+card closed the form and dropped the typed reply with no word said (the
+native app's error message never fired for the same reason). It rejects
+now; `/seller/reviews` keeps the draft open with the reason under it, and
+`silent-failure.spec` gained the `reply` verb in both of its scans, which
+is how the swallow had slipped past it. **Request payout stayed live
+while a request was pending**, though the server refuses (409) until that
+one is settled; it is disabled now, with the card saying which request is
+waiting. Also on reviews: a product review's tag names the product
+("Review of Mango Thokku Pickle", from the HomeKrafter's own listings; it
+falls back to "Product review" if that read fails), and Reply is sized to
+its word instead of a full-width gold bar under every review.
+And "Add a product" no longer focuses its first question on arrival (a
+focus ring round the heading on every page load, and keyboard users past
+the skip link); it still moves focus to each new question on Next/Back.
+On "Today", the menu's tick box reads **Available** (was "On sale" — the
+shoppers' "On sale" filter means discounted, and this portal also runs a
+sale), its count line reads "Available right now: 1 of 1" (was "1 of 1
+items are on sale") and "1 needs fixes" agrees. The shared `EmptyState`
+action and `/search`'s empty-state button take the control shape (they
+were the last pill buttons), and `/search`'s "Try" label is Hanken.
+
+## 2026-11-22 — Adding a product: quicker, and no more dead-end submit
+
+The guided "Add a product" flow now asks what the listing's family needs,
+from the same table the long form and validator use. Before, earrings were
+told size and material were optional and soap was never asked its
+ingredients, then Submit refused them over fields the screen did not show.
+Now each step blocks in place with the validator's own sentence.
+Phone photos are shrunk to the server's 2000px ceiling in the browser before
+upload (JPEG only), so a 4–6 MB camera shot goes up at well under 1 MB.
+A new listing is kept in this browser until submitted, with "Start fresh"
+(stopgap for GIFTING-REWORK D6 server drafts). Products list gains
+**Duplicate**: a new listing pre-answered from an existing one, with name,
+photos and SKUs cleared, opened on the one-page form. The name field's
+rotating placeholder (a 3-second re-render of the whole form) is gone.
+A blocked Next or Submit now scrolls to and focuses the field it names.
+Server: a listing whose derived SKU (name + size) is already taken — two
+makers both listing "Lemon pickle", or a Duplicate kept under the same
+name — gets a suffixed SKU instead of `409 SKU "…" is already in use`.
+Photo shrinking runs one image at a time so six picked at once cannot
+exhaust a low-end phone's memory.
+
 ## 2026-11-21 — Landing page: type, colour and polish pass
 
 Owner-approved: the landing page now speaks in the site's own pair —

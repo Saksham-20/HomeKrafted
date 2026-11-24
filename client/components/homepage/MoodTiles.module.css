@@ -1,0 +1,136 @@
+.section {
+  position: relative;
+}
+
+.flake {
+  position: absolute;
+  top: 6px;
+  color: var(--hp-frost);
+  opacity: 0.6;
+}
+
+.flakeLeft {
+  left: clamp(16px, 4vw, 64px);
+}
+
+.flakeRight {
+  right: clamp(16px, 4vw, 64px);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: clamp(12px, 1.4vw, 20px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--hp-radius);
+  background: var(--hp-card);
+  box-shadow: var(--hp-shadow);
+  color: var(--hp-ink);
+  text-decoration: none;
+  transition:
+    transform 260ms var(--hp-ease),
+    box-shadow 260ms var(--hp-ease);
+}
+
+.photo {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.photo img {
+  object-position: var(--hp-focus, 50% 50%);
+  transition: transform 600ms var(--hp-ease);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 60px;
+  padding: 10px 12px 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  text-wrap: balance;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--hp-shadow-lift);
+  }
+
+  .tile:hover .photo img {
+    transform: scale(1.04);
+  }
+}
+
+.tile:active {
+  transform: scale(0.98);
+  transition-duration: 100ms;
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .flake {
+    display: none;
+  }
+}
+
+/* A row you swipe: tiles at ~44% so the next one peeks in and says
+   "there is more", snapping to a tile's edge. */
+@media (max-width: 560px) {
+  .grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-auto-columns: 44%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--hp-gutter);
+    margin-inline: calc(var(--hp-gutter) * -1);
+    padding: 4px var(--hp-gutter) 12px;
+    scrollbar-width: none;
+  }
+
+  .grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .grid > li {
+    scroll-snap-align: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile,
+  .photo img {
+    transition: none;
+  }
+
+  .tile:hover,
+  .tile:active,
+  .tile:hover .photo img {
+    transform: none;
+  }
+}

@@ -143,7 +143,8 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
         <div className={styles.thumbRow} role="group" aria-label={`${productName} photos`}>
           {shots.map((thumb, at) => (
             <button
-              key={thumb.src ?? at}
+              // Position first: the same photo can be uploaded twice.
+              key={`${at}:${thumb.src ?? ""}`}
               type="button"
               ref={(node) => {
                 thumbRefs.current[at] = node;

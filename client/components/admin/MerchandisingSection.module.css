@@ -6,14 +6,12 @@
   color: var(--hk-ink-3);
 }
 
-/* A fact's name, in receipt type — the same treatment a stat label gets
-   elsewhere in the panel. */
+/* A fact's name — the same treatment a stat label gets elsewhere in the
+   panel (Hanken since 2026-11-22; mono is for the facts themselves). */
 .featuredLabel {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 13px;
   color: var(--hk-muted);
+  font-weight: 600;
 }
 
 .link {

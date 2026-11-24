@@ -1,0 +1,38 @@
+/* The landing's `.more` (components/landing/Register.module.css), on site
+   tokens: gold for the underline, which DESIGN.md lets gold carry, in
+   place of the landing-only oak. The words stay ink — gold never carries
+   text. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--hk-ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration-line: underline;
+  text-decoration-color: var(--hk-gold);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.3em;
+}
+
+.link:hover {
+  color: var(--hk-pine);
+}
+
+.icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  transition: transform 240ms var(--hk-ease);
+}
+
+.link:hover .icon {
+  transform: translateX(4px);
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 3px;
+  border-radius: 2px;
+}

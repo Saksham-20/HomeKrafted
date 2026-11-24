@@ -1,67 +1,103 @@
-/* Footer sits on --hk-pine-deep and needs its own light-on-dark text ramp
- * (body copy, links, dividers, legal row) — see the --hk-footer-* vars in
- * styles/tokens.extend.css (centralized in M1; M0 hardcoded these locally
- * as a "known token gap"). */
+/* The footer sits on --hk-pine-deep with its own light-on-dark ramp (the
+ * --hk-footer-* vars in styles/tokens.extend.css). Layout follows the
+ * client's seasonal mockup (2026-11-24). */
 
 .footer {
   /* Focus rings on this surface, not the page's `--hk-pine` (1.23:1 here).
      See `styles/globals.css`. Inherits to every control inside. */
   --hk-focus-ring: var(--hk-gold-bright);
+  position: relative;
+  margin-top: clamp(24px, 4vw, 40px);
   background: var(--hk-pine-deep);
   color: var(--hk-footer-ink);
-  margin-top: clamp(24px, 4vw, 40px);
 }
 
-/* Brand + the client's four columns (Consumer Policy, Homekrafted, Sellers,
-   Compliance). `minmax(0, 1fr)` so a long label ("Become a Homekrafted
-   Entrepreneur") wraps inside its column instead of widening it. */
+/* The footer's content sits above its snow. */
+.top,
+.policies,
+.legal {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Winter: a snow cap on the footer's top edge ----
+   Soft mounds hanging over the edge, tiled so they keep their size at
+   any width (a stretched path would flatten on a wide screen). Snow
+   white, a shade brighter than the paper above, so it reads as lying on
+   the green rather than as the page's edge. */
+.seasonal::before {
+  content: "";
+  position: absolute;
+  /* The tile keeps a clear row top and bottom (viewBox from y=-1): at a
+     fractional y a repeating tile's edge rows sample each other and drew
+     a seam above the cap and a hairline under it. Starts 1px over the
+     paper so the snow meets it without a gap. */
+  inset: -2px 0 auto;
+  height: 20px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='20' viewBox='0 -1 160 20'%3E%3Cpath fill='%23fbf9f4' d='M0 0h160v7c-9 0-12 9-22 9s-12-7-21-7-11 5-20 5-11-8-21-8-12 10-24 10S39 8 29 8 17 13 9 12 2 7 0 7z'/%3E%3C/svg%3E")
+    repeat-x top left / 160px 20px;
+  z-index: 1;
+}
+
+/* Brand, three link columns, "Stay in the loop". `minmax(0, 1fr)` so a
+   long label wraps inside its column instead of widening it. */
 .top {
   display: grid;
-  grid-template-columns: 1.25fr repeat(4, minmax(0, 1fr));
+  grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)) 1.3fr;
   column-gap: clamp(24px, 3.5vw, 48px);
-  row-gap: 18px;
-  padding-block: 26px 18px;
-  border-bottom: 1px solid var(--hk-footer-border);
+  row-gap: 28px;
+  padding-block: 32px 28px;
+}
+
+.seasonal .top {
+  padding-top: 44px;
 }
 
 .brandCol {
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .logoMark {
   display: block;
   align-self: flex-start;
-  height: 30px;
+  height: 40px;
   width: auto;
   max-width: 100%;
   filter: brightness(0) invert(1);
 }
 
-.blurb {
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--hk-footer-muted);
-  margin-top: 6px;
-  max-width: 320px;
+.tagline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--hk-footer-ink);
+}
+
+.tagline svg {
+  color: var(--hk-gold-bright);
 }
 
 .socialRow {
   display: flex;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
 }
 
 .socialLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--hk-r-pill);
   border: 1px solid var(--hk-footer-border);
   color: var(--hk-footer-ink);
-  transition: color var(--hk-dur) var(--hk-ease), border-color var(--hk-dur) var(--hk-ease);
+  transition:
+    color var(--hk-dur) var(--hk-ease),
+    border-color var(--hk-dur) var(--hk-ease);
 }
 
 .socialLink:hover {
@@ -72,107 +108,151 @@
 .col {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
 }
 
 .colTitle {
-  font-family: var(--hk-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--hk-gold-bright);
-  margin-bottom: 8px;
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
 }
 
 .link {
-  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  font-size: 14px;
   color: var(--hk-footer-ink-2);
-  padding-block: 2.5px;
-  line-height: 1.35;
+  transition: color var(--hk-dur) var(--hk-ease);
 }
 
 .link:hover {
-  color: var(--hk-gold-bright);
+  color: #fff;
+}
+
+.loopText {
+  margin: 0 0 12px;
+  max-width: 30ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--hk-footer-ink);
+}
+
+/* A pill on the dark ground, the mockup's field-and-button shape — but a
+   link, because there is no list to subscribe to yet. */
+.loopLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--hk-r-pill);
+  background: #fbf5ea;
+  color: var(--hk-pine-deep);
+  font-size: 14px;
+  font-weight: 600;
+  transition: transform 120ms ease;
+}
+
+.loopLink:hover {
+  color: var(--hk-pine-deep);
+  background: #fff;
+}
+
+.loopLink:active {
+  transform: scale(0.97);
+}
+
+/* ---- Every policy document, compact ---- */
+.policies {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 18px;
+  row-gap: 2px;
+  padding-block: 16px;
+  border-top: 1px solid var(--hk-footer-border);
+}
+
+.policyLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  font-size: 13px;
+  color: var(--hk-footer-muted);
+}
+
+.policyLink:hover {
+  color: #fff;
 }
 
 .legal {
   display: flex;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 6px 16px;
-  padding-block: 12px;
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px 24px;
+  padding-block: 14px 18px;
+  border-top: 1px solid var(--hk-footer-border);
+  font-size: 13px;
   color: var(--hk-footer-mono);
 }
 
-/* Below 900px the brand takes a row of its own and the four columns share
-   the one under it; below 560px they pair up. */
-@media (max-width: 900px) {
-  .top {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    column-gap: 20px;
-    row-gap: 16px;
-  }
-
-  .brandCol {
-    grid-column: 1 / -1;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--hk-footer-border);
-    margin-bottom: 4px;
-  }
-
-  .blurb {
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 560px) {
-  .top {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 16px;
-    row-gap: 20px;
-    padding-block: 20px 14px;
-  }
-
-  .blurb {
-    font-size: 12px;
-  }
-
-  .colTitle {
-    font-size: 10px;
-    margin-bottom: 6px;
-  }
-
-  .link {
-    font-size: 12px;
-    padding-block: 2px;
-  }
-
-  .legal {
-    flex-direction: column;
-    gap: 6px;
-  }
-}
-
-/* The mono legal row's right-hand side: the GeoNames attribution. */
-.legalLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
-.legalLinks a,
-.credit {
+.legal a {
   display: inline-flex;
   align-items: center;
-  min-height: 22px;
-  color: var(--hk-footer-mono);
-  text-decoration: none;
+  min-height: 24px;
+  color: var(--hk-footer-ink-2);
 }
 
-.legalLinks a:hover,
-.credit:hover {
-  color: var(--hk-footer-ink);
+.legal a:hover {
+  color: #fff;
+}
+
+.credit {
   text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.legalLinks {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .top {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .brandCol,
+  .top > .col:last-child {
+    grid-column: span 3;
+  }
+
+  .top > .col:last-child {
+    order: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brandCol,
+  .top > .col:last-child {
+    grid-column: span 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loopLink {
+    transition: none;
+  }
+
+  .loopLink:active {
+    transform: none;
+  }
 }

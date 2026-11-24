@@ -25,22 +25,18 @@
 }
 
 .kind {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 12px;
   color: var(--hk-muted-2);
+  font-weight: 600;
 }
 
 .status {
-  font-family: var(--hk-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
   border-radius: var(--hk-r-pill);
   padding: 3px 9px;
   background: var(--hk-surface-3);
   color: var(--hk-ink-2);
+  font-weight: 600;
 }
 
 .status[data-status="pending"] {

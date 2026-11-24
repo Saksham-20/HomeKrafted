@@ -7,6 +7,7 @@ import { mealPromo } from "@/lib/data/meals";
 import {
   brandBlurb,
   footerColumns,
+  footerNav,
   homePromoBands,
   primaryNav,
   secondaryNav,
@@ -75,6 +76,11 @@ export async function getSecondaryNav(): Promise<NavLink[]> {
 
 export async function getFooterColumns(): Promise<FooterColumn[]> {
   return footerColumns;
+}
+
+/** The footer's explore / help / company columns (2026-11-24) — the policy documents stay in `getFooterColumns`. */
+export async function getFooterNav(): Promise<FooterColumn[]> {
+  return footerNav;
 }
 
 export async function getBrandBlurb(): Promise<string> {

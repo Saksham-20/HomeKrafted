@@ -1,4 +1,5 @@
 import { getCategories, getOccasions, getPrimaryNav, getSecondaryNav } from "@/lib/api";
+import { SEASON } from "@/lib/season";
 import { HeaderClient, type NavMenuLink } from "./HeaderClient";
 
 /**
@@ -15,7 +16,7 @@ export async function Header() {
   // room the 1092px desktop row does not, and dropping the secondary
   // group there would leave the footer as the only way to reach
   // /corporate or /meal-plans on mobile.
-  const [navItems, secondaryItems, categories, occasions] = await Promise.all([
+  const [primaryItems, secondaryItems, categories, occasions] = await Promise.all([
     getPrimaryNav(),
     getSecondaryNav(),
     getCategories(),
@@ -33,6 +34,15 @@ export async function Header() {
    * Six category rows a side, not the whole table: a dropdown is a
    * shortcut, and `/shop`'s sidebar is where the full list lives.
    */
+  // The season's tab, after Gifts, while the season is dressed (2026-11-24).
+  // Added here, once, so the landing row, the inner tab strip and the
+  // phone drawer all carry it. A plain link — no dropdown under it.
+  const navItems = SEASON.theme
+    ? primaryItems.flatMap((item) =>
+        item.href === "/gifts" ? [item, { label: SEASON.nav.label, href: SEASON.nav.href }] : [item],
+      )
+    : primaryItems;
+
   const foodCategories = categories.filter((c) => c.group !== "craft").slice(0, 6);
   const craftCategories = categories.filter((c) => c.group === "craft");
   // The first handful in table order — deliberately not "next upcoming",

@@ -56,6 +56,11 @@ for owner-shot photography.
 |---|---|---|---|---|
 | hero-food.jpg | https://www.pexels.com/photo/29148133/ | Eyes2Soul | 0.68 | 2026-09-05 |
 | hero-gifts.jpg | https://www.pexels.com/photo/34769301/ | betül nur akyürek | 0.58 | 2026-09-05 |
+| hero-winter-table.jpg | https://www.pexels.com/photo/29148133/ | Eyes2Soul | 0.5 | 2026-11-24 |
+
+`hero-winter-table.jpg` (2026-11-24) is the same Eyes2Soul photograph as
+`hero-food.jpg`, cut 2400×1600 by `process-stock-images.mjs --hero` for the
+seasonal home page's hero — the 3:1 strip read as squashed at its height.
 
 Two candidates from the same search were rejected and are not committed:
 34711401 (jars — retail brand names legible on the lids) and 8312083 /

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { MoreLink } from "@/components/ui/MoreLink";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Select } from "@/components/portal/Field";
@@ -325,9 +325,7 @@ export function SellersClient() {
             title="Check where we put them on the map."
             onDismiss={() => setPlacementWarning(null)}
             actions={
-              <Link className={styles.noticeLink} href={`/admin/sellers/${placementWarning.sellerId}`}>
-                Open their record →
-              </Link>
+              <MoreLink href={`/admin/sellers/${placementWarning.sellerId}`}>Open their record</MoreLink>
             }
           >
             <p>

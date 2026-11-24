@@ -123,7 +123,7 @@ describe("a lib/api mutation wrapper", () => {
 
   /** Same verbs as below, plus the ones the admin surfaces added later. */
   const MUTATION_VERB =
-    /^(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance|request|apply|follow|unfollow|set|assign|issue|resend|refund|adjust|takedown|hide|feature|unfeature|flag|verify)[A-Z]/;
+    /^(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance|request|apply|follow|unfollow|set|assign|issue|resend|refund|adjust|takedown|hide|feature|unfeature|flag|verify|reply)[A-Z]/;
 
   /** `catch { return undefined }` and its equivalents — no rethrow, nothing said. */
   const SWALLOW = /catch\s*(?:\([^)]*\))?\s*\{\s*return\s+(?:undefined|null|\[\]|\{\})?\s*;?\s*\}/;
@@ -162,7 +162,7 @@ describe("a component that mutates server state", () => {
    * ignore-comment and then earns deletion.
    */
   const MUTATION_VERB =
-    /^(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance|request|apply|follow|unfollow|set|mark)[A-Z]/;
+    /^(create|update|delete|remove|submit|cancel|approve|reject|moderate|pause|resume|skip|advance|request|apply|follow|unfollow|set|mark|reply)[A-Z]/;
 
   /** Every identifier this file pulls in from the api layer. */
   function apiImports(source: string): string[] {

@@ -36,10 +36,12 @@
   outline-offset: -3px;
 }
 
-/* Reserves the bar's height at the end of the page on a phone, so the
-   footer's legal row is not permanently under it. */
+/* Reserves the bar's height at the end of the page, so the footer's
+   legal row (GeoNames credit, the snow pause) is not permanently under
+   it. Footer pine, so it reads as the footer running on. */
 .spacer {
   height: calc(56px + env(safe-area-inset-bottom, 0px));
+  background: var(--hk-pine-deep);
 }
 
 .left {
@@ -118,11 +120,11 @@
   }
 }
 
-/* Above the phone rail: a floating pill in the corner. Nothing in flow
-   needs reserving, so the spacer goes. */
+/* Above the phone rail: a floating pill in the corner (56px tall, s5 off
+   the edge). The spacer keeps the pill plus a gap clear of the legal row. */
 @media (min-width: 641px) {
   .spacer {
-    display: none;
+    height: calc(56px + var(--hk-s5) * 2);
   }
 
   .bar {

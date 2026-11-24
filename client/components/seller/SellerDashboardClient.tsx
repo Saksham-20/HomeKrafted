@@ -1,16 +1,8 @@
 "use client";
 
+import { MoreLink } from "@/components/ui/MoreLink";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  CalendarClock,
-  Package,
-  ShoppingBag,
-  Star,
-  Truck,
-  UtensilsCrossed,
-  Wallet,
-} from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSellerDashboard, type SellerDashboardSnapshot } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
@@ -184,9 +176,9 @@ export function SellerDashboardClient() {
             )}
           </div>
         </div>
-        <Link href="/seller/profile" className={styles.statusAction}>
-          Adjust capacity &amp; hours →
-        </Link>
+        <MoreLink href="/seller/profile" className={styles.statusAction}>
+          Adjust capacity &amp; hours
+        </MoreLink>
       </div>
 
       {/* Only worth the space if this HomeKrafter actually does pickups or
@@ -205,38 +197,19 @@ export function SellerDashboardClient() {
 
       <AvailabilityPanel />
 
-      <nav className={styles.quickLinks} aria-label="Portal shortcuts">
-        <Link href="/seller/listings" className={styles.quickLink}>
-          <Package size={16} strokeWidth={1.7} aria-hidden="true" /> Products
-        </Link>
-        <Link href="/seller/menu" className={styles.quickLink}>
-          <UtensilsCrossed size={16} strokeWidth={1.7} aria-hidden="true" /> Snacks menu
-        </Link>
-        <Link href="/seller/meal-plans" className={styles.quickLink}>
-          <CalendarClock size={16} strokeWidth={1.7} aria-hidden="true" /> Meal plans
-        </Link>
-        <Link href="/seller/orders" className={styles.quickLink}>
-          <ShoppingBag size={16} strokeWidth={1.7} aria-hidden="true" /> Orders
-        </Link>
-        {/*
-          M19: laundry is withdrawn, so Pickups is off the shared nav
-          (`SellerShell`). This link survives, **conditionally**, because a
-          HomeKrafter with bookings still in flight has to be able to
-          finish them — and with the nav entry gone this is the only way
-          they'd find the screen. No outstanding pickups, no link.
-        */}
-        {((s?.todayPickupsCount ?? 0) > 0 || (s?.todayDeliveriesCount ?? 0) > 0) && (
-          <Link href="/seller/pickups" className={styles.quickLink}>
-            <Truck size={16} strokeWidth={1.7} aria-hidden="true" /> Pickups
-          </Link>
-        )}
-        <Link href="/seller/payouts" className={styles.quickLink}>
-          <Wallet size={16} strokeWidth={1.7} aria-hidden="true" /> Earnings
-        </Link>
-        <Link href="/seller/reviews" className={styles.quickLink}>
-          <Star size={16} strokeWidth={1.7} aria-hidden="true" /> Reviews
-        </Link>
-      </nav>
+      {/*
+        The shortcut row that stood here repeated the sidebar link for link
+        (2026-11-22) and is gone. One link survives, **conditionally**:
+        laundry is withdrawn (M19), so Pickups is off the shared nav
+        (`SellerShell`), and a HomeKrafter with bookings still in flight has
+        to be able to finish them — this is the only way they'd find the
+        screen. No outstanding pickups, no link.
+      */}
+      {((s?.todayPickupsCount ?? 0) > 0 || (s?.todayDeliveriesCount ?? 0) > 0) && (
+        <MoreLink href="/seller/pickups" className={styles.pickupsLink}>
+          Finish today&rsquo;s pickups
+        </MoreLink>
+      )}
     </div>
   );
 }

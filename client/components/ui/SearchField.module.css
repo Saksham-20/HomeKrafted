@@ -4,8 +4,11 @@
   gap: 8px;
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
-  padding: 7px 12px;
+  border-radius: var(--hk-r-control);
+  /* 44px: the height of the SegmentedFilter and buttons it sits beside in
+     every portal Toolbar (it was 33px, edges out of line). */
+  min-height: 44px;
+  padding: 0 12px;
   color: var(--hk-muted);
   transition: border-color var(--hk-dur) var(--hk-ease);
   cursor: text;
@@ -24,7 +27,7 @@
   border: none;
   outline: none;
   background: none;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--hk-ink-2);
   width: 100%;
   min-width: 0;

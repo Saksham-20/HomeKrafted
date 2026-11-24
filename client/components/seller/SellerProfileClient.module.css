@@ -6,12 +6,6 @@
   flex-direction: column;
 }
 
-.previewLink {
-  font-size: 13px;
-  color: var(--hk-pine);
-  text-decoration: underline;
-}
-
 .completion {
   display: flex;
   flex-direction: column;

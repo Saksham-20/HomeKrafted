@@ -18,16 +18,6 @@
   color: var(--hk-ink);
 }
 
-.sectionLink {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--hk-gold-text-sm);
-}
-
-.sectionLink:hover {
-  text-decoration: underline;
-}
-
 .list {
   display: flex;
   flex-direction: column;

@@ -783,11 +783,9 @@ export async function replySellerReview(reviewId: string, body: string): Promise
     review.sellerReply = { body, createdAt: new Date().toISOString() };
     return review;
   }
-  try {
-    return await http.post<Review>(`/seller/reviews/${encodeURIComponent(reviewId)}/reply`, { body });
-  } catch {
-    return undefined;
-  }
+  // A refused reply rejects (it resolved `undefined`, so the screen closed
+  // the form and dropped the HomeKrafter's words) — silent-failure.spec.
+  return http.post<Review>(`/seller/reviews/${encodeURIComponent(reviewId)}/reply`, { body });
 }
 
 // ---------------------------------------------------------------------------

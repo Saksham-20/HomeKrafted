@@ -1,0 +1,156 @@
+.section {
+  /* Clear of the sticky header when the hero's button jumps here. */
+  scroll-margin-top: 120px;
+}
+
+.panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) 3fr;
+  align-items: center;
+  gap: clamp(20px, 3vw, 40px);
+  padding: clamp(20px, 2.4vw, 30px);
+  border-radius: 20px;
+  background: var(--hp-tint);
+  box-shadow: inset 0 0 0 1px var(--hp-line);
+}
+
+.flake {
+  position: absolute;
+  top: 16px;
+  left: 38%;
+  color: var(--hp-frost);
+  opacity: 0.55;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-left: clamp(4px, 1vw, 14px);
+}
+
+.kicker {
+  margin: 0;
+  font-family: var(--hk-font-display);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--hp-ink);
+}
+
+.title {
+  margin: 0 0 4px;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(26px, 2.5vw, 36px);
+  line-height: 1.12;
+  letter-spacing: -0.018em;
+  color: var(--hp-ink);
+  text-wrap: balance;
+}
+
+.doors {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(10px, 1.2vw, 16px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.door {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: var(--hp-shadow);
+  transition:
+    transform 260ms var(--hp-ease),
+    box-shadow 260ms var(--hp-ease);
+}
+
+.photo {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.photo img {
+  object-position: var(--hp-focus, 50% 50%);
+  transition: transform 600ms var(--hp-ease);
+}
+
+/* A dark foot under the label so white type holds at AA over any
+   photograph — not a full-tile wash, the picture stays the picture. */
+.door::after {
+  content: "";
+  position: absolute;
+  inset: 45% 0 0;
+  background: linear-gradient(180deg, transparent 0%, rgb(20 16 10 / 0.72) 100%);
+  pointer-events: none;
+}
+
+.label {
+  position: absolute;
+  inset-inline: 12px;
+  bottom: 12px;
+  z-index: 1;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+  text-wrap: balance;
+}
+
+@media (hover: hover) {
+  .door:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--hp-shadow-lift);
+  }
+
+  .door:hover .photo img {
+    transform: scale(1.05);
+  }
+}
+
+.door:active {
+  transform: scale(0.98);
+  transition-duration: 100ms;
+}
+
+.door:focus-visible {
+  outline: 2px solid var(--hk-focus-ring, var(--hk-pine));
+  outline-offset: 3px;
+}
+
+@media (max-width: 1100px) {
+  .panel {
+    grid-template-columns: 1fr;
+  }
+
+  .flake {
+    left: auto;
+    right: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .doors {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .door,
+  .photo img {
+    transition: none;
+  }
+
+  .door:hover,
+  .door:active,
+  .door:hover .photo img {
+    transform: none;
+  }
+}

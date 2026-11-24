@@ -1,0 +1,62 @@
+.head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: clamp(18px, 2.4vw, 28px);
+  text-align: center;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vw, 24px);
+  width: 100%;
+}
+
+.rule {
+  flex: 0 1 120px;
+  height: 1px;
+  background: var(--hp-ink);
+  opacity: 0.55;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--hk-font-display);
+  font-weight: 600;
+  font-size: clamp(24px, 2.6vw, 34px);
+  line-height: 1.1;
+  /* Negative tracking as display type grows (apple-design §15). */
+  letter-spacing: -0.015em;
+  color: var(--hp-ink);
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 16px;
+  color: var(--hp-muted);
+}
+
+/* "View all" sits on the title's line, at the right edge, as in the
+   mockup; under 780px it drops below the title, centred. */
+.more {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+@media (max-width: 780px) {
+  .rule {
+    flex-basis: 40px;
+  }
+
+  .more {
+    position: static;
+    transform: none;
+  }
+}

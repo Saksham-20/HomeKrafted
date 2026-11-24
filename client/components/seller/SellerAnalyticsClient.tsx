@@ -267,7 +267,7 @@ export function SellerAnalyticsClient() {
                   </p>
                 ) : (
                   topItems.map((item) => (
-                    <div key={item.productId} className={styles.barRow}>
+                    <div key={item.productId} className={clsx(styles.barRow, styles.barRowProduct)}>
                       <span className={styles.barLabelWide} title={item.name}>
                         {item.name}
                       </span>

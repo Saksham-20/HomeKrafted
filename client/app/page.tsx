@@ -1,28 +1,27 @@
-import { LandingPage } from "@/components/landing/LandingPage";
-import { FAQ_ITEMS } from "@/lib/landing/faq";
+import { HomePage } from "@/components/homepage/HomePage";
 import { absoluteUrl, jsonLdProps, SITE_NAME, SITE_URL } from "@/lib/seo";
 
 /**
  * Rebuilt every request rather than pinned at build time.
  *
- * The occasions list carries countdowns ("in 12 days"), which a prerender
- * would freeze at whatever they were when the build ran, and the page reads
- * **runtime feature flags** (M17) — food orders open or closed — which an
- * hour of `revalidate` would leave saying the wrong thing long after an
- * admin flipped the switch. The freshness follows the fastest-moving thing
- * on the page.
+ * The bestseller row reads live stock and availability, and the header it
+ * sits under reads **runtime feature flags** (M17) — food orders open or
+ * closed — which an hour of `revalidate` would leave saying the wrong
+ * thing long after an admin flipped the switch or a listing sold out. The
+ * freshness follows the fastest-moving thing on the page.
  */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 /**
- * Home — "On the table" (2026-09-23, docs/LANDING-REDESIGN.md v2).
+ * Home — the client's seasonal mockup (2026-11-24; replaces "On the
+ * table", which stays in `components/landing/` until the client signs this
+ * one off).
  *
- * The page itself, its data and every section live in
- * `components/landing/`; this route owns only what a route should: its
- * freshness and its structured data. Organization + WebSite + FAQPage, the
- * last read from the same list the visible questions render
- * (`lib/landing/faq.ts`), so the two cannot drift.
+ * The page, its data and its sections live in `components/homepage/`;
+ * this route owns only its freshness and its structured data:
+ * Organization + WebSite. The FAQPage node went with the old page's
+ * visible questions — structured data has to describe what is on the page.
  */
 export default function Home() {
   const siteJsonLd = {
@@ -52,22 +51,13 @@ export default function Home() {
           "query-input": "required name=search_term_string",
         },
       },
-      {
-        "@type": "FAQPage",
-        "@id": `${SITE_URL}/#faq`,
-        mainEntity: FAQ_ITEMS.map((item) => ({
-          "@type": "Question",
-          name: item.question,
-          acceptedAnswer: { "@type": "Answer", text: item.answer },
-        })),
-      },
     ],
   };
 
   return (
     <>
       <script {...jsonLdProps(siteJsonLd)} />
-      <LandingPage />
+      <HomePage />
     </>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { MoreLink } from "@/components/ui/MoreLink";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -427,9 +428,7 @@ export function GiftsClient({
           This side of Homekrafted is just opening. HomeKrafters are being onboarded now — in the
           meantime, the gift hampers are ready to send today.
         </p>
-        <Link href="/hamper" className={styles.emptyLink}>
-          Browse gift hampers →
-        </Link>
+        <MoreLink href="/hamper">Browse gift hampers</MoreLink>
       </div>
     );
   }

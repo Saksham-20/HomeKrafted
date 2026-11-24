@@ -231,4 +231,20 @@
      hero and the strip immediately under it). */
   --hk-section-y: 72px;
   --hk-section-y-tight: 40px;
+
+  /* ---- Control shape (2026-11-22) ----
+     The landing page's grammar, carried site-wide on the owner's request:
+     buttons and fields are rectangular parcel labels (DESIGN.md "Buttons:
+     not pills"), filter/segment groups are a bordered frame of 4px tabs.
+     Same values as the landing's `--lp-r` and its `.tab`. Pills stay for
+     compact chips, statuses and counts; icon buttons stay round. */
+  --hk-r-control: 6px;
+  --hk-r-tab: 4px;
+
+  /* ---- Headline turn (2026-11-22) ----
+     The landing hero's second clause colour ("Send one, *or order in.*",
+     `--lp-pine`), used for the turned word in page titles off `/`.
+     `--hk-pine` is too close to `--hk-ink` to read as a turn beside it.
+     6.9:1 on `--hk-bg`. */
+  --hk-pine-turn: #315a50;
 }

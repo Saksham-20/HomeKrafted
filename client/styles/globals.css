@@ -88,6 +88,14 @@ a {
   text-decoration: none;
 }
 
+/* The browser's `bolder` asks Hanken for 700, which is not loaded
+   (layout.tsx loads 400/500/600), so every <strong> was synthesised —
+   smeared, wider bold. 600 is the real cut and the landing's emphasis. */
+strong,
+b {
+  font-weight: 600;
+}
+
 a:hover {
   color: var(--hk-gold);
 }

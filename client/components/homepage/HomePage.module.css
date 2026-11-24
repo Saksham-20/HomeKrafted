@@ -1,0 +1,56 @@
+/*
+ * The seasonal home page (2026-11-24, the client's "Winter Edit" mockup).
+ *
+ * Its palette is scoped here, the way the landing's festive one was:
+ * DESIGN.md keeps cream fills off every other route. The greens are the
+ * brand's own tokens; only the paper, card and line are warm.
+ */
+.root {
+  --hp-paper: #f8f1e6;
+  --hp-card: #fffcf7;
+  --hp-tint: #f3e5cd;
+  --hp-line: #e8d8bd;
+  --hp-ink: var(--hk-pine-deep);
+  --hp-text: #3f3a31;
+  --hp-muted: #6b6253; /* 5.6:1 on --hp-paper */
+  --hp-pine: var(--hk-pine);
+  --hp-on-pine: #fbf5ea;
+  /* Winter's two cool notes in a warm palette (2026-11-24): frost for the
+     drawn snowflakes, ice for the recipient badges. Decorative only —
+     neither ever carries text. */
+  --hp-frost: #a9bdca;
+  --hp-ice: #e6eef1;
+  --hp-radius: 14px;
+  --hp-shadow: 0 1px 2px rgb(74 52 24 / 0.06), 0 10px 24px -16px rgb(74 52 24 / 0.32);
+  --hp-shadow-lift: 0 2px 4px rgb(74 52 24 / 0.08), 0 18px 32px -18px rgb(74 52 24 / 0.4);
+  /* Critically damped: settles without overshoot (apple-design §4). */
+  --hp-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* `.container`'s side padding at each width (globals.css) — what a
+     swipe row bleeds by so it runs to the screen edge and no further. */
+  --hp-gutter: var(--hk-s8);
+
+  display: flex;
+  flex-direction: column;
+  gap: clamp(40px, 5vw, 64px);
+  padding-bottom: clamp(40px, 5vw, 64px);
+  background: var(--hp-paper);
+  color: var(--hp-text);
+}
+
+@media (max-width: 780px) {
+  .root {
+    --hp-gutter: var(--hk-s5);
+  }
+}
+
+@media (max-width: 420px) {
+  .root {
+    --hp-gutter: var(--hk-s4);
+  }
+}
+
+/* The hero sits flush under the header; every later section keeps the
+   rhythm above. */
+.root > :first-child {
+  margin-bottom: calc(clamp(40px, 5vw, 64px) * -0.4);
+}

@@ -518,49 +518,29 @@ test.describe('the food page opens on kitchens (M51)', () => {
   });
 });
 
-test.describe('the landing doors (2026-09-23)', () => {
+test.describe('the seasonal home page (2026-11-24)', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  // The two doors are clipped layers of one stage, so their boxes never
-  // change size — the opening is the stage's `--seam` (58% at rest, 72%
-  // with gifts open). Read that, and the state the stage reports, rather
-  // than a width that is the same at every moment.
-  const stage = (page: import('@playwright/test').Page) =>
-    page.locator('section[aria-labelledby="lp-doors-title"] [data-active]');
-  const seam = (page: import('@playwright/test').Page) =>
-    stage(page).evaluate((el) => getComputedStyle(el).getPropertyValue('--seam').trim());
-
-  test('keyboard focus opens a half, not only the mouse', async ({ page, viewport }) => {
-    // Below 900 the doors stack, level, with nothing to open.
-    test.skip((viewport?.width ?? 0) < 900, 'the doors stack on a phone');
+  // Every "Winter Edit" door on the site lands on one anchor; if the band
+  // loses its id they all go nowhere, silently.
+  test('the hero button lands on the Winter Edit', async ({ page }) => {
     await skipLocationPrompt(page);
     await page.goto('/');
-
-    await expect(stage(page)).toHaveAttribute('data-active', 'none');
-    expect(await seam(page)).toBe('58%');
-
-    // Focus, not hover: an expansion only a pointer can trigger is
-    // decoration, and these are the page's two catalogues.
-    await stage(page).locator('a[href="/gifts"]').focus();
-    await expect(stage(page)).toHaveAttribute('data-active', 'gifts');
-    await expect.poll(() => seam(page)).toBe('72%');
+    await page.getByRole('link', { name: /explore the winter edit/i }).click();
+    await expect(page).toHaveURL(/#winter-edit$/);
+    await expect(page.locator('#winter-edit')).toBeInViewport();
   });
 
-  test('reduced motion keeps the seam where it is', async ({ page, viewport }) => {
-    test.skip((viewport?.width ?? 0) < 900, 'the doors stack on a phone');
-    // The global reduced-motion floor removes the *transition*, so without
-    // the media guard in `Doors.module.css` the seam would jump from 58%
-    // to 72% with no motion at all — worse than not moving.
-    await page.emulateMedia({ reducedMotion: 'reduce' });
+  // WCAG 2.2.2: the snow starts on its own, so one control must stop it
+  // everywhere, and the choice must hold on the next page.
+  test('pausing the snow holds across pages', async ({ page }) => {
     await skipLocationPrompt(page);
     await page.goto('/');
-
-    // Inside the food half: the doors are clipped layers of one stage, and
-    // `clip-path` clips hit-testing too, so the stage's centre is gifts.
-    const box = await stage(page).boundingBox();
-    await stage(page).hover({ position: { x: box!.width * 0.88, y: box!.height / 2 } });
-    await expect(stage(page)).toHaveAttribute('data-active', 'food');
-    await page.waitForTimeout(500);
-    expect(await seam(page)).toBe('58%');
+    await page.getByRole('button', { name: 'Pause snow' }).first().click();
+    await expect(page.getByRole('button', { name: 'Pause snow' })).toHaveCount(0);
+    await expect(page.locator('html')).toHaveAttribute('data-snow', 'off');
+    await page.goto('/gifts');
+    await expect(page.getByRole('contentinfo').getByRole('button', { name: 'Let it snow' })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-snow', 'off');
   });
 });

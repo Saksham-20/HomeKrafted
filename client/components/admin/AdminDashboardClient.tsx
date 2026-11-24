@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { MoreLink } from "@/components/ui/MoreLink";
+import { ArrowRight } from "lucide-react";
 import clsx from "clsx";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -145,7 +147,8 @@ export function AdminDashboardClient() {
                 </span>
                 {/* A link, not a button inside one: it opens a page. */}
                 <Link href={row.href} className={styles.attentionLink}>
-                  Open →
+                  Open
+                  <ArrowRight size={15} strokeWidth={1.8} aria-hidden="true" />
                 </Link>
               </li>
             ))}
@@ -283,9 +286,9 @@ function SlaCard({
     <Card className={styles.slaCard}>
       <span className={styles.slaLabel}>{label}</span>
       <span className={clsx(styles.slaValue, days >= 3 && styles.slaWarn)}>{age}</span>
-      <Link href={href} className={styles.slaLink}>
-        {count} waiting →
-      </Link>
+      <MoreLink href={href} className={styles.slaLink}>
+        {count} waiting
+      </MoreLink>
     </Card>
   );
 }

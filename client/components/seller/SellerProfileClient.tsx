@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { BadgeCheck, MapPin, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { MoreLink } from "@/components/ui/MoreLink";
 import { Card } from "@/components/ui/Card";
 import { CapacityMeter } from "@/components/ui/CapacityMeter";
 import { Chip } from "@/components/ui/Chip";
@@ -658,9 +658,9 @@ export function SellerProfileClient() {
         subtitle="The story, hours and policies a buyer reads before deciding to order from you."
         actions={
           vendorSlug ? (
-            <Link href={`/storefront/${vendorSlug}`} className={styles.previewLink} target="_blank">
-              View live storefront →
-            </Link>
+            <MoreLink href={`/storefront/${vendorSlug}`} newTab>
+            View live storefront
+          </MoreLink>
           ) : undefined
         }
       />

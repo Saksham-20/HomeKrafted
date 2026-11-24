@@ -143,11 +143,13 @@ export function AvailabilityPanel() {
               ? failedSources.length > 0
                 ? "Some of your items couldn't be loaded."
                 : "You haven't added anything yet."
-              : `${liveCount} of ${rows.length} items are on sale right now${
+              : // "Available", not "on sale": shoppers' "On sale" filter means
+                // discounted, and this portal also runs a sale (2026-11-22).
+                `Available right now: ${liveCount} of ${rows.length}${
                   pendingCount > 0
                     ? ` (${pendingCount} awaiting approval)`
                     : ""
-                }${changesCount > 0 ? ` (${changesCount} need fixes)` : ""}.`}
+                }${changesCount > 0 ? ` (${changesCount} ${changesCount === 1 ? "needs" : "need"} fixes)` : ""}.`}
           </p>
         </div>
         <Link href="/seller/listings/new" className={styles.addLink}>
@@ -216,7 +218,7 @@ export function AvailabilityPanel() {
                   />
                   <span className={styles.toggleLabel}>
                     {row.canonicalState === "live"
-                      ? "On sale"
+                      ? "Available"
                       : row.canonicalState === "paused"
                         ? "Paused"
                         : "Hidden"}

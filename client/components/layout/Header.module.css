@@ -24,193 +24,119 @@
   padding-block: 10px;
 }
 
-/* ---- The landing page's bar (M52) ----
+/* ---- Seasonal dress (`SEASON.theme`, 2026-11-24) ----
  *
- * Fixed and transparent at the top of `/`, so the hero is one full screen
- * with only the profile icons floating over it. `data-revealed="true"`
- * (set by an IntersectionObserver on the hero's brand block) turns it
- * into a bar — white wash, blur, hairline — and fades the centred tabs
- * in. Transform and opacity only, so nothing under it reflows; and
- * `scroll-padding-top` in globals.css keeps a focused control from
- * landing under it (WCAG 2.4.11). z-index 50: under the location prompt
- * (60) and the drawer (90). */
+ * The home page's paper on every shopper page's header while a season is
+ * on, so the site reads as one dressed place rather than a dressed home
+ * page with ordinary rooms behind it. The tab strip shares the ground.
+ * Declared before `.landing` so the home bar's scroll-edge rules win
+ * there. `SEASON.theme = null` removes it.
+ */
+.seasonal {
+  background: #f8f1e6;
+  border-bottom-color: #e8d8bd;
+}
+
+.seasonal .navBar {
+  background: transparent;
+  border-top-color: #e8d8bd;
+}
+
+/* ---- The home page's bar (2026-11-24, the client's seasonal mockup) ----
+ *
+ * Sticky, not fixed: the hero starts under the bar instead of behind it,
+ * so nothing in the hero has to be inked twice. The bar is a translucent
+ * paper material that content scrolls under (apple-design §12); its
+ * hairline and shadow appear only once the hero has scrolled past
+ * (`data-revealed`, from the observer in HeaderClient) — an edge effect
+ * where the bar actually overlaps content, not a permanent divider.
+ * z-index 50: under the location prompt (60) and the drawer (90).
+ */
 .landing {
-  position: fixed;
-  inset-inline: 0;
+  position: sticky;
   top: 0;
   z-index: 50;
-  font-family: var(--hk-font-body);
-  background: transparent;
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
+  background: rgb(248 241 230 / 0.9);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
   border-bottom: 1px solid transparent;
-  box-shadow: none;
   transition:
-    background-color 0.3s ease,
     border-color 0.3s ease,
-    box-shadow 0.3s ease,
-    backdrop-filter 0.3s ease;
+    box-shadow 0.3s ease;
 }
 
 .landing[data-revealed="true"] {
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-bottom-color: var(--hk-border, #eceae4);
-  box-shadow: 0 4px 20px -8px rgba(27, 51, 39, 0.15);
+  border-bottom-color: #e8d8bd;
+  box-shadow: 0 8px 22px -16px rgb(74 52 24 / 0.4);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .landing {
+    background: #f8f1e6;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .landing .row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-block: 14px;
-  min-height: 72px;
+  padding-block: 10px 6px;
+  min-height: 64px;
 }
 
-/*
-  The nav tabs: positioned on the left side of the row, matching the
-  editorial split reference (media_1789016382813.webp).
-*/
-.landing .nav {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: clamp(16px, 2.2vw, 32px);
-  z-index: 2;
-}
-
-.landing .navLink {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  transition: color 0.25s ease;
-}
-
-/*
-  The brand logo: positioned on the left of the navbar (not in the middle).
-*/
 .landing .brandCluster {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: clamp(20px, 2.5vw, 36px);
-  z-index: 2;
-}
-
-.landing .logo {
-  display: inline-flex;
-  align-items: center;
-  position: static;
-  z-index: 2;
 }
 
 .landing .logoMark {
-  height: clamp(28px, 3.2vw, 36px);
-  width: auto;
+  height: clamp(34px, 3.2vw, 44px);
 }
 
-.landing[data-revealed="true"] .logoMark {
-  filter: none;
+.landing .nav {
+  gap: clamp(16px, 2vw, 28px);
+}
+
+.landing .navLink {
+  color: var(--hk-pine-deep);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.landing .navLink:hover {
+  color: var(--hk-pine);
+}
+
+.landing .searchSlot {
+  max-width: 320px;
+  margin-inline: auto var(--hk-s4);
 }
 
 .landing .actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--hk-s4, 16px);
   margin-left: auto;
-  z-index: 2;
 }
 
-/* At rest the landing bar sits on the paper-coloured opening (the split
-   hero, 2026-11-20), so the controls are ink. Once the hero's wordmark
-   leaves, the existing white bar takes over. */
-.landing:not([data-revealed="true"]) {
-  background: transparent;
-  border-bottom-color: transparent;
+.landing .utilityIcon {
+  color: var(--hk-pine-deep);
 }
 
-.landing:not([data-revealed="true"]) .navLink {
-  color: #123c36;
-  font-weight: 600;
-}
-
-.landing:not([data-revealed="true"]) .navLink:hover {
-  color: #a8442a;
-}
-
-.landing:not([data-revealed="true"]) .utilityIcon {
-  color: #123c36;
-  filter: none;
-}
-
-.landing:not([data-revealed="true"]) .utilityIcon:hover {
-  color: #a8442a;
-}
-
-.landing:not([data-revealed="true"]) .hamburger {
-  color: #123c36;
-  border: 1px solid rgb(18 60 54 / 0.4);
-  background: #fbf8ef;
-}
-
-.landing:not([data-revealed="true"]) .hamburger:hover {
-  border-color: #123c36;
-}
-
-.landing:not([data-revealed="true"]) .logo {
-  padding: 4px 7px;
-  border-radius: 4px;
-}
-
-/* ── Scrolled / Solid Header Past Hero ── */
-.landing[data-revealed="true"] .logoMark {
-  filter: none;
-}
-
-.landing[data-revealed="true"] .navLink {
-  color: var(--hk-ink, #2b241c);
-  font-weight: 500;
-}
-
-.landing[data-revealed="true"] .navLink:hover {
-  color: var(--hk-pine, #234233);
-}
-
-.landing[data-revealed="true"] .utilityIcon {
-  color: var(--hk-pine, #234233);
-}
-
-.landing[data-revealed="true"] .hamburger {
-  color: var(--hk-pine, #234233);
-  border: 1px solid var(--hk-border);
-  background: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+/* The mockup's second line: where the shopper is being delivered to. */
+.deliveryRow {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 8px;
 }
 
 @media (max-width: 900px) {
-  .landing .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-block: 8px;
-    min-height: 54px;
-  }
-
   .landing .nav {
     display: none;
   }
 
-  .landing .brandCluster {
-    display: flex;
-    align-items: center;
-  }
-
-  .landing .actions {
-    display: flex;
-    align-items: center;
-    gap: var(--hk-s3, 12px);
+  .landing .row {
+    min-height: 54px;
+    padding-block: 8px 4px;
   }
 }
 
@@ -415,8 +341,11 @@
      pointer floor, across every page on the site. Vertical padding would
      change the header's height; a min-height does not. */
   min-height: 24px;
-  font-size: 14.5px;
-  font-weight: 500;
+  /* The landing header's voice (`.landing .navLink`), carried to every
+     page so the nav reads the same before and after leaving `/`. */
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   color: var(--hk-ink-2);
   /* A nav label is a name, not a sentence — it never breaks. */
   white-space: nowrap;
@@ -715,18 +644,6 @@
     padding: 9px;
   }
 }
-
-/* ---- The landing bar (M53) ----
- *
- * It floats over the **canvas**, not over a photograph: the hero insets
- * its two panels from the viewport edge, so the strip the bar sits in is
- * `--hk-bg`. That is why there are no on-dark overrides here — an
- * earlier pass had the split running full-bleed under the bar and every
- * control in it needed re-inking. If the hero ever goes edge-to-edge
- * again, they come back: `--hk-ink-2` measured 2.1:1 on the photograph,
- * and the hamburger — the only navigation below 1190px — was a solid
- * white square pasted on it.
- */
 
 /* "Coming soon" beside Homemade Food while food orders are closed
    (2026-09-15). Small and inline so the tab row's width budget barely

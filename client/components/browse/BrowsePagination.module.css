@@ -17,7 +17,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
   color: var(--hk-ink-2);

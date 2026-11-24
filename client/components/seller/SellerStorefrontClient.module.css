@@ -1,12 +1,6 @@
 /* Fields come from `components/portal/Field` (2026-09-04); this file
    holds only what is particular to the shop page. */
 
-.previewLink {
-  font-size: 13px;
-  color: var(--hk-pine);
-  text-decoration: underline;
-}
-
 .savedNote {
   font-size: 13px;
   color: var(--hk-success);

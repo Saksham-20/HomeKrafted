@@ -61,10 +61,9 @@ import { skipLocationPrompt } from '../fixtures/location';
 const VIEWPORT = { width: 1280, height: 900 };
 
 /**
- * An inner route, not `/`, since M52: the landing page's header carries
- * no search field and no wallet chip at all (the profile icons and tabs,
- * plus — since M56 — the logo, which sits invisible until the hero lockup
- * scrolls past), so the capacity arithmetic this file guards is the
+ * An inner route, not `/`: the home page's bar is its own row (since the
+ * seasonal mockup, 2026-11-24: logo, five tabs, search and the icons, no
+ * wallet chip), so the capacity arithmetic this file guards is the
  * inner-page header's. `/shop` renders the full row for every role.
  */
 const INNER_ROUTE = '/shop';

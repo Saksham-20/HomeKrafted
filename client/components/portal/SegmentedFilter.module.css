@@ -1,12 +1,17 @@
+/* The landing's tab group (2026-11-22, `components/landing/Register`):
+   a bordered frame of rectangular tabs, the chosen one solid pine. The
+   chosen state used to be white on near-white with a hairline shadow —
+   on a queue, "which filter am I looking at" was the hardest thing on
+   the screen to answer. */
 .group {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 2px;
   max-width: 100%;
   padding: 3px;
-  background: var(--hk-surface-3);
-  border: 1px solid var(--hk-border);
-  border-radius: var(--hk-r-pill);
+  background: var(--hk-surface);
+  border: 1px solid var(--hk-border-2);
+  border-radius: var(--hk-r-control);
 }
 
 .option {
@@ -16,11 +21,11 @@
   min-height: 36px;
   padding: 6px 13px;
   border: 0;
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-tab);
   background: none;
   font-family: inherit;
   font-size: 13.5px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--hk-ink-3);
   white-space: nowrap;
   cursor: pointer;
@@ -39,10 +44,10 @@
   outline-offset: 1px;
 }
 
-.optionOn {
-  background: var(--hk-surface);
-  color: var(--hk-ink);
-  box-shadow: 0 1px 2px rgba(29, 43, 35, 0.14);
+.optionOn,
+.optionOn:hover {
+  background: var(--hk-pine);
+  color: #fff;
 }
 
 .count {
@@ -52,7 +57,7 @@
 }
 
 .optionOn .count {
-  color: var(--hk-pine);
+  color: var(--hk-on-pine);
 }
 
 /* One scrolling row on a phone. Seven wrapped options over a queue take
@@ -62,7 +67,6 @@
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
-    border-radius: var(--hk-r-md);
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }

@@ -1,4 +1,4 @@
-/* A pill around a native select: the icon and border are ours, the
+/* A framed control around a native select: the icon and border are ours, the
    dropdown behaviour stays the platform's. */
 .sortRow {
   display: inline-flex;
@@ -6,7 +6,7 @@
   gap: 0;
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   padding-left: 12px;
   min-height: 40px;
   transition: border-color var(--hk-dur) var(--hk-ease);

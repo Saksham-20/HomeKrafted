@@ -13,30 +13,9 @@
   margin-bottom: 16px;
 }
 
-.quickLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+/* Placement only — the look is `MoreLink`'s. */
+.pickupsLink {
   margin-top: 20px;
-}
-
-.quickLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 14px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--hk-ink);
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border);
-  border-radius: 999px;
-  text-decoration: none;
-}
-
-.quickLink:hover {
-  border-color: var(--hk-pine);
-  color: var(--hk-pine);
 }
 
 /* Shown instead of the stat grid when the dashboard fetch failed — see
@@ -125,20 +104,8 @@
   color: var(--hk-muted);
 }
 
+/* Placement only — the look is `MoreLink`'s. */
 .statusAction {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px var(--hk-s3);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--hk-ink);
-  background: var(--hk-surface);
-  border: 1px solid var(--hk-border-2);
-  border-radius: var(--hk-r-sm);
-  text-decoration: none;
-}
-
-.statusAction:hover {
-  border-color: var(--hk-pine);
-  color: var(--hk-pine);
+  flex: none;
+  white-space: nowrap;
 }

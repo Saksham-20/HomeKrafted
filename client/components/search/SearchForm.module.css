@@ -1,4 +1,4 @@
-/* Compact variant matches the header pill it replaces
+/* Compact variant matches the header field it replaces
    (`Header.module.css` .searchPill) so the row's rhythm is unchanged. */
 .form {
   display: flex;
@@ -6,7 +6,7 @@
   gap: var(--hk-s2);
   border: 1px solid var(--hk-border-2);
   background: var(--hk-surface);
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   padding: 7px 12px;
   min-width: 210px;
   transition:
@@ -90,7 +90,7 @@
 .submit {
   flex-shrink: 0;
   border: none;
-  border-radius: var(--hk-r-pill);
+  border-radius: var(--hk-r-control);
   background: var(--hk-pine);
   color: #ffffff;
   font-size: 14px;

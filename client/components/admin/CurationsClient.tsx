@@ -556,7 +556,7 @@ export function CurationsClient() {
                     className={styles.insightSecondaryBtn}
                     onClick={() => setCatalogFilter("better")}
                   >
-                    View outperforming items →
+                    Show outperforming items
                   </button>
                 </div>
               </div>
